@@ -5,6 +5,47 @@ styleguide status is baseline until reference/native review and dependent-contro
 reconciliation. No desktop/browser slot was used. See its progress row for checks
 and build evidence.
 
+## Pinned-main integration preparation
+
+The coordinator requested a bounded integration of pinned main
+`e612ad7b47413fa890b35ae3b55a6f6d37b08cf7`. Merge `6c31531c` retains every
+non-Field progress row and shared root fix from that exact main. Only the public
+barrel conflicted; it retains both Field and Input. The sections below preserve
+the original reference/implementation history; this section supersedes their
+statements that Button, Input, Radio and Checkbox are unmerged.
+
+- Ordinary single-line Field examples now use merged DInput. DCheckbox uses its
+  compact labeled-row owner, with Field label/help content and metadata. Both
+  radio groups use DRadioGroup.controlled and DRadioGroupItem; choice surfaces
+  remain DFieldLabel.choice, with shared borrowed item/label focus nodes so label
+  clicks support subsequent arrow navigation. Primary/outline example actions
+  use the completed Button variants.
+- The responsive custom-error example deliberately retains its single native
+  FormField/TextField. DInput owns its error display and exposes no error builder;
+  retaining that example demonstrates custom DFieldError without inventing a
+  second state owner or modifying the completed Input API. Multiline, Switch,
+  selection and Slider placeholders remain explicit. No unmerged Switch or
+  Textarea source is imported or redesigned.
+- Voice's four ordinary editors retain main's DInput values, submission behavior
+  and flags, and now compose surrounding DFieldLabel/DFieldControl/help using
+  dialog-owned focus nodes. Name activation, required semantics, typing-based
+  Save guards, cancellation and latest-controller save are checked. Multiline
+  description and switches retain their current owners. Preferences retains its
+  existing Field grouping/help and all pinned-main control changes; its 22 tests
+  cover section behavior, permissions, async state and persistence.
+- Integration semantics tests inspect the combined SemanticsData at the Field
+  merge boundary. DInput's deliberate inner semantics container remains intact;
+  its editing actions/value combine with the outer Field label/help without
+  removing main's page-boundary fixes. No generic Field part was removed.
+- The generated runnable snippets were refreshed because their actual controls
+  changed. Frozen source/export capture was not repeated.
+
+The Mac remains locked and the coordinator separately reported an admin-policy
+failure on first browser navigation. Neither blocker was retried or bypassed;
+no CUA, browser or native launch was attempted. Review remains `awaiting_slot`.
+The fresh exact-source fixture and restricted-free ad-hoc entitlement read-back
+are recorded in field-build.json after the integration source commit.
+
 ## Captured reference
 
 - Frozen documentation and all inline examples: https://ui.shadcn.com/docs/components/base/field.md

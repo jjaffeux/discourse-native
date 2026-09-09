@@ -48,20 +48,33 @@ class _EditorState extends State<_Editor> {
         label: widget.label,
         description: widget.description,
         required: widget.required,
-        child: TextFormField(
-          focusNode: _focus,
-          maxLines: widget.lines,
-          obscureText: widget.obscure,
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            errorMaxLines: 4,
-            border: const OutlineInputBorder(),
-          ),
-          validator: widget.required
-              ? (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null
-              : null,
-        ),
+        child: widget.lines == 1
+            ? DInput(
+                focusNode: _focus,
+                hintText: widget.placeholder,
+                obscureText: widget.obscure,
+                isRequired: widget.required,
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              )
+            : TextFormField(
+                focusNode: _focus,
+                maxLines: widget.lines,
+                obscureText: widget.obscure,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder,
+                  errorMaxLines: 4,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              ),
       ),
       if (!widget.helpBefore && widget.description != null)
         DFieldDescription(child: Text(widget.description!)),
@@ -90,38 +103,65 @@ class _ChoiceState extends State<_Choice> {
   late bool _value = widget.initial;
   void _change(bool value) => setState(() => _value = value);
   @override
-  Widget build(BuildContext context) => DField(
-    enabled: widget.enabled,
-    orientation: DFieldOrientation.horizontal,
-    children: [
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        expand: false,
-        alignIndicatorToContent: !widget.switchControl,
-        child: widget.switchControl
-            ? Switch(value: _value, onChanged: widget.enabled ? _change : null)
-            : Checkbox(
-                value: _value,
-                onChanged: widget.enabled
-                    ? (value) => _change(value ?? false)
-                    : null,
-              ),
-      ),
-      DFieldContent(
+  Widget build(BuildContext context) {
+    if (!widget.switchControl) {
+      return DField(
+        enabled: widget.enabled,
         children: [
-          DFieldLabel(
-            excludeSemantics: true,
-            onPressed: () => _change(!_value),
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
+          DFieldControl(
+            label: widget.label,
+            description: widget.description,
+            child: DCheckbox(
+              value: _value,
+              enabled: widget.enabled,
+              onChanged: widget.enabled
+                  ? (value) => _change(value ?? false)
+                  : null,
+              title: DFieldLabel(
+                excludeSemantics: true,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+                child: Text(widget.label),
+              ),
+              subtitle: widget.description == null
+                  ? null
+                  : ExcludeSemantics(
+                      child: DFieldDescription(
+                        child: Text(widget.description!),
+                      ),
+                    ),
+            ),
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DField(
+      enabled: widget.enabled,
+      orientation: DFieldOrientation.horizontal,
+      children: [
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          expand: false,
+          child: Switch(
+            value: _value,
+            onChanged: widget.enabled ? _change : null,
+          ),
+        ),
+        DFieldContent(
+          children: [
+            DFieldLabel(
+              excludeSemantics: true,
+              onPressed: () => _change(!_value),
+              style: const TextStyle(fontWeight: FontWeight.w400),
+              child: Text(widget.label),
+            ),
+            if (widget.description != null)
+              DFieldDescription(child: Text(widget.description!)),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Selection extends StatefulWidget {
@@ -305,6 +345,7 @@ class _FieldPaymentExampleState extends State<FieldPaymentExample> {
             children: [
               DButton(
                 label: Text(ar ? 'إرسال' : 'Submit'),
+                variant: DButtonVariant.primary,
                 onPressed: () {
                   if (_form.currentState!.validate()) {
                     setState(
@@ -315,6 +356,7 @@ class _FieldPaymentExampleState extends State<FieldPaymentExample> {
               ),
               DButton(
                 label: Text(ar ? 'إلغاء' : 'Cancel'),
+                variant: DButtonVariant.outline,
                 onPressed: () {
                   _form.currentState!.reset();
                   setState(() {
@@ -381,20 +423,33 @@ class _EditorState extends State<_Editor> {
         label: widget.label,
         description: widget.description,
         required: widget.required,
-        child: TextFormField(
-          focusNode: _focus,
-          maxLines: widget.lines,
-          obscureText: widget.obscure,
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            errorMaxLines: 4,
-            border: const OutlineInputBorder(),
-          ),
-          validator: widget.required
-              ? (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null
-              : null,
-        ),
+        child: widget.lines == 1
+            ? DInput(
+                focusNode: _focus,
+                hintText: widget.placeholder,
+                obscureText: widget.obscure,
+                isRequired: widget.required,
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              )
+            : TextFormField(
+                focusNode: _focus,
+                maxLines: widget.lines,
+                obscureText: widget.obscure,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder,
+                  errorMaxLines: 4,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              ),
       ),
       if (!widget.helpBefore && widget.description != null)
         DFieldDescription(child: Text(widget.description!)),
@@ -423,38 +478,65 @@ class _ChoiceState extends State<_Choice> {
   late bool _value = widget.initial;
   void _change(bool value) => setState(() => _value = value);
   @override
-  Widget build(BuildContext context) => DField(
-    enabled: widget.enabled,
-    orientation: DFieldOrientation.horizontal,
-    children: [
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        expand: false,
-        alignIndicatorToContent: !widget.switchControl,
-        child: widget.switchControl
-            ? Switch(value: _value, onChanged: widget.enabled ? _change : null)
-            : Checkbox(
-                value: _value,
-                onChanged: widget.enabled
-                    ? (value) => _change(value ?? false)
-                    : null,
-              ),
-      ),
-      DFieldContent(
+  Widget build(BuildContext context) {
+    if (!widget.switchControl) {
+      return DField(
+        enabled: widget.enabled,
         children: [
-          DFieldLabel(
-            excludeSemantics: true,
-            onPressed: () => _change(!_value),
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
+          DFieldControl(
+            label: widget.label,
+            description: widget.description,
+            child: DCheckbox(
+              value: _value,
+              enabled: widget.enabled,
+              onChanged: widget.enabled
+                  ? (value) => _change(value ?? false)
+                  : null,
+              title: DFieldLabel(
+                excludeSemantics: true,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+                child: Text(widget.label),
+              ),
+              subtitle: widget.description == null
+                  ? null
+                  : ExcludeSemantics(
+                      child: DFieldDescription(
+                        child: Text(widget.description!),
+                      ),
+                    ),
+            ),
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DField(
+      enabled: widget.enabled,
+      orientation: DFieldOrientation.horizontal,
+      children: [
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          expand: false,
+          child: Switch(
+            value: _value,
+            onChanged: widget.enabled ? _change : null,
+          ),
+        ),
+        DFieldContent(
+          children: [
+            DFieldLabel(
+              excludeSemantics: true,
+              onPressed: () => _change(!_value),
+              style: const TextStyle(fontWeight: FontWeight.w400),
+              child: Text(widget.label),
+            ),
+            if (widget.description != null)
+              DFieldDescription(child: Text(widget.description!)),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Selection extends StatefulWidget {
@@ -619,20 +701,33 @@ class _EditorState extends State<_Editor> {
         label: widget.label,
         description: widget.description,
         required: widget.required,
-        child: TextFormField(
-          focusNode: _focus,
-          maxLines: widget.lines,
-          obscureText: widget.obscure,
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            errorMaxLines: 4,
-            border: const OutlineInputBorder(),
-          ),
-          validator: widget.required
-              ? (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null
-              : null,
-        ),
+        child: widget.lines == 1
+            ? DInput(
+                focusNode: _focus,
+                hintText: widget.placeholder,
+                obscureText: widget.obscure,
+                isRequired: widget.required,
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              )
+            : TextFormField(
+                focusNode: _focus,
+                maxLines: widget.lines,
+                obscureText: widget.obscure,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder,
+                  errorMaxLines: 4,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              ),
       ),
       if (!widget.helpBefore && widget.description != null)
         DFieldDescription(child: Text(widget.description!)),
@@ -661,38 +756,65 @@ class _ChoiceState extends State<_Choice> {
   late bool _value = widget.initial;
   void _change(bool value) => setState(() => _value = value);
   @override
-  Widget build(BuildContext context) => DField(
-    enabled: widget.enabled,
-    orientation: DFieldOrientation.horizontal,
-    children: [
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        expand: false,
-        alignIndicatorToContent: !widget.switchControl,
-        child: widget.switchControl
-            ? Switch(value: _value, onChanged: widget.enabled ? _change : null)
-            : Checkbox(
-                value: _value,
-                onChanged: widget.enabled
-                    ? (value) => _change(value ?? false)
-                    : null,
-              ),
-      ),
-      DFieldContent(
+  Widget build(BuildContext context) {
+    if (!widget.switchControl) {
+      return DField(
+        enabled: widget.enabled,
         children: [
-          DFieldLabel(
-            excludeSemantics: true,
-            onPressed: () => _change(!_value),
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
+          DFieldControl(
+            label: widget.label,
+            description: widget.description,
+            child: DCheckbox(
+              value: _value,
+              enabled: widget.enabled,
+              onChanged: widget.enabled
+                  ? (value) => _change(value ?? false)
+                  : null,
+              title: DFieldLabel(
+                excludeSemantics: true,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+                child: Text(widget.label),
+              ),
+              subtitle: widget.description == null
+                  ? null
+                  : ExcludeSemantics(
+                      child: DFieldDescription(
+                        child: Text(widget.description!),
+                      ),
+                    ),
+            ),
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DField(
+      enabled: widget.enabled,
+      orientation: DFieldOrientation.horizontal,
+      children: [
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          expand: false,
+          child: Switch(
+            value: _value,
+            onChanged: widget.enabled ? _change : null,
+          ),
+        ),
+        DFieldContent(
+          children: [
+            DFieldLabel(
+              excludeSemantics: true,
+              onPressed: () => _change(!_value),
+              style: const TextStyle(fontWeight: FontWeight.w400),
+              child: Text(widget.label),
+            ),
+            if (widget.description != null)
+              DFieldDescription(child: Text(widget.description!)),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Selection extends StatefulWidget {
@@ -844,20 +966,33 @@ class _EditorState extends State<_Editor> {
         label: widget.label,
         description: widget.description,
         required: widget.required,
-        child: TextFormField(
-          focusNode: _focus,
-          maxLines: widget.lines,
-          obscureText: widget.obscure,
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            errorMaxLines: 4,
-            border: const OutlineInputBorder(),
-          ),
-          validator: widget.required
-              ? (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null
-              : null,
-        ),
+        child: widget.lines == 1
+            ? DInput(
+                focusNode: _focus,
+                hintText: widget.placeholder,
+                obscureText: widget.obscure,
+                isRequired: widget.required,
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              )
+            : TextFormField(
+                focusNode: _focus,
+                maxLines: widget.lines,
+                obscureText: widget.obscure,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder,
+                  errorMaxLines: 4,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              ),
       ),
       if (!widget.helpBefore && widget.description != null)
         DFieldDescription(child: Text(widget.description!)),
@@ -886,38 +1021,65 @@ class _ChoiceState extends State<_Choice> {
   late bool _value = widget.initial;
   void _change(bool value) => setState(() => _value = value);
   @override
-  Widget build(BuildContext context) => DField(
-    enabled: widget.enabled,
-    orientation: DFieldOrientation.horizontal,
-    children: [
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        expand: false,
-        alignIndicatorToContent: !widget.switchControl,
-        child: widget.switchControl
-            ? Switch(value: _value, onChanged: widget.enabled ? _change : null)
-            : Checkbox(
-                value: _value,
-                onChanged: widget.enabled
-                    ? (value) => _change(value ?? false)
-                    : null,
-              ),
-      ),
-      DFieldContent(
+  Widget build(BuildContext context) {
+    if (!widget.switchControl) {
+      return DField(
+        enabled: widget.enabled,
         children: [
-          DFieldLabel(
-            excludeSemantics: true,
-            onPressed: () => _change(!_value),
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
+          DFieldControl(
+            label: widget.label,
+            description: widget.description,
+            child: DCheckbox(
+              value: _value,
+              enabled: widget.enabled,
+              onChanged: widget.enabled
+                  ? (value) => _change(value ?? false)
+                  : null,
+              title: DFieldLabel(
+                excludeSemantics: true,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+                child: Text(widget.label),
+              ),
+              subtitle: widget.description == null
+                  ? null
+                  : ExcludeSemantics(
+                      child: DFieldDescription(
+                        child: Text(widget.description!),
+                      ),
+                    ),
+            ),
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DField(
+      enabled: widget.enabled,
+      orientation: DFieldOrientation.horizontal,
+      children: [
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          expand: false,
+          child: Switch(
+            value: _value,
+            onChanged: widget.enabled ? _change : null,
+          ),
+        ),
+        DFieldContent(
+          children: [
+            DFieldLabel(
+              excludeSemantics: true,
+              onPressed: () => _change(!_value),
+              style: const TextStyle(fontWeight: FontWeight.w400),
+              child: Text(widget.label),
+            ),
+            if (widget.description != null)
+              DFieldDescription(child: Text(widget.description!)),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Selection extends StatefulWidget {
@@ -1065,20 +1227,33 @@ class _EditorState extends State<_Editor> {
         label: widget.label,
         description: widget.description,
         required: widget.required,
-        child: TextFormField(
-          focusNode: _focus,
-          maxLines: widget.lines,
-          obscureText: widget.obscure,
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            errorMaxLines: 4,
-            border: const OutlineInputBorder(),
-          ),
-          validator: widget.required
-              ? (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null
-              : null,
-        ),
+        child: widget.lines == 1
+            ? DInput(
+                focusNode: _focus,
+                hintText: widget.placeholder,
+                obscureText: widget.obscure,
+                isRequired: widget.required,
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              )
+            : TextFormField(
+                focusNode: _focus,
+                maxLines: widget.lines,
+                obscureText: widget.obscure,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder,
+                  errorMaxLines: 4,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              ),
       ),
       if (!widget.helpBefore && widget.description != null)
         DFieldDescription(child: Text(widget.description!)),
@@ -1107,38 +1282,65 @@ class _ChoiceState extends State<_Choice> {
   late bool _value = widget.initial;
   void _change(bool value) => setState(() => _value = value);
   @override
-  Widget build(BuildContext context) => DField(
-    enabled: widget.enabled,
-    orientation: DFieldOrientation.horizontal,
-    children: [
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        expand: false,
-        alignIndicatorToContent: !widget.switchControl,
-        child: widget.switchControl
-            ? Switch(value: _value, onChanged: widget.enabled ? _change : null)
-            : Checkbox(
-                value: _value,
-                onChanged: widget.enabled
-                    ? (value) => _change(value ?? false)
-                    : null,
-              ),
-      ),
-      DFieldContent(
+  Widget build(BuildContext context) {
+    if (!widget.switchControl) {
+      return DField(
+        enabled: widget.enabled,
         children: [
-          DFieldLabel(
-            excludeSemantics: true,
-            onPressed: () => _change(!_value),
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
+          DFieldControl(
+            label: widget.label,
+            description: widget.description,
+            child: DCheckbox(
+              value: _value,
+              enabled: widget.enabled,
+              onChanged: widget.enabled
+                  ? (value) => _change(value ?? false)
+                  : null,
+              title: DFieldLabel(
+                excludeSemantics: true,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+                child: Text(widget.label),
+              ),
+              subtitle: widget.description == null
+                  ? null
+                  : ExcludeSemantics(
+                      child: DFieldDescription(
+                        child: Text(widget.description!),
+                      ),
+                    ),
+            ),
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DField(
+      enabled: widget.enabled,
+      orientation: DFieldOrientation.horizontal,
+      children: [
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          expand: false,
+          child: Switch(
+            value: _value,
+            onChanged: widget.enabled ? _change : null,
+          ),
+        ),
+        DFieldContent(
+          children: [
+            DFieldLabel(
+              excludeSemantics: true,
+              onPressed: () => _change(!_value),
+              style: const TextStyle(fontWeight: FontWeight.w400),
+              child: Text(widget.label),
+            ),
+            if (widget.description != null)
+              DFieldDescription(child: Text(widget.description!)),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Selection extends StatefulWidget {
@@ -1298,20 +1500,33 @@ class _EditorState extends State<_Editor> {
         label: widget.label,
         description: widget.description,
         required: widget.required,
-        child: TextFormField(
-          focusNode: _focus,
-          maxLines: widget.lines,
-          obscureText: widget.obscure,
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            errorMaxLines: 4,
-            border: const OutlineInputBorder(),
-          ),
-          validator: widget.required
-              ? (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null
-              : null,
-        ),
+        child: widget.lines == 1
+            ? DInput(
+                focusNode: _focus,
+                hintText: widget.placeholder,
+                obscureText: widget.obscure,
+                isRequired: widget.required,
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              )
+            : TextFormField(
+                focusNode: _focus,
+                maxLines: widget.lines,
+                obscureText: widget.obscure,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder,
+                  errorMaxLines: 4,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              ),
       ),
       if (!widget.helpBefore && widget.description != null)
         DFieldDescription(child: Text(widget.description!)),
@@ -1340,38 +1555,65 @@ class _ChoiceState extends State<_Choice> {
   late bool _value = widget.initial;
   void _change(bool value) => setState(() => _value = value);
   @override
-  Widget build(BuildContext context) => DField(
-    enabled: widget.enabled,
-    orientation: DFieldOrientation.horizontal,
-    children: [
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        expand: false,
-        alignIndicatorToContent: !widget.switchControl,
-        child: widget.switchControl
-            ? Switch(value: _value, onChanged: widget.enabled ? _change : null)
-            : Checkbox(
-                value: _value,
-                onChanged: widget.enabled
-                    ? (value) => _change(value ?? false)
-                    : null,
-              ),
-      ),
-      DFieldContent(
+  Widget build(BuildContext context) {
+    if (!widget.switchControl) {
+      return DField(
+        enabled: widget.enabled,
         children: [
-          DFieldLabel(
-            excludeSemantics: true,
-            onPressed: () => _change(!_value),
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
+          DFieldControl(
+            label: widget.label,
+            description: widget.description,
+            child: DCheckbox(
+              value: _value,
+              enabled: widget.enabled,
+              onChanged: widget.enabled
+                  ? (value) => _change(value ?? false)
+                  : null,
+              title: DFieldLabel(
+                excludeSemantics: true,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+                child: Text(widget.label),
+              ),
+              subtitle: widget.description == null
+                  ? null
+                  : ExcludeSemantics(
+                      child: DFieldDescription(
+                        child: Text(widget.description!),
+                      ),
+                    ),
+            ),
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DField(
+      enabled: widget.enabled,
+      orientation: DFieldOrientation.horizontal,
+      children: [
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          expand: false,
+          child: Switch(
+            value: _value,
+            onChanged: widget.enabled ? _change : null,
+          ),
+        ),
+        DFieldContent(
+          children: [
+            DFieldLabel(
+              excludeSemantics: true,
+              onPressed: () => _change(!_value),
+              style: const TextStyle(fontWeight: FontWeight.w400),
+              child: Text(widget.label),
+            ),
+            if (widget.description != null)
+              DFieldDescription(child: Text(widget.description!)),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Selection extends StatefulWidget {
@@ -1455,6 +1697,17 @@ class FieldChoiceExample extends StatefulWidget {
 class _FieldChoiceExampleState extends State<FieldChoiceExample> {
   String _plan = 'Monthly (\$9.99/month)';
   String _compute = 'Kubernetes';
+  final _focusNodes = <String, FocusNode>{};
+  FocusNode _focus(String value) =>
+      _focusNodes.putIfAbsent(value, FocusNode.new);
+  @override
+  void dispose() {
+    for (final node in _focusNodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => DFieldGroup(
     children: [
@@ -1468,7 +1721,7 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
           const DFieldDescription(
             child: Text('Yearly and lifetime plans offer significant savings.'),
           ),
-          RadioGroup<String>(
+          DRadioGroup<String>.controlled(
             groupValue: _plan,
             onChanged: (value) => setState(() => _plan = value!),
             child: DFieldGroup(
@@ -1486,11 +1739,16 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
                         label: plan,
                         expand: false,
                         alignIndicatorToContent: true,
-                        child: Radio<String>(value: plan),
+                        child: DRadioGroupItem<String>(
+                          value: plan,
+                          focusNode: _focus(plan),
+                          semanticLabel: '',
+                        ),
                       ),
                       DFieldLabel(
                         excludeSemantics: true,
                         onPressed: () => setState(() => _plan = plan),
+                        focusNode: _focus(plan),
                         style: const TextStyle(fontWeight: FontWeight.w400),
                         child: Text(plan),
                       ),
@@ -1511,7 +1769,7 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
           const DFieldDescription(
             child: Text('Select the compute environment for your cluster.'),
           ),
-          RadioGroup<String>(
+          DRadioGroup<String>.controlled(
             groupValue: _compute,
             onChanged: (value) => setState(() => _compute = value!),
             child: DFieldGroup(
@@ -1526,6 +1784,7 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
                     selected: _compute == name,
                     enabled: name != 'Unavailable environment',
                     onPressed: () => setState(() => _compute = name),
+                    focusNode: _focus(name),
                     child: DField(
                       orientation: DFieldOrientation.horizontal,
                       children: [
@@ -1548,8 +1807,10 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
                           label: name,
                           expand: false,
                           alignIndicatorToContent: true,
-                          child: Radio<String>(
+                          child: DRadioGroupItem<String>(
+                            semanticLabel: '',
                             value: name,
+                            focusNode: _focus(name),
                             enabled: name != 'Unavailable environment',
                           ),
                         ),
@@ -1614,20 +1875,33 @@ class _EditorState extends State<_Editor> {
         label: widget.label,
         description: widget.description,
         required: widget.required,
-        child: TextFormField(
-          focusNode: _focus,
-          maxLines: widget.lines,
-          obscureText: widget.obscure,
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            errorMaxLines: 4,
-            border: const OutlineInputBorder(),
-          ),
-          validator: widget.required
-              ? (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null
-              : null,
-        ),
+        child: widget.lines == 1
+            ? DInput(
+                focusNode: _focus,
+                hintText: widget.placeholder,
+                obscureText: widget.obscure,
+                isRequired: widget.required,
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              )
+            : TextFormField(
+                focusNode: _focus,
+                maxLines: widget.lines,
+                obscureText: widget.obscure,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder,
+                  errorMaxLines: 4,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              ),
       ),
       if (!widget.helpBefore && widget.description != null)
         DFieldDescription(child: Text(widget.description!)),
@@ -1656,38 +1930,65 @@ class _ChoiceState extends State<_Choice> {
   late bool _value = widget.initial;
   void _change(bool value) => setState(() => _value = value);
   @override
-  Widget build(BuildContext context) => DField(
-    enabled: widget.enabled,
-    orientation: DFieldOrientation.horizontal,
-    children: [
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        expand: false,
-        alignIndicatorToContent: !widget.switchControl,
-        child: widget.switchControl
-            ? Switch(value: _value, onChanged: widget.enabled ? _change : null)
-            : Checkbox(
-                value: _value,
-                onChanged: widget.enabled
-                    ? (value) => _change(value ?? false)
-                    : null,
-              ),
-      ),
-      DFieldContent(
+  Widget build(BuildContext context) {
+    if (!widget.switchControl) {
+      return DField(
+        enabled: widget.enabled,
         children: [
-          DFieldLabel(
-            excludeSemantics: true,
-            onPressed: () => _change(!_value),
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
+          DFieldControl(
+            label: widget.label,
+            description: widget.description,
+            child: DCheckbox(
+              value: _value,
+              enabled: widget.enabled,
+              onChanged: widget.enabled
+                  ? (value) => _change(value ?? false)
+                  : null,
+              title: DFieldLabel(
+                excludeSemantics: true,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+                child: Text(widget.label),
+              ),
+              subtitle: widget.description == null
+                  ? null
+                  : ExcludeSemantics(
+                      child: DFieldDescription(
+                        child: Text(widget.description!),
+                      ),
+                    ),
+            ),
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DField(
+      enabled: widget.enabled,
+      orientation: DFieldOrientation.horizontal,
+      children: [
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          expand: false,
+          child: Switch(
+            value: _value,
+            onChanged: widget.enabled ? _change : null,
+          ),
+        ),
+        DFieldContent(
+          children: [
+            DFieldLabel(
+              excludeSemantics: true,
+              onPressed: () => _change(!_value),
+              style: const TextStyle(fontWeight: FontWeight.w400),
+              child: Text(widget.label),
+            ),
+            if (widget.description != null)
+              DFieldDescription(child: Text(widget.description!)),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Selection extends StatefulWidget {
@@ -1866,20 +2167,33 @@ class _EditorState extends State<_Editor> {
         label: widget.label,
         description: widget.description,
         required: widget.required,
-        child: TextFormField(
-          focusNode: _focus,
-          maxLines: widget.lines,
-          obscureText: widget.obscure,
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            errorMaxLines: 4,
-            border: const OutlineInputBorder(),
-          ),
-          validator: widget.required
-              ? (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null
-              : null,
-        ),
+        child: widget.lines == 1
+            ? DInput(
+                focusNode: _focus,
+                hintText: widget.placeholder,
+                obscureText: widget.obscure,
+                isRequired: widget.required,
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              )
+            : TextFormField(
+                focusNode: _focus,
+                maxLines: widget.lines,
+                obscureText: widget.obscure,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder,
+                  errorMaxLines: 4,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              ),
       ),
       if (!widget.helpBefore && widget.description != null)
         DFieldDescription(child: Text(widget.description!)),
@@ -1908,38 +2222,65 @@ class _ChoiceState extends State<_Choice> {
   late bool _value = widget.initial;
   void _change(bool value) => setState(() => _value = value);
   @override
-  Widget build(BuildContext context) => DField(
-    enabled: widget.enabled,
-    orientation: DFieldOrientation.horizontal,
-    children: [
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        expand: false,
-        alignIndicatorToContent: !widget.switchControl,
-        child: widget.switchControl
-            ? Switch(value: _value, onChanged: widget.enabled ? _change : null)
-            : Checkbox(
-                value: _value,
-                onChanged: widget.enabled
-                    ? (value) => _change(value ?? false)
-                    : null,
-              ),
-      ),
-      DFieldContent(
+  Widget build(BuildContext context) {
+    if (!widget.switchControl) {
+      return DField(
+        enabled: widget.enabled,
         children: [
-          DFieldLabel(
-            excludeSemantics: true,
-            onPressed: () => _change(!_value),
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
+          DFieldControl(
+            label: widget.label,
+            description: widget.description,
+            child: DCheckbox(
+              value: _value,
+              enabled: widget.enabled,
+              onChanged: widget.enabled
+                  ? (value) => _change(value ?? false)
+                  : null,
+              title: DFieldLabel(
+                excludeSemantics: true,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+                child: Text(widget.label),
+              ),
+              subtitle: widget.description == null
+                  ? null
+                  : ExcludeSemantics(
+                      child: DFieldDescription(
+                        child: Text(widget.description!),
+                      ),
+                    ),
+            ),
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DField(
+      enabled: widget.enabled,
+      orientation: DFieldOrientation.horizontal,
+      children: [
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          expand: false,
+          child: Switch(
+            value: _value,
+            onChanged: widget.enabled ? _change : null,
+          ),
+        ),
+        DFieldContent(
+          children: [
+            DFieldLabel(
+              excludeSemantics: true,
+              onPressed: () => _change(!_value),
+              style: const TextStyle(fontWeight: FontWeight.w400),
+              child: Text(widget.label),
+            ),
+            if (widget.description != null)
+              DFieldDescription(child: Text(widget.description!)),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Selection extends StatefulWidget {
@@ -2101,6 +2442,7 @@ class _FieldResponsiveExampleState extends State<FieldResponsiveExample> {
               children: [
                 DButton(
                   label: const Text('Submit profile'),
+                  variant: DButtonVariant.primary,
                   onPressed: () {
                     if (_form.currentState!.validate()) {
                       setState(() => _form.currentState!.save());
@@ -2109,6 +2451,7 @@ class _FieldResponsiveExampleState extends State<FieldResponsiveExample> {
                 ),
                 DButton(
                   label: const Text('Reset profile'),
+                  variant: DButtonVariant.outline,
                   onPressed: () {
                     _form.currentState!.reset();
                     setState(() => _saved = null);
@@ -2184,20 +2527,33 @@ class _EditorState extends State<_Editor> {
         label: widget.label,
         description: widget.description,
         required: widget.required,
-        child: TextFormField(
-          focusNode: _focus,
-          maxLines: widget.lines,
-          obscureText: widget.obscure,
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            errorMaxLines: 4,
-            border: const OutlineInputBorder(),
-          ),
-          validator: widget.required
-              ? (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null
-              : null,
-        ),
+        child: widget.lines == 1
+            ? DInput(
+                focusNode: _focus,
+                hintText: widget.placeholder,
+                obscureText: widget.obscure,
+                isRequired: widget.required,
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              )
+            : TextFormField(
+                focusNode: _focus,
+                maxLines: widget.lines,
+                obscureText: widget.obscure,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder,
+                  errorMaxLines: 4,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: widget.required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? 'Required'
+                          : null
+                    : null,
+              ),
       ),
       if (!widget.helpBefore && widget.description != null)
         DFieldDescription(child: Text(widget.description!)),
@@ -2226,38 +2582,65 @@ class _ChoiceState extends State<_Choice> {
   late bool _value = widget.initial;
   void _change(bool value) => setState(() => _value = value);
   @override
-  Widget build(BuildContext context) => DField(
-    enabled: widget.enabled,
-    orientation: DFieldOrientation.horizontal,
-    children: [
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        expand: false,
-        alignIndicatorToContent: !widget.switchControl,
-        child: widget.switchControl
-            ? Switch(value: _value, onChanged: widget.enabled ? _change : null)
-            : Checkbox(
-                value: _value,
-                onChanged: widget.enabled
-                    ? (value) => _change(value ?? false)
-                    : null,
-              ),
-      ),
-      DFieldContent(
+  Widget build(BuildContext context) {
+    if (!widget.switchControl) {
+      return DField(
+        enabled: widget.enabled,
         children: [
-          DFieldLabel(
-            excludeSemantics: true,
-            onPressed: () => _change(!_value),
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
+          DFieldControl(
+            label: widget.label,
+            description: widget.description,
+            child: DCheckbox(
+              value: _value,
+              enabled: widget.enabled,
+              onChanged: widget.enabled
+                  ? (value) => _change(value ?? false)
+                  : null,
+              title: DFieldLabel(
+                excludeSemantics: true,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+                child: Text(widget.label),
+              ),
+              subtitle: widget.description == null
+                  ? null
+                  : ExcludeSemantics(
+                      child: DFieldDescription(
+                        child: Text(widget.description!),
+                      ),
+                    ),
+            ),
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DField(
+      enabled: widget.enabled,
+      orientation: DFieldOrientation.horizontal,
+      children: [
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          expand: false,
+          child: Switch(
+            value: _value,
+            onChanged: widget.enabled ? _change : null,
+          ),
+        ),
+        DFieldContent(
+          children: [
+            DFieldLabel(
+              excludeSemantics: true,
+              onPressed: () => _change(!_value),
+              style: const TextStyle(fontWeight: FontWeight.w400),
+              child: Text(widget.label),
+            ),
+            if (widget.description != null)
+              DFieldDescription(child: Text(widget.description!)),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Selection extends StatefulWidget {
@@ -2441,6 +2824,7 @@ class _FieldPaymentExampleState extends State<FieldPaymentExample> {
             children: [
               DButton(
                 label: Text(ar ? 'إرسال' : 'Submit'),
+                variant: DButtonVariant.primary,
                 onPressed: () {
                   if (_form.currentState!.validate()) {
                     setState(
@@ -2451,6 +2835,7 @@ class _FieldPaymentExampleState extends State<FieldPaymentExample> {
               ),
               DButton(
                 label: Text(ar ? 'إلغاء' : 'Cancel'),
+                variant: DButtonVariant.outline,
                 onPressed: () {
                   _form.currentState!.reset();
                   setState(() {

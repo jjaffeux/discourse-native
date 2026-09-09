@@ -37,6 +37,10 @@ class VoiceRoomEditorDialog extends StatefulWidget {
 }
 
 class _VoiceRoomEditorDialogState extends State<VoiceRoomEditorDialog> {
+  final _nameFocus = FocusNode();
+  final _maximumFocus = FocusNode();
+  final _chatChannelFocus = FocusNode();
+  final _chatIdleFocus = FocusNode();
   late final TextEditingController _name;
   late final TextEditingController _description;
   late final TextEditingController _maximum;
@@ -74,16 +78,13 @@ class _VoiceRoomEditorDialogState extends State<VoiceRoomEditorDialog> {
       child: SingleChildScrollView(
         child: DFieldGroup(
           children: [
-            Semantics(
+            _input(
+              _name,
+              'Name',
+              _nameFocus,
               isRequired: true,
-              child: DInput(
-                isRequired: true,
-                controller: _name,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                labelText: 'Name',
-                helperText: 'Required',
-              ),
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
             ),
             TextField(
               style: Theme.of(context).textTheme.bodyMedium,
@@ -107,10 +108,11 @@ class _VoiceRoomEditorDialogState extends State<VoiceRoomEditorDialog> {
               onChanged: (value) => setState(() => _video = value),
               title: const DLabel(child: Text('Allow video')),
             ),
-            DInput(
-              controller: _maximum,
+            _input(
+              _maximum,
+              'Maximum participants',
+              _maximumFocus,
               keyboardType: TextInputType.number,
-              labelText: 'Maximum participants',
             ),
             DSelectField<VoiceQualityProfile>(
               initialValue: _quality,
@@ -124,15 +126,17 @@ class _VoiceRoomEditorDialogState extends State<VoiceRoomEditorDialog> {
                   DropdownMenuItem(value: value, child: Text(value.name)),
               ],
             ),
-            DInput(
-              controller: _chatChannel,
+            _input(
+              _chatChannel,
+              'Chat channel ID (optional)',
+              _chatChannelFocus,
               keyboardType: TextInputType.number,
-              labelText: 'Chat channel ID (optional)',
             ),
-            DInput(
-              controller: _chatIdle,
+            _input(
+              _chatIdle,
+              'Chat idle minutes',
+              _chatIdleFocus,
               keyboardType: TextInputType.number,
-              labelText: 'Chat idle minutes',
             ),
             if (_room?.livekitEnabled != null)
               SwitchListTile.adaptive(
@@ -157,6 +161,34 @@ class _VoiceRoomEditorDialogState extends State<VoiceRoomEditorDialog> {
     ],
   );
 
+  Widget _input(
+    TextEditingController controller,
+    String label,
+    FocusNode focus, {
+    bool isRequired = false,
+    bool autofocus = false,
+    TextInputType? keyboardType,
+    ValueChanged<String>? onChanged,
+  }) => DField(
+    children: [
+      DFieldLabel(focusNode: focus, excludeSemantics: true, child: Text(label)),
+      DFieldControl(
+        label: label,
+        required: isRequired,
+        description: isRequired ? 'Required' : null,
+        child: DInput(
+          controller: controller,
+          focusNode: focus,
+          isRequired: isRequired,
+          autofocus: autofocus,
+          keyboardType: keyboardType,
+          onChanged: onChanged,
+        ),
+      ),
+      if (isRequired) const DFieldDescription(child: Text('Required')),
+    ],
+  );
+
   void _save() => Navigator.pop(
     context,
     VoiceRoomDraft(
@@ -175,6 +207,10 @@ class _VoiceRoomEditorDialogState extends State<VoiceRoomEditorDialog> {
 
   @override
   void dispose() {
+    _nameFocus.dispose();
+    _maximumFocus.dispose();
+    _chatChannelFocus.dispose();
+    _chatIdleFocus.dispose();
     _name.dispose();
     _description.dispose();
     _maximum.dispose();

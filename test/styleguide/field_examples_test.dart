@@ -1,5 +1,8 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/field_examples.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget host(
@@ -45,6 +48,95 @@ void main() {
       expect(example.code, contains('void main()'));
     });
   }
+  testWidgets(
+    'merged Input label focuses and retains the editable name and help',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(host(const FieldEditorsExample()));
+        await tester.tap(find.text('Username'));
+        await tester.enterText(find.byType(TextField).first, 'reader');
+        await tester.pump();
+        final control = find.byWidgetPredicate(
+          (widget) => widget is DFieldControl && widget.label == 'Username',
+        );
+        final node = tester.getSemantics(control);
+        expect(node.label, 'Username');
+        final editor = node.getSemanticsData();
+        expect(editor.value, 'reader');
+        expect(node.hint, 'Choose a unique username for your account.');
+        expect(editor.hasAction(SemanticsAction.setText), isTrue);
+        expect(
+          tester.widget<DInput>(find.byType(DInput).first).focusNode!.hasFocus,
+          isTrue,
+        );
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets('merged Checkbox row toggles once by label and Space', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(const FieldCheckboxExample()));
+    await tester.tap(find.text('Hard disks'));
+    await tester.pump();
+    expect(
+      tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
+      isTrue,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(
+      tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
+      isFalse,
+    );
+  });
+
+  testWidgets(
+    'merged Radio choice label focuses its item and arrows preserve group ownership',
+    (tester) async {
+      await tester.pumpWidget(host(const FieldChoiceExample()));
+      await tester.ensureVisible(find.text('Virtual Machine'));
+      await tester.tap(find.text('Virtual Machine'));
+      await tester.pump();
+      final item = tester.widget<DRadioGroupItem<String>>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DRadioGroupItem<String> &&
+              widget.value == 'Virtual Machine',
+        ),
+      );
+      expect(item.focusNode!.hasFocus, isTrue);
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>).last)
+            .groupValue,
+        'Virtual Machine',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>).last)
+            .groupValue,
+        'Kubernetes',
+      );
+      await tester.tap(
+        find.text('Unavailable environment'),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>).last)
+            .groupValue,
+        'Kubernetes',
+      );
+    },
+  );
+
   testWidgets(
     'responsive example validates saves and resets its sole field owner',
     (tester) async {
