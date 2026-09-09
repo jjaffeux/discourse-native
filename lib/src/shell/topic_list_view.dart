@@ -1001,38 +1001,22 @@ class _FeedErrorBanner extends StatelessWidget {
     required this.message,
     required this.onRetry,
   });
-
   final String message;
   final VoidCallback onRetry;
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      liveRegion: true,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        color: theme.colorScheme.errorContainer,
-        child: Row(
-          children: [
-            DIcon(
-              DIcons.triangleExclamation,
-              size: 17,
-              color: theme.colorScheme.onErrorContainer,
-            ),
-            const SizedBox(width: 9),
-            Expanded(child: Text(message)),
-            DButton(
-              key: const ValueKey('topic-feed-error-retry'),
-              label: const Text('Retry'),
-              onPressed: onRetry,
-              variant: DButtonVariant.link,
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => DAlert(
+    variant: DAlertVariant.destructive,
+    icon: const Icon(Icons.error_outline),
+    description: DAlertDescription(child: Text(message)),
+    action: DAlertAction(
+      child: DButton(
+        key: const ValueKey('topic-feed-error-retry'),
+        label: const Text('Retry'),
+        onPressed: onRetry,
+        variant: DButtonVariant.link,
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _TopicRow extends StatelessWidget {
@@ -2117,36 +2101,29 @@ class _Message extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DIcon(icon, size: 40, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 12),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            if (actionLabel case final label?) ...[
-              const SizedBox(height: 8),
-              DButton(
-                key: const ValueKey('topic-feed-initial-retry'),
-                label: Text(label),
-                onPressed: onAction,
-                variant: DButtonVariant.link,
-              ),
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+              DEmptyTitle(text),
             ],
-          ],
-        ),
+          ),
+          if (actionLabel case final label?)
+            DEmptyContent(
+              children: [
+                DButton(
+                  key: const ValueKey('topic-feed-initial-retry'),
+                  label: Text(label),
+                  onPressed: onAction,
+                  variant: DButtonVariant.link,
+                ),
+              ],
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

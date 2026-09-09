@@ -1,0 +1,284 @@
+{
+  "rect": {
+    "bottom": 656.15625,
+    "height": 286.3125,
+    "left": 464,
+    "right": 973,
+    "top": 369.84375,
+    "width": 509,
+    "x": 464,
+    "y": 369.84375
+  },
+  "tooltip": [
+    {
+      "borderRadius": "10px",
+      "class": "grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+      "font": "12px / 16px Geist, \"Geist Fallback\"",
+      "gap": "6px",
+      "padding": "6px 10px",
+      "rect": {
+        "bottom": 588.84375,
+        "height": 66,
+        "left": 686.9166870117188,
+        "right": 814.9166870117188,
+        "top": 522.84375,
+        "width": 128,
+        "x": 686.9166870117188,
+        "y": 522.84375
+      },
+      "text": "MarchDesktop237Mobile120"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "font-medium",
+      "font": "500 12px / 16px Geist, \"Geist Fallback\"",
+      "gap": "normal",
+      "padding": "0px",
+      "rect": {
+        "bottom": 545.84375,
+        "height": 16,
+        "left": 697.9166870117188,
+        "right": 803.9166870117188,
+        "top": 529.84375,
+        "width": 106,
+        "x": 697.9166870117188,
+        "y": 529.84375
+      },
+      "text": "March"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "grid gap-1.5",
+      "font": "12px / 16px Geist, \"Geist Fallback\"",
+      "gap": "6px",
+      "padding": "0px",
+      "rect": {
+        "bottom": 581.84375,
+        "height": 30,
+        "left": 697.9166870117188,
+        "right": 803.9166870117188,
+        "top": 551.84375,
+        "width": 106,
+        "x": 697.9166870117188,
+        "y": 551.84375
+      },
+      "text": "Desktop237Mobile120"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "flex w-full flex-wrap gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground items-center",
+      "font": "12px / 16px Geist, \"Geist Fallback\"",
+      "gap": "8px",
+      "padding": "0px",
+      "rect": {
+        "bottom": 563.84375,
+        "height": 12,
+        "left": 697.9166870117188,
+        "right": 803.9166870117188,
+        "top": 551.84375,
+        "width": 106,
+        "x": 697.9166870117188,
+        "y": 551.84375
+      },
+      "text": "Desktop237"
+    },
+    {
+      "borderRadius": "2px",
+      "class": "shrink-0 rounded-[2px] border-(--color-border) bg-(--color-bg) h-2.5 w-2.5",
+      "font": "12px / 16px Geist, \"Geist Fallback\"",
+      "gap": "normal",
+      "padding": "0px",
+      "rect": {
+        "bottom": 562.84375,
+        "height": 10,
+        "left": 697.9166870117188,
+        "right": 707.9166870117188,
+        "top": 552.84375,
+        "width": 10,
+        "x": 697.9166870117188,
+        "y": 552.84375
+      },
+      "text": ""
+    },
+    {
+      "borderRadius": "0px",
+      "class": "flex flex-1 justify-between leading-none items-center",
+      "font": "12px / 12px Geist, \"Geist Fallback\"",
+      "gap": "normal",
+      "padding": "0px",
+      "rect": {
+        "bottom": 563.84375,
+        "height": 12,
+        "left": 715.9166870117188,
+        "right": 803.9166870117188,
+        "top": 551.84375,
+        "width": 88,
+        "x": 715.9166870117188,
+        "y": 551.84375
+      },
+      "text": "Desktop237"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "grid gap-1.5",
+      "font": "12px / 12px Geist, \"Geist Fallback\"",
+      "gap": "6px",
+      "padding": "0px",
+      "rect": {
+        "bottom": 563.84375,
+        "height": 12,
+        "left": 715.9166870117188,
+        "right": 762.0026245117188,
+        "top": 551.84375,
+        "width": 46.0859375,
+        "x": 715.9166870117188,
+        "y": 551.84375
+      },
+      "text": "Desktop"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "text-muted-foreground",
+      "font": "12px / 12px Geist, \"Geist Fallback\"",
+      "gap": "normal",
+      "padding": "0px",
+      "rect": {
+        "bottom": 563.84375,
+        "height": 12,
+        "left": 715.9166870117188,
+        "right": 762.0026245117188,
+        "top": 551.84375,
+        "width": 46.0859375,
+        "x": 715.9166870117188,
+        "y": 551.84375
+      },
+      "text": "Desktop"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "font-mono font-medium text-foreground tabular-nums",
+      "font": "",
+      "gap": "normal",
+      "padding": "0px",
+      "rect": {
+        "bottom": 563.84375,
+        "height": 12,
+        "left": 782.3151245117188,
+        "right": 803.9166870117188,
+        "top": 551.84375,
+        "width": 21.6015625,
+        "x": 782.3151245117188,
+        "y": 551.84375
+      },
+      "text": "237"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "flex w-full flex-wrap gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground items-center",
+      "font": "12px / 16px Geist, \"Geist Fallback\"",
+      "gap": "8px",
+      "padding": "0px",
+      "rect": {
+        "bottom": 581.84375,
+        "height": 12,
+        "left": 697.9166870117188,
+        "right": 803.9166870117188,
+        "top": 569.84375,
+        "width": 106,
+        "x": 697.9166870117188,
+        "y": 569.84375
+      },
+      "text": "Mobile120"
+    },
+    {
+      "borderRadius": "2px",
+      "class": "shrink-0 rounded-[2px] border-(--color-border) bg-(--color-bg) h-2.5 w-2.5",
+      "font": "12px / 16px Geist, \"Geist Fallback\"",
+      "gap": "normal",
+      "padding": "0px",
+      "rect": {
+        "bottom": 580.84375,
+        "height": 10,
+        "left": 697.9166870117188,
+        "right": 707.9166870117188,
+        "top": 570.84375,
+        "width": 10,
+        "x": 697.9166870117188,
+        "y": 570.84375
+      },
+      "text": ""
+    },
+    {
+      "borderRadius": "0px",
+      "class": "flex flex-1 justify-between leading-none items-center",
+      "font": "12px / 12px Geist, \"Geist Fallback\"",
+      "gap": "normal",
+      "padding": "0px",
+      "rect": {
+        "bottom": 581.84375,
+        "height": 12,
+        "left": 715.9166870117188,
+        "right": 803.9166870117188,
+        "top": 569.84375,
+        "width": 88,
+        "x": 715.9166870117188,
+        "y": 569.84375
+      },
+      "text": "Mobile120"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "grid gap-1.5",
+      "font": "12px / 12px Geist, \"Geist Fallback\"",
+      "gap": "6px",
+      "padding": "0px",
+      "rect": {
+        "bottom": 581.84375,
+        "height": 12,
+        "left": 715.9166870117188,
+        "right": 752.7760620117188,
+        "top": 569.84375,
+        "width": 36.859375,
+        "x": 715.9166870117188,
+        "y": 569.84375
+      },
+      "text": "Mobile"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "text-muted-foreground",
+      "font": "12px / 12px Geist, \"Geist Fallback\"",
+      "gap": "normal",
+      "padding": "0px",
+      "rect": {
+        "bottom": 581.84375,
+        "height": 12,
+        "left": 715.9166870117188,
+        "right": 752.7760620117188,
+        "top": 569.84375,
+        "width": 36.859375,
+        "x": 715.9166870117188,
+        "y": 569.84375
+      },
+      "text": "Mobile"
+    },
+    {
+      "borderRadius": "0px",
+      "class": "font-mono font-medium text-foreground tabular-nums",
+      "font": "",
+      "gap": "normal",
+      "padding": "0px",
+      "rect": {
+        "bottom": 581.84375,
+        "height": 12,
+        "left": 782.3151245117188,
+        "right": 803.9166870117188,
+        "top": 569.84375,
+        "width": 21.6015625,
+        "x": 782.3151245117188,
+        "y": 569.84375
+      },
+      "text": "120"
+    }
+  ]
+}

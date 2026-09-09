@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/badge.dart';
 import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/shell/badges_controller.dart';
@@ -225,6 +226,7 @@ void main() {
       const BadgesState(loaded: true, error: "Couldn't load badges."),
       onRefresh: () async => retries++,
     );
+    expect(find.byType(DAlert), findsOneWidget);
     await tester.tap(find.text('Retry'));
     expect(retries, 1);
     await _pump(

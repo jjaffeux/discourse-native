@@ -1,0 +1,12 @@
+[
+  {
+    "file": "chart.json",
+    "url": "https://ui.shadcn.com/r/styles/base-nova/chart.json",
+    "sha256": "c867c2180d6250e8f2883491abd802e1caae65eca6b11af415d42048cec798c5"
+  },
+  {
+    "file": "chart.md",
+    "url": "https://ui.shadcn.com/docs/components/base/chart.md",
+    "sha256": "c6c51d44c211580548bbce4647965f16458e02c054cb5592aa89405d3b36885d"
+  }
+]
