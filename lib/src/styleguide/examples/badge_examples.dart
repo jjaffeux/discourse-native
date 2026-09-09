@@ -22,8 +22,7 @@ final badgeExamples = ComponentExamples(
   examples: [
     StyleguideExample(
       title: 'Variants',
-      description:
-          'All six reference treatments. A link treatment alone is still static text.',
+      description: 'All six reference treatments. A link treatment alone is still static text.',
       states: const [
         'Default',
         'Secondary',
@@ -51,9 +50,8 @@ final badgeExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'With icon',
-      description:
-          'Verified and Bookmark use the reference Lucide artwork. Inline start and end follow preview direction.',
-      states: const ['Leading', 'Trailing', 'RTL'],
+      description: 'Verified and Bookmark preserve the documented composition; the variant rows mirror the linked registry coverage for both inline slots. Start and end follow preview direction.',
+      states: const ['Leading', 'Trailing', 'All variants', 'RTL'],
       code: r'''DBadge(
   variant: DBadgeVariant.secondary,
   leading: verifiedIcon, // Any widget; fitted into a decorative 12px slot.
@@ -64,28 +62,64 @@ DBadge(
   trailing: bookmarkIcon,
   child: const Text('Bookmark'),
 )''',
-      builder: (_) => const Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          DBadge(
-            variant: DBadgeVariant.secondary,
-            leading: _BadgeIcon('badge-check'),
-            child: Text('Verified'),
+          const Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              DBadge(
+                variant: DBadgeVariant.secondary,
+                leading: _BadgeIcon('badge-check'),
+                child: Text('Verified'),
+              ),
+              DBadge(
+                variant: DBadgeVariant.outline,
+                trailing: _BadgeIcon('bookmark'),
+                child: Text('Bookmark'),
+              ),
+            ],
           ),
-          DBadge(
-            variant: DBadgeVariant.outline,
-            trailing: _BadgeIcon('bookmark'),
-            child: Text('Bookmark'),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final variant in DBadgeVariant.values)
+                DBadge(
+                  variant: variant,
+                  leading: const _BadgeIcon('badge-check'),
+                  child: Text(_label(variant)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final variant in DBadgeVariant.values)
+                DBadge(
+                  variant: variant,
+                  trailing: const _BadgeIcon('arrow-right'),
+                  child: Text(_label(variant)),
+                ),
+            ],
           ),
         ],
       ),
     ),
     StyleguideExample(
       title: 'With spinner',
-      description:
-          'Complete or restart the local operation. Status text and busy semantics change together; reduced motion keeps the status visible.',
-      states: const ['Deleting', 'Generating', 'Complete', 'Reduced motion'],
+      description: 'Every treatment accepts a real spinner. Complete or restart the local operation; status text and busy semantics change together.',
+      states: const [
+        'All variants',
+        'Deleting',
+        'Generating',
+        'Complete',
+        'Reduced motion',
+      ],
       code: r'''DBadge(
   variant: DBadgeVariant.destructive,
   leading: busy ? const DSpinner(size: 12, semanticLabel: null) : null,
@@ -98,8 +132,7 @@ DBadge(
     ),
     StyleguideExample(
       title: 'Links and actions',
-      description:
-          'Open the local detail route, return, then activate an action with Tab and Enter or Space. Disable actions without losing sample state.',
+      description: 'Open the local detail route, return, then activate an action with Tab and Enter or Space. Disable actions without losing sample state.',
       states: const [
         'Link',
         'Action',
@@ -125,9 +158,17 @@ const DBadge(invalid: true, child: Text('Invalid status'))''',
     ),
     StyleguideExample(
       title: 'Custom colors',
-      description:
-          'The five documented color pairs switch with light and dark mode. A host-palette badge demonstrates live site colors.',
-      states: const ['Blue', 'Green', 'Sky', 'Purple', 'Red', 'Site palette'],
+      description: 'The linked registry\'s solid and adaptive color pairs are reproduced alongside a badge driven by the live host palette.',
+      states: const [
+        'Solid',
+        'Adaptive',
+        'Blue',
+        'Green',
+        'Sky',
+        'Purple',
+        'Red',
+        'Site palette',
+      ],
       code: r'''final colors = Theme.of(context).colorScheme;
 DBadge(
   backgroundColor: colors.tertiaryContainer,
@@ -141,6 +182,17 @@ DBadge(
           spacing: 8,
           runSpacing: 8,
           children: [
+            for (final (label, background, foreground) in const [
+              ('Blue', 0xff2563eb, 0xffeff6ff),
+              ('Green', 0xff16a34a, 0xfff0fdf4),
+              ('Sky', 0xff0284c7, 0xfff0f9ff),
+              ('Purple', 0xff9333ea, 0xfffaf5ff),
+            ])
+              DBadge(
+                backgroundColor: Color(background),
+                foregroundColor: Color(foreground),
+                child: Text(label),
+              ),
             for (final (label, lightBg, lightFg, darkBg, darkFg) in const [
               ('Blue', 0xffeff6ff, 0xff1447e6, 0xff162456, 0xff8ec5ff),
               ('Green', 0xfff0fdf4, 0xff008236, 0xff032e15, 0xff7bf1a8),
@@ -164,8 +216,7 @@ DBadge(
     ),
     StyleguideExample(
       title: 'Long labels and RTL',
-      description:
-          'Cycle through the documented Arabic, English and Hebrew translations. Try 360px, 200% text, and a custom palette; labels wrap and artwork keeps its logical position.',
+      description: 'Cycle through the documented Arabic, English and Hebrew translations. Try 360px, 200% text, and a custom palette; labels wrap and artwork keeps its logical position.',
       states: const [
         'Arabic',
         'English',
@@ -212,24 +263,26 @@ class _BadgeLoadingState extends State<_BadgeLoading> {
         spacing: 8,
         runSpacing: 8,
         children: [
-          DBadge(
-            variant: DBadgeVariant.destructive,
-            leading: _busy
-                ? const DSpinner(size: 12, semanticLabel: null)
-                : null,
-            semanticValue: _busy ? 'Loading' : null,
-            liveRegion: true,
-            child: Text(_busy ? 'Deleting' : 'Deleted'),
-          ),
-          DBadge(
-            variant: DBadgeVariant.secondary,
-            trailing: _busy
-                ? const DSpinner(size: 12, semanticLabel: null)
-                : null,
-            semanticValue: _busy ? 'Loading' : null,
-            liveRegion: true,
-            child: Text(_busy ? 'Generating' : 'Generated'),
-          ),
+          for (final variant in DBadgeVariant.values)
+            DBadge(
+              variant: variant,
+              leading: _busy && variant != DBadgeVariant.secondary
+                  ? const DSpinner(size: 12, semanticLabel: null)
+                  : null,
+              trailing: _busy && variant == DBadgeVariant.secondary
+                  ? const DSpinner(size: 12, semanticLabel: null)
+                  : null,
+              semanticValue: _busy ? 'Loading' : null,
+              liveRegion: true,
+              child: Text(switch ((variant, _busy)) {
+                (DBadgeVariant.primary, true) => 'Deleting',
+                (DBadgeVariant.primary, false) => 'Deleted',
+                (DBadgeVariant.secondary, true) => 'Generating',
+                (DBadgeVariant.secondary, false) => 'Generated',
+                (_, true) => _label(variant),
+                (_, false) => '${_label(variant)} ready',
+              }),
+            ),
         ],
       ),
       const SizedBox(height: 16),
@@ -436,10 +489,10 @@ class _BadgeIcon extends StatelessWidget {
     ),
   );
   static const _paths = {
-    'badge-check':
-        '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>',
+    'badge-check': '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>',
     'bookmark':
         '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+    'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
     'arrow-up-right': '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
   };
 }
