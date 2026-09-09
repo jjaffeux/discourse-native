@@ -2,6 +2,7 @@ import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
+import 'examples/breadcrumb_examples.dart';
 import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/carousel_examples.dart';
@@ -55,6 +56,7 @@ final componentExamples = <String, ComponentExamples>{
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,
   'badge': badgeExamples,
+  'breadcrumb': breadcrumbExamples,
   'direction': directionExamples,
   'dialog': dialogExamples,
   'dropdown-menu': dropdownMenuExamples,

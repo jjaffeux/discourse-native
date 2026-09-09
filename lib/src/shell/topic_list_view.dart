@@ -1788,57 +1788,52 @@ class _CategoryBreadcrumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parent = this.parent;
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        if (parent != null) ...[
-          LinkTarget(
-            url: '/c/${parent.id}',
-            title: parent.name,
-            siteUrl: siteUrl,
-            child: _CategoryBadge(
-              key: ValueKey(('topic-row-parent-category', parent.id)),
-              category: parent,
-              siteUrl: siteUrl,
-              label: parent.name,
-              semanticLabel: 'Parent category: ${parent.name}',
-              onTap: () => onOpen(parent),
+    return DBreadcrumb(
+      semanticLabel: 'Category path',
+      child: DBreadcrumbList(
+        spacing: 1.5,
+        children: [
+          if (parent != null) ...[
+            DBreadcrumbItem(
+              child: LinkTarget(
+                url: '/c/${parent.id}',
+                title: parent.name,
+                siteUrl: siteUrl,
+                child: _CategoryBadge(
+                  key: ValueKey(('topic-row-parent-category', parent.id)),
+                  category: parent,
+                  siteUrl: siteUrl,
+                  label: parent.name,
+                  semanticLabel: 'Parent category: ${parent.name}',
+                  onTap: () => onOpen(parent),
+                ),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: SizedBox(
+            DBreadcrumbSeparator(
               key: ValueKey((
                 'topic-row-category-chevron',
                 parent.id,
                 category.id,
               )),
-              width: 11,
-              height: 24,
-              child: Center(
-                child: DIcon(
-                  DIcons.chevronRight,
-                  size: 11,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            ),
+          ],
+          DBreadcrumbItem(
+            child: LinkTarget(
+              url: '/c/${category.id}',
+              title: category.name,
+              siteUrl: siteUrl,
+              child: _CategoryBadge(
+                key: ValueKey(('topic-row-category', category.id)),
+                category: category,
+                siteUrl: siteUrl,
+                label: category.name,
+                semanticLabel: 'Category: ${category.name}',
+                onTap: () => onOpen(category),
               ),
             ),
           ),
         ],
-        LinkTarget(
-          url: '/c/${category.id}',
-          title: category.name,
-          siteUrl: siteUrl,
-          child: _CategoryBadge(
-            key: ValueKey(('topic-row-category', category.id)),
-            category: category,
-            siteUrl: siteUrl,
-            label: category.name,
-            semanticLabel: 'Category: ${category.name}',
-            onTap: () => onOpen(category),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
