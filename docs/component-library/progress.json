@@ -2370,7 +2370,7 @@
     },
     {
       "id": "marker",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
       "branch": "codex/ui-marker",
       "dependencies": [
@@ -2414,10 +2414,10 @@
         "Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette mapping, motion, interaction and native semantics were compared directly."
       ],
       "implementationCommit": "ba156a2ce378787c25fdd4a8910fbf86390c4a8a",
-      "mergeCommit": null,
+      "mergeCommit": "fc92f4e69042191eff5d39d52c1355a6d6a87da7",
       "clientThreadId": "client-new-thread:30c945fe-66ff-4d13-a4ed-120a945e4aa3",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
       "reviewBranch": "codex/review-marker",
       "browserInspectionStatus": "completed",
@@ -2776,15 +2776,6 @@
           "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932"
         },
         {
-          "component": "marker",
-          "taskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
-          "branch": "codex/review-marker",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8a02/discourse-native",
-          "headCommit": "c797918bd1446a612a1a3da7c26573169a40bad3",
-          "status": "independent_review",
-          "implementationTaskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4"
-        },
-        {
           "component": "collapsible",
           "taskId": "01a08558-a79c-7911-8f75-53b3528fc08f",
           "branch": "codex/review-collapsible",
@@ -3080,17 +3071,6 @@
           "branch": "codex/review-dialog",
           "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932",
           "implementationBranch": "codex/ui-dialog",
-          "status": "in_progress"
-        },
-        {
-          "component": "marker",
-          "title": "Review and merge Marker",
-          "taskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8a02/discourse-native",
-          "branch": "codex/review-marker",
-          "implementationTaskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
-          "implementationBranch": "codex/ui-marker",
           "status": "in_progress"
         },
         {
