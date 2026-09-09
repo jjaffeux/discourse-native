@@ -48,7 +48,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 36 | drawer | planned | — | — | dialog | — |
 | 37 | select | planned | — | — | popover, scroll-area | — |
 | 38 | native-select | in_progress | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | — |
-| 39 | field | planned | — | — | label, separator | — |
+| 39 | field | in_progress | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
 | 40 | input-group | planned | — | — | input, textarea, button, kbd, spinner | — |
 | 41 | button-group | planned | — | — | button, separator | — |
 | 42 | command | planned | — | — | input, dialog, scroll-area | — |
@@ -1642,6 +1642,51 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 
 - awaiting_slot: browser slot released with original dark theme and viewport restored; native app/device/VoiceOver inspection remains required before review_ready or merge.
 - No native CUA/app launch. Font-loaded widget screenshots are not device rendering, VoiceOver or OS-popup parity evidence.
+
+### field
+
+Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/ui-field.
+
+**acceptanceCriteria**
+
+- Capture and hash frozen Field Markdown (1afe174f74b982ec86fad520dab464a16bfe289c2d54fde88241ce3a791112ee), official base-nova registry and reference examples; document measured CSS geometry, typography, states and native adaptations.
+- Export a single generic DFieldSet/Legend/Group/Field/Content/Label/Title/Description/Separator/Error owner with vertical, horizontal and 448px container-responsive layout, both legend variants, nested/choice groups, rich content, error deduplication and no competing Form state.
+- Provide explicit native control-label-description-error association and label activation without duplicate tab stops; verify validation semantics, Form save/reset, disabled handling, borrowed focus lifecycle and state retention across layout changes.
+- Match choice cards: 10px padding plus 1px border, proportional lg radius, selected primary border/background with multiplicative alpha, disabled opacity, hover and outside-only 3px keyboard focus ring.
+- Cover every frozen reference composition in self-contained actual Field examples; explicitly retain current native/baseline controls until unmerged Button/Input/Textarea/Checkbox/Radio/Switch/Slider/Select owners are reconciled.
+- Audit core and all bundled plugins, migrate surrounding composition without taking Input/Textarea/Alert ownership, record precise overlaps and retained alternatives, and verify changed production behavior.
+- Format touched code; pass root/full-profile analysis and meaningful Field/styleguide/downstream tests with pins unchanged. Prepare isolated uniquely identified macOS debug styleguide/production fixture, source equality and kernel/signature evidence. Remain in_progress awaiting_slot until serialized reference/native inspection passes.
+
+**decisions**
+
+- Owns Field composition only, based on local main 402fe578; Label and Separator merged. No imports from unmerged component worktrees.
+- Coordinator send_message_to_thread is absent from available tool metadata; report ownership and overlap through this row and final handoff.
+- Primary source hashes and measured geometry/API/semantics/migration mapping recorded in docs/component-library/field.md and reference/field/.
+- Single Field composition owner plus DFieldControl native association; no Form state or borrowed resource ownership. Choice cards use outside-only 3px ring and multiplicative live alpha.
+- Nine actual-component examples with generated complete runnable sources. Baseline status explicitly preserves the pending control reconciliation/native review gate.
+
+**migrations**
+
+- Preferences _PreferenceCard uses DFieldGroup with spacing:0 to retain adapter-owned gaps; device-timezone help uses DFieldDescription. Saving, restoration, permissions and notice owners unchanged.
+- VoiceRoomEditorDialog uses DFieldGroup (20px); production showVoiceRoomEditor retains latest-controller save behavior, controller lifetimes and draft conversion. Public dialog name permits the actual production form to return local draft data in the isolated fixture.
+
+**retainedAlternatives**
+
+- Full core/plugin audit and exact adjacent-owner overlaps recorded in field.md. Input/Textarea/Checkbox/Radio/Switch/Slider/Native Select/Button are unmerged; native example controls remain visibly temporary and no other worktree is imported.
+- Alert owns inline status/error notices and Empty page-scale states. Domain composite editors and schema-driven Poll/Local Dates/Events forms await serialized owner reconciliation.
+
+**verification**
+
+- Touched 11 Dart files format clean.
+- flutter test --no-pub test/ui/d_field_test.dart test/styleguide/field_examples_test.dart --test-randomize-ordering-seed=random: 17 passed, including native label/control metadata, focus, Form reset/reflow, disabled guards, errors, 280px/200% RTL examples and exterior-ring/multiplicative-alpha pixel regression.
+- flutter test --no-pub test/preferences_page_test.dart test/voice_room_view_test.dart test/ui/d_label_test.dart test/ui/d_separator_test.dart test/styleguide/label_examples_test.dart test/plugin_dependency_boundary_test.dart --test-randomize-ordering-seed=random: 132 passed. Log /tmp/field-downstream-tests.log.
+- Root and profiles/full flutter analyze --no-pub run; final results and unique fixture build evidence recorded in follow-up.
+
+**limitations**
+
+- awaiting_slot: no desktop/browser access was granted. Reference-rendered comparison, actual native styleguide/production inspection and VoiceOver remain unverified. Keep in_progress; not review_ready or mergeable.
+- Source/control reconciliation remains explicit: after pending controls merge, replace temporary example controls, inspect compact indicator heights, and adopt Field in adjacent examples. See field.md.
+- send_message_to_thread is unavailable in the tool inventory; durable progress row and final handoff carry coordination evidence.
 
 ### alert
 

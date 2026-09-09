@@ -15,7 +15,7 @@ Future<void> showVoiceRoomEditor(
 }) async {
   final result = await showDialog<VoiceRoomDraft>(
     context: context,
-    builder: (context) => _VoiceRoomEditorDialog(room: room),
+    builder: (context) => VoiceRoomEditorDialog(room: room),
   );
   if (result == null || !context.mounted) return;
   await (controllerResolver?.call() ??
@@ -27,16 +27,16 @@ Future<void> showVoiceRoomEditor(
 /// A `showDialog` future completes when the route is popped, before its exit
 /// animation has removed the form. Disposing these controllers in the caller
 /// at that point leaves the outgoing text fields listening to dead objects.
-class _VoiceRoomEditorDialog extends StatefulWidget {
-  const _VoiceRoomEditorDialog({required this.room});
+class VoiceRoomEditorDialog extends StatefulWidget {
+  const VoiceRoomEditorDialog({super.key, this.room});
 
   final VoiceRoom? room;
 
   @override
-  State<_VoiceRoomEditorDialog> createState() => _VoiceRoomEditorDialogState();
+  State<VoiceRoomEditorDialog> createState() => _VoiceRoomEditorDialogState();
 }
 
-class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
+class _VoiceRoomEditorDialogState extends State<VoiceRoomEditorDialog> {
   late final TextEditingController _name;
   late final TextEditingController _description;
   late final TextEditingController _maximum;
@@ -72,8 +72,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
     content: SizedBox(
       width: 420,
       child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: DFieldGroup(
           children: [
             Semantics(
               isRequired: true,

@@ -2,6 +2,7 @@ import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
@@ -24,6 +25,7 @@ final componentExamples = <String, ComponentExamples>{
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'label': labelExamples,
+  'field': fieldExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
   'spinner': spinnerExamples,
