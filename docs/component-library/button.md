@@ -165,3 +165,14 @@ Root and full-profile analysis are clean. Logs:
 `/private/tmp/button-inset-final-tests.log`,
 `/private/tmp/button-inset-analysis.log`, and
 `/private/tmp/button-inset-full-analysis.log`.
+
+The corrected implementation is `50442c4e`. Its unlaunched replacement bundle
+is `/private/tmp/DiscourseButtonReview-3a88-v2.app`, display name **Discourse
+Button Review V2**, identifier `org.discourse.native.button-review.3a88.v2`,
+URL scheme `discourse-button-review-3a88-v2`. Deep strict signature verification
+passes. Every Dart source matches `/private/tmp/button-build-source-v2.json`,
+SHA256 `fd7a457448ac5deab7de70468358ad86f0989940cd6da835d53d733cf8c756e5`.
+Kernel SHA256:
+`b229b90dee48bcda90cefc31e8a9f4ee398673f7400a8da4b9f3566ede5fbc26`.
+Use this V2 bundle for the pending native comparison; the original bundle is
+superseded. Build log: `/private/tmp/button-review-v2-build.log`.
