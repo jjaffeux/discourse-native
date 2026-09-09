@@ -4229,7 +4229,7 @@
     },
     {
       "id": "message-scroller",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
       "branch": "codex/ui-message-scroller",
       "dependencies": [
@@ -4268,9 +4268,9 @@
         "No live-network/server-pagination exercise; the real channel/thread adapters were inspected with offline seeded stores. Detailed observations and limits: docs/component-library/evidence/message-scroller/native-review.json."
       ],
       "implementationCommit": "26c0970a1c4580b8f719b33b907d3966f2f02273",
-      "mergeCommit": null,
+      "mergeCommit": "d38585c50e28774eef003f1d0e96878d49597c25",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/0ff5/discourse-native",
-      "queueStage": "accepted_pending_merge",
+      "queueStage": "merged",
       "implementationBrief": "Implement the complete documented Message Scroller behavior and public API, not just a ListView wrapper. Account for Anchoring Turns, Group Chat, Keeping Context Visible, Following Live Edge, Opening Saved Threads, Avoiding Flash on Reload, Loading Earlier Messages, Animating New Messages, Jumping to Messages, Tracking Reader Position, Reading Scroll State, Performance, Virtualization, Accessibility and Unstyled modes. Preserve reader intent during appended/streaming/resized messages, prepend anchoring, restoration with variable heights, viewport/inset changes, jump/reveal/cancel behavior, reduced motion and accessible announcements. Keep data loading/network/domain state outside the generic controller/widget. Reuse final Message/Scroll Area and every recorded example owner; Message is being queued alongside you, so discover its real owner in current main and coordinate its committed API. Begin source/reference/state-model and production chat-scroller audit now; no made-up Message fallback or accepted missing examples. Migrate appropriate real core/plugin scrollers with stable message IDs and existing pagination/unread behavior, and test actual anchoring/streaming/prepend/restoration/virtualization races with realistic variable-height data. The complete catalogue row's many exampleComponents are all accounted scope.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/message-scroller",
@@ -4303,7 +4303,7 @@
       "reviewBranch": "codex/review-message-scroller",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/a0b4/discourse-native",
       "reviewHandoffCommit": "1e49e130e07d1cb820e4d4b828e7470aa8b22ccf",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "implementationHandoffVerification": {
         "focusedTests": "Source reports 92 combined Message Scroller, Message, Bubble, styleguide, channel, thread and timeline checks passing with seed 1788963.",
         "analysis": "Root and full-profile locked resolution and analysis pass; formatting and diff checks pass.",
@@ -4966,16 +4966,6 @@
           "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
           "implementationBranch": "codex/ui-bubble",
           "headCommit": "3aa4251692789567de9a3f010566dcd8aaa54d7b"
-        },
-        {
-          "component": "message-scroller",
-          "taskId": "01a08639-b066-7882-85f5-a7729bfd111b",
-          "branch": "codex/review-message-scroller",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a0b4/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
-          "implementationBranch": "codex/ui-message-scroller",
-          "headCommit": "1e49e130e07d1cb820e4d4b828e7470aa8b22ccf"
         }
       ],
       "nativeReadyTasks": []
@@ -5324,18 +5314,6 @@
           "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
           "implementationBranch": "codex/ui-bubble",
           "implementationCommit": "78c60d0cd7cf87d34c46524fff95336b43e261cd",
-          "status": "in_progress"
-        },
-        {
-          "component": "message-scroller",
-          "title": "Review and merge Message Scroller",
-          "taskId": "01a08639-b066-7882-85f5-a7729bfd111b",
-          "hostId": "local",
-          "branch": "codex/review-message-scroller",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a0b4/discourse-native",
-          "implementationTaskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
-          "implementationBranch": "codex/ui-message-scroller",
-          "implementationCommit": "26c0970a1c4580b8f719b33b907d3966f2f02273",
           "status": "in_progress"
         }
       ],
