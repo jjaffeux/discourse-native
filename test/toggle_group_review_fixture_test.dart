@@ -49,5 +49,13 @@ void main() {
     expect(find.byType(DToggleGroup<ComposerGalleryMode>), findsOneWidget);
     expect(find.bySemanticsLabel('Grid gallery mode'), findsOneWidget);
     expect(find.bySemanticsLabel('Carousel gallery mode'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Carousel gallery mode'));
+    await tester.pumpAndSettle();
+    expect(composer.text.text, startsWith('[grid mode=carousel]'));
+
+    await tester.tap(find.bySemanticsLabel('Grid gallery mode'));
+    await tester.pumpAndSettle();
+    expect(composer.text.text, startsWith('[grid]\n'));
   });
 }
