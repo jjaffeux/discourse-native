@@ -27,7 +27,7 @@ interaction, focus-restoration, panel-lifecycle and reduced-motion owner.
 | Disabled `pointer-events-none opacity-50` | Trigger remains keyboard/screen-reader discoverable, reports disabled, renders at 50% opacity and cannot activate. |
 | Content `overflow-hidden text-sm` | Clipped `DCollapsibleContent` height transition with explicit 14/20 body metrics. |
 | Content `pt-0 pb-2.5` | No top inset and 10px bottom inset. |
-| Accordion height keyframes | 180ms native height transition; inherited reduced motion makes it immediate. |
+| Accordion height keyframes | 200ms native height transition; inherited reduced motion makes it immediate. |
 | Borders example `rounded-lg border`, item `px-4` | `outlined: true` supplies the live-token border/radius and 16px horizontal item inset. |
 | Card example | Actual accepted `DCard`, `DCardHeader`, `DCardTitle`, `DCardDescription` and `DCardContent` composition. |
 
