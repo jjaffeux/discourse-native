@@ -130,3 +130,21 @@ geometry, palette relationships, semantics and behavior rather than pixel
 equality. Vertical and RTL arrow behavior is pinned by widget tests; the native
 pass inspected those layouts but did not claim a spoken assistive-technology or
 physical-keyboard device session for each variant.
+
+### Narrow keyboard-focus follow-up
+
+A dependent Card composition preflight subsequently found that narrow
+scrollable groups could focus an off-screen item with arrows or Home/End without
+revealing it. `DToggleGroup` now asks only its own-axis scroll position to keep
+both target edges visible after layout. Flutter flips the policies for left/up
+axis directions, so the same path covers horizontal LTR/RTL and vertical groups.
+The callback resolves the current item by logical value rather than retaining a
+possibly disposed owned node, preserving the documented dynamic-item and
+borrowed-focus lifecycle.
+
+New 200% text regressions cover End/Home reveal in horizontal LTR and RTL,
+vertical End reveal, and the separation between focus movement and Space
+activation. Eleven component tests passed with seed `9052049`; the 75-test
+Toggle/Composer suite passed with seed `9052048`; root and full-profile analysis
+remained clean. The dependent Card reviewer owns the source-specific rendered
+composition confirmation before Card merges.
