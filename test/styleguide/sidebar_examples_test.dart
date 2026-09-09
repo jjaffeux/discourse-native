@@ -3,6 +3,7 @@ import 'dart:ui' show Tristate;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/sidebar_examples.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -107,4 +108,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Profile selected'), findsOneWidget);
   });
+
+  testWidgets(
+    'icon collapse keeps the account menu usable without hidden focus',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(900, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Builder(builder: sidebarExamples.examples[1].builder),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DSidebarTrigger));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DCollapsibleTrigger), findsNothing);
+      final account = find.byWidgetPredicate(
+        (widget) =>
+            widget is DSidebarMenuButton &&
+            widget.semanticLabel == 'Open Alex Morgan account menu',
+      );
+      final accountRect = tester.getRect(account);
+      expect(accountRect.size, const Size(32, 32));
+      expect(tester.getRect(find.byType(DAvatar)), accountRect);
+      final focus = tester.widget<DSidebarMenuButton>(account).focusNode!;
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('Profile'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Profile'), findsNothing);
+      expect(focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

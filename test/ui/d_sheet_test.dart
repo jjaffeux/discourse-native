@@ -184,7 +184,7 @@ void main() {
     expect(tester.getSize(find.byType(DSheetContent)).width, 240);
   });
 
-  testWidgets('explicit side width is clamped only by the viewport', (
+  testWidgets('explicit side width is clamped by the maximum and viewport', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);

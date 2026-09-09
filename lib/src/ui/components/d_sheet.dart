@@ -216,7 +216,7 @@ class DSheetContent extends StatelessWidget {
   final String? semanticLabel;
   final double sidePanelMaxWidth;
 
-  /// An exact side-panel width, clamped to the available viewport.
+  /// An exact side-panel width, clamped to [sidePanelMaxWidth] and the viewport.
   ///
   /// Null preserves Sheet's responsive 75% width and 384px desktop cap.
   final double? sidePanelWidth;

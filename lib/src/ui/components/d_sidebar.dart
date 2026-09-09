@@ -413,11 +413,11 @@ class DSidebarGroup extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (label != null)
+        if (label != null && !_PanelScope.iconOf(context))
           Row(
             children: [
               Expanded(child: label!),
-              if (action != null && !_PanelScope.iconOf(context)) action!,
+              if (action != null) action!,
             ],
           ),
         child,
@@ -616,6 +616,8 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
           DSidebarMenuButtonSize.large => 48.0,
         };
     final active = hover || pressed || widget.isActive;
+    final collapsedLarge =
+        iconOnly && widget.size == DSidebarMenuButtonSize.large;
     Widget result = Semantics(
       container: true,
       button: true,
@@ -654,10 +656,12 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                   minHeight: iconOnly ? 32 : minHeight,
                 ),
                 padding: EdgeInsetsDirectional.only(
-                  start: 8,
-                  end: 8 + (_ItemScope.of(context)?.trailing ?? 0),
-                  top: iconOnly ? 8 : 4,
-                  bottom: iconOnly ? 8 : 4,
+                  start: collapsedLarge ? 0 : 8,
+                  end: collapsedLarge
+                      ? 0
+                      : 8 + (_ItemScope.of(context)?.trailing ?? 0),
+                  top: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
+                  bottom: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
                 ),
                 decoration: BoxDecoration(
                   color: active
