@@ -2151,16 +2151,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Drawer (01a08643-3074-72e1-8b18-a2266dd724e6) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "7b230a06c5a0f9f86aae1456146c6aca908991bd",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d486/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement the complete current Base UI Drawer API and Custom Sizes, Styling, Position, Swipe Handle, Nested, Non Modal, Snap Points and Responsive examples. Inspect the actual current reference rather than assuming old Vaul behavior. Provide genuine drag/swipe/snap/interruption physics, scroll-versus-drag coordination, axis/logical positioning, nested gesture ownership and nonmodal behavior, with typed controlled/local/controller lifecycle and correct outside/Escape/back/focus accessibility. Build on accepted Dialog/shared overlay lifecycle where appropriate; don't duplicate a route manager. Preserve safe-area/keyboard insets and reduced motion. Coordinate shared source/app-adoption boundaries with the separately queued Sheet owner. Audit existing real core/plugin bottom sheets/drawers and migrate suitable interactive surfaces without changing business callbacks/permissions or swallowing scroll gestures. Meaningful snap/gesture/lifecycle/focus/production regression coverage is required.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/drawer",
@@ -2178,7 +2179,19 @@
           "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
           "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
         }
-      ]
+      ],
+      "reviewTaskId": "01a08643-3074-72e1-8b18-a2266dd724e6",
+      "reviewBranch": "codex/review-drawer",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/2244/discourse-native",
+      "reviewHandoffCommit": "8377cebe8f34ab7250dfef2c8ee03d5576307946",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Source reports 57 Drawer, Dialog, example and styleguide tests passing with seed 19040911, covering lifecycle, focus, pointer policy, drag/snap/scroll handoff, nested ownership and narrow/scaled/RTL layouts.",
+        "analysis": "Root and full-profile analysis, touched formatting and diff checks pass; enforced locked resolution did not change dependency pins.",
+        "native": "Offline macOS fixture builds; no official rendered browser comparison or actual native acceptance has been claimed.",
+        "ownership": "Drawer owns swipe, snap and nested gestures; Sheet owns showShellSheet consumers and its domain migration. The shared DOverlayRoute/Dialog presentation foundation is coordinated directly with Sheet. ChatDrawerOverlay retention remains subject to independent adoption audit.",
+        "acceptance": "Verified independent reviewer owns all remaining fixes, frozen reference and actual native acceptance, progress acceptance and final local main merge. The implementation cancelled its desktop waiting request."
+      }
     },
     {
       "id": "select",
@@ -3908,7 +3921,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T13:04:45+00:00",
+    "updatedAt": "2026-09-09T13:06:41+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -4034,14 +4047,6 @@
           "taskId": "01a08606-ca44-78f3-98f2-d147200278ef",
           "branch": "codex/ui-input-otp",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9aa9/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
-          "component": "drawer",
-          "taskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
-          "branch": "codex/ui-drawer",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d486/discourse-native",
           "status": "implementation",
           "phase": "reference_and_dependency_preparation"
         },
@@ -4192,6 +4197,16 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "headCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b"
+        },
+        {
+          "component": "drawer",
+          "taskId": "01a08643-3074-72e1-8b18-a2266dd724e6",
+          "branch": "codex/review-drawer",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2244/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
+          "implementationBranch": "codex/ui-drawer",
+          "headCommit": "8377cebe8f34ab7250dfef2c8ee03d5576307946"
         }
       ],
       "nativeReadyTasks": []
@@ -4656,6 +4671,18 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
+          "status": "in_progress"
+        },
+        {
+          "component": "drawer",
+          "title": "Review and merge Drawer",
+          "taskId": "01a08643-3074-72e1-8b18-a2266dd724e6",
+          "hostId": "local",
+          "branch": "codex/review-drawer",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2244/discourse-native",
+          "implementationTaskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
+          "implementationBranch": "codex/ui-drawer",
+          "implementationCommit": "7b230a06c5a0f9f86aae1456146c6aca908991bd",
           "status": "in_progress"
         }
       ],
