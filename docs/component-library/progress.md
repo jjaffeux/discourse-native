@@ -1203,6 +1203,8 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 - flutter analyze --no-pub: no issues; full-profile flutter analyze --no-pub: no issues.
 - flutter test --no-pub test/d_scroll_area_test.dart test/styleguide/scroll_area_examples_test.dart test/d_sidebar_test.dart test/styleguide/sidebar_examples_test.dart test/styleguide/styleguide_page_test.dart test/code_block_test.dart test/diagnostics_panel_test.dart test/voice_diagnostics_view_test.dart test/assigned_group_view_test.dart test/alert_tables_test.dart test/event_calendar_test.dart --test-randomize-ordering-seed=random: 103 passed; log /tmp/scroll-area-focused.log.
 - Touched Dart formatting and git diff --check pass. Native offline fixture entrypoint lib/scroll_area_review_main.dart mounts actual migrated widgets and styleguide.
+- Final source f3ad79ca78f2552771803e8722fd72e5774644ec: root and full-profile analysis clean. Self-contained usage snippets rechecked with example test; 103-test focused run seed 1005865238.
+- Isolated macOS debug build succeeded. Unique final app ID org.discourse.scrollareareviewd422 and URL scheme discourse-scroll-area-review-d422. Kernel equality and deep strict ad-hoc signature verification passed; full provenance in docs/component-library/scroll-area-native.md.
 
 **limitations**
 
