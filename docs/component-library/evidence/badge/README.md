@@ -1,6 +1,6 @@
 # Badge comparison evidence
 
-Implementation source: `08e7042a27dc34f6db11399e26709d622fe14a7a`.
+Implementation source: `8631acd9042cb562cd1ad98cec4db9f0a81fc3c0`.
 
 `reference-*` PNGs and computed-style JSON are live Chrome captures from
 https://ui.shadcn.com/docs/components/base/badge on 2026-09-09.

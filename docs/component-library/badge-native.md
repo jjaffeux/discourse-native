@@ -6,6 +6,8 @@ The isolated app was quit through its menu; the sole task browser tab was
 closed. No shared OS preferences, viewport overrides, provisioning, real account
 state, App Store Connect, pushes or merges were changed.
 
+Implementation and native evidence commit: `8631acd9042cb562cd1ad98cec4db9f0a81fc3c0`.
+
 ## Reviewed app identity
 
 - Source task `01a083ac-c98c-7fe0-878d-54ee3bcbebb9`, branch `codex/ui-badge`.

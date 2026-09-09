@@ -590,7 +590,7 @@
         "No iOS/Linux device, spoken VoiceOver or authenticated production-flow testing. Native AX text and automated semantics checked; representative assigned macOS scenarios complete.",
         "Geist/SF metrics, underline offset and clipped sRGB custom colors differ from wide-gamut CSS. At 200% the existing profile name/action text ellipsizes; its staff/count Badge labels remain visible. Invalid browser states use a clearly identified fixture built from frozen classes and the official compiled stylesheet."
       ],
-      "implementationCommit": "08e7042a27dc34f6db11399e26709d622fe14a7a",
+      "implementationCommit": "8631acd9042cb562cd1ad98cec4db9f0a81fc3c0",
       "mergeCommit": null,
       "nativeInspectionStatus": "completed"
     },
