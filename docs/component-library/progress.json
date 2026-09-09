@@ -3969,11 +3969,8 @@
           "mergeCommit": "0cdec859288cb2fa0369f64e1a9c1c022dc033e4"
         }
       ],
-      "reviewTaskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
-      "reviewBranch": "codex/review-questionnaire",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/6384/discourse-native",
       "reviewHandoffCommit": "8ae170128451e81d3fa1e355eb638bb82fb61eb9",
-      "reviewStatus": "in_progress",
       "implementationHandoffVerification": {
         "focusedTests": "21 Questionnaire controller/widget/styleguide checks and127 affected-owner regressions passed at source handoff.",
         "analysis": "Root/full enforced-lockfile resolution and analysis, formatting/diff checks and macOS fixture build pass.",
