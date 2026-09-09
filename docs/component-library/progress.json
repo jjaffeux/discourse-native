@@ -1645,20 +1645,28 @@
     },
     {
       "id": "popover",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
+      "branch": "codex/ui-popover",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
+      "acceptanceCriteria": [
+        "Match frozen Base UI/base-nova documentation and source, record exact metrics and native adaptations.",
+        "Implement complete documented composition and state/interaction behavior with shared Button, live tokens and correct native focus/semantics/lifecycle.",
+        "Provide all reference examples and meaningful narrow/large-text/RTL states; reconcile pending Input and Field compositions through their owners.",
+        "Audit and migrate appropriate real core/plugin surfaces while retaining specialized adjacent catalogue owners.",
+        "Pass focused component/downstream tests and root/full analysis; compare actual rendered reference and native production fixture before review_ready."
+      ],
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a12a/discourse-native",
+      "nativeInspectionStatus": "implementation"
     },
     {
       "id": "hover-card",
@@ -1680,20 +1688,28 @@
     },
     {
       "id": "dialog",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
+      "branch": "codex/ui-dialog",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
+      "acceptanceCriteria": [
+        "Match frozen Base UI/base-nova documentation and source, record exact metrics and native adaptations.",
+        "Implement complete documented composition and state/interaction behavior with shared Button, live tokens and correct native focus/semantics/lifecycle.",
+        "Provide all reference examples and meaningful narrow/large-text/RTL states; reconcile pending Input and Field compositions through their owners.",
+        "Audit and migrate appropriate real core/plugin surfaces while retaining specialized adjacent catalogue owners.",
+        "Pass focused component/downstream tests and root/full analysis; compare actual rendered reference and native production fixture before review_ready."
+      ],
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
+      "nativeInspectionStatus": "implementation"
     },
     {
       "id": "alert-dialog",
@@ -2455,7 +2471,9 @@
       "01a0844a-0669-7780-92e8-33cc4314f64a",
       "01a08454-55a6-7681-8da9-bec8b23899a4",
       "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
-      "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
+      "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
+      "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
+      "01a084fb-b319-7053-8265-8cb4db577932"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -2504,20 +2522,15 @@
       "instruction": "Once the current correction is done, resume the goal and continue the other components. Commit and merge only locally; do not push anything to GitHub or change anything on App Store Connect.",
       "status": "in_progress",
       "startingMainCommit": "8ea22c643829a10a5031019e2aef4e83956c7a8f",
-      "nextComponents": [
-        "popover",
-        "dialog",
-        "toggle",
-        "tabs"
-      ],
+      "nextComponents": [],
       "activeTasks": [
         {
           "component": "badge",
           "taskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
           "branch": "codex/ui-badge",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native",
-          "headCommit": "45d85a99e12e9907a8c8d3ed882c8920b52d0f18",
-          "status": "exterior_ring_review"
+          "headCommit": "57710f4f05a8aad841b68b828f3cdce7cc2a75a7",
+          "status": "native_review"
         },
         {
           "component": "input",
@@ -2526,6 +2539,22 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
           "headCommit": "a7550c39004087bc8509efdbdb8f0b2a82ca779b",
           "status": "button_integration"
+        },
+        {
+          "component": "popover",
+          "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
+          "branch": "codex/ui-popover",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a12a/discourse-native",
+          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
+          "status": "implementation"
+        },
+        {
+          "component": "dialog",
+          "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
+          "branch": "codex/ui-dialog",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
+          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
+          "status": "implementation"
         }
       ],
       "nativeReadyTasks": [
@@ -2761,6 +2790,15 @@
         "Generic Input semantic boundary is integrated and 40 affected tests pass. Apply final Button Users fixes before rerunning affected combined checks and analysis.",
         "Temporary integration remains unmerged and does not grant dependency availability."
       ]
+    },
+    "dispatchPolicy": {
+      "status": "clear_review_backlog",
+      "reason": "User raised the accumulation of unmerged implementations on 2026-09-09. Prioritize review, integration and local merges; do not dispatch further components while clearing the existing queue.",
+      "alreadyStarted": [
+        "popover",
+        "dialog"
+      ],
+      "resumeCondition": "Existing implementation/review backlog substantially reduced; current tasks may finish."
     }
   },
   "visualFidelity": {

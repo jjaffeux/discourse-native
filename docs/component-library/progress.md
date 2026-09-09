@@ -40,9 +40,9 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | planned | — | — | button | — |
 | 30 | resizable | in_progress | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
-| 31 | popover | planned | — | — | button | — |
+| 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
-| 33 | dialog | planned | — | — | button | — |
+| 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
 | 34 | alert-dialog | planned | — | — | dialog | — |
 | 35 | sheet | planned | — | — | dialog | — |
 | 36 | drawer | planned | — | — | dialog | — |
@@ -1657,6 +1657,30 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 **limitations**
 
 - awaiting_slot: Mac locked; no browser/CUA/app launch performed. Native/reference-rendered light/dark/custom palette, large-text/RTL comparisons, real fixture inspection and VoiceOver/device behavior still pending. Not review_ready or mergeable.
+
+### popover
+
+Status: in_progress. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-popover.
+
+**acceptanceCriteria**
+
+- Match frozen Base UI/base-nova documentation and source, record exact metrics and native adaptations.
+- Implement complete documented composition and state/interaction behavior with shared Button, live tokens and correct native focus/semantics/lifecycle.
+- Provide all reference examples and meaningful narrow/large-text/RTL states; reconcile pending Input and Field compositions through their owners.
+- Audit and migrate appropriate real core/plugin surfaces while retaining specialized adjacent catalogue owners.
+- Pass focused component/downstream tests and root/full analysis; compare actual rendered reference and native production fixture before review_ready.
+
+### dialog
+
+Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/ui-dialog.
+
+**acceptanceCriteria**
+
+- Match frozen Base UI/base-nova documentation and source, record exact metrics and native adaptations.
+- Implement complete documented composition and state/interaction behavior with shared Button, live tokens and correct native focus/semantics/lifecycle.
+- Provide all reference examples and meaningful narrow/large-text/RTL states; reconcile pending Input and Field compositions through their owners.
+- Audit and migrate appropriate real core/plugin surfaces while retaining specialized adjacent catalogue owners.
+- Pass focused component/downstream tests and root/full analysis; compare actual rendered reference and native production fixture before review_ready.
 
 ### native-select
 
