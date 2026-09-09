@@ -20,6 +20,7 @@ void main() {
       'Disabled',
       'Invalid and Form',
       'RTL',
+      'Multiple and custom value',
       'Button Group handoff',
     ]);
   });
@@ -251,6 +252,46 @@ void main() {
     expect((selectedCenter.dy - triggerCenter.dy).abs(), lessThanOrEqualTo(4));
   });
 
+  testWidgets('selected last item aligns with the trigger when space permits', (
+    tester,
+  ) async {
+    await _mount(
+      tester,
+      DSelect<String>.controlled(
+        value: 'grapes',
+        semanticLabel: 'Fruit',
+        entries: const [
+          DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
+          DSelectOption(
+            value: 'banana',
+            label: 'Banana',
+            child: Text('Banana'),
+          ),
+          DSelectOption(
+            value: 'blueberry',
+            label: 'Blueberry',
+            child: Text('Blueberry'),
+          ),
+          DSelectOption(
+            value: 'grapes',
+            label: 'Grapes',
+            child: Text('Grapes'),
+          ),
+        ],
+        onChanged: _noopString,
+      ),
+    );
+
+    final triggerCenter = tester.getCenter(find.text('Grapes'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    final selectedCenter = tester.getCenter(find.text('Grapes').last);
+    expect((selectedCenter.dy - triggerCenter.dy).abs(), lessThanOrEqualTo(4));
+  });
+
   testWidgets('caller-owned popup scrolling stays bounded', (tester) async {
     await _mount(
       tester,
@@ -353,6 +394,221 @@ void main() {
     expect(values, ['dart', 'ruby']);
     expect(find.text('Dart (+1 more)'), findsOneWidget);
   });
+
+  testWidgets('external controlled opening enables and focuses popup options', (
+    tester,
+  ) async {
+    var open = false;
+    String? value = 'apple';
+    late StateSetter update;
+    await _mount(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return DSelect<String>.controlled(
+            open: open,
+            value: value,
+            semanticLabel: 'Fruit',
+            entries: const [
+              DSelectOption(
+                value: 'apple',
+                label: 'Apple',
+                child: Text('Apple'),
+              ),
+              DSelectOption(
+                value: 'banana',
+                label: 'Banana',
+                child: Text('Banana'),
+              ),
+            ],
+            onChanged: (next) => setState(() => value = next),
+          );
+        },
+      ),
+    );
+
+    update(() => open = true);
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      startsWith('DSelect option '),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(value, 'banana');
+  });
+
+  testWidgets(
+    'disabled selected option falls back to an enabled focus target',
+    (tester) async {
+      String? value = 'grapes';
+      await _mount(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) => DSelect<String>.controlled(
+            value: value,
+            semanticLabel: 'Fruit',
+            entries: const [
+              DSelectOption(
+                value: 'apple',
+                label: 'Apple',
+                child: Text('Apple'),
+              ),
+              DSelectOption(
+                value: 'grapes',
+                label: 'Grapes',
+                enabled: false,
+                child: Text('Grapes'),
+              ),
+            ],
+            onChanged: (next) => setState(() => value = next),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Grapes'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(value, 'apple');
+    },
+  );
+
+  testWidgets('repeated-letter typeahead cycles enabled matching options', (
+    tester,
+  ) async {
+    String? value = 'apple';
+    await _mount(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) => DSelect<String>.controlled(
+          value: value,
+          semanticLabel: 'Fruit',
+          entries: const [
+            DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
+            DSelectOption(
+              value: 'apricot',
+              label: 'Apricot',
+              child: Text('Apricot'),
+            ),
+            DSelectOption(
+              value: 'avocado',
+              label: 'Avocado',
+              child: Text('Avocado'),
+            ),
+          ],
+          onChanged: (next) => setState(() => value = next),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Apple'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(value, 'avocado');
+  });
+
+  testWidgets('large text expands trigger and rows without clipping', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Center(
+              child: DSelect<String>(
+                initialValue: 'apple',
+                semanticLabel: 'Fruit',
+                entries: const [
+                  DSelectOption(
+                    value: 'apple',
+                    label: 'Apple',
+                    child: Text('Apple'),
+                  ),
+                  DSelectOption(
+                    value: 'banana',
+                    label: 'Banana',
+                    child: Text('Banana'),
+                  ),
+                ],
+                onChanged: _noopString,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const Key('d-select-trigger-visual'))).height,
+      greaterThanOrEqualTo(50),
+    );
+    await tester.tap(find.text('Apple'));
+    await tester.pumpAndSettle();
+    final row = find.ancestor(
+      of: find.text('Apple').last,
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(tester.getSize(row).height, greaterThanOrEqualTo(48));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'initial scroll-down arrow is actionable for an overflowing list',
+    (tester) async {
+      await _mount(
+        tester,
+        Theme(
+          data: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          child: DSelect<int>(
+            initialValue: 0,
+            semanticLabel: 'Number',
+            maxPopupHeight: 120,
+            entries: [
+              for (var value = 0; value < 30; value++)
+                DSelectOption(
+                  value: value,
+                  label: 'Number $value',
+                  child: Text('Number $value'),
+                ),
+            ],
+            onChanged: (_) {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Number 0'));
+      await tester.pumpAndSettle();
+      final arrow = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Scroll options down',
+      );
+      expect(arrow, findsOneWidget);
+      final before = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
+      await tester.tap(arrow);
+      await tester.pumpAndSettle();
+      final after = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
+      expect(after, greaterThan(before));
+    },
+  );
 
   testWidgets('read-only select opens and navigates but cannot mutate', (
     tester,

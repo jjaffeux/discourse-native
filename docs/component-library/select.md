@@ -15,7 +15,7 @@ The Popover pin is not accepted main. The Select reviewer must integrate accepte
 
 ## Geometry and visual mapping
 
-- Trigger height is 32px by default and 28px for small controls, with 14px text and 20px line height.
+- Trigger height is 32px by default and 28px for small controls, with 14px text and 20px line height. At larger accessibility scales the control grows to retain the scaled line plus 10px (6px small) instead of clipping it; rows and group labels use the same intrinsic-line adaptation while preserving 28px pointer rows at 100% and 48px touch rows.
 - Trigger padding follows the reference directional shape: compact leading content, trailing 16px chevron, input border and proportional token radii.
 - Focus and invalid rings render outside the trigger so grouped or adjacent composition can preserve joined exterior geometry.
 - Disabled state uses reduced opacity without replacing the trigger or item semantics.
@@ -39,6 +39,14 @@ The Popover pin is not accepted main. The Select reviewer must integrate accepte
 - Selected-row alignment is used for keyboard/mouse opening when there is enough viewport room. Touch or insufficient-space openings fall back to edge-safe Popover placement.
 - Focus restores to the trigger when the popup closes from option focus.
 - RTL, text scaling, narrow layout and live theme changes are covered by focused widget tests.
+- Repeated-letter typeahead cycles matching enabled options, modified shortcuts are ignored, and an externally controlled `open` transition enables/focuses the option nodes even when no internal open request occurred.
+- Disabled selected values fall back to the first enabled focus target. Non-scrollable selected rows use their actual center for overlap placement; bounded lists reveal the selected row around the viewport center and expose working scroll arrows immediately.
+
+## Independent review corrections
+
+- Restored the documented disabled opacity and multiplicative dark input tint, including light/dark destructive border and ring alpha, and exposed invalid state through native validation semantics.
+- Corrected controlled-open focus synchronization, disabled-selected focus fallback, no-current arrow navigation, repeated-letter typeahead, lower-half selected-row alignment and the initially inert scroll-down affordance.
+- Added a real multiple-selection/custom-value styleguide example and focused regressions for every correction, including measured 200% trigger/row growth.
 
 ## Button Group dependency handoff
 

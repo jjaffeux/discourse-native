@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
@@ -181,6 +182,8 @@ class DSelect<T> extends FormField<T> {
     super.autovalidateMode,
     super.forceErrorText,
   }) : assert(entries != null || items != null),
+       assert(width > 0),
+       assert(maxPopupHeight > 0),
        entries = entries ?? _entriesFromDropdownItems<T>(items!),
        _controlled = value != null,
        super(builder: (state) => (state as _DSelectFormState<T>)._build());
@@ -235,6 +238,8 @@ class DSelect<T> extends FormField<T> {
     super.autovalidateMode,
     super.forceErrorText,
   }) : _controlled = true,
+       assert(width > 0),
+       assert(maxPopupHeight > 0),
        super(builder: (state) => (state as _DSelectFormState<T>)._build());
 
   final List<DSelectEntry<T>> entries;
@@ -481,6 +486,8 @@ class DMultiSelect<T> extends FormField<List<T>> {
     super.forceErrorText,
   }) : value = null,
        _controlled = false,
+       assert(width > 0),
+       assert(maxPopupHeight > 0),
        super(
          initialValue: List<T>.unmodifiable(initialValue),
          builder: (state) => (state as _DMultiSelectFormState<T>)._build(),
@@ -536,6 +543,8 @@ class DMultiSelect<T> extends FormField<List<T>> {
     super.forceErrorText,
   }) : value = List<T>.unmodifiable(value),
        _controlled = true,
+       assert(width > 0),
+       assert(maxPopupHeight > 0),
        super(
          initialValue: List<T>.unmodifiable(initialValue),
          builder: (state) => (state as _DMultiSelectFormState<T>)._build(),
@@ -788,6 +797,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
   bool _openedWithTouch = false;
   String _typeahead = '';
   Timer? _typeaheadTimer;
+  Duration? _lastTypedAt;
+  int? _lastTypeaheadMatch;
 
   DPopoverController get _popover => widget.popoverController ?? _ownedPopover;
   ScrollController get _scroll => widget.scrollController ?? _ownedScroll;
@@ -826,7 +837,12 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       );
       _scroll.addListener(_scrollChanged);
     }
-    if (_items.length != _optionFocus.length) _syncNodes();
+    if (_items.length != _optionFocus.length) {
+      _syncNodes();
+    } else if (oldWidget.open != widget.open) {
+      _setOptionFocusability(_isOpen);
+      if (_isOpen) _focusInitial();
+    }
   }
 
   void _scrollChanged() {
@@ -849,6 +865,13 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           ),
         ),
       );
+  }
+
+  void _setOptionFocusability(bool open) {
+    for (final node in _optionFocus) {
+      node.canRequestFocus = open;
+      node.skipTraversal = !open;
+    }
   }
 
   bool _selected(DSelectItem<T> item) =>
@@ -892,7 +915,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_isOpen) return;
       final selected = _selectedIndex;
-      final index = selected >= 0
+      final index = selected >= 0 && _items[selected].enabled
           ? selected
           : _enabledFrom(
               last ? _items.length - 1 : 0,
@@ -938,7 +961,15 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
         event.logicalKey == LogicalKeyboardKey.arrowUp) {
       final delta = event.logicalKey == LogicalKeyboardKey.arrowDown ? 1 : -1;
-      _focusIndex(_enabledFrom(current < 0 ? 0 : current, delta));
+      _focusIndex(
+        current < 0
+            ? _enabledFrom(
+                delta > 0 ? 0 : _items.length - 1,
+                delta,
+                includeStart: true,
+              )
+            : _enabledFrom(current, delta),
+      );
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.home) {
@@ -966,20 +997,37 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       _choose(_items[current], DSelectChangeReason.keyboard);
       return KeyEventResult.handled;
     }
+    final keyboard = HardwareKeyboard.instance;
     final character = event.character;
     if (character != null &&
         character.trim().isNotEmpty &&
-        character.length == 1) {
+        character.length == 1 &&
+        !keyboard.isControlPressed &&
+        !keyboard.isMetaPressed &&
+        !keyboard.isAltPressed) {
       _typeaheadTimer?.cancel();
-      _typeahead += character.toLowerCase();
+      final letter = character.toLowerCase();
+      final recent =
+          _lastTypedAt != null &&
+          event.timeStamp - _lastTypedAt! < const Duration(milliseconds: 700);
+      final repeated =
+          recent &&
+          _typeahead.isNotEmpty &&
+          _typeahead.runes.every((rune) => String.fromCharCode(rune) == letter);
+      _typeahead = recent && !repeated ? '$_typeahead$letter' : letter;
+      _lastTypedAt = event.timeStamp;
       _typeaheadTimer = Timer(const Duration(milliseconds: 700), () {
         _typeahead = '';
       });
       final items = _items;
-      for (var step = 1; step <= items.length; step++) {
-        final index = (math.max(current, -1) + step) % items.length;
+      final start = recent && !repeated
+          ? (_lastTypeaheadMatch ?? current)
+          : ((recent ? (_lastTypeaheadMatch ?? current) : current) + 1);
+      for (var step = 0; step < items.length; step++) {
+        final index = (math.max(0, start) + step) % items.length;
         if (items[index].enabled &&
             items[index].textValue.toLowerCase().startsWith(_typeahead)) {
+          _lastTypeaheadMatch = index;
           _focusIndex(index);
           break;
         }
@@ -997,12 +1045,15 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
 
   void _openChanged(bool open, DPopoverChangeReason reason) {
     if (widget.open == null) setState(() => _localOpen = open);
-    for (final node in _optionFocus) {
-      node.canRequestFocus = open;
-      node.skipTraversal = !open;
-    }
+    _setOptionFocusability(open);
     if (!open && _optionFocus.any((node) => node.hasFocus)) {
       _focus.requestFocus();
+    }
+    if (!open) {
+      _typeaheadTimer?.cancel();
+      _typeahead = '';
+      _lastTypedAt = null;
+      _lastTypeaheadMatch = null;
     }
     widget.onOpenChange?.call(open, reason);
     if (open) _focusInitial();
@@ -1032,13 +1083,13 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     return Text(item?.textValue ?? widget.placeholder);
   }
 
-  double _naturalHeight(double itemHeight) {
+  double _naturalHeight(double itemHeight, double labelHeight) {
     var height = 0.0;
     for (final entry in widget.entries) {
       height += switch (entry) {
         DSelectItem<T>() => itemHeight,
         DSelectGroup<T>(:final label, :final items) =>
-          8 + (label == null ? 0 : 24) + items.length * itemHeight,
+          8 + (label == null ? 0 : labelHeight) + items.length * itemHeight,
         DSelectSeparator<T>() => 9,
       };
     }
@@ -1047,6 +1098,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
 
   double? _selectedCenter(
     double itemHeight,
+    double labelHeight,
     double viewportHeight, {
     required bool scrollable,
     required bool arrows,
@@ -1066,12 +1118,10 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         offset += itemHeight;
         index++;
       } else if (entry case DSelectGroup<T> group) {
-        offset += 4 + (group.label == null ? 0 : 24);
+        offset += 4 + (group.label == null ? 0 : labelHeight);
         for (final _ in group.items) {
           if (index == selected) {
-            return math
-                .min(offset + itemHeight / 2, viewportHeight / 2)
-                .toDouble();
+            return offset + itemHeight / 2;
           }
           offset += itemHeight;
           index++;
@@ -1081,12 +1131,13 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         offset += 9;
       }
     }
-    return math.min(offset + itemHeight / 2, viewportHeight / 2).toDouble();
+    return offset + itemHeight / 2;
   }
 
   Widget _entry(
     DSelectEntry<T> entry,
     double itemHeight,
+    double labelHeight,
     Iterator<int> indices,
   ) {
     if (entry case DSelectItem<T> item) {
@@ -1116,7 +1167,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
             children: [
               if (group.label != null)
                 SizedBox(
-                  height: 24,
+                  height: labelHeight,
                   child: Padding(
                     padding: const EdgeInsetsDirectional.symmetric(
                       horizontal: 6,
@@ -1134,7 +1185,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                     ),
                   ),
                 ),
-              for (final item in group.items) _entry(item, itemHeight, indices),
+              for (final item in group.items)
+                _entry(item, itemHeight, labelHeight, indices),
             ],
           ),
         ),
@@ -1153,13 +1205,27 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
 
   DPopoverContent _popup(double popupWidth) {
     final touch = _touch;
-    final itemHeight = touch ? DSpacing.touchTarget : 28.0;
-    final naturalHeight = _naturalHeight(itemHeight);
+    final scaler = MediaQuery.textScalerOf(context);
+    final scaledLineHeight =
+        scaler.scale(DiscourseTypography.sm) *
+        DiscourseTypography.lineHeightSmall;
+    final itemHeight = math.max(
+      touch ? DSpacing.touchTarget : 28.0,
+      scaledLineHeight + 8,
+    );
+    final labelHeight = math.max(
+      24.0,
+      scaler.scale(DiscourseTypography.xs) *
+              DiscourseTypography.lineHeightCaption +
+          8,
+    );
+    final naturalHeight = _naturalHeight(itemHeight, labelHeight);
     final height = math.min(widget.maxPopupHeight, naturalHeight);
     final overflows = naturalHeight > widget.maxPopupHeight;
     final arrows = overflows && !touch;
     final selectedCenter = _selectedCenter(
       itemHeight,
+      labelHeight,
       height,
       scrollable: overflows,
       arrows: arrows,
@@ -1174,15 +1240,16 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final entry in widget.entries)
-              _entry(entry, itemHeight, indices),
+              _entry(entry, itemHeight, labelHeight, indices),
           ],
         ),
       ),
     );
     final canScrollUp = _scroll.hasClients && _scroll.offset > 0.5;
     final canScrollDown =
-        _scroll.hasClients &&
-        _scroll.offset < _scroll.position.maxScrollExtent - 0.5;
+        overflows &&
+        (!_scroll.hasClients ||
+            _scroll.offset < _scroll.position.maxScrollExtent - 0.5);
     final content = arrows
         ? Column(
             children: [
@@ -1237,21 +1304,38 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
   Widget _trigger(DPopoverTriggerState trigger, double popupWidth) {
     final tokens = DTokens.of(context);
     final invalid = widget.invalid || widget.errorText != null;
-    final visualHeight = widget.size == DSelectSize.small ? 28.0 : 32.0;
-    final radius =
-        tokens.radius * (widget.size == DSelectSize.small ? 0.8 : 1.0);
+    final small = widget.size == DSelectSize.small;
+    final visualHeight = math.max(
+      small ? 28.0 : 32.0,
+      MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
+              DiscourseTypography.lineHeightSmall +
+          (small ? 6 : 10),
+    );
+    final radius = tokens.radius * (small ? 0.8 : 1.0);
     final foreground =
         widget.values.any(
           (value) => _items.any((item) => widget.equals(item.value, value)),
         )
         ? tokens.foreground
         : tokens.mutedForeground;
-    final background = _triggerPressed || _triggerHovered
-        ? tokens.colors.outlineVariant.withValues(
-            alpha: tokens.colors.outlineVariant.a * 0.50,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final input = tokens.colors.outlineVariant;
+    final background = dark
+        ? input.withValues(
+            alpha:
+                input.a *
+                ((_triggerPressed || _triggerHovered) && widget.enabled
+                    ? 0.50
+                    : 0.30),
           )
+        : _triggerPressed || _triggerHovered
+        ? input.withValues(alpha: input.a * 0.50)
         : Colors.transparent;
-    final border = invalid ? tokens.destructive : tokens.colors.outlineVariant;
+    final border = invalid
+        ? tokens.destructive.withValues(
+            alpha: tokens.destructive.a * (dark ? 0.5 : 1),
+          )
+        : input;
     Widget visual = AnimatedContainer(
       key: const Key('d-select-trigger-visual'),
       duration: DMotion.duration(context, const Duration(milliseconds: 100)),
@@ -1289,7 +1373,11 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     );
     if (_triggerFocused || invalid) {
       visual = _DSelectRing(
-        color: invalid ? tokens.destructive : tokens.focusRing,
+        color: invalid
+            ? tokens.destructive.withValues(
+                alpha: tokens.destructive.a * (dark ? 0.8 : 0.4),
+              )
+            : tokens.focusRing,
         radius: radius,
         child: visual,
       );
@@ -1303,6 +1391,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       enabled: widget.enabled,
       readOnly: widget.readOnly ? true : null,
       expanded: trigger.open,
+      validationResult: invalid
+          ? SemanticsValidationResult.invalid
+          : SemanticsValidationResult.none,
       label: semanticsLabel,
       value: _items.where(_selected).map((item) => item.textValue).join(', '),
       onTap: widget.enabled ? trigger.toggle : null,
@@ -1345,6 +1436,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         ),
       ),
     );
+    if (!widget.enabled) action = Opacity(opacity: 0.5, child: action);
     if (_touch && visualHeight < DSpacing.touchTarget) {
       action = SizedBox(
         height: DSpacing.touchTarget,
@@ -1499,7 +1591,7 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final enabled = widget.enabled && widget.item.enabled;
-    final highlighted = _focused || _hovered;
+    final highlighted = _focused || (enabled && _hovered);
     Widget row = AnimatedContainer(
       key: ValueKey(('d-select-item', widget.item.value)),
       duration: DMotion.duration(context, const Duration(milliseconds: 100)),

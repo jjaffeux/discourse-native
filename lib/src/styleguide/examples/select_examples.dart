@@ -119,6 +119,24 @@ final selectExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Multiple and custom value',
+      description:
+          'Multiple mode keeps the popup open while toggling values and can format the read-only selection.',
+      states: const ['Multiple', 'Controlled', 'Custom value'],
+      code: '''DMultiSelect<String>.controlled(
+  value: languages,
+  entries: const [
+    DSelectOption(value: 'dart', label: 'Dart', child: Text('Dart')),
+    DSelectOption(value: 'ruby', label: 'Ruby', child: Text('Ruby')),
+  ],
+  valueBuilder: (context, values, items) => Text(
+    values.isEmpty ? 'Select languages' : items.map((item) => item.textValue).join(' · '),
+  ),
+  onChanged: (values) => setState(() => languages = values),
+)''',
+      builder: (_) => const _MultipleSelectDemo(),
+    ),
+    StyleguideExample(
       title: 'Button Group handoff',
       description:
           'The trigger remains an independent control beside adjacent actions; the popup is outside joined geometry.',
@@ -557,6 +575,38 @@ class _ButtonGroupHandoffSelectDemo extends StatefulWidget {
   @override
   State<_ButtonGroupHandoffSelectDemo> createState() =>
       _ButtonGroupHandoffSelectDemoState();
+}
+
+class _MultipleSelectDemo extends StatefulWidget {
+  const _MultipleSelectDemo();
+
+  @override
+  State<_MultipleSelectDemo> createState() => _MultipleSelectDemoState();
+}
+
+class _MultipleSelectDemoState extends State<_MultipleSelectDemo> {
+  List<String> _languages = const ['dart'];
+
+  @override
+  Widget build(BuildContext context) => Align(
+    child: DMultiSelect<String>.controlled(
+      value: _languages,
+      semanticLabel: 'Languages',
+      width: 224,
+      entries: const [
+        DSelectOption(value: 'dart', label: 'Dart', child: Text('Dart')),
+        DSelectOption(value: 'ruby', label: 'Ruby', child: Text('Ruby')),
+        DSelectOption(value: 'swift', label: 'Swift', child: Text('Swift')),
+        DSelectOption(value: 'kotlin', label: 'Kotlin', child: Text('Kotlin')),
+      ],
+      valueBuilder: (context, values, items) => Text(
+        values.isEmpty
+            ? 'Select languages'
+            : items.map((item) => item.textValue).join(' · '),
+      ),
+      onChanged: (values) => setState(() => _languages = values),
+    ),
+  );
 }
 
 class _ButtonGroupHandoffSelectDemoState
