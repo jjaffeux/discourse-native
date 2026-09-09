@@ -101,7 +101,15 @@ class BadgesPage extends StatelessWidget {
     if (catalog.total == 0)
       const SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(child: Text('No badges to display.')),
+        child: Center(
+          child: SingleChildScrollView(
+            child: DEmpty(
+              children: [
+                DEmptyHeader(children: [DEmptyTitle('No badges to display.')]),
+              ],
+            ),
+          ),
+        ),
       ),
     for (final group in catalog.groups) ...[
       SliverToBoxAdapter(

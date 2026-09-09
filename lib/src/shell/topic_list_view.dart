@@ -2117,36 +2117,29 @@ class _Message extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DIcon(icon, size: 40, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 12),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            if (actionLabel case final label?) ...[
-              const SizedBox(height: 8),
-              DButton(
-                key: const ValueKey('topic-feed-initial-retry'),
-                label: Text(label),
-                onPressed: onAction,
-                variant: DButtonVariant.link,
-              ),
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+              DEmptyTitle(text),
             ],
-          ],
-        ),
+          ),
+          if (actionLabel case final label?)
+            DEmptyContent(
+              children: [
+                DButton(
+                  key: const ValueKey('topic-feed-initial-retry'),
+                  label: Text(label),
+                  onPressed: onAction,
+                  variant: DButtonVariant.link,
+                ),
+              ],
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

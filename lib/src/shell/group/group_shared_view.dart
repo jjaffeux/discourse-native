@@ -262,22 +262,32 @@ class _GroupState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: ContentReadingLaneBox(
-      padding: const EdgeInsets.all(30),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DIcon(icon, size: 34),
-          const SizedBox(height: 12),
-          Text(title, textAlign: TextAlign.center),
-          if (actionLabel != null) ...[
-            const SizedBox(height: 14),
-            DButton(
-              label: Text(actionLabel!),
-              onPressed: onAction == null ? null : () => unawaited(onAction!()),
+    child: SingleChildScrollView(
+      child: ContentReadingLaneBox(
+        child: DEmpty(
+          children: [
+            DEmptyHeader(
+              children: [
+                DEmptyMedia(
+                  variant: DEmptyMediaVariant.icon,
+                  child: DIcon(icon),
+                ),
+                DEmptyTitle(title),
+              ],
             ),
+            if (actionLabel != null)
+              DEmptyContent(
+                children: [
+                  DButton(
+                    label: Text(actionLabel!),
+                    onPressed: onAction == null
+                        ? null
+                        : () => unawaited(onAction!()),
+                  ),
+                ],
+              ),
           ],
-        ],
+        ),
       ),
     ),
   );
