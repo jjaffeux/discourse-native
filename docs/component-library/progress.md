@@ -26,7 +26,7 @@ Branch preparation does not mark a component merged or visually verified.
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
 | pagination | independent review | 2167c871 | 01a08629-4841-73d0-a5a6-c723f253b4b0 |
-| date-picker | Implementation and checks | — | — |
+| date-picker | Implementation and checks | — | 01a086a1-dd61-77d1-ae4f-a09fa87ff595 |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
@@ -2723,7 +2723,33 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/u
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner coordinates directly with parent owners; no coordinator admission gate and no substitute final primitives.
+- DDatePicker and DDateRangePicker compose DButton, DPopover, DField and the Kalender 0.29.1-backed DCalendar. DDatePickerInput additionally composes final DInputGroup/DInputGroupInput/addon/button owners; no overlay, form control or calendar engine is duplicated.
+- DCalendarDate is a civil date rather than an instant. DTimeValue is a strict HH:mm[:ss] wall-clock value. Generic picker code never invents timezone or DST policy; application adapters retain that responsibility.
+- Editable input retains invalid non-empty text and the last valid selection, moves Calendar only after a valid in-bounds enabled date, opens on Arrow Down, normalizes Calendar selections through the supplied locale codec and closes with focus restoration.
+- The deterministic English natural-language adapter uses an explicit reference clock and a strict date fallback. Other languages require an injected parser rather than silently applying English grammar.
+- Independent reviewer task 01a086a1-dd61-77d1-ae4f-a09fa87ff595 owns source review, fixes, browser/native acceptance, dependency reconciliation and final local main merge.
+
+**migrations**
+
+- Local Date composer start/end civil-date fields now use DDatePickerInput with the existing ISO controllers, 1900-2200 bounds and existing LocalDateComposerDraft validation, recurrence, preview and timezone ownership preserved.
+
+**retainedAlternatives**
+
+- Discourse Events keeps its combined date-time text adapter and Material two-stage dialog until a Date Picker adapter can preserve all-day parsing, recurrence-until, end-after-start and site-timezone behavior without splitting its existing string ownership.
+- Bookmark reminder keeps its account-zone dialog because it explicitly rejects nonexistent DST wall times and coordinates async persistence/session currency.
+- User status custom expiry keeps its guarded async date/time flow and future-time validation; fixed relative expiry actions are domain actions, not Date Picker presets.
+- Event/topic Kalender views are full domain calendars rather than date-entry controls and remain with their owners.
+
+**verification**
+
+- Implementation handoff reported 36 focused Date Picker, Calendar and Local Date tests passing with seed 9082026, clean root/full analysis and a successful exact-source macOS fixture build; independent review reruns and acceptance evidence follow in this row.
+
+**limitations**
+
+- Official reference browser comparison and native macOS inspection remain reviewer-owned acceptance gates.
+- Calendar source was integrated before acceptance and must be reconciled from its final main merge. Input Group is accepted on main at d1de717b1e2d1eeaf06d86dafe1452662d05e368.
+- No iOS/Linux device or spoken VoiceOver verification was performed.
 
 ### carousel
 
@@ -3156,3 +3182,4 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+
