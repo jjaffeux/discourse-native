@@ -52,9 +52,11 @@ the caller supplies `open: false`.
 
 `DDialogController<T>` is a borrowed imperative handle. `submit` exposes busy
 state, returns the same Future for repeated activation, propagates failures,
-and closes only when its original attachment is still mounted and open.
-`showDDialog<T>` is the route-oriented helper and returns the typed close result.
-Both APIs use the nearest Navigator unless `useRootNavigator` is explicitly set.
+and closes only when its original attachment and open session remain current.
+`showDDialog<T>` is the route-oriented helper, builds content with a true route
+descendant context and returns the typed close result. Both APIs use the nearest
+Navigator unless `useRootNavigator` is explicitly set. Caller-scoped theme,
+media and direction changes remain live while the helper route is open.
 
 The route requests focus, loops traversal at both edges, optionally targets a
 borrowed initial focus node, and restores a borrowed final node or the previously
@@ -101,6 +103,6 @@ Retained alternatives are narrow rather than unfinished Dialog copies:
 - vendored WebRTC examples are third-party sources and are not app adoption
   targets.
 
-Input and Field own the future visual replacement of the temporary native fields
-in examples and migrated forms. No substitute Field public owner is added
-here.
+The merged Input owner supplies the single-line fields in the examples. Richer
+Field composition remains with that separate catalogue owner; no substitute
+Field public API is added here.
