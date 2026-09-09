@@ -1,0 +1,8 @@
+{
+  "smallTravel": 10,
+  "smallAfter": {
+    "checked": "true",
+    "x": 625
+  },
+  "smallEnter": "false"
+}

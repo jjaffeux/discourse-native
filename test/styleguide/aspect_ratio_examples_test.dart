@@ -154,23 +154,13 @@ void main() {
     'arbitrary ratio responds to keyboard and independent fit/clipping controls',
     (tester) async {
       await _pump(tester, aspectRatioExamples.examples[4]);
-      final slider = find.byType(Slider);
+      final slider = find.byType(DSlider);
       await tester.tap(slider);
       await tester.pumpAndSettle();
-      final focus = tester
-          .widget<FocusableActionDetector>(
-            find.descendant(
-              of: slider,
-              matching: find.byType(FocusableActionDetector),
-            ),
-          )
-          .focusNode!;
-      focus.requestFocus();
-      await tester.pump();
-      final before = tester.widget<Slider>(slider).value;
+      final before = tester.widget<DSlider>(slider).value;
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
-      final after = tester.widget<Slider>(slider).value;
+      final after = tester.widget<DSlider>(slider).value;
       expect(after, greaterThan(before));
       expect(
         tester.widget<DAspectRatio>(find.byType(DAspectRatio)).ratio,

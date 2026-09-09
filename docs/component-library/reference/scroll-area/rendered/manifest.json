@@ -1,0 +1,229 @@
+{
+  "referenceUrl": "https://ui.shadcn.com/docs/components/base/scroll-area",
+  "captureDate": "2026-09-09",
+  "method": "Official Chrome reference screenshots and font-loaded Flutter widget render exports; NOT native verification.",
+  "files": [
+    {
+      "file": "fixture-alerts.png",
+      "sha256": "5a4a87809b4a798561935aadab95e5c48eac5bed9548ea616bf3f42326912179"
+    },
+    {
+      "file": "fixture-assignments.png",
+      "sha256": "96e222c6927c0ebdd25c72c1b0fe91fb98b0cca4bceee276f7551cb01ea848e3"
+    },
+    {
+      "file": "fixture-calendar.png",
+      "sha256": "2440fb01904d91feef85996aa3cf8149141764d04542d4eac036c586708c987e"
+    },
+    {
+      "file": "fixture-code.png",
+      "sha256": "1aa4605e921468e29b4436c7d550a085c21ab15cccc2f3fab710dc04fa9c2f50"
+    },
+    {
+      "file": "fixture-custom-alerts.png",
+      "sha256": "f1b38fbd48f529a39a1c21eaa5b85e2508d29123e9abacf86c13c8184a7818dc"
+    },
+    {
+      "file": "fixture-custom-assignments.png",
+      "sha256": "773321c2725a46d9bb09be5ed6d133f24e36b719cb96f5b66898da3e135915ad"
+    },
+    {
+      "file": "fixture-custom-calendar.png",
+      "sha256": "6be468c97b1d5c578a9a7d341d7346e5007ed954044706ae8e024c8242ce219c"
+    },
+    {
+      "file": "fixture-custom-code.png",
+      "sha256": "2d21cdc20ae1051e50c6c21be3b60db3e81220b9a73341fa619a587854704b77"
+    },
+    {
+      "file": "fixture-custom-diagnostics.png",
+      "sha256": "e0079d1a7ef654147139510210e1e602c7682fc7b06cff8d29cfdd0d5bb0a00a"
+    },
+    {
+      "file": "fixture-custom-sidebar.png",
+      "sha256": "2b2d704ee4b03614ed93bc78dec3499129ca829b893b45da88f7a13a585f0191"
+    },
+    {
+      "file": "fixture-custom-voice.png",
+      "sha256": "087487c152b6860fb913820e6cc22c541a4bfbefcb873a966cb08a4639c9cc3d"
+    },
+    {
+      "file": "fixture-diagnostics.png",
+      "sha256": "2ed3a22d45b1ed53e09f2d33a6bc733b067c8e5b7995402a582a83cc5c593bf4"
+    },
+    {
+      "file": "fixture-narrow200-alerts.png",
+      "sha256": "76950d59b8fda8b6fcb2f51d516ae16de59665c9cecbf35cbe8adb5e765a5131"
+    },
+    {
+      "file": "fixture-narrow200-assignments.png",
+      "sha256": "10b11ee5a7772895d56ffe51a7188b9b66655636eea70612b3b9ff9807404684"
+    },
+    {
+      "file": "fixture-narrow200-calendar.png",
+      "sha256": "a8d252026e0c8fee57e68f885189239df02ffeaee414c2f21c939d0712a2d40c"
+    },
+    {
+      "file": "fixture-narrow200-code.png",
+      "sha256": "e7ecc918bd20831cda4aa3f6287621dc86d9cd3068f23e3e3facba2fa074d583"
+    },
+    {
+      "file": "fixture-narrow200-diagnostics.png",
+      "sha256": "8a284f607c70b5240e9239314faf0b929228e18684d49b019a1801d91f856314"
+    },
+    {
+      "file": "fixture-narrow200-sidebar.png",
+      "sha256": "bb0065a6bd03ab2d95fa874cd590741dfc8b1b92001c3c01cfd6f58eaaa71698"
+    },
+    {
+      "file": "fixture-narrow200-voice.png",
+      "sha256": "a899995aacb353d8b84f1bba1b5250305fc96d89dd60d53026a07abaeb84809d"
+    },
+    {
+      "file": "fixture-render-errors.json",
+      "sha256": "c56489a466d94c1694bed15b14e2e6daf3befa438fcabbfac5164fe88ef4633d"
+    },
+    {
+      "file": "fixture-sidebar.png",
+      "sha256": "0d4477280881d3cbdeb739f1130740ee70311fd2eff044612162610d32da6f26"
+    },
+    {
+      "file": "fixture-voice.png",
+      "sha256": "762c2e07555efe7cf64489fdef7749939ad1d7b4535de8124e870b763d26536c"
+    },
+    {
+      "file": "flutter-custom-0.png",
+      "sha256": "7d2d636a45ad86b96589ce6fe7dff83fd56ac30f94505906ba97fc282b0215b2"
+    },
+    {
+      "file": "flutter-custom-1.png",
+      "sha256": "82be7c009d8873c1a9400106e0dde1926f5b4ec61a6ad021758609f79d9aab4f"
+    },
+    {
+      "file": "flutter-custom-2.png",
+      "sha256": "a54e489949a6aeb8a4a09e6c4a9a6bed70bc1d8d196836cb5a3009960a870dab"
+    },
+    {
+      "file": "flutter-custom-3.png",
+      "sha256": "6e877f8dafa19370ccfb258e707ca1045e2bc53914465e0702607eae2e7763f6"
+    },
+    {
+      "file": "flutter-custom-4.png",
+      "sha256": "c14cc4f21cedd6371e9719231acf3af97dfd3bfd43983d61fb8334545abacab8"
+    },
+    {
+      "file": "flutter-dark-0.png",
+      "sha256": "eea56764c07cc367f939405fa0058ae5161f9d226b9f51a80e1a08c636ef85ff"
+    },
+    {
+      "file": "flutter-dark-1.png",
+      "sha256": "2107681f98031104b48767f18f862f8f3f2f3c2e820fe30bcbe5776b6b151860"
+    },
+    {
+      "file": "flutter-dark-2.png",
+      "sha256": "22607dbb4087c5246f78002083e0bc7ce12b6ab6586d26970dbdc3bd849eff41"
+    },
+    {
+      "file": "flutter-dark-3.png",
+      "sha256": "58d38b784b14939dea05f939722e2a1b80f1d4be51b51735c56d34b881556ad7"
+    },
+    {
+      "file": "flutter-dark-4.png",
+      "sha256": "6080f8d2c6151cd6413729cb695c8607c3392f781c26ef14d6de2e79cfd9e1eb"
+    },
+    {
+      "file": "flutter-light-0.png",
+      "sha256": "27debe0ae64d37b16d4cd8e95e94aededdd6f09a6d58b629804ac65ace65c48d"
+    },
+    {
+      "file": "flutter-light-1.png",
+      "sha256": "7833221127c3acfde307b899d6de8b51b7f94840705ff6040e459e0bcc8b4c52"
+    },
+    {
+      "file": "flutter-light-2.png",
+      "sha256": "aabcf42c1e9eb75b689ad1be132b5eb3794272889b89348144f11efbca3cba5c"
+    },
+    {
+      "file": "flutter-light-3.png",
+      "sha256": "a83ee05e9b5ee7cd79b94fdf7ffca50c327383e7310204bc4148494b7363ddcd"
+    },
+    {
+      "file": "flutter-light-4.png",
+      "sha256": "7f7fd0d37059afb7e61554b15aeb580f0853575b175c469470b6e296219d362a"
+    },
+    {
+      "file": "flutter-narrow200-rtl-0.png",
+      "sha256": "becbd7bf77b43d7fc0e789cf3fb1d577e633b5a55a74b77269c4c14e51b69b75"
+    },
+    {
+      "file": "flutter-narrow200-rtl-1.png",
+      "sha256": "575cc47cffa74c84b278fb369ff65ee0e23a1223ac444805f7c6e04510e7299d"
+    },
+    {
+      "file": "flutter-narrow200-rtl-2.png",
+      "sha256": "939440dd2da22577497d879b9c3ce155067a3853af607cfb6ae8e11e97868223"
+    },
+    {
+      "file": "flutter-narrow200-rtl-3.png",
+      "sha256": "b8838484a37a30208ce1717fb9dbd712279d5180394e0988dc984188133c0f88"
+    },
+    {
+      "file": "flutter-narrow200-rtl-4.png",
+      "sha256": "025ced1c87fa233958074cebaad93b8a5c5e0bf9ff49c01cbc91f692e81c5e10"
+    },
+    {
+      "file": "flutter-transparent-focus-false.png",
+      "sha256": "b7414318631cf65b37f5b35fe51d4d2c09210eebebb124d82f3df2f48a712b76"
+    },
+    {
+      "file": "flutter-transparent-focus-true.png",
+      "sha256": "b936f0c9a9e8d597e914dfe5232af356bb9b91192818532de7e950b4509988ac"
+    },
+    {
+      "file": "reference-dark-focus.png",
+      "sha256": "bf99fe1cbd0e612adb7db64d8896dff30ae9d7cdba7695c0cbe4d56479e13bec"
+    },
+    {
+      "file": "reference-dark.png",
+      "sha256": "99fb14f3b8bb59a0365bc59066c98e2c222aa03abc748c142798df3472994b74"
+    },
+    {
+      "file": "reference-horizontal-light.png",
+      "sha256": "b3ed56975869ad5a3f8287b092997f2d30b31c015b5d6f9052e730071ad1dcdb"
+    },
+    {
+      "file": "reference-light-focus.png",
+      "sha256": "28a22278919590b52648e1cfca44e932e136485398350ff7e20f2e4b4e439c2a"
+    },
+    {
+      "file": "reference-metrics-light.json",
+      "sha256": "705dcb9cc88e31c3031c3104a6f188ff768772de77c6d78b4ceefa7d094cd22a"
+    },
+    {
+      "file": "reference-rtl-dark.png",
+      "sha256": "e34e0340eb07592756a9fb6ecea7f84e7ea825bea9ee10dcf67f9986f99cd888"
+    },
+    {
+      "file": "reference-rtl-light-end.png",
+      "sha256": "f441003ce759315b5dddf6f1decf863b99eea230d3294d70e8018283f3c3c8ca"
+    },
+    {
+      "file": "reference-rtl-narrow.png",
+      "sha256": "c470673f700ef4e60fb31b8603b5c82cfcd09a162662c1e752dc7b562f22c582"
+    }
+  ],
+  "fontSources": [
+    {
+      "path": "/System/Library/Fonts/SFNS.ttf",
+      "sha256": "2bfd40dc72e6759e248f82a52a40d551338979fffc9b5c070e685b4b7ad19e66"
+    },
+    {
+      "path": "/System/Library/Fonts/SFArabic.ttf",
+      "sha256": "ba98313de36d7e3b3bcfe0b9a8bfee0eff99460d7e2d3097a6dfd05d5d15b01e"
+    },
+    {
+      "path": "assets/fonts/JetBrainsMono-Regular.ttf",
+      "sha256": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f"
+    }
+  ]
+}
