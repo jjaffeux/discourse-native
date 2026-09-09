@@ -127,3 +127,23 @@ identified debug bundle. Native visual comparison, real-widget interactions,
 custom palettes and large-text/RTL review remain required; this component is
 not review_ready. No iOS/Linux device run, spoken VoiceOver or pixel-diff parity
 is claimed by widget tests.
+
+### Native-ready checkpoint
+
+Local implementation commit: `08e9fbe9dcdb06078a9818bb2fe0ed29fbf5ebe8`.
+The final fixture build is copied to
+`/private/tmp/DiscourseButtonReview-3a88.app`, with display name **Discourse
+Button Review**, ID `org.discourse.native.button-review.3a88` and isolated
+`discourse-button-review-3a88` URL scheme. Deep strict ad-hoc signature
+verification passes. The bundle has not been launched.
+
+All compiled Dart inputs were byte-compared against the pre-build manifest at
+`/private/tmp/button-build-source.json`, SHA256
+`db225bac4c0677750e234f06996d9f85fa3047d289e87d0fb8cabc0a2fbaed8b`.
+The copied kernel SHA256 is
+`4eb63551ff6daaaf3f3d15c58f2ebb2f5c0f3f4fb01e559a666cdffff4309f4e`.
+Final build log: `/private/tmp/button-review-final-build.log`.
+
+All seven examples also pass the 260px/200%/RTL/reduced-motion layout check
+in Light, Dark, Forest and Plum. Async/navigation examples pass separately
+(`/private/tmp/button-custom-tests.log`). Native inspection remains pending.

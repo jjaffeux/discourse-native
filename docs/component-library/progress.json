@@ -423,13 +423,14 @@
         "222 focused impact tests passed: Button/adoption/PollCard/styleguide/affected creation, Chat, upload, account-menu and post-action accessibility. Log /private/tmp/button-final-impact.log.",
         "35 final focused Button/reference/examples/UserSummary tests passed. Log /private/tmp/button-last-tests.log.",
         "Root and full-profile flutter analyze --no-pub passed without diagnostics.",
-        "Standalone styleguide and real PollCard review-fixture macOS debug builds passed; final source manifest and unique bundle preparation in progress."
+        "Final real PollCard review-fixture macOS debug build passed. Bundle /private/tmp/DiscourseButtonReview-3a88.app has unique org.discourse.native.button-review.3a88 identity and URL scheme; deep strict ad-hoc signature passes. Source files byte-verified against pre-build manifest; kernel SHA256 4eb63551ff6daaaf3f3d15c58f2ebb2f5c0f3f4fb01e559a666cdffff4309f4e.",
+        "All seven Button examples also passed the 260px/200%/RTL/reduced-motion layout test in Light, Dark, Forest and Plum. Example async and navigation tests pass."
       ],
       "limitations": [
         "Native official-reference comparison and real app fixture inspection pending Mac unlock and explicit coordinator desktop slot. Do not mark review_ready.",
         "No iOS/Linux native device, spoken VoiceOver or automated cross-renderer pixel-diff claim."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "08e9fbe9dcdb06078a9818bb2fe0ed29fbf5ebe8",
       "mergeCommit": null,
       "nativeInspectionStatus": "queued"
     },
