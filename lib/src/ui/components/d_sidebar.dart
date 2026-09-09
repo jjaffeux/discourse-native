@@ -572,6 +572,9 @@ class _DSidebarMenuItemState extends State<DSidebarMenuItem> {
       onExit: (_) => setState(() => hover = false),
       child: Focus(
         canRequestFocus: false,
+        // This observer must not replace a content-sized button's semantic bounds
+        // with the full row's box.
+        includeSemantics: false,
         onFocusChange: (v) => setState(() => focus = v),
         child: _ItemScope(
           reveal: hover || focus,
@@ -675,6 +678,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
         };
     final active = hover || pressed || widget.isActive;
     Widget result = Semantics(
+      container: true,
       button: true,
       enabled: enabled,
       selected: widget.isActive,

@@ -154,7 +154,7 @@ class _Frame extends StatelessWidget {
   final double width;
   @override
   Widget build(BuildContext context) => Align(
-    alignment: AlignmentDirectional.centerStart,
+    alignment: Alignment.center,
     child: ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
       child: child,

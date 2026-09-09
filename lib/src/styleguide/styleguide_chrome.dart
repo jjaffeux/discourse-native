@@ -32,6 +32,11 @@ ThemeData styleguideDocumentationTheme(ThemeData host, Brightness brightness) {
     brightness: brightness,
     colorScheme: colors,
     scaffoldBackgroundColor: background,
+    canvasColor: background,
+    hoverColor: foreground.withValues(alpha: .04),
+    focusColor: foreground.withValues(alpha: .08),
+    highlightColor: foreground.withValues(alpha: .06),
+    splashColor: Colors.transparent,
     textTheme: textTheme,
     splashFactory: NoSplash.splashFactory,
     extensions: [

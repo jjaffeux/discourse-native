@@ -104,31 +104,28 @@ class _TokenPreview extends StatelessWidget {
                 ('Selected', tokens.selected),
                 ('Destructive', tokens.destructive),
               ])
-                SizedBox(
-                  width: 76,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: color,
-                          border: Border.all(color: tokens.border),
-                          borderRadius: tokens.borderRadius,
-                        ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 76,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: color,
+                        border: Border.all(color: tokens.border),
+                        borderRadius: tokens.borderRadius,
                       ),
-                      const SizedBox(height: DSpacing.sm),
-                      Text(
-                        label,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 12,
-                          height: 16 / 12,
-                          color: tokens.mutedForeground,
-                        ),
+                    ),
+                    const SizedBox(height: DSpacing.sm),
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 12,
+                        height: 16 / 12,
+                        color: tokens.mutedForeground,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
             ],
           ),
