@@ -177,7 +177,7 @@ void main() {
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
     testWidgets(
-      'inactive app and ticker subtree pause default and custom motion on ${platform.name}',
+      'an unfocused window keeps default and custom motion while a disabled ticker subtree pauses it on ${platform.name}',
       (tester) async {
         addTearDown(
           () => tester.binding.handleAppLifecycleStateChanged(
@@ -193,23 +193,37 @@ void main() {
         );
         await _pump(tester, indicators, platform: platform);
         await tester.pump(const Duration(milliseconds: 100));
+        // Desktop reports inactive whenever another window is key; the
+        // reference keeps spinning in a visible unfocused page.
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.inactive,
         );
-        await tester.pumpAndSettle();
-        expect(tester.binding.transientCallbackCount, 0);
+        final unfocused = _turns(tester);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(tester.binding.transientCallbackCount, 2);
+        expect(_turns(tester)[0], greaterThan(unfocused[0]));
+        expect(_turns(tester)[1], greaterThan(unfocused[1]));
+        // Hidden and paused windows stop scheduling frames in the framework;
+        // the spinner adds no observer of its own.
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        expect(tester.binding.framesEnabled, isFalse);
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.resumed,
         );
-        await tester.pump();
+        expect(tester.binding.framesEnabled, isTrue);
+        final resumed = _turns(tester);
         await tester.pump(const Duration(milliseconds: 100));
-        expect(tester.binding.transientCallbackCount, greaterThan(0));
+        expect(_turns(tester)[0], greaterThan(resumed[0]));
         await _pump(tester, indicators, platform: platform, tickers: false);
         await tester.pumpAndSettle();
         expect(tester.binding.transientCallbackCount, 0);
+        final paused = _turns(tester);
+        await tester.pump(const Duration(seconds: 2));
+        expect(_turns(tester), paused);
         await _pump(tester, indicators, platform: platform);
         await tester.pump(const Duration(milliseconds: 100));
-        expect(tester.binding.transientCallbackCount, greaterThan(0));
+        expect(tester.binding.transientCallbackCount, 2);
+        expect(_turns(tester)[1], isNot(paused[1]));
       },
     );
   }
@@ -328,6 +342,8 @@ void main() {
               theme: theme,
               platform: TargetPlatform.macOS,
             );
+            // The button animates its icon color between variants for 150ms.
+            await tester.pump(const Duration(milliseconds: 200));
             expect(find.byType(DSpinner), findsOneWidget);
             final renderedButton = tester.widget<FilledButton>(
               find.byType(FilledButton),
@@ -386,14 +402,14 @@ void main() {
       );
       await tester.tap(find.text('Open busy dialog'));
       await tester.pumpAndSettle();
-      final state = tester.state(find.byType(DSpinner));
+      final rotation = _rotation(tester);
       expect(
         _artwork(tester).theme!.currentColor,
         AppTheme.light.iconTheme.color,
       );
       theme.value = StyleguideTheme.plum.resolve(AppTheme.light);
       await tester.pumpAndSettle();
-      expect(tester.state(find.byType(DSpinner)), same(state));
+      expect(_rotation(tester), same(rotation));
       expect(_artwork(tester).theme!.currentColor, theme.value.iconTheme.color);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
@@ -431,6 +447,25 @@ Future<void> _pump(
     ),
   ),
 );
+
+Animation<double> _rotation(WidgetTester tester) => tester
+    .widget<RotationTransition>(
+      find.descendant(
+        of: find.byType(DSpinner),
+        matching: find.byType(RotationTransition),
+      ),
+    )
+    .turns;
+
+List<double> _turns(WidgetTester tester) => [
+  for (final transition in tester.widgetList<RotationTransition>(
+    find.descendant(
+      of: find.byType(DSpinner),
+      matching: find.byType(RotationTransition),
+    ),
+  ))
+    transition.turns.value,
+];
 
 SvgStringLoader _artwork(WidgetTester tester) =>
     tester
