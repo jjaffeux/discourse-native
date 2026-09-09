@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**57 of 64 components are merged locally.** 7 existing components are in progress; 0 are planned.
+**58 of 64 components are merged locally.** 6 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -16,7 +16,6 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
-| button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | independent review | 10b63f75 | 01a08628-7042-7173-a37d-7f1f04eade66 |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
@@ -66,7 +65,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 36 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
 | 37 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
 | 38 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
-| 39 | button-group | review_ready | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
+| 39 | button-group | merged | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | ae7d80a5fd81fe1b783092cbc79103f3c9103720 |
 | 40 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
 | 41 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
 | 42 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
@@ -2357,7 +2356,7 @@ Status: merged. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/ui-fie
 
 ### button-group
 
-Status: review_ready. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/ui-button-group.
+Status: merged. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/ui-button-group.
 
 **acceptanceCriteria**
 
@@ -2396,6 +2395,7 @@ Status: review_ready. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/
 - Source cff5dfc2b34035806d29ab551f25b5908515c018 built successfully for the offline native fixture. /private/tmp/ButtonGroupReview-cff5dfc2.app has a unique identity, verified signature/restricted entitlements, and matching source/copy kernel SHA-256 f7fd7af43360515dd2cdba6461d8eaab9822f646e26e6122919fdfac4398bde3. All 13 native pages passed via approved CUA, including real Input Group/Select parent examples, editing retention, independent actions, overlay dismissal/focus, four palettes, narrow/scaled/RTL and reduced-motion surfaces. See evidence/button-group/native-review.md.
 - Focus layering was verified by a pixel regression that fails when focused-child ordering is disabled. All 88 affected Button/Button Group/Select/styleguide/navigation tests and root/full analysis pass after the correction (seed 826145).
 - Final main-integrated candidate 8120a12c passed all 169 affected Button Group, Button/reference/adoption, Input, Input Group, Select, Popover, Dropdown Menu, Field, example and production navigation tests with seed 826145. Touched formatting and git diff --check passed. See evidence/button-group/final-integration.md.
+- Merged locally from the clean main checkout on main as ae7d80a5fd81fe1b783092cbc79103f3c9103720, with main 4d79219d and reviewed head 7553fbad as its two parents. The merged tree exactly matches the verified review branch. No push or GitHub/release changes were made.
 
 **limitations**
 
