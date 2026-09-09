@@ -823,6 +823,9 @@ class _EventRow extends StatelessWidget {
     final color = error
         ? theme.colorScheme.error
         : theme.colorScheme.onSurfaceVariant;
+    final methodFontSize = theme.textTheme.labelSmall?.fontSize ?? 12;
+    final methodTextScale =
+        MediaQuery.textScalerOf(context).scale(methodFontSize) / methodFontSize;
 
     return Semantics(
       button: true,
@@ -838,7 +841,7 @@ class _EventRow extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
-                width: 40,
+                width: 40 * methodTextScale,
                 child: Text(
                   _eventMethod(event),
                   style: theme.textTheme.labelSmall?.copyWith(

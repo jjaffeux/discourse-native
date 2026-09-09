@@ -70,6 +70,7 @@ void main() {
         );
         expect(find.text('200'), findsOneWidget);
         expect(find.text('120 ms'), findsOneWidget);
+        expect(tester.getSize(find.text('GET')).height, lessThan(40));
       }
       await tester.tap(
         find.byKey(const ValueKey('diagnostic-event-request-42')),
