@@ -44,7 +44,13 @@ void main() {
           .first,
     );
     await tester.pumpAndSettle();
-    expect(find.byType(DSkeleton), findsNWidgets(8));
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('styleguide-preview')),
+        matching: find.byType(DSkeleton),
+      ),
+      findsNWidgets(8),
+    );
     expect(tester.takeException(), isNull);
   });
 
