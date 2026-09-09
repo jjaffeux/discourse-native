@@ -164,3 +164,15 @@ and the export harness pass. Logs: `/private/tmp/button-radius-tests.log`,
 `/private/tmp/button-radius-analysis.log`,
 `/private/tmp/button-radius-full-analysis.log`, and
 `/private/tmp/button-radius-exports.log`. Native verification is still pending.
+
+Corrected radius implementation: `4483071a2b1e4a147fb9627a8b5de9713a2138b8`. The source-byte-verified,
+unlaunched replacement bundle is `/private/tmp/DiscourseButtonReview-3a88-v4.app`,
+ID `org.discourse.native.button-review.3a88.v4`, display **Discourse Button Review
+V4**, scheme `discourse-button-review-3a88-v4`. Deep strict signature verification
+passes. V4 supersedes V3 for the pending native slot.
+
+Source manifest `/private/tmp/button-build-source-v4.json` SHA256:
+`e07392bb0d4b42e01406a02ee0eb071a9286cb38f6b730b98eb9024c43d00995`.
+Kernel SHA256:
+`f3c167b9494e8e49c3f9f1894ff453eeffb27e0e4da57053cbb7db9102be2396`.
+Build log: `/private/tmp/button-review-v4-build.log`.
