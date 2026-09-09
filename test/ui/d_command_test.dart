@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -86,6 +87,20 @@ Widget _command({
 );
 
 void main() {
+  test(
+    'detached controller retains imperative query and highlight updates',
+    () {
+      final controller = DCommandController<String>();
+      addTearDown(controller.dispose);
+
+      controller.updateQuery('profile');
+      controller.highlight('Profile');
+
+      expect(controller.query, 'profile');
+      expect(controller.value, 'Profile');
+    },
+  );
+
   testWidgets('filters by values and keyword aliases and exposes empty state', (
     tester,
   ) async {
@@ -145,6 +160,89 @@ void main() {
     },
   );
 
+  testWidgets('Ctrl bindings skip disabled rows without moving editor focus', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>();
+    final focus = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focus.dispose);
+    await tester.pumpWidget(
+      _host(_command(controller: controller, inputFocus: focus, loop: true)),
+    );
+    await tester.pump();
+    focus.requestFocus();
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+    await tester.pump();
+    expect(controller.value, 'Search Emoji');
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pump();
+    expect(controller.value, 'Profile');
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+    await tester.pump();
+    expect(controller.value, 'Search Emoji');
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(controller.value, 'Calendar');
+    expect(focus.hasFocus, isTrue);
+  });
+
+  testWidgets('keyboard movement scrolls the highlight into view', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>();
+    final focus = FocusNode();
+    final scroll = ScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(focus.dispose);
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          controller: controller,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DCommandInput<String>(focusNode: focus),
+              DCommandList<String>(
+                controller: scroll,
+                maxHeight: 96,
+                children: [
+                  DCommandGroup<String>(
+                    items: [
+                      for (var index = 0; index < 20; index++)
+                        DCommandItem(
+                          value: 'Item $index',
+                          child: Text('Item $index'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    focus.requestFocus();
+    await tester.pump();
+
+    for (var index = 0; index < 15; index++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(controller.value, 'Item 15');
+    expect(scroll.offset, greaterThan(0));
+    expect(focus.hasFocus, isTrue);
+  });
+
   testWidgets('disabled rows are skipped by keyboard and cannot be tapped', (
     tester,
   ) async {
@@ -155,13 +253,172 @@ void main() {
       _host(_command(controller: controller, onSelected: selected.add)),
     );
     await tester.pump();
-    controller.highlight('Calculator');
-    await tester.pump();
-    controller.activate();
+    controller.activate('Calculator');
     expect(selected, isEmpty);
     await tester.tap(find.text('Calculator'));
     await tester.pump();
     expect(selected, isEmpty);
+  });
+
+  testWidgets('dynamic results retire disabled and removed highlights', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>(initialValue: 'Calendar');
+    var calendarEnabled = true;
+    var showProfile = true;
+    late StateSetter rebuild;
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return DCommand<String>(
+              controller: controller,
+              child: DCommandList<String>(
+                children: [
+                  DCommandItem(
+                    value: 'Calendar',
+                    enabled: calendarEnabled,
+                    child: const Text('Calendar'),
+                  ),
+                  if (showProfile)
+                    const DCommandItem(
+                      value: 'Profile',
+                      child: Text('Profile'),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(controller.value, 'Calendar');
+
+    rebuild(() => calendarEnabled = false);
+    await tester.pump();
+    await tester.pump();
+    expect(controller.value, 'Profile');
+
+    rebuild(() => showProfile = false);
+    await tester.pump();
+    await tester.pump();
+    expect(controller.value, isNull);
+  });
+
+  testWidgets('input and custom item labels reach semantics', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        const DCommand<String>(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DCommandInput<String>(semanticLabel: 'Find an action'),
+              DCommandList<String>(
+                children: [
+                  DCommandItem(
+                    value: 'Profile',
+                    semanticLabel: 'Open your profile',
+                    child: Text('Profile'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Find an action'), findsOneWidget);
+    expect(find.bySemanticsLabel('Open your profile'), findsOneWidget);
+  });
+
+  testWidgets('disabled rows use one half-opacity treatment', (tester) async {
+    await tester.pumpWidget(_host(_command()));
+    await tester.pump();
+
+    final paragraph = tester.renderObject<RenderParagraph>(
+      find.text('Calculator'),
+    );
+    final opacities = tester
+        .widgetList<Opacity>(
+          find.ancestor(
+            of: find.text('Calculator'),
+            matching: find.byType(Opacity),
+          ),
+        )
+        .map((widget) => widget.opacity);
+    expect(paragraph.text.style?.color?.a, 1);
+    expect(opacities, contains(.5));
+  });
+
+  testWidgets('selected shortcuts use foreground color', (tester) async {
+    final controller = DCommandController<String>(initialValue: 'Profile');
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          controller: controller,
+          child: const DCommandList<String>(
+            children: [
+              DCommandItem(
+                value: 'Profile',
+                trailing: DCommandShortcut(Text('⌘P')),
+                child: Text('Profile'),
+              ),
+              DCommandItem(
+                value: 'Billing',
+                trailing: DCommandShortcut(Text('⌘B')),
+                child: Text('Billing'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final tokens = DTokens.of(tester.element(find.byType(DCommand<String>)));
+
+    expect(
+      DefaultTextStyle.of(tester.element(find.text('⌘P'))).style.color,
+      tokens.foreground,
+    );
+    expect(
+      DefaultTextStyle.of(tester.element(find.text('⌘B'))).style.color,
+      tokens.mutedForeground,
+    );
+  });
+
+  testWidgets('Return activates an individually focused row', (tester) async {
+    final controller = DCommandController<String>(initialValue: 'Calendar');
+    final selected = <String>[];
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          controller: controller,
+          onSelected: selected.add,
+          child: const DCommandList<String>(
+            children: [
+              DCommandItem(value: 'Calendar', child: Text('Calendar')),
+              DCommandItem(value: 'Profile', child: Text('Profile')),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    Focus.of(tester.element(find.text('Profile'))).requestFocus();
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+
+    expect(selected, ['Profile']);
   });
 
   testWidgets(

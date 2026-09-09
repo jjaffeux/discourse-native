@@ -35,8 +35,23 @@ class DCommandController<T> extends ChangeNotifier {
   String get query => _query;
   T? get value => _value;
 
-  void updateQuery(String query) => _queryRequest?.call(query);
-  void highlight(T? value) => _valueRequest?.call(value);
+  void updateQuery(String query) {
+    final request = _queryRequest;
+    if (request == null) {
+      _setQuery(query);
+    } else {
+      request(query);
+    }
+  }
+
+  void highlight(T? value) {
+    final request = _valueRequest;
+    if (request == null) {
+      _setValue(value);
+    } else {
+      request(value);
+    }
+  }
 
   /// Activates [value], or the currently highlighted item when omitted.
   void activate([T? value]) {
@@ -266,10 +281,13 @@ class _DCommandState<T> extends State<DCommand<T>> {
     }
     if (key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter) {
-      _controller.activate();
-      return _controller.value == null
-          ? KeyEventResult.ignored
-          : KeyEventResult.handled;
+      final value = _controller.value;
+      if (value == null ||
+          !_controller._entries.any((entry) => entry.value == value)) {
+        return KeyEventResult.ignored;
+      }
+      _controller.activate(value);
+      return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.escape && widget.onEscape != null) {
       widget.onEscape!();
@@ -460,20 +478,23 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: DSpacing.xs),
-          child: DInput(
-            controller: _editing,
-            focusNode: widget.focusNode,
-            hintText: widget.placeholder,
-            autofocus: widget.autofocus,
-            enabled: widget.enabled,
-            autocorrect: false,
-            enableSuggestions: false,
-            textInputAction: TextInputAction.search,
-            suffix: ExcludeSemantics(
-              child: DIcon(
-                DIcons.magnifyingGlass,
-                size: 16,
-                color: DTokens.of(context).mutedForeground,
+          child: Semantics(
+            label: widget.semanticLabel,
+            child: DInput(
+              controller: _editing,
+              focusNode: widget.focusNode,
+              hintText: widget.placeholder,
+              autofocus: widget.autofocus,
+              enabled: widget.enabled,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.search,
+              suffix: ExcludeSemantics(
+                child: DIcon(
+                  DIcons.magnifyingGlass,
+                  size: 16,
+                  color: DTokens.of(context).mutedForeground,
+                ),
               ),
             ),
           ),
@@ -621,14 +642,19 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
             );
           }
         }
-        scope.controller._setEntries(
-          entries.where((entry) => entry.enabled).toList(growable: false),
-        );
-        if (entries.isNotEmpty &&
-            !entries.any((entry) => entry.value == scope.controller.value)) {
+        final enabledEntries = entries
+            .where((entry) => entry.enabled)
+            .toList(growable: false);
+        scope.controller._setEntries(enabledEntries);
+        if ((enabledEntries.isNotEmpty || scope.controller.value != null) &&
+            !enabledEntries.any(
+              (entry) => entry.value == scope.controller.value,
+            )) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && scope.controller._entries.isNotEmpty) {
-              scope.controller.highlight(scope.controller._entries.first.value);
+            if (mounted) {
+              scope.controller.highlight(
+                scope.controller._entries.firstOrNull?.value,
+              );
             }
           });
         }
@@ -895,17 +921,14 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 fontSize: DiscourseTypography.sm,
                 height: 20 / 14,
-                color:
-                    (item.destructive ? tokens.destructive : tokens.foreground)
-                        .withValues(alpha: item.enabled ? 1 : .5),
+                color: item.destructive
+                    ? tokens.destructive
+                    : tokens.foreground,
               ),
               child: Row(
                 children: [
                   if (item.leading != null) ...[
-                    Opacity(
-                      opacity: item.enabled ? 1 : .5,
-                      child: item.leading!,
-                    ),
+                    item.leading!,
                     const SizedBox(width: DSpacing.sm),
                   ],
                   Expanded(child: item.child),
@@ -931,8 +954,10 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
         return Semantics(
           button: true,
           selected: selected,
+          checked: item.checked ? true : null,
           enabled: item.enabled,
           label: item.semanticLabel,
+          excludeSemantics: item.semanticLabel != null,
           onTap: item.enabled ? _activate : null,
           child: FocusableActionDetector(
             enabled: item.enabled,
@@ -948,6 +973,8 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
             onShowFocusHighlight: (value) => setState(() => _focused = value),
             shortcuts: const {
               SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+              SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+              SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
             },
             actions: {
               ActivateIntent: CallbackAction<ActivateIntent>(
@@ -971,7 +998,10 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
                       _activate();
                     }
                   : null,
-              child: Opacity(opacity: item.enabled ? 1 : .5, child: row),
+              child: Opacity(
+                opacity: item.enabled ? 1 : .5,
+                child: _DCommandItemVisualScope(selected: selected, child: row),
+              ),
             ),
           ),
         );
@@ -985,14 +1015,35 @@ class DCommandShortcut extends StatelessWidget {
   const DCommandShortcut(this.child, {super.key});
   final Widget child;
   @override
-  Widget build(BuildContext context) => DefaultTextStyle(
-    style: Theme.of(context).textTheme.bodySmall!.copyWith(
-      fontSize: DiscourseTypography.xs,
-      letterSpacing: 1.5,
-      color: DTokens.of(context).mutedForeground,
-    ),
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final selected =
+        _DCommandItemVisualScope.maybeOf(context)?.selected ?? false;
+    return DefaultTextStyle(
+      style: Theme.of(context).textTheme.bodySmall!.copyWith(
+        fontSize: DiscourseTypography.xs,
+        letterSpacing: 1.5,
+        color: selected ? tokens.foreground : tokens.mutedForeground,
+      ),
+      child: child,
+    );
+  }
+}
+
+class _DCommandItemVisualScope extends InheritedWidget {
+  const _DCommandItemVisualScope({
+    required this.selected,
+    required super.child,
+  });
+
+  final bool selected;
+
+  static _DCommandItemVisualScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DCommandItemVisualScope>();
+
+  @override
+  bool updateShouldNotify(_DCommandItemVisualScope oldWidget) =>
+      selected != oldWidget.selected;
 }
 
 /// A separator between visible command sections.
@@ -1008,15 +1059,18 @@ class DCommandEmpty extends StatelessWidget {
   const DCommandEmpty({super.key, required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: DSpacing.xl),
-    child: Center(
-      child: DefaultTextStyle(
-        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-          fontSize: DiscourseTypography.sm,
-          color: DTokens.of(context).foreground,
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: DSpacing.xl),
+      child: Center(
+        child: DefaultTextStyle(
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+            fontSize: DiscourseTypography.sm,
+            color: DTokens.of(context).foreground,
+          ),
+          child: child,
         ),
-        child: child,
       ),
     ),
   );
