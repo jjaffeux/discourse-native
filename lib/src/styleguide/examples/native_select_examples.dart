@@ -29,8 +29,7 @@ final nativeSelectExamples = ComponentExamples(
       'mount-time initialValue; controlled parents must accept that request. '
       'The inherited text scaler expands field height; long closed labels ellipsize '
       'and remain complete in the popup. Content width is the default; isExpanded '
-      'fills a bounded width supplied by the caller. '
-      'Label and descriptions compose here without depending on the pending Field.',
+      'fills a bounded width supplied by the caller.',
   examples: [
     StyleguideExample(
       title: 'Reference status',
