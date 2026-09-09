@@ -17,14 +17,9 @@ const _siteUrl = 'https://native-select.invalid';
 
 /// Real Voice widgets with an in-memory media session; no device acquisition.
 class NativeSelectVoiceFixture extends StatefulWidget {
-  const NativeSelectVoiceFixture({super.key});
-  @override
-  State<NativeSelectVoiceFixture> createState() =>
-      _NativeSelectVoiceFixtureState();
-}
+  const NativeSelectVoiceFixture({super.key, this.room = defaultRoom});
 
-class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
-  static const room = VoiceRoom(
+  static const defaultRoom = VoiceRoom(
     id: 7,
     name: 'Local fixture',
     slug: 'fixture',
@@ -38,6 +33,15 @@ class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
     creatorId: 1,
     videoAllowed: true,
   );
+
+  final VoiceRoom room;
+
+  @override
+  State<NativeSelectVoiceFixture> createState() =>
+      _NativeSelectVoiceFixtureState();
+}
+
+class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
   late final VoiceController controller;
   @override
   void initState() {
@@ -67,6 +71,10 @@ class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
             'POST /voice/rooms/7/state.json': {},
             'DELETE /voice/rooms/7/leave.json': {},
             'GET /voice/rooms/7/memberships.json': {'memberships': <Object>[]},
+            'GET /voice/rooms/7/chat_session.json': {
+              'channel_id': 42,
+              'thread_id': 99,
+            },
             'POST /voice/rooms/7/memberships.json': {},
             'PUT /voice/rooms/7.json': {
               'room': {
@@ -106,7 +114,7 @@ class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
         onPressed: () => showVoiceRoomEditor(
           context,
           siteUrl: _siteUrl,
-          room: room,
+          room: widget.room,
           controller: controller,
         ),
       ),
@@ -115,7 +123,7 @@ class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
           listenable: controller,
           builder: (context, _) => VoiceRoomContent(
             controller: controller,
-            room: controller.call?.room ?? room,
+            room: controller.call?.room ?? widget.room,
             call: controller.call,
             siteUrl: _siteUrl,
             siteName: 'Fixture',
