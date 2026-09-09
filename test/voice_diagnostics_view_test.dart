@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:ui' show Tristate;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics_view.dart';
 import 'package:discourse_native/src/plugins/voice/voice_report_exporter.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -268,6 +269,7 @@ Future<void> _pumpView(
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light,
+      builder: (context, child) => DToaster(child: child!),
       home: Scaffold(
         body: VoiceDiagnosticsView(
           stateListenable: harness.state,
