@@ -2878,10 +2878,40 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 - Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
 - Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
 - Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+- Export a typed, serializable and resumable Questionnaire controller plus styled composition matching the frozen base-nova root, progress, item, title, description, choices, input, error and action geometry.
+- Support single, multiple, freeform and explicit skipped answers; stable item identity; conditional visibility; visited/navigation/progress state; controlled active-item acceptance; reset; shortcuts; external and cancellation-safe asynchronous validation.
+- Preserve focus restoration and failed-validation focus, keyboard/touch activation, IME editing, announcements, disabled/inert inactive items, narrow/200% text/RTL reflow, reduced motion and live host palette/font/radius changes.
+- Demonstrate reference basic, multiple, freeform, skip, shortcuts, validation, controlled, resume, conditional, custom progress, animated, Card, Dialog and headless/unstyled compositions with final shared component owners.
+- Audit core and bundled plugins for surveys, onboarding and stepped forms; migrate only a suitable flow without changing domain validation, permission, persistence or transport ownership, and document retained alternatives.
+- Pass meaningful controller/state-transition, async cancellation, resume/conditional/backtracking, widget/accessibility/styleguide and real-consumer regressions plus root/full-profile analysis; require official browser and native macOS acceptance in the independent reviewer.
 
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Pinned the frozen official Markdown at SHA256 174687e701dfa6b70a0583de3bfee8dd2885b4c8fd51a899adfaffd689a9dc7c and the 2026-09-09 base-nova registry payload at SHA256 7eac8ca2fb479be1a18c97cced020b93c22cec1926dea72c8be324cdb3b62fa9.
+- Use an immutable heterogeneous typed item model and a ChangeNotifier controller as the headless/unstyled behavior owner; styled widgets remain free of persistence, networking and Discourse branching.
+- The official unstyled API Markdown (SHA256 b6b1f21e3b12dcae85fa89a1582b29ec0e8aede97b02ad33bcbd8db748b06d58), @shadcn/react 0.3.1 tarball (SHA256 0c40a06316d9bac27029f1d81874d894d77ef43a74cad0d12aaab620907563d8), registry TypeScript payload (SHA256 fb5db703937410dee230586678a859b7add61114d7fbf6d6bbfb7101cdfc86ff) and official repository main at 3ba91b1cc83e1bbee4ab35a422ff2a694849c5048 were inspected to resolve navigation, skip, validation and reset semantics.
+- Compose accepted Field 5cd7f3694498e4e09e3c114639baca834b56705e, Button eb6d8ea0d9417f0edc830c5ce715b52436f12c94, Progress 15da313eb259c51c6bbed5974895b6616c32c84c, Card a73f465ac86105fdda35f5b56f8b491da4b3936d, Dialog 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 and Native Select 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 owners; Questionnaire only owns its state machine, choice surface and composition.
+- Optional unanswered and explicitly skipped are distinct; Skip remains available after answering and skips/submits the final optional item, matching the inspected package behavior. Hidden conditional items retain drafts but leave navigation, progress, validation and submission.
+
+**retainedAlternatives**
+
+- No production multi-step questionnaire exists after searching core and bundled plugins for Stepper, PageView, currentStep, stepIndex, wizard, onboarding, survey, questionnaire, intake, clarification, Form, dialog and sheet compositions, so no production migration is truthful.
+- PollCard remains a server-owned single poll with voting permissions, deadlines, result modes and network mutation behavior; PollComposerSheet remains an atomic poll definition editor.
+- Bookmark, invite, account, Preferences and Voice editor forms keep interdependent fields visible and save atomically; media/date PageViews remain navigation rather than questions.
+
+**verification**
+
+- 21 Questionnaire controller/widget/styleguide tests passed after final Field composition, covering typed single/multiple/freeform/skipped answers, optional/required behavior, disabled answers, conditional draft retention, backtracking, controlled acceptance/rejection, JSON resume/reset, initial values, stale async-validation cancellation, external errors, shortcuts, Enter submission, focus, narrow 200% RTL reduced motion and real Dialog lifecycle.
+- 127 affected owner regressions passed together for Field, Input rendering/state, Button reference/adoption, Progress, Card, Dialog and Native Select.
+- Root and profiles/full flutter pub get --enforce-lockfile passed without lockfile or SDK-pin changes; flutter analyze --no-pub passed in both profiles with no diagnostics.
+- Touched Dart formatting and git diff --check passed. flutter build macos --debug -t tool/questionnaire_review_main.dart --no-pub produced build/macos/Build/Products/Debug/Discourse.app.
+- The source-exact local-data macOS fixture mounts all nine public examples and exposes light/dark/forest/plum, RTL, 100/200% text, reduced-motion and 216px/wide controls.
+
+**limitations**
+
+- Implementation verification built but did not launch or visually accept the macOS fixture. The fresh independent reviewer owns first official browser comparison, real native interaction/accessibility inspection, resulting fixes, final implemented promotion and local-main merge.
+- No iOS/Linux device, spoken VoiceOver session or production consumer claim is made.
 
 ### Final audit
 
