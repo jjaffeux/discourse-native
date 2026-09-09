@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
@@ -21,7 +21,6 @@ import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_view.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_plugin_api/testing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -840,7 +839,7 @@ void main() {
         expect(find.text('Default Speaker'), findsOneWidget);
         expect(find.text('Desk camera'), findsOneWidget);
 
-        final pickers = find.byType(DropdownButtonFormField<String>);
+        final pickers = find.byType(DNativeSelect<String>);
         await tester.tap(pickers.at(0));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Travel microphone').last);
@@ -1146,15 +1145,10 @@ void main() {
         isEmpty,
       );
 
-      await tester.tap(find.byType(DropdownButton<VoiceRole>));
+      await tester.tap(find.byType(DNativeSelect<VoiceRole>));
       await tester.pumpAndSettle();
       await tester.tap(
-        find
-            .widgetWithText(
-              DropdownMenuItem<VoiceRole>,
-              VoiceRole.moderator.name,
-            )
-            .last,
+        find.widgetWithText(MenuItemButton, VoiceRole.moderator.name).last,
       );
       await tester.pumpAndSettle();
       await tester.enterText(username, '  jordan  ');

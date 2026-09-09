@@ -300,6 +300,8 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
               ),
               const SizedBox(height: 10),
               DNativeSelect<_StatusExpiry>.controlled(
+                isExpanded: true,
+                placeholderEnabled: false,
                 label: 'Clear after',
                 value: _expiry,
                 entries: const [
@@ -329,6 +331,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                     : (value) {
                         if (value != null) unawaited(_chooseExpiry(value));
                       },
+                initialValue: _expiry,
               ),
               if (_expiry == _StatusExpiry.custom && _customEndsAt != null) ...[
                 const SizedBox(height: 8),

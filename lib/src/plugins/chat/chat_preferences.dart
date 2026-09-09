@@ -51,6 +51,8 @@ class _ChatPreferenceForm extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: DNativeSelect<ChatSeparateSidebarPreference>.controlled(
+          isExpanded: true,
+          placeholderEnabled: false,
           key: ValueKey(('chat-separate-sidebar-mode', selectedMode)),
           value: selectedMode,
           label: 'Show separate sidebar modes for forum and chat',
@@ -73,6 +75,7 @@ class _ChatPreferenceForm extends StatelessWidget {
                   if (value != null) onChanged(value);
                 }
               : null,
+          initialValue: selectedMode,
         ),
       ),
     );

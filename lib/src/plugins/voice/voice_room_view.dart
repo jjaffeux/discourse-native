@@ -1618,17 +1618,20 @@ class _DevicePicker extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   @override
-  Widget build(BuildContext context) => DSelectField<String>(
-    initialValue: value,
-    decoration: InputDecoration(labelText: label),
+  Widget build(BuildContext context) => DNativeSelect<String>.controlled(
+    isExpanded: true,
+    placeholderEnabled: false,
+    value: value,
+    label: label,
     onChanged: devices.isEmpty ? null : onChanged,
-    items: [
+    entries: [
       for (final device in devices)
-        DropdownMenuItem(
+        DNativeSelectOption(
           value: device.deviceId,
-          child: Text(device.label.isEmpty ? 'Default $label' : device.label),
+          label: device.label.isEmpty ? 'Default $label' : device.label,
         ),
     ],
+    initialValue: value,
   );
 }
 
@@ -2092,14 +2095,20 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                 ),
               ),
               const SizedBox(width: 8),
-              DSelect<VoiceRole>(
-                value: _newRole,
-                onChanged: (value) =>
-                    setState(() => _newRole = value ?? _newRole),
-                items: [
-                  for (final role in VoiceRole.values)
-                    DropdownMenuItem(value: role, child: Text(role.name)),
-                ],
+              SizedBox(
+                width: 120,
+                child: DNativeSelect<VoiceRole>.controlled(
+                  isExpanded: true,
+                  placeholderEnabled: false,
+                  value: _newRole,
+                  onChanged: (value) =>
+                      setState(() => _newRole = value ?? _newRole),
+                  entries: [
+                    for (final role in VoiceRole.values)
+                      DNativeSelectOption(value: role, label: role.name),
+                  ],
+                  initialValue: _newRole,
+                ),
               ),
               DTooltip(
                 message: 'Add member',

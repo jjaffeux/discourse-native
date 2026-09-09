@@ -1593,25 +1593,22 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                     '${count == 1 ? 'message' : 'messages'} to:',
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    key: const ValueKey('chat-move-destination'),
-                    initialValue: selected,
+                  DNativeSelect<int>.controlled(
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Destination channel',
-                    ),
-                    items: [
+                    placeholderEnabled: false,
+                    key: const ValueKey('chat-move-destination'),
+                    value: selected,
+                    label: 'Destination channel',
+                    entries: [
                       for (final channel in destinations)
-                        DropdownMenuItem(
+                        DNativeSelectOption(
                           value: channel.id,
-                          child: Text(
-                            channel.title,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          label: channel.title,
                         ),
                     ],
                     onChanged: (value) =>
                         setDialogState(() => selected = value),
+                    initialValue: selected,
                   ),
                 ],
               ),

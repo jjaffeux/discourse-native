@@ -214,26 +214,22 @@ class _InviteListState extends State<InviteList> {
               ],
             ),
             const SizedBox(height: 8),
-            DropdownButtonFormField<InviteFilter>(
-              key: ValueKey(('invite-filter', controller.filter)),
-              initialValue: controller.filter,
+            DNativeSelect<InviteFilter>.controlled(
               isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Status',
-                isDense: true,
-              ),
-              items: [
+              placeholderEnabled: false,
+              key: ValueKey(('invite-filter', controller.filter)),
+              value: controller.filter,
+              label: 'Status',
+              entries: [
                 for (final filter in InviteFilter.values)
                   if (!controller.loaded ||
                       controller.canSeeDetails ||
                       filter == InviteFilter.redeemed)
-                    DropdownMenuItem(
+                    DNativeSelectOption(
                       value: filter,
-                      child: Text(
-                        controller.counts.containsKey(filter)
-                            ? '${filter.label} (${controller.counts[filter]})'
-                            : filter.label,
-                      ),
+                      label: controller.counts.containsKey(filter)
+                          ? '${filter.label} (${controller.counts[filter]})'
+                          : filter.label,
                     ),
               ],
               onChanged: (filter) {
@@ -247,6 +243,7 @@ class _InviteListState extends State<InviteList> {
                   controller.load(filter: filter, search: _search.text),
                 );
               },
+              initialValue: controller.filter,
             ),
             const SizedBox(height: 8),
             TextField(

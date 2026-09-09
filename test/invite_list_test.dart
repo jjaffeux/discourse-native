@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/invites_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -148,7 +148,7 @@ void main() {
         : invitePage([inviteRow(1)], redeemed: 1);
     await controller.load();
     await pumpList(tester);
-    await tester.tap(find.byType(DropdownButtonFormField<InviteFilter>));
+    await tester.tap(find.byType(DNativeSelect<InviteFilter>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Redeemed (1)').last);
     await tester.pumpAndSettle();

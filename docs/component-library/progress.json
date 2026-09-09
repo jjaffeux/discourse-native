@@ -1509,32 +1509,34 @@
       "acceptanceCriteria": [
         "Port base-nova closed-control geometry (32/28px, 14/20px text, directional 10/32px padding, 16px chevron), token palette/radius, disabled opacity, invalid and keyboard focus rings.",
         "Provide typed text options and disabled optgroups, placeholder, controlled and initial selection, Form save/reset/validation, borrowed focus lifecycle and accessible names.",
-        "Use Flutter DropdownButton as selection/popup owner, document exact platform adaptation distinct from custom rich Select; cover keyboard, touch, dismissal, scrolling, large text, RTL and theme changes.",
+        "Use Flutter MenuAnchor/MenuItemButton as selection/popup owner (coordinator correction: open overlays must update live), document exact platform adaptation distinct from custom rich Select; cover keyboard, touch, dismissal, scrolling, large text, RTL and theme changes.",
         "Self-contained actual-component styleguide covers reference simple/groups/disabled/invalid/RTL plus form and state; audit core/plugins and migrate suitable simple selectors preserving callbacks and permission/busy guards.",
         "Pass focused interaction/migration tests, touched format and root/full-profile analysis with unchanged pins/lockfiles; build isolated identifiable macOS local-data fixture with source/kernel/signature evidence.",
-        "Remain in_progress awaiting_slot until coordinator grants desktop and reference/native production-fixture review passes."
+        "Remain in_progress awaiting_slot until coordinator grants desktop and reference/native production-fixture review passes.",
+        "Provide typed-character prefix navigation and repeated-letter cycling; finish the concrete whole-app plain-selector audit rather than deferring eligible selectors to Select."
       ],
       "decisions": [
-        "Plain typed DNativeSelectOption/OptGroup and single reusable DNativeSelect FormField adapter; MenuAnchor/MenuItemButton own native Flutter popup/focus, distinct from rich Select.",
-        "32/28px closed geometry; token input colors with multiplicative alpha, 1x/.8x radius factors, exact Lucide chevron; mapping and hashed primary source in native-select.md.",
-        "Controlled Form decline/reset reads accepted props synchronously; uncontrolled reset retains mount-time default.",
-        "Live theme/direction/text scale reach open menus; immediate menu transitions honor reduced motion."
+        "Typed DNativeSelectOption/OptGroup, single DNativeSelect FormField adapter and Flutter MenuAnchor/MenuItemButton owner; no rich custom Select dependency.",
+        "Default content width measures widest text plus 42px; apps use isExpanded. 32/28px heights, input token/multiplicative alpha, proportional radii, exterior-only focus ring and exact Lucide chevron documented with hashed sources.",
+        "Controlled Form callbacks/validation/reset always see accepted props synchronously; uncontrolled defaults freeze at mount. Nonnullable app choices disable the placeholder and retain initial reset values.",
+        "Live menu palette/direction/text scale without dismissal; immediate transitions; type-ahead supports prefix and repeated-character cycling with disabled/headings skipped and no timers."
       ],
       "migrations": [
-        "Core UserStatusEditor Clear after selector: preserve busy guard and async custom picker callbacks.",
-        "Bundled chat_preferences sidebar mode selector: preserve can_chat/admin/editability and draft persistence."
+        "28 plain selector owners across Preferences, Group management, Bookmarks, Invites, Status editor, Chat, Assign, Poll, Local Dates and Voice. Full per-owner callback/permission audit in native-select.md.",
+        "Preserved Voice _heldDevice fallback, Custom expiry cancellation, legacy Assign status, nullable Default order and controlled async preference/filter changes."
       ],
       "retainedAlternatives": [
-        "Existing DSelect/DSelectField and other plain Flutter selectors remain for coordinated Select/adoption audit; precise audit listed in native-select.md."
+        "Topic-move category selector retains icons/colors/hierarchy for rich Select; searchable/multi-choice/action/date pickers keep their distinct capabilities.",
+        "Existing DSelect baseline source/export and documentation chrome remain per coordinator ownership; no simple app callers remain on DSelect."
       ],
       "verification": [
         "Flutter 3.47.2 and pins/lockfiles unchanged; enforced root/full-profile pub resolution passed.",
-        "flutter test --no-pub test/ui/d_native_select_test.dart test/preferences_page_test.dart test/user_status_editor_test.dart test/styleguide/native_select_examples_test.dart: 62 passed.",
+        "323 selected component, fixture, styleguide and production migration tests passed; routed Chat notification integration test also passed.",
         "Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed."
       ],
       "limitations": [
-        "Native and reference-rendered comparison pending explicit coordinator desktop slot; no CUA/app launch performed.",
-        "Build/fixture provenance will be recorded in native-select-build.md. No iOS/Linux device, VoiceOver or pixel parity claim."
+        "awaiting_slot: Mac locked; reference-rendered and native visual inspection remains required before review_ready or merge.",
+        "No CUA/app launch; widget platform overrides and native fixture tests are not device/VoiceOver/pixel-parity evidence."
       ],
       "implementationCommit": null,
       "mergeCommit": null

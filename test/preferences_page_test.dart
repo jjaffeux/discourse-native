@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart'
-    show DSpinner, DNativeSelect;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
@@ -13,11 +12,9 @@ import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
-import 'package:discourse_native/src/shell/select.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -258,7 +255,7 @@ void main() {
 
       await _pumpPage(tester, fixture, width: 1000);
 
-      expect(find.byType(DSelectField<PreferenceSection>), findsNothing);
+      expect(find.byType(DNativeSelect<PreferenceSection>), findsNothing);
       expect(find.text('Preferences'), findsNothing);
       final notifications = find.byKey(
         const ValueKey('preferences-section-notifications'),
@@ -727,9 +724,7 @@ void main() {
       expect(find.text('Chat'), findsNothing);
       expect(
         tester
-            .widget<DropdownButtonFormField<int>>(
-              find.byType(DropdownButtonFormField<int>),
-            )
+            .widget<DNativeSelect<int>>(find.byType(DNativeSelect<int>))
             .onChanged,
         isNull,
       );

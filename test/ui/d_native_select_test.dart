@@ -44,7 +44,7 @@ FormFieldState<String> _state(WidgetTester tester) =>
       find.byWidgetPredicate((w) => w is FormField<String>),
     );
 Future<void> _pick(WidgetTester tester, String label) async {
-  await tester.tap(find.byType(DNativeSelect<String>));
+  await tester.tap(find.byType(MenuAnchor));
   await tester.pumpAndSettle();
   await tester.ensureVisible(find.text(label).last);
   await tester.pumpAndSettle();
@@ -53,6 +53,91 @@ Future<void> _pick(WidgetTester tester, String label) async {
 }
 
 void main() {
+  testWidgets(
+    'content width stays stable across selections and expanded fills its parent',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          DNativeSelect<String>(
+            placeholder: 'Pick',
+            entries: _entries,
+            onChanged: (_) {},
+          ),
+        ),
+      );
+      final width = tester.getSize(find.byType(MenuAnchor)).width;
+      expect(width, lessThan(240));
+      await _pick(tester, 'Apple');
+      expect(tester.getSize(find.byType(MenuAnchor)).width, width);
+      await tester.pumpWidget(
+        _app(
+          DNativeSelect<String>(
+            isExpanded: true,
+            entries: _entries,
+            onChanged: (_) {},
+          ),
+        ),
+      );
+      expect(tester.getSize(find.byType(MenuAnchor)).width, 240);
+    },
+  );
+
+  testWidgets(
+    'type-ahead cycles repeated letters skips disabled groups and commits a prefix from the menu',
+    (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      const entries = <DNativeSelectEntry<String>>[
+        DNativeSelectOption(value: 'apple', label: 'Apple'),
+        DNativeSelectOption(value: 'banana', label: 'Banana'),
+        DNativeSelectOption(
+          value: 'blackberry',
+          label: 'Blackberry',
+          enabled: false,
+        ),
+        DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+        DNativeSelectOptGroup(
+          label: 'B vegetables',
+          options: [DNativeSelectOption(value: 'broccoli', label: 'Broccoli')],
+        ),
+        DNativeSelectOptGroup(
+          label: 'B unavailable',
+          enabled: false,
+          options: [DNativeSelectOption(value: 'beet', label: 'Beet')],
+        ),
+      ];
+      await tester.pumpWidget(
+        _app(
+          DNativeSelect<String>(
+            focusNode: focus,
+            initialValue: 'apple',
+            entries: entries,
+            onChanged: (_) {},
+          ),
+        ),
+      );
+      focus.requestFocus();
+      await tester.pump();
+      for (final expected in ['banana', 'blueberry', 'broccoli', 'banana']) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyB, character: 'b');
+        await tester.pump();
+        expect(_state(tester).value, expected);
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB, character: 'b');
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyL, character: 'l');
+      await tester.pumpAndSettle();
+      expect(_state(tester).value, 'banana');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(_state(tester).value, 'blueberry');
+      expect(focus.hasFocus, isTrue);
+      await tester.pumpWidget(const SizedBox());
+      expect(() => focus.requestFocus(), returnsNormally);
+    },
+  );
+
   testWidgets(
     'uncontrolled select validates saves and resets the mount-time default',
     (tester) async {

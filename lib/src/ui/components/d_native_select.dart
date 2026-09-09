@@ -65,6 +65,8 @@ class DNativeSelect<T extends Object> extends StatefulWidget {
     this.forceErrorText,
     this.enabled = true,
     this.placeholder = 'Select an option',
+    this.placeholderEnabled = true,
+    this.isExpanded = false,
     this.label,
     this.description,
     this.invalid = false,
@@ -87,6 +89,8 @@ class DNativeSelect<T extends Object> extends StatefulWidget {
     this.forceErrorText,
     this.enabled = true,
     this.placeholder = 'Select an option',
+    this.placeholderEnabled = true,
+    this.isExpanded = false,
     this.label,
     this.description,
     this.invalid = false,
@@ -100,6 +104,12 @@ class DNativeSelect<T extends Object> extends StatefulWidget {
   final T? value;
   final ValueChanged<T?>? onChanged;
   final String placeholder;
+
+  /// False displays a null placeholder but prevents choosing it from the menu.
+  final bool placeholderEnabled;
+
+  /// Fill the available width instead of sizing to the widest option text.
+  final bool isExpanded;
 
   /// Visible, accessible name. Tapping it focuses the selection control.
   final String? label;
@@ -142,6 +152,8 @@ class _DNativeSelectHostState<T extends Object>
     forceErrorText: widget.forceErrorText,
     enabled: widget.enabled,
     placeholder: widget.placeholder,
+    placeholderEnabled: widget.placeholderEnabled,
+    isExpanded: widget.isExpanded,
     label: widget.label,
     description: widget.description,
     invalid: widget.invalid,
@@ -165,6 +177,8 @@ class _NativeSelectField<T extends Object> extends FormField<T> {
     super.forceErrorText,
     super.enabled,
     required this.placeholder,
+    required this.placeholderEnabled,
+    required this.isExpanded,
     this.label,
     this.description,
     required this.invalid,
@@ -180,6 +194,12 @@ class _NativeSelectField<T extends Object> extends FormField<T> {
   final T? value;
   final ValueChanged<T?>? onChanged;
   final String placeholder;
+
+  /// False displays a null placeholder but prevents choosing it from the menu.
+  final bool placeholderEnabled;
+
+  /// Fill the available width instead of sizing to the widest option text.
+  final bool isExpanded;
 
   /// Visible, accessible name. Tapping it focuses the selection control.
   final String? label;
@@ -202,6 +222,9 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
   final _menu = MenuController();
   final _anchorKey = GlobalKey();
   double _menuWidth = 200;
+  String _typed = '';
+  Duration? _lastTypedAt;
+  int? _lastMatch;
   final _rowFocus = <int, FocusNode>{};
 
   @override
@@ -273,7 +296,12 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
       color: tokens.foreground,
     );
     final rows = <({T? value, String label, bool enabled, bool heading})>[
-      (value: null, label: widget.placeholder, enabled: true, heading: false),
+      (
+        value: null,
+        label: widget.placeholder,
+        enabled: widget.placeholderEnabled,
+        heading: false,
+      ),
     ];
     final values = <T>{};
     for (final entry in widget.entries) {
@@ -314,14 +342,62 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
         ? 0
         : rows.indexWhere((row) => !row.heading && row.value == value);
     assert(selected >= 0, 'Native Select value must be present in entries');
+    KeyEventResult typeAhead(KeyEvent event) {
+      final keyboard = HardwareKeyboard.instance;
+      final character = event.character;
+      if (!_enabled ||
+          event is KeyUpEvent ||
+          character == null ||
+          character.trim().isEmpty ||
+          keyboard.isControlPressed ||
+          keyboard.isMetaPressed ||
+          keyboard.isAltPressed) {
+        return KeyEventResult.ignored;
+      }
+      final letter = character.toLowerCase();
+      final recent =
+          _lastTypedAt != null &&
+          event.timeStamp - _lastTypedAt! < const Duration(milliseconds: 700);
+      final repeated =
+          recent &&
+          _typed.isNotEmpty &&
+          _typed.runes.every((rune) => String.fromCharCode(rune) == letter);
+      _typed = recent && !repeated ? '$_typed$letter' : letter;
+      _lastTypedAt = event.timeStamp;
+      final start = recent && !repeated
+          ? (_lastMatch ?? selected)
+          : ((_lastMatch ?? selected) + 1);
+      for (var offset = 0; offset < rows.length; offset++) {
+        final index = (math.max(0, start) + offset) % rows.length;
+        final row = rows[index];
+        if (!row.enabled ||
+            row.heading ||
+            !row.label.toLowerCase().startsWith(_typed)) {
+          continue;
+        }
+        _lastMatch = index;
+        if (_menu.isOpen) {
+          _rowFocus[index]?.requestFocus();
+        } else {
+          _change(row.value);
+        }
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.handled;
+    }
+
     final border = error
-        ? tokens.destructive.withValues(alpha: dark ? 0.5 : 1)
+        ? tokens.destructive.withValues(
+            alpha: tokens.destructive.a * (dark ? 0.5 : 1),
+          )
         : _showFocus
         ? tokens.focusRing
         : input;
     final ring = error
-        ? tokens.destructive.withValues(alpha: dark ? 0.4 : 0.2)
-        : tokens.focusRing.withValues(alpha: 0.5);
+        ? tokens.destructive.withValues(
+            alpha: tokens.destructive.a * (dark ? 0.4 : 0.2),
+          )
+        : tokens.focusRing.withValues(alpha: tokens.focusRing.a * 0.5);
     final height = math.max(
       small ? 28.0 : 32.0,
       MediaQuery.textScalerOf(context).scale(14) * (20 / 14) + (small ? 6 : 10),
@@ -329,198 +405,251 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
     final touch =
         Theme.of(context).platform == TargetPlatform.iOS ||
         Theme.of(context).platform == TargetPlatform.android;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (widget.label case final label?) ...[
-          GestureDetector(
-            onTap: _enabled ? _focus.requestFocus : null,
-            excludeFromSemantics: true,
-            child: ExcludeSemantics(
-              child: DLabel(enabled: _enabled, child: Text(label)),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-        Builder(
-          builder: (context) {
-            final width = _menuWidth;
-            void open() {
-              if (!_enabled) return;
-              if (_menu.isOpen) {
-                _menu.close();
-                return;
-              }
-              final box =
-                  _anchorKey.currentContext?.findRenderObject() as RenderBox?;
-              if (box != null && box.hasSize) {
-                setState(() => _menuWidth = box.size.width);
-              }
-              _menu.open();
-              final index = selected >= 0 && rows[selected].enabled
-                  ? selected
-                  : rows.indexWhere((row) => row.enabled);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted && _menu.isOpen) _rowFocus[index]?.requestFocus();
-              });
-            }
-
-            return MenuAnchor(
-              controller: _menu,
-              childFocusNode: _focus,
-              consumeOutsideTap: true,
-              crossAxisUnconstrained: false,
-              style: MenuStyle(
-                backgroundColor: WidgetStatePropertyAll(tokens.background),
-                surfaceTintColor: const WidgetStatePropertyAll(
-                  Colors.transparent,
+    double naturalWidth = 0;
+    if (!widget.isExpanded) {
+      for (final row in rows) {
+        final text = TextPainter(
+          text: TextSpan(text: row.label, style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        naturalWidth = math.max(naturalWidth, text.width + 42);
+        text.dispose();
+      }
+    }
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      widthFactor: 1,
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: widget.isExpanded ? double.infinity : naturalWidth,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.label case final label?) ...[
+              GestureDetector(
+                onTap: _enabled ? _focus.requestFocus : null,
+                excludeFromSemantics: true,
+                child: ExcludeSemantics(
+                  child: DLabel(enabled: _enabled, child: Text(label)),
                 ),
-                minimumSize: WidgetStatePropertyAll(Size(width, 0)),
-                maximumSize: WidgetStatePropertyAll(Size(width, 360)),
-                padding: const WidgetStatePropertyAll(
-                  EdgeInsets.symmetric(vertical: 4),
-                ),
-                shape: WidgetStatePropertyAll(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(radius),
-                  ),
-                ),
-                alignment: AlignmentDirectional.bottomStart,
               ),
-              menuChildren: [
-                for (var i = 0; i < rows.length; i++)
-                  Semantics(
-                    header: rows[i].heading,
-                    selected: rows[i].heading ? null : i == selected,
-                    child: MenuItemButton(
-                      focusNode: _rowFocus.putIfAbsent(i, () => FocusNode()),
-                      onPressed: rows[i].enabled && _enabled
-                          ? () => _change(rows[i].value)
-                          : null,
-                      style: ButtonStyle(
-                        minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
-                        padding: const WidgetStatePropertyAll(
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        textStyle: WidgetStatePropertyAll(
-                          style.copyWith(
-                            fontWeight: rows[i].heading
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+              const SizedBox(height: 8),
+            ],
+            Builder(
+              builder: (context) {
+                final width = _menuWidth;
+                void open() {
+                  if (!_enabled) return;
+                  if (_menu.isOpen) {
+                    _menu.close();
+                    return;
+                  }
+                  final box =
+                      _anchorKey.currentContext?.findRenderObject()
+                          as RenderBox?;
+                  if (box != null && box.hasSize) {
+                    setState(() => _menuWidth = box.size.width);
+                  }
+                  _typed = '';
+                  _lastTypedAt = null;
+                  _lastMatch = null;
+                  _menu.open();
+                  final index = selected >= 0 && rows[selected].enabled
+                      ? selected
+                      : rows.indexWhere((row) => row.enabled);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _menu.isOpen) {
+                      _rowFocus[index]?.requestFocus();
+                    }
+                  });
+                }
+
+                return MenuAnchor(
+                  controller: _menu,
+                  onClose: () {
+                    _typed = '';
+                    _lastTypedAt = null;
+                    _lastMatch = null;
+                  },
+                  childFocusNode: _focus,
+                  consumeOutsideTap: true,
+                  crossAxisUnconstrained: false,
+                  style: MenuStyle(
+                    backgroundColor: WidgetStatePropertyAll(tokens.background),
+                    surfaceTintColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
+                    minimumSize: WidgetStatePropertyAll(Size(width, 0)),
+                    maximumSize: WidgetStatePropertyAll(Size(width, 360)),
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(vertical: 4),
+                    ),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(radius),
+                      ),
+                    ),
+                    alignment: AlignmentDirectional.bottomStart,
+                  ),
+                  menuChildren: [
+                    for (var i = 0; i < rows.length; i++)
+                      Semantics(
+                        header: rows[i].heading,
+                        selected: rows[i].heading ? null : i == selected,
+                        child: Focus(
+                          canRequestFocus: false,
+                          onKeyEvent: (_, event) => typeAhead(event),
+                          child: MenuItemButton(
+                            focusNode: _rowFocus.putIfAbsent(
+                              i,
+                              () => FocusNode(),
+                            ),
+                            onPressed: rows[i].enabled && _enabled
+                                ? () => _change(rows[i].value)
+                                : null,
+                            style: ButtonStyle(
+                              minimumSize: const WidgetStatePropertyAll(
+                                Size(0, 44),
+                              ),
+                              padding: const WidgetStatePropertyAll(
+                                EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                              ),
+                              textStyle: WidgetStatePropertyAll(
+                                style.copyWith(
+                                  fontWeight: rows[i].heading
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                ),
+                              ),
+                              foregroundColor: WidgetStatePropertyAll(
+                                rows[i].enabled
+                                    ? tokens.foreground
+                                    : tokens.mutedForeground,
+                              ),
+                              backgroundColor: WidgetStateProperty.resolveWith(
+                                (states) =>
+                                    states.contains(WidgetState.focused) ||
+                                        states.contains(WidgetState.hovered)
+                                    ? tokens.hover
+                                    : Colors.transparent,
+                              ),
+                              overlayColor: const WidgetStatePropertyAll(
+                                Colors.transparent,
+                              ),
+                            ),
+                            child: SizedBox(
+                              width: math.max(0, width - 24),
+                              child: Text(rows[i].label),
+                            ),
                           ),
                         ),
-                        foregroundColor: WidgetStatePropertyAll(
-                          rows[i].enabled
-                              ? tokens.foreground
-                              : tokens.mutedForeground,
-                        ),
-                        backgroundColor: WidgetStateProperty.resolveWith(
-                          (states) =>
-                              states.contains(WidgetState.focused) ||
-                                  states.contains(WidgetState.hovered)
-                              ? tokens.hover
-                              : Colors.transparent,
-                        ),
-                        overlayColor: const WidgetStatePropertyAll(
-                          Colors.transparent,
-                        ),
                       ),
-                      child: SizedBox(
-                        width: math.max(0, width - 24),
-                        child: Text(rows[i].label),
-                      ),
-                    ),
-                  ),
-              ],
-              builder: (context, controller, child) => Semantics(
-                label: widget.label,
-                value: rows[selected < 0 ? 0 : selected].label,
-                button: true,
-                expanded: controller.isOpen,
-                enabled: _enabled,
-                isRequired: widget.isRequired,
-                validationResult: error
-                    ? SemanticsValidationResult.invalid
-                    : SemanticsValidationResult.none,
-                onTap: _enabled ? open : null,
-                child: FocusableActionDetector(
-                  focusNode: _focus,
-                  autofocus: widget.autofocus,
-                  enabled: _enabled,
-                  onShowFocusHighlight: (focused) =>
-                      setState(() => _focused = focused),
-                  onShowHoverHighlight: (hovered) =>
-                      setState(() => _hovered = hovered),
-                  mouseCursor: _enabled
-                      ? SystemMouseCursors.click
-                      : SystemMouseCursors.forbidden,
-                  shortcuts: const {
-                    SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-                    SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-                    SingleActivator(LogicalKeyboardKey.arrowDown):
-                        ActivateIntent(),
-                    SingleActivator(LogicalKeyboardKey.arrowUp):
-                        ActivateIntent(),
-                  },
-                  actions: {
-                    ActivateIntent: CallbackAction<ActivateIntent>(
-                      onInvoke: (_) {
-                        open();
-                        return null;
-                      },
-                    ),
-                  },
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    excludeFromSemantics: true,
+                  ],
+                  builder: (context, controller, child) => Semantics(
+                    label: widget.label,
+                    value: rows[selected < 0 ? 0 : selected].label,
+                    button: true,
+                    expanded: controller.isOpen,
+                    enabled: _enabled,
+                    isRequired: widget.isRequired,
+                    validationResult: error
+                        ? SemanticsValidationResult.invalid
+                        : SemanticsValidationResult.none,
                     onTap: _enabled ? open : null,
-                    child: Opacity(
-                      opacity: _enabled ? 1 : 0.5,
-                      child: SizedBox(
-                        key: _anchorKey,
-                        height: touch ? math.max(48, height) : height,
-                        child: Center(
-                          child: Container(
-                            height: height,
-                            decoration: BoxDecoration(
-                              color: dark
-                                  ? input.withValues(
-                                      alpha:
-                                          input.a *
-                                          (_hovered && _enabled ? 0.5 : 0.3),
-                                    )
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(radius),
-                              border: Border.all(color: border),
-                              boxShadow: [
-                                if (error || _showFocus)
-                                  BoxShadow(color: ring, spreadRadius: 3),
-                              ],
-                            ),
-                            padding: const EdgeInsetsDirectional.only(
-                              start: 9,
-                              end: 9,
-                            ),
-                            child: ExcludeSemantics(
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      rows[selected < 0 ? 0 : selected].label,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: style,
+                    child: Focus(
+                      canRequestFocus: false,
+                      onKeyEvent: (_, event) => typeAhead(event),
+                      child: FocusableActionDetector(
+                        focusNode: _focus,
+                        autofocus: widget.autofocus,
+                        enabled: _enabled,
+                        onShowFocusHighlight: (focused) =>
+                            setState(() => _focused = focused),
+                        onShowHoverHighlight: (hovered) =>
+                            setState(() => _hovered = hovered),
+                        mouseCursor: _enabled
+                            ? SystemMouseCursors.click
+                            : SystemMouseCursors.forbidden,
+                        shortcuts: const {
+                          SingleActivator(LogicalKeyboardKey.enter):
+                              ActivateIntent(),
+                          SingleActivator(LogicalKeyboardKey.space):
+                              ActivateIntent(),
+                          SingleActivator(LogicalKeyboardKey.arrowDown):
+                              ActivateIntent(),
+                          SingleActivator(LogicalKeyboardKey.arrowUp):
+                              ActivateIntent(),
+                        },
+                        actions: {
+                          ActivateIntent: CallbackAction<ActivateIntent>(
+                            onInvoke: (_) {
+                              open();
+                              return null;
+                            },
+                          ),
+                        },
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          excludeFromSemantics: true,
+                          onTap: _enabled ? open : null,
+                          child: Opacity(
+                            opacity: _enabled ? 1 : 0.5,
+                            child: SizedBox(
+                              key: _anchorKey,
+                              height: touch ? math.max(48, height) : height,
+                              child: Center(
+                                child: Container(
+                                  height: height,
+                                  decoration: BoxDecoration(
+                                    color: dark
+                                        ? input.withValues(
+                                            alpha:
+                                                input.a *
+                                                (_hovered && _enabled
+                                                    ? 0.5
+                                                    : 0.3),
+                                          )
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(radius),
+                                    border: Border.all(color: border),
+                                  ),
+                                  foregroundDecoration: error || _showFocus
+                                      ? _NativeSelectRing(ring, radius)
+                                      : null,
+                                  padding: const EdgeInsetsDirectional.only(
+                                    start: 9,
+                                    end: 9,
+                                  ),
+                                  child: ExcludeSemantics(
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            rows[selected < 0 ? 0 : selected]
+                                                .label,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: style,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        CustomPaint(
+                                          size: const Size(16, 16),
+                                          painter: _ChevronPainter(
+                                            tokens.mutedForeground,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  CustomPaint(
-                                    size: const Size(16, 16),
-                                    painter: _ChevronPainter(
-                                      tokens.mutedForeground,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
@@ -528,24 +657,26 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
                       ),
                     ),
                   ),
+                );
+              },
+            ),
+            if (errorText ?? widget.description case final detail?) ...[
+              const SizedBox(height: 6),
+              Semantics(
+                liveRegion: hasError,
+                child: Text(
+                  detail,
+                  style: style.copyWith(
+                    color: hasError
+                        ? tokens.destructive
+                        : tokens.mutedForeground,
+                  ),
                 ),
               ),
-            );
-          },
+            ],
+          ],
         ),
-        if (errorText ?? widget.description case final detail?) ...[
-          const SizedBox(height: 6),
-          Semantics(
-            liveRegion: hasError,
-            child: Text(
-              detail,
-              style: style.copyWith(
-                color: hasError ? tokens.destructive : tokens.mutedForeground,
-              ),
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
@@ -573,4 +704,30 @@ class _ChevronPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ChevronPainter oldDelegate) => color != oldDelegate.color;
+}
+
+class _NativeSelectRing extends Decoration {
+  const _NativeSelectRing(this.color, this.radius);
+  final Color color;
+  final double radius;
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _NativeSelectRingPainter(color, radius);
+}
+
+class _NativeSelectRingPainter extends BoxPainter {
+  _NativeSelectRingPainter(this.color, this.radius);
+  final Color color;
+  final double radius;
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final rect = (offset & configuration.size!).inflate(1.5);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(radius + 1.5)),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+  }
 }

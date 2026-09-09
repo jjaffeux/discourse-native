@@ -39,7 +39,7 @@ One CSS px maps to one Flutter logical px at 100% text scale.
 | pl-2.5 / pr-8 | text begins at 10px including border; trailing text allowance 32px = border+9px+16px artwork+6px gap |
 | icon right-2.5, size-4 | 16×16 at trailing 10px, mirrored position in RTL |
 | lucide ChevronDown | path (6,9)-(12,15)-(18,9) in 24px viewbox, scaled 2/3; 2px stroke scaled 2/3, round cap/join |
-| focus-visible border-ring/ring-3 ring/50 | keyboard focus border and 3px outward ring; pointer focus does not paint keyboard ring |
+| focus-visible border-ring/ring-3 ring/50 | keyboard focus border and 3px exterior-only stroke ring (no tint inside a transparent field); pointer focus does not paint keyboard ring |
 | aria-invalid destructive border/ring-3 | invalid semantics plus 3px destructive ring; .2 alpha light/.4 dark, .5 dark border |
 | disabled opacity-50 | whole closed control at .5, callback disabled, forbidden pointer cursor |
 | options bg Canvas/text CanvasText | Flutter popup surface/foreground from current host theme |
@@ -67,8 +67,10 @@ vertical padding, scroll at 360px maximum height, and retain Flutter menu
 positioning and navigation. Popup width matches the trigger when opened. No
 OS-native picker or browser-popup pixel parity claim is made.
 
-The closed control stretches into the caller's bounded width (use SizedBox for
-reference fit-width examples). Text ellipsizes in the closed control while the
+The closed control defaults to reference content width: the widest option or
+placeholder, measured using the live font and text scaler, plus 42px insets.
+`isExpanded: true` fills a caller's bounded width; migrated app fields set this
+explicitly to retain their layouts. Text ellipsizes in the closed control while the
 full text remains available in popup and semantics. iOS/Android get an invisible
 48px minimum activation region; large text expands visual bounds. Directional
 padding mirrors artwork/text. Borrowed focus nodes survive disposal. Palette,
@@ -76,6 +78,17 @@ text scale and direction update an already open MenuAnchor without dismissing
 it or losing selection. Menu transitions are disabled (animated: false default)
 so inherited reduced-motion and local preview overrides introduce no animation.
 
+
+## Character navigation
+
+Printable character keys perform case-insensitive prefix navigation, independent
+of accelerator labels. Closed controls accept a matching choice; open menus move
+focus and Enter commits. Repeated letters cycle through matching enabled options;
+headings and disabled options/groups are skipped. Prefixes expire after 700ms
+using key-event timestamps, with no timer to leak; closing resets the buffer.
+Focus-node ownership and disposal remain local. This is native-select choice
+navigation, not a search/filter interface. Tests cover repeated b, disabled
+Blackberry/Beet and the multi-character bl prefix selecting Blueberry.
 
 ## Form behavior
 
@@ -86,50 +99,72 @@ notify onChanged. Declines must leave FormFieldState.value, save and validation
 at that accepted value even inside synchronous Form.onChanged/onChanged callbacks.
 The field adapters protect validation from Flutter's private reset storage.
 Reset clears Form errors/interaction state and requests the mount-time default;
-controlled callers decide whether to accept it. Null is the selectable placeholder.
+controlled callers decide whether to accept it. Null is the placeholder; placeholderEnabled controls whether it can be selected.
 `isRequired` supplies semantics; the caller's validator enforces domain rules.
 Label owns visible text, focus association, and accessible naming; errors use a
 live region. No pending Field/Input/Select dependency is imported.
 
 ## Adoption audit
 
-Migrated:
+28 plain selector owners migrated across core and bundled plugins:
 
-- Core UserStatusEditor: plain Clear after enum selector. Existing `_busy` guard,
-  `_chooseExpiry` async custom-date flow, cancellation, and save stay in the
-  dialog. Regression suite covers stale shell/account callbacks and custom
-  picker cancellation from all original values.
-- Bundled Chat preference section: three plain sidebar-mode choices. Existing
-  editability, can_chat/admin admission, inherited site-mode display, and parent
-  draft edit/persistence path remain intact. PreferencesPage regression tests
-  verify saved wire value, inherited mode, and admin access.
+| Owner | Choices and preserved domain behavior |
+| --- | --- |
+| UserStatusEditor | Clear after; busy guard and async custom-date acceptance/cancellation |
+| PreferencesPage (6) | section navigation, likes, new topics, auto-track duration, reply level, bookmark auto-delete; capability gates, draft edits, server saves |
+| Group management (3) | admission, visibility levels, interaction levels; controller permissions and change/save notifications |
+| Bookmark editor (2) | auto-delete preference and relative time unit; busy guard, custom reminder calculation and save |
+| InviteList | pending/expired/redeemed filter; capability-filtered options, counts, controller paging/search |
+| Chat preferences | sidebar mode; can_chat/admin admission, editability, inherited site value and persisted wire value |
+| Chat browse (2) | channel status and membership; existing server refresh and local filtering |
+| Chat channel (2) | move destination and notification level; moderator selection, asynchronous notification write/busy guard |
+| Assign (2) | configured/legacy status and group-topic order; preserving nullable Default order, async suggestions/save and topic query |
+| Poll composer (2) | poll type and result visibility; published/ranked restrictions, staff visibility, unknown disabled values |
+| Local Dates composer | relative-day mode; timezone/date formatting and async composer ownership untouched |
+| Voice (3) | device choices (one owner mounts microphone/speaker/camera), room quality, member role; `_heldDevice` fallback, async device changes and membership writes |
 
-Retained alternatives after current `rg` audit:
+All migrated selectors are controlled by their existing app state and retain
+their initial value as the Form reset snapshot. Required
+choices disable the placeholder with `placeholderEnabled: false`, preventing
+new null choices from reaching existing non-null callbacks. Assign's real null
+Default order remains a selectable placeholder. Voice role and Chat notification
+fields keep bounded widths inside their existing horizontal rows. Surrounding
+Input/Checkbox/Switch/Slider ownership is unchanged.
 
-- Existing DSelect/DSelectField remain owned by the pending Select task:
-  Preferences navigation and settings, Poll, Local Dates, Assign and Voice.
-  Coordinated scope avoids rewriting all their rich/domain presentation adapters.
-- Group management, bookmarks, invitations, move-posts, Events composer and
-  Chat channel filters/settings retain their existing Flutter selectors pending
-  owning Select/adoption audit. These are migration candidates, not claims that
-  every plain selector was converted in this branch.
-- PopupMenuButton actions in diagnostics, emoji, events, bookmarks, composer
-  and Voice are action menus, not form choice inputs.
-- Styleguide chrome's theme/viewport selectors remain documentation-shell
-  controls; its pending coordinated adoption is separate from component examples.
+Retained after a fresh whole-tree audit:
+
+- TopicMovePosts category dropdown carries CategoryIcon artwork, color and
+  category hierarchy alongside text. It needs the separate rich Select owner;
+  dropping that content would lose category information.
+- Baseline DSelect/DSelectField source and barrel remain for the separately
+  assigned custom Select component and its foundation/typography demonstrations,
+  as requested by the coordinator. No remaining simple app caller uses them.
+- Styleguide chrome selects theme/viewport configuration inside the documentation
+  shell; those are not product form migrations and retain the shell's measured
+  32px toolbar layout. Component examples use the actual new public widget.
+- PopupMenuButton action menus (diagnostics, emoji, events, bookmarks, composer,
+  Voice) execute actions rather than edit a plain selected value.
+- Searchable timezone, assignee, user, category, hashtag and emoji pickers retain
+  their search/async/rich-result owners. Multi-choice, date and calendar controls
+  retain their distinct behavior; no other catalogue component is implemented.
+
 
 ## Verification boundary
 
 Focused tests cover Form decline/deferred acceptance/reset, disabled options and
 groups, keyboard selection/Escape/focus restoration, borrowed focus disposal,
 32/28px geometry, narrow RTL large text, invisible iOS touch target, semantics,
-and a popup remaining open and usable across theme updates. Styleguide examples are mounted under
+and a popup remaining open and usable across theme/direction/text-scale updates. The popup regression inspects the rendered Material surface, not just the configured style. Styleguide examples are mounted under
 light/dark, 240px, RTL and 200% text. These are widget tests, not device/VoiceOver
 or pixel parity evidence. Existing PreferencesPage and UserStatusEditor suites
 exercise the actual migrated production owners.
 
 `tool/native_select_review.dart` is a reproducible local-data native entrypoint:
-actual production Chat preferences, actual status editor, and full styleguide.
+actual production Preferences, Group management, Bookmarks, Invites, Poll,
+Local Dates, Event composer, Assignment editor/group topics, Chat browse/messages/
+notifications/preferences, Voice and the full styleguide. The Voice subfixture
+uses in-memory media/system-call/preferences adapters from established tests;
+Join room and Media settings never acquire actual hardware.
 Fake stores/API plus mocked in-memory SharedPreferences prevent account writes.
 The status fixture uses a `.invalid` forum; any remote emoji cannot resolve and
 may show its existing production fallback. Source and bundle evidence follows

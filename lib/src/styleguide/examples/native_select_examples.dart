@@ -19,14 +19,17 @@ final nativeSelectExamples = ComponentExamples(
       '32px standard / 28px small, 14px text with 20px leading, 16px Lucide chevron. '
       'The platform adaptation uses Flutter MenuAnchor/MenuItemButton on all targets, not '
       'an OS/AppKit/UIKit picker. Its popup provides scrolling, keyboard selection, '
-      'Escape/outside dismissal and focus restoration. Options are plain text; '
+      'Escape/outside dismissal and focus restoration. Type a prefix to choose; '
+      'repeat a letter to cycle matching enabled choices. Options are plain text; '
       'use the separate Select for rich content. Popup environment changes update '
       'the open popup with current tokens, direction and text scale. '
       'The ordinary constructor owns state; .controlled displays only accepted '
-      'parent values. Null onChanged disables editing. Form reset requests the '
+      'parent values. Null onChanged disables editing; placeholderEnabled: false '
+      'prevents clearing a required choice. Form reset requests the '
       'mount-time initialValue; controlled parents must accept that request. '
       'The inherited text scaler expands field height; long closed labels ellipsize '
-      'and remain complete in the popup. Use a bounded width supplied by the caller. '
+      'and remain complete in the popup. Content width is the default; isExpanded '
+      'fills a bounded width supplied by the caller. '
       'Label and descriptions compose here without depending on the pending Field.',
   examples: [
     StyleguideExample(
