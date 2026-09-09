@@ -770,7 +770,8 @@
         "DRadioGroup uses native RawRadio/RadioGroup focus owners and FormField; controlled rejection/reset preserves the accepted form value.",
         "Source metrics, hashes, native hit-target adaptation and API contract documented in docs/component-library/radio-group.md.",
         "Poll explicitly opts into toggleable items to preserve withdrawal; normal radio groups do not deselect.",
-        "Current Base UI Radio API captured; readOnly guards native selection callbacks, required flags announce semantics while caller Form validator enforces requirements and localization."
+        "Current Base UI Radio API captured; readOnly guards native selection callbacks, required flags announce semantics while caller Form validator enforces requirements and localization.",
+        "Field composition source correction: input uses outlineVariant and alpha modifiers multiply existing alpha; choice cards use captured FieldLabel/Field 10px padding, base-radius lg, selected alpha, hover/focus and 8px/2px content geometry. No DField implementation."
       ],
       "migrations": [
         "lib/src/shell/topic_move_posts.dart destination radios",
@@ -790,13 +791,15 @@
         "Final committed-source macOS fixture build passed at 767e3d49b9d0c2807b42a28a19bafc9f2483d5b8; isolated bundle /private/tmp/discourse-radio-review-35591zqt/Radio Group Review.app; kernel SHA256 623a8ae4684b35c11408691b1c4d3eb88858123527091811845a267ef0bf6cda; source equality (725 files), matching kernels and deep strict ad-hoc signature verified. See docs/component-library/radio-group.md.",
         "Final Poll semantics-wrapper refinement and production fixture passed 35 tests with seed 9092026; final root/full static analysis clean. No native app launched.",
         "ReadOnly/required follow-up: 162 focused component, migration, ownership, keyboard, Chat and fixture tests pass seed 9092026. Final 15 component tests also pass after semantic-action binding cleanup and extra keyboard override coverage. Root/full analyses clean.",
-        "ReadOnly replacement bundle /private/tmp/discourse-radio-readonly-review-l6gbqvk1/Radio Group Readonly Review.app built from 88400eed4c5d4c2215b2df534e7b419c0258b9b1; kernel c8399e45e0d59311d1bcebfc6fbef08400b7d3e29fab55ad1d36f95ef5416af9, 725 source files equal commit, matching copied kernel and deep strict ad-hoc signature verified. No native launch; awaiting_slot."
+        "ReadOnly replacement bundle /private/tmp/discourse-radio-readonly-review-l6gbqvk1/Radio Group Readonly Review.app built from 88400eed4c5d4c2215b2df534e7b419c0258b9b1; kernel c8399e45e0d59311d1bcebfc6fbef08400b7d3e29fab55ad1d36f95ef5416af9, 725 source files equal commit, matching copied kernel and deep strict ad-hoc signature verified. No native launch; awaiting_slot.",
+        "Visual-source correction: 163 focused tests passed seed 9092026, including translucent input/card color roles, light/dark modifier alpha, geometry and hover. Root/full static analysis clean; exact source captures and mapping updated.",
+        "Latest source-corrected fixture /private/tmp/discourse-radio-field-review-a2j2_677/Radio Group Field Review.app from 9ece5376b01fad2157af34ca2dd7914ba833e880; kernel 16336ff6c32757e9362121e5d6763a2e35e65d98df43ae4fed546aaf055e15b6; 725 source files byte-match, original/copied kernels equal, deep strict signature passes. No launch; native awaiting_slot."
       ],
       "limitations": [
         "Native desktop is locked; no CUA or native/browser inspection performed. All native visual comparison remains awaiting_slot.",
         "No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review."
       ],
-      "implementationCommit": "88400eed4c5d4c2215b2df534e7b419c0258b9b1",
+      "implementationCommit": "9ece5376b01fad2157af34ca2dd7914ba833e880",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },
@@ -2209,8 +2212,8 @@
           "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
           "branch": "codex/ui-radio-group",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5b3e/discourse-native",
-          "headCommit": "6ed00d067dd074946f7f03c069aff6363fc42479",
-          "status": "color_and_card_fidelity_review"
+          "headCommit": "cd271c5d118f65bc6566eaca59fdffb8227b2e44",
+          "status": "browser_and_test_renderer_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2296,13 +2299,13 @@
     },
     "pendingCoordinatorNativeReview": "Use Component Fidelity B104 at 6a99b2d2 after unlock to inspect title Escape/save failure, final styleguide preview scrollbar and corrected floating Sidebar radius.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": "01a083ce-319b-7bc3-a5c9-371087710718",
+    "browserInspectionTaskId": "01a083ce-313b-7da0-aa51-3687fd556604",
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
         "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
         "issue": "Read-only API review resolved. Remaining visual source review: use actual input token with multiplicative alpha; audit referenced choice-card padding/border/background and proportional radius against Field composition, currently uses arbitrary radius+4/padding16/full primary border. Complete during browser comparison. During browser review independently check actual choice-card focus rings: Switch live CSS currently paints both card and switch rings despite the apparent source suppression utility; do not assume Radio is identical without inspection.",
-        "status": "in_progress"
+        "status": "browser_comparison_in_progress"
       },
       "slider": {
         "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
