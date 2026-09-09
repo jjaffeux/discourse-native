@@ -4,6 +4,51 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('Side example preserves the reference capped scroll layout', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final example = sheetExamples.examples.singleWhere(
+      (example) => example.title == 'Side',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Builder(builder: example.builder)),
+      ),
+    );
+
+    for (final side in const [
+      DSheetSide.top,
+      DSheetSide.right,
+      DSheetSide.bottom,
+      DSheetSide.left,
+    ]) {
+      await tester.tap(find.widgetWithText(DButton, side.name));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byType(DSheetContent);
+      final rect = tester.getRect(sheet);
+      if (side == DSheetSide.top || side == DSheetSide.bottom) {
+        expect(rect.height, 300, reason: side.name);
+      } else {
+        expect(rect.height, 600, reason: side.name);
+      }
+      expect(
+        find.descendant(of: sheet, matching: find.byType(DSheetBody)),
+        findsOneWidget,
+        reason: side.name,
+      );
+      expect(find.text('Save changes'), findsOneWidget, reason: side.name);
+      expect(find.text('Cancel'), findsOneWidget, reason: side.name);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('all Sheet examples open at narrow 200 percent RTL', (
     tester,
   ) async {
