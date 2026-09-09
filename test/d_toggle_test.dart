@@ -135,6 +135,36 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pumpAndSettle();
     expect(changes, 1);
+
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    await mount(
+      tester,
+      DToggle(
+        pressed: false,
+        focusNode: focus,
+        semanticLabel: 'Controlled value',
+        child: const Text('Controlled without observer'),
+      ),
+    );
+    await tester.tap(find.byType(DToggle));
+    await tester.pumpAndSettle();
+    expect(focus.hasFocus, isTrue);
+    expect(
+      tester
+          .getSemantics(find.byType(DToggle))
+          .getSemanticsData()
+          .flagsCollection
+          .isEnabled,
+      Tristate.isTrue,
+    );
+    expect(
+      tester
+          .getSemantics(find.byType(DToggle))
+          .getSemanticsData()
+          .hasAction(SemanticsAction.tap),
+      isTrue,
+    );
   });
 
   testWidgets('base-nova artwork stays compact inside touch targets', (
@@ -190,8 +220,8 @@ void main() {
     addTearDown(focus.dispose);
     final tokens = DTokens.fromTheme(AppTheme.light).copyWith(
       muted: const Color(0xff123456),
+      border: const Color(0xff654321),
       colors: AppTheme.light.colorScheme.copyWith(
-        outlineVariant: const Color(0xff654321),
         primary: const Color(0xff246813),
         error: const Color(0xffaa0011),
       ),
@@ -255,6 +285,56 @@ void main() {
           .validationResult,
       SemanticsValidationResult.invalid,
     );
+  });
+
+  testWidgets('icon-side padding and content gap match current base-nova', (
+    tester,
+  ) async {
+    AnimatedContainer artwork() => tester.widget(
+      find.descendant(
+        of: find.byType(DToggle),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+
+    for (final entry in const [
+      (DToggleSize.small, 6.0),
+      (DToggleSize.regular, 8.0),
+      (DToggleSize.large, 8.0),
+    ]) {
+      await mount(
+        tester,
+        DToggle(
+          size: entry.$1,
+          icon: const Icon(Icons.format_italic, key: ValueKey('icon')),
+          child: const Text('Italic', key: ValueKey('label')),
+        ),
+      );
+      expect(
+        artwork().padding,
+        EdgeInsetsDirectional.only(start: entry.$2, end: 10),
+      );
+      final iconRect = tester.getRect(find.byKey(const ValueKey('icon')));
+      final labelRect = tester.getRect(find.byKey(const ValueKey('label')));
+      expect(labelRect.left - iconRect.right, 4);
+
+      await mount(
+        tester,
+        DToggle(
+          size: entry.$1,
+          iconPosition: DToggleIconPosition.end,
+          icon: const Icon(Icons.format_italic),
+          child: const Text('Italic'),
+        ),
+      );
+      expect(
+        artwork().padding,
+        EdgeInsetsDirectional.only(start: 10, end: entry.$2),
+      );
+    }
+
+    await mount(tester, const DToggle(child: Text('Plain')));
+    expect(artwork().padding, const EdgeInsets.symmetric(horizontal: 10));
   });
 
   testWidgets(
