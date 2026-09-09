@@ -3509,13 +3509,17 @@
         "field"
       ],
       "acceptanceCriteria": [
-        "Match the frozen Base UI/base-nova Input OTP complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
-        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
-        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
-        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+        "Verify the frozen Markdown hash and official base-nova registry source, then match the 32px slots, adjoining input borders, proportional lg corners, 3px active/invalid exterior rings, 16px caret/separator artwork, disabled opacity and dark input fill.",
+        "Implement DInputOTP, DInputOTPGroup, DInputOTPSlot and DInputOTPSeparator around one real bounded editable text owner, preserving native IME, selection, deletion, keyboard paste and one-time-code autofill semantics.",
+        "Expose mutually exclusive controller/value/initialValue ownership, borrowed focus lifecycle, max length, per-character pattern filtering, paste transformation, completion, changed/submitted/reset/validation callbacks and ordinary Flutter Form save/validate/reset behavior.",
+        "Provide actual Pattern, Separator, Disabled, Controlled, Invalid, Four Digits, Alphanumeric, Form and RTL examples with narrow/200 percent text support and live host palette/font/radius behavior; reconcile final Field composition after its accepted main merge.",
+        "Audit all core and bundled plugin authentication/code inputs, migrate suitable owners without changing account/security/network behavior, and document concrete retained alternatives when no app surface exists.",
+        "Format changed Dart, pass focused component/example/adoption tests plus root and profiles/full analysis, prepare exact-source macOS evidence, and hand all remaining official-browser/native acceptance and local main merge to a new independent reviewer task."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner began from main 77ee9b047528d43fcbcd4a31d464182f9640b835, then prepared a fresh candidate from main be63d141 after Field acceptance; no unaccepted parent source is carried.",
+        "Input is accepted at merge 7df72ef294826616e8ba24c31c6129d8e9041fec. Field is accepted at merge 5cd7f369 and its final public API is used directly for Form and invalid compositions.",
+        "Frozen official Markdown SHA256 913027458ed577e6345687c3d42b62f28e2813e1d8b000e1b8b9e52f554b1a6e verified byte-for-byte on 2026-09-09. Official base-nova input-otp registry SHA256 is 1f8309b2749a129b011c93928416a0da7d6009b55ae8118d45850e488eac8989."
       ],
       "migrations": [],
       "retainedAlternatives": [],
