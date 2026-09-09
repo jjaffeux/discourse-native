@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**40 of 64 components are merged locally.** 24 existing components are in progress; 0 are planned.
+**41 of 64 components are merged locally.** 23 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -18,28 +18,27 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
-| hover-card | independent review | 4d0a7058 | 01a08619-dc41-7213-a887-5afb891b99da |
 | alert-dialog | Implementation and checks | — | — |
-| sheet | Implementation and checks | — | — |
-| drawer | Implementation and checks | — | — |
+| sheet | independent review | 88e3e8c2 | 01a0862f-b27f-76d2-a441-8a77594aedc8 |
+| drawer | independent review | 8377cebe | 01a08643-3074-72e1-8b18-a2266dd724e6 |
 | input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
-| combobox | Implementation and checks | — | — |
+| combobox | independent review | 55dcf257 | 01a08628-7889-7dd2-a93c-c854fcdf1e9a |
 | dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
-| menubar | Implementation and checks | — | — |
+| menubar | independent review | 10b63f75 | 01a08628-7042-7173-a37d-7f1f04eade66 |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
-| pagination | Implementation and checks | — | — |
-| calendar | Implementation and checks | — | — |
+| pagination | independent review | 2167c871 | 01a08629-4841-73d0-a5a6-c723f253b4b0 |
+| calendar | independent review | 4b86c11a | 01a08631-7574-70b0-a98f-4e7217e03209 |
 | date-picker | Implementation and checks | — | — |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
-| bubble | Implementation and checks | — | — |
-| message | Implementation and checks | — | — |
-| message-scroller | Implementation and checks | — | — |
-| data-table | Implementation and checks | — | — |
+| bubble | independent review | 3aa42516 | 01a08639-b066-7882-85f5-a759c5fdab6f |
+| message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
+| message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
+| data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
 | input-otp | Implementation and checks | — | — |
-| questionnaire | accepted | 23df91f5 | 01a08633-c9ed-7062-86c4-16b0835eb303 |
+| questionnaire | accepted | b7fcd56e | 01a08633-c9ed-7062-86c4-16b0835eb303 |
 
 ## Component implementation
 
@@ -60,7 +59,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | merged | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | a492253dc0abaed3f424df1b59c5a11b266d5b60 |
-| 16 | toggle-group | implemented | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | — |
+| 16 | toggle-group | review_ready | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
@@ -76,7 +75,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
 | 31 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
-| 32 | hover-card | in_progress | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | — |
+| 32 | hover-card | merged | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | de39686f2a5d75651ef37268edb44adb6376cd7c |
 | 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 35 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
@@ -108,7 +107,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
 | 63 | input-otp | in_progress | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | — |
-| 64 | questionnaire | in_progress | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | — |
+| 64 | questionnaire | implemented | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | — |
 
 ## Decisions and evidence
 
@@ -1163,7 +1162,7 @@ Status: merged. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/ui-tog
 
 ### toggle-group
 
-Status: implemented. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
+Status: review_ready. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
 
 **acceptanceCriteria**
 
@@ -1989,19 +1988,60 @@ Status: merged. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-pop
 
 ### hover-card
 
-Status: in_progress. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/ui-hover-card.
+Status: merged. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/ui-hover-card.
 
 **acceptanceCriteria**
 
-- Match the frozen Hover Card full anatomy/API and Composition, Trigger Delays, Positioning, Basic, Sides and RTL examples, with actual Base UI Preview Card behavior and measured reference artwork.
-- Compose accepted Popover/Avatar/Button owners with correct hover delays, pointer-gap retention, rapid-trigger/disposal cancellation, positioning/collision, focus/Escape/touch semantics and meaningful trigger navigation; avoid an accidental modal focus trap.
-- Support live open-card themes, native accessibility, narrow/scaled/RTL layouts and reduced motion; audit and migrate appropriate core/plugin user/topic/link previews while preserving fetching, permissions, cache and navigation in adapters.
-- Verify meaningful timer/pointer/focus/state/adoption regressions and root/full analysis, prepare exact-source fixtures and create an independent reviewer for required rendered/native acceptance and final local main merge.
+- Export one generic DHoverCard owner with DHoverCardTrigger and DHoverCardContent composition, local/controlled state, borrowed-or-owned controller lifecycle, rapid peer-trigger handoff, opening/closing callbacks and explicit change reasons; generic code must contain no Discourse services, fetching, permissions or navigation.
+- Match the frozen 8f30193c Hover Card Markdown and base-nova registry at 100% scale: 256px popup, 10px padding, 14px/20px text, host-relative lg radius, popover surface/foreground, foreground/10 ring, reference shadow, 4px side offset, 4px alignment offset and 100ms fade/95% scale/2px directional slide with reduced-motion support.
+- Implement physical and logical sides, start/center/end alignment, offsets, collision flipping/shifting, viewport and safe-area bounds, live anchor tracking, narrow/200% text/RTL behavior, and live light/dark/custom token/font/radius updates while the overlay is open.
+- Implement the Base UI preview-card interaction model: 600ms/300ms defaults plus per-trigger delays, pointer travel across the trigger/content gap without flicker, rapid trigger handoff and timer cancellation, keyboard-focus opening without moving focus into the preview, Escape ownership/closure, blur/outside closure and safe removal/disable/controller replacement/disposal behavior.
+- Keep the trigger's real link/button action and semantics as the only accessible interface. The supplementary popup must not become a modal focus trap, Tooltip replacement or touch-only destination, while visible text selection, scrolling and pointer hover retention remain usable and any focusable popup descendants are excluded from traversal and assistive semantics.
+- Reproduce runnable Basic, Composition, Trigger Delays, Positioning, all physical Sides and Arabic RTL physical/logical-side examples with real Button and Avatar owners, truthful code snippets and interaction/native-adaptation notes.
+- Audit current core and bundled-plugin user/topic/link/reaction hover surfaces. Migrate suitable visual destination previews through application adapters while preserving original click/touch routing and fetch/cache/permission ownership, and record interactive pickers/essential-content panels as deliberate retained alternatives.
+- Add focused regression coverage for timers, trigger-to-content pointer travel, multiple-trigger races, focus/Escape and semantics, controlled/controller lifecycle, disposal/disable, positioning/collision/RTL/live theme, styleguide registration and each actual migration; format and analyze touched code plus root and profiles/full, then prepare exact-source browser/native fixtures and hand remaining acceptance and local-main merge to a new independent reviewer task.
 
 **decisions**
 
 - Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
-- Implementation handed directly to verified independent task Review and merge Hover Card (01a08619-dc41-7213-a887-5afb891b99da), which owns remaining fixes, first actual browser/native acceptance, final current-main reconciliation and local merge. Source commit c03c39b5 and metadata tip4d0a7058 are verified local objects; no native inspection is claimed at handoff.
+- Implementation handed directly to verified independent task Review and merge Hover Card (01a08619-dc41-7213-a887-5afb891b99da), which owns remaining fixes, first actual browser/native acceptance, final current-main reconciliation and local merge. Source commit c03c39b5 and metadata tip 4d0a7058 are verified local objects; no native inspection is claimed at handoff.
+- The frozen Hover Card Markdown was downloaded again and its SHA-256 exactly matches 8f30193c745aaf270cdf63043ca452cdffb895e8643a86c662ca0804c6022dc8. hover-card.md records the official base-nova registry and Base UI Preview Card behavior source with a measurement-by-measurement Flutter mapping.
+- DHoverCard composes a real DHoverCardTrigger and DHoverCardContent, supports local or controlled state, borrowed/owned DHoverCardController lifecycle, explicit open/close reasons and completion callbacks, and keeps every Discourse service/model/navigation dependency outside generic code.
+- The visual owner uses the accepted DPopoverSide/DPopoverAlign/DPopoverCollision public positioning vocabulary while leaving Popover source and its accepted lifecycle/Escape/layering corrections unchanged. Hover Card independently owns its non-modal focus, hover timer and assistive-visibility contract.
+- Base UI's accessibility guidance is preserved: the action trigger remains the only accessible and keyboard/touch navigable interface; the supplementary surface never takes focus and is excluded from assistive semantics. It remains pointer-hoverable, scrollable and text-selectable for sighted mouse users.
+- Default 600ms open/300ms close timers are per-trigger configurable. Polygonal trigger-to-content bridge retention, content entry, rapid peer-trigger cancellation, disable, lifecycle, outside press, topmost Escape, trigger activation and disposal all cancel the appropriate pending work.
+- Eight accepted styleguide examples reproduce frozen Basic, Composition, Trigger Delays, Positioning, all physical Sides and Arabic RTL physical/logical sides, plus strongly typed multiple-trigger payloads and controlled/controller lifecycle. Real merged Button and Avatar owners are used.
+- The review handoff supplied a non-resolving long SHA c03c39b5b5d2dc549e5c016e098ec404bc8cf20d. The clean codex/ui-hover-card branch and its own progress evidence identify the actual implementation commit as c03c39b5bf037e33dd84e86db6216ee3b7febaa9; review preserves that exact history.
+- Independent review fixed duplicate immediate-animation completion callbacks, deferred overlay mutations during controller/focus ownership changes, retained the polygonal pointer bridge until the pointer truly leaves it, and paints the reference ring outside rather than consuming surface size.
+- DHoverCardGroup<T> and DHoverCardGroupItem<T> cover Base UI's shared-root multiple-trigger, payload and controlled-trigger-id API with arbitrary Flutter trigger layouts and rapid same-root handoff. Detached imperative ownership remains available through DHoverCardController; DOM-only detached viewport animation is not applicable to this Flutter owner.
+- The production UserCardTarget adapter schedules a missing-cache load through its existing ShellController after build and remains safe when signed-in account replacement unmounts an open preview. Generic Hover Card code still owns no networking, cache, permissions or navigation.
+
+**migrations**
+
+- UserCardTarget now composes DHoverCard around its unchanged InlineAction. Hover or traditional keyboard focus loads the existing ShellController user-card cache and renders a read-only app adapter with DAvatar/AvatarImage, name, username, title and location; click, touch, Enter and Space still open the full user-card route.
+- InlineAction now accepts a borrowed FocusNode so the generic Hover Card owner can observe the existing action's true focus without adding a duplicate semantic or focus target.
+
+**retainedAlternatives**
+
+- HoverPanel remains for reaction pickers and liker/reactor panels because those surfaces contain essential focusable selection/actions and touch-sheet adaptation, which conflict with Base UI's supplementary non-navigable Preview Card contract.
+- The full user-card dialog remains the click/touch destination because it owns plugin actions, cooked links, retry behavior, routing and focus. Composer, chat and topic previews are persistent inline content rather than hover-triggered destination previews; Tooltip remains for concise labels and shortcuts.
+- No separate generic topic/link preview fetch cache currently exists. Networking or a second cache was not added to the reusable component.
+
+**verification**
+
+- Implementation evidence: flutter pub get --enforce-lockfile completed at root and profiles/full using existing pins; no lockfile changes remain.
+- Implementation evidence: root and profiles/full flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed.
+- Implementation evidence: a focused Hover Card/styleguide/UserCard run passed 27 tests, and a broader run including the complete styleguide_page_test.dart passed 42 tests.
+- Implementation evidence: flutter build macos --debug --no-pub -t tool/hover_card_review_main.dart succeeded; build success is not native inspection.
+- Independent review: root and profiles/full flutter pub get --enforce-lockfile and flutter analyze --no-pub passed; touched formatting and git diff --check passed.
+- Independent review: 54 focused Hover Card, styleguide and production UserCard tests passed with randomized seed 3337741303, including timers, pointer bridge, focus/Escape, semantics exclusion, controlled/controller lifecycle, duplicate callback regression, peer roots, typed payload handoff, collision/RTL, 216px width at 200%, loading/error and account replacement.
+- Independent browser inspection completed against https://ui.shadcn.com/docs/components/base/hover-card: rendered Basic, physical side and Arabic logical-side surfaces matched the frozen source's content, size, spacing, ring/shadow and placement behavior.
+- Independent native inspection completed in the exact-source signed macOS fixture at /private/tmp/hover-card-review-7204.JR8WST/Hover Card Review 7204.app: Basic, collision flipping, RTL, typed payload handoff, controlled triggerHover reporting, controller open, keyboard focus/Escape, ready/loading/error user cards, activation/dismissal, dark/custom palettes, 200% text and the eight-section full styleguide all passed.
+- Exact-source fixture evidence: source 7204dd2d2895a332b01a14dafbfcb796127336b7; copied kernel SHA-256 69650cc5717b0c86c151c367cd1f004e7a8f3d8ba12e619898777267f42588be; component SHA-256 ce0128a9b09a2475990cdb92cd6a7a92eaac66d17f9435b4e552c2c058201005; strict deep codesign verification passed with only local debug runtime entitlements.
+
+**limitations**
+
+- No spoken VoiceOver session or iOS/Linux device inspection was performed.
 
 ### dialog
 
@@ -2086,6 +2126,7 @@ Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Sheet (01a0862f-b27f-76d2-a441-8a77594aedc8) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### drawer
 
@@ -2101,6 +2142,7 @@ Status: in_progress. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Drawer (01a08643-3074-72e1-8b18-a2266dd724e6) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### select
 
@@ -2382,6 +2424,7 @@ Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/u
 **decisions**
 
 - Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
+- Verified independent reviewer Review and merge Combobox (01a08628-7889-7dd2-a93c-c854fcdf1e9a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### dropdown-menu
 
@@ -2430,6 +2473,7 @@ Status: in_progress. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Menubar (01a08628-7042-7173-a37d-7f1f04eade66) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### navigation-menu
 
@@ -2462,6 +2506,22 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Breadcrumb (01a08623-9d6e-7393-b3e8-fb4c402b8c71) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Reviewer preserved the finalized cd9c542d implementation history, added a source-exact local-data TopicListView fixture, and completed Breadcrumb's first official browser and native macOS comparison. Final acceptance remains gated on Dropdown Menu's accepted local-main merge.
+
+**migrations**
+
+- topic_list_view.dart: the real topic-row parent-category to category path uses DBreadcrumb composition while preserving LinkTarget navigation, rich badges, controller callbacks, labels and dense-row ellipsis behavior.
+
+**verification**
+
+- Reviewer measured the live Base UI light/dark and RTL examples: 14/20 text, 6px list gap, 4px item gap, 14px separators, 20px ellipsis and 28px collapsed trigger; the temporary reference tab was closed.
+- Reviewer launched an isolated macOS fixture and inspected Light, Dark, Forest, Plum, pointer/keyboard callbacks, visible focus, RTL, 240px/200% text, reduced motion, wrapping/scrolling, native AX boundaries, Dropdown/Collapsed focus/navigation/typeahead/selection/Escape/restoration/outside dismissal. No VoiceOver/iOS/Linux claim.
+- A source-exact offline DiscourseApp/TopicListView fixture exposed both production category links in native AX, kept the long path bounded and confirmed parent/child callbacks navigate to the correct local feeds.
+- 48 Breadcrumb/Dropdown/styleguide tests passed with seed826145; both focused topic-row regressions passed; root and profiles/full analysis are clean.
+
+**limitations**
+
+- Dropdown Menu remains unaccepted. Breadcrumb's successful approved native inspections preceded the parent reviewer's latest 2026-09-09 12:53 UTC locked-Mac denial and therefore do not supersede it. Dropdown correctly did not merge. Acceptance remains pending a manual unlock and parent-owned resume; Breadcrumb will not carry the unaccepted source into main.
 
 ### pagination
 
@@ -2477,6 +2537,7 @@ Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Pagination (01a08629-4841-73d0-a5a6-c723f253b4b0) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### calendar
 
@@ -2495,6 +2556,7 @@ Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/u
 
 - Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
 - Explicit user direction on 2026-09-09 requires kalender and visual consistency with the rest of the styleguide. Calendar owner acknowledged that its uncommitted custom engine will be removed, retaining only shadcn-specific state models, styling/builders and adapters around kalender. The new requirement must be carried into the independent review handoff.
+- Verified independent reviewer Review and merge Calendar (01a08631-7574-70b0-a98f-4e7217e03209) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### date-picker
 
@@ -2717,6 +2779,7 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/u
 **decisions**
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
+- Verified independent reviewer Review and merge Bubble (01a08639-b066-7882-85f5-a759c5fdab6f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### message
 
@@ -2732,6 +2795,7 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Message (01a08627-8995-7b43-9c06-8a219d472681) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### message-scroller
 
@@ -2747,6 +2811,7 @@ Status: in_progress. Task: 01a08606-ce86-7be2-b92f-59676b40cb40. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Message Scroller (01a08639-b066-7882-85f5-a7729bfd111b) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### chart
 
@@ -2810,6 +2875,7 @@ Status: in_progress. Task: 01a08606-ca45-73b1-9be1-7486d4e3fe1d. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Data Table (01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### sidebar
 
@@ -2870,7 +2936,7 @@ Status: in_progress. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/u
 
 ### questionnaire
 
-Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-questionnaire.
+Status: implemented. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-questionnaire.
 
 **acceptanceCriteria**
 
@@ -2888,6 +2954,7 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Questionnaire (01a08633-c9ed-7062-86c4-16b0835eb303) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 - Pinned the frozen official Markdown at SHA256 174687e701dfa6b70a0583de3bfee8dd2885b4c8fd51a899adfaffd689a9dc7c and the 2026-09-09 base-nova registry payload at SHA256 7eac8ca2fb479be1a18c97cced020b93c22cec1926dea72c8be324cdb3b62fa9.
 - Use an immutable heterogeneous typed item model and a ChangeNotifier controller as the headless/unstyled behavior owner; styled widgets remain free of persistence, networking and Discourse branching.
 - The official unstyled API Markdown (SHA256 b6b1f21e3b12dcae85fa89a1582b29ec0e8aede97b02ad33bcbd8db748b06d58), @shadcn/react 0.3.1 tarball (SHA256 0c40a06316d9bac27029f1d81874d894d77ef43a74cad0d12aaab620907563d8), registry TypeScript payload (SHA256 fb5db703937410dee230586678a859b7add61114d7fbf6d6bbfb7101cdfc86ff) and official repository main at 3ba91b1cc83e1bbee4ab35a422ff2a694849c5048 were inspected to resolve navigation, skip, validation and reset semantics.
@@ -2910,7 +2977,7 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 - Independent review re-downloaded every frozen official source and reproduced the recorded SHA-256 hashes. The rendered Base UI reference was measured at 1024px and 375px in light/dark states; root, progress, type, choice, input and action geometry matched the Flutter mapping.
 - Independent review added direct regressions and corrections for editable-field shortcut suppression with active-IME guarding, focus transfer after shortcut selection while disabled choices consume no slot, freeform Enter navigation, and logical RTL slide direction. Final focused Questionnaire coverage passed 23 tests; 139 composed Field/Input/Button/Progress/Card/Dialog/Native Select owner regressions passed.
 - The exact-source uniquely identified macOS fixture was built, ad-hoc signed and deep/strict verified. Native inspection exercised the three-step flow, empty validation, radio and checkbox keyboard behavior, disabled shortcut mapping, ordinary freeform editing, progress/action changes and the public example geometry. The final kernel SHA-256 was 77e51f8523b54537b4ad78eddd62f7d4a49b95b5c611d001ee4642329245261c.
-- Independent-review root and profiles/full flutter analyze --no-pub were clean; locked pub resolution, touched formatting and git diff --check passed. Accepted source commit: 23df91f5fd8e400fdf2f558dbd912cf7e03236d1.
+- Independent-review root and profiles/full flutter analyze --no-pub were clean; locked pub resolution, touched formatting and git diff --check passed. Accepted source commit after latest-main reconciliation: b7fcd56ecb661ce320e305e6263373f090741d4f.
 
 **limitations**
 
