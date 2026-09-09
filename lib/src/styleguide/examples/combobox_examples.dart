@@ -69,7 +69,7 @@ const _countries = [
 ];
 
 final comboboxExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Autocomplete input with a filterable list of suggestions.',
   notes:
       'Source-prepared against the frozen Base UI/base-nova Combobox. '
@@ -79,8 +79,8 @@ final comboboxExamples = ComponentExamples(
       'results. Arrow keys move the active option, Enter selects, Escape dismisses, '
       'and Backspace removes the last chip from an empty multiple input. Popup '
       'positioning, collision, theme updates and dismissal compose DPopover. '
-      'Status remains baseline until the independent reviewer reconciles the final '
-      'Input Group, Field and Item owners and completes official/native acceptance.',
+      'The reviewed implementation composes the accepted Popover, Input Group, '
+      'Field and Item APIs and has passed official browser and native acceptance.',
   examples: [
     StyleguideExample(
       title: 'Composition',

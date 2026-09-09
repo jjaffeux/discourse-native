@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('registers every frozen Combobox composition and example', () {
     expect(componentExamples['combobox'], same(comboboxExamples));
-    expect(comboboxExamples.status, ComponentStatus.baseline);
+    expect(comboboxExamples.status, ComponentStatus.implemented);
     expect(comboboxExamples.examples.map((example) => example.title), [
       'Composition',
       'Simple',

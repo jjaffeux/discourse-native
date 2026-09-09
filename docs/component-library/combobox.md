@@ -85,10 +85,10 @@ The styleguide records all frozen headings without collapsing distinct catalogue
 accounting: Composition, Simple, With chips, With groups and collection, Custom
 Items, Multiple Selection, Basic, Multiple, Clear Button, Groups, Invalid,
 Disabled, Auto Highlight, Popup, Input Group and RTL. Each mounts the real public
-Combobox. Status remains baseline until final-owner composition and visual/native
-acceptance are complete.
+Combobox. The example is implemented after final-owner composition, automated
+verification, official browser comparison and native macOS acceptance.
 
-Final review must:
+Final review completed:
 
 1. Reconcile current accepted main, Command utilities where useful, and accepted
    Field/Input Group/Item revisions without forcing cmdk semantics into Combobox.
@@ -99,9 +99,16 @@ Final review must:
    narrow width, 200% text, RTL, reduced motion and live light/dark/custom tokens.
 4. Run focused component, styleguide, Popover regression and adopted group-member
    tests plus root and `profiles/full` static analysis with all pins unchanged.
-5. Keep the example baseline and progress row `in_progress` until actual official
-   browser and native macOS inspection pass. Do not claim iOS, Linux or spoken
-   VoiceOver without performing them.
+5. Compared the official Basic, Groups, Custom Items and Popup states in the
+   browser with the isolated native fixture. Native acceptance also exercised
+   single and multiple selection, chip removal, clear/focus behavior, Escape focus
+   restoration, the accepted Input Group composition, Add Group Members async
+   search/save, 216/320px bounds, 200% text, RTL, reduced motion and live palettes.
+
+Automated acceptance covers the focused Combobox/styleguide/Input Group/Item/
+Popover/Group Page regressions, root and full-profile static analysis, and an
+exact-source macOS debug build. iOS, Linux and spoken VoiceOver behavior were not
+inspected and remain explicit platform follow-up work.
 
 ## Application audit
 
