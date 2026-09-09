@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**31 of 64 components are merged locally.** 13 existing components are in progress; 20 are planned.
+**31 of 64 components are merged locally.** 14 existing components are in progress; 19 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -49,7 +49,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | merged | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | a492253dc0abaed3f424df1b59c5a11b266d5b60 |
-| 16 | toggle-group | planned | — | — | toggle | — |
+| 16 | toggle-group | in_progress | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
@@ -1149,6 +1149,47 @@ Status: merged. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/ui-tog
 
 - No physical iOS/Linux device run or spoken VoiceOver verification was performed.
 - Browser and native font rasterizers differ; review establishes measured geometry, palette mapping and behavior rather than pixel equality. The final native bundle is source-specific to d39eb0f3; the subsequent latest-main merge did not touch Toggle, its tokens/theme, Voice adapter or review fixture.
+
+### toggle-group
+
+Status: in_progress. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
+
+**acceptanceCriteria**
+
+- Reproduce the frozen Default/Composition, Outline, Size, Spacing, Vertical, Disabled, Custom and RTL examples with measured base-nova geometry, including the 2026-05-17 8px default spacing and accurate spacing=0 joined edges.
+- Compose accepted DToggle as the sole visual/activation owner while providing typed single/multiple selection, controlled/local/borrowed-controller ownership, ordered changes, clearable/required choice, dynamic items and group/item disabled behavior.
+- Provide orientation- and RTL-aware roving arrow focus, Home/End, optional looping, visible independent focus rings, pressed-button semantics, tooltips, pointer/touch input, 48px touch targets, narrow scrolling, 200% scaling and reduced-motion/live-theme retention.
+- Migrate the composer gallery grid/carousel choice without moving markup, editor focus or callback ownership; audit and retain momentary editor commands, navigation, radio/checkbox/switch controls and carousel rendering under their correct owners.
+- Register exhaustive interactive examples with accurate snippets and recorded Field dependency; pass focused component/styleguide/consumer tests, root/full-profile analysis and a macOS source build before direct independent reviewer handoff.
+
+**decisions**
+
+- Frozen Markdown SHA-256 a24be2fab3d5a4bc103d27c39f046530191c526ff6c970e19919aebcf2cd1702 reproduced exactly; base-nova registry response 9f103af4a048ec392cb09b886985ec733a360a0033cc7138349f1775851a89d4 and Base UI behavior Markdown 4a19b1f1ed82381e3ca03ef4745875e2bfe59f6e84de52e20376f777c9cecf31 inspected directly.
+- DToggle remains the sole artwork, activation and toggled-semantics owner. Toggle Group adds only typed shared selection, roving focus, orientation/spacing and narrow DToggleVisualStyle composition geometry.
+- Default spacing is two 4px units (8px). spacing=0 uses 8px text padding, logical outer rounded corners and a single leading/top outline seam; standalone Toggle's accepted symmetric 10px padding is unchanged.
+- Field and Button Group remain under independent review. No pending branch is imported; final accepted shared composition reconciliation belongs to Toggle Group review/current-main integration.
+
+**migrations**
+
+- Composer gallery grid/carousel mode now uses a required controlled DToggleGroup<ComposerGalleryMode>; existing coordinator/controller callbacks, markup mutation, selected-gallery identity and editor focus restoration remain app-owned. The toolbar adopts ordinary 48px touch targets and preserves horizontal scrolling for narrow composers.
+
+**retainedAlternatives**
+
+- Composer bold/italic and other rich-editor commands remain momentary markup transformations rather than persistent group values.
+- Forum/topic/group/preferences tabs remain navigation; radio, checkbox and switch settings retain their selection semantics; ImageGrid rendering continues to use the accepted DCarousel owner.
+- DButtonGroup remains a passive semantic/layout boundary for independent actions. This branch did not import Button Group source, DJoinedControlScope, DButtonGroup APIs, DButton selection state or DInput seam painting.
+
+**verification**
+
+- Frozen Markdown downloaded and SHA-256 verified exactly as a24be2fab3d5a4bc103d27c39f046530191c526ff6c970e19919aebcf2cd1702. Base-nova registry response SHA-256 9f103af4a048ec392cb09b886985ec733a360a0033cc7138349f1775851a89d4 and Base UI Markdown SHA-256 4a19b1f1ed82381e3ca03ef4745875e2bfe59f6e84de52e20376f777c9cecf31 recorded in docs/component-library/toggle-group.md.
+- 6 focused Toggle Group tests passed with seed 1235496787, covering controlled clearable single selection, ordered multiple values across pointer/keyboard/semantics activation, borrowed controller/required choice, disabled items, RTL looping roving focus, joined outline geometry and all examples at narrow 200% RTL/reduced-motion across light/dark/custom palettes.
+- 70 focused Toggle Group, accepted Toggle, Voice fixture and composer gallery tests passed with seed 4045977064: test/d_toggle_group_test.dart test/d_toggle_test.dart test/toggle_review_fixture_test.dart test/composer_upload_panel_test.dart test/composer_image_gallery_test.dart.
+- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed clean. Root and profiles/full flutter pub get --enforce-lockfile passed without lockfile changes. git diff --check passed.
+- flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed and produced build/macos/Build/Products/Debug/Discourse.app. This is build evidence only; no native app launch is claimed.
+
+**limitations**
+
+- Official rendered comparison, native macOS interaction, VoiceOver and final accepted Field/Button Group reconciliation remain for the new reviewer; no physical iOS/Linux device check is claimed.
 
 ### slider
 

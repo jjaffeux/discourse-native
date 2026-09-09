@@ -1063,7 +1063,7 @@ void main() {
         final toolbar = find.byKey(const ValueKey('composer-gallery-toolbar'));
         expect(toolbar, findsOneWidget);
         final toolbarRect = tester.getRect(toolbar);
-        expect(toolbarRect.size, const Size(44 * 4, 44));
+        expect(toolbarRect.size, const Size(48 * 4, 48));
         final viewport = Rect.fromLTWH(
           0,
           0,
@@ -1077,7 +1077,7 @@ void main() {
           of: toolbar,
           matching: find.byType(IconButton),
         );
-        expect(iconButtons, findsNWidgets(4));
+        expect(iconButtons, findsNWidgets(2));
         for (final button in iconButtons.evaluate()) {
           final size = tester.getSize(find.byWidget(button.widget));
           final tooltip = (button.widget as IconButton).tooltip;
@@ -1085,19 +1085,25 @@ void main() {
           expect(size.height, greaterThanOrEqualTo(44), reason: tooltip);
         }
 
-        Finder modeButton(String tooltip) => find
-            .descendant(
-              of: find.byTooltip(tooltip),
-              matching: find.byType(IconButton),
-            )
-            .first;
+        final modeToggles = find.descendant(
+          of: toolbar,
+          matching: find.byType(DToggle),
+        );
+        expect(modeToggles, findsNWidgets(2));
+        for (final button in modeToggles.evaluate()) {
+          final size = tester.getSize(find.byWidget(button.widget));
+          expect(size.width, greaterThanOrEqualTo(48));
+          expect(size.height, greaterThanOrEqualTo(48));
+        }
+
+        Finder modeButton(String tooltip) => find.bySemanticsLabel(tooltip);
         expect(
           tester.getSemantics(modeButton('Grid gallery mode')),
           isSemantics(
             label: 'Grid gallery mode',
             isButton: true,
-            hasSelectedState: true,
-            isSelected: true,
+            hasToggledState: true,
+            isToggled: true,
           ),
         );
         expect(
@@ -1105,19 +1111,19 @@ void main() {
           isSemantics(
             label: 'Carousel gallery mode',
             isButton: true,
-            hasSelectedState: true,
-            isSelected: false,
+            hasToggledState: true,
+            isToggled: false,
           ),
         );
         await tester.tap(find.byTooltip('Carousel gallery mode'));
         await tester.pumpAndSettle();
         expect(
           tester.getSemantics(modeButton('Grid gallery mode')),
-          isSemantics(hasSelectedState: true, isSelected: false),
+          isSemantics(hasToggledState: true, isToggled: false),
         );
         expect(
           tester.getSemantics(modeButton('Carousel gallery mode')),
-          isSemantics(hasSelectedState: true, isSelected: true),
+          isSemantics(hasToggledState: true, isToggled: true),
         );
       } finally {
         semantics.dispose();
@@ -1362,13 +1368,15 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(
-          of: find.byTooltip('Carousel gallery mode'),
-          matching: find.byWidgetPredicate(
-            (widget) => widget is IconButton && widget.isSelected == true,
-          ),
-        ),
-        findsOneWidget,
+        tester
+            .widget<DToggle>(
+              find.descendant(
+                of: find.byTooltip('Carousel gallery mode'),
+                matching: find.byType(DToggle),
+              ),
+            )
+            .pressed,
+        true,
       );
 
       picker.complete([_file]);
