@@ -107,6 +107,8 @@ void main() {
   testWidgets('touch keeps 48px hit bounds around compact 32px artwork', (
     tester,
   ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
@@ -116,7 +118,7 @@ void main() {
               width: 300,
               child: DInputGroup(
                 children: [
-                  DInputGroupInput(hintText: 'Touch input'),
+                  DInputGroupInput(focusNode: focus, hintText: 'Touch input'),
                   const DInputGroupAddon(child: Icon(Icons.search)),
                 ],
               ),
@@ -134,6 +136,11 @@ void main() {
     );
     expect(decorated, isNotEmpty);
     expect(decorated.first.constraints, const BoxConstraints(minHeight: 32));
+
+    final bounds = tester.getRect(find.byType(DInputGroup));
+    await tester.tapAt(bounds.topCenter + const Offset(0, 2));
+    await tester.pump();
+    expect(focus.hasFocus, isTrue);
   });
 
   testWidgets('inline input keeps compact 32px grouped surface', (
