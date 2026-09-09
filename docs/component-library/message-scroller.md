@@ -91,3 +91,28 @@ Other scroll surfaces are intentionally retained: topic posts are not chat
 transcripts; menus/pickers own focus-sized overlay viewports; search and inbox
 results are ordinary result lists; composer text areas and attachment rails are
 editable or horizontal controls rather than streaming transcripts.
+
+## Independent review corrections
+
+The independent review exercised state transitions that were not covered by
+the implementation handoff and corrected four behavioral defects:
+
+- End and last-anchor startup now enter the pending state before the first
+  viewport paint. The maintained transcript stays hidden until the deliberate
+  first landing, so reload cannot flash the logical start for one frame.
+- Turn anchoring counts anchors only in the newly appended batch. A later
+  single anchored turn therefore keeps the documented previous-row context
+  instead of being mistaken for a multi-turn batch and forced to the end.
+- A custom edge-button child is button content rather than a replacement for
+  the control. It retains the standard callback, scroll command, focus target,
+  disabled behavior and semantics.
+- Smooth edge and message commands retain programmatic ownership until their
+  animation settles. Reader-position resize correction can no longer cancel a
+  command after its first animation frame; later genuine reader input still
+  cancels it.
+
+The review also locks owned-versus-borrowed controller, list-controller,
+focus-node and scroll-controller disposal behavior in a permanent regression.
+The offline review entry point mounts all seven catalogue examples plus actual
+production channel and thread `ChatMessageStream` adapters through the bundled
+chat plugin's real session and store, with an in-memory offline transport.
