@@ -156,7 +156,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('notes.pdf'));
+      await tester.tap(find.bySemanticsLabel('Open attachment: notes.pdf'));
       await tester.pumpAndSettle();
 
       expect(launched, ['${input.target}$_attachmentPath']);

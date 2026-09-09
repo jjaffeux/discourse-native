@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -104,7 +105,10 @@ void main() {
       final uploadButton = find.byKey(const ValueKey('composer-upload'));
       final retryButton = _iconButton('Retry upload');
       expect(tester.widget<IconButton>(uploadButton).onPressed, isNotNull);
-      expect(tester.widget<IconButton>(retryButton).onPressed, isNotNull);
+      expect(
+        tester.widget<DAttachmentAction>(retryButton).onPressed,
+        isNotNull,
+      );
 
       await tester.tap(
         find.widgetWithText(FilledButton, editing ? 'Save' : 'Reply'),
@@ -113,9 +117,11 @@ void main() {
       expect((editing ? api.updated : api.created).single['raw'], _body);
       expect(composer.submitting, isTrue);
       expect(tester.widget<IconButton>(uploadButton).onPressed, isNull);
-      expect(tester.widget<IconButton>(retryButton).onPressed, isNull);
+      expect(tester.widget<DAttachmentAction>(retryButton).onPressed, isNull);
       expect(
-        tester.widget<IconButton>(_iconButton('Remove upload')).onPressed,
+        tester
+            .widget<DAttachmentAction>(_attachmentAction('Remove upload'))
+            .onPressed,
         isNotNull,
       );
       await tester.tap(uploadButton);
@@ -128,7 +134,10 @@ void main() {
       await tester.pump();
       expect(composer.submitting, isFalse);
       expect(tester.widget<IconButton>(uploadButton).onPressed, isNotNull);
-      expect(tester.widget<IconButton>(retryButton).onPressed, isNotNull);
+      expect(
+        tester.widget<DAttachmentAction>(retryButton).onPressed,
+        isNotNull,
+      );
       await tester.tap(retryButton);
       await tester.tap(uploadButton);
       await tester.pump();
@@ -365,9 +374,10 @@ ComposerUploadFile _file(String name) => ComposerUploadFile(
   openRead: () => Stream.value([1, 2, 3]),
 );
 
-Finder _iconButton(String tooltip) => find.descendant(
-  of: find.byTooltip(tooltip),
-  matching: find.byType(IconButton),
+Finder _iconButton(String tooltip) => _attachmentAction(tooltip);
+
+Finder _attachmentAction(String tooltip) => find.byWidgetPredicate(
+  (widget) => widget is DAttachmentAction && widget.tooltip == tooltip,
 );
 
 const _site = 'https://meta.discourse.org';

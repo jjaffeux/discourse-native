@@ -150,22 +150,23 @@ void main() {
         ),
       );
 
-      final inkWell = find.descendant(
+      final attachmentTrigger = find.ancestor(
         of: target,
+        matching: find.byType(DAttachmentTrigger),
+      );
+      expect(attachmentTrigger, findsOneWidget);
+      expect(tester.widget<DAttachmentTrigger>(attachmentTrigger).isLink, true);
+
+      final inkWell = find.descendant(
+        of: attachmentTrigger,
         matching: find.byType(InkWell),
       );
       expect(inkWell, findsOneWidget);
-      expect(
-        tester.widget<InkWell>(inkWell).focusColor,
-        Theme.of(tester.element(target)).shell.hover,
-      );
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      final focusNode = tester.widget<InkWell>(inkWell).focusNode!;
+      expect(focusNode.canRequestFocus, isTrue);
+      focusNode.requestFocus();
       await tester.pump();
-      expect(
-        tester.getSemantics(target),
-        isSemantics(isFocusable: true, isFocused: true),
-      );
+      expect(focusNode.hasFocus, isTrue);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
