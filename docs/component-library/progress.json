@@ -1458,7 +1458,7 @@
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
         "status": "in_progress",
-        "reviewStatus": "awaiting_native_review",
+        "reviewStatus": "awaiting_manual_unlock",
         "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
         "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
         "verification": [
@@ -1469,10 +1469,15 @@
         "parentFollowup": {
           "component": "dropdown-menu",
           "preparedCommit": "7110ef80b2190f3a17c6a78fbae05fe857a29d38",
-          "status": "prepared"
+          "status": "merged",
+          "mergeCommit": "85f9265bf2593a7edc0693582b7eadf1c6645b8d",
+          "trackingCommit": "d647400602824226d70d1328fba2a141195dc559"
         },
         "nativeReview": {
-          "status": "queued",
+          "status": "partial_awaiting_manual_unlock",
+          "completed": "Exact r4 native menus, focus/actions, group keyboard actions, light/dark/Forest/Plum, LTR/RTL 360px 200% reduced motion, production fixture states and full styleguide groups inspected; screenshots saved.",
+          "remaining": "Manual Mac unlock; finish displayed snippets and rendered official reference; close own isolated app/tabs; reconcile current main and rerun affected checks before final local merge.",
+          "desktopLease": "released",
           "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
           "bundle": "/private/tmp/Avatar Compositions Final 47e2 r4.app",
           "kernelSha256": "05aeba9c6a9c5bc19df2f42788c06cb9b2d15af6761ade1343e14d2d434943ef"
@@ -5336,7 +5341,7 @@
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
         "status": "in_progress",
-        "reviewStatus": "awaiting_native_review",
+        "reviewStatus": "awaiting_manual_unlock",
         "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
         "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
         "verification": [
@@ -5347,10 +5352,15 @@
         "parentFollowup": {
           "component": "dropdown-menu",
           "preparedCommit": "7110ef80b2190f3a17c6a78fbae05fe857a29d38",
-          "status": "prepared"
+          "status": "merged",
+          "mergeCommit": "85f9265bf2593a7edc0693582b7eadf1c6645b8d",
+          "trackingCommit": "d647400602824226d70d1328fba2a141195dc559"
         },
         "nativeReview": {
-          "status": "queued",
+          "status": "partial_awaiting_manual_unlock",
+          "completed": "Exact r4 native menus, focus/actions, group keyboard actions, light/dark/Forest/Plum, LTR/RTL 360px 200% reduced motion, production fixture states and full styleguide groups inspected; screenshots saved.",
+          "remaining": "Manual Mac unlock; finish displayed snippets and rendered official reference; close own isolated app/tabs; reconcile current main and rerun affected checks before final local merge.",
+          "desktopLease": "released",
           "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
           "bundle": "/private/tmp/Avatar Compositions Final 47e2 r4.app",
           "kernelSha256": "05aeba9c6a9c5bc19df2f42788c06cb9b2d15af6761ade1343e14d2d434943ef"

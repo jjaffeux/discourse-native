@@ -18,10 +18,15 @@ bundle was rebuilt to include that exact snippet source as well. A subsequent
 coordinated Dropdown follow-up, prepared commit
 `7110ef80b2190f3a17c6a78fbae05fe857a29d38`, adds popup-local focus scrolling and
 single RTL chevron mirroring alongside the isolated registration-order fix.
-It was integrated for source preparation and exact native verification, not
-claimed accepted. Its owner's accepted local-main merge is required before
-Avatar's final merge. Avatar withdrew its waiting desktop request during this
-rebuild and rejoined only after the updated bundle was ready.
+It was initially integrated for source preparation. The owning reviewer has now
+accepted this exact Dropdown source in local-main merge
+`85f9265bf2593a7edc0693582b7eadf1c6645b8d`, tracking commit
+`d647400602824226d70d1328fba2a141195dc559`. Git blob
+`b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6` is identical between the prepared
+parent, Avatar's inspected source and the accepted merge. The parent gate is
+cleared; final current-main reconciliation is still pending. Avatar withdrew
+its waiting desktop request during the earlier rebuild and rejoined only after
+the updated bundle was ready.
 
 Accepted final owners are Button
 `eb6d8ea0d9417f0edc830c5ce715b52436f12c94` and Dropdown Menu
@@ -175,8 +180,69 @@ the built Discourse bundle's kernel and the isolated review bundle's kernel:
 
 ## Native/reference acceptance
 
-Pending the canonical FIFO desktop lease. The build has not yet been launched;
-signature validation and widget tests do not claim native acceptance.
+Partial native pass completed on 2026-09-09 with the exact r4 bundle above.
+The canonical desktop lease was acquired at 18:28:41 UTC. Approved CUA launched
+the isolated app and exposed its actual fixture controls and screenshots.
+
+- Light, dark and Forest dropdowns show the circular trigger, three ordinary
+  rows, separator and destructive Log out. Pointer Profile, keyboard End/Enter
+  Log out, Home/Down/Down/Enter Settings, outside dismissal and Escape worked.
+  Enter reopened the menu after activation; Escape restored the visible trigger
+  focus ring.
+- Group actions expose three independent accessible buttons. Pointer Lee and
+  sequential Tab/Enter activation of Chris, Lee and Evil Rabbit produced their
+  separate local statuses and visible focus rings.
+- Plum at 360px, 200%, reduced motion was inspected in both LTR and RTL. The
+  64px Avatar trigger and anchored menus remain visible. The fixed 128px Avatar
+  menu wraps Settings onto two lines at this text scale; it remains selectable.
+  The Direction menu flips above its low trigger and wraps its labels within
+  the available surface. Home/Enter selects `RTL`; End/Enter independently
+  selects `Second action`.
+- Production AvatarImage/ForumIcon loading and error fallbacks were observed.
+  Ready changes the Avatar accessibility node to an image; the local checker
+  bitmap became visible before the styleguide transition. The saved ready
+  screenshot precedes that final decode frame. The forum action increments only
+  the local counter to 1.
+- The actual full styleguide renders the corrected plain three-member group,
+  three count-size rows and three-member-plus-icon group. Its Dropdown example
+  exposes the final-owner description and controls.
+
+Captured evidence:
+
+- [Light menu](final-native-light-dropdown.png),
+  [dark menu](final-native-dark-dropdown.png),
+  [Forest menu](final-native-forest-dropdown.png).
+- [Escape focus](final-native-escape-focus.png),
+  [independent group keyboard action](final-native-group-keyboard.png).
+- [Plum RTL 200% Avatar menu](final-native-plum-rtl-200-dropdown.png),
+  [Plum LTR 200% Avatar menu](final-native-plum-ltr-200-dropdown.png),
+  [Plum RTL 200% Direction menu](final-native-plum-rtl-200-direction.png).
+- [Production error](final-native-production-error.png),
+  [ready state before decode completion](final-native-production-ready.png),
+  [full styleguide groups](final-native-styleguide-groups.png).
+
+The pass stopped while opening the styleguide's View code panel: approved CUA
+reported, "The Mac is locked and automatic unlock could not unlock it. Ask the
+user to unlock the Mac manually before continuing." No alternate UI route,
+unlock bypass, OS settings change or further CUA action was attempted. The
+desktop lease was immediately released. The isolated r4 app remains running;
+cleanup must wait for manual unlock. No browser tab was created by this task.
+
+Remaining acceptance: finish the displayed final-owner snippets, compare the
+actual rendered official reference, then close only this task's app/tabs through
+approved CUA. Preserve this valid partial pass rather than repeating it solely
+because the host locked. Native live-open theme updates, nested dialog Escape
+and touch hit targets are covered by widget tests, not claimed newly native
+tested. No spoken VoiceOver or iOS/Linux device pass is claimed.
+
+The later accepted Button Group changes add DJoinedControlScope-dependent
+Button geometry and a Popover scope boundary. Source inspection found no such
+scope in Avatar, Direction or this fixture: the fallback resolves the same
+radius, keeps the regular border/clip behavior, and the boundary returns null.
+The inspected ungrouped behavior is equivalent; affected tests must be rerun
+after final current-main reconciliation. Generic Avatar and the exact Dropdown
+implementation remain byte-identical to the inspected source.
+
 The historical `native-review.md` and screenshots remain valid for unchanged
-Avatar presentation/adapters, but their temporary dropdown evidence does not
-stand in for this final-owner review.
+Avatar presentation/adapters. Neither those temporary-menu captures nor this
+partial pass claim completed final-owner acceptance or authorize the final merge.
