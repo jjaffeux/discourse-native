@@ -4,18 +4,18 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final accordionExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'A vertically stacked set of interactive headings that reveal content.',
   notes:
-      'Source-prepared for independent review. DAccordion composes the accepted '
+      'Accepted after independent source, browser and native review. DAccordion '
+      'composes the accepted '
       'DCollapsible owner, adds single/multiple coordination, stable typed values, '
       'headings, base-nova visuals and controlled, local or borrowed-controller '
       'state. Headers remain bounded accessibility buttons; retained panel fields '
       'stay independently accessible. Desktop uses compact 40px artwork and touch '
       'platforms use 48px targets. Host palette, font, radius, scaling, RTL and '
-      'reduced-motion settings remain live. Native/browser comparison is assigned '
-      'to the independent reviewer.',
+      'reduced-motion settings remain live.',
   examples: [
     StyleguideExample(
       title: 'Basic',
