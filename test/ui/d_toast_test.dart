@@ -168,6 +168,63 @@ void main() {
     expect(find.text('Closable'), findsNothing);
   });
 
+  testWidgets('high priority uses an assertive accessibility announcement', (
+    tester,
+  ) async {
+    final announcements = <Map<dynamic, dynamic>>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockDecodedMessageHandler<dynamic>(
+      SystemChannels.accessibility,
+      (message) async {
+        announcements.add(message as Map<dynamic, dynamic>);
+      },
+    );
+    addTearDown(
+      () => messenger.setMockDecodedMessageHandler<dynamic>(
+        SystemChannels.accessibility,
+        null,
+      ),
+    );
+    final controller = DToastController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(supportsAnnounce: true),
+          child: child!,
+        ),
+        home: DToaster(controller: controller, child: const SizedBox.expand()),
+      ),
+    );
+    controller.add(
+      const DToastOptions(
+        title: 'Connection lost',
+        description: 'Retrying now',
+        duration: null,
+        priority: DToastPriority.high,
+      ),
+    );
+    await tester.pump();
+
+    expect(announcements, hasLength(1));
+    expect(announcements.single['type'], 'announce');
+    expect(announcements.single['data'], containsPair('assertiveness', 1));
+    expect(
+      announcements.single['data'],
+      containsPair('message', 'Connection lost. Retrying now'),
+    );
+    final semantics = tester.widget<Semantics>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Connection lost. Retrying now',
+      ),
+    );
+    expect(semantics.properties.liveRegion, isFalse);
+  });
+
   testWidgets('F6 focuses the viewport, Escape dismisses, and hover pauses', (
     tester,
   ) async {
