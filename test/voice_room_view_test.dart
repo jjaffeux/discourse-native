@@ -1235,17 +1235,17 @@ void main() {
           ),
         );
 
-        final save = find.widgetWithText(FilledButton, 'Save');
-        expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+        final save = find.widgetWithText(DButton, 'Save');
+        expect(tester.widget<DButton>(save).onPressed, isNotNull);
 
         await tester.enterText(nameField, '   ');
         await tester.pump();
-        expect(tester.widget<FilledButton>(save).onPressed, isNull);
+        expect(tester.widget<DButton>(save).onPressed, isNull);
 
         await tester.showKeyboard(nameField);
         tester.testTextInput.enterText('Renamed lounge');
         await tester.pump();
-        expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+        expect(tester.widget<DButton>(save).onPressed, isNotNull);
 
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
@@ -1292,7 +1292,7 @@ void main() {
 
       current = replacement.controller;
       await tester.enterText(find.byType(TextField).first, 'Replacement save');
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(DButton, 'Save'));
       await tester.pumpAndSettle();
 
       expect(original.transport.writes, isEmpty);

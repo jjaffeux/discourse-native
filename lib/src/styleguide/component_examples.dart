@@ -2,6 +2,7 @@ import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
+import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/kbd_examples.dart';
@@ -21,6 +22,7 @@ final componentExamples = <String, ComponentExamples>{
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,
   'direction': directionExamples,
+  'dialog': dialogExamples,
   'typography': typographyExamples,
   'separator': separatorExamples,
   'kbd': kbdExamples,

@@ -42,7 +42,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 30 | resizable | in_progress | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
 | 31 | popover | planned | — | — | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
-| 33 | dialog | planned | — | — | button | — |
+| 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
 | 34 | alert-dialog | planned | — | — | dialog | — |
 | 35 | sheet | planned | — | — | dialog | — |
 | 36 | drawer | planned | — | — | dialog | — |
@@ -1657,6 +1657,21 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 **limitations**
 
 - awaiting_slot: Mac locked; no browser/CUA/app launch performed. Native/reference-rendered light/dark/custom palette, large-text/RTL comparisons, real fixture inspection and VoiceOver/device behavior still pending. Not review_ready or mergeable.
+
+### dialog
+
+Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/ui-dialog.
+
+**acceptanceCriteria**
+
+- Provide one public generic Dialog owner exported from discourse_ui.dart with typed DDialogController<T>, DDialog/DDialogTrigger/DDialogContent/DDialogHeader/DDialogTitle/DDialogDescription/DDialogFooter/DDialogClose composition and a showDDialog<T> helper that uses the nearest Navigator by default.
+- Match the frozen base-nova registry at 100% scale: black/10 blurred backdrop, full-width popup capped at 384px with 16px viewport margins, 16px grid gaps and padding, xl radius, foreground/10 one-pixel exterior ring, popover surface, 16px medium/leading-none title, 14px muted description, 8px header/footer gaps, muted/50 bordered footer, and a 32px ghost X close control at logical top/end 8px.
+- Support uncontrolled and externally controlled open state, typed close results, trigger/close reasons, custom or omitted corner close controls, footer close composition, custom initial/final focus, focus trap/restoration, Escape and barrier dismissal policies, programmatic close, route/widget removal, nested Navigators/dialogs, and live inherited theme/direction/text-scale/reduced-motion changes while open.
+- Keep background content modal/inert and expose a correctly labeled dialog route and independent close/actions to assistive technology; preserve keyboard Tab/Shift-Tab traversal, mouse/touch activation, 48px invisible touch affordances where needed, logical RTL placement, and focus visibility without merging editable field semantics with surrounding controls.
+- Provide constrained and scrollable layouts that avoid keyboard/view-inset obstruction and overflow at 320px width and 200% text, including documented default profile form, Custom Close Button, No Close Button, Sticky Footer, Scrollable Content and Arabic RTL examples; keep Input/Field composition visibly pending rather than implementing substitute owners.
+- Define explicit async-submit ownership so completion, failure, double activation and disposal cannot close or mutate the wrong dialog; retain caller-owned validation, errors, permissions, persistence and routing behavior in application adapters.
+- Audit ordinary modal dialogs in core and bundled plugins and migrate appropriate usages to DDialog while preserving callbacks, async/lifecycle behavior and accessibility; record Alert Dialog, Sheet, Drawer, Popover, native system dialogs and specialized media/composer surfaces as narrowly retained alternatives rather than conflating their owners.
+- Format and analyze touched code, run focused component/styleguide/downstream migration tests and affected profile checks, build a uniquely identified isolated macOS local-data fixture that mounts actual changed production dialogs, and after coordinator slot approval compare the reference and native styleguide/migrated fixtures in light/dark/custom palettes, narrow/large-text/RTL/reduced-motion states with source, kernel and strict permitted-signature evidence.
 
 ### native-select
 
