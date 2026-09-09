@@ -16,6 +16,7 @@ export 'src/ui/components/d_collapsible.dart';
 export 'src/ui/components/d_dialog.dart';
 export 'src/ui/components/d_direction.dart';
 export 'src/ui/components/d_empty.dart';
+export 'src/ui/components/d_field.dart';
 export 'src/ui/components/d_input.dart';
 export 'src/ui/components/d_kbd.dart';
 export 'src/ui/components/d_label.dart';
