@@ -3,9 +3,56 @@ import 'dart:ui' show SemanticsAction, Tristate;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/card_examples.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('narrow RTL spacing choices stay visible during keyboard use', (
+    tester,
+  ) async {
+    final example = cardExamples.examples.singleWhere(
+      (entry) => entry.title == 'Shared spacing',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: SingleChildScrollView(
+                child: SizedBox(
+                  width: 260,
+                  child: Builder(builder: example.builder),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('16px'));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+    final last = find.ancestor(
+      of: find.text('32px'),
+      matching: find.byType(DToggle),
+    );
+    final group = find.byType(DToggleGroup<double>);
+    final lastBounds = tester.getRect(last);
+    final groupBounds = tester.getRect(group);
+    expect(tester.widget<DToggle>(last).focusNode!.hasFocus, true);
+    expect(lastBounds.left, greaterThanOrEqualTo(groupBounds.left));
+    expect(lastBounds.right, lessThanOrEqualTo(groupBounds.right));
+    expect(tester.widget<DToggleGroup<double>>(group).values, const [16]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DToggleGroup<double>>(group).values, const [32]);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('all Card examples render at narrow 200 percent RTL', (
     tester,
   ) async {
