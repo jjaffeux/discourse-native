@@ -1962,13 +1962,15 @@
       "verification": [
         "Flutter 3.47.2 unchanged; root/full enforced-lockfile resolution passed without lockfile changes.",
         "Root/full analysis clean; touched Dart formatting and git diff --check passed.",
-        "115 focused Marker, Topic date separator, Chat stream/channel lifecycle and styleguide-page tests passed with randomized ordering; /tmp/marker-focused.log."
+        "115 focused Marker, Topic date separator, Chat stream/channel lifecycle and styleguide-page tests passed with randomized ordering; /tmp/marker-focused.log.",
+        "Final shimmer alpha correction passed all13 Marker tests; root/full analysis remains clean.",
+        "Isolated macOS fixture build succeeded: Marker Review 3d0a.app in /tmp/marker-review-3d0a-c9dffe43; ID org.discourse.markerreview3d0a, URL scheme discourse-marker-review-3d0a. All1340 lib/packages/pubspec/pin files match source4e48ba45; three-way kernel SHA256056c1ff41d714c630b966e954b39879d6c9fc78dd3bc41e05520edb4d57067fa and deep strict signature verified. Full provenance and pending inspection checklist: docs/component-library/marker-native.md."
       ],
       "limitations": [
         "Mac locked; no CUA/browser/native inspection. Remain in_progress awaiting_slot until actual reference/native styleguide and production fixture comparison.",
         "No VoiceOver or iOS/Linux device testing; shimmer raster/underline placement require visual review."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "4e48ba4597a5bbf4dbf3fb7bb55a16c8117cee18",
       "mergeCommit": null
     },
     {

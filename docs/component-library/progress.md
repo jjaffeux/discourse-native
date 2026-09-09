@@ -1479,6 +1479,8 @@ Status: in_progress. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/u
 - Flutter 3.47.2 unchanged; root/full enforced-lockfile resolution passed without lockfile changes.
 - Root/full analysis clean; touched Dart formatting and git diff --check passed.
 - 115 focused Marker, Topic date separator, Chat stream/channel lifecycle and styleguide-page tests passed with randomized ordering; /tmp/marker-focused.log.
+- Final shimmer alpha correction passed all13 Marker tests; root/full analysis remains clean.
+- Isolated macOS fixture build succeeded: Marker Review 3d0a.app in /tmp/marker-review-3d0a-c9dffe43; ID org.discourse.markerreview3d0a, URL scheme discourse-marker-review-3d0a. All1340 lib/packages/pubspec/pin files match source4e48ba45; three-way kernel SHA256056c1ff41d714c630b966e954b39879d6c9fc78dd3bc41e05520edb4d57067fa and deep strict signature verified. Full provenance and pending inspection checklist: docs/component-library/marker-native.md.
 
 **limitations**
 
