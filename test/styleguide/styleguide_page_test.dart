@@ -248,8 +248,11 @@ void main() {
       find.byKey(const ValueKey('styleguide-component-direction')),
     );
     await tester.pumpAndSettle();
+    expect(find.text('تسجيل الدخول إلى حسابك'), findsOneWidget);
+    expect(find.text('Arabic (العربية)'), findsOneWidget);
+    await _choose(tester, 'Example', 'Live direction and editing');
     expect(find.text('Current direction: LTR'), findsOneWidget);
-    final field = find.widgetWithText(TextField, 'Display name');
+    final field = find.widgetWithText(DInput, 'Display name');
     await tester.ensureVisible(field);
     await tester.enterText(field, 'Grace');
     await _settings(tester);

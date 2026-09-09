@@ -4,6 +4,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('diagnostics name the explicit or inherited direction', () {
+    List<String> properties(TextDirection? direction) =>
+        DDirection(textDirection: direction, child: const SizedBox.shrink())
+            .toDiagnosticsNode()
+            .getProperties()
+            .map((property) => property.toString())
+            .toList();
+    expect(properties(TextDirection.rtl), ['textDirection: rtl']);
+    expect(properties(null), ['textDirection: inherited']);
+  });
+
   testWidgets('missing scope is nullable only for maybeOf', (tester) async {
     await tester.pumpWidget(
       Builder(
