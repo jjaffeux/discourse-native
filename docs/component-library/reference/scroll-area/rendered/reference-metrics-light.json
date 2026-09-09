@@ -1,0 +1,193 @@
+{
+  "areas": [
+    {
+      "figures": [],
+      "radius": "8px",
+      "rect": {
+        "bottom": -1221.5,
+        "height": 288,
+        "left": 598,
+        "right": 790,
+        "top": -1509.5,
+        "width": 192,
+        "x": 598,
+        "y": -1509.5
+      },
+      "texts": [
+        {
+          "font": "500 14px / 14px Geist, \"Geist Fallback\"",
+          "fontFamily": "Geist, \"Geist Fallback\"",
+          "rect": {
+            "bottom": -1478.5,
+            "height": 14,
+            "left": 615,
+            "right": 773,
+            "top": -1492.5,
+            "width": 158,
+            "x": 615,
+            "y": -1492.5
+          },
+          "text": "Tags"
+        }
+      ],
+      "viewport": [
+        {
+          "clientHeight": 286,
+          "clientWidth": 190,
+          "scrollHeight": 1912,
+          "scrollWidth": 190,
+          "tabIndex": 0
+        }
+      ]
+    },
+    {
+      "figures": [
+        {
+          "rect": {
+            "bottom": -9.171875,
+            "height": 224,
+            "left": 519,
+            "right": 669,
+            "top": -233.171875,
+            "width": 150,
+            "x": 519,
+            "y": -233.171875
+          }
+        },
+        {
+          "rect": {
+            "bottom": -9.171875,
+            "height": 224,
+            "left": 685,
+            "right": 835,
+            "top": -233.171875,
+            "width": 150,
+            "x": 685,
+            "y": -233.171875
+          }
+        },
+        {
+          "rect": {
+            "bottom": -9.171875,
+            "height": 224,
+            "left": 851,
+            "right": 1008.1640625,
+            "top": -233.171875,
+            "width": 157.1640625,
+            "x": 851,
+            "y": -233.171875
+          }
+        }
+      ],
+      "radius": "8px",
+      "rect": {
+        "bottom": 7.828125,
+        "height": 258,
+        "left": 502,
+        "right": 886,
+        "top": -250.171875,
+        "width": 384,
+        "x": 502,
+        "y": -250.171875
+      },
+      "texts": [
+        {
+          "font": "12px / 16px Geist, \"Geist Fallback\"",
+          "fontFamily": "Geist, \"Geist Fallback\"",
+          "rect": {
+            "bottom": -9.171875,
+            "height": 24,
+            "left": 519,
+            "right": 669,
+            "top": -33.171875,
+            "width": 150,
+            "x": 519,
+            "y": -33.171875
+          },
+          "text": "Photo by Ornella Binni"
+        },
+        {
+          "font": "12px / 16px Geist, \"Geist Fallback\"",
+          "fontFamily": "Geist, \"Geist Fallback\"",
+          "rect": {
+            "bottom": -9.171875,
+            "height": 24,
+            "left": 685,
+            "right": 835,
+            "top": -33.171875,
+            "width": 150,
+            "x": 685,
+            "y": -33.171875
+          },
+          "text": "Photo by Tom Byrom"
+        },
+        {
+          "font": "12px / 16px Geist, \"Geist Fallback\"",
+          "fontFamily": "Geist, \"Geist Fallback\"",
+          "rect": {
+            "bottom": -9.171875,
+            "height": 24,
+            "left": 851,
+            "right": 1008.1640625,
+            "top": -33.171875,
+            "width": 157.1640625,
+            "x": 851,
+            "y": -33.171875
+          },
+          "text": "Photo by Vladimir Malyavko"
+        }
+      ],
+      "viewport": [
+        {
+          "clientHeight": 256,
+          "clientWidth": 382,
+          "scrollHeight": 256,
+          "scrollWidth": 521,
+          "tabIndex": 0
+        }
+      ]
+    },
+    {
+      "figures": [],
+      "radius": "8px",
+      "rect": {
+        "bottom": 656.828125,
+        "height": 288,
+        "left": 598,
+        "right": 790,
+        "top": 368.828125,
+        "width": 192,
+        "x": 598,
+        "y": 368.828125
+      },
+      "texts": [
+        {
+          "font": "500 14px / 14px \"Noto Sans Arabic\", \"Noto Sans Arabic Fallback\"",
+          "fontFamily": "\"Noto Sans Arabic\", \"Noto Sans Arabic Fallback\"",
+          "rect": {
+            "bottom": -1226.171875,
+            "height": 14,
+            "left": 615,
+            "right": 773,
+            "top": -1240.171875,
+            "width": 158,
+            "x": 615,
+            "y": -1240.171875
+          },
+          "text": "العلامات"
+        }
+      ],
+      "viewport": [
+        {
+          "clientHeight": 286,
+          "clientWidth": 190,
+          "scrollHeight": 1912,
+          "scrollWidth": 190,
+          "tabIndex": 0
+        }
+      ]
+    }
+  ],
+  "dark": false,
+  "url": "https://ui.shadcn.com/docs/components/base/scroll-area#rtl"
+}
