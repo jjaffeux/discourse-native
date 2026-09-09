@@ -13,8 +13,8 @@ final inputGroupExamples = ComponentExamples(
       'DInputGroupButton keep independent focus, Form state, semantics, keyboard '
       'editing and actions. Addons can align inline-start, inline-end, '
       'block-start or block-end; place controls before addons in the child list '
-      'and use align for visual order. The API intentionally covers the Button '
-      'Group handoff fixture: joined input/action geometry with separate editor '
+      'and use align for visual order. Button Group composes this public API '
+      'for joined input/action geometry with separate editor '
       'and button semantics, RTL and scaling. Field owns labels and supporting '
       'content outside the shared surface; Dropdown Menu and Popover own overlay '
       'lifecycle. Empty uses the same accepted composition. Button Group remains '
@@ -79,7 +79,7 @@ final inputGroupExamples = ComponentExamples(
   DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd, child:
     DInputGroupButton(label: Text('Search'), onPressed: search)),
 ])''',
-      builder: (_) => const InputGroupButtonHandoffExample(),
+      builder: (_) => const InputGroupButtonActionsExample(),
     ),
     StyleguideExample(
       title: 'Kbd, dropdown, and spinner',
@@ -319,16 +319,16 @@ class _TextAddonExample extends StatelessWidget {
   );
 }
 
-class InputGroupButtonHandoffExample extends StatefulWidget {
-  const InputGroupButtonHandoffExample({super.key});
+class InputGroupButtonActionsExample extends StatefulWidget {
+  const InputGroupButtonActionsExample({super.key});
 
   @override
-  State<InputGroupButtonHandoffExample> createState() =>
-      _InputGroupButtonHandoffExampleState();
+  State<InputGroupButtonActionsExample> createState() =>
+      _InputGroupButtonActionsExampleState();
 }
 
-class _InputGroupButtonHandoffExampleState
-    extends State<InputGroupButtonHandoffExample> {
+class _InputGroupButtonActionsExampleState
+    extends State<InputGroupButtonActionsExample> {
   final _controller = TextEditingController(text: 'https://x.com/shadcn');
   String _status = 'Ready';
   bool _busy = false;

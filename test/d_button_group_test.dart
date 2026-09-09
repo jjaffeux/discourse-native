@@ -170,6 +170,9 @@ void main() {
 
     expect(find.byType(DSeparator), findsOneWidget);
     expect(find.byType(FilledButton), findsOneWidget);
+    final buttonHeight = tester.getSize(find.byType(FilledButton)).height;
+    expect(tester.getSize(find.byType(DButtonGroup)).height, buttonHeight);
+    expect(tester.getSize(find.byType(DSeparator)).height, buttonHeight - 2);
     expect(
       tester.getSemantics(find.byType(DButtonGroupText)),
       matchesSemantics(label: 'Current branch main'),
@@ -203,6 +206,25 @@ void main() {
     for (final button in find.byType(FilledButton).evaluate()) {
       expect(tester.getSize(find.byWidget(button.widget)).height, 48);
     }
+  });
+
+  testWidgets('vertical separator follows the widest control', (tester) async {
+    await _pump(
+      tester,
+      const DButtonGroup(
+        orientation: DButtonGroupOrientation.vertical,
+        children: [
+          DButton(label: Text('Short'), onPressed: _noop),
+          DButtonGroupSeparator(orientation: Axis.horizontal),
+          DButton(label: Text('A wider action'), onPressed: _noop),
+        ],
+      ),
+    );
+
+    final width = tester.getSize(find.byType(FilledButton).last).width;
+    expect(tester.getSize(find.byType(DButtonGroup)).width, width);
+    expect(tester.getSize(find.byType(DSeparator)).width, width - 2);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -256,6 +278,12 @@ void main() {
       expect(tester.getRect(find.byType(DButtonGroup)).width, 320);
       expect(find.text('retained draft'), findsOneWidget);
       expect(voiceToggles, 1);
+      _expectCornersForFinder(tester, find.byType(FilledButton).last, const [
+        false,
+        false,
+        false,
+        false,
+      ]);
       expect(
         tester.getSemantics(find.byType(DInputGroup)),
         matchesSemantics(

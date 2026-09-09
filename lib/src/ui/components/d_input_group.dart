@@ -213,7 +213,7 @@ class _DInputGroupState extends State<DInputGroup> {
                   color: invalid || focused ? ring : ring.withValues(alpha: 0),
                   radius: radius,
                 ),
-                child: content,
+                child: DJoinedControlScope.boundary(child: content),
               ),
             ),
           ),

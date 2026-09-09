@@ -7,6 +7,9 @@ import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/styleguide/examples/button_group_examples.dart';
+import 'package:discourse_native/src/styleguide/examples/input_group_examples.dart';
+import 'package:discourse_native/src/styleguide/examples/select_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
@@ -38,9 +41,17 @@ class _ButtonGroupReview extends StatefulWidget {
 
 class _ButtonGroupReviewState extends State<_ButtonGroupReview> {
   var _example = 0;
-  var _dark = false;
+  var _palette = 0;
   var _rtl = false;
   var _scale = 1.0;
+  var _width = 440.0;
+
+  static const _palettes = [
+    StyleguideTheme.light,
+    StyleguideTheme.dark,
+    StyleguideTheme.forest,
+    StyleguideTheme.plum,
+  ];
 
   @override
   void dispose() {
@@ -50,11 +61,20 @@ class _ButtonGroupReviewState extends State<_ButtonGroupReview> {
 
   @override
   Widget build(BuildContext context) {
-    final example = buttonGroupExamples.examples[_example];
+    final examples = [
+      ...buttonGroupExamples.examples,
+      selectExamples.examples.singleWhere(
+        (example) => example.title == 'Button Group composition',
+      ),
+      inputGroupExamples.examples.singleWhere(
+        (example) => example.title == 'Button actions',
+      ),
+    ];
+    final example = examples[_example];
     return ShellScope(
       controller: widget.shell,
       child: MaterialApp(
-        theme: _dark ? AppTheme.dark : AppTheme.light,
+        theme: _palettes[_palette].resolve(AppTheme.light),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(_scale),
@@ -87,14 +107,15 @@ class _ButtonGroupReviewState extends State<_ButtonGroupReview> {
                     ),
                     DButton(
                       label: const Text('Next example'),
-                      onPressed:
-                          _example == buttonGroupExamples.examples.length - 1
+                      onPressed: _example == examples.length - 1
                           ? null
                           : () => setState(() => _example++),
                     ),
                     DButton(
-                      label: const Text('Light / dark'),
-                      onPressed: () => setState(() => _dark = !_dark),
+                      label: Text('Theme: ${_palettes[_palette].label}'),
+                      onPressed: () => setState(
+                        () => _palette = (_palette + 1) % _palettes.length,
+                      ),
                     ),
                     DButton(
                       label: const Text('LTR / RTL'),
@@ -105,18 +126,33 @@ class _ButtonGroupReviewState extends State<_ButtonGroupReview> {
                       onPressed: () =>
                           setState(() => _scale = _scale == 1 ? 2 : 1),
                     ),
+                    DButton(
+                      label: Text('Width: ${_width.toInt()}'),
+                      onPressed: () =>
+                          setState(() => _width = _width == 440 ? 320 : 440),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  '${_example + 1}/${buttonGroupExamples.examples.length} — '
+                  '${_example + 1}/${examples.length} — '
                   '${example.title}',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
                 Text(example.description),
                 const SizedBox(height: 24),
-                Center(child: Builder(builder: example.builder)),
+                Center(
+                  child: SizedBox(
+                    width: _width,
+                    child: Center(
+                      child: Builder(
+                        key: ValueKey(example.title),
+                        builder: example.builder,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

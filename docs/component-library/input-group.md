@@ -46,11 +46,10 @@ standalone surface while preserving:
 `inlineStart`, `inlineEnd`, `blockStart` or `blockEnd`. Addon taps focus the
 first available control; nested buttons keep their own gesture/action owner.
 
-`DInputGroupButton` composes `DButton` with input-group sizes and radius. This is
-the public replacement surface for Button Group’s temporary local Input Group
-handoff fixture: joined input/action geometry, independent input and button
-semantics/actions, RTL and large-text behavior are covered by
-`InputGroupButtonHandoffExample` and focused tests.
+`DInputGroupButton` composes `DButton` with input-group sizes and radius.
+Button Group now consumes this public surface for joined input/action geometry.
+Independent input and button semantics/actions, RTL and large-text behavior are
+covered by `InputGroupButtonActionsExample` and focused tests.
 
 `DInputGroupControl` adapts custom native editors. The caller supplies the real
 focus node to its builder; the group consumes only focus/enabled/invalid state.
@@ -62,7 +61,7 @@ The styleguide registers nine actual examples:
 - Default search.
 - Inline/block alignments.
 - Text addons.
-- Button actions / Button Group handoff.
+- Button actions / Button Group composition.
 - Kbd, dropdown, and spinner.
 - Textarea footer.
 - Custom input.
@@ -137,9 +136,9 @@ Button Group dependency:
 - Replacement reviewer task: `01a085f4-2a6b-7c82-9dc3-c9b14d76b355`,
   branch `codex/review-button-group-recovered`. The earlier reviewer
   `01a0859e-170c-7821-b0fd-9ff24a9bfaac` is superseded.
-- The Button Group styleguide’s explicitly labeled local Input Group handoff
-  fixture must be replaced with the final public `DInputGroup` composition
-  without reducing the example surface.
+- The Button Group styleguide now uses the final public `DInputGroup` for its
+  message editor, voice action and joined attachment trigger. Its focused tests
+  preserve editor text across voice-state changes and retain independent actions.
 - Button Group is a downstream consumer and is not a reverse acceptance gate
   for Input Group.
 - Spinner’s former local Input Group validation fixture now uses public

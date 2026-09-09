@@ -48,9 +48,9 @@ The Popover pin is not accepted main. The Select reviewer must integrate accepte
 - Corrected controlled-open focus synchronization, disabled-selected focus fallback, no-current arrow navigation, repeated-letter typeahead, lower-half selected-row alignment and the initially inert scroll-down affordance.
 - Added a real multiple-selection/custom-value styleguide example and focused regressions for every correction, including measured 200% trigger/row growth.
 
-## Button Group dependency handoff
+## Button Group composition
 
-The Button Group frozen rich Select fixture must be replaced with public `DSelect`, not `DNativeSelect`, and must not duplicate Popover. The Select handoff example preserves adjacent button actions, grouped exterior geometry, Select trigger/editing semantics, popup rendering outside the group, RTL and scaled layout behavior.
+Button Group's currency example uses public `DSelect`, with the accepted Popover retaining popup ownership. Select's own Button Group example now uses `DButtonGroup` for Back, Range and Next; a horizontal viewport keeps the complete joined control reachable at narrow widths and large text. Adjacent actions and controlled selection remain independent, and popup content remains outside the joined geometry.
 
 ## Source-preparation verification
 

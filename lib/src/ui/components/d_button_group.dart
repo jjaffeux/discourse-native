@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/joined_control.dart';
@@ -57,22 +58,15 @@ class DButtonGroup extends StatelessWidget {
                 : children[index],
           ),
     ];
-    final Widget layout = axis == Axis.horizontal
-        ? Row(
-            mainAxisSize: mainAxisSize,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: scoped,
-          )
-        : Column(
-            mainAxisSize: mainAxisSize,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: scoped,
-          );
     return Semantics(
       container: true,
       explicitChildNodes: true,
       label: semanticLabel,
-      child: layout,
+      child: _ButtonGroupFlex(
+        direction: axis,
+        mainAxisSize: mainAxisSize,
+        children: scoped,
+      ),
     );
   }
 }
@@ -109,15 +103,18 @@ class DButtonGroupSeparator extends StatelessWidget {
   final String? semanticLabel;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: orientation == Axis.vertical
-        ? const EdgeInsets.symmetric(vertical: 1)
-        : const EdgeInsets.symmetric(horizontal: 1),
-    child: DSeparator(
-      orientation: orientation,
-      color: color,
-      decorative: decorative,
-      semanticLabel: semanticLabel,
+  Widget build(BuildContext context) => _GroupSeparatorExtent(
+    orientation: orientation,
+    child: Padding(
+      padding: orientation == Axis.vertical
+          ? const EdgeInsets.symmetric(vertical: 1)
+          : const EdgeInsets.symmetric(horizontal: 1),
+      child: DSeparator(
+        orientation: orientation,
+        color: color,
+        decorative: decorative,
+        semanticLabel: semanticLabel,
+      ),
     ),
   );
 }
@@ -160,8 +157,110 @@ class DButtonGroupText extends StatelessWidget {
       excludeSemantics: semanticLabel != null,
       child: Padding(
         padding: padding,
-        child: Align(alignment: alignment, child: text),
+        child: Align(
+          alignment: alignment,
+          widthFactor: 1,
+          heightFactor: 1,
+          child: text,
+        ),
       ),
     );
+  }
+}
+
+// Measure controls through their normal layout, then stretch only separators
+// to the resulting cross-axis extent. Intrinsic measurement cannot be used:
+// composed controls such as DSelect contain LayoutBuilder.
+class _ButtonGroupFlex extends Flex {
+  const _ButtonGroupFlex({
+    required super.direction,
+    required super.mainAxisSize,
+    required super.children,
+  });
+
+  @override
+  RenderFlex createRenderObject(BuildContext context) => _RenderButtonGroup(
+    direction: direction,
+    mainAxisSize: mainAxisSize,
+    textDirection: Directionality.of(context),
+  );
+}
+
+class _RenderButtonGroup extends RenderFlex {
+  _RenderButtonGroup({
+    required super.direction,
+    required super.mainAxisSize,
+    required super.textDirection,
+  });
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      if (child is! _RenderGroupSeparatorExtent ||
+          child.orientation == direction) {
+        continue;
+      }
+      final data = child.parentData! as FlexParentData;
+      if (direction == Axis.horizontal) {
+        child.layout(
+          BoxConstraints.tightFor(width: child.size.width, height: size.height),
+          parentUsesSize: true,
+        );
+        data.offset = Offset(data.offset.dx, 0);
+      } else {
+        child.layout(
+          BoxConstraints.tightFor(width: size.width, height: child.size.height),
+          parentUsesSize: true,
+        );
+        data.offset = Offset(0, data.offset.dy);
+      }
+    }
+  }
+}
+
+class _GroupSeparatorExtent extends SingleChildRenderObjectWidget {
+  const _GroupSeparatorExtent({
+    required this.orientation,
+    required super.child,
+  });
+
+  final Axis orientation;
+
+  @override
+  _RenderGroupSeparatorExtent createRenderObject(BuildContext context) =>
+      _RenderGroupSeparatorExtent(orientation);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderGroupSeparatorExtent renderObject,
+  ) => renderObject.orientation = orientation;
+}
+
+class _RenderGroupSeparatorExtent extends RenderProxyBox {
+  _RenderGroupSeparatorExtent(this._orientation);
+
+  Axis _orientation;
+  Axis get orientation => _orientation;
+  set orientation(Axis value) {
+    if (_orientation == value) return;
+    _orientation = value;
+    markNeedsLayout();
+  }
+
+  BoxConstraints _contentConstraints(BoxConstraints constraints) =>
+      orientation == Axis.vertical
+      ? constraints.copyWith(maxHeight: constraints.minHeight)
+      : constraints.copyWith(maxWidth: constraints.minWidth);
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      child!.getDryLayout(_contentConstraints(constraints));
+
+  @override
+  void performLayout() {
+    child!.layout(_contentConstraints(constraints), parentUsesSize: true);
+    size = child!.size;
   }
 }
