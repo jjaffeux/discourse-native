@@ -1,5 +1,6 @@
 import 'dart:ui' show CheckedState, PointerDeviceKind;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -635,7 +636,7 @@ void main() {
     expect(find.text('Thread settings'), findsOneWidget);
     final titleField = find.byKey(const ValueKey('chat-thread-title-field'));
     expect(titleField, findsOneWidget);
-    expect(tester.widget<TextField>(titleField).maxLength, 100);
+    expect(tester.widget<DInput>(titleField).maxLength, 100);
 
     await tester.enterText(titleField, 'Deploy plan');
     await tester.tap(find.byKey(const ValueKey('chat-thread-title-save')));

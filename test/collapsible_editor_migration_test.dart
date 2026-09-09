@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_composer.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_composer_parser.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
@@ -8,8 +9,9 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Finder field(String label) => find.byWidgetPredicate(
-  (w) => w is TextField && w.decoration?.labelText == label,
+Finder field(String label) => find.descendant(
+  of: find.byWidgetPredicate((w) => w is DInput && w.labelText == label),
+  matching: find.byType(TextField),
 );
 
 void main() {

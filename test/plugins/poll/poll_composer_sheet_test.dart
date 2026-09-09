@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_parser.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_sheet.dart';
@@ -49,7 +50,9 @@ void main() {
   }
 
   Finder field(String label) => find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.labelText == label,
+    (widget) =>
+        (widget is DInput && widget.labelText == label) ||
+        (widget is TextField && widget.decoration?.labelText == label),
     description: 'TextField labelled $label',
   );
 

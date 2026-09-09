@@ -33,7 +33,7 @@ void main() {
     await tester.pump();
     expect(find.text('Terms accepted'), findsOneWidget);
     final checkbox = find.byKey(const ValueKey('label-terms'));
-    expect(tester.widget<CheckboxListTile>(checkbox).onChanged, isNull);
+    expect(tester.widget<DCheckbox>(checkbox).onChanged, isNull);
     await tester.tap(
       find.text('Accept terms and conditions'),
       warnIfMissed: false,
@@ -41,7 +41,7 @@ void main() {
     theme.value = StyleguideTheme.plum.resolve(AppTheme.light);
     await tester.pumpAndSettle();
     expect(find.text('Terms accepted'), findsOneWidget);
-    expect(tester.widget<CheckboxListTile>(checkbox).onChanged, isNull);
+    expect(tester.widget<DCheckbox>(checkbox).onChanged, isNull);
     await tester.tap(find.text('Enable terms control'));
     await tester.pump();
     await tester.tap(find.text('Accept terms and conditions'));
@@ -65,15 +65,15 @@ void main() {
           tester.renderObject<RenderParagraph>(terms).didExceedMaxLines,
           isFalse,
         );
-        final checkbox = find.byType(CheckboxListTile);
+        final checkbox = find.byType(DCheckbox);
         await tester.tap(find.byType(DLabel));
         await tester.pump();
-        expect(tester.widget<CheckboxListTile>(checkbox).value, isTrue);
+        expect(tester.widget<DCheckbox>(checkbox).value, isTrue);
         await tester.ensureVisible(terms);
         await tester.tap(terms);
         await tester.pump();
         expect(find.textContaining('No email is sent'), findsOneWidget);
-        expect(tester.widget<CheckboxListTile>(checkbox).value, isTrue);
+        expect(tester.widget<DCheckbox>(checkbox).value, isTrue);
         expect(tester.takeException(), isNull);
       } finally {
         semantics.dispose();
@@ -116,10 +116,7 @@ void main() {
         await tester.tap(find.text('Reset form'));
         await tester.pumpAndSettle();
         expect(editable.controller.text, isEmpty);
-        expect(
-          tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
-          isFalse,
-        );
+        expect(tester.widget<DCheckbox>(find.byType(DCheckbox)).value, isFalse);
         expect(find.textContaining('Saved locally:'), findsNothing);
         expect(tester.takeException(), isNull);
       } finally {
@@ -139,7 +136,7 @@ void main() {
         final tile = find.byKey(ValueKey(key));
         final control = find.descendant(
           of: tile,
-          matching: find.byType(Checkbox),
+          matching: find.byType(AnimatedContainer),
         );
         expect(
           tester.getCenter(control).dx,
@@ -147,7 +144,7 @@ void main() {
         );
         await tester.tap(find.text(text));
         await tester.pump();
-        expect(tester.widget<CheckboxListTile>(tile).value, isTrue);
+        expect(tester.widget<DCheckbox>(tile).value, isTrue);
       }
     },
   );

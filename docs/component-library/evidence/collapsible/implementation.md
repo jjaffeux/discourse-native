@@ -149,3 +149,15 @@ settings used ad-hoc signing and omitted the APS development entitlement only
 for this local fixture. All four runner files were restored byte-for-byte; the
 real app build, push configuration and account provisioning were untouched.
 No app launch occurred. Native review remains awaiting_slot.
+
+## Pinned-main integration refresh
+
+Merged e612ad7b47413fa890b35ae3b55a6f6d37b08cf7, preserving every other
+component progress row and the merged Group/Sidebar/Topic Inbox fixes. Events
+retains current DCheckbox/DInput and Local Dates retains DInput. Examples now
+use DInput for radius/draft fields and DButton for actions, including extra-small
+Learn More. Field/Tabs remain explicit pending owners. CollapsibleTrigger stays
+the sole disclosure interaction owner; its child is passive visual content.
+Prior notes describing baseline Button/Input are historical and superseded.
+Browser and native inspection are prohibited in this locked/admin-policy-denied
+session; no attempt or workaround was performed.

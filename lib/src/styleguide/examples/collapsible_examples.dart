@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../styleguide_chrome.dart';
 import '../styleguide_example.dart';
 
 final collapsibleExamples = ComponentExamples(
@@ -14,8 +13,8 @@ final collapsibleExamples = ComponentExamples(
       'Keep mounted retains editors and Form fields; hidden content cannot take '
       'focus or expose semantics. Animation is opt-in and respects reduced motion. '
       'Triggers accept passive children, not nested buttons. Button variants are '
-      'example composition, not Collapsible props. Settings uses native editing '
-      'pending Input/Field; Explorer/Outline use sanctioned StyleguideAction '
+      'example composition, not Collapsible props. Settings uses DInput editing '
+      'with Field composition still pending; Explorer/Outline use DButton '
       'pending Tabs. Native/reference rendered review remains pending.',
   examples: [
     StyleguideExample(
@@ -42,7 +41,7 @@ final collapsibleExamples = ComponentExamples(
       code: '''DCollapsible(child: Column(children: [
   DCollapsibleTrigger(child: Text('More radius settings')),
   DCollapsibleContent(keepMounted: true,
-    child: TextFormField(initialValue: '0')),
+    child: DInput(initialValue: '0')),
 ]))''',
       builder: (_) => const _Settings(),
     ),
@@ -81,7 +80,7 @@ final collapsibleExamples = ComponentExamples(
     DCollapsibleTrigger(child: Text('Editor')),
     DCollapsibleContent(keepMounted: true,
       duration: Duration(milliseconds: 200),
-      child: TextFormField(initialValue: 'Retained draft')),
+      child: DInput(initialValue: 'Retained draft')),
   ]))''',
       builder: (_) => const _Lifecycle(),
     ),
@@ -497,7 +496,7 @@ class _BasicState extends State<_Basic> {
                               'This panel can be expanded or collapsed to reveal additional content.',
                             ),
                             DButton(
-                              size: DButtonSize.small,
+                              size: DButtonSize.extraSmall,
                               label: const Text('Learn More'),
                               onPressed: () => setState(() => learned = true),
                             ),
@@ -527,10 +526,10 @@ class _Settings extends StatelessWidget {
     children: [
       for (final label in [a, b])
         Expanded(
-          child: TextFormField(
+          child: DInput(
             initialValue: '0',
             keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: label),
+            labelText: label,
           ),
         ),
     ],
@@ -674,14 +673,18 @@ class _FileTreeState extends State<_FileTree> {
           title: Wrap(
             spacing: 4,
             children: [
-              StyleguideAction(
-                label: 'Explorer',
-                selected: !outline,
+              DButton(
+                label: const Text('Explorer'),
+                variant: !outline
+                    ? DButtonVariant.secondary
+                    : DButtonVariant.ghost,
                 onPressed: () => setState(() => outline = false),
               ),
-              StyleguideAction(
-                label: 'Outline',
-                selected: outline,
+              DButton(
+                label: const Text('Outline'),
+                variant: outline
+                    ? DButtonVariant.secondary
+                    : DButtonVariant.ghost,
                 onPressed: () => setState(() => outline = true),
               ),
             ],
@@ -727,12 +730,12 @@ class _LifecycleState extends State<_Lifecycle> {
           Wrap(
             spacing: 8,
             children: [
-              StyleguideAction(
-                label: disabled ? 'Enable' : 'Disable',
+              DButton(
+                label: Text(disabled ? 'Enable' : 'Disable'),
                 onPressed: () => setState(() => disabled = !disabled),
               ),
-              StyleguideAction(
-                label: animate ? 'Disable animation' : 'Enable animation',
+              DButton(
+                label: Text(animate ? 'Disable animation' : 'Enable animation'),
                 onPressed: () => setState(() => animate = !animate),
               ),
             ],
@@ -750,9 +753,9 @@ class _LifecycleState extends State<_Lifecycle> {
                     duration: animate
                         ? const Duration(milliseconds: 200)
                         : Duration.zero,
-                    child: TextFormField(
+                    child: DInput(
                       initialValue: retained ? 'Retained draft' : 'Lazy draft',
-                      decoration: const InputDecoration(labelText: 'Draft'),
+                      labelText: 'Draft',
                       validator: (value) =>
                           value!.isEmpty ? 'Enter a draft' : null,
                     ),

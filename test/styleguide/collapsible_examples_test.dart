@@ -54,7 +54,7 @@ void main() {
       await show('Settings Panel');
       await tester.tap(find.bySemanticsLabel('More radius settings'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField).last, '17');
+      await tester.enterText(find.byType(TextField).last, '17');
       await tester.tap(find.bySemanticsLabel('More radius settings'));
       await tester.pumpAndSettle();
       await tester.tap(find.bySemanticsLabel('More radius settings'));
