@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final sliderExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Choose one value, a range, or several ordered values.',
   notes:
-      'Native visual inspection pending. DSlider is controlled scalar input; '
+      'DSlider is controlled scalar input; '
       'DMultiSlider accepts two values for a range or any positive thumb count. '
       'Values are ordered; pointer input pushes neighbours and keyboard input stops at them. Each thumb is a Tab stop '
       'with its own semantic label. Arrows step; Shift+arrows and Page keys step '

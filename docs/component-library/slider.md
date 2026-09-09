@@ -1,7 +1,8 @@
-# Slider implementation and pending native review
+# Slider implementation and independent review
 
-Status: **in_progress / awaiting_slot**. Native desktop comparison has not run.
-The source, tests and offline fixture are prepared in `codex/ui-slider`.
+Status: **review_ready**. Official browser and native desktop comparison passed
+on 2026-09-09. The source, tests and offline fixture originated in
+`codex/ui-slider` and were accepted in `codex/review-slider`.
 
 ## Reference and metrics
 
@@ -141,11 +142,10 @@ Skeleton/Aspect Ratio example suites are included. Root and full-profile analysi
 and enforced lockfiles are checked without changing dependencies or Flutter
 3.47.2. The full application test suite is deliberately not run.
 
-No native, browser-rendered, iOS/Linux device, or VoiceOver speech verification
-has occurred. The task must remain in_progress until the coordinator grants a
-desktop slot and both native production fixtures and reference comparisons pass.
-Bundle identity, source/kernel hashes and final command outcomes will be recorded
-in the progress row and native evidence record after the isolated build.
+Before independent review, no native, browser-rendered, iOS/Linux device, or
+VoiceOver speech verification had occurred. The later acceptance pass is
+recorded below; iOS/Linux device and spoken VoiceOver verification remain out of
+scope for the performed review.
 
 ## Prepared bundle (API follow-up)
 
@@ -187,4 +187,30 @@ Current identity and exact signed entitlements are in
 [evidence](evidence/slider/native-preparation.json); prior r2 evidence is archived.
 Strict deep ad-hoc signature verification passed with debug/JIT entitlements
 and no restricted developer entitlements. Runner identities, pins and locks
-were unchanged. The bundle is unlaunched and remains awaiting_slot.
+were unchanged.
+
+## Independent browser and native acceptance
+
+The reviewer opened the official Base UI Slider page in the approved in-app
+browser and inspected the default, range, multiple-thumb, vertical, controlled,
+disabled and RTL compositions in both the page's light and dark appearances.
+The frozen registry metrics and examples remained consistent with the live
+render: a 4px pill track, 12px white circular thumb, compact 320px example
+width, two independent 160px vertical sliders, and the documented values.
+
+The exact-source `/private/tmp/DiscourseSliderReview-6792e34b.app` was launched
+on macOS. The real `TopicPositionSlider`, `VoiceParticipantVolumeSlider` and
+`InlineVideoPlaybackSurface` fixtures were inspected in light/dark, RTL and 2×
+text. Pointer focus exposed the compact artwork with an exterior focus halo;
+keyboard Right advanced the topic value in LTR and reduced it in RTL. Disabled
+controls rejected keyboard input, removal/restoration was safe, and an external
+playback tick updated the seek value from 0:30 to 1:10. Native accessibility
+exposed independent named slider nodes for post, participant volume and playback.
+
+The actual styleguide page was also inspected for default, range,
+multiple-thumb, vertical, controlled, custom Plum and buffered-playback states.
+Geometry, semantic palette mapping, composition and overflow matched the frozen
+reference and documented native adaptations. No functional or fidelity defect
+was found, so no executable-source rebuild was necessary. The review did not run
+iOS/Linux devices or spoken VoiceOver, and makes no pixel-equality claim across
+browser and native font rasterizers.
