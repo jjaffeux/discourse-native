@@ -36,7 +36,14 @@ void main() {
     tester,
   ) async {
     await _pump(tester, 2);
-    expect(find.byType(DSpinner), findsNWidgets(2));
+    expect(find.byType(DSpinner), findsNWidgets(DBadgeVariant.values.length));
+    expect(
+      tester
+          .widgetList<DBadge>(find.byType(DBadge))
+          .map((badge) => badge.variant)
+          .toSet(),
+      DBadgeVariant.values.toSet(),
+    );
     await tester.tap(find.text('Complete operation'));
     await tester.pump();
     expect(find.text('Deleted'), findsOneWidget);
@@ -45,7 +52,41 @@ void main() {
     expect(find.text('Generated'), findsOneWidget);
     await tester.tap(find.text('Restart operation'));
     await tester.pump();
-    expect(find.byType(DSpinner), findsNWidgets(2));
+    expect(find.byType(DSpinner), findsNWidgets(DBadgeVariant.values.length));
+  });
+  testWidgets('icon example covers both slots across every variant', (
+    tester,
+  ) async {
+    await _pump(tester, 1);
+    final badges = tester.widgetList<DBadge>(find.byType(DBadge)).toList();
+    expect(
+      badges.where((badge) => badge.leading != null).map((b) => b.variant),
+      containsAll(DBadgeVariant.values),
+    );
+    expect(
+      badges.where((badge) => badge.trailing != null).map((b) => b.variant),
+      containsAll(DBadgeVariant.values),
+    );
+  });
+  testWidgets('custom colors include linked solid and adaptive palettes', (
+    tester,
+  ) async {
+    await _pump(tester, 4);
+    final badges = tester.widgetList<DBadge>(find.byType(DBadge)).toList();
+    expect(badges, hasLength(10));
+    expect(badges.take(4).map((badge) => badge.backgroundColor), const [
+      Color(0xff2563eb),
+      Color(0xff16a34a),
+      Color(0xff0284c7),
+      Color(0xff9333ea),
+    ]);
+    expect(badges.skip(4).take(5).map((badge) => badge.backgroundColor), const [
+      Color(0xffeff6ff),
+      Color(0xfff0fdf4),
+      Color(0xfff0f9ff),
+      Color(0xfffaf5ff),
+      Color(0xfffef2f2),
+    ]);
   });
   testWidgets(
     'local navigation returns and disabled actions preserve counter across themes',
