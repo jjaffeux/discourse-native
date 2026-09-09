@@ -2815,6 +2815,7 @@ Status: in_progress. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/u
 - 31 accepted Card and Button component/example checks passed with seed 9092028, including narrow 200 percent RTL compositions.
 - Root and profiles/full flutter analyze --no-pub passed with no issues. Root and full flutter pub get --enforce-lockfile passed without lockfile changes; touched Dart formatting and git diff --check pass.
 - Local-only tool/input_otp_review_main.dart contains all real examples and live Light/Dark/Forest/Plum, LTR/RTL, 100/200 percent, motion and 320/448px controls; it performs no network or authentication work.
+- flutter build macos --debug --no-pub -t tool/input_otp_review_main.dart succeeded from handoff source d41610d48c08db875cc348f6b788f92d7b4ed317 after one Xcode build-service stall was interrupted and retried. Unique unlaunched bundle: /private/tmp/input-otp-review-d416.eWo3QY/Input OTP Review d416.app; ID org.discourse.native.inputotp.d416; scheme discourse-input-otp-review-d416. Built/copied kernel SHA256 both 6e8685c1e33ea86792cc719e2a62d34546727e67442d5a94ae7263bf52935ad9. Explicit existing review whitelist entitlements contain sandbox/JIT/network/file-picker/audio/camera only, with no APS/application/team identity; ad-hoc codesign deep strict verification passed.
 
 **limitations**
 
