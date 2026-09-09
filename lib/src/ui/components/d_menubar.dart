@@ -59,8 +59,7 @@ class _DMenubarState extends State<DMenubar> {
 
   List<_MenubarRegistration> get _enabledMenus => [
     for (final menu in _menus.values)
-      if (!widget.disabled && menu.enabled && menu.focusNode.canRequestFocus)
-        menu,
+      if (!widget.disabled && menu.enabled) menu,
   ];
 
   void register(_MenubarRegistration menu) {
@@ -73,6 +72,8 @@ class _DMenubarState extends State<DMenubar> {
     if (!enabled && identical(_openMenu, menu)) menu.controller.close();
     if (!enabled && identical(_current, menu)) {
       _current = _enabledMenus.firstOrNull;
+    } else if (enabled && _current == null && !widget.disabled) {
+      _current = menu;
     }
   }
 
@@ -170,6 +171,8 @@ class _DMenubarState extends State<DMenubar> {
     if (widget.disabled && !oldWidget.disabled) {
       _openMenu?.controller.close();
       _openMenu = null;
+    } else if (!widget.disabled && oldWidget.disabled && _current == null) {
+      _current = _enabledMenus.firstOrNull;
     }
   }
 
@@ -615,27 +618,20 @@ class _MenubarContentKeyboardBridge extends StatelessWidget {
           return KeyEventResult.ignored;
         }
         final horizontal = root.widget.orientation == Axis.horizontal;
+        // In a vertical menubar, Up and Down remain popup-item navigation.
+        // Intercepting them here would prevent the dropdown menu from moving
+        // between commands. Horizontal inline arrows are unambiguous and can
+        // switch the open top-level menu.
+        if (!horizontal) return KeyEventResult.ignored;
         final direction = Directionality.of(context);
-        final previous = horizontal
-            ? direction == TextDirection.ltr
-                  ? LogicalKeyboardKey.arrowLeft
-                  : LogicalKeyboardKey.arrowRight
-            : LogicalKeyboardKey.arrowUp;
-        final next = horizontal
-            ? direction == TextDirection.ltr
-                  ? LogicalKeyboardKey.arrowRight
-                  : LogicalKeyboardKey.arrowLeft
-            : LogicalKeyboardKey.arrowDown;
+        final previous = direction == TextDirection.ltr
+            ? LogicalKeyboardKey.arrowLeft
+            : LogicalKeyboardKey.arrowRight;
+        final next = direction == TextDirection.ltr
+            ? LogicalKeyboardKey.arrowRight
+            : LogicalKeyboardKey.arrowLeft;
         if (event.logicalKey == previous || event.logicalKey == next) {
           root.move(menu, event.logicalKey == next ? 1 : -1, keepOpen: true);
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.home ||
-            event.logicalKey == LogicalKeyboardKey.end) {
-          root.focusEdge(
-            last: event.logicalKey == LogicalKeyboardKey.end,
-            keepOpen: true,
-          );
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;

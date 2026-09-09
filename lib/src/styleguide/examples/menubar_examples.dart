@@ -15,6 +15,7 @@ final menubarExamples = ComponentExamples(
       'The 32px base-nova bar uses 3px padding, a 1px border, 2px trigger gaps '
       'and host-relative lg/sm radii. Top-level focus roves with logical arrows, '
       'Home and End; opening, pointer hover and arrows switch the active popup. '
+      'Within a popup, Home/End and vertical Up/Down remain command navigation. '
       'Menus retain Dropdown Menu typeahead, nested Escape boundaries and focus '
       'restoration. Native application/OS menus remain shell-owned. Independent '
       'official-rendered and native macOS acceptance is recorded.',
