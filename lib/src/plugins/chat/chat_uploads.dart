@@ -216,6 +216,10 @@ class _Attachment extends StatelessWidget {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: ChatUploads.maxWidth),
       child: DAttachment(
+        size: DAttachmentSize.extraSmall,
+        // The attachment border sits outside the trigger's content box. Keep
+        // the link itself at the established 44 logical-pixel hit target.
+        constraints: const BoxConstraints(minWidth: 160, minHeight: 46),
         children: [
           const DAttachmentMedia(child: DIcon(DIcons.paperclip, size: 16)),
           DAttachmentContent(

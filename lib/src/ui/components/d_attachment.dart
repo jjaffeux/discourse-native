@@ -101,6 +101,7 @@ class _DAttachmentState extends State<DAttachment> {
 
     Widget card = Stack(
       clipBehavior: Clip.none,
+      fit: StackFit.passthrough,
       children: [
         if (trigger != null) Positioned.fill(child: trigger),
         IgnorePointer(child: inScope(_layout(visual, actions))),
@@ -163,7 +164,8 @@ class _DAttachmentState extends State<DAttachment> {
       onEnter: trigger == null ? null : (_) => setState(() => _hovered = true),
       onExit: trigger == null ? null : (_) => setState(() => _hovered = false),
       child: Focus(
-        canRequestFocus: false,
+        skipTraversal: true,
+        includeSemantics: false,
         onFocusChange: (value) {
           if (_focused != value) setState(() => _focused = value);
         },
@@ -206,8 +208,8 @@ class _DAttachmentState extends State<DAttachment> {
         _ => false,
       };
       final actionWidth = touch
-          ? actions.first.children.length * DSpacing.touchTarget
-          : actions.first.estimatedVisualWidth;
+          ? actions.first.touchVisualWidth
+          : actions.first.horizontalVisualWidth;
       children.add(SizedBox(width: actionWidth));
     }
     return Row(mainAxisSize: MainAxisSize.min, children: children);
@@ -442,10 +444,13 @@ class DAttachmentActions extends StatelessWidget {
   const DAttachmentActions({super.key, required this.children});
   final List<DAttachmentAction> children;
 
-  double get estimatedVisualWidth => math.max(
+  double get horizontalVisualWidth => math.max(
     22,
-    children.length * 22.0 + math.max(0, children.length - 1) * 4,
+    children.fold(0, (width, action) => width + action._desktopDimension),
   );
+
+  double get touchVisualWidth =>
+      children.fold(0, (width, action) => width + action._touchDimension);
 
   @override
   Widget build(BuildContext context) {
@@ -490,24 +495,40 @@ class DAttachmentAction extends StatelessWidget {
   final DButtonVariant variant;
   final DButtonSize size;
 
+  double get _desktopDimension => switch (size) {
+    DButtonSize.extraSmall => 22,
+    _ => DButton.visualDimensionFor(size),
+  };
+
+  double get _touchDimension =>
+      math.max(DSpacing.touchTarget, DButton.iconOnlyDimensionFor(size));
+
   @override
-  Widget build(BuildContext context) => DButton.iconOnly(
-    icon: icon,
-    tooltip: tooltip,
-    semanticLabel: semanticLabel ?? tooltip,
-    onPressed: onPressed,
-    focusNode: focusNode,
-    autofocus: autofocus,
-    loading: loading,
-    variant: variant,
-    size: size,
-  );
+  Widget build(BuildContext context) {
+    final platform = Theme.of(context).platform;
+    final touch =
+        platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+    return SizedBox.square(
+      dimension: touch ? _touchDimension : _desktopDimension,
+      child: DButton.iconOnly(
+        icon: icon,
+        tooltip: tooltip,
+        semanticLabel: semanticLabel ?? tooltip,
+        onPressed: onPressed,
+        focusNode: focusNode,
+        autofocus: autofocus,
+        loading: loading,
+        variant: variant,
+        size: size,
+      ),
+    );
+  }
 }
 
 /// A transparent full-card button or link layered behind attachment actions.
 ///
 /// [focusNode] is borrowed. Use [isLink] when activation performs navigation.
-class DAttachmentTrigger extends StatelessWidget {
+class DAttachmentTrigger extends StatefulWidget {
   const DAttachmentTrigger({
     super.key,
     required this.semanticLabel,
@@ -526,39 +547,70 @@ class DAttachmentTrigger extends StatelessWidget {
   bool get enabled => onPressed != null;
 
   @override
+  State<DAttachmentTrigger> createState() => _DAttachmentTriggerState();
+}
+
+class _DAttachmentTriggerState extends State<DAttachmentTrigger> {
+  FocusNode? _ownedFocusNode;
+
+  FocusNode get _focusNode => widget.focusNode ?? _ownedFocusNode!;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownedFocusNode = widget.focusNode == null
+        ? FocusNode(debugLabel: 'Attachment trigger')
+        : null;
+    _focusNode.addListener(_focusChanged);
+  }
+
+  @override
+  void didUpdateWidget(DAttachmentTrigger oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode == widget.focusNode) return;
+    (oldWidget.focusNode ?? _ownedFocusNode)?.removeListener(_focusChanged);
+    _ownedFocusNode?.dispose();
+    _ownedFocusNode = widget.focusNode == null
+        ? FocusNode(debugLabel: 'Attachment trigger')
+        : null;
+    _focusNode.addListener(_focusChanged);
+  }
+
+  void _focusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_focusChanged);
+    _ownedFocusNode?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Semantics(
     container: true,
     explicitChildNodes: true,
-    label: semanticLabel,
-    button: !isLink,
-    link: isLink,
-    enabled: enabled,
-    onTap: onPressed,
-    child: FocusableActionDetector(
-      enabled: enabled,
-      focusNode: focusNode,
-      autofocus: autofocus,
-      shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-      },
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            onPressed?.call();
-            return null;
-          },
-        ),
-      },
-      mouseCursor: enabled
+    label: widget.semanticLabel,
+    button: !widget.isLink,
+    link: widget.isLink,
+    enabled: widget.enabled,
+    focusable: widget.enabled,
+    focused: _focusNode.hasFocus,
+    onFocus: widget.enabled ? _focusNode.requestFocus : null,
+    onTap: widget.onPressed,
+    child: InkWell(
+      focusNode: _focusNode,
+      autofocus: widget.autofocus,
+      canRequestFocus: widget.enabled,
+      onTap: widget.onPressed,
+      mouseCursor: widget.enabled
           ? SystemMouseCursors.click
           : SystemMouseCursors.basic,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        excludeFromSemantics: true,
-        onTap: onPressed,
-        child: const SizedBox.expand(),
-      ),
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      splashFactory: NoSplash.splashFactory,
+      child: const SizedBox.expand(),
     ),
   );
 }
