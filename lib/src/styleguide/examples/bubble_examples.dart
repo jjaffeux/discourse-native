@@ -7,7 +7,8 @@ import '../styleguide_example.dart';
 
 final bubbleExamples = ComponentExamples(
   status: ComponentStatus.planned,
-  description: 'Conversational surfaces with alignment, grouping, reactions and interactive content.',
+  description:
+      'Conversational surfaces with alignment, grouping, reactions and interactive content.',
   notes:
       'Source-ready for independent review. The frozen base-nova surface maps '
       '12px horizontal and 8px vertical padding, 14px/22.75px text, host-relative '
@@ -23,7 +24,8 @@ final bubbleExamples = ComponentExamples(
   examples: [
     StyleguideExample(
       title: 'Composition',
-      description: 'The frozen conversation demo combines end-aligned primary bubbles, a muted group and descriptive reactions.',
+      description:
+          'The frozen conversation demo combines end-aligned primary bubbles, a muted group and descriptive reactions.',
       states: const ['Primary', 'Muted', 'Group', 'Reactions'],
       code: '''DBubble(
   align: DBubbleAlign.end,
@@ -38,7 +40,8 @@ DBubbleGroup(children: [
     ),
     StyleguideExample(
       title: 'Variants',
-      description: 'All seven Bubble-owned treatments. Child Button variants are intentionally not added to Bubble.',
+      description:
+          'All seven Bubble-owned treatments. Child Button variants are intentionally not added to Bubble.',
       states: const [
         'Primary',
         'Secondary',
@@ -56,7 +59,8 @@ DBubble(variant: DBubbleVariant.ghost,
     ),
     StyleguideExample(
       title: 'Alignment and groups',
-      description: 'Logical start/end mirrors in RTL. Consecutive messages retain the compact 8px group gap.',
+      description:
+          'Logical start/end mirrors in RTL. Consecutive messages retain the compact 8px group gap.',
       states: const ['Start', 'End', 'RTL', 'Grouped'],
       code: '''DBubbleGroup(children: const [
   DBubble(align: DBubbleAlign.end,
@@ -68,8 +72,19 @@ DBubble(variant: DBubbleVariant.ghost,
     ),
     StyleguideExample(
       title: 'Links and buttons',
-      description: 'Tab then Return activates links; Return or Space activates buttons. The local result proves the callback without a substitute notification system.',
-      states: const ['Button', 'Link', 'Focus', 'Hover', 'Pressed'],
+      description:
+          'Tab then Return activates links; Return or Space activates buttons. The local result proves the callback without a substitute notification system.',
+      states: const [
+        'Button',
+        'Link',
+        'Focus',
+        'Hover',
+        'Pressed',
+        'Selected',
+        'Disabled',
+        'Busy',
+        'Error',
+      ],
       code: '''DBubble(variant: DBubbleVariant.tinted, align: DBubbleAlign.end,
   children: [DBubbleContent(
     action: DBubbleContentAction.button,
@@ -81,7 +96,8 @@ DBubble(variant: DBubbleVariant.ghost,
     ),
     StyleguideExample(
       title: 'Reactions',
-      description: 'Static rows announce once. Independent controls show count, selection, disabled, busy and failed states beyond color.',
+      description:
+          'Static rows announce once. Independent controls show count, selection, disabled, busy and failed states beyond color.',
       states: const [
         'Top',
         'Bottom',
@@ -104,7 +120,8 @@ DBubbleReactions(interactive: true, children: [
     ),
     StyleguideExample(
       title: 'Show more / Collapsible',
-      description: 'The accepted disclosure owner controls long content and restores focus. Reduced motion removes its optional transition.',
+      description:
+          'The accepted disclosure owner controls long content and restores focus. Reduced motion removes its optional transition.',
       states: const ['Collapsed', 'Expanded', 'Keyboard', 'Reduced motion'],
       code: '''DCollapsible(
   open: open,
@@ -120,7 +137,8 @@ DBubbleReactions(interactive: true, children: [
     ),
     StyleguideExample(
       title: 'Tooltip',
-      description: 'A separately actionable read receipt keeps its label while hover or focus reveals metadata.',
+      description:
+          'A separately actionable read receipt keeps its label while hover or focus reveals metadata.',
       states: const ['Hover', 'Focus', 'Read metadata'],
       code: '''DBubbleReactions(interactive: true, children: [
   DTooltip(message: 'Read on Jan 5, 2026 at 4:32 PM',
@@ -131,7 +149,8 @@ DBubbleReactions(interactive: true, children: [
     ),
     StyleguideExample(
       title: 'Popover',
-      description: 'The prepared Popover owner reveals a full failure message, restores focus and dismisses on Escape or outside press.',
+      description:
+          'The prepared Popover owner reveals a full failure message, restores focus and dismisses on Escape or outside press.',
       states: const ['Error text', 'Popover', 'Focus restoration', 'Escape'],
       code: '''DPopover(
   content: const DPopoverContent(
@@ -147,9 +166,11 @@ DBubbleReactions(interactive: true, children: [
     ),
     StyleguideExample(
       title: 'Narrow, scaled and RTL',
-      description: 'Long rich content wraps at 80% on a narrow row; ghost content uses the full row. Preview at 200% and RTL.',
+      description:
+          'Long rich content wraps at 80% on a narrow row; ghost content uses the full row. Preview at 200% and RTL.',
       states: const ['Long content', '80% width', 'Ghost', '200% text', 'RTL'],
-      code: '''Directionality(textDirection: TextDirection.rtl, child: Column(children: [
+      code:
+          '''Directionality(textDirection: TextDirection.rtl, child: Column(children: [
   DBubble(align: DBubbleAlign.end, children: const [
     DBubbleContent(child: Text('رسالة طويلة تلتف داخل المساحة المتاحة.')),
   ]),
@@ -237,6 +258,8 @@ class _ConversationDemo extends StatelessWidget {
     ),
   );
 }
+
+void _noop() {}
 
 class _VariantsDemo extends StatelessWidget {
   const _VariantsDemo();
@@ -423,6 +446,60 @@ class _ActionsDemoState extends State<_ActionsDemo> {
                   onPressed: () => choose(context, 'Help center link'),
                   semanticHint: 'Opens local example content',
                   child: const Text('Open the help center'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        DBubbleGroup(
+          children: [
+            DBubble(
+              variant: DBubbleVariant.secondary,
+              children: [
+                DBubbleContent(
+                  action: DBubbleContentAction.button,
+                  selected: true,
+                  onPressed: () => choose(context, 'Selected response'),
+                  semanticLabel: 'Selected response',
+                  child: const Text('Selected response'),
+                ),
+              ],
+            ),
+            const DBubble(
+              variant: DBubbleVariant.muted,
+              children: [
+                DBubbleContent(
+                  action: DBubbleContentAction.button,
+                  disabled: true,
+                  onPressed: _noop,
+                  semanticLabel: 'Disabled response',
+                  child: Text('Disabled response'),
+                ),
+              ],
+            ),
+            const DBubble(
+              variant: DBubbleVariant.tinted,
+              children: [
+                DBubbleContent(
+                  action: DBubbleContentAction.button,
+                  busy: true,
+                  busyLabel: 'Sending response',
+                  onPressed: _noop,
+                  semanticLabel: 'Send response',
+                  child: Text('Sending response'),
+                ),
+              ],
+            ),
+            DBubble(
+              variant: DBubbleVariant.destructive,
+              children: [
+                DBubbleContent(
+                  action: DBubbleContentAction.button,
+                  invalid: true,
+                  errorLabel: 'Response failed',
+                  onPressed: () => choose(context, 'Retry failed response'),
+                  semanticLabel: 'Retry failed response',
+                  child: const Text('Response failed. Retry.'),
                 ),
               ],
             ),

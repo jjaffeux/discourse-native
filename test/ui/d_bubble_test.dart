@@ -10,6 +10,7 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     double width = 400,
     double scale = 1,
+    bool disableAnimations = false,
     ThemeData? theme,
   }) => MaterialApp(
     theme:
@@ -36,7 +37,10 @@ void main() {
           ],
         ),
     home: MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+      data: MediaQueryData(
+        textScaler: TextScaler.linear(scale),
+        disableAnimations: disableAnimations,
+      ),
       child: Directionality(
         textDirection: direction,
         child: Scaffold(
@@ -138,6 +142,97 @@ void main() {
       400,
     );
   });
+
+  testWidgets('content matches the frozen surface geometry and natural name', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const DBubble(
+          children: [
+            DBubbleContent(
+              key: ValueKey('natural-action'),
+              action: DBubbleContentAction.button,
+              onPressed: _noop,
+              child: Text('Natural action name'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final surface = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byKey(const ValueKey('natural-action')),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    final decoration = surface.decoration! as BoxDecoration;
+    expect(
+      surface.padding,
+      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    );
+    expect(decoration.borderRadius, BorderRadius.circular(14));
+    expect(decoration.border!.top.width, 1);
+    final textStyle = DefaultTextStyle.of(
+      tester.element(find.text('Natural action name')),
+    ).style;
+    expect(textStyle.fontSize, 14);
+    expect(textStyle.height, 1.625);
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('natural-action'))),
+      matchesSemantics(
+        hasEnabledState: true,
+        isEnabled: true,
+        isButton: true,
+        hasSelectedState: true,
+        isFocusable: true,
+        hasFocusAction: true,
+        hasTapAction: true,
+        label: 'Natural action name',
+        textDirection: TextDirection.ltr,
+      ),
+    );
+  });
+
+  testWidgets(
+    'borrowed focus survives disposal and reduced motion is immediate',
+    (tester) async {
+      final focusNode = FocusNode(debugLabel: 'Borrowed Bubble focus');
+      await tester.pumpWidget(
+        host(
+          DBubble(
+            children: [
+              DBubbleContent(
+                key: const ValueKey('borrowed-action'),
+                action: DBubbleContentAction.button,
+                focusNode: focusNode,
+                onPressed: _noop,
+                child: const Text('Borrowed focus'),
+              ),
+            ],
+          ),
+          disableAnimations: true,
+        ),
+      );
+
+      final surface = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byKey(const ValueKey('borrowed-action')),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      expect(surface.duration, Duration.zero);
+      await tester.tap(find.byKey(const ValueKey('borrowed-action')));
+      expect(focusNode.hasFocus, isTrue);
+
+      await tester.pumpWidget(host(const SizedBox.shrink()));
+      void listener() {}
+      expect(() => focusNode.addListener(listener), returnsNormally);
+      focusNode.removeListener(listener);
+      focusNode.dispose();
+    },
+  );
 
   testWidgets(
     'reaction positions are logical and grouped semantics are clear',
