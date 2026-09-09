@@ -8,17 +8,16 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**20 of 64 components are merged locally.** 15 existing components are in progress; 29 are planned.
+**20 of 64 components are merged locally.** 17 existing components are in progress; 27 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
-
-Reference browsing is blocked because the browser could not verify its admin-enforced security policy.
 
 Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
 | textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
+| toggle | Implementation and checks | — | — |
 | progress | independent review | 1c21a435 | 01a08558-73d7-7d01-9b97-39615e28df0e |
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
@@ -30,6 +29,7 @@ Branch preparation does not mark a component merged or visually verified.
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
+| carousel | Implementation and checks | — | — |
 | alert | independent review | 38002135 | 01a08558-ae1e-7843-8cff-724c8e877ba5 |
 | marker | independent review | c797918b | 01a08558-a798-7b71-98a9-94ae87eae13d |
 | chart | independent review | c782a940 | 01a08558-4ae6-7db2-bdd6-ee52e8570ff3 |
@@ -52,7 +52,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 12 | checkbox | merged | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | 13466a062d19c247905ccc65adc615c8d0d6273d |
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
-| 15 | toggle | planned | — | — | button | — |
+| 15 | toggle | in_progress | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | in_progress | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | — |
@@ -89,7 +89,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 49 | pagination | planned | — | — | button, select | — |
 | 50 | calendar | planned | — | — | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
-| 52 | carousel | planned | — | — | button | — |
+| 52 | carousel | in_progress | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | — |
 | 53 | toast | planned | — | — | button | — |
 | 54 | alert | in_progress | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | — |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
@@ -1097,6 +1097,22 @@ Status: merged. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-swi
 - Browser Geist/Noto Arabic and native SF/SF Arabic shaping/canvas pixels differ; no pixel-equality claim. Shared DTokens.focusRing aliases host primary while reference neutral uses independent gray. Desktop rows are intrinsic; touch platforms retain 48px targets.
 - Native rejected/deferred controlled Form reset remains widget-test coverage; native fixture verified external controlled update and ordinary Form reset. Voice confirmation dismissed without recording. Inspected bundle retains baseline badge; status-only promotion does not alter controls.
 
+### toggle
+
+Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/ui-toggle.
+
+**acceptanceCriteria**
+
+- Reproduce every frozen documented variant, behavior and composition with official source/geometry mapping and live host palette/font/radius integration.
+- Implement complete generic native APIs, state/controller lifecycle, keyboard/focus/semantics, touch, RTL, scaling, narrow layouts and reduced motion; every exposed feature must work.
+- Add all interactive styleguide examples and accurate usage; audit/migrate appropriate core and plugin usages with real application behavior preserved and retained alternatives documented.
+- Run meaningful focused component/consumer checks and root/full-profile analysis, prepare exact source/native evidence, then create a new independent reviewer task to finish acceptance and local main merge.
+
+**decisions**
+
+- The Button dependency is merged. Frozen examples cover default/outline, icon and text composition, default/sm/lg sizes, disabled and RTL plus public API behavior. Implement native pressed-toggle semantics and genuine controlled/uncontrolled toggling with keyboard/hover/press/focus and disabled state, matching measured reference artwork. Audit independent on/off formatting/view controls and plugin toolbar controls where appropriate; do not recast momentary actions, tab/navigation items or mutually exclusive selection as independent Toggle. Keep rich editor/IME/domain command ownership with app adapters. Toggle Group is a later catalogue component; build reusable Toggle suitable for composition without duplicating Toggle Group. Notify root when the final reviewer is created and after Toggle merges so Toggle Group can start.
+- Implementation uses the direct reviewer workflow; root is not an approval gate.
+
 ### slider
 
 Status: merged. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-slider.
@@ -1946,6 +1962,22 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/u
 - awaiting_slot: Mac locked; coordinator reports independent first-browser-navigation admin-policy failure. No CUA/browser/native access, retry or bypass attempted. Reference-rendered/native inspection and VoiceOver remain unverified; status in_progress, not review_ready or mergeable.
 - Unmerged Switch/Textarea/selection/Slider examples retain explicit temporary controls. Responsive custom-error composition retains one native FormField/TextField because completed DInput exposes no custom error builder; documented in field.md. No completed control API or state owner was redesigned.
 - send_message_to_thread remains absent from available tool inventory. Progress record and final head/artifact report carry the coordinator handoff.
+
+### carousel
+
+Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/ui-carousel.
+
+**acceptanceCriteria**
+
+- Reproduce every frozen documented variant, behavior and composition with official source/geometry mapping and live host palette/font/radius integration.
+- Implement complete generic native APIs, state/controller lifecycle, keyboard/focus/semantics, touch, RTL, scaling, narrow layouts and reduced motion; every exposed feature must work.
+- Add all interactive styleguide examples and accurate usage; audit/migrate appropriate core and plugin usages with real application behavior preserved and retained alternatives documented.
+- Run meaningful focused component/consumer checks and root/full-profile analysis, prepare exact source/native evidence, then create a new independent reviewer task to finish acceptance and local main merge.
+
+**decisions**
+
+- Button is the implementation dependency and is merged; Card composition is also merged. Frozen sections include Sizes, Spacing, Orientation, Options, API, Events, Plugins and RTL. Reproduce complete documented behavior and native API counterparts, including responsive slide extents/spacing, horizontal/vertical and direction-aware navigation, previous/next enabled states, scrolling/selection events and controller lifecycle, options, and the demonstrated autoplay plugin behavior with correct interaction/reduced-motion/disposal handling. Inspect official Embla-linked behavior to define the actual supported native contract; no inert options or ornamental plugin API. Audit shell/composer_image_gallery.dart, shell/lightbox.dart, other media/page-view owners and plugins for appropriate adoption. Preserve zoom/pan, media lifecycle, keyboard navigation, accessibility and domain state; record retained grids or specialized viewers rather than converting inappropriate surfaces simply to add a usage. Provide real migrated local-data fixtures and all documented Card compositions.
+- Implementation uses the direct reviewer workflow; root is not an approval gate.
 
 ### alert
 

@@ -988,7 +988,9 @@
       "decisions": [
         "Frozen Markdown SHA-256 df0f3e67987ad00fc40be86458c43a330126f3babfd31134644c7fc0284ec7cc verified on 2026-09-09; base-nova registry and Base UI behavior API inspected directly.",
         "CSS pixels map one-to-one to Flutter logical pixels at 100% text scale: h/min-w 28,32,36; horizontal padding 10; icon gap 4; icons 14 small and16 otherwise; font 12.8 small and14 otherwise; small radius min(.8x host radius,12), regular/large host radius.",
-        "DToggle will expose controlled pressed/onPressedChanged and DToggle.defaultPressed uncontrolled ownership. Borrowed FocusNode is never disposed; internally created focus state is owned by the widget."
+        "DToggle exposes controlled pressed/onPressedChanged and internally owned initialPressed state. Borrowed FocusNode is never disposed; internally created focus state is owned by the widget.",
+        "The Button dependency is merged. Frozen examples cover default/outline, icon and text composition, default/sm/lg sizes, disabled and RTL plus public API behavior. Implement native pressed-toggle semantics and genuine controlled/uncontrolled toggling with keyboard/hover/press/focus and disabled state, matching measured reference artwork. Audit independent on/off formatting/view controls and plugin toolbar controls where appropriate; do not recast momentary actions, tab/navigation items or mutually exclusive selection as independent Toggle. Keep rich editor/IME/domain command ownership with app adapters. Toggle Group is a later catalogue component; build reusable Toggle suitable for composition without duplicating Toggle Group. Notify root when the final reviewer is created and after Toggle merges so Toggle Group can start.",
+        "Implementation uses the direct reviewer workflow; root is not an approval gate."
       ],
       "migrations": [],
       "retainedAlternatives": [],
@@ -2272,14 +2274,22 @@
     },
     {
       "id": "carousel",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
+      "branch": "codex/ui-carousel",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Reproduce every frozen documented variant, behavior and composition with official source/geometry mapping and live host palette/font/radius integration.",
+        "Implement complete generic native APIs, state/controller lifecycle, keyboard/focus/semantics, touch, RTL, scaling, narrow layouts and reduced motion; every exposed feature must work.",
+        "Add all interactive styleguide examples and accurate usage; audit/migrate appropriate core and plugin usages with real application behavior preserved and retained alternatives documented.",
+        "Run meaningful focused component/consumer checks and root/full-profile analysis, prepare exact source/native evidence, then create a new independent reviewer task to finish acceptance and local main merge."
+      ],
+      "decisions": [
+        "Button is the implementation dependency and is merged; Card composition is also merged. Frozen sections include Sizes, Spacing, Orientation, Options, API, Events, Plugins and RTL. Reproduce complete documented behavior and native API counterparts, including responsive slide extents/spacing, horizontal/vertical and direction-aware navigation, previous/next enabled states, scrolling/selection events and controller lifecycle, options, and the demonstrated autoplay plugin behavior with correct interaction/reduced-motion/disposal handling. Inspect official Embla-linked behavior to define the actual supported native contract; no inert options or ornamental plugin API. Audit shell/composer_image_gallery.dart, shell/lightbox.dart, other media/page-view owners and plugins for appropriate adoption. Preserve zoom/pan, media lifecycle, keyboard navigation, accessibility and domain state; record retained grids or specialized viewers rather than converting inappropriate surfaces simply to add a usage. Provide real migrated local-data fixtures and all documented Card compositions.",
+        "Implementation uses the direct reviewer workflow; root is not an approval gate."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -2633,7 +2643,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T08:59:20.129904+00:00",
+    "updatedAt": "2026-09-09T09:04:35.601992+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
@@ -2822,6 +2832,20 @@
           "branch": "codex/ui-tabs",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/599c/discourse-native",
           "status": "implementation"
+        },
+        {
+          "component": "toggle",
+          "taskId": "01a08567-ac29-7dd0-ba78-1717a5235bd0",
+          "branch": "codex/ui-toggle",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a904/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "carousel",
+          "taskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
+          "branch": "codex/ui-carousel",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4e74/discourse-native",
+          "status": "implementation"
         }
       ],
       "nativeReadyTasks": []
@@ -2943,11 +2967,13 @@
       "resumeCondition": "Continue eligible implementation work as dependencies land, using direct reviewer handoffs."
     },
     "browserInspectionBlocker": {
-      "status": "active",
+      "status": "approved_surface_available",
       "reason": "admin_security_policy_unverified",
       "reportedByTask": "01a083ce-313e-7f70-a1a8-e645f31235c8",
       "observation": "First official Progress browser navigation denied because browser could not verify admin-enforced security policy. No rendered page comparison occurred; no retry or alternate route attempted. Progress immediately released browser slot.",
-      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds."
+      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds.",
+      "currentEvidence": "Slider independent review used the approved in-app browser for the official Base UI Slider reference in light/dark, documented in docs/component-library/slider.md and merged as e646022a. This proves that approved surface is available; it does not clear or authorize bypassing the earlier denial on another surface.",
+      "resolutionScope": "Approved in-app browser only; preserve and obey any surface-specific denial."
     },
     "backlogPreparation": {
       "status": "complete",
