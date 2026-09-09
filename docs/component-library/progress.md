@@ -2323,6 +2323,7 @@ Status: in_progress. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/u
 - Fourteen randomized component/styleguide tests passed with seed 1320190751. DMenubar coverage includes compact geometry, top-level keyboard/pointer switching, logical RTL/Home/End roving, checkbox/radio state and semantics, submenu Escape boundaries, typeahead/close restoration, disabled root, default-open/borrowed-controller coordination, live tokens, reduced motion, narrow layout and 200% text.
 - The same randomized run verified all six frozen styleguide groups register and mount in light, dark and plum palettes at 216px/200%/RTL/reduced-motion; composition state and exact-Lucide destructive example interactions pass.
 - flutter pub get --enforce-lockfile and flutter analyze --no-pub passed at repository root (15.1s) and profiles/full (2.1s); Flutter 3.47.2 and both lockfile hashes remained unchanged.
+- Exact source 3aef780c8aa4ad042d464c1c6cdf9c419e996c58 built successfully as the real styleguide macOS target. Isolated copied fixture /private/tmp/discourse-menubar-review-3aef780c/Discourse Menubar Review 3aef.app has bundle ID org.discourse.menubarreview.3aef780c, kernel SHA-256 600eac87a4634f5e62bb10408817018fd4771572ee728a0f2c4c452a750c3644, passing deep strict ad-hoc signature and three permitted debug entitlements; all 7 signed executables are free of application/team/APS identifiers. See evidence/menubar/build-identity.json. This is build provenance, not native inspection.
 
 **limitations**
 
