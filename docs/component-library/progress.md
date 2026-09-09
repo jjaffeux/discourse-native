@@ -36,8 +36,8 @@ Branch preparation does not mark a component merged or visually verified.
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
 | bubble | independent review | 3aa42516 | 01a08639-b066-7882-85f5-a759c5fdab6f |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
-| message-scroller | Implementation and checks | — | — |
-| data-table | Implementation and checks | — | — |
+| message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
+| data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
 | input-otp | Implementation and checks | — | — |
 | questionnaire | independent review | 8ae17012 | 01a08633-c9ed-7062-86c4-16b0835eb303 |
 
@@ -2770,6 +2770,7 @@ Status: in_progress. Task: 01a08606-ce86-7be2-b92f-59676b40cb40. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Message Scroller (01a08639-b066-7882-85f5-a7729bfd111b) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### chart
 
@@ -2833,6 +2834,7 @@ Status: in_progress. Task: 01a08606-ca45-73b1-9be1-7486d4e3fe1d. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Data Table (01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### sidebar
 

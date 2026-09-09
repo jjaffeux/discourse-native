@@ -3482,16 +3482,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Message Scroller (01a08639-b066-7882-85f5-a7729bfd111b) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "26c0970a1c4580b8f719b33b907d3966f2f02273",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/0ff5/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement the complete documented Message Scroller behavior and public API, not just a ListView wrapper. Account for Anchoring Turns, Group Chat, Keeping Context Visible, Following Live Edge, Opening Saved Threads, Avoiding Flash on Reload, Loading Earlier Messages, Animating New Messages, Jumping to Messages, Tracking Reader Position, Reading Scroll State, Performance, Virtualization, Accessibility and Unstyled modes. Preserve reader intent during appended/streaming/resized messages, prepend anchoring, restoration with variable heights, viewport/inset changes, jump/reveal/cancel behavior, reduced motion and accessible announcements. Keep data loading/network/domain state outside the generic controller/widget. Reuse final Message/Scroll Area and every recorded example owner; Message is being queued alongside you, so discover its real owner in current main and coordinate its committed API. Begin source/reference/state-model and production chat-scroller audit now; no made-up Message fallback or accepted missing examples. Migrate appropriate real core/plugin scrollers with stable message IDs and existing pagination/unread behavior, and test actual anchoring/streaming/prepend/restoration/virtualization races with realistic variable-height data. The complete catalogue row's many exampleComponents are all accounted scope.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/message-scroller",
@@ -3519,7 +3520,18 @@
           "implementationCommit": "3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e",
           "mergeCommit": "655be577246f1f247e1e71199d32add8366deffc"
         }
-      ]
+      ],
+      "reviewTaskId": "01a08639-b066-7882-85f5-a7729bfd111b",
+      "reviewBranch": "codex/review-message-scroller",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/a0b4/discourse-native",
+      "reviewHandoffCommit": "1e49e130e07d1cb820e4d4b828e7470aa8b22ccf",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Source reports 92 combined Message Scroller, Message, Bubble, styleguide, channel, thread and timeline checks passing with seed 1788963.",
+        "analysis": "Root and full-profile locked resolution and analysis pass; formatting and diff checks pass.",
+        "adoption": "ChatMessageStream, shared by channel and thread routes, uses stable row IDs and shared scroller primitives while retaining domain paging, read tracking, selection and jump behavior.",
+        "acceptance": "Reviewer owns all remaining source corrections, official browser and first native acceptance, accepted Message/Bubble/Attachment reconciliation and final local main merge. Source evidence is not acceptance."
+      }
     },
     {
       "id": "chart",
@@ -3592,16 +3604,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Data Table (01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/656f/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement the complete documented Data Table model/widget/compositions: typed column definitions, cell formatting, row actions, pagination, sorting, filtering, column visibility, stable row selection, reusable column header/pagination/column toggle and RTL. Reuse final Table/Pagination/Checkbox/Input/Dropdown Menu/Button/Badge owners, preserving semantic table reading order and independent action behavior. Keep external/server-controlled data operations, loading/errors and business logic in app adapters; clearly support controlled/local state where exposed, stable row/column IDs and dynamic data/selection updates. Do not force a web TanStack dependency into Flutter or silently collapse the reference to a static table. Pagination is being queued alongside you; agree its API directly and use tested prepared pins only in isolation, waiting for accepted parent main merges before final merge. Audit real core/plugin structured datasets and migrate suitable ones without converting card/infinite feeds gratuitously. Verify actual row-selection/sort/filter/page/visibility interactions and persisted state across live themes/narrow/scaled layouts.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/data-table",
@@ -3659,7 +3672,18 @@
           "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
           "mergeCommit": null
         }
-      ]
+      ],
+      "reviewTaskId": "01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a",
+      "reviewBranch": "codex/review-data-table",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f127/discourse-native",
+      "reviewHandoffCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Source reports 70 Data Table and parent-component checks plus 15 styleguide-page checks passing with seed 278431.",
+        "analysis": "Root and full-profile analysis and enforced locked resolution pass without lockfile changes; touched formatting and diff checks pass.",
+        "native": "The exact-widget macOS fixture builds; no official rendered browser comparison or actual native acceptance was claimed.",
+        "acceptance": "Reviewer owns remaining source, fixture and adoption-audit corrections, official/native acceptance, reconciliation with accepted Pagination/Select/Field/Dropdown Menu and the final local main merge."
+      }
     },
     {
       "id": "sidebar",
@@ -3884,7 +3908,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T12:56:33+00:00",
+    "updatedAt": "2026-09-09T13:04:45+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -4022,22 +4046,6 @@
           "phase": "reference_and_dependency_preparation"
         },
         {
-          "component": "message-scroller",
-          "taskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
-          "branch": "codex/ui-message-scroller",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/0ff5/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
-          "component": "data-table",
-          "taskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
-          "branch": "codex/ui-data-table",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/656f/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
           "component": "date-picker",
           "taskId": "01a08606-ca30-7bc1-8e27-69575273d443",
           "branch": "codex/ui-date-picker",
@@ -4164,6 +4172,26 @@
           "implementationTaskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
           "implementationBranch": "codex/ui-questionnaire",
           "headCommit": "8ae170128451e81d3fa1e355eb638bb82fb61eb9"
+        },
+        {
+          "component": "message-scroller",
+          "taskId": "01a08639-b066-7882-85f5-a7729bfd111b",
+          "branch": "codex/review-message-scroller",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a0b4/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
+          "implementationBranch": "codex/ui-message-scroller",
+          "headCommit": "1e49e130e07d1cb820e4d4b828e7470aa8b22ccf"
+        },
+        {
+          "component": "data-table",
+          "taskId": "01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a",
+          "branch": "codex/review-data-table",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f127/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
+          "implementationBranch": "codex/ui-data-table",
+          "headCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b"
         }
       ],
       "nativeReadyTasks": []
@@ -4604,6 +4632,30 @@
           "implementationTaskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
           "implementationBranch": "codex/ui-questionnaire",
           "implementationCommit": "3cedb9ad6c72ae9fc8eab26df7dd757704aeb111",
+          "status": "in_progress"
+        },
+        {
+          "component": "message-scroller",
+          "title": "Review and merge Message Scroller",
+          "taskId": "01a08639-b066-7882-85f5-a7729bfd111b",
+          "hostId": "local",
+          "branch": "codex/review-message-scroller",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a0b4/discourse-native",
+          "implementationTaskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
+          "implementationBranch": "codex/ui-message-scroller",
+          "implementationCommit": "26c0970a1c4580b8f719b33b907d3966f2f02273",
+          "status": "in_progress"
+        },
+        {
+          "component": "data-table",
+          "title": "Review and merge Data Table",
+          "taskId": "01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a",
+          "hostId": "local",
+          "branch": "codex/review-data-table",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f127/discourse-native",
+          "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
+          "implementationBranch": "codex/ui-data-table",
+          "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
           "status": "in_progress"
         }
       ],
