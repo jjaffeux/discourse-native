@@ -16,7 +16,7 @@ void main() {
     StyleguideTheme.plum,
   ]) {
     testWidgets(
-      'every frozen example wraps at narrow and wide 200% in ${theme.name}',
+      'every reference example wraps at narrow and wide 200% in ${theme.name}',
       (tester) async {
         for (final width in [320.0, 960.0]) {
           tester.view.physicalSize = Size(width, 900);
