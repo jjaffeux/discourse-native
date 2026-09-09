@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DAvatar;
-
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,7 +9,6 @@ import '../models/discourse_instance.dart';
 import '../models/user_card.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -690,25 +688,11 @@ class _BadgeCount extends StatelessWidget {
   final int count;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: theme.shell.panel,
-        border: Border.all(color: theme.shell.divider),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const DIcon(DIcons.certificate, size: 16),
-          const SizedBox(width: 5),
-          Text('$count badges', style: theme.textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DBadge(
+    variant: DBadgeVariant.outline,
+    leading: const DIcon(DIcons.certificate, size: 12),
+    child: Text('$count badges'),
+  );
 }
 
 class _Badge extends StatelessWidget {
@@ -718,17 +702,9 @@ class _Badge extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DBadge(
+    backgroundColor: color.withValues(alpha: 0.18),
+    foregroundColor: color,
+    child: Text(label),
+  );
 }

@@ -136,7 +136,15 @@ void main() {
 
     await tester.enterText(search, List.filled(120, 'a').join());
     await tester.pump();
-    expect(tester.widget<TextField>(search).controller!.text, hasLength(100));
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(of: search, matching: find.byType(TextField)),
+          )
+          .controller!
+          .text,
+      hasLength(100),
+    );
 
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();

@@ -2,7 +2,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost;
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
@@ -12,7 +12,6 @@ import 'package:discourse_native/src/plugins/assign/assigned_group_presentation.
 import 'package:discourse_native/src/plugins/assign/assigned_group_view.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

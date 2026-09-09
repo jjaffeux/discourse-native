@@ -485,6 +485,15 @@ class _CompactTopicInboxHeader extends StatelessWidget {
       final topic = header.topic!;
       final siteUrl = header.siteUrl!;
       final controller = ShellScope.read(context);
+      final hasTags = topic.tags.isNotEmpty || topic.canEditTags;
+      // Keep the overflow action usable when touch toolbar controls grow.
+      final categoryBudget = (constraints.maxWidth - (hasTags ? 32 : 0)).clamp(
+        0.0,
+        400.0,
+      );
+      final categoryWidth = (constraints.maxWidth * .5)
+          .clamp(128.0, 400.0)
+          .clamp(0.0, categoryBudget);
       final titleStyle = Theme.of(context).textTheme.titleSmall;
       final titleHeight =
           MediaQuery.textScalerOf(
@@ -515,7 +524,7 @@ class _CompactTopicInboxHeader extends StatelessWidget {
                       siteUrl: siteUrl,
                       topic: topic,
                       keepTopicListOpen: header.keepTopicListOpen,
-                      maxWidth: (constraints.maxWidth * .5).clamp(128, 400),
+                      maxWidth: categoryWidth,
                     ),
                   if (topic.tags.isNotEmpty || topic.canEditTags)
                     Flexible(

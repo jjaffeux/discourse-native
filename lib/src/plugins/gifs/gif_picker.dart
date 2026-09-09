@@ -171,8 +171,7 @@ class _GifPickerState extends State<GifPicker> {
     children: [
       AnimatedBuilder(
         animation: widget.controller,
-        builder: (context, _) => TextField(
-          style: Theme.of(context).textTheme.bodyMedium,
+        builder: (context, _) => DInput(
           key: const ValueKey('gif-picker-search'),
           controller: _search,
           focusNode: _searchFocus,
@@ -180,15 +179,9 @@ class _GifPickerState extends State<GifPicker> {
           inputFormatters: [LengthLimitingTextInputFormatter(100)],
           textInputAction: TextInputAction.search,
           onChanged: widget.controller.updateQuery,
-          decoration: InputDecoration(
-            hintText: 'Search GIFs',
-            prefixIcon: const Padding(
-              padding: EdgeInsets.all(13),
-              child: DIcon(DIcons.magnifyingGlass, size: 18),
-            ),
-            suffixIcon: _searchSuffix(),
-            border: const OutlineInputBorder(),
-          ),
+          hintText: 'Search GIFs',
+          prefix: const DIcon(DIcons.magnifyingGlass, size: 16),
+          suffix: _searchSuffix(),
         ),
       ),
       const SizedBox(height: 12),
@@ -207,7 +200,7 @@ class _GifPickerState extends State<GifPicker> {
     final controller = widget.controller;
     if (controller.searching || controller.searchPending) {
       return const Padding(
-        padding: EdgeInsets.all(14),
+        padding: EdgeInsets.zero,
         child: SizedBox.square(dimension: 18, child: DSpinner()),
       );
     }

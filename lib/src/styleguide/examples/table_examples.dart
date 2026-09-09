@@ -1,7 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../styleguide_chrome.dart';
 import '../styleguide_example.dart';
 
 final tableExamples = ComponentExamples(
@@ -13,8 +12,8 @@ final tableExamples = ComponentExamples(
       'are immutable composition values, cells and caption are widgets. Import '
       'package:discourse_native/discourse_ui.dart. Tables do not add sorting, '
       'pagination or selection controls: those belong to Data Table and callers. '
-      'Actions temporarily compose StyleguideAction and native MenuAnchor pending '
-      'Button/Dropdown Menu. All examples use local data. Natural-width content '
+      'Actions compose DButton and native MenuAnchor pending '
+      'Dropdown Menu. All examples use local data. Natural-width content '
       'scrolls horizontally; explicit columns can opt into wrapping. Child controls '
       'own keyboard focus, Form state, touch targets and menu restoration.',
   examples: [
@@ -235,10 +234,12 @@ class _TableActionsExampleState extends State<TableActionsExample> {
                             child: Text(action),
                           ),
                       ],
-                      builder: (context, controller, child) => StyleguideAction(
-                        label: 'Open menu for ${product.$2}',
-                        icon: Icons.more_horiz,
-                        iconOnly: true,
+                      builder: (context, controller, child) => DButton.iconOnly(
+                        variant: DButtonVariant.ghost,
+                        size: DButtonSize.small,
+                        hasPopup: true,
+                        tooltip: 'Open menu for ${product.$2}',
+                        icon: const Icon(Icons.more_horiz),
                         onPressed: () => controller.isOpen
                             ? controller.close()
                             : controller.open(),
@@ -297,9 +298,9 @@ class _SelectionState extends State<_Selection> {
           cells: [
             const DTableCell(child: Text('INV001')),
             DTableCell(
-              child: StyleguideAction(
-                label: _selected ? 'Selected — clear' : 'Select invoice',
-                selected: _selected,
+              child: DButton(
+                variant: DButtonVariant.ghost,
+                label: Text(_selected ? 'Selected — clear' : 'Select invoice'),
                 onPressed: () => setState(() => _selected = !_selected),
               ),
             ),

@@ -1,0 +1,37 @@
+{
+  "beforeSourceCommit": "45d85a99e12e9907a8c8d3ed882c8920b52d0f18",
+  "pixelFormat": "RGBA uint32, DPR 1",
+  "reproductions": [
+    {
+      "state": "light ghost",
+      "idleInterior": "ffffffff",
+      "focusedInterior": "80c4e6ff"
+    },
+    {
+      "state": "light outline",
+      "idleInterior": "ffffffff",
+      "focusedInterior": "80c4e6ff"
+    },
+    {
+      "state": "light destructive",
+      "idleInterior": "fae6e6ff",
+      "focusedInterior": "f0b8b8ff"
+    },
+    {
+      "state": "dark ghost",
+      "idleInterior": "000000ff",
+      "focusedInterior": "044e6cff"
+    },
+    {
+      "state": "dark outline",
+      "idleInterior": "000000ff",
+      "focusedInterior": "044e6cff"
+    },
+    {
+      "state": "dark destructive",
+      "idleInterior": "2e110bff",
+      "focusedInterior": "762d1bff"
+    }
+  ],
+  "after": "All six cases preserve the interior exactly; 46 affected checks passed seed 792028, including the export harness. Pixel tests cover exterior extent, exact composited ring colors (one-channel rounding tolerance), idle invalid border without ring, rounded corner exclusion, focus removal, animated width, disabled and reduced motion."
+}
