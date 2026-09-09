@@ -180,6 +180,25 @@ void main() {
     },
   );
 
+  testWidgets('Accordion preview reserves its large-text content height', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('styleguide-component-accordion')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('styleguide-example-viewport-accordion')),
+          )
+          .height,
+      600,
+    );
+  });
+
   testWidgets('Direction examples use the preview provider and retain edits', (
     tester,
   ) async {
