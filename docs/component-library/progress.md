@@ -6,6 +6,36 @@ Coordinator task: `01a0816f-d4e0-7f93-9d6b-baeaf6961181`. Reference: 2026-09-08.
 
 Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d3323f9b7619bdead025fd76a57be402a97.
 
+## Current review queue
+
+**17 of 64 components are merged locally.** 17 existing components are in progress; 30 are planned.
+
+Native review is waiting for the Mac to be unlocked.
+
+Reference browsing is blocked because the browser could not verify its admin-enforced security policy.
+
+Branch preparation does not mark a component merged or visually verified.
+
+| Component | Current stage | Branch head |
+| --- | --- | --- |
+| textarea | Reference and native review | 058bb044 |
+| switch | Native review; Mac locked | 901f1227 |
+| slider | Reference and native review | bbd35fec |
+| progress | Reference and native review | 1c21a435 |
+| empty | Input Group composition, reference and native review | 403d8888 |
+| item | Control composition, reference and native review | c74fea70 |
+| table | Reference and native review | b3107cab |
+| scroll-area | Native review | 5f4e0133 |
+| collapsible | Integration checks | 1d147ba1 |
+| resizable | Reference and native review | a7e26a93 |
+| popover | Implementation and checks | — |
+| dialog | Reference and native review | 715ab477 |
+| native-select | Native review | 986eb063 |
+| field | Control composition, reference and native review | 09869a67 |
+| alert | Integration checks | 58c6b5e2 |
+| marker | Integration checks | dfbe6df0 |
+| chart | Native review | c782a940 |
+
 ## Component implementation
 
 | # | Component | Status | Task | Branch | Dependencies | Merge |
@@ -120,7 +150,7 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/compon
 **limitations**
 
 - iOS and Linux devices were not run during the foundation phase. No new native platform dependency was introduced.
-- Button and Select remain baseline catalogue implementations awaiting their own tasks. Tooltip is now fully implemented, adopted, verified and merged.
+- Select remains a baseline catalogue implementation awaiting its task. Button and Tooltip are implemented, adopted, verified and merged.
 
 ### shadcn visual fidelity correction
 

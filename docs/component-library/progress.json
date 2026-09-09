@@ -42,7 +42,7 @@
     ],
     "limitations": [
       "iOS and Linux devices were not run during the foundation phase. No new native platform dependency was introduced.",
-      "Button and Select remain baseline catalogue implementations awaiting their own tasks. Tooltip is now fully implemented, adopted, verified and merged."
+      "Select remains a baseline catalogue implementation awaiting its task. Button and Tooltip are implemented, adopted, verified and merged."
     ],
     "implementationCommit": "9c96f53c"
   },
