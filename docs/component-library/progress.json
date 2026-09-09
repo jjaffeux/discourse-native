@@ -4272,7 +4272,12 @@
           "sha256": "a48b885e4d6f0d8d1cb143ef436b80b90ebcf5e548347d455f6b201dcb637971"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "awaiting_native_review",
+        "sourceCommit": "63e2ee17ce344f1586a80b11b3ba74433fc6792c",
+        "candidateCommit": "6e57eda0815568c5a8176bb22dc8030209e8223f",
+        "evidence": "docs/component-library/sidebar-final-composition.md",
+        "nativeBuild": "docs/component-library/evidence/sidebar/final-composition-build.json",
+        "verification": "32 focused Sidebar/Sheet/example checks, 15 real styleguide widget regressions and the corrected catalogue metadata test pass. Root/full analysis and isolated macOS build pass. Browser/native composition inspection is pending the desktop FIFO lease."
       }
     },
     {
@@ -5364,7 +5369,12 @@
           "sha256": "a48b885e4d6f0d8d1cb143ef436b80b90ebcf5e548347d455f6b201dcb637971"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "awaiting_native_review",
+        "sourceCommit": "63e2ee17ce344f1586a80b11b3ba74433fc6792c",
+        "candidateCommit": "6e57eda0815568c5a8176bb22dc8030209e8223f",
+        "evidence": "docs/component-library/sidebar-final-composition.md",
+        "nativeBuild": "docs/component-library/evidence/sidebar/final-composition-build.json",
+        "verification": "32 focused Sidebar/Sheet/example checks, 15 real styleguide widget regressions and the corrected catalogue metadata test pass. Root/full analysis and isolated macOS build pass. Browser/native composition inspection is pending the desktop FIFO lease."
       },
       {
         "component": "radio-group",

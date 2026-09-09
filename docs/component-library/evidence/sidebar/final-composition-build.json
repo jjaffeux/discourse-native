@@ -1,0 +1,35 @@
+{
+  "sourceCommit": "63e2ee17ce344f1586a80b11b3ba74433fc6792c",
+  "reconciledCandidate": "6e57eda0815568c5a8176bb22dc8030209e8223f",
+  "candidateBase": "892e1a972eb61f5e150c9b83c6478a0c72150d6f",
+  "sourceEquivalence": "The reconciliation changes progress metadata only; lib, test, macos and root/full lockfiles are byte-identical to sourceCommit.",
+  "entrypoint": "lib/styleguide_main.dart",
+  "buildCommand": "flutter build macos --debug --no-pub -t lib/styleguide_main.dart",
+  "buildLog": "/private/tmp/sidebar-compositions-final-build.log",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/8375/discourse-native/build/macos/Build/Products/Debug/Sidebar Composition Review 8375.app",
+  "bundleIdentifier": "org.discourse.sidebarcompositionreview8375",
+  "bundleName": "Sidebar Composition Review 8375",
+  "urlScheme": "discourse-sidebar-composition-review-8375",
+  "runnerRestored": true,
+  "kernelMatchesBuildFramework": true,
+  "kernelSha256": "3b3fcaffc726ede6f432ac58d2bd3293477b53a2c27bfb555736aac387975bd5",
+  "signature": "The incremental build changed sealed resources. The isolated bundle was ad-hoc signed again, preserving identifier and entitlements, then passed codesign --verify --deep --strict. No development-team, provisioning or OS setting was changed.",
+  "entitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.cs.allow-unsigned-executable-memory",
+    "com.apple.security.device.audio-input",
+    "com.apple.security.device.camera",
+    "com.apple.security.files.user-selected.read-write",
+    "com.apple.security.get-task-allow",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "sourceSha256": {
+    "lib/src/ui/components/d_sidebar.dart": "8564cabfe57451631e49f9e6fcfc7250cb3c0622d6f050bc0f30c8f8330cabde",
+    "lib/src/ui/components/d_sheet.dart": "2e76251b616e405ba93697b0668af12aaf1fc6e4434eaadf094b5877ae4d406e",
+    "lib/src/styleguide/examples/sidebar_examples.dart": "d1c28505da6ab8abb2579db2903b7babfa4be7ed236be223ab347507c4d1da2f",
+    "lib/src/styleguide/styleguide_page.dart": "1fb489aa63c1ba1eb0775c4347feefa2a454a84866c6f3d54488d0a43152d5d8"
+  },
+  "nativeInspection": "pending_fifo_desktop_lease"
+}

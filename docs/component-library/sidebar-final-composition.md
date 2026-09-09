@@ -47,14 +47,28 @@ Input `7df72ef294826616e8ba24c31c6129d8e9041fec`, Collapsible
   their documented domain-specific navigation adapters; their routing,
   memberships, permissions and persistence were not part of this follow-up.
 
-## Verification in progress
+## Verification
 
-The initial composition source is `e8b1543640f11cc18cbb1132060755610c224815`.
-Focused Sidebar, Sheet and example tests passed 30 checks with seed 9092026.
-The added icon-collapse regression first failed with a 16px overflow, then
-passed after the correction, including account-menu Enter/Escape and restored
-focus. The real styleguide mobile search and 320px/200% text regressions passed.
-Final candidate checks and the rebuilt native bundle will be recorded below.
+Final behavior source is `63e2ee17ce344f1586a80b11b3ba74433fc6792c`, reconciled
+onto main `892e1a97` as `6e57eda0815568c5a8176bb22dc8030209e8223f`. That
+reconciliation changes progress ordering only; source, tests, runner and
+lockfiles remain byte-identical.
+
+- All 32 Sidebar/Sheet/example tests pass with seed 9092026. The icon-collapse
+  test first reproduced a 16px overflow; the mobile RTL/200% test first exposed
+  the squeezed menu. Both pass after their corrections.
+- The combined run passed all 15 styleguide widget regressions, including
+  actual mobile search focus, breakpoint changes, 320px/200% text, selection,
+  search retention and reset. Its sole metadata-order failure was corrected
+  by the Combobox owner on main `892e1a97`; the exact catalogue test passes on
+  the reconciled candidate.
+- Root and full-profile analysis pass. Formatting, `git diff --check`, and
+  unchanged root/full lockfiles are verified. No full-suite claim is made.
+- The actual styleguide entrypoint builds for macOS with an isolated identity.
+  The runner files were restored exactly. The final bundle passes deep strict
+  ad-hoc signature verification and its kernel equals the build framework.
+  [Build provenance](evidence/sidebar/final-composition-build.json) records
+  the source, bundle, source hashes, kernel and local-debug entitlements.
 
 The required current browser/native composition inspection is pending the
 canonical FIFO desktop lease. Earlier Sidebar native evidence remains in
