@@ -17,8 +17,8 @@ final calendarExamples = ComponentExamples(
   examples: [
     _example(
       'Basic',
-      'A controlled single-date calendar.',
-      const ['Single', 'Controlled', 'Today'],
+      'A single-date calendar.',
+      const ['Single', 'Uncontrolled', 'Today'],
       (_) => _frame(
         DCalendar(
           initialDisplayedMonth: DCalendarDate(2026, 9, 1),
@@ -26,6 +26,12 @@ final calendarExamples = ComponentExamples(
         ),
         width: 320,
       ),
+    ),
+    _example(
+      'Multiple',
+      'Select and clear independent dates in one month.',
+      const ['Multiple', 'Controlled', 'Card'],
+      (_) => const _MultipleCalendar(),
     ),
     _example('Range', 'A two-month range with connected endpoints.', const [
       'Range',
@@ -113,6 +119,40 @@ class _RangeCalendar extends StatefulWidget {
   const _RangeCalendar();
   @override
   State<_RangeCalendar> createState() => _RangeCalendarState();
+}
+
+class _MultipleCalendar extends StatefulWidget {
+  const _MultipleCalendar();
+
+  @override
+  State<_MultipleCalendar> createState() => _MultipleCalendarState();
+}
+
+class _MultipleCalendarState extends State<_MultipleCalendar> {
+  DCalendarSelection _selection = DCalendarMultipleSelection([
+    DCalendarDate(2026, 9, 8),
+    DCalendarDate(2026, 9, 12),
+  ]);
+
+  @override
+  Widget build(BuildContext context) => _frame(
+    DCard(
+      size: DCardSize.small,
+      children: [
+        DCardContent(
+          child: DCalendar(
+            mode: DCalendarSelectionMode.multiple,
+            displayedMonth: DCalendarDate(2026, 9, 1),
+            selection: _selection,
+            padding: EdgeInsets.zero,
+            onSelectionChanged: (value, _) =>
+                setState(() => _selection = value),
+          ),
+        ),
+      ],
+    ),
+    width: 300,
+  );
 }
 
 class _RangeCalendarState extends State<_RangeCalendar> {

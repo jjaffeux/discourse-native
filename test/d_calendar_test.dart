@@ -378,6 +378,85 @@ void main() {
     );
   });
 
+  testWidgets('shift-arrow shortcuts move by month and year', (tester) async {
+    final controller = DCalendarController(
+      focusedDate: DCalendarDate(2026, 9, 8),
+    );
+    addTearDown(controller.dispose);
+    await pump(
+      tester,
+      DCalendar(controller: controller, initialDisplayedMonth: september),
+    );
+    controller.focusDate(DCalendarDate(2026, 9, 8));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      contains('2026-10-08'),
+    );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      contains('2027-10-08'),
+    );
+  });
+
+  testWidgets('month navigation preserves one tabbable grid day', (
+    tester,
+  ) async {
+    final before = FocusNode(debugLabel: 'Before calendar');
+    final after = FocusNode(debugLabel: 'After calendar');
+    addTearDown(before.dispose);
+    addTearDown(after.dispose);
+    await pump(
+      tester,
+      Column(
+        children: [
+          TextButton(
+            focusNode: before,
+            onPressed: () {},
+            child: const Text('Before calendar'),
+          ),
+          DCalendar(
+            initialDisplayedMonth: september,
+            initialSelection: DCalendarSingleSelection(
+              DCalendarDate(2026, 9, 8),
+            ),
+          ),
+          TextButton(
+            focusNode: after,
+            onPressed: () {},
+            child: const Text('After calendar'),
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(find.bySemanticsLabel('Next month'));
+    await tester.pumpAndSettle();
+    before.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      contains('2026-10-08'),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    expect(FocusManager.instance.primaryFocus, after);
+  });
+
   testWidgets(
     'two fixed months, week numbers, dropdowns and custom cells render',
     (tester) async {

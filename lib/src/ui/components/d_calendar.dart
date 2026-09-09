@@ -514,6 +514,7 @@ class _DCalendarState extends State<DCalendar> {
   DCalendarSelection? _selection;
   late DCalendarDate _month;
   DCalendarDate? _focusedDate;
+  DCalendarDate? _pendingFocusDate;
   bool _syncingPages = false;
 
   DCalendarSelection get _effectiveSelection =>
@@ -615,6 +616,10 @@ class _DCalendarState extends State<DCalendar> {
         widget.displayedMonth != oldWidget.displayedMonth) {
       _setMonth(widget.displayedMonth!, notify: false);
     }
+    if (_focusedDate == null || !_isFocusableAndVisible(_focusedDate!)) {
+      _focusedDate = _focusableDateForMonth(_month, _focusedDate?.day);
+      _controller._sync(focusedDate: _focusedDate);
+    }
   }
 
   @override
@@ -704,6 +709,7 @@ class _DCalendarState extends State<DCalendar> {
     final next = DCalendarDate(value.year, value.month, 1);
     if (!_canShow(next)) return;
     final changed = next != _month;
+    final adoptsMonth = widget.displayedMonth == null || !notify;
     if (widget.displayedMonth == null) {
       setState(() => _month = next);
     } else if (!notify) {
@@ -712,9 +718,44 @@ class _DCalendarState extends State<DCalendar> {
       // not only the underlying Kalender page.
       _month = next;
     }
-    _controller._sync(displayedMonth: next);
+    if (adoptsMonth &&
+        (_focusedDate == null || !_isFocusableAndVisible(_focusedDate!))) {
+      _focusedDate = _focusableDateForMonth(next, _focusedDate?.day);
+    }
+    _controller._sync(
+      displayedMonth: next,
+      focusedDate: adoptsMonth ? _focusedDate : null,
+    );
     _syncPages(next);
     if (changed && notify) widget.onDisplayedMonthChanged?.call(next);
+  }
+
+  DCalendarDate? _focusableDateForMonth(
+    DCalendarDate month,
+    int? preferredDay,
+  ) {
+    final lastDay = DateTime.utc(month.year, month.month + 1, 0).day;
+    final candidate = DCalendarDate(
+      month.year,
+      month.month,
+      math.min(preferredDay ?? 1, lastDay),
+    );
+    final visibleEnd = month.addMonths(widget.numberOfMonths);
+    for (
+      var date = candidate;
+      date.isBefore(visibleEnd);
+      date = date.addDays(1)
+    ) {
+      if (!_isDisabled(date) && !_isHidden(date)) return date;
+    }
+    for (
+      var date = candidate.addDays(-1);
+      !date.isBefore(month);
+      date = date.addDays(-1)
+    ) {
+      if (!_isDisabled(date) && !_isHidden(date)) return date;
+    }
+    return null;
   }
 
   bool _canShow(DCalendarDate month) {
@@ -831,18 +872,23 @@ class _DCalendarState extends State<DCalendar> {
     for (var i = 0; i < 370 && (_isDisabled(date) || _isHidden(date)); i++) {
       date = date.addDays(step);
     }
-    if (_outsideBounds(date)) return;
+    if (_outsideBounds(date) || _isDisabled(date) || _isHidden(date)) return;
     final lastVisible = _month.addMonths(widget.numberOfMonths);
     if (date.isBefore(_month) || !date.isBefore(lastVisible)) {
       _setMonth(DCalendarDate(date.year, date.month, 1));
     }
     setState(() => _focusedDate = date);
+    _pendingFocusDate = date;
     _controller._sync(focusedDate: date);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final pane = ((date.year - _month.year) * 12 + date.month - _month.month)
           .clamp(0, widget.numberOfMonths - 1);
-      _dayFocusNodes['$pane:$date']?.requestFocus();
+      final node = _dayFocusNodes['$pane:$date'];
+      if (node?.canRequestFocus ?? false) {
+        node!.requestFocus();
+        _pendingFocusDate = null;
+      }
     });
   }
 
@@ -851,15 +897,20 @@ class _DCalendarState extends State<DCalendar> {
       return KeyEventResult.ignored;
     }
     final rtl = Directionality.of(context) == TextDirection.rtl;
+    final shift = HardwareKeyboard.instance.isShiftPressed;
     DCalendarDate? target;
     if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-      target = current.addDays(rtl ? -1 : 1);
+      target = shift
+          ? current.addMonths(rtl ? -1 : 1)
+          : current.addDays(rtl ? -1 : 1);
     } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-      target = current.addDays(rtl ? 1 : -1);
+      target = shift
+          ? current.addMonths(rtl ? 1 : -1)
+          : current.addDays(rtl ? 1 : -1);
     } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      target = current.addDays(7);
+      target = shift ? current.addMonths(12) : current.addDays(7);
     } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      target = current.addDays(-7);
+      target = shift ? current.addMonths(-12) : current.addDays(-7);
     } else if (event.logicalKey == LogicalKeyboardKey.home) {
       target = current.addDays(
         -((current.weekday - widget.firstWeekday + 7) % 7),
@@ -1309,6 +1360,17 @@ class _DCalendarState extends State<DCalendar> {
     );
     focusNode.skipTraversal =
         details.outside || details.disabled || date != _focusedDate;
+    if (!details.outside && date == _pendingFocusDate) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            _pendingFocusDate != date ||
+            !focusNode.canRequestFocus) {
+          return;
+        }
+        focusNode.requestFocus();
+        _pendingFocusDate = null;
+      });
+    }
     final locale = (widget.locale ?? Localizations.localeOf(context))
         .toLanguageTag();
     final defaultChild = Text(
