@@ -77,7 +77,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
 | 31 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
-| 32 | hover-card | in_progress | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | — |
+| 32 | hover-card | implemented | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | — |
 | 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 35 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
@@ -1990,7 +1990,7 @@ Status: merged. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-pop
 
 ### hover-card
 
-Status: in_progress. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/ui-hover-card.
+Status: implemented. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/ui-hover-card.
 
 **acceptanceCriteria**
 
@@ -2010,8 +2010,11 @@ Status: in_progress. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/u
 - The visual owner uses the accepted DPopoverSide/DPopoverAlign/DPopoverCollision public positioning vocabulary while leaving Popover source and its accepted lifecycle/Escape/layering corrections unchanged. Hover Card independently owns its non-modal focus, hover timer and assistive-visibility contract.
 - Base UI's accessibility guidance is preserved: the action trigger remains the only accessible and keyboard/touch navigable interface; the supplementary surface never takes focus and is excluded from assistive semantics. It remains pointer-hoverable, scrollable and text-selectable for sighted mouse users.
 - Default 600ms open/300ms close timers are per-trigger configurable. Polygonal trigger-to-content bridge retention, content entry, rapid peer-trigger cancellation, disable, lifecycle, outside press, topmost Escape, trigger activation and disposal all cancel the appropriate pending work.
-- Seven styleguide examples reproduce frozen Basic, Composition, Trigger Delays, Positioning, all physical Sides and Arabic RTL physical/logical sides, plus controlled/controller lifecycle. Real merged Button and Avatar owners are used; status intentionally remains planned until independent rendered/native acceptance.
+- Eight accepted styleguide examples reproduce frozen Basic, Composition, Trigger Delays, Positioning, all physical Sides and Arabic RTL physical/logical sides, plus strongly typed multiple-trigger payloads and controlled/controller lifecycle. Real merged Button and Avatar owners are used.
 - The review handoff supplied a non-resolving long SHA c03c39b5b5d2dc549e5c016e098ec404bc8cf20d. The clean codex/ui-hover-card branch and its own progress evidence identify the actual implementation commit as c03c39b5bf037e33dd84e86db6216ee3b7febaa9; review preserves that exact history.
+- Independent review fixed duplicate immediate-animation completion callbacks, deferred overlay mutations during controller/focus ownership changes, retained the polygonal pointer bridge until the pointer truly leaves it, and paints the reference ring outside rather than consuming surface size.
+- DHoverCardGroup<T> and DHoverCardGroupItem<T> cover Base UI's shared-root multiple-trigger, payload and controlled-trigger-id API with arbitrary Flutter trigger layouts and rapid same-root handoff. Detached imperative ownership remains available through DHoverCardController; DOM-only detached viewport animation is not applicable to this Flutter owner.
+- The production UserCardTarget adapter schedules a missing-cache load through its existing ShellController after build and remains safe when signed-in account replacement unmounts an open preview. Generic Hover Card code still owns no networking, cache, permissions or navigation.
 
 **migrations**
 
@@ -2030,10 +2033,14 @@ Status: in_progress. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/u
 - Implementation evidence: root and profiles/full flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed.
 - Implementation evidence: a focused Hover Card/styleguide/UserCard run passed 27 tests, and a broader run including the complete styleguide_page_test.dart passed 42 tests.
 - Implementation evidence: flutter build macos --debug --no-pub -t tool/hover_card_review_main.dart succeeded; build success is not native inspection.
+- Independent review: root and profiles/full flutter pub get --enforce-lockfile and flutter analyze --no-pub passed; touched formatting and git diff --check passed.
+- Independent review: 54 focused Hover Card, styleguide and production UserCard tests passed with randomized seed 3337741303, including timers, pointer bridge, focus/Escape, semantics exclusion, controlled/controller lifecycle, duplicate callback regression, peer roots, typed payload handoff, collision/RTL, 216px width at 200%, loading/error and account replacement.
+- Independent browser inspection completed against https://ui.shadcn.com/docs/components/base/hover-card: rendered Basic, physical side and Arabic logical-side surfaces matched the frozen source's content, size, spacing, ring/shadow and placement behavior.
+- Independent native inspection completed in the exact-source signed macOS fixture at /private/tmp/hover-card-review-7204.JR8WST/Hover Card Review 7204.app: Basic, collision flipping, RTL, typed payload handoff, controlled triggerHover reporting, controller open, keyboard focus/Escape, ready/loading/error user cards, activation/dismissal, dark/custom palettes, 200% text and the eight-section full styleguide all passed.
+- Exact-source fixture evidence: source 7204dd2d2895a332b01a14dafbfcb796127336b7; copied kernel SHA-256 69650cc5717b0c86c151c367cd1f004e7a8f3d8ba12e619898777267f42588be; component SHA-256 ce0128a9b09a2475990cdb92cd6a7a92eaac66d17f9435b4e552c2c058201005; strict deep codesign verification passed with only local debug runtime entitlements.
 
 **limitations**
 
-- The implementation task performed no actual official browser render or native macOS UI inspection; both remain required in this review.
 - No spoken VoiceOver session or iOS/Linux device inspection was performed.
 
 ### dialog

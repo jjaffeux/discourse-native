@@ -1956,7 +1956,7 @@
     },
     {
       "id": "hover-card",
-      "status": "in_progress",
+      "status": "implemented",
       "taskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
       "branch": "codex/ui-hover-card",
       "dependencies": [
@@ -1979,8 +1979,11 @@
         "The visual owner uses the accepted DPopoverSide/DPopoverAlign/DPopoverCollision public positioning vocabulary while leaving Popover source and its accepted lifecycle/Escape/layering corrections unchanged. Hover Card independently owns its non-modal focus, hover timer and assistive-visibility contract.",
         "Base UI's accessibility guidance is preserved: the action trigger remains the only accessible and keyboard/touch navigable interface; the supplementary surface never takes focus and is excluded from assistive semantics. It remains pointer-hoverable, scrollable and text-selectable for sighted mouse users.",
         "Default 600ms open/300ms close timers are per-trigger configurable. Polygonal trigger-to-content bridge retention, content entry, rapid peer-trigger cancellation, disable, lifecycle, outside press, topmost Escape, trigger activation and disposal all cancel the appropriate pending work.",
-        "Seven styleguide examples reproduce frozen Basic, Composition, Trigger Delays, Positioning, all physical Sides and Arabic RTL physical/logical sides, plus controlled/controller lifecycle. Real merged Button and Avatar owners are used; status intentionally remains planned until independent rendered/native acceptance.",
-        "The review handoff supplied a non-resolving long SHA c03c39b5b5d2dc549e5c016e098ec404bc8cf20d. The clean codex/ui-hover-card branch and its own progress evidence identify the actual implementation commit as c03c39b5bf037e33dd84e86db6216ee3b7febaa9; review preserves that exact history."
+        "Eight accepted styleguide examples reproduce frozen Basic, Composition, Trigger Delays, Positioning, all physical Sides and Arabic RTL physical/logical sides, plus strongly typed multiple-trigger payloads and controlled/controller lifecycle. Real merged Button and Avatar owners are used.",
+        "The review handoff supplied a non-resolving long SHA c03c39b5b5d2dc549e5c016e098ec404bc8cf20d. The clean codex/ui-hover-card branch and its own progress evidence identify the actual implementation commit as c03c39b5bf037e33dd84e86db6216ee3b7febaa9; review preserves that exact history.",
+        "Independent review fixed duplicate immediate-animation completion callbacks, deferred overlay mutations during controller/focus ownership changes, retained the polygonal pointer bridge until the pointer truly leaves it, and paints the reference ring outside rather than consuming surface size.",
+        "DHoverCardGroup<T> and DHoverCardGroupItem<T> cover Base UI's shared-root multiple-trigger, payload and controlled-trigger-id API with arbitrary Flutter trigger layouts and rapid same-root handoff. Detached imperative ownership remains available through DHoverCardController; DOM-only detached viewport animation is not applicable to this Flutter owner.",
+        "The production UserCardTarget adapter schedules a missing-cache load through its existing ShellController after build and remains safe when signed-in account replacement unmounts an open preview. Generic Hover Card code still owns no networking, cache, permissions or navigation."
       ],
       "migrations": [
         "UserCardTarget now composes DHoverCard around its unchanged InlineAction. Hover or traditional keyboard focus loads the existing ShellController user-card cache and renders a read-only app adapter with DAvatar/AvatarImage, name, username, title and location; click, touch, Enter and Space still open the full user-card route.",
@@ -1995,16 +1998,22 @@
         "Implementation evidence: flutter pub get --enforce-lockfile completed at root and profiles/full using existing pins; no lockfile changes remain.",
         "Implementation evidence: root and profiles/full flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed.",
         "Implementation evidence: a focused Hover Card/styleguide/UserCard run passed 27 tests, and a broader run including the complete styleguide_page_test.dart passed 42 tests.",
-        "Implementation evidence: flutter build macos --debug --no-pub -t tool/hover_card_review_main.dart succeeded; build success is not native inspection."
+        "Implementation evidence: flutter build macos --debug --no-pub -t tool/hover_card_review_main.dart succeeded; build success is not native inspection.",
+        "Independent review: root and profiles/full flutter pub get --enforce-lockfile and flutter analyze --no-pub passed; touched formatting and git diff --check passed.",
+        "Independent review: 54 focused Hover Card, styleguide and production UserCard tests passed with randomized seed 3337741303, including timers, pointer bridge, focus/Escape, semantics exclusion, controlled/controller lifecycle, duplicate callback regression, peer roots, typed payload handoff, collision/RTL, 216px width at 200%, loading/error and account replacement.",
+        "Independent browser inspection completed against https://ui.shadcn.com/docs/components/base/hover-card: rendered Basic, physical side and Arabic logical-side surfaces matched the frozen source's content, size, spacing, ring/shadow and placement behavior.",
+        "Independent native inspection completed in the exact-source signed macOS fixture at /private/tmp/hover-card-review-7204.JR8WST/Hover Card Review 7204.app: Basic, collision flipping, RTL, typed payload handoff, controlled triggerHover reporting, controller open, keyboard focus/Escape, ready/loading/error user cards, activation/dismissal, dark/custom palettes, 200% text and the eight-section full styleguide all passed.",
+        "Exact-source fixture evidence: source 7204dd2d2895a332b01a14dafbfcb796127336b7; copied kernel SHA-256 69650cc5717b0c86c151c367cd1f004e7a8f3d8ba12e619898777267f42588be; component SHA-256 ce0128a9b09a2475990cdb92cd6a7a92eaac66d17f9435b4e552c2c058201005; strict deep codesign verification passed with only local debug runtime entitlements."
       ],
       "limitations": [
-        "The implementation task performed no actual official browser render or native macOS UI inspection; both remain required in this review.",
         "No spoken VoiceOver session or iOS/Linux device inspection was performed."
       ],
       "implementationCommit": "c03c39b5bf037e33dd84e86db6216ee3b7febaa9",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/02bf/discourse-native",
-      "reviewStatus": "in_progress",
+      "browserInspectionStatus": "completed",
+      "nativeInspectionStatus": "completed",
+      "reviewStatus": "accepted",
       "reviewTaskId": "01a08619-dc41-7213-a887-5afb891b99da",
       "reviewBranch": "codex/review-hover-card"
     },

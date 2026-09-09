@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('Hover Card registers the frozen documentation examples', () {
     expect(componentExamples['hover-card'], same(hoverCardExamples));
-    expect(hoverCardExamples.status, ComponentStatus.planned);
+    expect(hoverCardExamples.status, ComponentStatus.implemented);
     expect(hoverCardExamples.examples.map((example) => example.title), [
       'Basic',
       'Composition',

@@ -5,7 +5,7 @@ import '../styleguide_example.dart';
 
 final hoverCardExamples = ComponentExamples(
   description: 'Shows a supplementary visual preview for a destination.',
-  status: ComponentStatus.planned,
+  status: ComponentStatus.implemented,
   notes:
       'Frozen source: shadcn Base UI Hover Card Markdown SHA-256 '
       '8f30193c745aaf270cdf63043ca452cdffb895e8643a86c662ca0804c6022dc8 '
