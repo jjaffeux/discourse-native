@@ -2127,9 +2127,9 @@
     },
     {
       "id": "input-group",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085af-d606-7281-ac25-34c83adc855e",
+      "branch": "codex/ui-input-group",
       "dependencies": [
         "input",
         "textarea",
@@ -2137,14 +2137,32 @@
         "kbd",
         "spinner"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Reproduce the frozen Base UI/base-nova Input Group documented composition, addon alignments, icon/text/button/Kbd/Dropdown/Spinner/Textarea/custom-input/RTL examples and complete public API; record source hashes and visual/behavior mapping.",
+        "Compose final shared DInput, DTextarea, DButton, DKbd and DSpinner owners with unified surfaces, precise focus/error geometry, independent addon actions, bounded native editor semantics and preserved controller/Form/focus/IME lifecycle.",
+        "Support live host palettes/font/radius, keyboard and touch, narrow/scaled/RTL layouts and reduced motion; demonstrate every documented state and required final-owner composition.",
+        "Audit and migrate appropriate core/plugin compound fields and existing prototype compositions, preserving domain behavior; coordinate Empty, Field and Button Group directly and document retained alternatives.",
+        "Run meaningful focused component/consumer tests and root/full-profile analysis, prepare source-exact production fixtures, then create a new reviewer to complete official browser/native acceptance and local main merge. Every prepared dependency must first be accepted and merged in main."
+      ],
+      "decisions": [
+        "Source preparation may overlap Textarea final review using pinned committed source; acceptance and final main merge remain gated on the accepted parent revision. The implementer creates its own independent review/merge task."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "textarea",
+          "branch": "codex/review-textarea",
+          "commit": "4ca5aaa85681ced6dd2668a8158b7551ee176f73",
+          "reviewTaskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
+          "evidence": "Clean committed source/API with 163 affected tests and root/full analysis passing; official browser and initial native inspection recorded. Final exact-bundle confirmation and accepted main merge still belong to the Textarea reviewer.",
+          "mergeGate": "Use accepted main directly if Textarea has landed. Otherwise prepare against this pin only in the isolated worktree; the Input Group reviewer must integrate and verify the accepted Textarea main revision before any final merge."
+        }
+      ]
     },
     {
       "id": "button-group",
@@ -2790,7 +2808,7 @@
     "updatedAt": "2026-09-09T10:03:54.746431+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
-    "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
+    "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
     "mergePolicy": "Each component reviewer reviews, fixes, verifies and merges directly from the main checkout under the shared main lease; no coordinator approval gate.",
     "nativeInspectionPolicy": "Reviewers acquire the shared desktop lease directly; busy requests join a first-come, first-served queue, retries preserve position, and callers release held leases or cancel waiting requests before ending a turn.",
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
@@ -2977,6 +2995,13 @@
           "taskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
           "branch": "codex/ui-accordion",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/69af/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "input-group",
+          "taskId": "01a085af-d606-7281-ac25-34c83adc855e",
+          "branch": "codex/ui-input-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6a88/discourse-native",
           "status": "implementation"
         }
       ],
@@ -3474,9 +3499,10 @@
     },
     "reviewPrerequisites": {
       "input-group": {
-        "status": "waiting_for_textarea_merge",
+        "status": "implementation",
         "requestedBy": "01a08558-ae1d-7d61-a060-dd8cce1380fc",
-        "nextAction": "Dispatch Input Group implementation from main after Textarea lands; implementer creates its own final reviewer. Required for Empty composition."
+        "nextAction": "Input Group prepares against the recorded Textarea source pin while final parent acceptance completes. Its new reviewer must integrate accepted Textarea main and complete required Empty/Field/Button Group compositions directly before final acceptance.",
+        "taskId": "01a085af-d606-7281-ac25-34c83adc855e"
       },
       "dropdown-menu": {
         "status": "waiting_for_popover_merge",
