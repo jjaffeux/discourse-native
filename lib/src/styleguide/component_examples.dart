@@ -25,6 +25,7 @@ import 'examples/foundation_examples.dart';
 import 'examples/hover_card_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/input_group_examples.dart';
+import 'examples/input_otp_examples.dart';
 import 'examples/item_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
@@ -67,6 +68,7 @@ final componentExamples = <String, ComponentExamples>{
   'combobox': comboboxExamples,
   'command': commandExamples,
   'input': inputExamples,
+  'input-otp': inputOTPExamples,
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
   'item': itemExamples,

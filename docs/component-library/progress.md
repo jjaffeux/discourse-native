@@ -93,7 +93,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
 | 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
-| 63 | input-otp | in_progress | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | — |
+| 63 | input-otp | review_ready | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | — |
 | 64 | questionnaire | merged | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | 4217ffe98a37c61510d464f21cfef87c563e82f1 |
 
 ## Decisions and evidence
@@ -3234,7 +3234,7 @@ Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sid
 
 ### input-otp
 
-Status: in_progress. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/ui-input-otp.
+Status: review_ready. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/ui-input-otp.
 
 **acceptanceCriteria**
 
@@ -3247,6 +3247,32 @@ Status: in_progress. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Input OTP (01a086a4-4667-75c1-bcd5-318d677939ec) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Input and Field are accepted on current main at merges 7df72ef294826616e8ba24c31c6129d8e9041fec and 5cd7f3694498e4e09e3c114639baca834b56705e. Their current source, plus accepted Card and Button composition, was preserved in the latest-main candidate; no unaccepted parent is carried.
+- Independent review retained one FormField<String>/TextField owner and visual-only groups, slots and separators. It fixed external borrowed-controller filtering, group-level validation rings, clipping of 3px exterior paint and pointer drag-selection replacement.
+- Live official Base UI measurement confirmed 32x32 default slots, 14/20 text, 1px borders, 10px lg radius and 3px focus ring. It measured the Form variant at 44x48 with 20/28 text, correcting the Flutter large-slot leading while retaining the exact 296px horizontally reachable composition.
+- All ten actual examples are accepted and promoted to implemented after the official browser and isolated macOS pass.
+
+**migrations**
+
+- Re-audited latest main across tracked core, bundled plugins and packages for OTP, TOTP, passcode, one-time/security/verification code and authentication inputs. No genuine interactive code-entry surface exists, so no production migration was invented and no account, security, submission or external-auth setting was touched.
+
+**retainedAlternatives**
+
+- Diagnostics redaction of the server-side one_time_password key remains non-visual security behavior. Ordinary numeric, date/time and search fields remain with DInput.
+
+**verification**
+
+- Re-fetched exact official sources: frozen Markdown SHA256 913027458ed577e6345687c3d42b62f28e2813e1d8b000e1b8b9e52f554b1a6e, base-nova registry SHA256 1f8309b2749a129b011c93928416a0da7d6009b55ae8118d45850e488eac8989 and extracted TSX SHA256 800f2398fc404a1fa529d7af8c7647e22553205c482a15bc0c26775f145a6465 all matched.
+- Final latest-reviewed source passed 103 Input OTP, Field, Input, Button and styleguide checks with seed 9092027. Coverage includes one-editor anatomy, controller/focus modes, transform/filter order, completion transitions, selection replacement/drag, Backspace/Delete editing, Form lifecycle, semantics, disabled state, live font/radius, narrow 200 percent RTL and every actual example. Log: /private/tmp/input-otp-review-tests.log.
+- Root and profiles/full flutter analyze --no-pub passed after final corrections; touched Dart formatting and git diff --check passed. Locked dependencies and pins are unchanged.
+- Official in-app browser inspection covered live Base UI light/dark default, focused and Form states and computed geometry. Default measured 32x32, 14/20, 1px and 10px radius; active box shadow measured 3px at 50 percent ring alpha; Form slots measured 44x48 with 20/28 text.
+- Exact isolated macOS bundle /private/tmp/input-otp-review-final/Input OTP Review.app used ID org.discourse.native.inputotp.review.final and restricted-free explicit debug/JIT entitlements. Deep strict ad-hoc signature passed; final built/copied kernel SHA256 both a589040ad9cae4432da1bae0daa73bf0e37fb5c372fa11389f2e196a88c37c20.
+- Native macOS inspection verified literal typing and digit/alphanumeric filtering, uppercase completion and Return submission counters, keyboard range replacement, Backspace/Delete, validation/save/reset/resend, native Paste context menu, disabled non-editability and one bounded editable AX node per composition. Light/dark/Forest/Plum, 6/12px host radii, LTR/RTL, 100/200 percent, 448/320px, reduced-motion caret and horizontal Form reachability were inspected. The isolated app exited and the desktop lease was released.
+
+**limitations**
+
+- The CUA native paste helper altered only its accessibility proxy value and did not enter Flutter's formatter/controller callback path; actual native paste success is not claimed. Paste transform/filter order is covered by focused widget tests, while the native context menu was visibly present.
+- Native device inspection was macOS only. iOS/Linux devices and spoken VoiceOver were not run; widget semantics and keyboard tests cover those contracts without claiming device equivalence.
 
 ### questionnaire
 

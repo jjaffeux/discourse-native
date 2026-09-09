@@ -1,0 +1,16 @@
+{
+  "capturedAt": "2026-09-09",
+  "catalogueMarkdown": {
+    "url": "https://ui.shadcn.com/docs/components/base/input-otp.md",
+    "sha256": "913027458ed577e6345687c3d42b62f28e2813e1d8b000e1b8b9e52f554b1a6e"
+  },
+  "baseNovaRegistry": {
+    "url": "https://ui.shadcn.com/r/styles/base-nova/input-otp.json",
+    "sha256": "1f8309b2749a129b011c93928416a0da7d6009b55ae8118d45850e488eac8989",
+    "sourceSha256": "800f2398fc404a1fa529d7af8c7647e22553205c482a15bc0c26775f145a6465"
+  },
+  "upstreamReadme": {
+    "url": "https://github.com/guilhermerodz/input-otp/blob/master/README.md",
+    "sha256": "44adbdf7084e81ff10ac88ff526260c1ee6bbcaa112bb87f3ab2eea8ab9e9cac"
+  }
+}
