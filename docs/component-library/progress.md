@@ -50,7 +50,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | merged | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | a492253dc0abaed3f424df1b59c5a11b266d5b60 |
-| 16 | toggle-group | in_progress | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | — |
+| 16 | toggle-group | review_ready | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
@@ -1153,7 +1153,7 @@ Status: merged. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/ui-tog
 
 ### toggle-group
 
-Status: in_progress. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
+Status: review_ready. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
 
 **acceptanceCriteria**
 

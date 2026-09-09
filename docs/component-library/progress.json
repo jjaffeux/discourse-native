@@ -1038,7 +1038,7 @@
     },
     {
       "id": "toggle-group",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a085ce-ca89-7af3-8375-946721be90c6",
       "branch": "codex/ui-toggle-group",
       "dependencies": [
@@ -1990,7 +1990,7 @@
         "The implementation task did not acquire the shared desktop lease and performed no actual official browser render or native macOS UI inspection. The independent reviewer must perform both first inspections; build success and widget tests do not satisfy them.",
         "No spoken VoiceOver session or iOS/Linux device inspection was performed."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "c03c39b5bf037e33dd84e86db6216ee3b7febaa9",
       "mergeCommit": null
     },
     {
