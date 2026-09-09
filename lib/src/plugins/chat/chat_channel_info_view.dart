@@ -307,48 +307,55 @@ class _ChannelSettings extends StatelessWidget {
                                     label: 'Push notifications',
                                     description:
                                         'Choose which activity should reach this device.',
-                                    action:
-                                        DropdownButton<
-                                          ChatChannelNotificationLevel
-                                        >(
-                                          key: const ValueKey(
-                                            'chat-channel-notification-setting',
+                                    action: SizedBox(
+                                      width: 170,
+                                      child:
+                                          DNativeSelect<
+                                            ChatChannelNotificationLevel
+                                          >.controlled(
+                                            isExpanded: true,
+                                            placeholderEnabled: false,
+                                            key: const ValueKey(
+                                              'chat-channel-notification-setting',
+                                            ),
+                                            value: membership.notificationLevel,
+                                            onChanged: notificationBusy
+                                                ? null
+                                                : (level) {
+                                                    if (level != null) {
+                                                      unawaited(
+                                                        _changeNotifications(
+                                                          context,
+                                                          notificationLevel:
+                                                              level,
+                                                        ),
+                                                      );
+                                                    }
+                                                  },
+                                            entries: const [
+                                              DNativeSelectOption(
+                                                value:
+                                                    ChatChannelNotificationLevel
+                                                        .never,
+                                                label: 'Never',
+                                              ),
+                                              DNativeSelectOption(
+                                                value:
+                                                    ChatChannelNotificationLevel
+                                                        .mention,
+                                                label: 'Mentions only',
+                                              ),
+                                              DNativeSelectOption(
+                                                value:
+                                                    ChatChannelNotificationLevel
+                                                        .always,
+                                                label: 'All activity',
+                                              ),
+                                            ],
+                                            initialValue:
+                                                membership.notificationLevel,
                                           ),
-                                          value: membership.notificationLevel,
-                                          onChanged: notificationBusy
-                                              ? null
-                                              : (level) {
-                                                  if (level != null) {
-                                                    unawaited(
-                                                      _changeNotifications(
-                                                        context,
-                                                        notificationLevel:
-                                                            level,
-                                                      ),
-                                                    );
-                                                  }
-                                                },
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value:
-                                                  ChatChannelNotificationLevel
-                                                      .never,
-                                              child: Text('Never'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value:
-                                                  ChatChannelNotificationLevel
-                                                      .mention,
-                                              child: Text('Mentions only'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value:
-                                                  ChatChannelNotificationLevel
-                                                      .always,
-                                              child: Text('All activity'),
-                                            ),
-                                          ],
-                                        ),
+                                    ),
                                   ),
                               ],
                             ),
