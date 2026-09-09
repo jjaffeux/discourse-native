@@ -324,9 +324,7 @@ class _DSidebarState extends State<DSidebar> {
           child: Container(
             decoration: BoxDecoration(
               color: widget.backgroundColor ?? t.surface,
-              borderRadius: floating
-                  ? BorderRadius.circular(t.radius * 1.2)
-                  : null,
+              borderRadius: floating ? t.borderRadius : null,
 
               boxShadow: floating
                   ? [
@@ -341,7 +339,7 @@ class _DSidebarState extends State<DSidebar> {
             foregroundDecoration: floating
                 ? BoxDecoration(
                     border: Border.all(color: t.border),
-                    borderRadius: BorderRadius.circular(t.radius * 1.2),
+                    borderRadius: t.borderRadius,
                   )
                 : null,
             child: DefaultTextStyle(
