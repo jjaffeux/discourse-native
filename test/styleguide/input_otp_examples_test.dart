@@ -104,4 +104,24 @@ void main() {
     await tester.pump();
     expect(find.text('Verified 654321'), findsNothing);
   });
+
+  testWidgets('alphanumeric example requests a keyboard with letters', (
+    tester,
+  ) async {
+    final alphanumeric = inputOTPExamples.examples.singleWhere(
+      (example) => example.title == 'Alphanumeric',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(body: alphanumeric.builder(context)),
+        ),
+      ),
+    );
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).keyboardType,
+      TextInputType.text,
+    );
+  });
 }

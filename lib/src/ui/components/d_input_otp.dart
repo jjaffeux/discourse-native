@@ -79,6 +79,9 @@ class DInputOTP extends FormField<String> {
   final bool invalid;
   final bool autofocus;
   final bool readOnly;
+
+  /// The platform keyboard to request. Defaults to a numeric keypad; use
+  /// [TextInputType.text] for alphanumeric codes.
   final TextInputType? keyboardType;
   final TextInputAction textInputAction;
   final Iterable<String>? autofillHints;
