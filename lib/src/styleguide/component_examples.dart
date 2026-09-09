@@ -1,5 +1,6 @@
 import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
+import 'examples/attachment_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
 import 'examples/button_examples.dart';
@@ -51,10 +52,10 @@ final componentExamples = <String, ComponentExamples>{
   'resizable': resizableExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,
+  'attachment': attachmentExamples,
   'avatar': avatarExamples,
   'badge': badgeExamples,
   'direction': directionExamples,
-  'dialog': dialogExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,

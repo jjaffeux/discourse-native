@@ -3524,147 +3524,93 @@ class ComposerUploadQueue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
-      constraints: const BoxConstraints(maxHeight: 92),
+      constraints: const BoxConstraints(maxHeight: 132),
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
       child: ListView.separated(
         shrinkWrap: true,
         padding: const EdgeInsets.symmetric(vertical: 2),
         itemCount: composer.uploads.length,
-        separatorBuilder: (_, _) =>
-            DSeparator(space: 1, color: theme.colorScheme.outlineVariant),
+        separatorBuilder: (_, _) => const SizedBox(height: 4),
         itemBuilder: (context, index) {
           final upload = composer.uploads[index];
           final failed = upload.status == ComposerUploadStatus.failed;
           final completed = upload.status == ComposerUploadStatus.completed;
           final thumbnail = completed ? upload.result : null;
           final isImage = SiteConfig.isImageFilename(upload.file.name);
-          return SizedBox(
-            height: failed ? 52 : 40,
-            child: Row(
-              children: [
-                const SizedBox(width: 10),
-                if (thumbnail != null &&
-                    (isImage || thumbnail.thumbnailUrl != null))
-                  _ComposerUploadThumbnail(
-                    siteUrl: composer.target.siteUrl,
-                    filename: upload.file.name,
-                    uploadId: thumbnail.id,
-                    url: thumbnail.previewUrl,
-                  )
-                else
-                  Icon(
-                    failed
-                        ? Icons.error_outline
-                        : isImage
-                        ? Icons.image_outlined
-                        : Icons.attach_file,
-                    size: 18,
-                    color: failed
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurfaceVariant,
+          final retrying = upload.status == ComposerUploadStatus.retrying;
+          final description = failed
+              ? upload.error ?? "Couldn't upload this image."
+              : completed
+              ? 'Uploaded'
+              : '${retrying ? 'Retrying' : 'Uploading'} · ${(upload.progress * 100).round()}%';
+          return DAttachment(
+            width: double.infinity,
+            state: failed
+                ? DAttachmentState.error
+                : completed
+                ? DAttachmentState.done
+                : retrying
+                ? DAttachmentState.processing
+                : DAttachmentState.uploading,
+            liveRegion: !completed,
+            children: [
+              DAttachmentMedia(
+                variant:
+                    thumbnail != null &&
+                        (isImage || thumbnail.thumbnailUrl != null)
+                    ? DAttachmentMediaVariant.image
+                    : DAttachmentMediaVariant.icon,
+                child:
+                    thumbnail != null &&
+                        (isImage || thumbnail.thumbnailUrl != null)
+                    ? _ComposerUploadThumbnail(
+                        siteUrl: composer.target.siteUrl,
+                        filename: upload.file.name,
+                        uploadId: thumbnail.id,
+                        url: thumbnail.previewUrl,
+                      )
+                    : failed
+                    ? const Icon(Icons.error_outline)
+                    : completed
+                    ? Icon(isImage ? Icons.image_outlined : Icons.attach_file)
+                    : const DSpinner(size: 16, semanticLabel: null),
+              ),
+              DAttachmentContent(
+                children: [
+                  DAttachmentTitle(child: Text(upload.file.name)),
+                  DAttachmentDescription(
+                    child: failed
+                        ? DTooltip(
+                            message: description,
+                            child: Text(description),
+                          )
+                        : Text(description),
                   ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        upload.file.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium,
-                      ),
-                      if (failed)
-                        DTooltip(
-                          message:
-                              upload.error ?? "Couldn't upload this image.",
-                          child: Text(
-                            upload.error ?? "Couldn't upload this image.",
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.error,
-                            ),
-                          ),
-                        )
-                      else if (!completed)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 3),
-                          child: DProgress(
-                            value: upload.progress,
-                            max: 1,
-                            semanticsLabel: 'Uploading image',
-                            track: const DProgressTrack(height: 3),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (failed) ...[
-                  DTooltip(
-                    message: 'Retry upload',
-                    labelTrigger: true,
-                    child: IconButton(
+                ],
+              ),
+              DAttachmentActions(
+                children: [
+                  if (failed)
+                    DAttachmentAction(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: 'Retry upload',
                       onPressed: composer.canUpload
                           ? () => composer.retryUpload(upload.id)
                           : null,
-                      icon: const Icon(Icons.refresh, size: 17),
-                      tooltip: '',
-                      visualDensity: VisualDensity.compact,
                     ),
-                  ),
-                  DTooltip(
-                    message: 'Remove upload',
-                    labelTrigger: true,
-                    child: IconButton(
-                      onPressed: () => composer.removeUpload(upload.id),
-                      icon: const Icon(Icons.close, size: 17),
-                      tooltip: '',
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ] else if (completed) ...[
-                  DTooltip(
-                    message: 'Remove upload',
-                    labelTrigger: true,
-                    child: IconButton(
-                      onPressed: () => composer.removeUpload(upload.id),
-                      icon: const Icon(Icons.close, size: 17),
-                      tooltip: '',
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ] else ...[
-                  SizedBox(
-                    width: 42,
-                    child: Text(
-                      '${(upload.progress * 100).round()}%',
-                      textAlign: TextAlign.end,
-                      style: theme.textTheme.labelSmall,
-                    ),
-                  ),
-                  DTooltip(
-                    message: 'Cancel upload',
-                    labelTrigger: true,
-                    child: IconButton(
-                      onPressed: () => composer.cancelUpload(upload.id),
-                      icon: const Icon(Icons.close, size: 17),
-                      tooltip: '',
-                      visualDensity: VisualDensity.compact,
-                    ),
+                  DAttachmentAction(
+                    icon: const Icon(Icons.close),
+                    tooltip: completed || failed
+                        ? 'Remove upload'
+                        : 'Cancel upload',
+                    onPressed: completed || failed
+                        ? () => composer.removeUpload(upload.id)
+                        : () => composer.cancelUpload(upload.id),
                   ),
                 ],
-                const SizedBox(width: 2),
-              ],
-            ),
+              ),
+            ],
           );
         },
       ),

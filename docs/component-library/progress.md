@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**31 of 64 components are merged locally.** 14 existing components are in progress; 19 are planned.
+**31 of 64 components are merged locally.** 15 existing components are in progress; 18 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -89,7 +89,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
-| 55 | attachment | planned | — | — | dialog, spinner | — |
+| 55 | attachment | in_progress | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
@@ -2340,6 +2340,47 @@ Status: merged. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/ui-ale
 - Unique local macOS debug bundle Alert Review 38df / org.discourse.alertreview38df / discourse-alert-review-38df built from implementation commit with zero lib/fixture diff. Source app.dill and both copied kernels SHA256 e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99. Deep strict ad-hoc signature verification passed; temporary runner settings restored. Exact paths in evidence/alert/build.json.
 - Integration: 129 focused component and migrated adapter tests passed; 2 styleguide tests then passed including explicit final extraSmall Button toggle behavior. Root/full-profile analysis passed. Unique Alert Integration Review 38df bundle built from 1efab06c; app.dill/framework/copied kernels all SHA256 43527a2e8cdda4ec7f3e8ed7079ac9ecab5bef98560d03cd866bbbbfcff2ddb8. Restricted-free local debug/JIT/network signed readback and deep strict signature verification passed. Exact source/path/entitlements in evidence/alert/integration-build.json.
 - Independent review: 62 post-fix Alert/UserSummary/Assign/Badges/Preferences tests passed, followed by 77 affected tests after latest-main reconciliation. Root and full-profile analysis passed. The accepted-source Alert Final Review ae77 bundle kernel SHA256 is 2a5f2508f01d86b37dcbae2d9731c47fe5b0be49c0dbc9a046ca572151f75d5f; deep strict signature and restricted-identity checks passed. Official Base UI basic/destructive/action/custom/RTL examples were compared in light/dark. Native macOS production fixtures passed light/dark, retry/dismiss, RTL and 200% text checks; styleguide action, live Plum palette and 360px RTL were accepted. Evidence: evidence/alert/final-review-build.json. No iOS/Linux claim.
+
+### attachment
+
+Status: in_progress. Task: 01a085d4-9afd-7082-8081-f8b1f8f66287. Branch: codex/ui-attachment.
+
+**acceptanceCriteria**
+
+- Match frozen base-nova Attachment anatomy, five lifecycle states, icon/image media, default/sm/xs geometry, horizontal/vertical orientation, live host palette/font/radius and documented compositions.
+- Keep full-card trigger and icon actions independently pointer/keyboard accessible with labeled semantics, visible outside focus, disabled/loading treatment, compact desktop artwork and 48px touch targets.
+- Provide owned/borrowed scroll and focus lifecycle, pointer/touch/trackpad drag, item snapping, edge fade, focused-child visibility and labeled presentational keyboard scrolling; support RTL, reduced motion, large text and narrow constraints.
+- Migrate suitable composer upload lifecycle rows and chat file attachments without moving domain/network/async ownership; retain specialized image, video, gallery, editor and picker owners with specific reasons.
+- Provide exhaustive interactive styleguide examples and exact-source local-data production fixture; pass focused component/consumer/styleguide tests plus root and profiles/full analysis before independent reviewer handoff.
+
+**decisions**
+
+- Frozen Markdown hash and complete base-nova registry source verified; exact geometry, tokens, states, API mapping and native adaptations are recorded in docs/component-library/attachment.md.
+- One public D-prefixed composition with caller-owned file/network state. DMarkerContent supplies the accepted shared shimmer; DButton and DScrollArea supply actions and scrolling.
+- Source preparation uses exact unaccepted Dialog review pin 8a800783 on codex/review-dialog. Reviewer must wait for accepted Dialog main, integrate current main and verify overlap before Attachment can merge.
+
+**migrations**
+
+- ComposerUploadQueue now composes DAttachment lifecycle rows while preserving controller progress/retry/cancel/remove/submission and thumbnail ownership.
+- ChatUploads non-media file cards now compose DAttachment with an independently labeled link trigger while preserving URL resolution and navigation ownership.
+- Seven interactive styleguide groups cover composition, images, states, sizes, groups, Dialog trigger and RTL/large-text/narrow behavior.
+
+**retainedAlternatives**
+
+- Chat authenticated images/lightbox and inline video retain specialized media owners for gallery, aspect ratio, playback, download and error behavior.
+- Composer projected images/galleries/editing controls, picker/drop triggers, Markdown document models and upload networking retain their selection, editing, transport and lifecycle owners; they are not compact attachment cards.
+- No other suitable core or bundled-plugin attachment card was found in the lib/src and packages audit.
+
+**verification**
+
+- Frozen 22,086-byte Markdown SHA256 47350990437e1b9c623684cbee001101962dcd7fb9328b162ef07adb03774175 verified; base-nova attachment registry SHA256 f6c6d376067d2734375a607256d59ce6c3ea4e486deda510b31844102033d353 inspected completely.
+- Flutter 3.47.2 dependencies resolved with flutter pub get --enforce-lockfile and no dependency/lockfile edits.
+- 8 component interaction/lifecycle/responsive tests passed with seed 904733; 64 component/composer/chat migration tests passed with seed 904736; 2 exhaustive example tests passed with seed 904737.
+
+**limitations**
+
+- Official rendered light/dark comparison and native macOS fixture interaction/semantics remain for the independent reviewer under the shared desktop lease; no device, spoken VoiceOver or pixel-equality claim is made.
+- Dialog pin 8a800783 is prepared source only and must be replaced/reconciled with the accepted Dialog main merge before Attachment's final merge.
 
 ### marker
 
