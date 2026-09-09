@@ -962,7 +962,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       if (_ids.isEmpty) {
         _pendingTarget = (id: messageId, options: options);
         _initialApplied = true;
-        _setPendingInitial(false);
+        _pendingInitial = false;
         return true;
       }
       return false;

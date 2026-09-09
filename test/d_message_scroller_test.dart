@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 void main() {
   Widget host(
@@ -185,6 +186,48 @@ void main() {
 
     final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
     expect(scroll.position.pixels, scroll.position.maxScrollExtent);
+  });
+
+  testWidgets('borrowed controllers and focus nodes remain caller-owned', (
+    tester,
+  ) async {
+    final controller = DMessageScrollerController();
+    final scroll = ScrollController();
+    final list = ListController();
+    final focus = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(scroll.dispose);
+    addTearDown(list.dispose);
+    addTearDown(focus.dispose);
+
+    await tester.pumpWidget(
+      host(
+        DMessageScrollerProvider(
+          controller: controller,
+          child: DMessageScroller(
+            children: [
+              DMessageScrollerViewport(
+                scrollController: scroll,
+                listController: list,
+                focusNode: focus,
+                content: DMessageScrollerContent(children: rows(['1', '2'])),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    void listener() {}
+    expect(() => controller.addListener(listener), returnsNormally);
+    controller.removeListener(listener);
+    expect(() => scroll.addListener(listener), returnsNormally);
+    scroll.removeListener(listener);
+    expect(() => list.addListener(listener), returnsNormally);
+    list.removeListener(listener);
+    expect(() => focus.addListener(listener), returnsNormally);
+    focus.removeListener(listener);
   });
 
   testWidgets(
