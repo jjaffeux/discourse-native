@@ -48,6 +48,16 @@ identical to accepted main.
   `Voice report saved`. The earlier Calendar adoption inventory failure was
   resolved by main's `9834f36a` test correction. The subsequent inline-link
   change affects only Card examples and passed the 117-case owner/example run.
+  Clean unchanged main `7b09b62d` reproduced the Voice assertion at
+  `test/voice_diagnostics_view_test.dart:236` with seeds `9082026` and `14761`.
+  Toast adoption `972690cf3` changed feedback to `DToast.show`; the test host
+  omits `DToaster`, unlike production `DiscourseApp`. Adding only the production
+  toast host in a temporary diagnostic checkout made all four tests pass with
+  every clipboard, streaming export and success-message assertion unchanged.
+  Evidence was sent to the accepted Toast reviewer
+  `01a08592-b1eb-7ad2-bebb-3ddea00f2702` for its narrow follow-up. Logs are
+  `/private/tmp/card-main-voice-baseline.log` and
+  `/private/tmp/card-main-voice-toast-host.log`.
 - Root and `profiles/full` locked dependency resolution passed without lockfile
   changes. Root and full-profile `flutter analyze --no-pub` passed.
 - Formatting and `git diff --check` passed. Widget regressions verify local
