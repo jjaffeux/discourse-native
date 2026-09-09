@@ -198,3 +198,29 @@ Logs: `/tmp/textarea-ax-build.log`, `/tmp/textarea-ax-sign.log`.
 This bundle supersedes the earlier review copy. No UI actions were taken;
 Button owns the slot. Status remains in_progress/awaiting_slot, pending actual
 reference comparison and native AX/styleguide/production fixture inspection.
+
+
+### Pinned-main integration checkpoint
+
+Merged pinned main `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` in source commit
+`d286e1188bc57c2f2b1a26c3439c69d636606d9b`. All non-Textarea progress rows equal pinned main. Final
+Button/Badge/Input/Radio/Checkbox, shared styleguide/Sidebar semantics and Topic
+Inbox fixes were preserved. Textarea examples now use completed DButton;
+multiline adapters retain neighboring final DInput controls. Rich composer
+boundaries and the reviewed c2d7026f editor container are unchanged.
+
+221 focused integration/component/migration tests pass (seed 928374611); root
+and full-profile analysis and enforced-lockfile resolution pass. No pins or
+lockfiles changed. Logs: `/tmp/textarea-integration-tests.log`,
+`/tmp/textarea-integration-analysis.log`, `/tmp/textarea-integration-full.log`.
+
+Native debug fixture built from clean committed source `d286e1188bc57c2f2b1a26c3439c69d636606d9b`.
+New unlaunched bundle `/private/tmp/DiscourseTextareaReview-d286e118.app` has
+identifier `org.discourse.native.textarea.d286e118` and URL scheme
+`discourse-textarea-review-d286e118`. Source/copied kernel SHA256 both
+`2b33e2ae6338e5aa17e889731b44b50e459cdc497d37216643f6aa1f45093faf`. Deep strict ad-hoc signature verification passes;
+signed entitlement readback verifies debug/JIT enabled and APS/team/application
+identities absent. Logs: `/tmp/textarea-integration-build.log` and
+`/tmp/textarea-integration-sign.log`. This supersedes previous review bundles.
+No native/browser actions occurred. Mac lock and browser admin-policy blocker
+were not retried or bypassed. Reference/native review remains pending.

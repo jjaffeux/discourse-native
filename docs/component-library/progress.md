@@ -846,6 +846,7 @@ Status: in_progress. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/u
 - DTextarea is a standalone FormField/native TextField owner; same-string updates preserve selection/composition and reset restores mount text. No unmerged Input/Field/Button dependency.
 - Match 64px content-growing surface, 11x9px border-box text insets, explicit 14/20 desktop and 16/24 touch metrics, host radius, outlineVariant input role, multiplied alpha and exterior-only 3px rings.
 - Seven actual examples cover all frozen compositions plus native Form/reset, controlled ownership and bounded read-only editing. Field uses DLabel/native composition; Button composition uses existing StyleguideAction until pending owners merge.
+- Merged pinned main e612ad7b in d286e118; final owners and all non-Textarea progress rows preserved. Textarea examples now compose final DButton; adjacent DInput adapters reconciled without changing rich composer boundaries.
 
 **migrations**
 
@@ -867,6 +868,8 @@ Status: in_progress. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/u
 - Isolated /private/tmp/DiscourseTextareaReview-01a08437.app has unique org.discourse.native.textarea.01a08437 identifier and discourse-textarea-review-01a08437 scheme. Source/copy kernel SHA256 both add8ac7965e911c3e129d7ed80b33913983d13f7e161f9257a83232effc23650; deep strict ad-hoc signature verification passes. Bundle remains unlaunched awaiting_slot.
 - AX correction c2d7026f isolates editor Semantics container; reproduced oversized unadorned editor before fix. Exact bounds and independent actions/heading tests pass for single/Column/Row with required/invalid/error metadata. 60 focused checks and final 12 component tests pass; root/full analysis clean.
 - Refreshed unlaunched /private/tmp/DiscourseTextareaReview-01a08437-AX.app from c2d7026f production source. Source/copy kernel SHA256 be9603f36ffc05f2b2a1f7473cf99eec79f07852c369e93ae0ccf140df37e3fa. Unique .ax identifier/scheme; restricted APS/team/application entitlements absent by readback; deep strict ad-hoc signature passes. Awaiting serialized UI slot.
+- Pinned-main integration: 221 focused tests pass, root/full-profile analysis and enforced-lockfile resolution pass; no SDK/lockfile changes.
+- Unlaunched source-exact /private/tmp/DiscourseTextareaReview-d286e118.app from d286e1188bc57c2f2b1a26c3439c69d636606d9b, unique identity/scheme. Source/copied kernel SHA256 2b33e2ae6338e5aa17e889731b44b50e459cdc497d37216643f6aa1f45093faf; deep strict signature and signed entitlement readback pass with debug/JIT allowed and APS/team/application identities absent.
 
 **limitations**
 
