@@ -678,7 +678,8 @@ class _ResizableProductionFixtureState
 ''';
 
 const _adapterUsage =
-    r'''import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
+    r'''import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:flutter/material.dart';
 
