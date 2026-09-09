@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
@@ -489,12 +490,13 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       }
     }
 
-    Widget group = Flex(
+    Widget group = _FocusOrderedFlex(
       direction: widget.orientation,
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: widget.orientation == Axis.vertical
           ? CrossAxisAlignment.stretch
           : CrossAxisAlignment.center,
+      focusedChildIndex: connected ? _rovingIndex : null,
       children: children,
     );
     if (widget.scrollable) {
@@ -514,6 +516,83 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         child: group,
       ),
     );
+  }
+}
+
+/// Keeps Flex layout/hit testing while matching the reference's focus z-index.
+///
+/// [DToggle] still paints the ring. Repainting the focused connected item after
+/// the ordinary Flex pass only ensures that later siblings cannot cover it.
+class _FocusOrderedFlex extends Flex {
+  const _FocusOrderedFlex({
+    required super.direction,
+    required super.mainAxisSize,
+    required super.crossAxisAlignment,
+    required super.children,
+    required this.focusedChildIndex,
+  });
+
+  final int? focusedChildIndex;
+
+  @override
+  RenderFlex createRenderObject(BuildContext context) =>
+      _RenderFocusOrderedFlex(
+        focusedChildIndex: focusedChildIndex,
+        direction: direction,
+        mainAxisAlignment: mainAxisAlignment,
+        mainAxisSize: mainAxisSize,
+        crossAxisAlignment: crossAxisAlignment,
+        textDirection: getEffectiveTextDirection(context),
+        verticalDirection: verticalDirection,
+        textBaseline: textBaseline,
+        clipBehavior: clipBehavior,
+        spacing: spacing,
+      );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderFocusOrderedFlex renderObject,
+  ) {
+    super.updateRenderObject(context, renderObject);
+    renderObject.focusedChildIndex = focusedChildIndex;
+  }
+}
+
+class _RenderFocusOrderedFlex extends RenderFlex {
+  _RenderFocusOrderedFlex({
+    required this._focusedChildIndex,
+    required super.direction,
+    required super.mainAxisAlignment,
+    required super.mainAxisSize,
+    required super.crossAxisAlignment,
+    required super.textDirection,
+    required super.verticalDirection,
+    required super.textBaseline,
+    required super.clipBehavior,
+    required super.spacing,
+  });
+
+  int? _focusedChildIndex;
+
+  set focusedChildIndex(int? value) {
+    if (_focusedChildIndex == value) return;
+    _focusedChildIndex = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    super.paint(context, offset);
+    final index = _focusedChildIndex;
+    if (index == null || index < 0) return;
+    var child = firstChild;
+    for (var current = 0; child != null && current < index; current++) {
+      child = childAfter(child);
+    }
+    if (child == null) return;
+    final parentData = child.parentData! as FlexParentData;
+    context.paintChild(child, offset + parentData.offset);
   }
 }
 
