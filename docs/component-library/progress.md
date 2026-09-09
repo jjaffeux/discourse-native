@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
+**35 of 64 components are merged locally.** 17 existing components are in progress; 12 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -95,7 +95,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
 | 57 | bubble | in_progress | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
-| 59 | message-scroller | planned | — | — | message, scroll-area | — |
+| 59 | message-scroller | in_progress | 01a08606-ce86-7be2-b92f-59676b40cb40 | codex/ui-message-scroller | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
 | 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
@@ -2504,6 +2504,20 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/u
 **decisions**
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
+
+### message-scroller
+
+Status: in_progress. Task: 01a08606-ce86-7be2-b92f-59676b40cb40. Branch: codex/ui-message-scroller.
+
+**acceptanceCriteria**
+
+- Port the frozen base-nova Provider/Root/Viewport/Content/Item/Button composition with a typed controller, start/end/last-anchor opening, 8px edge threshold, configurable scroll margin and 64px previous-turn peek, stable message IDs, start/center/end/nearest commands and truthful scroll/visibility state.
+- Preserve reader intent through appended and streaming content, explicit wheel/touch/keyboard/selection interruption, variable-height resize, viewport/inset changes, prepended history, queued pre-mount jumps and cancellation; follow the live edge only when requested and never dispose borrowed controllers.
+- Provide scalable real-row and virtualized builder paths with stable-key targeting, measured variable extents and no transcript-wide rebuild on the scroll hot path; keep loading, transport, persistence, branching and business state outside the generic component.
+- Match base-nova geometry and motion: full constrained frame, min-size viewport, 24px content gap, native contained scrolling and fade, stable thin scrollbar, centered 32px secondary jump button at 16px inset, 200/400ms show/hide transitions, live palette/font/radius and reduced-motion support.
+- Expose a labelled keyboard-focusable transcript region, addition-only live log with busy announcement deferral, inactive buttons removed from traversal, logical RTL alignment and preserved descendant focus/selection at narrow width and 200% text.
+- Reproduce and account for anchoring, group chat, previous context, streaming, saved-thread opening/no-flash, load-history, animation, command, visibility, scroll-state, virtualization, accessibility and unstyled compositions using final catalogue owners; migrate the production channel/thread scrollers with stable row IDs while preserving pagination, unread/read dwell, highlight, selection and floating-day behavior.
+- Pass focused controller/component/styleguide/chat regressions, formatting, root and full-profile analysis, exact-source rendered browser comparison, and first actual signed native macOS inspection under the shared desktop lease; hand all fixes, final dependency reconciliation and local-main merge to a new Review and merge Message Scroller task.
 
 ### chart
 

@@ -2927,14 +2927,22 @@
     },
     {
       "id": "message-scroller",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
+      "branch": "codex/ui-message-scroller",
       "dependencies": [
         "message",
         "scroll-area"
       ],
-      "acceptanceCriteria": [],
+      "acceptanceCriteria": [
+        "Port the frozen base-nova Provider/Root/Viewport/Content/Item/Button composition with a typed controller, start/end/last-anchor opening, 8px edge threshold, configurable scroll margin and 64px previous-turn peek, stable message IDs, start/center/end/nearest commands and truthful scroll/visibility state.",
+        "Preserve reader intent through appended and streaming content, explicit wheel/touch/keyboard/selection interruption, variable-height resize, viewport/inset changes, prepended history, queued pre-mount jumps and cancellation; follow the live edge only when requested and never dispose borrowed controllers.",
+        "Provide scalable real-row and virtualized builder paths with stable-key targeting, measured variable extents and no transcript-wide rebuild on the scroll hot path; keep loading, transport, persistence, branching and business state outside the generic component.",
+        "Match base-nova geometry and motion: full constrained frame, min-size viewport, 24px content gap, native contained scrolling and fade, stable thin scrollbar, centered 32px secondary jump button at 16px inset, 200/400ms show/hide transitions, live palette/font/radius and reduced-motion support.",
+        "Expose a labelled keyboard-focusable transcript region, addition-only live log with busy announcement deferral, inactive buttons removed from traversal, logical RTL alignment and preserved descendant focus/selection at narrow width and 200% text.",
+        "Reproduce and account for anchoring, group chat, previous context, streaming, saved-thread opening/no-flash, load-history, animation, command, visibility, scroll-state, virtualization, accessibility and unstyled compositions using final catalogue owners; migrate the production channel/thread scrollers with stable row IDs while preserving pagination, unread/read dwell, highlight, selection and floating-day behavior.",
+        "Pass focused controller/component/styleguide/chat regressions, formatting, root and full-profile analysis, exact-source rendered browser comparison, and first actual signed native macOS inspection under the shared desktop lease; hand all fixes, final dependency reconciliation and local-main merge to a new Review and merge Message Scroller task."
+      ],
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
