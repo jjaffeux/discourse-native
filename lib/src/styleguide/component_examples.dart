@@ -13,6 +13,7 @@ import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/command_examples.dart';
+import 'examples/date_picker_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/drawer_examples.dart';
@@ -55,6 +56,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'date-picker': datePickerExamples,
   'accordion': accordionExamples,
   'alert': alertExamples,
   'table': tableExamples,

@@ -41,10 +41,21 @@ void main() {
   testWidgets('date picker completion ignores a disposed sheet', (
     tester,
   ) async {
-    await removeSheetWhilePickerIsOpen(
-      tester,
-      pickerTooltip: 'Choose Start date',
+    final hostKey = GlobalKey<_PickerHostState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: _PickerHost(key: hostKey),
+      ),
     );
+    await tester.tap(find.bySemanticsLabel('Select date').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(DCalendar), findsOneWidget);
+
+    hostKey.currentState!.removeSheet();
+    await tester.pumpAndSettle();
+    expect(find.byType(LocalDateComposerSheet), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('time picker completion ignores a disposed sheet', (
@@ -80,10 +91,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final startDate = find.byWidgetPredicate(
-        (widget) => widget is DInput && widget.labelText == 'Start date',
-        description: 'Start date field',
-      );
+      final startDate = find.byType(DInputGroupInput).first;
       await tester.enterText(startDate, 'not-a-date');
 
       final apply = find.widgetWithText(DButton, 'Apply');

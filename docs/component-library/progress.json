@@ -3288,9 +3288,9 @@
           "status": "in_progress",
           "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
           "branch": "codex/ui-calendar",
-          "reviewTaskId": null,
-          "reviewBranch": null,
-          "implementationCommit": null,
+          "reviewTaskId": "01a08631-7574-70b0-a98f-4e7217e03209",
+          "reviewBranch": "codex/review-calendar",
+          "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
           "mergeCommit": null
         },
         {
