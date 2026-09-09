@@ -315,6 +315,9 @@ class _DInputState extends FormFieldState<String> {
         ],
       ),
     );
+    if (group != null) {
+      return Padding(padding: group.inputPadding, child: editor);
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -333,19 +336,16 @@ class _DInputState extends FormFieldState<String> {
           ),
           const SizedBox(height: 8),
         ],
-        if (group == null)
-          _InputHitTarget(
-            touch: touch,
-            onTap: input.enabled ? _focus.requestFocus : null,
-            child: _InputSurface(
-              enabled: input.enabled,
-              invalid: isInvalid,
-              focused: _focus.hasFocus,
-              child: editor,
-            ),
-          )
-        else
-          Padding(padding: group.inputPadding, child: editor),
+        _InputHitTarget(
+          touch: touch,
+          onTap: input.enabled ? _focus.requestFocus : null,
+          child: _InputSurface(
+            enabled: input.enabled,
+            invalid: isInvalid,
+            focused: _focus.hasFocus,
+            child: editor,
+          ),
+        ),
         if (error != null || input.helperText != null) ...[
           const SizedBox(height: 8),
           Semantics(

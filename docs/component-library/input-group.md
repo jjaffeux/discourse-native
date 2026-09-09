@@ -87,6 +87,10 @@ Independent review fixed two shared-surface state bugs before native review:
 - The mobile 48px wrapper now owns its outer touch bands, so a tap outside the
   centered 32px artwork still focuses the editor; descendant addon buttons keep
   their independent gesture/action ownership.
+- Grouped DInput/DTextarea now contribute only their native editor. Their
+  standalone label, helper, error and counter blocks are suppressed inside the
+  joined border; Field owns supporting text outside the group, while Form state
+  and invalid semantics continue to drive the shared surface.
 
 The regression suite checks the actual parent decoration replacement on focus,
 the disabled editor state/opacity/focus exclusion, and listener lifecycle through
