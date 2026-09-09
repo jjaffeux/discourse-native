@@ -2563,6 +2563,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cfac/discourse-native",
           "headCommit": "c296e0e1a4e39438351f0a672496d8538f0c3e29",
           "status": "main_integration_and_browser_review"
+        },
+        {
+          "component": "table",
+          "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
+          "branch": "codex/ui-table",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native",
+          "headCommit": "32cc5ca1666a0f13e92024a10d9a9aec208a8858",
+          "status": "main_integration_preparation"
         }
       ],
       "nativeReadyTasks": [
@@ -2637,14 +2645,6 @@
           "branch": "codex/ui-collapsible",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native",
           "headCommit": "1d147ba1ad247bdefc2f473f9347ebd5078cfffb",
-          "status": "awaiting_browser_and_native_review"
-        },
-        {
-          "component": "table",
-          "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
-          "branch": "codex/ui-table",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native",
-          "headCommit": "32cc5ca1666a0f13e92024a10d9a9aec208a8858",
           "status": "awaiting_browser_and_native_review"
         },
         {
