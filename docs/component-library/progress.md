@@ -3305,6 +3305,30 @@ Status: in_progress. Task: 01a08606-ce86-7be2-b92f-59676b40cb40. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Message Scroller (01a08639-b066-7882-85f5-a7729bfd111b) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Independent review preserves exact source pin and generic scroll ownership; corrected initial landing, appended-anchor batching, custom button activation, stable release-mode row identity, command/prepend races, spacer cleanup, canceled smooth motion and sparse outline state. Full mapping and regression details are in docs/component-library/message-scroller.md.
+- Completed all recorded final-owner example compositions: offline Input Group composer with Dropdown Menu tools and Empty reset, Select entry presets, Toggle Group anchor role, Hover Card outline preview with an accessible inline jump list, plus existing Message/Bubble/Card/Button/Marker/Slider/Tabs/Tooltip owners.
+- Native review found a cache-evicted held row after a large history prepend; fixed by mounting the stable row before measured offset correction, with actual-example and normal/reversed regressions.
+
+**migrations**
+
+- ChatMessageStream, the shared production channel/thread transcript, adopts DMessageScrollerProvider, DMessageScroller and the virtualized viewport builder with stable message/day/gap/deleted/unread/loading ids. The chat adapter retains reversed-index virtualization, paging, server targets, read dwell, selection, floating days and unseen counts.
+
+**retainedAlternatives**
+
+- Topic posts, ordinary search/inbox result lists, focus-sized menu/picker overlays, editable composer areas and horizontal attachment rails retain their non-transcript scroll owners.
+
+**verification**
+
+- Independent review d212f7cd: 77 focused component, styleguide and production channel/timeline tests passed with seed 3931493614; root analysis clean. Added stable-target, nearest, spacer, pending-landing, child-identity and canceled-motion regressions. Parent reconciliation and native acceptance remain pending.
+- Post-composition Scroller/styleguide/channel/timeline run: 80 checks passed, seed 87573987. Root analysis and profiles/full locked dependency resolution plus analysis were clean.
+- Prepared Message b4be43d2 integrated at 2f20c334; 89 Scroller, styleguide, Message, channel lifecycle and timeline checks passed, seed 1232392505. Root and full-profile analysis passed. This is prepared-source verification, not parent acceptance.
+- Final prepared runtime c3cfd500 (Message 69a0ab6a, current-main candidate based on b4e69861): 151 Scroller, styleguide, Message, production review fixture, Chat thread-preview, channel lifecycle and timeline checks passed with seed 2727160956. Root/full analysis, formatting, diff checks and the macOS debug build passed. Includes normal/reversed/index-owned margin regressions, measured short-turn landing, minimal/shrinking spacers and corrected Chat tooltip semantics coverage.
+- Post-native fix 6e30b304: 154 combined focused checks passed with seed 3612901707; root/full analysis clean. Initial native/reference evidence, observed defect, cleanup and precise limits are recorded in docs/component-library/evidence/message-scroller/native-review.json.
+
+**limitations**
+
+- Only the affected post-fix native history recheck remains pending; all declared parents are accepted and reconciled in this current-main candidate.
+- Native macOS only; no spoken VoiceOver, other device, first-frame video or live-network inspection. See the detailed evidence limits.
 
 ### chart
 

@@ -41,6 +41,7 @@ export 'src/ui/components/d_label.dart';
 export 'src/ui/components/d_marker.dart';
 export 'src/ui/components/d_menubar.dart';
 export 'src/ui/components/d_message.dart';
+export 'src/ui/components/d_message_scroller.dart';
 export 'src/ui/components/d_native_select.dart';
 export 'src/ui/components/d_navigation_menu.dart';
 export 'src/ui/components/d_pagination.dart';

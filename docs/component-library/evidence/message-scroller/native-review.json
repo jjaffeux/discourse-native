@@ -1,0 +1,54 @@
+{
+  "component": "Message Scroller",
+  "reviewTaskId": "01a08639-b066-7882-85f5-a7729bfd111b",
+  "firstPass": {
+    "date": "2026-09-09",
+    "sourceCommit": "c3cfd5002161a68833bdbd6296b14419dce25767",
+    "bundlePath": "/tmp/message-scroller-review-a0b4.3AgXfl/MessageScrollerReview-a0b4.app",
+    "kernelSha256": "2d881eb981e2e85f0e2cd45397f5fce90cfad9afa1ac6f186b517d27e7381c23",
+    "surface": "Approved CUA native macOS app; screenshots and accessibility trees are retained inline in the review task.",
+    "result": "fix_required",
+    "reference": {
+      "url": "https://ui.shadcn.com/docs/components/base/message-scroller",
+      "observed": "Rendered dark reference page, scripted send and user-turn anchoring, transcript frame and context controls. Complete accessible documentation/composition descriptions compared with the frozen source mapping.",
+      "limits": "Not every reference demo was interactively exercised; no browser performance benchmark was performed."
+    },
+    "passed": [
+      "All seven catalogue examples rendered and were inspected.",
+      "Streaming composer selected Web search as an offline label, sent a prompt, exposed busy/Stop reply, completed and reset to the real Empty composition; entry animation changed from Slide and fade to Fade.",
+      "360px/200% text dark streaming and Empty compositions fit without overflow; wheel scrolling moved back to the prompt and exposed Scroll to end, which returned to the reply.",
+      "Plum, RTL, 360px/200% text, reduced-motion role anchoring rendered; selecting Assistant and appending a turn moved to its new anchor and saved marker.",
+      "Saved-thread Start, End and Saved tabs landed at message 1, message 18 and the saved turn around message 10 respectively.",
+      "Message 24 command centered its target; Transcript outline opened the inline accessible jump controls, and Turn 2 landed at message 9 with current anchor command-8.",
+      "The 1000-row virtualized transcript jumped to row 750; native Tab then Page Down focused the viewport and moved to rows 753/754 with visible focus decoration.",
+      "The labelled unstyled support transcript added a row while busy and returned to Mark busy after Finish loading.",
+      "Actual production channel and thread adapters rendered the real timeline, unread marker, floating day and action owners. Channel wheel scrolling exposed Jump to latest messages. Both adapters fit dark 360px/200% RTL; the thread jump returned to reply 12, and normal-width dark rendering was also inspected."
+    ],
+    "failure": "Load earlier messages jumped from visible history row 20 to row 10 instead of preserving the reader's position. The same state remained in a subsequent screenshot, not just during a transient frame.",
+    "cleanup": "Closed only the created reference tab; quit the isolated review app through its own menu and verified it absent from running apps. Released desktop token 724fbe0045394cb08d2b20dde0ee6673 before implementation work."
+  },
+  "postFix": {
+    "status": "accepted",
+    "desktopBlocker": "The coordinator reported the Mac locked again during the next reviewers' CUA passes and is coordinating one unlock request. Scroller did not acquire another lease or attempt a workaround; its own waiting request was cancelled before pausing. Resume with the prepared exact-source bundle after ordinary CUA recovery.",
+    "sourceCommit": "378611767d74cef68f2ef4d94fbe00bd9d015ffb",
+    "libTree": "c68d0122d717ed9012268a5914a89cdcd1df1c7b",
+    "bundlePath": "/tmp/message-scroller-recheck-a0b4.zpmGT5/MessageScrollerReview-a0b4.app",
+    "kernelSha256": "1af321e76edcd3100f78e4ff02e12469663611cf933f3bfe3403a05f92939445",
+    "verification": "154 combined focused checks passed on reconciled main with seed 4022656358; root/full analysis and macOS debug build passed. Isolated bundle signature passed deep/strict verification; its kernel hash equals the build. Production runner settings are unchanged.",
+    "acceptedParents": "Message bf86d92e26feee925739f3d7ee90f26ee05721d7 and Scroll Area 655be577246f1f247e1e71199d32add8366deffc are ancestors. Message tile and reaction presentation are source-equivalent to the first inspected bundle.",
+    "nativeRecheck": "2026-09-09 after confirmed ordinary CUA recovery: row 20 retained exactly the same visual position through both ten-row history batches at normal width/light theme and at 360px/200% text/dark theme. The second batch correctly disabled the exhausted history action. Rechecked accepted Dropdown Menu tool selection and the Select Fade preset with Input Group/composer rendering at narrow large text. Screenshots and AX are retained inline in the task.",
+    "cleanup": "Quit the corrected bundle through its own menu. An old helper binding had briefly relaunched the earlier owned bundle before the recheck; no check used it, and it remained on its initial screen. Selected that exact old path and quit it too. Verified no app with the isolated Scroller bundle id remained. Released desktop token 2f0955935df74f79b36f6d7e008bf77b.",
+    "change": "A prepended held row evicted from the virtualizer cache is first remounted by stable index, then restored to its measured viewport offset.",
+    "regressions": [
+      "The actual Load history example failed before the fix and preserves row 20 across two ten-row prepends after it.",
+      "Normal and reversed transcripts preserve a measured reader offset across a twenty-row prepend."
+    ]
+  },
+  "limits": [
+    "No iOS, Android, Linux or Windows device inspection.",
+    "No spoken VoiceOver assessment; native AX and keyboard behavior were inspected, with detailed semantics covered by widget tests.",
+    "The short scripted reply completed before separate CUA Stop actions could reliably interrupt it. Stop behavior is verified by the permanent widget regression; native busy and completion states were observed.",
+    "No first-frame video capture: pending/no-flash behavior is verified by permanent frame-level widget tests; native saved landing was inspected after settling.",
+    "The fixture uses offline seeded stores, not live networking, server pagination or production mutations."
+  ]
+}
