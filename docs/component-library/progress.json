@@ -860,7 +860,7 @@
         "No native/reference rendered comparison or CUA use before exclusive desktop slot; not review_ready. No iOS/Linux device or spoken VoiceOver verification.",
         "Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },
