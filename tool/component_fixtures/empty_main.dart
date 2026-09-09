@@ -113,50 +113,52 @@ class _EmptyReviewAppState extends State<EmptyReviewApp> {
                   ],
                 ),
                 Expanded(
-                  child: MediaQuery(
-                    data: MediaQueryData(
-                      textScaler: TextScaler.linear(_large ? 2 : 1),
-                    ),
-                    child: Directionality(
-                      textDirection: _rtl
-                          ? TextDirection.rtl
-                          : TextDirection.ltr,
-                      child: switch (_page) {
-                        'No sites' => const EmptyState(),
-                        'Categories' => const CategoriesPage(
-                          siteUrl: 'https://empty.example',
-                          feed: CategoryFeed(loaded: true),
-                        ),
-                        'Category error' => const CategoriesPage(
-                          siteUrl: 'https://empty.example',
-                          feed: CategoryFeed(
-                            loaded: true,
-                            error: 'Local category request failed',
+                  child: Builder(
+                    builder: (context) => MediaQuery(
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(textScaler: TextScaler.linear(_large ? 2 : 1)),
+                      child: Directionality(
+                        textDirection: _rtl
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
+                        child: switch (_page) {
+                          'No sites' => const EmptyState(),
+                          'Categories' => const CategoriesPage(
+                            siteUrl: 'https://empty.example',
+                            feed: CategoryFeed(loaded: true),
                           ),
-                        ),
-                        'Tags' => const TagsPage(
-                          siteUrl: 'https://empty.example',
-                        ),
-                        'Drafts' => const DraftListView(
-                          siteUrl: 'https://empty.example',
-                        ),
-                        'Activity' => const UserActivityView(
-                          siteUrl: 'https://empty.example',
-                        ),
-                        'Groups' => const GroupsPage(
-                          siteUrl: 'https://empty.example',
-                          data: GroupsPageData(loaded: true),
-                        ),
-                        'Chat retry' => ChatThreadListMessage(
-                          icon: DIcons.comments,
-                          message: _retry
-                              ? 'No threads yet.'
-                              : 'Local request failed.',
-                          action: _retry ? null : 'Try again',
-                          onAction: () => setState(() => _retry = true),
-                        ),
-                        _ => const ComponentStyleguidePage(),
-                      },
+                          'Category error' => const CategoriesPage(
+                            siteUrl: 'https://empty.example',
+                            feed: CategoryFeed(
+                              loaded: true,
+                              error: 'Local category request failed',
+                            ),
+                          ),
+                          'Tags' => const TagsPage(
+                            siteUrl: 'https://empty.example',
+                          ),
+                          'Drafts' => const DraftListView(
+                            siteUrl: 'https://empty.example',
+                          ),
+                          'Activity' => const UserActivityView(
+                            siteUrl: 'https://empty.example',
+                          ),
+                          'Groups' => const GroupsPage(
+                            siteUrl: 'https://empty.example',
+                            data: GroupsPageData(loaded: true),
+                          ),
+                          'Chat retry' => ChatThreadListMessage(
+                            icon: DIcons.comments,
+                            message: _retry
+                                ? 'No threads yet.'
+                                : 'Local request failed.',
+                            action: _retry ? null : 'Try again',
+                            onAction: () => setState(() => _retry = true),
+                          ),
+                          _ => const ComponentStyleguidePage(),
+                        },
+                      ),
                     ),
                   ),
                 ),

@@ -202,6 +202,7 @@ class _Stack extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
+    mainAxisAlignment: MainAxisAlignment.center,
     children: [
       for (var i = 0; i < children.length; i++) ...[
         if (i > 0) SizedBox(height: spacing),

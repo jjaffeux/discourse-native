@@ -22,6 +22,23 @@ Widget _host(
 );
 
 void main() {
+  testWidgets('centers arbitrary title content in a fixed-height surface', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const SizedBox(
+          height: 400,
+          child: DEmpty(children: [DEmptyTitle.child(child: Text('Centered'))]),
+        ),
+      ),
+    );
+    expect(
+      tester.getCenter(find.text('Centered')).dy,
+      tester.getCenter(find.byType(DEmpty)).dy,
+    );
+  });
+
   testWidgets('matches slot bounds, gaps and reference text metrics', (
     tester,
   ) async {
