@@ -27,7 +27,7 @@ Branch preparation does not mark a component merged or visually verified.
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
-| button-group | Implementation and checks | — | — |
+| button-group | independent review | ac1bc2d2 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
 | carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
 | toast | Implementation and checks | — | — |
 | alert | independent review | 38002135 | 01a08558-ae1e-7843-8cff-724c8e877ba5 |
@@ -2058,6 +2058,7 @@ Status: review_ready. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/
 - Before current-main integration, 109 randomized focused Button Group, Button, Input, Separator, styleguide and production navigation tests passed (seed 3806760654); after merging main 27ddc513, 33 direct component/styleguide/consumer tests passed (random seed recorded in /private/tmp/button-group-post-main-tests.log).
 - Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed before and after current-main integration with no issues. dart format covered lib/test and git diff --check passed.
 - flutter build macos --debug --no-pub succeeded at build/macos/Build/Products/Debug/Discourse.app. This is build/kernel evidence only; the app was not launched and no browser/native/VoiceOver inspection is claimed.
+- Created the persisted reviewer task `Review and merge Button Group` (`01a0859e-170c-7821-b0fd-9ff24a9bfaac`) in isolated worktree `/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native` on `codex/review-button-group`; it owns dependency reconciliation, remaining rendered/native review, fixes, verification and the final local-main merge.
 
 **limitations**
 

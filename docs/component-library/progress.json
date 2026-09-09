@@ -2156,7 +2156,8 @@
         "Frozen Markdown downloaded and SHA-256 verified exactly as 9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda. Base registry source and all twelve linked Base examples were inspected; source mapping and concrete acceptance criteria are recorded in docs/component-library/button-group-reference.md.",
         "Before current-main integration, 109 randomized focused Button Group, Button, Input, Separator, styleguide and production navigation tests passed (seed 3806760654); after merging main 27ddc513, 33 direct component/styleguide/consumer tests passed (random seed recorded in /private/tmp/button-group-post-main-tests.log).",
         "Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed before and after current-main integration with no issues. dart format covered lib/test and git diff --check passed.",
-        "flutter build macos --debug --no-pub succeeded at build/macos/Build/Products/Debug/Discourse.app. This is build/kernel evidence only; the app was not launched and no browser/native/VoiceOver inspection is claimed."
+        "flutter build macos --debug --no-pub succeeded at build/macos/Build/Products/Debug/Discourse.app. This is build/kernel evidence only; the app was not launched and no browser/native/VoiceOver inspection is claimed.",
+        "Created the persisted reviewer task `Review and merge Button Group` (`01a0859e-170c-7821-b0fd-9ff24a9bfaac`) in isolated worktree `/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native` on `codex/review-button-group`; it owns dependency reconciliation, remaining rendered/native review, fixes, verification and the final local-main merge."
       ],
       "limitations": [
         "The styleguide has complete accounted sections, but Input Group, library Dropdown Menu, rich Select and Popover use explicitly labeled local handoff fixtures because those final owners are still pending or in review. Native Select is not substituted. The new Button Group reviewer owns coordinating their final replacements.",
@@ -2165,8 +2166,8 @@
       ],
       "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
       "mergeCommit": null,
-      "reviewStatus": "pending",
-      "reviewTaskId": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
       "reviewBranch": "codex/review-button-group"
     },
     {
@@ -2956,10 +2957,13 @@
         },
         {
           "component": "button-group",
-          "taskId": "01a08581-831f-7751-b714-096b5aebf86a",
-          "branch": "codex/ui-button-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fd5f/discourse-native",
-          "status": "implementation"
+          "taskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
+          "branch": "codex/review-button-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
+          "implementationBranch": "codex/ui-button-group",
+          "headCommit": "ac1bc2d25325e0a43ca8d864d1e3a4cae5802710"
         }
       ],
       "nativeReadyTasks": []
@@ -3257,6 +3261,17 @@
           "branch": "codex/review-carousel",
           "implementationTaskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
           "implementationBranch": "codex/ui-carousel",
+          "status": "in_progress"
+        },
+        {
+          "component": "button-group",
+          "title": "Review and merge Button Group",
+          "taskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native",
+          "branch": "codex/review-button-group",
+          "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
+          "implementationBranch": "codex/ui-button-group",
           "status": "in_progress"
         }
       ],
