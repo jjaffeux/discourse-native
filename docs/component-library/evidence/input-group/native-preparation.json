@@ -20,7 +20,7 @@
   },
   "restrictedEntitlements": "No APS environment, com.apple.developer.*, team/application identifiers or keychain groups; explicit ad-hoc debug/JIT review entitlements only.",
   "signatureVerification": "codesign --verify --deep --strict passed",
-  "launched": false,
-  "reviewStatus": "queued_for_reference_and_native_review",
+  "launched": true,
+  "reviewStatus": "completed_for_source_commit",
   "runnerPinsLocks": "unchanged"
 }

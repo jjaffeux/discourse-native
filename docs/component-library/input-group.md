@@ -107,10 +107,10 @@ Noted but not modified: `test/d_spinner_test.dart` currently fails an isolated
 loading-button color expectation unrelated to the Input Group/Spinner styleguide
 fixture replacement.
 
-The implementation has not completed official browser/native inspection yet.
-The independent review task must re-run affected verification, compare against the official rendered
-reference, inspect native macOS styleguide/app surfaces, and then perform the
-local main merge under the review protocol.
+Official light/dark browser comparison and exact-bundle native macOS inspection
+are recorded in `evidence/input-group/native-review.md`. The final dependency
+reconciliation must re-run affected verification and then perform the local
+main merge under the review protocol.
 
 The independent reviewer added `tool/input_group_review_main.dart`, an isolated
 offline entry point that mounts the real application, accepted styleguide and
