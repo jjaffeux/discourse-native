@@ -22,18 +22,18 @@ Branch preparation does not mark a component merged or visually verified.
 | switch | Native review; Mac locked | 901f1227 |
 | slider | Reference and native review | bbd35fec |
 | progress | Reference and native review | 1c21a435 |
-| empty | Input Group composition, reference and native review | 403d8888 |
-| item | Control composition, reference and native review | c74fea70 |
+| empty | Integration checks | 403d8888 |
+| item | Integration checks | c74fea70 |
 | table | Reference and native review | b3107cab |
 | scroll-area | Native review | 5f4e0133 |
-| collapsible | Integration checks | 1d147ba1 |
+| collapsible | Reference and native review | 684faacd |
 | resizable | Reference and native review | a7e26a93 |
-| popover | Implementation and checks | — |
+| popover | Reference and native review | cb7f9e2e |
 | dialog | Reference and native review | 715ab477 |
 | native-select | Native review | 986eb063 |
 | field | Control composition, reference and native review | 09869a67 |
 | alert | Integration checks | 58c6b5e2 |
-| marker | Integration checks | dfbe6df0 |
+| marker | Reference and native review | c797918b |
 | chart | Native review | c782a940 |
 
 ## Component implementation
@@ -1653,6 +1653,7 @@ Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/u
 - Frozen markdown SHA256 verified; base-nova wrappers have no visual classes or animation. Sources/registry/Base UI/Lucide URLs and hashes plus CSS mapping: docs/component-library/evidence/collapsible/implementation.md and sources.json.
 - Public DCollapsible/Trigger/Content expose composition, controlled/default state, disabled focusable triggers, passive state builder, borrowed focus nodes and explicit retained/lazy content with optional reduced-motion-aware height animation. Browser hiddenUntilFound maps to host-controlled open for search, not an inert native prop.
 - Actual order, Basic, Settings, nested File Tree, RTL and lifecycle/Form examples use merged Card and available DButton/StyleguideAction/native editing. Input/Field/Tabs remain pending and exact dependent button/editor visuals are explicitly identified for reconciliation.
+- Integration refresh: merged pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 preserving all other progress rows and coordinator fixes. Examples use final DInput and DButton; trigger remains the sole disclosure interaction owner. Field/Tabs still unmerged.
 
 **migrations**
 
@@ -1671,11 +1672,12 @@ Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/u
 - Touched dart format and git diff --check passed; flutter analyze --no-pub at root and profiles/full passed.
 - 61 focused tests passed: test/ui/d_collapsible_test.dart, test/styleguide/collapsible_examples_test.dart, test/collapsible_editor_migration_test.dart, test/collapsible_review_fixture_test.dart, test/event_composer_test.dart, test/plugins/local_dates/local_date_composer_sheet_lifecycle_test.dart, test/plugins/local_dates/local_date_composer_component_test.dart, test/alert_tables_test.dart, test/prometheus_alert_receiver_plugin_test.dart, test/styleguide/styleguide_page_test.dart.
 - Isolated Collapsible Review 3c15 macOS debug app built from e05de6002a37f1dfbc7483a29f921086dffb0d3d; restored source equality and deep strict ad-hoc signature verification passed. Embedded/built kernel SHA256 57c4799f2342c03b9638bccf126114ce1f70ecc2dfcea46f9a2a472e850955f2. Exact path/identity/temporary signing adaptations: docs/component-library/evidence/collapsible/native-build.json. No launch.
+- Integration: 47 focused tests and root/full analysis passed. Source 39159f39becd55a320da35aab967aaaad2ef6d6f built as Collapsible Integrated 3c15.app. Embedded/built kernel SHA256 0c06245b0af44db0d0cb2220cc4e98ad6b00cbbc3b300a497e3d7696fd1054c1; source equality, restricted-free signed debug/JIT readback and strict deep signature passed. Exact identity/path/evidence in native-build.json. No launch.
 
 **limitations**
 
-- awaiting_slot: no browser/native launch or CUA; Mac locked and no desktop slot granted. Native styleguide plus all three production fixtures and rendered reference comparison remain required; tests do not establish VoiceOver/device/pixel parity.
-- Input/Field/Tabs are not merged; sanctioned native editing/action composition is explicit. Baseline DButton xs/link appearance requires adjacent owner reconciliation.
+- Browser/native review remains required and forbidden in this locked/admin-policy-denied session. No CUA, browser navigation, native launch or workaround performed.
+- Field/Tabs composition remains explicit; disclosure button skins are passive builders, not nested DButtons.
 
 ### resizable
 
@@ -1724,11 +1726,45 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match frozen Base UI/base-nova documentation and source, record exact metrics and native adaptations.
-- Implement complete documented composition and state/interaction behavior with shared Button, live tokens and correct native focus/semantics/lifecycle.
-- Provide all reference examples and meaningful narrow/large-text/RTL states; reconcile pending Input and Field compositions through their owners.
-- Audit and migrate appropriate real core/plugin surfaces while retaining specialized adjacent catalogue owners.
-- Pass focused component/downstream tests and root/full analysis; compare actual rendered reference and native production fixture before review_ready.
+- Provide one public DPopover owner with DPopoverTrigger, DPopoverContent, DPopoverAnchor, DPopoverHeader, DPopoverTitle, DPopoverDescription and DPopoverClose composition, borrowed-or-owned DPopoverController lifecycle, uncontrolled defaultOpen and controlled open/onOpenChange behavior with explicit change reasons.
+- Match frozen base-nova geometry at 100%: 288px default content width, 10px padding and gap, 4px default side offset, 10px (lg) host-relative radius, 14px/20px text with medium title and muted description, 1px foreground/10% exterior ring, medium shadow, and 100ms 95%-scale/fade/8px side-aware entrance; read live palette, font and radius tokens while open and eliminate motion when reduced motion is enabled.
+- Support top/bottom/left/right/inline-start/inline-end sides; start/center/end alignment; side and alignment offsets; configurable collision boundary/padding and flip/shift/none policies; custom DPopoverAnchor geometry; continuous anchor tracking through layout/scroll; narrow constraints, large text and RTL logical positioning without overflow.
+- Open from pointer or keyboard trigger activation, move focus into nested interactive content except touch opening, expose a named semantic container and independent nested controls, dismiss by trigger/close/Escape/outside press/lifecycle/anchor removal, restore the trigger or prior focus, and tolerate controlled callbacks or child removal during open/close without stale overlays or disposing borrowed focus/controller resources.
+- Add self-contained actual-component styleguide examples and accurate snippets for Basic, all Align values, With Form composed with the merged DInput owner while retaining Field ownership, RTL physical/logical sides, controlled state/close, custom moving anchor, collision/scroll edge behavior, live theme, large text and reduced motion.
+- Audit core and bundled-plugin anchored panels. Adopt only genuine rich non-menu popovers while preserving callback, persistence, permission, async and touch-sheet ownership; retain menus, Select, Combobox, Hover Card, navigation menus, dialogs and Tooltip under their specialized owners and record shared positioning follow-up.
+- Pass touched formatting, focused interaction/accessibility/positioning/styleguide/downstream tests, root and full-profile locked dependency resolution and static analysis, and an isolated uniquely identified macOS debug fixture build mounting actual adopted production widgets; record exact source/kernel/signature evidence and keep status in_progress awaiting serialized reference/native inspection.
+
+**decisions**
+
+- Frozen documentation fetched byte-for-byte from https://ui.shadcn.com/docs/components/base/popover.md: SHA256 833273ce2ef2e83164a1824c0e6151452d4fc5f7d602c4871f9705bdef163587. Registry source https://ui.shadcn.com/r/styles/base-nova/popover.json: SHA256 ba5fe84f353f6c0fd2133a2ab893f5e8861fc60dc4dea548a7ec875acaa37b2c. Base UI API snapshot https://base-ui.com/react/components/popover.md: SHA256 e50617eaad64fbc205f0ff730bb60001f9152e319a24c4d08e9cdc154cc863bf.
+- Public composition is DPopover root with builder-based DPopoverTrigger, styled DPopoverContent, optional DPopoverAnchor, header/title/description, builder-based DPopoverClose and a borrowed-or-owned DPopoverController. Builders keep DButton or another nested control as the sole semantic action instead of layering competing gesture/button nodes.
+- Measured mapping is recorded in docs/component-library/popover.md: 288px width, 10px content gap/padding, 2px header gap, host-radius lg factor 1.0, 14/20 text, weight-500 title, muted description, foreground alpha multiplied by 10% for the 1px ring, Tailwind medium shadow, 4px side gap and 100ms 0.95-scale/fade/8px side slide. Open overlays read live DTokens and inherited text scaling; reduced motion finishes immediately.
+- Base UI collision behavior maps to explicit side/align flip, shift and none policies inside a safe-area or caller Rect. A paint-transform tracker requests overlay layout only when the trigger/custom anchor moves or resizes; bounded content scrolls when collision space or accessible text makes it taller than the available side.
+- Keyboard opening focuses the first nested control; touch opening focuses the popup scope to avoid summoning an editor. Escape, outside/trigger/close press, lifecycle loss, controller action and trigger removal dismiss safely and restore trigger/previous focus. The named explicit semantic container does not merge independently interactive descendants.
+- Nested dismissal is layered: the latest open DPopover owns outside pointers, descendant MenuController scopes close before their parent, and outsidePress never schedules trigger restoration over the newly clicked focus owner. This preserves nested Popover/MenuAnchor composition and prevents one physical pointer from cascading through registered layers.
+
+**migrations**
+
+- TopicInboxHeader plugin-property details now uses DPopover on pointer platforms, including Assign's real management surface. Live topic-store and plugin listenables, navigation-revision dismissal, plugin callbacks/permissions and compact/custom headers are preserved; iOS/Android retains the established touch sheet.
+
+**retainedAlternatives**
+
+- showAnchoredPicker category/tag/time-range/assignment pickers, ChoiceMenuAnchor, CommandMenuAnchor, MenuAnchor, PopupMenuButton, Select, Combobox, Hover Card, navigation menus, dialogs and Tooltip remain specialized owners for selection/command keyboard models, search/large lists, result futures, modal or hover behavior. Their shared collision needs are deferred until their catalogue owners exist.
+- With Form now uses the merged DInput owner inside Flutter Form. Rich Field label/description/error layout remains with the separate in-progress Field owner; no substitute Field API was created.
+- DNativeSelect composition remains an integration follow-up after its owner branch lands. The equivalent public multi-entry MenuAnchor regression already verifies selection outside the parent rectangle and layered Escape behavior without importing or cherry-picking that owner.
+
+**verification**
+
+- Frozen page, base-nova registry and Base UI API fetches matched the recorded SHA256 values; docs/component-library/popover.md records CSS-to-Flutter geometry, typography, colors, radius, shadow, motion, state and native adaptations.
+- flutter pub get --enforce-lockfile at root and profiles/full completed with Flutter 3.47.2; the incidental root dependency-classification rewrite was reverted and all pins/lockfiles are byte-unchanged.
+- flutter analyze --no-pub at root and profiles/full passed with no issues. Touched Dart formatting and git diff --check passed.
+- Final reconciled focused/downstream run passed 99 tests with seed 826145 across d_popover, Popover examples, the whole styleguide page, DButton adoption and the full TopicInbox file. The dedicated Popover suite now covers 13 cases, including nested Popover, multi-entry MenuAnchor selection outside the parent rectangle, layered Escape, non-cascading pointers and outside-field focus retention.
+- The three inherited Android compact-geometry failures originally reproduced at base commit 9d7a49e797dff14c908369315d035a1437d49c07; after the coordinator's pinned-main fixes were reconciled, the complete TopicInbox file passes in the final 99-test run.
+- Exact-source isolated macOS debug fixture built from b410f9da0227b2b9e0d6518b64277e97d6517b06, mounting the actual TopicInboxHeader adoption and full component styleguide with local fakes. /private/tmp/Popover Review b410f9da.app has unique ID org.discourse.popover.review.b410f9da and URL scheme discourse-popover-b410f9da; source/copied kernel SHA256 values match at 3c39aa89bf6e4bdd19f08b9d628125474e3e5c4de96fcbe568522de62d724831. Deep strict ad-hoc signature and read-back of only sandbox/JIT/network client+server/user-selected files/audio/camera entitlements passed; TeamIdentifier is absent. Bundle was not launched.
+
+**limitations**
+
+- awaiting_slot: no desktop slot was granted. No CUA/browser/native app launch, reference-rendered comparison, VoiceOver speech, or iOS/Linux device inspection was performed. Status remains in_progress and is not mergeable until the queued native/reference review completes.
 
 ### dialog
 
@@ -1943,11 +1979,14 @@ Status: in_progress. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/u
 - 115 focused Marker, Topic date separator, Chat stream/channel lifecycle and styleguide-page tests passed with randomized ordering; /tmp/marker-focused.log.
 - Final shimmer alpha correction passed all13 Marker tests; root/full analysis remains clean.
 - Isolated macOS fixture build succeeded: Marker Review 3d0a.app in /tmp/marker-review-3d0a-c9dffe43; ID org.discourse.markerreview3d0a, URL scheme discourse-marker-review-3d0a. All1340 lib/packages/pubspec/pin files match source4e48ba45; three-way kernel SHA256056c1ff41d714c630b966e954b39879d6c9fc78dd3bc41e05520edb4d57067fa and deep strict signature verified. Full provenance and pending inspection checklist: docs/component-library/marker-native.md.
+- Integration merge ba156a2c includes only pinned main e612ad7b; all non-Marker progress rows and17 merged owners preserved. Root/full locked resolution and analysis clean;116 focused tests passed seed2335286571, plus13 Marker tests for static-versus-live semantics seed2483898728.
+- Current exact-source isolated bundle: /tmp/marker-review-3d0a-ba156a2c/build/macos/Build/Products/Debug/Marker Review ba156a2c.app. All1350 source/package/pin files equal source ba156a2c; three-way kernel SHA256 a290d26bba0b82caefbc0645fd42c0e1725b3ac54a550bd44139e4f29279bc83. Restricted-free explicit ad-hoc JIT entitlements verified by signed readback; strict deep signature passed. Full current provenance: marker-native.md.
 
 **limitations**
 
 - Mac locked; no CUA/browser/native inspection. Remain in_progress awaiting_slot until actual reference/native styleguide and production fixture comparison.
 - No VoiceOver or iOS/Linux device testing; shimmer raster/underline placement require visual review.
+- Integration preparation only: Mac locked and browser separately denied admin-policy verification. No CUA/navigation/native launch/retry/workaround; awaiting required reference/browser/native review.
 
 ### chart
 
