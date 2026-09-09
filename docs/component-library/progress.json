@@ -198,7 +198,7 @@
         "Composition uses ordinary children and directional Flutter layout. Spinner owns no Button/Badge/Input Group/Empty APIs and no loading completion, errors or cancellation state.",
         "DSpinner defaults to 16 logical pixels, follows inherited IconTheme color and uses DTokens.foreground as fallback; explicit color and SVG view-box strokeWidth are supported. Stroke scales with size. Whole-panel callers retain 24px boxes and constrained inline callers retain their existing dimensions; DButton now uses the 16px default.",
         "Use a native loadingSpinner semantics role and a single caller-localizable live label, with semanticLabel=null for decorative artwork. DButton retains its existing name, Loading value, disabled state, tooltip and async ownership.",
-        "Reduced motion pauses the reference SVG rotation at its current position while keeping indeterminate busy semantics. Default and custom motion stops for inactive apps and disabled ticker subtrees and resumes without disposing borrowed state. DMotion.spin matches Tailwind’s 1s linear infinite animation.",
+        "Reduced motion pauses the reference SVG rotation at its current position while keeping indeterminate busy semantics. Default and custom motion stops for inactive apps and disabled ticker subtrees and resumes without disposing borrowed state. DMotion.spin matches Tailwind\u2019s 1s linear infinite animation.",
         "No networking, completion callbacks, error state, focus nodes or overlay ownership were added to DSpinner. Example completion/validation/cancellation controls use local sample state.",
         "Visual mapping in docs/component-library/spinner-reference.md records exact SVG path/view box/stroke/cycle and companion Button/Badge/Input Group/Empty/Item source geometry. App theme colors, surface radius and font family remain native integration points; large text can wrap instead of clipping status text.",
         "Implementation, reference mapping, consumer regressions and final native correction checks are complete. Spinner is review_ready for the coordinator; only this component row and its generated evidence are updated. Device/VoiceOver gaps and the unassigned native keyboard incident remain explicit limitations."
@@ -242,7 +242,7 @@
         "Coordinator combined-main verification: 738 focused component, styleguide, Button-adoption and affected loading/account/media/Chat/Voice consumer tests passed, seed 1778345709. The exact command and output are in /private/tmp/component-spinner-integration-tests.log. All 87 touched Dart files were formatted; merge-introduced duplicate imports and directive ordering were corrected. Final flutter analyze --no-pub is clean (7.7s), git diff --check passes, and generic Spinner/example source remains byte-identical to the reviewed native-inspected branch. The existing f5549d51 adoption guard was preserved and passed in the combined run."
       ],
       "limitations": [
-        "iOS and Linux devices were not run; target-platform widget tests do not substitute for device testing. flutter devices listed macOS 26.6.2 (darwin-arm64), Chrome and a wireless iPhone on iOS 26.6; no Linux device was available. The wireless phone was not used or modified. VoiceOver spoken output and authenticated app screens have not been inspected. The final SVG app’s six examples, actual core/GIF fixtures and three final example corrections were inspected on macOS.",
+        "iOS and Linux devices were not run; target-platform widget tests do not substitute for device testing. flutter devices listed macOS 26.6.2 (darwin-arm64), Chrome and a wireless iPhone on iOS 26.6; no Linux device was available. The wireless phone was not used or modified. VoiceOver spoken output and authenticated app screens have not been inspected. The final SVG app\u2019s six examples, actual core/GIF fixtures and three final example corrections were inspected on macOS.",
         "Forced-semantics diagnostic crash reproduces with pre-migration native consumers. The new DSpinner is not necessary to trigger it, but its framework/fixture root cause is unresolved. Reports and exact reproduction are retained in docs/component-library/spinner-native.md and ignored local artifacts; no forced-semantics instrumentation is committed.",
         "On the first relaunch for the three final example corrections, the native Theme menu stopped responding after typed search. Verified Spinner Fidelity PID 13780 was at 97.6% CPU, with no crash report; a one-second passive sample showed repeated FlutterKeyboardManager/FlutterChannelKeyResponder/FlutterEmbedderKeyResponder message processing. Cause remains unassigned. Sample SHA-256 7fc2c30a768983cea7dd552c4f042f98fae0b80c8c4d6fcd0e2a0020ef8887fd. The app quit normally through its native menu. Final correction inspection subsequently passed using pointer-only navigation under a new slot grant; that success does not establish a cause or fix for the keyboard event loop."
       ],
@@ -272,7 +272,7 @@
         "Reference scope remains the frozen Kbd page (SHA256 3dd0b0dacf86f4b701ae35df3efe453ba1e9995a542e0a4a004a252f5bdd7978). Inspected actual official base-nova registry source (SHA256 4cfe2ba8e19f4d19d090eb039e3f1c041c9cfb379ce948237a9b5018203f7a6c) and rendered light/dark reference. The detailed source-to-Flutter measurements and narrow adaptations are in docs/component-library/kbd-visual-mapping.md; catalogue scope is unchanged.",
         "Existing app Actions/Shortcuts and app_shortcuts.dart remain binding owners. The Kbd library owns presentation and optional non-consuming hardware feedback only; Button, Tooltip and Input Group remain their separately scheduled catalogue entries.",
         "Native APIs are DKbd(label) / DKbd.child with required spoken label, DKbdGroup(children) with wrapping/direction/spacing/semantic label, DKbdTheme for ancestor tooltip colors, and retained typed DShortcut/DShortcutKeycaps APIs. No CSS prop string or parallel action registry is introduced.",
-        "Default keycaps use explicit DiscourseTypography.xs (12 px), 16 px leading, weight 500 and zero tracking with the host sans-serif family. Live DTokens supply muted colors and small radius (site base × 0.6). Surfaces are borderless with 20 px minima and 4 px horizontal padding; icons default to 12 px. Intrinsic growth and wrapping preserve native text scaling. Tooltip tint follows its actual foreground at 20% light / 10% dark for contrast on the existing surface. Apple and Linux notation describe unchanged app bindings.",
+        "Default keycaps use explicit DiscourseTypography.xs (12 px), 16 px leading, weight 500 and zero tracking with the host sans-serif family. Live DTokens supply muted colors and small radius (site base \u00d7 0.6). Surfaces are borderless with 20 px minima and 4 px horizontal padding; icons default to 12 px. Intrinsic growth and wrapping preserve native text scaling. Tooltip tint follows its actual foreground at 20% light / 10% dark for contrast on the existing surface. Apple and Linux notation describe unchanged app bindings.",
         "Optional non-consuming shortcut feedback preserves sequence progression, is disabled for static hints, uses logical activator equality through theme rebuilds, and clears on visibility, app lifecycle and view focus changes. The group has spoken English defaults with caller semanticLabel overrides; sequences visibly say then.",
         "Seven public-library examples cover the two reference key groups before additional text/symbol/custom-icon states, groups/sequences/inline typography, platform formatting, working button/tooltip, focusable search input, RTL/LTR islands and narrow/large-text/empty groups. Existing Button/Tooltip and native input composition remain visibly identified as separate catalogue work."
       ],
@@ -289,7 +289,7 @@
         "DTooltip/rail overlay positioning, gestures and native menu/sheet ownership remain with their scheduled Tooltip/menu/sheet components; this task changes only their Kbd presentation and necessary wrapping/semantics."
       ],
       "verification": [
-        "Official frozen page and base-nova registry source read. Hidden-browser light/dark renders and computed styles confirmed 20 px height, 4 px padding/group gap, 12/16 px medium type, no border and the relative small radius. Read the coordinator’s updated visual-fidelity contract; documented mapping in docs/component-library/kbd-visual-mapping.md.",
+        "Official frozen page and base-nova registry source read. Hidden-browser light/dark renders and computed styles confirmed 20 px height, 4 px padding/group gap, 12/16 px medium type, no border and the relative small radius. Read the coordinator\u2019s updated visual-fidelity contract; documented mapping in docs/component-library/kbd-visual-mapping.md.",
         "flutter pub get --enforce-lockfile passed in root and profiles/full without lockfile or Flutter pin changes.",
         "flutter analyze --no-pub passed with no issues in root and profiles/full after the final explicit typography metrics. All touched Dart files were formatted; git diff --check passed.",
         "flutter test --no-pub test/ui/d_kbd_test.dart test/styleguide/kbd_examples_test.dart test/keyboard_shortcuts_help_test.dart test/d_button_test.dart test/d_tooltip_test.dart test/forum_tabs_integration_test.dart: 70 passed after the geometry/color corrections, covering reference dimensions and palettes, live tooltip tint, semantics, keyboard actions, lifecycle cleanup, help wheel scrolling/Escape and rail/tab integrations.",
@@ -297,7 +297,7 @@
         "flutter test --no-pub test/forum_tabs_integration_test.dart test/content_navigation_controls_test.dart test/draft_list_test.dart test/keyboard_navigation_test.dart test/styleguide/styleguide_page_test.dart: 91 passed during migration. Rail number-shortcut test rerun after removing the obsolete intrinsic-height wrapper passed.",
         "flutter test --no-pub test/forum_search_clear_accessibility_test.dart test/poll_composer_panel_test.dart test/ui/d_kbd_test.dart: 43 passed during migration, covering search-hint scaling, preserved clear-focus/query state, typed Local Dates menu hints, permissions and dispatch.",
         "Isolated macOS styleguide and local-data harness built with flutter build macos --debug --no-pub. Product Discourse Kbd Review at /private/tmp/discourse-kbd-native-4bea uses verified bundle/signature org.discourse.kbd.review4bea. Runner, signing, diagnostics and fake-data fixtures remain outside the repository; the primary app was not launched or modified.",
-        "Native CUA inspected corrected Kbd rendering in Light, Dark and Plum, including 360 px / 200% input and tooltip compositions, RTL input, focus/typing, pointer activation and F6 (counter 0→2). Actual ForumSearch accepted a query and omitted the supplementary hint when narrow. Actual shortcut help wheel-scrolled to its final Search row at 200% text and Escape dismissed it. Native AX exported meaningful chord/key labels through the normal semantics lifecycle.",
+        "Native CUA inspected corrected Kbd rendering in Light, Dark and Plum, including 360 px / 200% input and tooltip compositions, RTL input, focus/typing, pointer activation and F6 (counter 0\u21922). Actual ForumSearch accepted a query and omitted the supplementary hint when narrow. Actual shortcut help wheel-scrolled to its final Search row at 200% text and Escape dismissed it. Native AX exported meaningful chord/key labels through the normal semantics lifecycle.",
         "The final explicit metric guard preserves the values used by the palettes just inspected natively. The first example was subsequently arranged into the two centered reference groups with default 4 px gaps; the final arrangement is covered by the widget matrix. The isolated native app was quit and confirmed absent from cua.listApps; the serialized desktop slot was released.",
         "Coordinator reviewed the full API and migrations, exact Base Nova source mapping, corrected compact keycap metrics, native inspection and documented modifier-injection limitation. Reconciled Separator imports and example registration while retaining the newer shadcn Typography styles; combined checks follow.",
         "Coordinator integration: 176 selected tests passed (seed 2125845405) covering Kbd, the whole styleguide, Button/Tooltip, keyboard help, search, forum tabs and composer/Local Dates menu dispatch. That command also requested a nonexistent local_date_shortcut_test.dart; it was a test-path error, not a failing case. The two actual Local Dates component/lifecycle test files then passed all 6 cases. After resolving alphabetical import ordering, flutter analyze --no-pub passed with no issues. Reviewed final import deduplication, format and git diff --check."
@@ -409,7 +409,7 @@
         "Reference sources and hashes, native adaptations and pending rendered comparison recorded in docs/component-library/button.md.",
         "Coordinator touch-target correction: small legacy inset surfaces keep 32px paint/40px desktop targets but clamp iOS/Android targets to 48px independently.",
         "Browser/export comparison corrected Small leading to22.4px, dark input-token alpha multiplication, leading loading padding, and responsive Size composition; added exact Arabic reference composition.",
-        "Radius follow-up: xs/icon-xs=min(.8×base,10px), sm/icon-sm=min(.8×base,12px), regular/large=base per official theming scale; preserves caller radius overrides.",
+        "Radius follow-up: xs/icon-xs=min(.8\u00d7base,10px), sm/icon-sm=min(.8\u00d7base,12px), regular/large=base per official theming scale; preserves caller radius overrides.",
         "Restore existing disabledOpacity scoped override with .5 default; preserve disabled/loading activation guards. No Input changes.",
         "Users search height follows touch targets; reorder arrows are outside CheckboxListTile semantics/height constraints, with authored40px pointer and48px touch targets.",
         "Native AX correction: icon-only tooltip becomes default spoken label; UserSummary count label moves onto DButton to eliminate duplicate nested buttons."
@@ -486,7 +486,7 @@
         "53 Divider/VerticalDivider usages in core shell files now use public DSeparator: list rows and loading-list boundaries, user/preferences/group panes, sheets, pickers and native-menu compositions, topic/date streams, diagnostics, drafts, badges, bookmarks, search, uploads and the instance rail. Horizontal height and vertical width become orientation-independent space; prior 17/24 spacing and specialized colors are preserved.",
         "19 dividing rules migrated in Assign, Chat, Discourse Events, GIFs, Local Dates, Poll and Voice plugins. Existing permission checks, list lazy construction, async ownership and callbacks are unchanged; Chat unread marker keeps its error color and visible New label, Assign keeps its ledger color.",
         "The styleguide pane separator uses DSeparator. Public barrel export and dedicated separator_examples.dart registration added. Existing barrel imports were extended and redundant baseline control imports removed where a new complete barrel import already supplies them.",
-        "Three equivalent container rules migrated: forum tab gaps retain 1×18 geometry and hover/selected visibility, MessageInboxTitle retains its 18px line and 10px margins through space: 21, and instance sidebar section boundaries retain their sliver insets and spacing.",
+        "Three equivalent container rules migrated: forum tab gaps retain 1\u00d718 geometry and hover/selected visibility, MessageInboxTitle retains its 18px line and 10px margins through space: 21, and instance sidebar section boundaries retain their sliver insets and spacing.",
         "Updated the existing anchored picker, topic day separator, group list geometry and forum tab tests to assert public DSeparator boundaries while preserving their behavior assertions. Audited all lib/src/plugins modules, packages (including vendored Dart libraries) and profiles; no additional authored package/profile separators were found."
       ],
       "retainedAlternatives": [
@@ -610,7 +610,7 @@
       "decisions": [
         "Frozen Badge Markdown matches the catalogue hash; captured official base-nova registry, examples and Lucide artwork with exact hashes and source-to-Flutter mapping in docs/component-library/badge.md.",
         "Public DBadge supports six treatments, static/action/link composition, decorative leading/trailing widgets, custom live colors, disabled callbacks, invalid/name/value/live semantics and owned-or-borrowed focus. Pointer activation transfers keyboard focus; links use Enter and actions use Enter/Space.",
-        "Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 2.6× configured radius (10.4px at host default 4; reference 26px at 10), using the live website globals override, not rounded-full.",
+        "Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 2.6\u00d7 configured radius (10.4px at host default 4; reference 26px at 10), using the live website globals override, not rounded-full.",
         "Spinner remains the only implementation dependency. Button is baseline only for example controls; Badge imports no unfinished Button code. Six full styleguide sections retain the redesigned documentation shell.",
         "Native/browser comparison completed under the granted exclusive slot; Badge is review_ready for coordinator review. Slot released, task tab closed and isolated app quit.",
         "Ring uses animated exterior-only rounded-rectangle difference, preventing tint in transparent/translucent interiors. Frozen registry and compiled CSS require only a destructive border for idle invalid; 3px ring width applies on focus-visible."
@@ -816,7 +816,7 @@
         "Controlled consistency source 7519fc61670d995a80dc027e902f6545105715a2: root/full-profile analysis clean; 36 focused tests pass. Refreshed bundle /private/tmp/DiscourseCheckbox132a-7519fc61.app, identifier org.discourse.native.checkbox.132a.sync and unique discourse-checkbox-132a-sync URL scheme. Source/copied kernel SHA256 e379f6048e80056a2d98aa976da8e850b6191b8a34b3bae299d705e0dcb35940 matches; deep strict ad-hoc signature verification passes. This supersedes the earlier 0df1b03c inspection bundle. No CUA or launch performed.",
         "Visual follow-up: 38 focused Checkbox/Label/paint tests and 118 migration tests passed; three font-loaded export/pixel tests passed. Root/full analysis clean after removing two redundant test imports. Browser-only slot released after restoring original theme/viewport and closing the temporary tab.",
         "Visual source a1d2737243099e8e6565c8fad268a102aa70a843: clean-source macOS debug build passed. Refreshed signed bundle /private/tmp/DiscourseCheckbox132a-a1d27372.app, identifier org.discourse.native.checkbox.132a.visual, scheme discourse-checkbox-132a-visual. Source/copied kernel SHA256 52687198c964426357053f2039af167ad2294598607a589b091aa9d7735ce715 matches; deep strict signature verification passes. No app launch; native inspection awaiting_slot.",
-        "Exclusive native slot: reviewed exact signed a1d27372 app, all six actual registered examples, light/dark states, mixed table 1→4→0, keyboard/pointer focus, disabled/readOnly, outer Plum card ring, form invalid→saved→reset, Forest360px200%RTL Arabic/Hebrew wrapping and activation. Actual legal explanation editing and checked/unchecked submission gating verified; actual Voice privacy checked values and focus verified at Plum200%RTL. Screenshots and AX in evidence/checkbox/native-*. No new source issue found. App quit through native menu; process absence verified; browser/native slot explicitly released before evidence commit. No browser used this slot.",
+        "Exclusive native slot: reviewed exact signed a1d27372 app, all six actual registered examples, light/dark states, mixed table 1\u21924\u21920, keyboard/pointer focus, disabled/readOnly, outer Plum card ring, form invalid\u2192saved\u2192reset, Forest360px200%RTL Arabic/Hebrew wrapping and activation. Actual legal explanation editing and checked/unchecked submission gating verified; actual Voice privacy checked values and focus verified at Plum200%RTL. Screenshots and AX in evidence/checkbox/native-*. No new source issue found. App quit through native menu; process absence verified; browser/native slot explicitly released before evidence commit. No browser used this slot.",
         "Coordinator reviewed native mixed table, legal confirmation and large-text multilingual evidence. Merge preserves final Radio Group single-choice Polls, uses Checkbox for multiselect and removes the obsolete row renderer; Users column reorder Buttons remain independent. Initial integration passed406 checks and exposed3 inherited Button/Badge Topic Inbox assumptions. Reserved32px for the tags overflow beside compressed categories and updated touch-target/combined-label assertions. All66 Topic Inbox checks now pass, including macOS/iOS assignment interaction; root/full analysis and diff checks clean. Logs: /private/tmp/checkbox-main-integration-tests.log, /private/tmp/checkbox-main-topic-final.log, /private/tmp/checkbox-main-integration-analysis-final.log, /private/tmp/checkbox-main-integration-analysis-full-final.log. The generic Checkbox renderer matches inspected source; bounded app-adapter reconciliation is covered by affected widget tests."
       ],
       "limitations": [
@@ -896,7 +896,7 @@
         "label"
       ],
       "acceptanceCriteria": [
-        "Match base-nova 32×18.4/16 and 24×14/12 track/thumb geometry, 1px inset, directional 14/10px travel, semantic colors, focus/error rings, disabled opacity and 150ms motion.",
+        "Match base-nova 32\u00d718.4/16 and 24\u00d714/12 track/thumb geometry, 1px inset, directional 14/10px travel, semantic colors, focus/error rings, disabled opacity and 150ms motion.",
         "Provide controlled and uncontrolled switch, read-only and disabled behavior, focus/keyboard/touch/semantics, FormField validation/save/reset and live controlled updates.",
         "Reproduce default, description, choice-card, disabled, invalid, sizes and RTL examples without implementing pending Field.",
         "Migrate core and bundled plugin switches preserving async, permission and persistence owners; cover real local-data fixtures and focused regressions.",
@@ -1052,14 +1052,20 @@
         "Pass meaningful focused component/consumer tests and root/full-profile analysis, prepare exact-source fixtures and create a new independent reviewer for required rendered/native acceptance, final compositions, fixes and local main merge."
       ],
       "decisions": [
-        "Started from accepted current main after Toggle merge a492253d and Carousel merge 3ec0c089. Two completed reviewer tasks freed capacity for a fifth independent source implementation; the implementer creates its own new review/merge task."
+        "Started from accepted current main after Toggle merge a492253d and Carousel merge 3ec0c089. Two completed reviewer tasks freed capacity for a fifth independent source implementation; the implementer creates its own new review/merge task.",
+        "Independent reviewer 01a085e6-4bb7-7e13-9e2a-98992292b4b3 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 7f4de6a88f41983a20ec757dd606153bca067500 is source evidence, not acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "implementationCommit": "d6a9be0d00c160dffa7daf67e8f2f4cefa00c336",
+      "mergeCommit": null,
+      "reviewTaskId": "01a085e6-4bb7-7e13-9e2a-98992292b4b3",
+      "reviewBranch": "codex/review-toggle-group",
+      "reviewStatus": "in_progress",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ddc5/discourse-native",
+      "reviewHandoffCommit": "7f4de6a88f41983a20ec757dd606153bca067500"
     },
     {
       "id": "slider",
@@ -1144,7 +1150,7 @@
       "decisions": [
         "Label is merged. Slider is demonstrative and not an implementation dependency; controlled progress uses DButton actions while Slider remains independently owned.",
         "Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.",
-        "Range is 0–100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.",
+        "Range is 0\u2013100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.",
         "Six real-component examples cover reference basic timer, label/value, controlled DButton actions, RTL, async/range edges and explicit parts; independent rendered/native acceptance promoted the styleguide entry to implemented.",
         "Pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 integrated; final Button/Badge/Input/Radio/Checkbox and shared application fixes preserved. DButton example actions now use merged Button."
       ],
@@ -1192,7 +1198,7 @@
       ],
       "decisions": [
         "Frozen Skeleton Markdown hash matches cab955b03db8fe7a9f4e5bc71be4f72054782d29476b19fb2029f569a880df16; documented props are empty. Web className geometry maps to Flutter dimensions, BorderRadiusGeometry, FractionallySizedBox and AspectRatio; RTL language controls are demo state, not Skeleton props.",
-        "Move and extend the existing shell rendering owner while matching the official source: muted fill, medium radius (site base × 0.8), and a 2-second 1 → 0.5 → 1 pulse using Cubic(0.4,0,0.6,1). This supersedes the earlier legacy 675ms/0.62 timing decision.",
+        "Move and extend the existing shell rendering owner while matching the official source: muted fill, medium radius (site base \u00d7 0.8), and a 2-second 1 \u2192 0.5 \u2192 1 pulse using Cubic(0.4,0,0.6,1). This supersedes the earlier legacy 675ms/0.62 timing decision.",
         "DSkeletonRegion is presentational loading composition, not a request/state owner. Explicit expand:true preserves existing bounded application loading panels; default intrinsic region sizing supports inline library compositions.",
         "Render the frozen Card frame explicitly from registry measurements (16px padding, 4px header gap, 16px section gap, foreground/10 outer ring, xl radius). Remove generic framed panels elsewhere. Local demonstration state controls sit outside reference compositions; no Material Card/Skeleton styling is substituted.",
         "DSkeletonRegion adds keyboard-focus exclusion to the preserved pointer/semantics exclusions. DSkeleton.animate=false opts a shape out; region animate=false, reduced motion and TickerMode disable the shared pulse.",
@@ -1226,7 +1232,7 @@
         "Historical, before the shadcn fidelity correction: After the native palette fix: flutter test test/ui/d_skeleton_test.dart test/styleguide/component_tokens_test.dart test/styleguide/skeleton_examples_test.dart --no-pub --test-randomize-ordering-seed=random: 35 passed, seed 465275359. That former derived-fill/contrast regression was subsequently removed by the source-fidelity correction; it is not a current design criterion.",
         "Formatted all 16 touched Dart files with dart format; final dart format --output=none --set-exit-if-changed and git diff --check passed.",
         "Historical, before the shadcn fidelity correction: macOS 26.6.2 arm64 CUA: selected exact isolated app path and raised it under the coordinator-granted slot. Visually inspected all seven example groups. Geometry: circle/diameter pointer changes, Tab focus with visible halo, arrow keys changed diameter 56 to 64, pulse pause/static companion.",
-        "Historical, before the shadcn fidelity correction: Native Light: caught the old white-on-white fill, rebuilt the derived token fix and confirmed visible avatar/lines. Exercised Loading → Ready → Error → Retry. Native Forest: 360px preview, 200% text, RTL and reduced motion together; inspected avatar/card/text/form placeholders and ready form rendering.",
+        "Historical, before the shadcn fidelity correction: Native Light: caught the old white-on-white fill, rebuilt the derived token fix and confirmed visible avatar/lines. Exercised Loading \u2192 Ready \u2192 Error \u2192 Retry. Native Forest: 360px preview, 200% text, RTL and reduced motion together; inspected avatar/card/text/form placeholders and ready form rendering.",
         "Historical, before the shadcn fidelity correction: Native Plum: inspected pulsing table rows; dragged the horizontal scrollbar to reveal later columns and verified Ready retained the position. Inspected explicit RTL avatar placement and mirrored asymmetric corners. Reported completion to release the inspection slot.",
         "flutter devices reported macOS, Chrome and a wireless iPhone; native interaction was performed only on macOS.",
         "Coordinator review: migrated Use site radius, Retry, Follow and form Save example actions to public DButton.flat. flutter test test/styleguide/skeleton_examples_test.dart --no-pub --test-randomize-ordering-seed=random passed 18 tests, seed 3352427373; final analysis and isolated native build passed. This cleanup followed the recorded styleguide native inspection.",
@@ -1391,7 +1397,7 @@
       ],
       "decisions": [
         "Frozen Card Markdown and all seven APIs covered. Registry raw SHA256 e73e3fe00ab2e14c4db1dccb1ff5c67041a94c0926ac3216c1dc6dd6dee9d7e0; decoded source 645c3d73e387a99f1492220cc619453b0c7f5454134ee3cd548be7a80f7eccde. Exact metrics and complete adoption audit: docs/component-library/card.md.",
-        "Passive DCard with Header/Title/Description/Action/Content/Footer; 16/12px spacing, shared override, 1px foreground/10 outer ring, live radius ×1.4, explicit typography and native Material ink without elevation or action. Semantic container preserves existing grouping.",
+        "Passive DCard with Header/Title/Description/Action/Content/Footer; 16/12px spacing, shared override, 1px foreground/10 outer ring, live radius \u00d71.4, explicit typography and native Material ink without elevation or action. Semantic container preserves existing grouping.",
         "Direct footer children and explicit footer slot remove bottom padding. Leading/trailing edge slots clip images; edgeToEdge and joinNext express shared-spacing negative margins. Header reflows below 240px or above 150% text using stable Flex topology, preserving child element/focus.",
         "Eight runnable local-state examples reproduce reference compositions before application states. Adjacent Button link/outline/secondary/submit, Input email/password visuals, Badge and Toggle Group remain explicitly pending owners. Bundled package image has no network fallback.",
         "Examples reuse already-merged Label, Aspect Ratio and Skeleton; the frozen catalogue dependency remains typography."
@@ -1413,7 +1419,7 @@
         "Seed 834729: final Card/examples run passed 12 tests, including 1fr/auto LTR/RTL geometry, shared spacing, direct footer, image/joined content, retained editing, keyboard activation, 200% reflow and unchanged header action element/focus.",
         "macOS debug local fixture build succeeded. Isolated /tmp/DiscourseCard5995.app uses org.discourse.native.card5995 and discourse-card5995 scheme. Deep/strict ad-hoc signature and App.framework payload byte matching verified. Native screenshots and AX evidence are inline in the Card task; ignored build/card-review/native-manifest.json and byte-match.json record the inspected build.",
         "Exclusive macOS native pass compared official rendered Card metrics and light/dark screenshots with all eight examples, Plum palette, RTL, narrow layout and 200% text. Exercised login, spacing draft retention, terms acceptance, image details, disabled/selected/busy/error/empty states; inspected actual bundled styleguide. Real local-data Groups, Members, Activity, Poll, Events, Chat and Badge fixtures exercised navigation, retry, vote, RSVP and join/unfollow callbacks.",
-        "Coordinator reviewed stable clean Card HEAD 31663949f52a70ff90f791641a156e272cd8fd90, its seven passive APIs, exact 16/12px spacing and 1.4× radius, retained action elements/focus during header reflow, direct footer spacing, eight complete examples and core/plugin adoptions. Native inspection and isolated app closure are complete, including official light/dark comparison, narrow/RTL/200%/Plum examples and real Groups/Members/Activity/Poll/Events/Chat/Badge fixtures; device and other surface limitations remain explicit. Applied pre-reviewed reconciliation with both-parent fingerprints verified, preserving current Tooltip and Avatar within Event Card surfaces.",
+        "Coordinator reviewed stable clean Card HEAD 31663949f52a70ff90f791641a156e272cd8fd90, its seven passive APIs, exact 16/12px spacing and 1.4\u00d7 radius, retained action elements/focus during header reflow, direct footer spacing, eight complete examples and core/plugin adoptions. Native inspection and isolated app closure are complete, including official light/dark comparison, narrow/RTL/200%/Plum examples and real Groups/Members/Activity/Poll/Events/Chat/Badge fixtures; device and other surface limitations remain explicit. Applied pre-reviewed reconciliation with both-parent fingerprints verified, preserving current Tooltip and Avatar within Event Card surfaces.",
         "Coordinator combined-main verification: all 466 focused library/styleguide/Tooltip and affected core, Chat, Poll, Events, preferences, directory, aggregate and Voice tests passed, seed 3790819455; log /private/tmp/component-card-integration-tests.log. The full profile passed 63 Card/Skeleton/Aspect Ratio component and example cases, seed 2853461005; log /private/tmp/component-card-full-tests.log. Root and full analysis are clean (11.3s and 3.2s); full-profile locked pub get passed with no lockfile/pin changes. All 19 touched Dart files are formatted and git diff --check passes. Generic Card, its eight examples and adopted Skeleton source exactly match the reviewed branch. All previously merged Tooltip, Avatar, Spinner, Skeleton, Aspect Ratio and Label owners remain present in changed application source."
       ],
       "limitations": [
@@ -1633,7 +1639,7 @@
         "DScrollArea uses one native position per enabled axis; DScrollBar decorates existing native scrolling, with composable DScrollViewport, DScrollThumb and DScrollCorner. Live tokens, 7px capsule in 10px track, 16px minimum thumb and keyboard focus ring.",
         "Tags, Horizontal, RTL, combined overflow and lazy-controller composition are actual public-component styleguide examples; independent native acceptance promoted the styleguide entry to implemented.",
         "Coordinator keyboard follow-up: only overflowing areas enter root Tab traversal; descendant focus/state survive content and viewport resize transitions. Shift+Space pages upward; unrelated Ctrl/Alt/Meta and Shift-modified keys bubble.",
-        "Browser-only review completed and released: measured light/dark/RTL/keyboard reference, corrected exterior-only focus ring with alpha multiplication, rounded-md×0.8 and rendered photo150×200 dimensions. Font-loaded actual examples/production fixtures exported; scroll-area-render-review.md and hashed rendered artifacts preserve findings."
+        "Browser-only review completed and released: measured light/dark/RTL/keyboard reference, corrected exterior-only focus ring with alpha multiplication, rounded-md\u00d70.8 and rendered photo150\u00d7200 dimensions. Font-loaded actual examples/production fixtures exported; scroll-area-render-review.md and hashed rendered artifacts preserve findings."
       ],
       "migrations": [
         "DSidebarContent and explicit wide styleguide preview scrollbar (width/state/controller preservation).",
@@ -1881,7 +1887,7 @@
     },
     {
       "id": "popover",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
       "branch": "codex/ui-popover",
       "dependencies": [
@@ -1929,25 +1935,32 @@
         "Browser Geist and native host-font rasterization differ; review establishes geometry, styling, interaction and accessibility structure rather than pixel equality."
       ],
       "implementationCommit": "b410f9da0227b2b9e0d6518b64277e97d6517b06",
-      "mergeCommit": null,
+      "mergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/b664/discourse-native",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
       "reviewBranch": "codex/review-popover"
     },
     {
       "id": "hover-card",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
+      "branch": "codex/ui-hover-card",
       "dependencies": [
         "popover",
         "avatar"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Hover Card full anatomy/API and Composition, Trigger Delays, Positioning, Basic, Sides and RTL examples, with actual Base UI Preview Card behavior and measured reference artwork.",
+        "Compose accepted Popover/Avatar/Button owners with correct hover delays, pointer-gap retention, rapid-trigger/disposal cancellation, positioning/collision, focus/Escape/touch semantics and meaningful trigger navigation; avoid an accidental modal focus trap.",
+        "Support live open-card themes, native accessibility, narrow/scaled/RTL layouts and reduced motion; audit and migrate appropriate core/plugin user/topic/link previews while preserving fetching, permissions, cache and navigation in adapters.",
+        "Verify meaningful timer/pointer/focus/state/adoption regressions and root/full analysis, prepare exact-source fixtures and create an independent reviewer for required rendered/native acceptance and final local main merge."
+      ],
+      "decisions": [
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -1957,7 +1970,7 @@
     },
     {
       "id": "dialog",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
       "branch": "codex/ui-dialog",
       "dependencies": [
@@ -1965,7 +1978,7 @@
       ],
       "acceptanceCriteria": [
         "Provide one public generic Dialog owner exported from discourse_ui.dart with typed DDialogController<T>, DDialog/DDialogTrigger/DDialogContent/DDialogHeader/DDialogTitle/DDialogDescription/DDialogFooter/DDialogClose composition and a showDDialog<T> helper that uses the nearest Navigator by default.",
-        "Match the frozen base-nova registry at 100% scale: black/10 blurred backdrop, full-width popup capped at 384px with 16px viewport margins, 16px grid gaps and padding, xl radius, foreground/10 one-pixel exterior ring, popover surface, 16px medium/leading-none title, 14px muted description, 8px header/footer gaps, muted/50 bordered footer, and a 32px ghost X close control at logical top/end 8px.",
+        "Match the frozen base-nova registry at 100% scale: black/10 blurred backdrop, full-width popup capped at 384px with 16px viewport margins, 16px grid gaps and padding, xl radius, foreground/10 one-pixel exterior ring, popover surface, 16px medium/leading-none title, 14px muted description, 8px header/footer gaps, muted/50 bordered footer, and a 28px ghost X close control at logical top/end 8px.",
         "Support uncontrolled and externally controlled open state, typed close results, trigger/close reasons, custom or omitted corner close controls, footer close composition, custom initial/final focus, focus trap/restoration, Escape and barrier dismissal policies, programmatic close, route/widget removal, nested Navigators/dialogs, and live inherited theme/direction/text-scale/reduced-motion changes while open.",
         "Keep background content modal/inert and expose a correctly labeled dialog route and independent close/actions to assistive technology; preserve keyboard Tab/Shift-Tab traversal, mouse/touch activation, 48px invisible touch affordances where needed, logical RTL placement, and focus visibility without merging editable field semantics with surrounding controls.",
         "Provide constrained and scrollable layouts that avoid keyboard/view-inset obstruction and overflow at 320px width and 200% text, including documented default profile form, Custom Close Button, No Close Button, Sticky Footer, Scrollable Content and Arabic RTL examples; compose the merged Input owner while keeping Field with its separate catalogue owner.",
@@ -1979,7 +1992,8 @@
         "A route-owned configuration notifier keeps content, barrier/Escape policy, label and initial focus current while open. Replaced controllers detach immediately; obscured parent closure removes its own route instead of popping a typed child route.",
         "showDDialog<T> defers its builder into a route-descendant context and bridges live caller-scoped Theme, MediaQuery and Directionality updates while retaining caller-owned Form state.",
         "The native surface uses shared DButton and DInput owners, live DTokens, exact 16px custom X artwork, closed-loop focus traversal, logical placement, modal semantics, SafeArea/view-inset handling and reduced-motion behavior.",
-        "Seven actual styleguide examples cover default profile editing, custom/no close controls, sticky and scrollable layouts, RTL and controlled/typed results without implementing the separately owned Field primitive."
+        "Seven actual styleguide examples cover default profile editing, custom/no close controls, sticky and scrollable layouts, RTL and controlled/typed results without implementing the separately owned Field primitive.",
+        "Independent rendered review measured the current base-nova icon-sm close surface at 28px rather than the source task's provisional 32px criterion. The default corner close now uses DButtonSize.small without an inset surface, preserving the 16px artwork, logical 8px inset and larger invisible touch affordance."
       ],
       "migrations": [
         "Chat channel details now uses showDDialog<void>/DDialogContent while preserving validation, error/loading state, disabled barrier dismissal, metadata diffing and its original async controller callback.",
@@ -1993,18 +2007,24 @@
         "Root and profiles/full flutter analyze --no-pub pass; touched Dart is formatted and git diff --check is clean.",
         "Final randomized Dialog/styleguide/Chat/Voice run passes all 393 tests with seed 4147437372. The 22 focused Dialog/example checks pass with seed 4094924130, including typed nested routes, controller replacement, current content/dismissal policy, open-session submit ownership, disposal, live helper scope and retained Form state.",
         "Isolated flutter build macos --debug --no-pub -t lib/dialog_native_fixture.dart and unique DialogNativeReview Xcode scheme build pass from final source b75bee83e15f75692e8391502e5640124f83b9ed.",
-        "Prepared unlaunched bundle /private/tmp/discourse-native-dialog.qNoMNI/build/DialogNativeReviewDerived/Build/Products/Debug/Dialog Native Review.app has identifier org.discourse.native.styleguide.dialog; six production source files byte-match the worktree and d_dialog.dart SHA-256 is 05993f5cb8c3e388e8ab7d5bd7a2b8260862eeef24e3c769d53a6675e34438db.",
-        "Final bundle kernel SHA-256 is cce09d0ea6b8e0139c0ce9f7698efaa826896280f51df75d22afa3a79486528b. Ad-hoc codesign --verify --deep --strict passes; entitlements contain only sandbox, JIT, audio/camera, user-selected read/write and network client/server, with no APS, application identifier or team identifier."
+        "The implementation-prepared unlaunched bundle /private/tmp/discourse-native-dialog.qNoMNI/build/DialogNativeReviewDerived/Build/Products/Debug/Dialog Native Review.app has identifier org.discourse.native.styleguide.dialog; six production source files byte-match the implementation worktree and its d_dialog.dart SHA-256 is 05993f5cb8c3e388e8ab7d5bd7a2b8260862eeef24e3c769d53a6675e34438db.",
+        "The implementation-prepared bundle kernel SHA-256 is cce09d0ea6b8e0139c0ce9f7698efaa826896280f51df75d22afa3a79486528b. Ad-hoc codesign --verify --deep --strict passes; entitlements contain only sandbox, JIT, audio/camera, user-selected read/write and network client/server, with no APS, application identifier or team identifier.",
+        "Independent review after the 28px close correction: 23 randomized Dialog/styleguide tests passed with seed 2145466268; root analysis passed with no diagnostics. The full profile analysis passed, and focused real Chat and Voice migration checks passed 2 + 2 tests.",
+        "Official rendered base-nova comparison covered light and dark default Dialog, Arabic RTL and Scrollable Content. Measured default geometry was 384x305, 16px padding/gap, 14px radius, 16px/16px weight-500 title, 14px/20px description, 384x65 footer with 16px padding and 8px gaps, and a 28x28 close surface at logical top/end 8px. RTL moved the close to logical start and mirrored actions; the scroll example kept its header visible over a 50vh body.",
+        "Final isolated native fixture /private/tmp/discourse-native-dialog.qNoMNI/build/macos/Build/Products/Debug/Dialog Native Review.app mounts the real Chat and Voice editors plus the actual component styleguide. Reviewed Dialog source SHA-256 is f438edbbc8b0484044389d3df603bf09212ee40ad680628af930557563b80b5e; final fixture kernel SHA-256 is 662c83fdf2d391f64f8e5a34d14324bb5e6bf417c64d158fb810b0fb546a580c. Strict ad-hoc signature verification passed with the previously recorded permitted entitlements.",
+        "Native CUA inspection covered real Chat field editing and cancellation; real Voice edit/create in Plum, RTL and 200% text with independently scrollable bodies and sticky actions; disabled/enabled save validation; reduced-motion opening; Escape dismissal; closed-loop forward Tab focus; and default, Scrollable Content and Arabic RTL styleguide examples. The 28px close remained an independent Close button and moved to logical start in RTL. The isolated app was quit and the desktop lease released.",
+        "Latest-main candidate verification after preserving merged Collapsible, Popover, Table, Tabs and Native Select plus current dependent-task metadata: all 23 randomized Dialog/styleguide tests passed with seed 2165732119, and root flutter analyze --no-pub passed with no diagnostics.",
+        "Accepted candidate 1b1e9e1e merged into local main with merge commit 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3."
       ],
       "limitations": [
-        "Native/reference-rendered visual comparison and VoiceOver/device behavior remain awaiting the coordinator's serialized UI slot; the prepared uniquely identified app has not been launched and no CUA interaction was performed.",
-        "No physical iOS/Linux execution. Rich Field composition remains with its planned catalogue owner; Dialog now composes merged DInput where applicable."
+        "No physical iOS/Linux execution or VoiceOver speech session was performed. macOS AX inspection and widget semantics checks cover the route label and independent fields/actions, but do not substitute for device assistive-technology testing.",
+        "Rich Field composition remains with its separate catalogue owner; Dialog composes the merged DInput where applicable. Native font shaping and antialiasing differ from browser rendering, so no automated pixel-identical cross-renderer claim is made."
       ],
       "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
-      "mergeCommit": null,
+      "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
-      "nativeInspectionStatus": "awaiting_slot",
-      "reviewStatus": "in_progress",
+      "nativeInspectionStatus": "completed",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
       "reviewBranch": "codex/review-dialog"
     },
@@ -2018,19 +2038,20 @@
       ],
       "acceptanceCriteria": [
         "Export typed DAlertDialog root/trigger/content/header/media/title/description/footer/cancel/action APIs and showDAlertDialog, composing final DDialog route/focus/lifecycle and DButton interaction owners.",
-        "Match frozen base-nova regular/small responsive popup, 16px padding/gaps, xl radius, popover surface, foreground/10 ring, 40/24px media, 16px heading, 14/20 description and flush muted footer geometry without an ordinary Dialog corner close.",
+        "Match frozen base-nova regular/small responsive popup, 16px padding/gaps, xl radius, popover surface, foreground/10 ring, 40/24px media, 16px heading, 14/20px description and flush muted footer geometry without an ordinary Dialog corner close.",
         "Require an explicit response: outside press remains inert, Escape is an explicit configurable cancel path, cancel precedes action in keyboard order, focus is trapped/restored and typed results remain distinct.",
         "Support controlled/uncontrolled/borrowed-controller ownership, coalesced async submission, loading/disabled/error/retry, late-completion/re-entry guards, live theme/font/radius/direction/text-scale/reduced-motion changes, 320px/200% layouts, RTL and native pointer/touch/keyboard/semantics behavior.",
         "Demonstrate Composition, Basic, Small, Media, Small with Media, Destructive and RTL plus controlled/typed/async states using real public widgets and local data.",
         "Audit core and plugins and migrate appropriate focused confirmations while retaining permissions, persistence, async work, lifecycle leases and cancellation in application owners.",
-        "Format and pass focused component/dependency/consumer tests plus root/full static analysis; prepare an exact-source unique unlaunched macOS review bundle and local-data production adapter harness; independent reviewer completes rendered/native acceptance after Dialog merges."
+        "Format and pass focused component/dependency/consumer tests plus root/full static analysis; prepare an exact-source unique unlaunched macOS review bundle and local-data production adapter harness; independent reviewer completes rendered/native acceptance."
       ],
       "decisions": [
         "Frozen Markdown was re-fetched and exactly matched ccc9147729b395b1d80ba6c9190ffbd5b556213571f958bb10c111a38b63c2da. base-nova registry and linked Base UI anatomy/API were inspected; docs/component-library/alert-dialog.md records complete mapping and source hashes.",
-        "DAlertDialog delegates route, live inherited environment, modal barrier, focus containment/restoration, typed results and controller session guards to the exact reviewed Dialog pin 8a80078316381a60f70b4e11adbc919814ca9fbc. Alert Dialog only specializes required-response dismissal, composition and surface geometry.",
+        "DAlertDialog delegates route, live inherited environment, modal barrier, focus containment/restoration, typed results and controller session guards to accepted DDialog. Alert Dialog only specializes required-response dismissal, composition and surface geometry.",
         "Outside presses are always ignored. Escape remains a configurable cancellation request. There is no corner close. Ordered focus keeps Cancel first even when the narrow reference visually reverses the footer column.",
         "DAlertDialogAction closes synchronously by default, can remain open for caller-owned work, or can bind a borrowed DDialogController to coalesced onSubmit work that closes only the same session on success and reports failure without hiding it.",
-        "showDiscourseAlertDialog is an application adapter outside generic UI. It standardizes the common two-result confirmation while every caller retains domain checks and post-confirmation effects."
+        "showDiscourseAlertDialog is an application adapter outside generic UI. It standardizes the common two-result confirmation while every caller retains domain checks and post-confirmation effects.",
+        "Accepted Dialog merge 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 preserves the prepared public API. Alert Dialog exposes no corner close, so Dialog's reviewed 28px top/end close correction remains isolated to ordinary DDialogContent."
       ],
       "migrations": [
         "Migrated forum removal, published-poll removal, draft deletion, plugin notification dismissal, diagnostics clearing and destructive bookmark confirmations to showDiscourseAlertDialog with their typed results and lifecycle/account guards unchanged.",
@@ -2045,21 +2066,29 @@
       "verification": [
         "flutter pub get --enforce-lockfile resolved the fresh worktree from committed dependencies without a lockfile change; Flutter remains pinned.",
         "flutter test --no-pub test/ui/d_alert_dialog_test.dart test/styleguide/alert_dialog_examples_test.dart --test-randomize-ordering-seed=random --reporter expanded: 9 passed, seed 3089443727. Covers explicit dismissal, typed results, focus order, exact regular/small/media geometry, async loading/error/double-submit, disabled state and narrow 200% RTL reduced motion.",
-        "The reviewed Dialog dependency suite and Alert Dialog component/example checks reached 32 passing tests in the final focused matrix before consumer groups; Dialog route, environment, focus and lifecycle behavior remained green.",
         "Draft/recovery, notification, Voice diagnostics, instance action and published-poll consumer group passed 55 tests at seed 1592572583. Diagnostics clear focused group passed 3; Bookmark UI passed 24 at the same seed.",
         "Selected-post confirmation ownership passed 14 tests at seed 61956044 after updating the obsolete stock AlertDialog test owner assertion. Group-member, topic-action and topic-deletion suites passed 89 tests at seed 61956044; two focused Voice recording tests passed.",
-        "A broad randomized parallel consumer run reproduced the pre-existing diagnostics resize-handle hit-test flake and was stopped after a subsequent unrelated long-running topic test; the affected diagnostics clear tests passed separately and no component failure was inferred.",
-        "Root flutter analyze --no-pub passed in 2.9s and profiles/full passed in 1.7s; touched Dart is formatted and git diff --check passes.",
+        "A broad randomized parallel consumer run reproduced the pre-existing diagnostics resize-handle hit-test flake and was stopped after a subsequent unrelated long-running topic test; affected diagnostics clear tests passed separately and no component failure was inferred.",
         "flutter build macos --debug --no-pub -t tool/alert_dialog_review.dart passed. Unlaunched /private/tmp/discourse-alert-dialog-review.uFQUBx/Alert Dialog Review.app was re-identified as org.discourse.native.styleguide.alertdialog with discourse-alert-dialog-review scheme and ad-hoc signed using only sandbox/JIT/audio/camera/user-selected/network/get-task debug entitlements. Deep strict verification passed; original/copied kernel SHA-256 both a2724f22c8a502674b303547455467b94ba6df30da6cfec4ac365037cf86248d.",
-        "Integrated current main at dc6ab75f (accepted Popover) in merge 54e0a782 without source conflicts. Post-integration Alert Dialog/Dialog component and styleguide matrix passed all 32 tests at seed 4000796387; root analysis passed in 8.0s, profiles/full in 1.5s and final diff checks are clean."
+        "After accepted Dialog/current-main integration, 32 Alert Dialog/Dialog component and styleguide tests passed with seed 4000796387; root flutter analyze --no-pub passed in 8.0s and profiles/full passed in 1.5s. Public Dialog API/source overlap required no Alert Dialog change, and git diff checks remained clean."
       ],
       "limitations": [
-        "awaiting_review: no browser/native launch, official rendered comparison, VoiceOver speech or iOS/Linux device pass was performed. The independent reviewer owns first rendered/native acceptance and any corrections.",
-        "Dialog is not accepted on local main. This branch prepared against exact reviewed pin 8a80078316381a60f70b4e11adbc919814ca9fbc; the reviewer must wait for Dialog reviewer 01a08558-7ac2-79a3-bd49-1be6148f540c, integrate accepted current main, prevent the unaccepted parent from reaching main through this branch and reverify overlap.",
+        "awaiting_review: no Alert Dialog browser/native launch, official rendered comparison, VoiceOver speech or iOS/Linux device pass was performed. The independent reviewer owns first rendered/native acceptance and any corrections.",
         "Task-creation API was unavailable after tool discovery. The exact committed handoff prompt is recorded for transport; no desktop lease was queued solely to create a task."
       ],
       "implementationCommit": "77a8933a9f58b275b44dc41ede4cf22e46ae9c9f",
       "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "dialog",
+          "branch": "codex/review-dialog",
+          "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
+          "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+          "evidence": "Accepted Dialog public API and 28px close correction passed 23 focused checks, root/full analysis, real Chat/Voice migrations and official/native review. Alert Dialog reconciled against the accepted local-main revision with 32 dependency/component checks and clean root/full analysis.",
+          "mergeGate": "Satisfied: parent accepted on local main at 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 and reconciled before Alert Dialog review handoff.",
+          "acceptedMergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
+        }
+      ],
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/1a18/discourse-native",
       "nativeInspectionStatus": "awaiting_review",
       "reviewStatus": "handoff_ready",
@@ -2116,13 +2145,14 @@
         "Verify complete examples, narrow/scaled/RTL/touch/reduced-motion behavior, meaningful focused component/consumer tests and root/full analysis; create a new reviewer for remaining rendered/native acceptance and local merge after the accepted Popover main revision."
       ],
       "decisions": [
-        "Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration."
+        "Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration.",
+        "Independent reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 69e5ec663e92bb61fa734ee43b6c3e738e96961e is source evidence, not acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -2131,9 +2161,15 @@
           "commit": "d99562f0f6973c9dc3f566eea02d9b00c6de4f7b",
           "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
           "evidence": "Parent reviewer verified the exact Popover source pin contains b410f9da plus lifecycle correction 8281dda2; 100 focused tests (seed 826145) and root/full analysis passed before later main integration. Final native/reference acceptance remains with the parent reviewer.",
-          "mergeGate": "Use the accepted parent in current main if available; otherwise prepare only in this isolated worktree. The dependent reviewer must integrate the accepted parent main revision, reconcile overlap and verify affected behavior before final merge. Prepared source does not establish acceptance."
+          "mergeGate": "Parent is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
         }
-      ]
+      ],
+      "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
+      "reviewBranch": "codex/review-select",
+      "reviewStatus": "in_progress",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f6b1/discourse-native",
+      "reviewHandoffCommit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e"
     },
     {
       "id": "native-select",
@@ -2268,13 +2304,14 @@
         "Run meaningful focused component/consumer tests and root/full-profile analysis, prepare source-exact production fixtures, then create a new reviewer to complete official browser/native acceptance and local main merge. Every prepared dependency must first be accepted and merged in main."
       ],
       "decisions": [
-        "Source preparation may overlap Textarea final review using pinned committed source; acceptance and final main merge remain gated on the accepted parent revision. The implementer creates its own independent review/merge task."
+        "Source preparation may overlap Textarea final review using pinned committed source; acceptance and final main merge remain gated on the accepted parent revision. The implementer creates its own independent review/merge task.",
+        "Independent reviewer 01a085d3-1acf-7361-9dc8-fc4a99de7c45 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff bc39e7f4ffab614dad82b13f6b5ad749869fc6fa is source evidence, not acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -2283,9 +2320,15 @@
           "commit": "4ca5aaa85681ced6dd2668a8158b7551ee176f73",
           "reviewTaskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
           "evidence": "Clean committed source/API with repeated 163-test affected runs and root/full analysis passing; official browser and native macOS inspection completed. Acceptance-only styleguide metadata is source-equivalent to the inspected component and production fixtures. Textarea merged through 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3.",
-          "mergeGate": "Textarea is accepted on main. Input Group must integrate and verify main including merge 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3 before its final merge."
+          "mergeGate": "Parent is accepted on local main at 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3"
         }
-      ]
+      ],
+      "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
+      "reviewBranch": "codex/review-input-group",
+      "reviewStatus": "in_progress",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/478c/discourse-native",
+      "reviewHandoffCommit": "bc39e7f4ffab614dad82b13f6b5ad749869fc6fa"
     },
     {
       "id": "button-group",
@@ -2307,7 +2350,8 @@
         "Field, Input Group, Dropdown Menu, Select and Popover compositions must reconcile with their final owners; track outstanding compositions and coordinate directly, without duplicating components or reducing the frozen examples.",
         "DButtonGroup is a passive semantic/layout boundary for independent controls. It owns no selection, roving focus or toolbar shortcuts; each child retains its callback, state, focus and native role.",
         "A narrowly scoped DJoinedControlScope is installed per direct child. DButton and DInput consume only joined-edge geometry; nested groups replace the scope and overlays receive no broad Theme or radius override.",
-        "DButtonGroupExpanded is the explicit finite-width Flutter flex adaptation for the reference input:flex-1 selector. The styleguide remains baseline until the reviewer replaces four dependency-aware fixtures with final owning components."
+        "DButtonGroupExpanded is the explicit finite-width Flutter flex adaptation for the reference input:flex-1 selector. The styleguide remains baseline until the reviewer replaces four dependency-aware fixtures with final owning components.",
+        "Independent reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 97554adac80cf4a702408966add2702f3bc313e0 is source evidence, not acceptance."
       ],
       "migrations": [
         "ContentNavigationControls now uses a labeled DButtonGroup for Back, Forward and Refresh while preserving keys, shortcuts, enabled guards, refresh lifecycle and shell callbacks."
@@ -2333,8 +2377,22 @@
       "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
       "mergeCommit": null,
       "reviewStatus": "in_progress",
-      "reviewTaskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
-      "reviewBranch": "codex/review-button-group"
+      "reviewTaskId": "01a085f4-2a6b-7c82-9dc3-c9b14d76b355",
+      "reviewBranch": "codex/review-button-group-recovered",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/9bb7/discourse-native",
+      "reviewHandoffCommit": "97554adac80cf4a702408966add2702f3bc313e0",
+      "reviewRecovery": {
+        "status": "transferred_review_in_progress",
+        "supersededTaskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
+        "preservedWorktree": "/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native",
+        "manifest": "/private/tmp/button-group-review-transfer-20260909T113428Z/manifest.json",
+        "archiveSha256": "c1a4371f13a4a17892df92e60681dce98ba5b8b2f6ba1846758824e0a0ab26ef",
+        "head": "97554adac80cf4a702408966add2702f3bc313e0",
+        "preparedMergeHead": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
+        "replacementTaskId": "01a085f4-2a6b-7c82-9dc3-c9b14d76b355",
+        "gitWriteVerificationCommit": "94fe7a776dd8377ef0aac3c01c6bf9a0e378653e",
+        "verification": "Replacement verified archive and resolved DInput hashes, then ordinary git add and git commit succeeded in its fresh app-created worktree. Source resolution and all remaining acceptance stay with the replacement reviewer."
+      }
     },
     {
       "id": "command",
@@ -2353,7 +2411,51 @@
         "Verify complete examples, live overlay themes, focus entry/restoration/Escape, narrow/scaled/RTL/touch/reduced-motion behavior, meaningful focused tests and root/full analysis; create a new reviewer for actual rendered/native acceptance and final local merge after accepted Dialog main."
       ],
       "decisions": [
-        "Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration."
+        "Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration.",
+        "Independent reviewer 01a085d3-21b9-75d0-a4f0-c739439ccb9d owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff f3180d998bd901ce24c2f21e386d5b08f78afbd5 is source evidence, not acceptance."
+      ],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": "c73c39b8e284abc85fcecfe74d7cf5cf83cd91c7",
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "dialog",
+          "branch": "codex/review-dialog",
+          "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
+          "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+          "evidence": "Parent reviewer verified the Dialog source pin and unchanged public API, corrected 28px corner-close geometry and unique dismiss semantics. 23 focused tests (seed 2145466268), root/full analysis and 2+2 real Chat/Voice migration tests passed; official browser comparison is complete. Final native launch/interaction remains queued.",
+          "mergeGate": "Parent is accepted on local main at 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
+        }
+      ],
+      "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
+      "reviewBranch": "codex/review-command",
+      "reviewStatus": "in_progress",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/a336/discourse-native",
+      "reviewHandoffCommit": "f3180d998bd901ce24c2f21e386d5b08f78afbd5"
+    },
+    {
+      "id": "combobox",
+      "status": "in_progress",
+      "taskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
+      "branch": "codex/ui-combobox",
+      "dependencies": [
+        "input",
+        "popover",
+        "command"
+      ],
+      "acceptanceCriteria": [
+        "Implement the frozen Base UI Combobox complete autocomplete/chips/collection API and Simple, chips, groups, custom items, multiple selection, clear, invalid, disabled, auto highlight, Popup, Input Group and RTL examples with primary-source mapping.",
+        "Provide typed selection/query/filter/highlight ownership, editable focus/IME, dynamic/disabled results, chip navigation/deletion, keyboard selection, anchored scrolling/collision, dismissal/restoration and safe lifecycle; preserve domain querying/network state in adapters.",
+        "Use accepted shared popup/input owners and reconcile Command/Field/Input Group/Item APIs where the actual Base UI semantics fit; retain every required example and prevent prepared parents reaching main before acceptance.",
+        "Migrate appropriate core/plugin searchable selectors and multi-value fields, preserving permissions, asynchronous results and callbacks; verify focused component/consumer regressions and root/full analysis with live themes and native/scaled/RTL behavior.",
+        "Create a new independent reviewer for remaining official rendered/native acceptance, fixes, required compositions and final local main merge."
+      ],
+      "decisions": [
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory."
       ],
       "migrations": [],
       "retainedAlternatives": [],
@@ -2363,33 +2465,14 @@
       "mergeCommit": null,
       "preparedDependencies": [
         {
-          "id": "dialog",
-          "branch": "codex/review-dialog",
-          "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
-          "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
-          "evidence": "Parent reviewer verified the Dialog source pin and unchanged public API, corrected 28px corner-close geometry and unique dismiss semantics. 23 focused tests (seed 2145466268), root/full analysis and 2+2 real Chat/Voice migration tests passed; official browser comparison is complete. Final native launch/interaction remains queued.",
-          "mergeGate": "Use the accepted parent in current main if available; otherwise prepare only in this isolated worktree. The dependent reviewer must integrate the accepted parent main revision, reconcile overlap and verify affected behavior before final merge. Prepared source does not establish acceptance."
+          "id": "command",
+          "branch": "codex/ui-command",
+          "commit": "f3180d998bd901ce24c2f21e386d5b08f78afbd5",
+          "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
+          "evidence": "Committed Command sourcec73c39b8 and handofff3180d99 have reported focused tests/analysis and a prepared source fixture. Reviewer owns acceptance and corrects the source-only progress row misplacement; never copy its stale Select metadata over current main.",
+          "mergeGate": "Prepared source is for this isolated implementation only. The new reviewer must reconcile accepted parent revisions and verify affected behavior before final local main merge; unaccepted parent code must not reach main through a dependent."
         }
       ]
-    },
-    {
-      "id": "combobox",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
-      "dependencies": [
-        "input",
-        "popover",
-        "command"
-      ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
     },
     {
       "id": "dropdown-menu",
@@ -2409,13 +2492,14 @@
         "Pass focused component/consumer tests and root/full-profile analysis; create a new reviewer for all remaining official browser/native acceptance, dependency composition and final local main merge. The accepted Popover main revision is a required final merge gate."
       ],
       "decisions": [
-        "Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch."
+        "Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.",
+        "Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -2424,9 +2508,15 @@
           "commit": "d99562f0f6973c9dc3f566eea02d9b00c6de4f7b",
           "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
           "evidence": "Parent reviewer verified the exact prepared pin contains implementation b410f9da and lifecycle correction 8281dda2 with unchanged public API. 100 focused tests (seed 826145) and root/full analysis passed before its latest accepted-main integration. Final fixture repair and browser/native acceptance remain pending.",
-          "mergeGate": "Source preparation only in this isolated worktree. Dropdown Menu reviewer must wait for and integrate the accepted Popover local main revision, reconcile overlap and verify affected behavior before any final merge."
+          "mergeGate": "Parent is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
         }
-      ]
+      ],
+      "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+      "reviewBranch": "codex/review-dropdown-menu",
+      "reviewStatus": "in_progress",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
+      "reviewHandoffCommit": "48599440787a16d27c00d1b399d021f385113be5"
     },
     {
       "id": "context-menu",
@@ -2517,21 +2607,39 @@
     },
     {
       "id": "calendar",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
+      "branch": "codex/ui-calendar",
       "dependencies": [
         "button",
         "select"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Calendar API and every Basic, Range, month/year selector, Presets, date/time, booked dates, custom cell size, week numbers and RTL example; account explicitly for timezone and alternate-calendar guidance with exact primary-source mapping.",
+        "Provide typed date/selection/display ownership and correct date boundaries, disabled/hidden/outside/booked states, localization and keyboard navigation/focus; keep civil-day, instant/timezone and application scheduling semantics explicit.",
+        "Compose shared final selection, Field and Input Group owners for required examples; preserve compact shadcn geometry, live host tokens, native accessibility, touch, narrow/scaled/RTL layouts and reduced motion.",
+        "Audit core/plugin calendar and date surfaces, migrate appropriate uses while preserving server/domain state, and verify meaningful boundary/selection/focus/adoption regressions plus root/full analysis.",
+        "Prepare exact-source fixtures and create an independent reviewer that owns all remaining reference/native acceptance, final compositions and local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "select",
+          "branch": "codex/ui-select",
+          "commit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e",
+          "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
+          "evidence": "Select API source423d81ee with source handoff69e5ec66; source owner reported115 focused checks/root-full analysis/macOS build, then14 focused Select regression checks. Independent reviewer owns current fixes and acceptance.",
+          "mergeGate": "Prepared source is for this isolated implementation only. The new reviewer must reconcile accepted parent revisions and verify affected behavior before final local main merge; unaccepted parent code must not reach main through a dependent."
+        }
+      ]
     },
     {
       "id": "date-picker",
@@ -2697,21 +2805,44 @@
     },
     {
       "id": "attachment",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
+      "branch": "codex/ui-attachment",
       "dependencies": [
         "dialog",
         "spinner"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Reproduce the frozen Attachment, Media, Content, Title, Description, Actions, Action, Trigger and Group APIs and full Image, States, Sizes, Group and Trigger examples with recorded primary-source mapping.",
+        "Support actual interaction, keyboard focus, native semantics, grouped scrolling, narrow/scaled/RTL layouts, reduced motion and live host theme/font/radius while keeping upload/network/domain ownership in app adapters.",
+        "Audit and adopt throughout appropriate core/plugin file/upload/image previews including composers and Chat; preserve existing media state, async lifecycle and callbacks and record retained alternatives.",
+        "Run meaningful focused component/consumer checks and root/full analysis, prepare exact-source fixtures and create a new reviewer for remaining rendered/native acceptance, final compositions, fixes and local main merge."
+      ],
+      "decisions": [
+        "Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "implementationCommit": "17f2d88f31adaf3748341745e423d37810f88419",
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "dialog",
+          "branch": "codex/review-dialog",
+          "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
+          "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+          "evidence": "Committed Dialog public API and close-geometry/semantics corrections with 23 focused checks, root/full analysis, real Chat/Voice migration checks and official browser inspection; final native acceptance remains with the parent reviewer.",
+          "mergeGate": "Parent is accepted on local main at 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
+        }
+      ],
+      "reviewTaskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
+      "reviewBranch": "codex/review-attachment",
+      "reviewStatus": "in_progress",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/a5fc/discourse-native",
+      "reviewHandoffCommit": "7c465bd106296dd9a102af5e08aefbb04e09f265"
     },
     {
       "id": "marker",
@@ -2770,23 +2901,41 @@
     },
     {
       "id": "bubble",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
+      "branch": "codex/ui-bubble",
       "dependencies": [
         "button",
         "collapsible",
         "popover",
         "tooltip"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Bubble, Content, Reactions and Group API and every variant, alignment, link/action, Collapsible, Tooltip and Popover composition with recorded reference geometry and behavior.",
+        "Compose shared owners with accessible independent actions/reactions, focus/keyboard/touch behavior, narrow/scaled/RTL layouts, reduced motion and live host tokens; preserve domain message/network ownership outside generic widgets.",
+        "Audit and migrate appropriate core/plugin bubble surfaces, coordinate final Toast reaction and later Attachment/Message boundaries directly, and retain all documented examples without primitive duplication.",
+        "Pass focused component/consumer checks and root/full analysis, prepare exact-source fixtures, then create a new independent reviewer to finish required rendered/native review and final local main merge."
+      ],
+      "decisions": [
+        "Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "popover",
+          "branch": "codex/review-popover",
+          "commit": "d99562f0f6973c9dc3f566eea02d9b00c6de4f7b",
+          "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
+          "evidence": "Committed Popover API with lifecycle correction 8281dda2; 100 focused checks and root/full analysis passed at this source pin. Parent owns final native/reference and accepted Native Select composition verification.",
+          "mergeGate": "Parent is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
+        }
+      ]
     },
     {
       "id": "message",
@@ -2997,11 +3146,11 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T10:26:30+00:00",
+    "updatedAt": "2026-09-09T11:50:25+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 5,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
-    "mergePolicy": "Each component reviewer reviews, fixes, verifies and merges directly from the main checkout under the shared main lease; no coordinator approval gate.",
+    "mergePolicy": "Each reviewer prepares a candidate from current main, reviews/fixes/verifies, and performs the final --no-ff merge only from the main checkout under its lease. Do not merge main into a worktree; no coordinator approval gate.",
     "nativeInspectionPolicy": "Reviewers acquire the shared desktop lease directly; busy requests join a first-come, first-served queue, retries preserve position, and callers release held leases or cancel waiting requests before ending a turn.",
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -3062,26 +3211,6 @@
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97"
         },
         {
-          "component": "dialog",
-          "taskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
-          "branch": "codex/review-dialog",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/49f1/discourse-native",
-          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
-          "status": "independent_review",
-          "headCommit": "715ab477e807d3ba4f1f8d3492d09036844c7505",
-          "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932"
-        },
-        {
-          "component": "popover",
-          "taskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
-          "branch": "codex/review-popover",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/b664/discourse-native",
-          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
-          "status": "independent_review",
-          "headCommit": "cb7f9e2e474529b1ac2559f1226d47590202e23f",
-          "implementationTaskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd"
-        },
-        {
           "component": "item",
           "taskId": "01a08558-aec4-7591-ac85-682a1eae4290",
           "branch": "codex/review-item",
@@ -3089,26 +3218,6 @@
           "headCommit": "32ce1f96e1a1648bd5f29d8268c8b37855d3e39b",
           "status": "independent_review",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
-        },
-        {
-          "component": "tabs",
-          "taskId": "01a08581-d666-7f81-b039-f9caae6c45c2",
-          "branch": "codex/review-tabs",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c5db/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
-          "implementationBranch": "codex/ui-tabs",
-          "headCommit": "fcb0e06f084954f7f1576af7b6967a6dec3fff03"
-        },
-        {
-          "component": "toggle",
-          "taskId": "01a08579-4e43-7ce2-9919-546137c84a24",
-          "branch": "codex/review-toggle",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6d80/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08567-ac29-7dd0-ba78-1717a5235bd0",
-          "implementationBranch": "codex/ui-toggle",
-          "headCommit": "17e7778e355ee398f8dad71f5839f98b7627cb9f"
         },
         {
           "component": "toast",
@@ -3121,44 +3230,6 @@
           "headCommit": "329c3e1182709d0e7577123e29dc9769741e08fa"
         },
         {
-          "component": "input-group",
-          "taskId": "01a085af-d606-7281-ac25-34c83adc855e",
-          "branch": "codex/ui-input-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6a88/discourse-native",
-          "status": "implementation"
-        },
-        {
-          "component": "dropdown-menu",
-          "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
-          "branch": "codex/ui-dropdown-menu",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/bb70/discourse-native",
-          "status": "implementation"
-        },
-        {
-          "component": "button-group",
-          "taskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
-          "branch": "codex/review-button-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
-          "implementationBranch": "codex/ui-button-group",
-          "headCommit": "a0cca310458ad1d5f7096d75d4116b04718dbf09"
-        },
-        {
-          "component": "select",
-          "taskId": "01a085bb-1d11-7f52-a7bd-667348469087",
-          "branch": "codex/ui-select",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e158/discourse-native",
-          "status": "implementation"
-        },
-        {
-          "component": "command",
-          "taskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
-          "branch": "codex/ui-command",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5ebf/discourse-native",
-          "status": "implementation"
-        },
-        {
           "component": "accordion",
           "taskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
           "branch": "codex/review-accordion",
@@ -3169,10 +3240,108 @@
           "headCommit": "42e6cc265ba2875c91af2a8cb22dd443cb80786c"
         },
         {
+          "component": "dropdown-menu",
+          "taskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+          "branch": "codex/review-dropdown-menu",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
+          "implementationBranch": "codex/ui-dropdown-menu",
+          "headCommit": "48599440787a16d27c00d1b399d021f385113be5"
+        },
+        {
+          "component": "input-group",
+          "taskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
+          "branch": "codex/review-input-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/478c/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085af-d606-7281-ac25-34c83adc855e",
+          "implementationBranch": "codex/ui-input-group",
+          "headCommit": "bc39e7f4ffab614dad82b13f6b5ad749869fc6fa"
+        },
+        {
+          "component": "command",
+          "taskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
+          "branch": "codex/review-command",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a336/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
+          "implementationBranch": "codex/ui-command",
+          "headCommit": "f3180d998bd901ce24c2f21e386d5b08f78afbd5"
+        },
+        {
+          "component": "select",
+          "taskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
+          "branch": "codex/review-select",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f6b1/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085bb-1d11-7f52-a7bd-667348469087",
+          "implementationBranch": "codex/ui-select",
+          "headCommit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e"
+        },
+        {
           "component": "toggle-group",
-          "taskId": "01a085ce-ca89-7af3-8375-946721be90c6",
-          "branch": "codex/ui-toggle-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3394/discourse-native",
+          "taskId": "01a085e6-4bb7-7e13-9e2a-98992292b4b3",
+          "branch": "codex/review-toggle-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ddc5/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085ce-ca89-7af3-8375-946721be90c6",
+          "implementationBranch": "codex/ui-toggle-group",
+          "headCommit": "7f4de6a88f41983a20ec757dd606153bca067500"
+        },
+        {
+          "component": "button-group",
+          "taskId": "01a085f4-2a6b-7c82-9dc3-c9b14d76b355",
+          "branch": "codex/review-button-group-recovered",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9bb7/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
+          "implementationBranch": "codex/ui-button-group",
+          "headCommit": "97554adac80cf4a702408966add2702f3bc313e0"
+        },
+        {
+          "component": "bubble",
+          "taskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
+          "branch": "codex/ui-bubble",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6fe3/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "alert-dialog",
+          "taskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
+          "branch": "codex/ui-alert-dialog",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/1a18/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "attachment",
+          "taskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
+          "branch": "codex/review-attachment",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a5fc/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
+          "implementationBranch": "codex/ui-attachment",
+          "headCommit": "7c465bd106296dd9a102af5e08aefbb04e09f265"
+        },
+        {
+          "component": "calendar",
+          "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
+          "branch": "codex/ui-calendar",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2336/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "combobox",
+          "taskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
+          "branch": "codex/ui-combobox",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/1a64/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "hover-card",
+          "taskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
+          "branch": "codex/ui-hover-card",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/02bf/discourse-native",
           "status": "implementation"
         }
       ],
@@ -3224,7 +3393,7 @@
       },
       "button": {
         "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
-        "issue": "Small/extra-small rounded-md uses radius×.8, not radius-minus-2; verify exact registry classes and preserve host custom-radius scale. Live proportional theme mapping independently confirmed during Badge browser review.",
+        "issue": "Small/extra-small rounded-md uses radius\u00d7.8, not radius-minus-2; verify exact registry classes and preserve host custom-radius scale. Live proportional theme mapping independently confirmed during Badge browser review.",
         "status": "resolved_and_merged",
         "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94"
       },
@@ -3258,9 +3427,9 @@
       },
       "dialog": {
         "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
-        "status": "resolved_awaiting_browser_and_native_review",
+        "status": "resolved_review_ready",
         "issue": "Correct same-root async session ownership and disposed completion, target parent route below typed child, and update open content/dismissal/controller configuration without form reset. Helper-specific review: build content below the actual route and preserve live caller-scoped Theme/MediaQuery/Directionality below Navigator.",
-        "resolution": "Source b75bee83 fixes session/disposal ownership, typed parent route removal, live content/dismissal/controller configuration, and route-descendant helper context with caller-scoped theme/media/direction updates. 393 integration and22 focused checks pass; exact native build prepared, not launched."
+        "resolution": "Source b75bee83 fixes session/disposal ownership, typed parent route removal, live content/dismissal/controller configuration, and route-descendant helper context with caller-scoped theme/media/direction updates. Independent review corrects the rendered close surface to 28px at 8a800783; browser and final native CUA comparison passed, with randomized focused checks and static analysis clean."
       },
       "popover": {
         "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
@@ -3331,28 +3500,6 @@
           "status": "in_progress"
         },
         {
-          "component": "dialog",
-          "title": "Review and merge Dialog",
-          "taskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/49f1/discourse-native",
-          "branch": "codex/review-dialog",
-          "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932",
-          "implementationBranch": "codex/ui-dialog",
-          "status": "in_progress"
-        },
-        {
-          "component": "popover",
-          "title": "Review and merge Popover",
-          "taskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/b664/discourse-native",
-          "branch": "codex/review-popover",
-          "implementationTaskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
-          "implementationBranch": "codex/ui-popover",
-          "status": "in_progress"
-        },
-        {
           "component": "alert",
           "title": "Review and merge Alert",
           "taskId": "01a08558-ae1e-7843-8cff-724c8e877ba5",
@@ -3384,7 +3531,8 @@
           "branch": "codex/review-toggle",
           "implementationTaskId": "01a08567-ac29-7dd0-ba78-1717a5235bd0",
           "implementationBranch": "codex/ui-toggle",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "a492253dc0abaed3f424df1b59c5a11b266d5b60"
         },
         {
           "component": "tabs",
@@ -3395,7 +3543,8 @@
           "branch": "codex/review-tabs",
           "implementationTaskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
           "implementationBranch": "codex/ui-tabs",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "7e6bf1234fcd55aced4037c7e36946d017fe5c79"
         },
         {
           "component": "carousel",
@@ -3421,18 +3570,6 @@
           "status": "in_progress"
         },
         {
-          "component": "button-group",
-          "title": "Review and merge Button Group",
-          "taskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
-          "hostId": "local",
-          "branch": "codex/review-button-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native",
-          "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
-          "implementationBranch": "codex/ui-button-group",
-          "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
-          "status": "in_progress"
-        },
-        {
           "component": "accordion",
           "title": "Review and merge Accordion",
           "taskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
@@ -3442,10 +3579,110 @@
           "implementationTaskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
           "implementationBranch": "codex/ui-accordion",
           "status": "in_progress"
+        },
+        {
+          "component": "dropdown-menu",
+          "title": "Review and merge Dropdown Menu",
+          "taskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
+          "branch": "codex/review-dropdown-menu",
+          "implementationTaskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
+          "implementationBranch": "codex/ui-dropdown-menu",
+          "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
+          "status": "in_progress"
+        },
+        {
+          "component": "input-group",
+          "title": "Review and merge Input Group",
+          "taskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/478c/discourse-native",
+          "branch": "codex/review-input-group",
+          "implementationTaskId": "01a085af-d606-7281-ac25-34c83adc855e",
+          "implementationBranch": "codex/ui-input-group",
+          "implementationCommit": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
+          "status": "in_progress"
+        },
+        {
+          "component": "command",
+          "title": "Review and merge Command",
+          "taskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a336/discourse-native",
+          "branch": "codex/review-command",
+          "implementationTaskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
+          "implementationBranch": "codex/ui-command",
+          "implementationCommit": "c73c39b8e284abc85fcecfe74d7cf5cf83cd91c7",
+          "status": "in_progress"
+        },
+        {
+          "component": "select",
+          "title": "Review and merge Select",
+          "taskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f6b1/discourse-native",
+          "branch": "codex/review-select",
+          "implementationTaskId": "01a085bb-1d11-7f52-a7bd-667348469087",
+          "implementationBranch": "codex/ui-select",
+          "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
+          "status": "in_progress"
+        },
+        {
+          "component": "toggle-group",
+          "title": "Review and merge Toggle Group",
+          "taskId": "01a085e6-4bb7-7e13-9e2a-98992292b4b3",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ddc5/discourse-native",
+          "branch": "codex/review-toggle-group",
+          "implementationTaskId": "01a085ce-ca89-7af3-8375-946721be90c6",
+          "implementationBranch": "codex/ui-toggle-group",
+          "implementationCommit": "d6a9be0d00c160dffa7daf67e8f2f4cefa00c336",
+          "status": "in_progress"
+        },
+        {
+          "component": "button-group",
+          "title": "Recover and merge Button Group",
+          "taskId": "01a085f4-2a6b-7c82-9dc3-c9b14d76b355",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9bb7/discourse-native",
+          "branch": "codex/review-button-group-recovered",
+          "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
+          "implementationBranch": "codex/ui-button-group",
+          "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
+          "status": "in_progress"
+        },
+        {
+          "component": "attachment",
+          "title": "Review and merge Attachment",
+          "taskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a5fc/discourse-native",
+          "branch": "codex/review-attachment",
+          "implementationTaskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
+          "implementationBranch": "codex/ui-attachment",
+          "implementationCommit": "17f2d88f31adaf3748341745e423d37810f88419",
+          "status": "in_progress"
         }
       ],
       "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks.",
-      "leaseVerification": "Three behavioral tests passed in an isolated candidate: eight-way main exclusion and scope independence; eight concurrent desktop waiters retain order without overtaking; cancellation and wrong-owner/token enforcement preserve the current holder."
+      "leaseVerification": "Three behavioral tests passed in an isolated candidate: eight-way main exclusion and scope independence; eight concurrent desktop waiters retain order without overtaking; cancellation and wrong-owner/token enforcement preserve the current holder.",
+      "supersededReviewTasks": [
+        {
+          "component": "button-group",
+          "title": "Review and merge Button Group",
+          "taskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
+          "hostId": "local",
+          "branch": "codex/review-button-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native",
+          "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
+          "implementationBranch": "codex/ui-button-group",
+          "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
+          "status": "superseded",
+          "reason": "Repeated intermittent app-managed Git index.lock denials. Task confirmed stopped without leases; original worktree/index/history preserved.",
+          "replacementTaskId": "01a085f4-2a6b-7c82-9dc3-c9b14d76b355"
+        }
+      ]
     },
     "resourceCoordination": {
       "main": "Shared main lease; reviewer owns local merge.",
@@ -3521,8 +3758,8 @@
       "Final standalone macOS build passes at 6d8c63edcbcd8372408a4a5ec8ccc9d8479e5bbb. Its isolated kernel matches the workspace build: SHA256 90f5d1b5d4689ca2a660441be25859071c9f9c9f15bf3dc10817147efc373342. Deep strict signature verification passes.",
       "Native dark/light documentation, independent preview theme, code/state retention, 360px/200% swatches, centered Card, actual narrow-window Sidebar search/selection, Escape/focus return, and compact desktop Sidebar demo were inspected. Exact source checkpoints, evidence and limits: docs/component-library/styleguide-design.md.",
       "Real application flutter build macos --debug --no-pub passed from 07539c2c57533835094f70b02e07cfbbba92896a in the isolated coordinator checkout. Its complete Git tree f288c94ea575d48a3585b1ca6355e4d35ce0ddf3 exactly matches merged main 0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5. The running app in the main checkout build directory was preserved. Log: /private/tmp/styleguide-real-app-final-build.log.",
-      "Coordinator exported and visually inspected Light/Dark Foundations at 1270×847 logical pixels / 2× output with the Flutter widget-test renderer and explicitly loaded SFNS/Material fonts. Source c5d37bd1 has identical styleguide/Sidebar code to final 6d8c63ed. Export harness completed successfully; /private/tmp/styleguide-b104-render.log. PNGs/provenance: /Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/styleguide-current-{dark,light}.png and styleguide-preview-provenance.json. This is a test-renderer preview, not native desktop verification.",
-      "Coordinator inspected the live official Button documentation in CUA Chrome at a matched 1270×847 viewport after discovering browser control remains available independently of the Mac lock. The live h1 measures 30px / 36px, weight 600 and -0.75px tracking, matching the documentation shell specification. Compared live dark reference canvas/panel/navigation with the current Flutter test export. Temporary browser viewport was reset and the created tab closed before granting Button the browser-only comparison slot. This still does not verify native application interactions."
+      "Coordinator exported and visually inspected Light/Dark Foundations at 1270\u00d7847 logical pixels / 2\u00d7 output with the Flutter widget-test renderer and explicitly loaded SFNS/Material fonts. Source c5d37bd1 has identical styleguide/Sidebar code to final 6d8c63ed. Export harness completed successfully; /private/tmp/styleguide-b104-render.log. PNGs/provenance: /Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/styleguide-current-{dark,light}.png and styleguide-preview-provenance.json. This is a test-renderer preview, not native desktop verification.",
+      "Coordinator inspected the live official Button documentation in CUA Chrome at a matched 1270\u00d7847 viewport after discovering browser control remains available independently of the Mac lock. The live h1 measures 30px / 36px, weight 600 and -0.75px tracking, matching the documentation shell specification. Compared live dark reference canvas/panel/navigation with the current Flutter test export. Temporary browser viewport was reset and the created tab closed before granting Button the browser-only comparison slot. This still does not verify native application interactions."
     ],
     "limitations": [
       "The Mac locked before the final explicit-scrollbar screenshot. Its appearance and native drag remain unverified; the mouse-drag widget test passes.",
@@ -3562,7 +3799,7 @@
       "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "branch": "codex/component-fidelity-follow-up",
       "status": "complete",
-      "reason": "The captured Sidebar floating class is rounded-lg, which maps to the base radius; the prior implementation used ×1.2. Correct paint and border to the actual theme scale.",
+      "reason": "The captured Sidebar floating class is rounded-lg, which maps to the base radius; the prior implementation used \u00d71.2. Correct paint and border to the actual theme scale.",
       "implementationCommit": "6a99b2d29cf15f404db598894557fbd7e75649fc",
       "mergeCommit": "be0e96446270b1a063a72081be3ffa0b6d8c6bc5",
       "bundle": "/private/tmp/DiscourseComponentFidelityB104-a872962f.app",
@@ -3589,7 +3826,7 @@
       "verification": [
         "Before: reproduced the fixed70px row overflow in the actual narrow200% DiagnosticsPanel.",
         "After:31 Diagnostics panel/acceptance tests plus1 font-loaded production render test passed, seed909515. Root/full analysis clean.",
-        "Actual360×1000 production panel exported at100%/200% with SFNS and MaterialIcons,2× raster. Request lifecycle seed verified to show status200 and120ms durations. Method labels remain on one line.",
+        "Actual360\u00d71000 production panel exported at100%/200% with SFNS and MaterialIcons,2\u00d7 raster. Request lifecycle seed verified to show status200 and120ms durations. Method labels remain on one line.",
         "Committed-source macOS build succeeded;1386 tracked source files match commit, app.dill/built/copied kernels match, deep strict signature passes. Bundle has not been launched.",
         "Actual populated DiagnosticsPanel at360px: dark100% and200%, light100%; row methods/status/duration fit; scroll and request details opened at200%. Header/filter truncation at200% is retained pending their component migrations."
       ],
@@ -3627,7 +3864,7 @@
       "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "branch": "codex/component-fidelity-follow-up",
       "implementationCommit": "5775a7d3793f830c9bf2700dc03f949a58d7fc7f",
-      "problem": "Native accessibility showed only the styleguide search because its editable role merged into the1280×860 page node. Isolate search semantics to its own field bounds and label.",
+      "problem": "Native accessibility showed only the styleguide search because its editable role merged into the1280\u00d7860 page node. Isolate search semantics to its own field bounds and label.",
       "verification": [
         "Original native AX behavior and widget semantics dump reproduced.",
         "31 styleguide access/page/Sidebar tests passed seed909614; includes desktop/mobile search semantic bounds and label. Root/full analysis clean.",
@@ -3647,27 +3884,34 @@
       "status": "complete",
       "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
       "dependency": "native-select",
-      "requirement": "Verified in 6a608c56 after Native Select merged: a non-focused DNativeSelect option outside DPopover bounds keeps the parent open, then Escape closes Native Select first and Popover second."
+      "requirement": "Verified in 6a608c56 after Native Select merged: a non-focused DNativeSelect option outside DPopover bounds keeps the parent open, then Escape closes Native Select first and Popover second.",
+      "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
+      "acceptedDependencyMerge": "0cdec859288cb2fa0369f64e1a9c1c022dc033e4",
+      "mergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a",
+      "verification": "Popover reviewer confirmed final DNativeSelect layering regression at 6a608c56, official browser/native macOS review and 102 focused/downstream tests (seed 826145), with root/full analysis clean."
     },
     "reviewPrerequisites": {
       "input-group": {
-        "status": "implementation",
+        "status": "independent_review",
         "requestedBy": "01a08558-ae1d-7d61-a060-dd8cce1380fc",
-        "nextAction": "Input Group prepares against the recorded Textarea source pin while final parent acceptance completes. Its new reviewer must integrate accepted Textarea main and complete required Empty/Field/Button Group compositions directly before final acceptance.",
-        "taskId": "01a085af-d606-7281-ac25-34c83adc855e"
+        "nextAction": "Input Group reviewer owns final Field/Dropdown/Popover examples and accepted Textarea integration. Preserve the prepared Empty search reconciliation. Button Group is a downstream consumer and coordinates its own required Input Group composition; do not introduce a backwards acceptance gate.",
+        "taskId": "01a085af-d606-7281-ac25-34c83adc855e",
+        "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45"
       },
       "dropdown-menu": {
-        "status": "implementation",
+        "status": "independent_review",
         "requestedBy": "01a08558-aec4-7591-ac85-682a1eae4290",
-        "nextAction": "Dropdown Menu prepares against the recorded tested Popover review pin; its new reviewer must integrate accepted Popover main before final merge and own final Table Actions and Item/Button Group/Input Group compositions directly.",
-        "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4"
+        "nextAction": "Dropdown Menu reviewer owns final accepted Popover integration, all required examples and app adoption, including the tracked Table Actions followup; coordinate Item, Input Group and replacement Button Group owners directly.",
+        "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
+        "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5"
       },
       "tabs": {
-        "status": "independent_review",
+        "status": "complete",
         "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
         "requestedBy": "01a08558-a79c-7911-8f75-53b3528fc08f",
-        "nextAction": "Tabs implementer creates final review/merge task and coordinates the documented Collapsible File Tree composition directly; retain the outstanding composition until verified.",
-        "reviewTaskId": "01a08581-d666-7f81-b039-f9caae6c45c2"
+        "nextAction": "Accepted Tabs merge includes the final Collapsible File Tree DTabs composition; component/example checks and native evidence are recorded in Tabs.",
+        "reviewTaskId": "01a08581-d666-7f81-b039-f9caae6c45c2",
+        "mergeCommit": "7e6bf1234fcd55aced4037c7e36946d017fe5c79"
       }
     }
   }

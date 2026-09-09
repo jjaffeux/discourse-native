@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**33 of 64 components are merged locally.** 13 existing components are in progress; 18 are planned.
+**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -16,18 +16,22 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
-| toggle-group | Implementation and checks | — | — |
+| toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
-| popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
-| dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
-| select | Implementation and checks | — | — |
+| hover-card | Implementation and checks | — | — |
+| alert-dialog | Implementation and checks | — | — |
+| select | independent review | 69e5ec66 | 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
-| input-group | Implementation and checks | — | — |
-| button-group | independent review | a0cca310 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
-| command | Implementation and checks | — | — |
-| dropdown-menu | Implementation and checks | — | — |
+| input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
+| button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
+| command | independent review | f3180d99 | 01a085d3-21b9-75d0-a4f0-c739439ccb9d |
+| combobox | Implementation and checks | — | — |
+| dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
+| calendar | Implementation and checks | — | — |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
+| attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
+| bubble | Implementation and checks | — | — |
 
 ## Component implementation
 
@@ -63,9 +67,9 @@ Branch preparation does not mark a component merged or visually verified.
 | 28 | accordion | in_progress | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | — |
 | 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
-| 31 | popover | review_ready | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
-| 32 | hover-card | planned | — | — | popover, avatar | — |
-| 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
+| 31 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
+| 32 | hover-card | in_progress | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | — |
+| 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 35 | sheet | planned | — | — | dialog | — |
 | 36 | drawer | planned | — | — | dialog | — |
@@ -75,21 +79,21 @@ Branch preparation does not mark a component merged or visually verified.
 | 40 | input-group | in_progress | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner | — |
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | in_progress | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | — |
-| 43 | combobox | planned | — | — | input, popover, command | — |
+| 43 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command | — |
 | 44 | dropdown-menu | in_progress | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
 | 45 | context-menu | planned | — | — | dropdown-menu | — |
 | 46 | menubar | planned | — | — | dropdown-menu | — |
 | 47 | navigation-menu | planned | — | — | popover | — |
 | 48 | breadcrumb | planned | — | — | button, dropdown-menu | — |
 | 49 | pagination | planned | — | — | button, select | — |
-| 50 | calendar | planned | — | — | button, select | — |
+| 50 | calendar | in_progress | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
-| 55 | attachment | planned | — | — | dialog, spinner | — |
+| 55 | attachment | in_progress | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
-| 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
+| 57 | bubble | in_progress | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
@@ -1164,6 +1168,7 @@ Status: in_progress. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/u
 **decisions**
 
 - Started from accepted current main after Toggle merge a492253d and Carousel merge 3ec0c089. Two completed reviewer tasks freed capacity for a fifth independent source implementation; the implementer creates its own new review/merge task.
+- Independent reviewer 01a085e6-4bb7-7e13-9e2a-98992292b4b3 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 7f4de6a88f41983a20ec757dd606153bca067500 is source evidence, not acceptance.
 
 ### slider
 
@@ -1917,7 +1922,7 @@ Status: merged. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-res
 
 ### popover
 
-Status: review_ready. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-popover.
+Status: merged. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-popover.
 
 **acceptanceCriteria**
 
@@ -1966,14 +1971,29 @@ Status: review_ready. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/
 - No spoken VoiceOver session or iOS/Linux device inspection was performed.
 - Browser Geist and native host-font rasterization differ; review establishes geometry, styling, interaction and accessibility structure rather than pixel equality.
 
+### hover-card
+
+Status: in_progress. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/ui-hover-card.
+
+**acceptanceCriteria**
+
+- Match the frozen Hover Card full anatomy/API and Composition, Trigger Delays, Positioning, Basic, Sides and RTL examples, with actual Base UI Preview Card behavior and measured reference artwork.
+- Compose accepted Popover/Avatar/Button owners with correct hover delays, pointer-gap retention, rapid-trigger/disposal cancellation, positioning/collision, focus/Escape/touch semantics and meaningful trigger navigation; avoid an accidental modal focus trap.
+- Support live open-card themes, native accessibility, narrow/scaled/RTL layouts and reduced motion; audit and migrate appropriate core/plugin user/topic/link previews while preserving fetching, permissions, cache and navigation in adapters.
+- Verify meaningful timer/pointer/focus/state/adoption regressions and root/full analysis, prepare exact-source fixtures and create an independent reviewer for required rendered/native acceptance and final local main merge.
+
+**decisions**
+
+- Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
+
 ### dialog
 
-Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/ui-dialog.
+Status: merged. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/ui-dialog.
 
 **acceptanceCriteria**
 
 - Provide one public generic Dialog owner exported from discourse_ui.dart with typed DDialogController<T>, DDialog/DDialogTrigger/DDialogContent/DDialogHeader/DDialogTitle/DDialogDescription/DDialogFooter/DDialogClose composition and a showDDialog<T> helper that uses the nearest Navigator by default.
-- Match the frozen base-nova registry at 100% scale: black/10 blurred backdrop, full-width popup capped at 384px with 16px viewport margins, 16px grid gaps and padding, xl radius, foreground/10 one-pixel exterior ring, popover surface, 16px medium/leading-none title, 14px muted description, 8px header/footer gaps, muted/50 bordered footer, and a 32px ghost X close control at logical top/end 8px.
+- Match the frozen base-nova registry at 100% scale: black/10 blurred backdrop, full-width popup capped at 384px with 16px viewport margins, 16px grid gaps and padding, xl radius, foreground/10 one-pixel exterior ring, popover surface, 16px medium/leading-none title, 14px muted description, 8px header/footer gaps, muted/50 bordered footer, and a 28px ghost X close control at logical top/end 8px.
 - Support uncontrolled and externally controlled open state, typed close results, trigger/close reasons, custom or omitted corner close controls, footer close composition, custom initial/final focus, focus trap/restoration, Escape and barrier dismissal policies, programmatic close, route/widget removal, nested Navigators/dialogs, and live inherited theme/direction/text-scale/reduced-motion changes while open.
 - Keep background content modal/inert and expose a correctly labeled dialog route and independent close/actions to assistive technology; preserve keyboard Tab/Shift-Tab traversal, mouse/touch activation, 48px invisible touch affordances where needed, logical RTL placement, and focus visibility without merging editable field semantics with surrounding controls.
 - Provide constrained and scrollable layouts that avoid keyboard/view-inset obstruction and overflow at 320px width and 200% text, including documented default profile form, Custom Close Button, No Close Button, Sticky Footer, Scrollable Content and Arabic RTL examples; compose the merged Input owner while keeping Field with its separate catalogue owner.
@@ -1989,6 +2009,7 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/u
 - showDDialog<T> defers its builder into a route-descendant context and bridges live caller-scoped Theme, MediaQuery and Directionality updates while retaining caller-owned Form state.
 - The native surface uses shared DButton and DInput owners, live DTokens, exact 16px custom X artwork, closed-loop focus traversal, logical placement, modal semantics, SafeArea/view-inset handling and reduced-motion behavior.
 - Seven actual styleguide examples cover default profile editing, custom/no close controls, sticky and scrollable layouts, RTL and controlled/typed results without implementing the separately owned Field primitive.
+- Independent rendered review measured the current base-nova icon-sm close surface at 28px rather than the source task's provisional 32px criterion. The default corner close now uses DButtonSize.small without an inset surface, preserving the 16px artwork, logical 8px inset and larger invisible touch affordance.
 
 **migrations**
 
@@ -2005,13 +2026,19 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/u
 - Root and profiles/full flutter analyze --no-pub pass; touched Dart is formatted and git diff --check is clean.
 - Final randomized Dialog/styleguide/Chat/Voice run passes all 393 tests with seed 4147437372. The 22 focused Dialog/example checks pass with seed 4094924130, including typed nested routes, controller replacement, current content/dismissal policy, open-session submit ownership, disposal, live helper scope and retained Form state.
 - Isolated flutter build macos --debug --no-pub -t lib/dialog_native_fixture.dart and unique DialogNativeReview Xcode scheme build pass from final source b75bee83e15f75692e8391502e5640124f83b9ed.
-- Prepared unlaunched bundle /private/tmp/discourse-native-dialog.qNoMNI/build/DialogNativeReviewDerived/Build/Products/Debug/Dialog Native Review.app has identifier org.discourse.native.styleguide.dialog; six production source files byte-match the worktree and d_dialog.dart SHA-256 is 05993f5cb8c3e388e8ab7d5bd7a2b8260862eeef24e3c769d53a6675e34438db.
-- Final bundle kernel SHA-256 is cce09d0ea6b8e0139c0ce9f7698efaa826896280f51df75d22afa3a79486528b. Ad-hoc codesign --verify --deep --strict passes; entitlements contain only sandbox, JIT, audio/camera, user-selected read/write and network client/server, with no APS, application identifier or team identifier.
+- The implementation-prepared unlaunched bundle /private/tmp/discourse-native-dialog.qNoMNI/build/DialogNativeReviewDerived/Build/Products/Debug/Dialog Native Review.app has identifier org.discourse.native.styleguide.dialog; six production source files byte-match the implementation worktree and its d_dialog.dart SHA-256 is 05993f5cb8c3e388e8ab7d5bd7a2b8260862eeef24e3c769d53a6675e34438db.
+- The implementation-prepared bundle kernel SHA-256 is cce09d0ea6b8e0139c0ce9f7698efaa826896280f51df75d22afa3a79486528b. Ad-hoc codesign --verify --deep --strict passes; entitlements contain only sandbox, JIT, audio/camera, user-selected read/write and network client/server, with no APS, application identifier or team identifier.
+- Independent review after the 28px close correction: 23 randomized Dialog/styleguide tests passed with seed 2145466268; root analysis passed with no diagnostics. The full profile analysis passed, and focused real Chat and Voice migration checks passed 2 + 2 tests.
+- Official rendered base-nova comparison covered light and dark default Dialog, Arabic RTL and Scrollable Content. Measured default geometry was 384x305, 16px padding/gap, 14px radius, 16px/16px weight-500 title, 14px/20px description, 384x65 footer with 16px padding and 8px gaps, and a 28x28 close surface at logical top/end 8px. RTL moved the close to logical start and mirrored actions; the scroll example kept its header visible over a 50vh body.
+- Final isolated native fixture /private/tmp/discourse-native-dialog.qNoMNI/build/macos/Build/Products/Debug/Dialog Native Review.app mounts the real Chat and Voice editors plus the actual component styleguide. Reviewed Dialog source SHA-256 is f438edbbc8b0484044389d3df603bf09212ee40ad680628af930557563b80b5e; final fixture kernel SHA-256 is 662c83fdf2d391f64f8e5a34d14324bb5e6bf417c64d158fb810b0fb546a580c. Strict ad-hoc signature verification passed with the previously recorded permitted entitlements.
+- Native CUA inspection covered real Chat field editing and cancellation; real Voice edit/create in Plum, RTL and 200% text with independently scrollable bodies and sticky actions; disabled/enabled save validation; reduced-motion opening; Escape dismissal; closed-loop forward Tab focus; and default, Scrollable Content and Arabic RTL styleguide examples. The 28px close remained an independent Close button and moved to logical start in RTL. The isolated app was quit and the desktop lease released.
+- Latest-main candidate verification after preserving merged Collapsible, Popover, Table, Tabs and Native Select plus current dependent-task metadata: all 23 randomized Dialog/styleguide tests passed with seed 2165732119, and root flutter analyze --no-pub passed with no diagnostics.
+- Accepted candidate 1b1e9e1e merged into local main with merge commit 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3.
 
 **limitations**
 
-- Native/reference-rendered visual comparison and VoiceOver/device behavior remain awaiting the coordinator's serialized UI slot; the prepared uniquely identified app has not been launched and no CUA interaction was performed.
-- No physical iOS/Linux execution. Rich Field composition remains with its planned catalogue owner; Dialog now composes merged DInput where applicable.
+- No physical iOS/Linux execution or VoiceOver speech session was performed. macOS AX inspection and widget semantics checks cover the route label and independent fields/actions, but do not substitute for device assistive-technology testing.
+- Rich Field composition remains with its separate catalogue owner; Dialog composes the merged DInput where applicable. Native font shaping and antialiasing differ from browser rendering, so no automated pixel-identical cross-renderer claim is made.
 
 ### alert-dialog
 
@@ -2020,20 +2047,21 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 **acceptanceCriteria**
 
 - Export typed DAlertDialog root/trigger/content/header/media/title/description/footer/cancel/action APIs and showDAlertDialog, composing final DDialog route/focus/lifecycle and DButton interaction owners.
-- Match frozen base-nova regular/small responsive popup, 16px padding/gaps, xl radius, popover surface, foreground/10 ring, 40/24px media, 16px heading, 14/20 description and flush muted footer geometry without an ordinary Dialog corner close.
+- Match frozen base-nova regular/small responsive popup, 16px padding/gaps, xl radius, popover surface, foreground/10 ring, 40/24px media, 16px heading, 14/20px description and flush muted footer geometry without an ordinary Dialog corner close.
 - Require an explicit response: outside press remains inert, Escape is an explicit configurable cancel path, cancel precedes action in keyboard order, focus is trapped/restored and typed results remain distinct.
 - Support controlled/uncontrolled/borrowed-controller ownership, coalesced async submission, loading/disabled/error/retry, late-completion/re-entry guards, live theme/font/radius/direction/text-scale/reduced-motion changes, 320px/200% layouts, RTL and native pointer/touch/keyboard/semantics behavior.
 - Demonstrate Composition, Basic, Small, Media, Small with Media, Destructive and RTL plus controlled/typed/async states using real public widgets and local data.
 - Audit core and plugins and migrate appropriate focused confirmations while retaining permissions, persistence, async work, lifecycle leases and cancellation in application owners.
-- Format and pass focused component/dependency/consumer tests plus root/full static analysis; prepare an exact-source unique unlaunched macOS review bundle and local-data production adapter harness; independent reviewer completes rendered/native acceptance after Dialog merges.
+- Format and pass focused component/dependency/consumer tests plus root/full static analysis; prepare an exact-source unique unlaunched macOS review bundle and local-data production adapter harness; independent reviewer completes rendered/native acceptance.
 
 **decisions**
 
 - Frozen Markdown was re-fetched and exactly matched ccc9147729b395b1d80ba6c9190ffbd5b556213571f958bb10c111a38b63c2da. base-nova registry and linked Base UI anatomy/API were inspected; docs/component-library/alert-dialog.md records complete mapping and source hashes.
-- DAlertDialog delegates route, live inherited environment, modal barrier, focus containment/restoration, typed results and controller session guards to the exact reviewed Dialog pin 8a80078316381a60f70b4e11adbc919814ca9fbc. Alert Dialog only specializes required-response dismissal, composition and surface geometry.
+- DAlertDialog delegates route, live inherited environment, modal barrier, focus containment/restoration, typed results and controller session guards to accepted DDialog. Alert Dialog only specializes required-response dismissal, composition and surface geometry.
 - Outside presses are always ignored. Escape remains a configurable cancellation request. There is no corner close. Ordered focus keeps Cancel first even when the narrow reference visually reverses the footer column.
 - DAlertDialogAction closes synchronously by default, can remain open for caller-owned work, or can bind a borrowed DDialogController to coalesced onSubmit work that closes only the same session on success and reports failure without hiding it.
 - showDiscourseAlertDialog is an application adapter outside generic UI. It standardizes the common two-result confirmation while every caller retains domain checks and post-confirmation effects.
+- Accepted Dialog merge 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 preserves the prepared public API. Alert Dialog exposes no corner close, so Dialog's reviewed 28px top/end close correction remains isolated to ordinary DDialogContent.
 
 **migrations**
 
@@ -2051,18 +2079,15 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 
 - flutter pub get --enforce-lockfile resolved the fresh worktree from committed dependencies without a lockfile change; Flutter remains pinned.
 - flutter test --no-pub test/ui/d_alert_dialog_test.dart test/styleguide/alert_dialog_examples_test.dart --test-randomize-ordering-seed=random --reporter expanded: 9 passed, seed 3089443727. Covers explicit dismissal, typed results, focus order, exact regular/small/media geometry, async loading/error/double-submit, disabled state and narrow 200% RTL reduced motion.
-- The reviewed Dialog dependency suite and Alert Dialog component/example checks reached 32 passing tests in the final focused matrix before consumer groups; Dialog route, environment, focus and lifecycle behavior remained green.
 - Draft/recovery, notification, Voice diagnostics, instance action and published-poll consumer group passed 55 tests at seed 1592572583. Diagnostics clear focused group passed 3; Bookmark UI passed 24 at the same seed.
 - Selected-post confirmation ownership passed 14 tests at seed 61956044 after updating the obsolete stock AlertDialog test owner assertion. Group-member, topic-action and topic-deletion suites passed 89 tests at seed 61956044; two focused Voice recording tests passed.
-- A broad randomized parallel consumer run reproduced the pre-existing diagnostics resize-handle hit-test flake and was stopped after a subsequent unrelated long-running topic test; the affected diagnostics clear tests passed separately and no component failure was inferred.
-- Root flutter analyze --no-pub passed in 2.9s and profiles/full passed in 1.7s; touched Dart is formatted and git diff --check passes.
+- A broad randomized parallel consumer run reproduced the pre-existing diagnostics resize-handle hit-test flake and was stopped after a subsequent unrelated long-running topic test; affected diagnostics clear tests passed separately and no component failure was inferred.
 - flutter build macos --debug --no-pub -t tool/alert_dialog_review.dart passed. Unlaunched /private/tmp/discourse-alert-dialog-review.uFQUBx/Alert Dialog Review.app was re-identified as org.discourse.native.styleguide.alertdialog with discourse-alert-dialog-review scheme and ad-hoc signed using only sandbox/JIT/audio/camera/user-selected/network/get-task debug entitlements. Deep strict verification passed; original/copied kernel SHA-256 both a2724f22c8a502674b303547455467b94ba6df30da6cfec4ac365037cf86248d.
-- Integrated current main at dc6ab75f (accepted Popover) in merge 54e0a782 without source conflicts. Post-integration Alert Dialog/Dialog component and styleguide matrix passed all 32 tests at seed 4000796387; root analysis passed in 8.0s, profiles/full in 1.5s and final diff checks are clean.
+- After accepted Dialog/current-main integration, 32 Alert Dialog/Dialog component and styleguide tests passed with seed 4000796387; root flutter analyze --no-pub passed in 8.0s and profiles/full passed in 1.5s. Public Dialog API/source overlap required no Alert Dialog change, and git diff checks remained clean.
 
 **limitations**
 
-- awaiting_review: no browser/native launch, official rendered comparison, VoiceOver speech or iOS/Linux device pass was performed. The independent reviewer owns first rendered/native acceptance and any corrections.
-- Dialog is not accepted on local main. This branch prepared against exact reviewed pin 8a80078316381a60f70b4e11adbc919814ca9fbc; the reviewer must wait for Dialog reviewer 01a08558-7ac2-79a3-bd49-1be6148f540c, integrate accepted current main, prevent the unaccepted parent from reaching main through this branch and reverify overlap.
+- awaiting_review: no Alert Dialog browser/native launch, official rendered comparison, VoiceOver speech or iOS/Linux device pass was performed. The independent reviewer owns first rendered/native acceptance and any corrections.
 - Task-creation API was unavailable after tool discovery. The exact committed handoff prompt is recorded for transport; no desktop lease was queued solely to create a task.
 
 ### select
@@ -2079,6 +2104,7 @@ Status: in_progress. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/u
 **decisions**
 
 - Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration.
+- Independent reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 69e5ec663e92bb61fa734ee43b6c3e738e96961e is source evidence, not acceptance.
 
 ### native-select
 
@@ -2199,6 +2225,7 @@ Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/u
 **decisions**
 
 - Source preparation may overlap Textarea final review using pinned committed source; acceptance and final main merge remain gated on the accepted parent revision. The implementer creates its own independent review/merge task.
+- Independent reviewer 01a085d3-1acf-7361-9dc8-fc4a99de7c45 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff bc39e7f4ffab614dad82b13f6b5ad749869fc6fa is source evidence, not acceptance.
 
 ### button-group
 
@@ -2218,6 +2245,7 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 - DButtonGroup is a passive semantic/layout boundary for independent controls. It owns no selection, roving focus or toolbar shortcuts; each child retains its callback, state, focus and native role.
 - A narrowly scoped DJoinedControlScope is installed per direct child. DButton and DInput consume only joined-edge geometry; nested groups replace the scope and overlays receive no broad Theme or radius override.
 - DButtonGroupExpanded is the explicit finite-width Flutter flex adaptation for the reference input:flex-1 selector. The styleguide remains baseline until the reviewer replaces four dependency-aware fixtures with final owning components.
+- Independent reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 97554adac80cf4a702408966add2702f3bc313e0 is source evidence, not acceptance.
 
 **migrations**
 
@@ -2258,6 +2286,23 @@ Status: in_progress. Task: 01a085bc-5eda-7712-9863-190bf6846bcc. Branch: codex/u
 **decisions**
 
 - Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration.
+- Independent reviewer 01a085d3-21b9-75d0-a4f0-c739439ccb9d owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff f3180d998bd901ce24c2f21e386d5b08f78afbd5 is source evidence, not acceptance.
+
+### combobox
+
+Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/ui-combobox.
+
+**acceptanceCriteria**
+
+- Implement the frozen Base UI Combobox complete autocomplete/chips/collection API and Simple, chips, groups, custom items, multiple selection, clear, invalid, disabled, auto highlight, Popup, Input Group and RTL examples with primary-source mapping.
+- Provide typed selection/query/filter/highlight ownership, editable focus/IME, dynamic/disabled results, chip navigation/deletion, keyboard selection, anchored scrolling/collision, dismissal/restoration and safe lifecycle; preserve domain querying/network state in adapters.
+- Use accepted shared popup/input owners and reconcile Command/Field/Input Group/Item APIs where the actual Base UI semantics fit; retain every required example and prevent prepared parents reaching main before acceptance.
+- Migrate appropriate core/plugin searchable selectors and multi-value fields, preserving permissions, asynchronous results and callbacks; verify focused component/consumer regressions and root/full analysis with live themes and native/scaled/RTL behavior.
+- Create a new independent reviewer for remaining official rendered/native acceptance, fixes, required compositions and final local main merge.
+
+**decisions**
+
+- Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
 
 ### dropdown-menu
 
@@ -2274,6 +2319,23 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 **decisions**
 
 - Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
+- Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
+
+### calendar
+
+Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-calendar.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Calendar API and every Basic, Range, month/year selector, Presets, date/time, booked dates, custom cell size, week numbers and RTL example; account explicitly for timezone and alternate-calendar guidance with exact primary-source mapping.
+- Provide typed date/selection/display ownership and correct date boundaries, disabled/hidden/outside/booked states, localization and keyboard navigation/focus; keep civil-day, instant/timezone and application scheduling semantics explicit.
+- Compose shared final selection, Field and Input Group owners for required examples; preserve compact shadcn geometry, live host tokens, native accessibility, touch, narrow/scaled/RTL layouts and reduced motion.
+- Audit core/plugin calendar and date surfaces, migrate appropriate uses while preserving server/domain state, and verify meaningful boundary/selection/focus/adoption regressions plus root/full analysis.
+- Prepare exact-source fixtures and create an independent reviewer that owns all remaining reference/native acceptance, final compositions and local main merge after parent acceptance.
+
+**decisions**
+
+- Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
 
 ### carousel
 
@@ -2401,6 +2463,21 @@ Status: merged. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/ui-ale
 - Integration: 129 focused component and migrated adapter tests passed; 2 styleguide tests then passed including explicit final extraSmall Button toggle behavior. Root/full-profile analysis passed. Unique Alert Integration Review 38df bundle built from 1efab06c; app.dill/framework/copied kernels all SHA256 43527a2e8cdda4ec7f3e8ed7079ac9ecab5bef98560d03cd866bbbbfcff2ddb8. Restricted-free local debug/JIT/network signed readback and deep strict signature verification passed. Exact source/path/entitlements in evidence/alert/integration-build.json.
 - Independent review: 62 post-fix Alert/UserSummary/Assign/Badges/Preferences tests passed, followed by 77 affected tests after latest-main reconciliation. Root and full-profile analysis passed. The accepted-source Alert Final Review ae77 bundle kernel SHA256 is 2a5f2508f01d86b37dcbae2d9731c47fe5b0be49c0dbc9a046ca572151f75d5f; deep strict signature and restricted-identity checks passed. Official Base UI basic/destructive/action/custom/RTL examples were compared in light/dark. Native macOS production fixtures passed light/dark, retry/dismiss, RTL and 200% text checks; styleguide action, live Plum palette and 360px RTL were accepted. Evidence: evidence/alert/final-review-build.json. No iOS/Linux claim.
 
+### attachment
+
+Status: in_progress. Task: 01a085d4-9afd-7082-8081-f8b1f8f66287. Branch: codex/ui-attachment.
+
+**acceptanceCriteria**
+
+- Reproduce the frozen Attachment, Media, Content, Title, Description, Actions, Action, Trigger and Group APIs and full Image, States, Sizes, Group and Trigger examples with recorded primary-source mapping.
+- Support actual interaction, keyboard focus, native semantics, grouped scrolling, narrow/scaled/RTL layouts, reduced motion and live host theme/font/radius while keeping upload/network/domain ownership in app adapters.
+- Audit and adopt throughout appropriate core/plugin file/upload/image previews including composers and Chat; preserve existing media state, async lifecycle and callbacks and record retained alternatives.
+- Run meaningful focused component/consumer checks and root/full analysis, prepare exact-source fixtures and create a new reviewer for remaining rendered/native acceptance, final compositions, fixes and local main merge.
+
+**decisions**
+
+- Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
+
 ### marker
 
 Status: merged. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-marker.
@@ -2447,6 +2524,21 @@ Status: merged. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-mar
 - No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.
 - The native fixture mounts the actual shared StreamDaySeparator used by Topic and Chat with local callbacks; no authenticated live account or network session was opened.
 - Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette mapping, motion, interaction and native semantics were compared directly.
+
+### bubble
+
+Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/ui-bubble.
+
+**acceptanceCriteria**
+
+- Match the frozen Bubble, Content, Reactions and Group API and every variant, alignment, link/action, Collapsible, Tooltip and Popover composition with recorded reference geometry and behavior.
+- Compose shared owners with accessible independent actions/reactions, focus/keyboard/touch behavior, narrow/scaled/RTL layouts, reduced motion and live host tokens; preserve domain message/network ownership outside generic widgets.
+- Audit and migrate appropriate core/plugin bubble surfaces, coordinate final Toast reaction and later Attachment/Message boundaries directly, and retain all documented examples without primitive duplication.
+- Pass focused component/consumer checks and root/full analysis, prepare exact-source fixtures, then create a new independent reviewer to finish required rendered/native review and final local main merge.
+
+**decisions**
+
+- Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
 
 ### chart
 

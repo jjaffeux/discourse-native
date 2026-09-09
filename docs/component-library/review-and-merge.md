@@ -98,23 +98,26 @@ alternate route, policy bypass, OS security or provisioning changes.
 1. Work in your new task's isolated worktree on its own `codex/` review branch.
    Read main's current conventions, this file and your component's evidence.
    Merge the existing implementation branch into your review branch, preserving
-   its commits. Do not duplicate or reset its worktree. Bring in current local
-   main and resolve actual code conflicts in your own worktree. Preserve all
-   other component owners, exports, examples and production migrations.
+   its commits. Do not duplicate or reset its worktree. Start the candidate
+   from current local main and merge the implementation/review branch into it.
+   The explicit user convention prohibits merging main into a worktree. If
+   main advances, prepare a candidate from that newer main and bring the
+   reviewed branch into it, preserving history and resolving conflicts there.
+   Preserve all other owners, exports, examples and production migrations.
 2. Complete the source, app adoption, official rendered reference and native
    review. Use the existing exact-source isolated bundle when applicable;
    rebuild for source changes that affect it. Record meaningful focused tests
    and root/full-profile analysis as appropriate to the actual changes. The
    user does not require the full suite. Finish fixes in this review task.
-3. Reconcile with the latest main in your worktree, preserving its complete
+3. Reconcile a candidate based on latest main in your worktree, preserving its complete
    progress record and changing only your component row and explicitly owned
    dependency follow-ups. Shared progress files in an older implementation are
    historical: never replace current main's other rows or workflow with them.
    Set the example's implemented status only after acceptance. Commit.
 4. Acquire `main`, then recheck that main is on `main`, no merge is in progress,
    and its HEAD still matches the main revision you integrated. If it moved,
-   release, integrate the new commits in your worktree, verify the affected
-   overlap and retry. Inspect and preserve unrelated working changes. Do not
+   release, prepare the candidate from newer main without merging main into
+   the worktree, verify the affected overlap and retry. Inspect and preserve unrelated working changes. Do not
    stash, reset, commit or overwrite another task's or the user's changes.
 5. From **`/Users/joffreyjaffeux/Code/discourse-native` on main**, perform the
    authorized `git merge --no-ff YOUR_REVIEW_BRANCH`. Final merges must happen
