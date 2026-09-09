@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
+**35 of 64 components are merged locally.** 17 existing components are in progress; 12 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -85,7 +85,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 46 | menubar | planned | — | — | dropdown-menu | — |
 | 47 | navigation-menu | planned | — | — | popover | — |
 | 48 | breadcrumb | planned | — | — | button, dropdown-menu | — |
-| 49 | pagination | planned | — | — | button, select | — |
+| 49 | pagination | in_progress | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | — |
 | 50 | calendar | in_progress | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
@@ -2287,6 +2287,24 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 
 - Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
 - Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
+
+### pagination
+
+Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/ui-pagination.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Pagination anatomy and measured 32px ghost/outline link surfaces, 2px item gap, directional previous/next labels and 16px chevron/ellipsis artwork across default, Simple, Icons Only, routing/link and Arabic RTL examples.
+- Provide explicit typed controlled, locally owned and borrowed DPaginationController APIs for one-based page, page count and page size; keep callbacks caller-owned and clamp safely across empty, single-page and dynamic total/page-size changes.
+- Implement accurate first/last/previous/next/page/ellipsis window behavior with current-page and disabled native semantics, visible focus, keyboard/touch activation, logical RTL icons, narrow/200%-text wrapping and live theme/font/radius/reduced-motion support.
+- Complete the final Field/Select rows-per-page composition from the accepted owner APIs; expose a stable compact embedded API to Data Table while leaving server queries, loading, caching and URL state in adapters.
+- Audit core and bundled plugins for bounded-page consumers, migrate only appropriate numbered paging and retain cursor/infinite-scroll surfaces with explicit rationale; cover dynamic boundaries, keyboard/semantics and any migrated consumer regressions.
+- Record exact frozen/reference sources and mapping, format touched files, pass focused component/styleguide/adoption tests and root/full-profile analysis, prepare source-exact macOS fixtures, then create a separate reviewer for official rendered/native acceptance, fixes and local main merge after accepted Select reconciliation.
+
+**decisions**
+
+- Prepared against Select reviewer source 7d474deffdb0cdda5f13f83ceaf1b4bfff6a6581 on codex/review-select, reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22. Its 38 Select/Popover and 168 downstream tests, root/full analysis and exact-source macOS build passed; final Select native/reference acceptance and main merge remain pending.
+- Pagination's independent reviewer must reconcile the accepted Select revision from current main and prevent this prepared parent ancestry from reaching main before Select acceptance.
 
 ### calendar
 

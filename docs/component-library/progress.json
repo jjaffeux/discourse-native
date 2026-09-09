@@ -2563,21 +2563,41 @@
     },
     {
       "id": "pagination",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
+      "branch": "codex/ui-pagination",
       "dependencies": [
         "button",
         "select"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Pagination anatomy and measured 32px ghost/outline link surfaces, 2px item gap, directional previous/next labels and 16px chevron/ellipsis artwork across default, Simple, Icons Only, routing/link and Arabic RTL examples.",
+        "Provide explicit typed controlled, locally owned and borrowed DPaginationController APIs for one-based page, page count and page size; keep callbacks caller-owned and clamp safely across empty, single-page and dynamic total/page-size changes.",
+        "Implement accurate first/last/previous/next/page/ellipsis window behavior with current-page and disabled native semantics, visible focus, keyboard/touch activation, logical RTL icons, narrow/200%-text wrapping and live theme/font/radius/reduced-motion support.",
+        "Complete the final Field/Select rows-per-page composition from the accepted owner APIs; expose a stable compact embedded API to Data Table while leaving server queries, loading, caching and URL state in adapters.",
+        "Audit core and bundled plugins for bounded-page consumers, migrate only appropriate numbered paging and retain cursor/infinite-scroll surfaces with explicit rationale; cover dynamic boundaries, keyboard/semantics and any migrated consumer regressions.",
+        "Record exact frozen/reference sources and mapping, format touched files, pass focused component/styleguide/adoption tests and root/full-profile analysis, prepare source-exact macOS fixtures, then create a separate reviewer for official rendered/native acceptance, fixes and local main merge after accepted Select reconciliation."
+      ],
+      "decisions": [
+        "Prepared against Select reviewer source 7d474deffdb0cdda5f13f83ceaf1b4bfff6a6581 on codex/review-select, reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22. Its 38 Select/Popover and 168 downstream tests, root/full analysis and exact-source macOS build passed; final Select native/reference acceptance and main merge remain pending.",
+        "Pagination's independent reviewer must reconcile the accepted Select revision from current main and prevent this prepared parent ancestry from reaching main before Select acceptance."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "select",
+          "branch": "codex/review-select",
+          "commit": "7d474deffdb0cdda5f13f83ceaf1b4bfff6a6581",
+          "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
+          "evidence": "Reviewed stable DSelect<T> source including compact DSelectSize.small; 38 Select/Popover tests and 168 downstream tests passed with seed 391447, root/full analysis clean and exact-source macOS build successful. Final native/reference acceptance remains with the Select reviewer.",
+          "mergeGate": "Select is not accepted or merged. Pagination's reviewer must wait for its accepted local-main merge, reconcile the final API/source and verify the Field/Select composition before Pagination can merge."
+        }
+      ]
     },
     {
       "id": "calendar",
