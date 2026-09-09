@@ -195,6 +195,41 @@ void main() {
     }
   });
 
+  testWidgets('navigation shrink-wraps inside a bounded-height footer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(240, 568),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: SizedBox(
+              width: 240,
+              height: 568,
+              child: Wrap(
+                children: [
+                  DPaginationNavigation.controlled(
+                    page: 2,
+                    pageCount: 8,
+                    showPageNumbers: false,
+                    onPageChanged: _ignorePage,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.getSize(find.byType(DPagination)), const Size(240, 32));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'explicit parts retain logical order and link activation in RTL',
     (tester) async {
