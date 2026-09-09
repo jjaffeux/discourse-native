@@ -4535,15 +4535,12 @@ void _registerChatShellTests() {
           tester.getTopLeft(edit).dy,
           greaterThanOrEqualTo(tester.getBottomLeft(identity).dy),
         );
-        expect(tester.getSize(settingsTab).height, 58);
-        expect(
-          tester.widget<Text>(settingsLabel).style?.fontSize,
-          theme.textTheme.titleSmall?.fontSize,
-        );
-        expect(
-          tester.widget<Text>(settingsLabel).style?.fontWeight,
-          FontWeight.w500,
-        );
+        expect(tester.getSize(settingsTab).height, 25);
+        final settingsStyle = DefaultTextStyle.of(
+          tester.element(settingsLabel),
+        ).style;
+        expect(settingsStyle.fontSize, 14);
+        expect(settingsStyle.fontWeight, FontWeight.w500);
         expect(
           tester.widget<Text>(summaryTitle).style?.fontSize,
           theme.textTheme.titleLarge?.fontSize,

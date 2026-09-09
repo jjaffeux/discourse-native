@@ -18,6 +18,7 @@ import 'examples/skeleton_examples.dart';
 import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
 import 'examples/switch_examples.dart';
+import 'examples/tabs_examples.dart';
 import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
@@ -44,6 +45,7 @@ final componentExamples = <String, ComponentExamples>{
   'spinner': spinnerExamples,
   'slider': sliderExamples,
   'switch': switchExamples,
+  'tabs': tabsExamples,
   'button': buttonExamples,
   'tooltip': tooltipExamples,
   'select': baselineSelectExamples,
