@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -115,6 +116,8 @@ class DCarouselAutoplay extends DCarouselPlugin {
     _controller = controller;
     controller.addListener(_controllerChanged);
     _allowed = playOnInit;
+    _hovered = false;
+    _focused = false;
     didChangeEnvironment(context);
   }
 
@@ -354,6 +357,7 @@ class _DCarouselState extends State<DCarousel> {
         container: true,
         explicitChildNodes: true,
         label: widget.semanticLabel,
+        role: widget.semanticLabel == null ? null : SemanticsRole.region,
         child: Focus(
           focusNode: widget.focusNode,
           autofocus: widget.autofocus,
