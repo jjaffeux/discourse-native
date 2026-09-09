@@ -1,0 +1,17 @@
+[
+  {
+    "file": "field.md",
+    "url": "https://ui.shadcn.com/docs/components/base/field.md",
+    "sha256": "1afe174f74b982ec86fad520dab464a16bfe289c2d54fde88241ce3a791112ee"
+  },
+  {
+    "file": "field.json",
+    "url": "https://ui.shadcn.com/r/styles/base-nova/field.json",
+    "sha256": "586110f5563cbb5dc0929207ee34361f1349cf2f816465799c60b98821e4cedc"
+  },
+  {
+    "file": "field.tsx",
+    "url": "https://ui.shadcn.com/r/styles/base-nova/field.json",
+    "sha256": "d8a8444942021d020de9b5358a0a3d4f3a5ea572ceabaa38c318a9916903a5f8"
+  }
+]

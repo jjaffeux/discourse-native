@@ -75,7 +75,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 36 | drawer | planned | — | — | dialog | — |
 | 37 | select | in_progress | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | — |
 | 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
-| 39 | field | in_progress | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
+| 39 | field | review_ready | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
 | 40 | input-group | in_progress | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner | — |
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | in_progress | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | — |
@@ -2125,7 +2125,7 @@ Status: merged. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/ui-nat
 
 ### field
 
-Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/ui-field.
+Status: review_ready. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/ui-field.
 
 **acceptanceCriteria**
 
@@ -2133,47 +2133,45 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/u
 - Export a single generic DFieldSet/Legend/Group/Field/Content/Label/Title/Description/Separator/Error owner with vertical, horizontal and 448px container-responsive layout, both legend variants, nested/choice groups, rich content, error deduplication and no competing Form state.
 - Provide explicit native control-label-description-error association and label activation without duplicate tab stops; verify validation semantics, Form save/reset, disabled handling, borrowed focus lifecycle and state retention across layout changes.
 - Match choice cards: 10px padding plus 1px border, proportional lg radius, selected primary border/background with multiplicative alpha, disabled opacity, hover and outside-only 3px keyboard focus ring.
-- Cover every frozen reference composition in self-contained actual Field examples; explicitly retain current native/baseline controls until unmerged Button/Input/Textarea/Checkbox/Radio/Switch/Slider/Select owners are reconciled.
+- Cover every frozen reference composition in self-contained actual Field examples and reconcile the accepted Button/Input/Textarea/Checkbox/Radio/Switch/Slider/Native Select owners without duplicating their state or semantics.
 - Audit core and all bundled plugins, migrate surrounding composition without taking Input/Textarea/Alert ownership, record precise overlaps and retained alternatives, and verify changed production behavior.
-- Format touched code; pass root/full-profile analysis and meaningful Field/styleguide/downstream tests with pins unchanged. Prepare isolated uniquely identified macOS debug styleguide/production fixture, source equality and kernel/signature evidence. Remain in_progress awaiting_slot until serialized reference/native inspection passes.
+- Format touched code; pass root/full-profile analysis and meaningful Field/styleguide/downstream tests with pins unchanged. Prepare and inspect an isolated uniquely identified macOS debug styleguide/production fixture with source equality and kernel/signature evidence.
 
 **decisions**
 
-- Owns Field composition only, based on local main 402fe578; Label and Separator merged. No imports from unmerged component worktrees.
-- Coordinator send_message_to_thread is absent from available tool metadata; report ownership and overlap through this row and final handoff.
-- Primary source hashes and measured geometry/API/semantics/migration mapping recorded in docs/component-library/field.md and reference/field/.
-- Single Field composition owner plus DFieldControl native association; no Form state or borrowed resource ownership. Choice cards use outside-only 3px ring and multiplicative live alpha.
-- Nine actual-component examples with generated complete runnable sources. Baseline status explicitly preserves the pending control reconciliation/native review gate.
-- Bounded integration preparation: merge pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 via 6c31531c. Preserve completed Button/Badge/Input/Radio/Checkbox implementations and shared root fixes. Reconcile ordinary Field examples with DInput/DCheckbox/DRadioGroup and primary/outline Button actions; Radio label/card activation borrows its item focus node. Preserve explicit unmerged native Switch/Textarea/Select/Slider adapters and sole-FormField custom error demo.
+- Primary source hashes and measured geometry/API/semantics/native mapping are recorded in docs/component-library/field.md and reference/field/.
+- DField is the single layout/metadata owner and never a second Form, value, validation, focus or action owner. DFieldControl wraps exactly one otherwise-unlabelled native/custom control; completed DInput, DTextarea, DCheckbox, DRadioGroup, DSwitch/DSwitchTile, DSlider/DMultiSlider and DNativeSelect retain their public ownership.
+- Choice cards use an outside-only 3px focus ring and live multiplicative selected alpha. Disabled opacity covers the complete choice surface, including border and background, while pointer/focus guards keep it inert.
+- Nine actual-component examples use the accepted control owners. The responsive custom-error example deliberately retains one native FormField/TextField because DInput has no custom error builder.
+- Downstream Input Group composes DField/DFieldLabel/DFieldDescription around DInputGroup while DInputGroupInput remains the sole Form/value/validation/focus owner. Select composes Field metadata around DSelect without taking its Form/value/focus owner. Toggle Group and Button Group use Field layout/metadata without DFieldControl around multiple independent controls.
 
 **migrations**
 
 - Preferences _PreferenceCard uses DFieldGroup with spacing:0 to retain adapter-owned gaps; device-timezone help uses DFieldDescription. Saving, restoration, permissions and notice owners unchanged.
-- VoiceRoomEditorDialog uses DFieldGroup (20px); production showVoiceRoomEditor retains latest-controller save behavior, controller lifetimes and draft conversion. Public dialog name permits the actual production form to return local draft data in the isolated fixture.
-- Pinned integration: Voice ordinary DInput editors now have surrounding DFieldLabel/DFieldControl descriptions and dialog-owned borrowed focus nodes. Original controllers, required-name save guard, latest-controller resolution and multiline/switch owners remain. Preferences Field grouping/help and pinned-main owners preserved; 22 tests pass.
+- Voice editor retains the accepted Dialog owner and direct DInput, DTextarea, DSwitchTile and DNativeSelect control owners. showVoiceRoomEditor keeps controller lifetimes, required-name guard, draft conversion and latest-controller save behavior.
+- Field examples were reconciled with accepted Input, Textarea, Checkbox, Radio Group, Switch, Slider, Native Select and Button owners; generated runnable sources were refreshed when example bodies changed.
 
 **retainedAlternatives**
 
-- Full core/plugin audit and exact adjacent-owner overlaps recorded in field.md. Input/Textarea/Checkbox/Radio/Switch/Slider/Native Select/Button are unmerged; native example controls remain visibly temporary and no other worktree is imported.
-- Alert owns inline status/error notices and Empty page-scale states. Domain composite editors and schema-driven Poll/Local Dates/Events forms await serialized owner reconciliation.
-- After pinned integration, only multiline Textarea, Switch, selection and Slider sample controls remain unmerged placeholders. The responsive custom DFieldError example retains native FormField/TextField because merged DInput does not expose an error builder; no second value/validation owner or change to completed Input is introduced.
+- Alert owns inline status/error notices and Empty owns page-scale states. Domain composite editors retain their existing value and interaction owners.
+- The responsive DFieldError demonstration retains one native FormField/TextField because DInput does not expose a custom error builder; it does not introduce a second state owner.
 
 **verification**
 
-- Pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 merged via 6c31531c. All non-Field progress rows and completed Button/Badge/Input/Radio/Checkbox source preserved. Frozen reference capture/export work not repeated.
-- Integration source e298291e7c85ce47d24049004504c84208d3d07f: touched 5 Dart files format clean, git diff --check clean; root flutter analyze --no-pub clean (3.2s), profiles/full clean (1.4s). Logs /tmp/field-integration-final-analysis.log and /tmp/field-integration-full-analysis.log.
-- flutter test --no-pub test/styleguide/field_examples_test.dart test/ui/d_field_test.dart --test-randomize-ordering-seed=random: 21 passed, seed 2279137221; /tmp/field-integration-final-tests.log. New integration cases verify merged Input combined semantic metadata/editing action, compact Checkbox label/Space activation, Radio label focus and arrow ownership/disabled guard.
-- flutter test --no-pub test/preferences_page_test.dart: 22 passed; /tmp/field-integration-preferences.log. Targeted Voice editor tests (validates room names while the user types; uses the latest controller when saving a room): 2 passed; /tmp/field-integration-voice.log. Save finder now targets completed DButton and required metadata is checked at the Field/Input combined semantic boundary.
-- Fresh isolated flutter pub get --enforce-lockfile and flutter build macos --debug --no-pub -t tool/field_review_main.dart succeeded. Source e298291e7c85ce47d24049004504c84208d3d07f; artifact /var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-integration-ready-e298-vo08i7cv/Field Integration E298.app; identifier org.discourse.field.e298; scheme discourse-field-e298. No launch.
-- Exact-source evidence: 2869/2873 tracked source files/symlink targets match source Git blobs; four documented temporary runner-only identity/signing/entitlement overrides. Original/copied kernel SHA256 82cce279152dbbe67c9cbef442a44e91801c42676bd71e1108d19d8d5d62fd09. Explicit ad-hoc signed entitlement read-back equals the seven-key review whitelist, no APS/com.apple.developer.*/application/team identifiers, TeamIdentifier not set, no embedded provisioning. codesign --verify --deep --strict passes. Full proof docs/component-library/field-build.json.
-- Flutter 3.47.2, all root/Voice/full locks, production signing and provisioning unchanged. Initial branch checks and source-mapping history remain in field.md and prior commits.
-- awaiting_slot: Mac locked and coordinator-reported browser admin-policy failure remain untouched. No CUA/browser/native access, retry or bypass attempted. Reference/native/VoiceOver gate still pending; in_progress, not review_ready.
+- Independent source reconciliation fixed complete disabled choice-surface opacity and replaced temporary Switch, range Slider, Textarea and native selection examples with accepted DSwitchTile, DMultiSlider, DTextarea and DNativeSelect owners. Public-owner regressions cover single toggle activation, per-thumb slider semantics, multiline label/focus/setText, native selection and whole-surface disabled opacity.
+- flutter test --no-pub test/styleguide/field_examples_test.dart test/ui/d_field_test.dart test/voice_room_view_test.dart --test-randomize-ordering-seed=random: 88 passed on inspected source (seed 3512437341) and again after preparing the latest-main candidate (seed 690915376).
+- flutter test --no-pub test/preferences_page_test.dart --test-randomize-ordering-seed=random --reporter expanded: 22 passed, seed 2423156486.
+- Root flutter analyze --no-pub passed with no issues (7.8s). profiles/full flutter pub get --enforce-lockfile followed by flutter analyze --no-pub passed with no issues (1.6s). git diff --check passed and lockfile pins remained unchanged.
+- Fresh detached source 4efec6cc built with flutter build macos --debug --no-pub -t tool/field_review_main.dart. Exact bundle /private/tmp/field-review-ready-4efec6cc.em0DBs/Field Review 4EFEC6.app uses identifier org.discourse.field.review4efec6 and scheme discourse-field-review4efec6.
+- 3362/3366 tracked entries match source blobs; only four documented runner identity/signing files differ. Original/copied kernel SHA256 17c143b2e45abd69da86715ad941ad1df77b8446f446ad694c3cfd06b8e81cbe. Deep strict signature and exact seven-key ad-hoc entitlement read-back passed; no embedded profile or team/developer/application identifiers.
+- Approved browser inspection covered the official Field page in light/dark and confirmed all documented compositions, 448px group breakpoint, spacing, choice geometry/typography/state and responsive row behavior.
+- Exact macOS bundle inspection covered light/dark, LTR/RTL, 100%/200%, pointer selection, disabled choice inertness/full-surface opacity, invalid submission, responsive reflow, the actual Field styleguide, real Preferences Native Select/Switch and real Voice DInput/DTextarea/DSwitchTile/DNativeSelect ownership.
 
 **limitations**
 
-- awaiting_slot: Mac locked; coordinator reports independent first-browser-navigation admin-policy failure. No CUA/browser/native access, retry or bypass attempted. Reference-rendered/native inspection and VoiceOver remain unverified; status in_progress, not review_ready or mergeable.
-- Unmerged Switch/Textarea/selection/Slider examples retain explicit temporary controls. Responsive custom-error composition retains one native FormField/TextField because completed DInput exposes no custom error builder; documented in field.md. No completed control API or state owner was redesigned.
-- send_message_to_thread remains absent from available tool inventory. Progress record and final head/artifact report carry the coordinator handoff.
+- Native inspection was macOS only; iOS/Linux devices and spoken VoiceOver output were not run. Widget tests cover keyboard and accessibility roles/actions.
+- CUA could validate empty submission visually, but its direct set-value proxy did not update the Flutter TextEditingController for a manual successful-submit observation; Form save/reset and valid submission remain covered by widget tests.
+- The responsive custom-error example intentionally uses one native FormField/TextField because DInput has no custom error builder.
 
 ### input-group
 
