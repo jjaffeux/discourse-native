@@ -13,8 +13,8 @@ final labelExamples = ComponentExamples(
       'The host supplies the font family, text scaler and live foreground tokens. '
       'Native control slots own association, activation, focus and combined '
       'semantics; a standalone DLabel is ordinary text. Keep interactive links '
-      'outside a list tile. TextFormField composition remains temporary while '
-      'Field is pending. '
+      'outside a list tile. The form example composes the accepted DField and '
+      'DInput owners. '
       'The larger reference FieldDemo belongs to Field; its neighboring '
       'outline, horizontal and submit props are not Label variants.',
   examples: [
@@ -73,38 +73,34 @@ DCheckbox(
       builder: (_) => const _RichPreview(),
     ),
     StyleguideExample(
-      title: 'Label in a native form',
+      title: 'Label in a form',
       description:
-          'This demonstrates Label in Field ownership with a temporary native '
-          'TextFormField. The larger reference FieldDemo, FieldLabel, '
-          'descriptions and errors belong to the scheduled Field task; Input '
-          'and Field will port their shadcn visuals. Tap the email '
-          'label to focus its TextFormField. Submit an empty or invalid address '
-          'to see the native error and accessible required state. Submit a '
-          'valid address, then reset. The form, not DLabel, owns validation, '
-          'save/reset, descriptions and editing. Native floating-label '
-          'appearance is not a final exception to reference fidelity.',
+          'This demonstrates Label with the accepted Field and Input owners. '
+          'Tap the email label to focus its DInput. Submit an empty or invalid '
+          'address to see the shared error and accessible required state. '
+          'Submit a valid address, then reset. Form and DInput own validation, '
+          'save/reset and editing; DLabel remains presentational.',
       states: const ['Field composition', 'Required', 'Error', 'Save', 'Reset'],
       code: '''// Inside a State with a GlobalKey<FormState> formKey,
 // bool updates = false, and String? savedEmail.
 Form(
   key: formKey,
   child: Column(children: [
-    Semantics(
-      isRequired: true,
-      child: TextFormField(
-        keyboardType: TextInputType.emailAddress,
-        decoration: const InputDecoration(
-          labelText: 'Your email address',
-          helperText: 'Required. Used only in this local example.',
-          helperMaxLines: 3,
-          errorMaxLines: 3,
-        ),
+    DField(children: [
+      DFieldLabel(focusNode: emailFocus, excludeSemantics: true,
+        child: const Text('Your email address')),
+      const DFieldDescription(
+        child: Text('Required. Used only in this local example.')),
+      DFieldControl(label: 'Your email address',
+        description: 'Required. Used only in this local example.',
+        required: true,
+        child: DInput(focusNode: emailFocus,
+          keyboardType: TextInputType.emailAddress, isRequired: true,
         validator: (value) => (value ?? '').contains('@')
             ? null : 'Enter an email address containing @.',
         onSaved: (value) => savedEmail = value?.trim(),
-      ),
-    ),
+      )),
+    ]),
     DCheckbox(
       value: updates,
       onChanged: (value) => setState(() => updates = value ?? false),
@@ -265,8 +261,15 @@ class _FormPreview extends StatefulWidget {
 
 class _FormPreviewState extends State<_FormPreview> {
   final _formKey = GlobalKey<FormState>();
+  final _emailFocus = FocusNode();
   bool _updates = false;
   String? _savedEmail;
+
+  @override
+  void dispose() {
+    _emailFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Form(
@@ -274,23 +277,33 @@ class _FormPreviewState extends State<_FormPreview> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
-          isRequired: true,
-          child: TextFormField(
-            key: const ValueKey('label-email'),
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Your email address',
-              helperText: 'Required. Used only in this local example.',
-              helperMaxLines: 3,
-              errorMaxLines: 3,
+        DField(
+          children: [
+            DFieldLabel(
+              focusNode: _emailFocus,
+              excludeSemantics: true,
+              child: const Text('Your email address'),
             ),
-            validator: (value) => (value ?? '').contains('@')
-                ? null
-                : 'Enter an email address containing @.',
-            onChanged: (_) => setState(() => _savedEmail = null),
-            onSaved: (value) => _savedEmail = value?.trim(),
-          ),
+            const DFieldDescription(
+              child: Text('Required. Used only in this local example.'),
+            ),
+            DFieldControl(
+              label: 'Your email address',
+              description: 'Required. Used only in this local example.',
+              required: true,
+              child: DInput(
+                key: const ValueKey('label-email'),
+                focusNode: _emailFocus,
+                keyboardType: TextInputType.emailAddress,
+                isRequired: true,
+                validator: (value) => (value ?? '').contains('@')
+                    ? null
+                    : 'Enter an email address containing @.',
+                onChanged: (_) => setState(() => _savedEmail = null),
+                onSaved: (value) => _savedEmail = value?.trim(),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: DSpacing.md),
         DCheckbox(

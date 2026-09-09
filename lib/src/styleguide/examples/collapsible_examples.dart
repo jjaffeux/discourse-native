@@ -14,10 +14,9 @@ final collapsibleExamples = ComponentExamples(
       'focus or expose semantics. Animation is opt-in and respects reduced motion. '
       'Triggers accept passive children, not nested buttons. Button variants are '
       'example composition, not Collapsible props. Settings uses DInput editing '
-      'with Field composition still pending; the File Tree composes its '
-      'Explorer/Outline layers with controlled DTabs. Field intentionally '
-      'remains owned by DInput until its merged follow-up. Official rendered '
-      'and native review passed.',
+      'inside accepted DField composition; the File Tree composes its '
+      'Explorer/Outline layers with controlled DTabs. DInput remains the sole '
+      'editing and Form owner. Official rendered and native review passed.',
   examples: [
     StyleguideExample(
       title: 'Order details',

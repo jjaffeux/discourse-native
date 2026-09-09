@@ -1,12 +1,14 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/drawer_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Drawer is registered with every frozen example family', () {
     expect(componentExamples['drawer'], same(drawerExamples));
+    expect(drawerExamples.status, ComponentStatus.implemented);
     expect(
       drawerExamples.examples.map((example) => example.title),
       containsAll(const [

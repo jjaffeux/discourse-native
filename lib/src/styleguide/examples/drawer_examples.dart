@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final drawerExamples = ComponentExamples(
-  status: ComponentStatus.planned,
+  status: ComponentStatus.implemented,
   description:
       'A panel that slides from a viewport edge and supports touch dragging.',
   notes:
@@ -13,7 +13,8 @@ final drawerExamples = ComponentExamples(
       'borders and xl radius, optional 96×4 handle, four physical and two '
       'logical directions, nested stacking, true non-modal interaction and '
       'fraction/pixel/rem snap points. Flutter owns route, gesture-arena, '
-      'focus, safe-area and IME behavior. Review/native acceptance is pending.',
+      'focus, safe-area and IME behavior. Official rendered and native macOS '
+      'review passed; iOS, Linux and spoken VoiceOver were not exercised.',
   examples: [
     StyleguideExample(
       title: 'Delivery time',

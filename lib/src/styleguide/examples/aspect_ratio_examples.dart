@@ -115,15 +115,14 @@ const UnconstrainedBox(child: SizedBox(width: 160, child: DAspectRatio(ratio: 2)
           'Resize the ratio and change preview theme or direction: the draft, '
           'counter and descendants survive. Content scrolls within its fixed '
           'ratio at large text sizes. The example owns and disposes its text '
-          'controller. TextField remains a baseline native input until Input '
-          'is implemented.',
+          'controller. DInput and DButton are the accepted shared controls.',
       states: const ['State', 'Text input', 'Focus', 'Semantics', 'Scrolling'],
       code: '''// The caller owns and disposes controller; keep the child at a
 // stable position in the tree when changing ratio or inherited themes.
 DAspectRatio(ratio: ratio, child: SingleChildScrollView(
   padding: const EdgeInsets.all(DSpacing.lg),
   child: Column(children: [
-    TextField(controller: controller),
+    DInput(controller: controller),
     DButton(onPressed: increment, label: const Text('Increment')),
   ]),
 ))''',

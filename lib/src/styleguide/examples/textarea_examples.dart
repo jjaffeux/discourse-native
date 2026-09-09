@@ -17,8 +17,8 @@ final textareaExamples = ComponentExamples(
       'resize grip. Controller/value/initialValue are exclusive. Form reset '
       'restores the mount snapshot and emits onChanged; equal parent strings '
       'preserve composition. Borrowed editing/focus/scroll/undo owners are never '
-      'disposed. DLabel and native Form supply field composition while Field is '
-      'pending; the completed DButton supplies submit/reset actions.',
+      'disposed. DLabel, DField and native Form supply field composition; the '
+      'accepted DButton supplies submit/reset actions.',
   examples: [
     StyleguideExample(
       title: 'Default',

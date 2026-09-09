@@ -10,7 +10,7 @@ final tooltipExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   notes:
       'Tooltip reproduces the frozen base-nova surface and arrow. The composed '
-      'DButton remains the baseline control until its separate component task. '
+      'triggers use the accepted DButton owner. '
       'Tooltips supplement a named trigger; put essential instructions inline. '
       'Hover or Tab to a control, move into its tooltip, and press Escape to dismiss. '
       'Long press is a native app extension; it never invokes the child action. '
