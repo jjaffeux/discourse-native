@@ -157,6 +157,185 @@ void main() {
     expect(find.text('Example dialog'), findsOneWidget);
   });
 
+  testWidgets('open route uses updated content and dismissal policy', (
+    tester,
+  ) async {
+    bool dismiss = false;
+    String title = 'Before update';
+    final fieldController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    addTearDown(fieldController.dispose);
+    late StateSetter update;
+    await tester.pumpWidget(
+      _host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return DDialog<void>(
+              dismissOnBarrier: dismiss,
+              dismissOnEscape: dismiss,
+              trigger: DDialogTrigger(
+                builder: (context, open) =>
+                    TextButton(onPressed: open, child: const Text('Open')),
+              ),
+              content: DDialogContent(
+                children: [
+                  DDialogTitle(child: Text(title)),
+                  Form(
+                    key: formKey,
+                    child: TextField(
+                      key: const Key('retained-field'),
+                      controller: fieldController,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final formState = formKey.currentState;
+    await tester.enterText(find.byKey(const Key('retained-field')), 'draft');
+    update(() {
+      dismiss = true;
+      title = 'After update';
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('After update'), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      'draft',
+    );
+    expect(formKey.currentState, same(formState));
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+    expect(find.text('After update'), findsNothing);
+  });
+
+  testWidgets('open route uses an updated Escape policy', (tester) async {
+    bool dismissOnEscape = false;
+    late StateSetter update;
+    await tester.pumpWidget(
+      _host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return _dialog<void>(dismissOnEscape: dismissOnEscape);
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    update(() => dismissOnEscape = true);
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Example dialog'), findsNothing);
+  });
+
+  testWidgets('replacing a borrowed controller updates the open route scope', (
+    tester,
+  ) async {
+    final first = DDialogController<void>();
+    final second = DDialogController<void>();
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    var current = first;
+    late StateSetter update;
+    await tester.pumpWidget(
+      _host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return _dialog<void>(controller: current);
+          },
+        ),
+      ),
+    );
+    first.open();
+    await tester.pumpAndSettle();
+    update(() => current = second);
+    await tester.pumpAndSettle();
+
+    expect(first.isOpen, isFalse);
+    expect(second.isOpen, isTrue);
+    first.close();
+    await tester.pumpAndSettle();
+    expect(find.text('Example dialog'), findsOneWidget);
+    second.close();
+    await tester.pumpAndSettle();
+    expect(find.text('Example dialog'), findsNothing);
+  });
+
+  testWidgets('parent close targets its route below a typed child dialog', (
+    tester,
+  ) async {
+    final parent = DDialogController<String>();
+    final parentChanges = <DDialogChangeDetails<String>>[];
+    Future<int?>? childResult;
+    addTearDown(parent.dispose);
+    await tester.pumpWidget(
+      _host(
+        DDialog<String>(
+          controller: parent,
+          onOpenChanged: parentChanges.add,
+          trigger: DDialogTrigger(
+            builder: (context, open) =>
+                TextButton(onPressed: open, child: const Text('Open parent')),
+          ),
+          content: DDialogContent(
+            children: [
+              const DDialogTitle(child: Text('Parent content')),
+              Builder(
+                builder: (context) => TextButton(
+                  onPressed: () {
+                    childResult = showDDialog<int>(
+                      context: context,
+                      builder: (context, controller) => DDialogContent(
+                        children: [
+                          const DDialogTitle(child: Text('Child content')),
+                          DDialogClose<int>(
+                            result: 7,
+                            builder: (context, close) => TextButton(
+                              onPressed: close,
+                              child: const Text('Close child'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: const Text('Open child'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    parent.open();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open child'));
+    await tester.pumpAndSettle();
+
+    parent.close('parent result');
+    await tester.pumpAndSettle();
+    expect(find.text('Parent content'), findsNothing);
+    expect(find.text('Child content'), findsOneWidget);
+    expect(parentChanges.last.result, 'parent result');
+
+    await tester.tap(find.text('Close child'));
+    await tester.pumpAndSettle();
+    expect(await childResult, 7);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Escape requests close and reports its reason', (tester) async {
     final changes = <DDialogChangeDetails<void>>[];
     await tester.pumpWidget(_host(_dialog<void>(onOpenChanged: changes.add)));

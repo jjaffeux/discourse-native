@@ -186,6 +186,9 @@ class _DDialogState<T> extends State<DDialog<T>> {
   late bool _internalOpen;
   final Object _attachment = Object();
   final ValueNotifier<_DDialogEnvironment?> _environment = ValueNotifier(null);
+  final ValueNotifier<_DDialogConfiguration<T>?> _configuration = ValueNotifier(
+    null,
+  );
   _DDialogRoute<T>? _route;
   NavigatorState? _navigator;
   FocusNode? _previousFocus;
@@ -209,6 +212,7 @@ class _DDialogState<T> extends State<DDialog<T>> {
   void didUpdateWidget(DDialog<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.controller != oldWidget.controller) {
+      _controller._setOpen(false);
       _controller._detach(_attachment);
       if (oldWidget.controller == null) _controller.dispose();
       _controller =
@@ -271,13 +275,8 @@ class _DDialogState<T> extends State<DDialog<T>> {
     _previousFocus = FocusManager.instance.primaryFocus;
     final route = _DDialogRoute<T>(
       settings: widget.routeSettings,
-      barrierLabel: widget.barrierLabel,
-      dismissOnBarrier: widget.dismissOnBarrier,
-      dismissOnEscape: widget.dismissOnEscape,
       environment: _environment,
-      content: widget.content,
-      dialogController: _controller,
-      initialFocusNode: widget.initialFocusNode,
+      configuration: _configuration,
       onDismissRequested: (reason) => _requestClose(null, reason),
       onCloseRequested: (result) =>
           _requestClose(result, DDialogChangeReason.close),
@@ -305,8 +304,10 @@ class _DDialogState<T> extends State<DDialog<T>> {
             ),
           );
         }
-        final target = widget.finalFocusNode ?? _previousFocus;
-        if (target?.canRequestFocus ?? false) target!.requestFocus();
+        if (route.wasCurrentWhenAuthorized) {
+          final target = widget.finalFocusNode ?? _previousFocus;
+          if (target?.canRequestFocus ?? false) target!.requestFocus();
+        }
         _previousFocus = null;
       }),
     );
@@ -314,6 +315,22 @@ class _DDialogState<T> extends State<DDialog<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final nextConfiguration = _DDialogConfiguration<T>(
+      content: widget.content,
+      barrierLabel: widget.barrierLabel,
+      dismissOnBarrier: widget.dismissOnBarrier,
+      dismissOnEscape: widget.dismissOnEscape,
+      initialFocusNode: widget.initialFocusNode,
+    );
+    if (_configuration.value != nextConfiguration) {
+      if (_route == null) {
+        _configuration.value = nextConfiguration;
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _configuration.value = nextConfiguration;
+        });
+      }
+    }
     final nextEnvironment = _DDialogEnvironment.capture(context);
     if (_environment.value != nextEnvironment) {
       if (_route == null) {
@@ -339,6 +356,7 @@ class _DDialogState<T> extends State<DDialog<T>> {
     final navigator = _navigator;
     if (route != null && navigator != null) navigator.removeRoute(route);
     _environment.dispose();
+    _configuration.dispose();
     super.dispose();
   }
 }
@@ -397,33 +415,56 @@ class _DDialogEnvironment {
   int get hashCode => Object.hash(theme, mediaQuery, directionality);
 }
 
+class _DDialogConfiguration<T> {
+  const _DDialogConfiguration({
+    required this.content,
+    required this.barrierLabel,
+    required this.dismissOnBarrier,
+    required this.dismissOnEscape,
+    required this.initialFocusNode,
+  });
+
+  final Widget content;
+  final String barrierLabel;
+  final bool dismissOnBarrier;
+  final bool dismissOnEscape;
+  final FocusNode? initialFocusNode;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _DDialogConfiguration<T> &&
+      identical(other.content, content) &&
+      other.barrierLabel == barrierLabel &&
+      other.dismissOnBarrier == dismissOnBarrier &&
+      other.dismissOnEscape == dismissOnEscape &&
+      identical(other.initialFocusNode, initialFocusNode);
+
+  @override
+  int get hashCode => Object.hash(
+    identityHashCode(content),
+    barrierLabel,
+    dismissOnBarrier,
+    dismissOnEscape,
+    identityHashCode(initialFocusNode),
+  );
+}
+
 class _DDialogRoute<T> extends PopupRoute<T> {
   _DDialogRoute({
     super.settings,
     super.requestFocus = true,
     super.traversalEdgeBehavior = TraversalEdgeBehavior.closedLoop,
     super.directionalTraversalEdgeBehavior = TraversalEdgeBehavior.closedLoop,
-    required this.barrierLabel,
-    required this.dismissOnBarrier,
-    required this.dismissOnEscape,
     required this.environment,
-    required this.content,
-    required this.dialogController,
-    required this.initialFocusNode,
+    required this.configuration,
     required this.onDismissRequested,
     required this.onCloseRequested,
     required this.transitionDuration,
     required this.reverseTransitionDuration,
   });
 
-  @override
-  final String barrierLabel;
-  final bool dismissOnBarrier;
-  final bool dismissOnEscape;
   final ValueListenable<_DDialogEnvironment?> environment;
-  final Widget content;
-  final DDialogController<T> dialogController;
-  final FocusNode? initialFocusNode;
+  final ValueListenable<_DDialogConfiguration<T>?> configuration;
   final ValueChanged<DDialogChangeReason> onDismissRequested;
   final ValueChanged<T?> onCloseRequested;
   @override
@@ -431,6 +472,15 @@ class _DDialogRoute<T> extends PopupRoute<T> {
   @override
   final Duration reverseTransitionDuration;
   bool _authorized = false;
+  bool _wasCurrentWhenAuthorized = false;
+  final GlobalKey<_DDialogRoutePageState<T>> _pageKey = GlobalKey();
+
+  _DDialogConfiguration<T> get _currentConfiguration => configuration.value!;
+
+  bool get wasCurrentWhenAuthorized => _wasCurrentWhenAuthorized;
+
+  @override
+  String get barrierLabel => _currentConfiguration.barrierLabel;
 
   @override
   Color? get barrierColor => Colors.transparent;
@@ -445,13 +495,18 @@ class _DDialogRoute<T> extends PopupRoute<T> {
   void authorizePop(T? result) {
     if (_authorized || !isActive) return;
     _authorized = true;
-    navigator?.pop<T>(result);
+    _wasCurrentWhenAuthorized = isCurrent;
+    if (isCurrent) {
+      navigator?.pop<T>(result);
+    } else {
+      navigator?.removeRoute(this, result);
+    }
   }
 
   @override
   void onPopInvokedWithResult(bool didPop, T? result) {
     super.onPopInvokedWithResult(didPop, result);
-    if (!didPop && dismissOnEscape) {
+    if (!didPop && _currentConfiguration.dismissOnEscape) {
       onDismissRequested(DDialogChangeReason.escape);
     }
   }
@@ -461,24 +516,28 @@ class _DDialogRoute<T> extends PopupRoute<T> {
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
-  ) => ValueListenableBuilder<_DDialogEnvironment?>(
-    valueListenable: environment,
-    builder: (context, value, _) =>
-        (value ?? _DDialogEnvironment.capture(context)).wrap(
-          _DDialogRoutePage<T>(
-            content: content,
-            controller: dialogController,
-            barrierLabel: barrierLabel,
-            dismissOnBarrier: dismissOnBarrier,
-            dismissOnEscape: dismissOnEscape,
-            initialFocusNode: initialFocusNode,
-            onBarrierDismiss: () =>
-                onDismissRequested(DDialogChangeReason.barrier),
-            onEscapeDismiss: () =>
-                onDismissRequested(DDialogChangeReason.escape),
-            onClose: onCloseRequested,
-            animation: animation,
-          ),
+  ) => ValueListenableBuilder<_DDialogConfiguration<T>?>(
+    valueListenable: configuration,
+    builder: (context, config, _) =>
+        ValueListenableBuilder<_DDialogEnvironment?>(
+          valueListenable: environment,
+          builder: (context, value, _) =>
+              (value ?? _DDialogEnvironment.capture(context)).wrap(
+                _DDialogRoutePage<T>(
+                  key: _pageKey,
+                  content: config!.content,
+                  barrierLabel: config.barrierLabel,
+                  dismissOnBarrier: config.dismissOnBarrier,
+                  dismissOnEscape: config.dismissOnEscape,
+                  initialFocusNode: config.initialFocusNode,
+                  onBarrierDismiss: () =>
+                      onDismissRequested(DDialogChangeReason.barrier),
+                  onEscapeDismiss: () =>
+                      onDismissRequested(DDialogChangeReason.escape),
+                  onClose: onCloseRequested,
+                  animation: animation,
+                ),
+              ),
         ),
   );
 
@@ -495,8 +554,8 @@ class _DDialogRoute<T> extends PopupRoute<T> {
 
 class _DDialogRoutePage<T> extends StatefulWidget {
   const _DDialogRoutePage({
+    super.key,
     required this.content,
-    required this.controller,
     required this.barrierLabel,
     required this.dismissOnBarrier,
     required this.dismissOnEscape,
@@ -508,7 +567,6 @@ class _DDialogRoutePage<T> extends StatefulWidget {
   });
 
   final Widget content;
-  final DDialogController<T> controller;
   final String barrierLabel;
   final bool dismissOnBarrier;
   final bool dismissOnEscape;
@@ -595,7 +653,6 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
       );
     }
     Widget page = _DDialogContentScope(
-      controller: widget.controller,
       close: (result) => widget.onClose(result as T?),
       child: Stack(
         children: [
@@ -618,13 +675,8 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
 }
 
 class _DDialogContentScope extends InheritedWidget {
-  const _DDialogContentScope({
-    required this.controller,
-    required this.close,
-    required super.child,
-  });
+  const _DDialogContentScope({required this.close, required super.child});
 
-  final Object controller;
   final ValueChanged<Object?> close;
 
   static _DDialogContentScope of(BuildContext context) {
@@ -636,7 +688,7 @@ class _DDialogContentScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DDialogContentScope oldWidget) =>
-      controller != oldWidget.controller || close != oldWidget.close;
+      close != oldWidget.close;
 }
 
 /// The base-nova popup surface.
@@ -952,17 +1004,21 @@ Future<T?> showDDialog<T>({
 }) async {
   final controller = DDialogController<T>(initiallyOpen: true);
   final environment = ValueNotifier<_DDialogEnvironment?>(null);
+  final configuration = ValueNotifier<_DDialogConfiguration<T>?>(
+    _DDialogConfiguration<T>(
+      content: builder(context, controller),
+      barrierLabel: barrierLabel,
+      dismissOnBarrier: dismissOnBarrier,
+      dismissOnEscape: dismissOnEscape,
+      initialFocusNode: initialFocusNode,
+    ),
+  );
   final previousFocus = FocusManager.instance.primaryFocus;
   late _DDialogRoute<T> route;
   route = _DDialogRoute<T>(
     settings: routeSettings,
-    barrierLabel: barrierLabel,
-    dismissOnBarrier: dismissOnBarrier,
-    dismissOnEscape: dismissOnEscape,
     environment: environment,
-    content: builder(context, controller),
-    dialogController: controller,
-    initialFocusNode: initialFocusNode,
+    configuration: configuration,
     onDismissRequested: (_) => route.authorizePop(null),
     onCloseRequested: (result) => route.authorizePop(result),
     transitionDuration: DMotion.duration(context, DMotion.open),
@@ -978,8 +1034,11 @@ Future<T?> showDDialog<T>({
     controller._detach(route);
     controller.dispose();
     environment.dispose();
-    final target = finalFocusNode ?? previousFocus;
-    if (target?.canRequestFocus ?? false) target!.requestFocus();
+    configuration.dispose();
+    if (route.wasCurrentWhenAuthorized) {
+      final target = finalFocusNode ?? previousFocus;
+      if (target?.canRequestFocus ?? false) target!.requestFocus();
+    }
   }
 }
 
