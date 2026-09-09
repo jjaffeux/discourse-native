@@ -160,14 +160,15 @@ class DScrollArea extends StatefulWidget {
 }
 
 class _DScrollAreaState extends State<DScrollArea> {
-  final _focus = FocusNode();
+  final _focus = FocusNode(skipTraversal: true);
   final _owned = ScrollController();
   final _ownedHorizontal = ScrollController();
   bool _focusVisible = false;
   bool _hasCorner = false;
+  bool _hasOverflow = false;
   bool _metricsScheduled = false;
 
-  void _updateCorner() {
+  void _updateOverflow() {
     if (_metricsScheduled) return;
     _metricsScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -181,11 +182,20 @@ class _DScrollAreaState extends State<DScrollArea> {
           controller.position.hasContentDimensions &&
           controller.position.maxScrollExtent >
               controller.position.minScrollExtent;
-      final value =
-          widget.axes == DScrollAxes.both &&
-          overflows(vertical) &&
-          overflows(horizontal);
-      if (value != _hasCorner) setState(() => _hasCorner = value);
+      final primaryOverflow = overflows(vertical);
+      final horizontalOverflow =
+          widget.axes == DScrollAxes.both && overflows(horizontal);
+      final hasOverflow = primaryOverflow || horizontalOverflow;
+      final hasCorner = primaryOverflow && horizontalOverflow;
+      // Like tabindex=-1, skipping the root does not disable descendants or
+      // forcibly blur a viewport that already has keyboard focus.
+      _focus.skipTraversal = !hasOverflow;
+      if (hasCorner != _hasCorner || hasOverflow != _hasOverflow) {
+        setState(() {
+          _hasCorner = hasCorner;
+          _hasOverflow = hasOverflow;
+        });
+      }
     });
   }
 
@@ -240,7 +250,7 @@ class _DScrollAreaState extends State<DScrollArea> {
     }
     content = NotificationListener<ScrollMetricsNotification>(
       onNotification: (_) {
-        _updateCorner();
+        _updateOverflow();
         return false;
       },
       child: content,
@@ -263,10 +273,17 @@ class _DScrollAreaState extends State<DScrollArea> {
     return Focus(
       canRequestFocus: false,
       onKeyEvent: (_, event) {
-        if (!_focus.hasPrimaryFocus || event is KeyUpEvent) {
+        if (!_hasOverflow || !_focus.hasPrimaryFocus || event is KeyUpEvent) {
           return KeyEventResult.ignored;
         }
         final key = event.logicalKey;
+        final keyboard = HardwareKeyboard.instance;
+        if (keyboard.isControlPressed ||
+            keyboard.isAltPressed ||
+            keyboard.isMetaPressed ||
+            (keyboard.isShiftPressed && key != LogicalKeyboardKey.space)) {
+          return KeyEventResult.ignored;
+        }
         final horizontalKey =
             key == LogicalKeyboardKey.arrowLeft ||
             key == LogicalKeyboardKey.arrowRight;
@@ -285,7 +302,12 @@ class _DScrollAreaState extends State<DScrollArea> {
           delta = position.maxScrollExtent - position.pixels;
         } else if (key == LogicalKeyboardKey.pageDown ||
             key == LogicalKeyboardKey.space) {
-          delta = position.viewportDimension * .9;
+          delta =
+              position.viewportDimension *
+              .9 *
+              (key == LogicalKeyboardKey.space && keyboard.isShiftPressed
+                  ? -1
+                  : 1);
         } else if (key == LogicalKeyboardKey.pageUp) {
           delta = -position.viewportDimension * .9;
         } else if (key == LogicalKeyboardKey.arrowDown ||

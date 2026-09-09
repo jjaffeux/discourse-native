@@ -148,4 +148,186 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets(
+    'nonoverflow skips only the root and overflow transitions preserve child editing and traversal',
+    (tester) async {
+      final before = FocusNode();
+      final editor = FocusNode();
+      final button = FocusNode();
+      final after = FocusNode();
+      final text = TextEditingController(text: 'Retained');
+      final scroll = ScrollController();
+      for (final node in [before, editor, button, after]) {
+        addTearDown(node.dispose);
+      }
+      addTearDown(text.dispose);
+      addTearDown(scroll.dispose);
+      var presses = 0;
+      Widget scene(double contentHeight, {double viewportHeight = 180}) =>
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  DButton(
+                    focusNode: before,
+                    label: const Text('Before'),
+                    onPressed: () {},
+                  ),
+                  SizedBox(
+                    width: 240,
+                    height: viewportHeight,
+                    child: DScrollArea(
+                      controller: scroll,
+                      child: SizedBox(
+                        height: contentHeight,
+                        child: Column(
+                          children: [
+                            TextField(focusNode: editor, controller: text),
+                            DButton(
+                              focusNode: button,
+                              label: const Text('Child'),
+                              onPressed: () => presses++,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  DButton(
+                    focusNode: after,
+                    label: const Text('After'),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+            ),
+          );
+      await tester.pumpWidget(scene(120));
+      await tester.pumpAndSettle();
+      before.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(editor.hasPrimaryFocus, isTrue);
+      await tester.enterText(find.byType(TextField), 'Kept through resize');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(text.selection.baseOffset, text.text.length - 1);
+      expect(scroll.offset, 0);
+      final selection = text.selection;
+      await tester.pumpWidget(scene(700));
+      await tester.pumpAndSettle();
+      expect(editor.hasPrimaryFocus, isTrue);
+      expect(text.text, 'Kept through resize');
+      expect(text.selection, selection);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(button.hasPrimaryFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(presses, 1);
+      final childOffset = scroll.offset;
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(presses, 2);
+      expect(scroll.offset, childOffset);
+      before.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(0));
+      final rootFocus = FocusManager.instance.primaryFocus;
+      await tester.pumpWidget(scene(120));
+      await tester.pumpAndSettle();
+      expect(FocusManager.instance.primaryFocus, same(rootFocus));
+      expect(scroll.offset, 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(editor.hasPrimaryFocus, isTrue);
+      before.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(editor.hasPrimaryFocus, isTrue);
+      await tester.pumpWidget(scene(120, viewportHeight: 80));
+      await tester.pumpAndSettle();
+      expect(editor.hasPrimaryFocus, isTrue);
+      before.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pumpAndSettle();
+      expect(scroll.offset, 40);
+      await tester.pumpWidget(scene(120));
+      await tester.pumpAndSettle();
+      expect(scroll.offset, 0);
+      before.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(editor.hasPrimaryFocus, isTrue);
+    },
+  );
+
+  testWidgets(
+    'Space pages down, Shift Space pages up and modified keys bubble',
+    (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final bubbled = <LogicalKeyboardKey>[];
+      await tester.pumpWidget(
+        host(
+          Focus(
+            canRequestFocus: false,
+            onKeyEvent: (_, event) {
+              if (event is KeyDownEvent &&
+                  [
+                    LogicalKeyboardKey.space,
+                    LogicalKeyboardKey.arrowDown,
+                  ].contains(event.logicalKey)) {
+                bubbled.add(event.logicalKey);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: DScrollArea(
+              controller: controller,
+              child: const SizedBox(height: 1000),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(controller.offset, 162);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(controller.offset, 0);
+      expect(bubbled, isEmpty);
+      for (final modifier in [
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.altLeft,
+        LogicalKeyboardKey.metaLeft,
+        LogicalKeyboardKey.shiftLeft,
+      ]) {
+        await tester.sendKeyDownEvent(modifier);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        if (modifier != LogicalKeyboardKey.shiftLeft)
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.sendKeyUpEvent(modifier);
+      }
+      await tester.pumpAndSettle();
+      expect(controller.offset, 0);
+      expect(
+        bubbled.where((key) => key == LogicalKeyboardKey.arrowDown).length,
+        4,
+      );
+      expect(bubbled.where((key) => key == LogicalKeyboardKey.space).length, 3);
+    },
+  );
 }

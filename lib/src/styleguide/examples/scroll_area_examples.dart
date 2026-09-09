@@ -7,7 +7,7 @@ final scrollAreaExamples = ComponentExamples(
   status: ComponentStatus.baseline,
   description: 'Native scrolling with compact, themed draggable scrollbars.',
   notes:
-      'Reference/native comparison is queued. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an area, then use arrows, Page Up/Down, Home/End or Space. Thumb artwork uses the live border token.',
+      'Reference/native comparison is queued. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork uses the live border token.',
   examples: [
     StyleguideExample(
       title: 'Tags',

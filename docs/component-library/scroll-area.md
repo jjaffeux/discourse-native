@@ -52,9 +52,13 @@ touch hit tolerance and scrolling semantics. Native touch scrolling and
 platform overscroll physics are unchanged. The reference is always visible when
 it overflows; thumbVisibility=false opts into native fade/hover behavior, with
 150ms fade or zero under reduced motion. Hover does not invent an accent color
-or enlarge the visible artwork. The area is a Tab stop with visible keyboard
+or enlarge the visible artwork. The area is a Tab stop only while an enabled axis overflows, with visible keyboard
 focus, arrows (physical horizontal direction in RTL), Page Up/Down, Home/End and
-Space; jumps replace animations under reduced motion. Child editing and button
+Space/Shift+Space (down/up); jumps replace animations under reduced motion.
+Ctrl/Alt/Meta combinations and other Shift-modified keys remain available to
+ancestor shortcuts. Metrics updates change only root skipTraversal, preserving
+descendant control traversal, editing state and existing root focus when overflow
+disappears, like the reference tabindex=-1. Child editing and button
 focus keep their own keys. Native track paging intentionally uses Flutter's
 proven behavior rather than replacing it with browser DOM arithmetic.
 
