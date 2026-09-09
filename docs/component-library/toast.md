@@ -26,8 +26,11 @@ The native adaptation uses Flutter focus/actions, drag recognition, safe areas,
 screen-reader live regions, and `F6`/Escape shortcuts rather than DOM landmarks,
 ARIA attributes, or CSS custom properties. Text wraps and the card grows at
 large accessibility scales instead of clipping to the browser's measured
-height. Start/end positions mirror in RTL. Custom child composition deliberately
-keeps callback and resource ownership with the caller.
+height. Start/end positions mirror in RTL. A bounded scroll viewport preserves
+all limited stack entries when narrow, large-text layouts are taller than the
+available safe area. Custom child composition deliberately keeps callback and
+resource ownership with the caller while inheriting the live foreground and
+icon tokens of the toast surface.
 
 ## Behavioral contract
 
@@ -52,7 +55,19 @@ Transient success/error/action feedback belongs to Toast. Permanent inline
 validation, availability and status remain with Alert, Field or Empty. The
 implementation migrates the specifically audited topic-list, topic-share,
 user-menu, diagnostics, topic-move-posts, composer-discard, topic-tag-picker,
-reaction-presentation and Button-example owners. The independent reviewer must
-finish the exhaustive remaining core/plugin transient-notification pass while
-reconciling any overlapping Alert changes from its reviewer; specialized
-progress, recording and modal errors must retain their application meaning.
+reaction-presentation, chat, Assign, events, GIF, local-date, poll, reactions,
+voice, group and Button/Alert-example owners. The final core and bundled-plugin
+audit finds no remaining `ScaffoldMessenger` or `SnackBar` use under `lib/src`.
+Specialized progress, recording and modal errors retain their application
+meaning as persistent inline state rather than short-lived Toast feedback.
+
+## Independent review
+
+The reviewer compared the official rendered Base UI Toast catalogue in light
+and dark appearances with an isolated, uniquely identified native macOS build.
+Native inspection covered theme changes (including Plum), RTL, 360 logical-pixel
+width, 200% text, reduced-motion configuration, status stacks, actions, close,
+promise transition, custom content and the production local-date fixture. The
+review corrected stack overflow at large text and custom-content foreground
+inheritance before acceptance. Exact build and inspection provenance is in
+`evidence/toast/native-review.json`.
