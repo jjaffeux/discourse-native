@@ -55,13 +55,15 @@ state, rather than inventing Card variants.
 
 The login, small report, adjustable spacing, terms, image and Arabic examples
 precede application states. They use local callbacks and input controllers.
-DButton is the existing baseline; the frozen adjacent `link`, `outline`,
-`secondary` and `submit` props belong to Button. TextFormField email/password
-visuals belong to pending Input; its required validation/editing work locally.
-Featured text awaits Badge, and spacing controls await Toggle Group. These
-are visible pending owners, not claimed Card variants. The image uses the
-already bundled package asset, grayscale and reference 60%/40% brightness plus its 35% black overlay,
-without runtime network fallback.
+The final compositions use accepted `DButton` primary, outline and link
+treatments; `DInput` email/password editors; associated `DField`,
+`DFieldLabel` and `DFieldControl` metadata; a secondary `DBadge`; and a
+controlled outline `DToggleGroup` for the four spacing values. Flutter owns
+form submission through the local callback rather than an HTML button `type`.
+Validation, drafts, editing selection, focus and spacing selection remain
+local and survive theme, direction, text-scale and width reflow. The image uses
+the already bundled package asset, grayscale and reference 60%/40% brightness
+plus its 35% black overlay, without runtime network fallback.
 
 ## Presentation audit
 

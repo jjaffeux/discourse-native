@@ -64,8 +64,7 @@ final cardExamples = ComponentExamples(
       title: 'Shared spacing',
       description:
           'Change 16/20/24/32px while retaining your input and local status.',
-      code:
-          '// Keep spacing in local state. Every part reads this value.\n$_loginCode',
+      code: _spacingCode,
       builder: (_) => const _Login(configurableSpacing: true),
     ),
     StyleguideExample(
@@ -77,8 +76,10 @@ final cardExamples = ComponentExamples(
     description: DCardDescription(child: Text('Review the terms before accepting the agreement.'))),
   DCardContent(edgeToEdge: true, joinNext: true, child: termsScrollView),
 ], footer: DCardFooter(child: Wrap(spacing: 8, children: [
-  DButton(onPressed: decline, label: Text('Decline')),
-  DButton(onPressed: accept, label: Text('Accept')),
+  DButton(onPressed: decline, variant: DButtonVariant.outline,
+    label: Text('Decline')),
+  DButton(onPressed: accept, variant: DButtonVariant.primary,
+    label: Text('Accept')),
 ])))""",
       builder: (_) => const _Terms(),
     ),
@@ -93,9 +94,11 @@ final cardExamples = ComponentExamples(
   children: [DCardHeader(
     title: DCardTitle(child: Text('Design systems meetup')),
     description: DCardDescription(child: Text('A practical talk on component APIs, accessibility, and shipping faster.')),
-    action: DCardAction(child: Text('Featured')),
+    action: DCardAction(child: DBadge(
+      variant: DBadgeVariant.secondary, child: Text('Featured'))),
   )],
-  footer: DCardFooter(child: DButton(onPressed: viewEvent, label: Text('View Event'))),
+  footer: DCardFooter(child: DButton(onPressed: viewEvent,
+    variant: DButtonVariant.primary, label: Text('View Event'))),
 )""",
       builder: (_) => const _ImageCard(),
     ),
@@ -143,7 +146,12 @@ const _loginCode = """DCard(spacing: spacing, children: [
         hintText: 'm@example.com', isRequired: true, validator: validateEmail)),
     ]),
     DField(children: [
-      passwordLabelAndRecovery,
+      Wrap(alignment: WrapAlignment.spaceBetween, children: [
+        DFieldLabel(focusNode: passwordFocus, excludeSemantics: true,
+          child: Text('Password')),
+        DButton(onPressed: recover, isLink: true,
+          variant: DButtonVariant.link, label: Text('Forgot your password?')),
+      ]),
       DFieldControl(label: 'Password', required: true, child: DInput(
         focusNode: passwordFocus, obscureText: true, isRequired: true,
         validator: validatePassword)),
@@ -154,6 +162,18 @@ const _loginCode = """DCard(spacing: spacing, children: [
   DButton(onPressed: google, variant: DButtonVariant.outline,
     label: Text('Login with Google')),
 ])))""";
+
+const _spacingCode = """DToggleGroup<double>(
+  values: [spacing],
+  onChanged: (values) => setState(() => spacing = values.single),
+  allowEmptySelection: false,
+  variant: DToggleVariant.outline,
+  size: DToggleSize.small,
+  items: [16, 20, 24, 32].map((value) => DToggleGroupItem(
+    value: value.toDouble(), child: Text('\${value}px'))).toList(),
+)
+
+$_loginCode""";
 
 class _Frame extends StatelessWidget {
   const _Frame({required this.child, this.width = 384});
