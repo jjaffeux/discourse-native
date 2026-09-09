@@ -217,7 +217,7 @@ void main() {
     },
   );
 
-  testWidgets('composed menu opens with keyboard and edits local data', (
+  testWidgets('composed menu preserves edit, duplicate, and delete actions', (
     tester,
   ) async {
     await _pump(tester, const TableActionsExample());
@@ -232,6 +232,21 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('Edit'), findsOneWidget);
+
+    await tester.tap(find.text('Duplicate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Wireless Mouse (edited) (copy)'), findsOneWidget);
+    expect(find.text('Duplicate: Wireless Mouse (edited)'), findsOneWidget);
+    expect(find.text('Edit'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('Edit'), findsOneWidget);
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(find.text('Wireless Mouse (edited)'), findsNothing);
+    expect(find.text('Delete: Wireless Mouse (edited)'), findsOneWidget);
+    expect(find.text('Edit'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
