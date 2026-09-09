@@ -2538,7 +2538,7 @@
     },
     {
       "id": "calendar",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
       "branch": "codex/ui-calendar",
       "dependencies": [
@@ -2555,14 +2555,32 @@
       ],
       "decisions": [
         "Frozen Calendar Markdown SHA256 9268f3aa428b4eb36bfbd957644f9d681beab0d49575f779a2cd2620f81a58b4 reproduced on 2026-09-09. The separately fetched current base-nova registry SHA256 is cc9ff16599d1664cec2d6a91ba82d0927953d8eedd51a7d56bba48a6522c28eb; exact mapping will be recorded in calendar.md.",
-        "Prepared against Select implementation commit 423d81eeaf9bdda9412fa2068d4f8132fbfb53de plus source handoff correction 69e5ec663e92bb61fa734ee43b6c3e738e96961e from codex/ui-select, reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22. Select public API was confirmed stable, but this is source preparation only; Calendar review must reconcile the accepted Select revision on current main and may not carry an unaccepted parent through."
+        "Prepared against Select implementation commit 423d81eeaf9bdda9412fa2068d4f8132fbfb53de plus source handoff correction 69e5ec663e92bb61fa734ee43b6c3e738e96961e from codex/ui-select, reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22. Select is accepted on main at 57bbeb94368649a4665483180e4f5c84b5f33856 with tracking follow-up 94a65e00c525d6096f12be94fcc2ec9bbaf888ff; Calendar review must reconcile that accepted revision on current main.",
+        "The selection engine is the repository-pinned kalender 0.29.1. DCalendar supplies typed single/multiple/range state, date-only/timezone conversion, selection rules and compact shadcn composition around real KalenderView pages; DKalenderTheme is also usable by domain event views without replacing their event layout.",
+        "Field was prepared from accepted-main merge 5cd7f3694498e4e09e3c114639baca834b56705e. Date and Time uses reviewed Input Group source a70ba814a2a066732b7a57c30e875043bdf28ba7; Input Group was not accepted-main at handoff, so Calendar review must reconcile its eventual accepted revision and prevent the prepared dependency from transiting early."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "migrations": [
+        "Full-page discourse-events EventCalendar retains its Kalender controllers, recurrence/server-time data, month/week/day/year layouts, overflow dialogs and domain actions while adopting DKalenderTheme(compactMonthLayout:false) and DCalendarDayButton."
+      ],
+      "retainedAlternatives": [
+        "Embedded TopicCalendar retains its existing Kalender presentation. Its split multi-week event-bar geometry is coupled to Kalender ambient header metrics, and a scoped shared theme changes that domain layout; no date or event ownership was duplicated."
+      ],
+      "verification": [
+        "flutter test --no-pub test/d_calendar_test.dart test/styleguide/calendar_examples_test.dart test/event_calendar_test.dart --test-randomize-ordering-seed=20260909: 15 passed.",
+        "Calendar API tests cover real KalenderView usage, controlled single, multiple/range constraints, disabled dates, controller selection/month, keyboard day/week/month/year navigation, RTL, fixed two months, week numbers, dropdown captions, custom/booked cells, timezone/leap boundaries and narrow 200% dark rendering.",
+        "Root flutter analyze --no-pub and profiles/full flutter pub get --enforce-lockfile plus flutter analyze --no-pub passed with no issues. git diff --check passed.",
+        "flutter build macos --debug --no-pub built build/macos/Build/Products/Debug/Discourse.app successfully."
+      ],
+      "limitations": [
+        "Kalender 0.29.1 is Gregorian. Locale labels, numerals, RTL and first-weekday behavior are functional, but correct Persian/Hijri/Jalali chronology requires a future Kalender calendar-math engine rather than relabeling Gregorian dates.",
+        "Official browser/native visual acceptance, final dependency reconciliation, current-main candidate construction, status completion and merge are owned by the independent Calendar reviewer.",
+        "Current main independently reproduces the pre-existing TopicCalendar test failure `Kalender clips a range into adjoining week rows` (expected two Tooltip bars, found zero); Calendar does not alter that retained surface."
+      ],
+      "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
+      "mergeCommit": null,
+      "reviewStatus": "review_ready",
+      "reviewTaskId": null,
+      "reviewBranch": null
     },
     {
       "id": "date-picker",

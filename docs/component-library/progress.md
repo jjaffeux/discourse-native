@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**34 of 64 components are merged locally.** 14 existing components are in progress; 16 are planned.
+**34 of 64 components are merged locally.** 15 existing components are in progress; 15 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -84,7 +84,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 47 | navigation-menu | planned | — | — | popover | — |
 | 48 | breadcrumb | planned | — | — | button, dropdown-menu | — |
 | 49 | pagination | planned | — | — | button, select | — |
-| 50 | calendar | planned | — | — | button, select | — |
+| 50 | calendar | review_ready | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
@@ -2243,6 +2243,47 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 
 - Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
 - Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
+
+### calendar
+
+Status: review_ready. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-calendar.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Calendar anatomy and documented Basic, Range, Month/Year Selector, Presets, Date and Time, Booked dates, Custom Cell Size, Week Numbers and RTL compositions with source-exact geometry and state mapping.
+- Provide typed single, multiple and range ownership with controlled, initial and controller APIs; controlled displayed month; disabled, hidden, booked and outside dates; bounds, range constraints, Gregorian boundary correctness and explicit date-only versus instant/timezone conversion.
+- Implement focus entry/reveal, day/week/month/year keyboard navigation, pointer/touch selection, logical RTL, localization, first weekday, week numbers, semantics, narrow/200% text and live theme/font/radius behavior without adopting Material calendar artwork.
+- Expose a functional calendar-system seam and documented Persian/Hijri/Jalali guidance matching the official engine-substitution responsibility; keep later Date Picker overlay/input composition out of Calendar.
+- Audit actual core/plugin scheduling and date UI, migrate suitable presentation while retaining server timestamps, bookings and business constraints in adapters; add real production-widget regressions and truthful isolated fixture evidence.
+- Run focused widget/adoption tests, formatting, root and profiles/full analysis and build checks, then create an independent Calendar reviewer to own official-browser/native acceptance, fixes, dependency reconciliation and local main merge.
+
+**decisions**
+
+- Frozen Calendar Markdown SHA256 9268f3aa428b4eb36bfbd957644f9d681beab0d49575f779a2cd2620f81a58b4 reproduced on 2026-09-09. The separately fetched current base-nova registry SHA256 is cc9ff16599d1664cec2d6a91ba82d0927953d8eedd51a7d56bba48a6522c28eb; exact mapping will be recorded in calendar.md.
+- Prepared against Select implementation commit 423d81eeaf9bdda9412fa2068d4f8132fbfb53de plus source handoff correction 69e5ec663e92bb61fa734ee43b6c3e738e96961e from codex/ui-select, reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22. Select is accepted on main at 57bbeb94368649a4665483180e4f5c84b5f33856 with tracking follow-up 94a65e00c525d6096f12be94fcc2ec9bbaf888ff; Calendar review must reconcile that accepted revision on current main.
+- The selection engine is the repository-pinned kalender 0.29.1. DCalendar supplies typed single/multiple/range state, date-only/timezone conversion, selection rules and compact shadcn composition around real KalenderView pages; DKalenderTheme is also usable by domain event views without replacing their event layout.
+- Field was prepared from accepted-main merge 5cd7f3694498e4e09e3c114639baca834b56705e. Date and Time uses reviewed Input Group source a70ba814a2a066732b7a57c30e875043bdf28ba7; Input Group was not accepted-main at handoff, so Calendar review must reconcile its eventual accepted revision and prevent the prepared dependency from transiting early.
+
+**migrations**
+
+- Full-page discourse-events EventCalendar retains its Kalender controllers, recurrence/server-time data, month/week/day/year layouts, overflow dialogs and domain actions while adopting DKalenderTheme(compactMonthLayout:false) and DCalendarDayButton.
+
+**retainedAlternatives**
+
+- Embedded TopicCalendar retains its existing Kalender presentation. Its split multi-week event-bar geometry is coupled to Kalender ambient header metrics, and a scoped shared theme changes that domain layout; no date or event ownership was duplicated.
+
+**verification**
+
+- flutter test --no-pub test/d_calendar_test.dart test/styleguide/calendar_examples_test.dart test/event_calendar_test.dart --test-randomize-ordering-seed=20260909: 15 passed.
+- Calendar API tests cover real KalenderView usage, controlled single, multiple/range constraints, disabled dates, controller selection/month, keyboard day/week/month/year navigation, RTL, fixed two months, week numbers, dropdown captions, custom/booked cells, timezone/leap boundaries and narrow 200% dark rendering.
+- Root flutter analyze --no-pub and profiles/full flutter pub get --enforce-lockfile plus flutter analyze --no-pub passed with no issues. git diff --check passed.
+- flutter build macos --debug --no-pub built build/macos/Build/Products/Debug/Discourse.app successfully.
+
+**limitations**
+
+- Kalender 0.29.1 is Gregorian. Locale labels, numerals, RTL and first-weekday behavior are functional, but correct Persian/Hijri/Jalali chronology requires a future Kalender calendar-math engine rather than relabeling Gregorian dates.
+- Official browser/native visual acceptance, final dependency reconciliation, current-main candidate construction, status completion and merge are owned by the independent Calendar reviewer.
+- Current main independently reproduces the pre-existing TopicCalendar test failure `Kalender clips a range into adjoining week rows` (expected two Tooltip bars, found zero); Calendar does not alter that retained surface.
 
 ### carousel
 
