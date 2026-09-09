@@ -15,7 +15,7 @@ void main() {
       'Nested groups',
       'Separator and split action',
       'Input and text',
-      'Input Group composition handoff',
+      'Input Group composition',
       'Dropdown menu',
       'Rich Select composition handoff',
       'Popover composition handoff',
@@ -88,6 +88,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('€'), findsOneWidget);
     expect(find.text('42.50'), findsOneWidget);
+  });
+
+  testWidgets('input group fixture preserves editing and voice action state', (
+    tester,
+  ) async {
+    await _pump(tester, 6);
+    await tester.enterText(find.byType(TextField), 'voice note');
+    await tester.tap(find.byTooltip('Enable voice mode'));
+    await tester.pumpAndSettle();
+    expect(find.text('voice note'), findsOneWidget);
+    expect(find.byTooltip('Disable voice mode'), findsOneWidget);
+    expect(find.byType(DInputGroup), findsOneWidget);
+    expect(find.byType(DInputGroupInput), findsOneWidget);
+    expect(find.byType(DInputGroupButton), findsOneWidget);
   });
 }
 

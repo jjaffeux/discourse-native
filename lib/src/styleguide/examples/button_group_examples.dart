@@ -114,20 +114,27 @@ final buttonGroupExamples = ComponentExamples(
       builder: (_) => const _InputGroup(),
     ),
     StyleguideExample(
-      title: 'Input Group composition handoff',
+      title: 'Input Group composition',
       description:
-          'This request-free fixture proves nested field/voice state and joined '
-          'edges. Final review replaces the plain DInput slot with DInputGroup '
-          'after that owner lands; the composition is not claimed as complete.',
-      states: const [
-        'Pending Input Group owner',
-        'Voice state',
-        'State retention',
-      ],
-      code: '''// Final owner composition after Input Group merges:
+          'The public DInputGroup owns the nested field and voice action surface '
+          'while Button Group owns the outside join.',
+      states: const ['Input Group API', 'Voice state', 'State retention'],
+      code: '''
 DButtonGroup(children: [
-  DButtonGroup(children: [addButton]),
-  DButtonGroup(children: [inputGroup]),
+  DButton.iconOnly(icon: Icon(Icons.add), tooltip: 'Add attachment', onPressed: add),
+  DButtonGroupExpanded(
+    child: DInputGroup(children: [
+      DInputGroupInput(hintText: 'Send a message...'),
+      DInputGroupAddon(
+        alignment: DInputGroupAddonAlignment.inlineEnd,
+        child: DInputGroupButton.icon(
+          icon: Icon(Icons.graphic_eq),
+          tooltip: 'Enable voice mode',
+          onPressed: toggleVoice,
+        ),
+      ),
+    ]),
+  ),
 ])''',
       builder: (_) => const _VoiceFixture(),
     ),
@@ -158,8 +165,7 @@ DButtonGroup(children: [
         'Controlled value',
         'Numeric input',
       ],
-      code:
-          '''// Replace currencyMenu with DSelect when the rich Select owner merges.
+      code: '''// Replace currencyMenu with DSelect when the rich Select owner merges.
 DButtonGroup(children: [currencyMenu, amountInput, sendButton])''',
       builder: (_) => const _CurrencyFixture(),
     ),
@@ -417,16 +423,28 @@ class _VoiceFixtureState extends State<_VoiceFixture> {
           onPressed: () {},
         ),
         DButtonGroupExpanded(
-          child: DInput(
-            hintText: _voice ? 'Record and send audio...' : 'Send a message...',
-            enabled: !_voice,
+          child: DInputGroup(
+            semanticLabel: 'Message composer',
+            children: [
+              DInputGroupInput(
+                hintText: _voice
+                    ? 'Record and send audio...'
+                    : 'Send a message...',
+                enabled: !_voice,
+              ),
+              DInputGroupAddon(
+                alignment: DInputGroupAddonAlignment.inlineEnd,
+                child: DInputGroupButton.icon(
+                  variant: _voice
+                      ? DButtonVariant.secondary
+                      : DButtonVariant.ghost,
+                  icon: const Icon(Icons.graphic_eq),
+                  tooltip: _voice ? 'Disable voice mode' : 'Enable voice mode',
+                  onPressed: () => setState(() => _voice = !_voice),
+                ),
+              ),
+            ],
           ),
-        ),
-        DButton.iconOnly(
-          variant: _voice ? DButtonVariant.secondary : DButtonVariant.outline,
-          icon: const Icon(Icons.graphic_eq),
-          tooltip: _voice ? 'Disable voice mode' : 'Enable voice mode',
-          onPressed: () => setState(() => _voice = !_voice),
         ),
       ],
     ),

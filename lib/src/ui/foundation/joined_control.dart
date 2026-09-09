@@ -20,7 +20,9 @@ class DJoinedControlScope extends InheritedWidget {
   bool get omitsLeadingBorder => !first;
 
   static DJoinedControlScope? maybeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<DJoinedControlScope>();
+      LookupBoundary.dependOnInheritedWidgetOfExactType<DJoinedControlScope>(
+        context,
+      );
 
   BorderRadius resolveRadius(
     BorderRadiusGeometry radius,

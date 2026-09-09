@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsValidationResult;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -202,14 +204,172 @@ void main() {
       expect(tester.getSize(find.byWidget(button.widget)).height, 48);
     }
   });
+
+  testWidgets(
+    'input group composes as one joined child with independent action',
+    (tester) async {
+      var voiceToggles = 0;
+      await _pump(
+        tester,
+        SizedBox(
+          width: 320,
+          child: DButtonGroup(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              const DButton.iconOnly(
+                icon: Icon(Icons.add),
+                tooltip: 'Add attachment',
+                onPressed: _noop,
+                variant: DButtonVariant.outline,
+              ),
+              DButtonGroupExpanded(
+                child: DInputGroup(
+                  semanticLabel: 'Message composer',
+                  children: [
+                    DInputGroupInput(
+                      semanticLabel: 'Message',
+                      hintText: 'Send a message...',
+                    ),
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      child: DInputGroupButton.icon(
+                        icon: const Icon(Icons.graphic_eq),
+                        tooltip: 'Enable voice mode',
+                        onPressed: () => voiceToggles++,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), 'retained draft');
+      await tester.tap(find.byTooltip('Enable voice mode'));
+      await tester.pump();
+
+      final attachmentRect = tester.getRect(find.byTooltip('Add attachment'));
+      final inputGroupRect = tester.getRect(find.byType(DInputGroup));
+      expect(attachmentRect.right, inputGroupRect.left);
+      expect(tester.getRect(find.byType(DButtonGroup)).width, 320);
+      expect(find.text('retained draft'), findsOneWidget);
+      expect(voiceToggles, 1);
+      expect(
+        tester.getSemantics(find.byType(DInputGroup)),
+        matchesSemantics(
+          label: 'Message composer',
+          hasEnabledState: true,
+          isEnabled: true,
+          validationResult: SemanticsValidationResult.valid,
+        ),
+      );
+    },
+  );
+
+  testWidgets('input group composition mirrors visually in RTL', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      Directionality(
+        textDirection: TextDirection.rtl,
+        child: SizedBox(
+          width: 320,
+          child: DButtonGroup(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              const DButton.iconOnly(
+                icon: Icon(Icons.add),
+                tooltip: 'إرفاق',
+                onPressed: _noop,
+                variant: DButtonVariant.outline,
+              ),
+              DButtonGroupExpanded(
+                child: DInputGroup(
+                  children: [
+                    DInputGroupInput(hintText: 'رسالة'),
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      child: DInputGroupButton.icon(
+                        icon: const Icon(Icons.graphic_eq),
+                        tooltip: 'صوت',
+                        onPressed: _noop,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final attachmentRect = tester.getRect(find.byTooltip('إرفاق'));
+    final inputGroupRect = tester.getRect(find.byType(DInputGroup));
+    expect(inputGroupRect.right, attachmentRect.left);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('menu overlay descendants do not inherit joined group scope', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      DButtonGroup(
+        children: [
+          const DButton(label: Text('Follow'), onPressed: _noop),
+          MenuAnchor(
+            menuChildren: const [
+              LookupBoundary(
+                child: DButton(
+                  key: ValueKey('overlay-action'),
+                  label: Text('Overlay action'),
+                  onPressed: _noop,
+                ),
+              ),
+            ],
+            builder: (context, menu, child) => DButton.iconOnly(
+              icon: const Icon(Icons.keyboard_arrow_down),
+              tooltip: 'More',
+              onPressed: menu.open,
+              variant: DButtonVariant.outline,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+
+    _expectCorners(tester, 0, const [false, true, true, false]);
+    _expectCorners(tester, 1, const [true, false, false, true]);
+    _expectCornersForFinder(
+      tester,
+      find.descendant(
+        of: find.byKey(const ValueKey('overlay-action')),
+        matching: find.byType(FilledButton),
+      ),
+      const [false, false, false, false],
+    );
+  });
 }
 
 void _expectCorners(WidgetTester tester, int index, List<bool> square) {
-  final button = tester.widget<FilledButton>(
-    find.byType(FilledButton).at(index),
-  );
+  _expectCornersForFinder(tester, find.byType(FilledButton).at(index), square);
+}
+
+void _expectCornersForFinder(
+  WidgetTester tester,
+  Finder finder,
+  List<bool> square,
+) {
+  final button = tester.widget<FilledButton>(finder);
   final shape = button.style!.shape!.resolve({})!;
-  final size = tester.getSize(find.byType(FilledButton).at(index));
+  final size = tester.getSize(finder);
   final path = shape.getOuterPath(Offset.zero & size);
   final points = [
     const Offset(.25, .25),
