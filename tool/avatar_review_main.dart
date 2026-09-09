@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/forum_icon.dart';
 import 'package:discourse_native/src/styleguide/examples/avatar_examples.dart';
+import 'package:discourse_native/src/styleguide/examples/direction_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -101,14 +102,33 @@ class _ReviewState extends State<_Review> {
               ),
               const SizedBox(height: 24),
               MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(_scale)),
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(_scale)),
                 child: Directionality(
                   textDirection: _rtl ? TextDirection.rtl : TextDirection.ltr,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text('Final Avatar dropdown composition'),
+                      const SizedBox(height: 8),
+                      Builder(
+                        builder: avatarExamples.examples
+                            .firstWhere((example) => example.title == 'Dropdown')
+                            .builder,
+                      ),
+                      const SizedBox(height: 24),
+                      const Text('Final Direction dropdown composition'),
+                      const SizedBox(height: 8),
+                      Builder(
+                        builder: directionExamples.examples
+                            .firstWhere(
+                              (example) =>
+                                  example.title ==
+                                  'Inherited direction in a dropdown menu',
+                            )
+                            .builder,
+                      ),
+                      const SizedBox(height: 24),
                       Text('Production AvatarImage: $_state'),
                       DAvatar.frame(
                         child: AvatarImage(
