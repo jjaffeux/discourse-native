@@ -11,9 +11,9 @@ final typographyExamples = ComponentExamples(
       'Type styles for headings, paragraphs, lists, and inline content.',
   status: ComponentStatus.implemented,
   notes:
-      'Frozen 2026-09-08 Typography scope: h1–h4, p, blockquote, table, list, '
+      'Current upstream Typography scope: h1–h4, p, blockquote, table, list, '
       'inline code, lead, large, small, muted and RTL. Import discourse_ui.dart. '
-      'DText reproduces the frozen shadcn sizes, weights, leading and tracking '
+      'DText reproduces the current shadcn sizes, weights, leading and tracking '
       'using the app’s fonts, palette and inherited scaler; tracking follows '
       'the rendered size like the reference’s em value. It does not implement '
       'the newer Typeset system. Plain h1 text balances short multiline '
@@ -30,7 +30,7 @@ final typographyExamples = ComponentExamples(
     StyleguideExample(
       title: 'Shadcn reference demo',
       description:
-          'The frozen TypographyDemo composition: a balanced h1, lead text, '
+          'The current TypographyDemo composition: a balanced h1, lead text, '
           'the h2 rule, a primary link, a quote, h3 sections, the list, the '
           'table and closing paragraphs. Click or tap the link, or activate it '
           'with assistive technology; a status line reports it. Span links '
@@ -78,7 +78,7 @@ $_tableSampleCode''',
     StyleguideExample(
       title: 'Shadcn section examples',
       description:
-          'The frozen per-section examples with their original text for direct '
+          'The current per-section examples with their original text for direct '
           'visual comparison at 100%: centered h1, h2, h3, h4, p, blockquote, '
           'list, inline code, lead, large, small and muted. Theme controls '
           'substitute the app palette and font; size, weight, tracking, '
@@ -155,7 +155,7 @@ $_tableSampleCode''',
     StyleguideExample(
       title: 'Shadcn RTL reference',
       description:
-          'The frozen RTL example: the demo in Arabic by default, with the '
+          'The current RTL example: the demo in Arabic by default, with the '
           'reference’s English and Hebrew translations behind a language '
           'selector. The document sets its own direction, so the quote rule, '
           'list markers, table columns and link mirror; the selector keeps the '

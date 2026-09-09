@@ -136,17 +136,18 @@ is not keyboard focusable. The caller owns recognizers, focus nodes and actions.
 Typography itself has no hover, pressed, disabled, loading, overlay or animation
 state. Composed controls retain their native focus, activation and lifecycle.
 
-## Frozen reference and adaptations
+## Official reference and adaptations
 
-The [Typography reference](https://ui.shadcn.com/docs/components/base/typography.md)
-captured on 2026-09-08 has SHA256
-`3ff202e83d6c90b2521ec471af07cab3c59314028c51ef8d040b3218ec9a9541`.
-Its scope remains h1–h4, p, blockquote, table, list, Inline code, Lead, Large,
-Small, Muted and RTL. The live HTML page redirects to Typeset, while the
-Markdown endpoint served the identical frozen content on 2026-09-09; that newer
-system is outside this catalogue entry. The official
-[Typography demo source](https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/new-york-v4/examples/typography-demo.tsx)
-also shows the original composition.
+The current official Typography MDX and base examples were rechecked on
+2026-09-09 at shadcn/ui main
+`3ba91b1cc83e1bbe4ab35a422ff2a694849c5048`. They retain h1–h4, p,
+blockquote, table, list, Inline code, Lead, Large, Small, Muted and RTL. The
+[Typography demo source](https://github.com/shadcn-ui/ui/blob/main/apps/v4/examples/base/typography-demo.tsx)
+retains the original composition and utilities. The live documentation URL now
+redirects to Typeset and its MDX uses preview references instead of embedding
+the example source; Typeset is a separate generated document-styling system and
+is outside this catalogue entry. The 2026-09-08 embedded capture remains at
+`docs/component-library/reference/typography.md` for reproducibility.
 
 The user's clarification that this is a copy of shadcn supersedes the earlier
 adaptation to generic Material typography roles. The table above now matches

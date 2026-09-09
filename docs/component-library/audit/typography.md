@@ -1,19 +1,31 @@
 # Typography audit
 
-Audited on 2026-09-09 against the frozen reference. Branch
-`claude/audit-typography`, based on main `9c4abfed`.
+Originally audited on 2026-09-09 against the frozen reference and rechecked
+against the current official source on `codex/audit-typography-current`, based
+on main `e570d6a2`.
 
 ## References
 
+- Current official source was rechecked on 2026-09-09 at shadcn/ui main
+  `3ba91b1cc83e1bbe4ab35a422ff2a694849c5048`. The base `TypographyDemo`
+  SHA256 is `4fb115115db5f65215a302c5c167ce642ef7f787b6250bf2795029239a7437e6`;
+  the base RTL example SHA256 is
+  `0068016227cdbfb39e1f851b54f62c768fa76fcec1093fb0ca02bd841213f676`.
+  The demo and all twelve section examples retain the utilities and content
+  audited below. The registry demo differs from the base example only by its
+  default export.
+- The current official MDX source, SHA256
+  `94675f629d08d41feca386477ee4b66f7e3db551980ea9061ac66d2c699cfd70`,
+  defines the same scope through `ComponentPreview` entries rather than
+  embedding the TSX. The HTML and historical `.md` URLs now redirect to
+  <https://ui.shadcn.com/docs/typeset>; the still-published Typography example
+  sources remain this component's reference, while Typeset is a separate
+  generated document-styling system.
 - Frozen capture `docs/component-library/reference/typography.md`, SHA256
-  `3ff202e83d6c90b2521ec471af07cab3c59314028c51ef8d040b3218ec9a9541`. This
-  defines scope: the `TypographyDemo`, h1, h2, h3, h4, p, blockquote, table,
-  list, Inline code, Lead, Large, Small, Muted and RTL (`TypographyRtl` with
-  en/ar/he translations and a language selector).
-- Live Markdown <https://ui.shadcn.com/docs/components/base/typography.md>:
-  HTTP 200 on 2026-09-09 with the identical SHA256 above. The HTML page
-  <https://ui.shadcn.com/docs/components/base/typography> redirects to
-  <https://ui.shadcn.com/docs/typeset>; Typeset is supporting material only.
+  `3ff202e83d6c90b2521ec471af07cab3c59314028c51ef8d040b3218ec9a9541`,
+  preserves the previously embedded `TypographyDemo`, h1, h2, h3, h4, p,
+  blockquote, table, list, Inline code, Lead, Large, Small, Muted and RTL
+  (`TypographyRtl` with en/ar/he translations and a language selector).
 - Registry <https://ui.shadcn.com/r/styles/base-nova/typography.json>: 404.
   The utility classes come from the example TSX in the frozen Markdown.
 - Live stylesheet chunks linked from the Typeset page (628,401 bytes
@@ -55,6 +67,11 @@ Implementation review: stateless widgets, tokens and text theme read in
 values, heading and list semantics are correct, every public property is
 consumed. `DProse` only recognises direct `DText` children for the h2/h3 gaps,
 which its documentation states.
+
+The 2026-09-09 current-source recheck found no runtime, semantic, focus,
+interaction, token, dark-mode, responsive, RTL or example-coverage delta after
+the fixes below. Only the provenance text had drifted when the official MDX
+stopped embedding its examples.
 
 ## Issues
 
@@ -98,6 +115,11 @@ which its documentation states.
 
 ## Verification
 
+- Current-source recheck on 2026-09-10:
+  `flutter test --no-pub test/ui/d_typography_test.dart test/styleguide/typography_examples_test.dart`:
+  20 passed.
+- Current-source recheck on 2026-09-10: `flutter analyze --no-pub`: No issues
+  found.
 - `dart format --output=none --set-exit-if-changed lib/src/ui/components/d_typography.dart lib/src/styleguide/examples/typography_examples.dart test/ui/d_typography_test.dart test/styleguide/typography_examples_test.dart`:
   0 changed.
 - `flutter analyze --no-pub`: No issues found.
