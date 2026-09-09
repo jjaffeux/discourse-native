@@ -199,7 +199,7 @@ alignment and action placement. Its action changed from Enable to Disable and
 updated the message, the Plum palette resolved live, and the 360 px Arabic RTL
 examples wrapped without clipping or overlap.
 
-The exact-source uniquely identified macOS bundle recorded in
+The uniquely identified macOS predecessor build recorded in
 `evidence/alert/final-review-build.json` was launched for the native gate.
 Production ComposerTagRemovalNotice, GroupsPage and GifPicker alerts were
 inspected in light and dark modes, RTL and 200% text. Dismiss and retry remained
@@ -208,3 +208,11 @@ its loaded state, and narrow action content reflowed beneath the message without
 collision. The styleguide alert exposed a distinct semantic container with its
 action as a separate control. This acceptance is for macOS only; no iOS or Linux
 device result is claimed.
+
+After reconciling latest main, `DAlert`, the fixture and every inspected Alert
+branch remained byte-identical; the only relevant styleguide change was its
+acceptance label. The exact accepted source was rebuilt to the same unique
+identity, with matching source/framework/copied kernel hashes and a passing deep
+strict signature check. The evidence distinguishes that final build verification
+from the behaviorally identical predecessor launch rather than claiming a second
+native session.
