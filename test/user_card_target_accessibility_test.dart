@@ -189,4 +189,55 @@ void main() {
       }
     },
   );
+
+  testWidgets('mouse hover presents the application-owned fetch error', (
+    tester,
+  ) async {
+    const reader = DiscourseUser(username: 'reader', name: 'Reader');
+    final api = FakeDiscourseApi(
+      user: reader,
+      totals: const NotificationTotals(),
+    );
+    final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('meta.example').copyWith(user: reader),
+      ]),
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updater: FakeUpdater(),
+      updateStore: FakeUpdateStore(),
+    );
+    await controller.load();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const Scaffold(
+            body: Center(
+              child: UserCardTarget(
+                username: 'missing',
+                siteUrl: _siteUrl,
+                child: Text('Missing profile'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Missing profile')));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+
+    expect(api.cardsRequested, ['missing']);
+    expect(find.text("Couldn't reach meta.example."), findsOneWidget);
+    expect(find.bySemanticsLabel("Couldn't reach meta.example."), findsNothing);
+  });
 }

@@ -18,7 +18,9 @@ final hoverCardExamples = ComponentExamples(
       'guidance, content is supplementary, excluded from focus and screen '
       'reader navigation, and is not opened on touch. The composed trigger '
       'retains its real navigation/action, while visible text remains '
-      'selectable and pointer travel across the gap retains the card.',
+      'selectable and pointer travel across the gap retains the card. '
+      'DHoverCardGroup<T> covers the Base UI API-reference case where one '
+      'root and surface are shared by multiple strongly typed payload triggers.',
   examples: [
     StyleguideExample(
       title: 'Basic',
@@ -162,6 +164,33 @@ final hoverCardExamples = ComponentExamples(
           ),
         ),
       ),
+    ),
+    StyleguideExample(
+      title: 'Multiple triggers and payloads',
+      description:
+          'One root owns both destination triggers. Moving between them while '
+          'open immediately moves the shared preview and swaps typed content.',
+      states: const [
+        'Multiple triggers',
+        'Typed payload',
+        'Rapid handoff',
+        'Shared root',
+      ],
+      code: '''DHoverCardGroup<Destination>(
+  items: destinations.map((destination) => DHoverCardGroupItem(
+    id: destination.id,
+    payload: destination,
+    builder: (context, state) => DButton(
+      focusNode: state.focusNode,
+      label: Text(destination.label),
+      onPressed: () => open(destination),
+    ),
+  )).toList(),
+  builder: (context, triggers) => Wrap(children: triggers),
+  contentBuilder: (context, destination) =>
+      DHoverCardContent(child: Text(destination.summary)),
+)''',
+      builder: (_) => const _PayloadHoverCardGroup(),
     ),
     StyleguideExample(
       title: 'Controlled and controller',
@@ -369,6 +398,76 @@ class _RtlHoverCard extends StatelessWidget {
             r'٩٩.٩٩ $',
             style: TextStyle(color: DTokens.of(context).mutedForeground),
           ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _PayloadDestination {
+  const _PayloadDestination(this.id, this.label, this.summary);
+
+  final String id;
+  final String label;
+  final String summary;
+}
+
+class _PayloadHoverCardGroup extends StatelessWidget {
+  const _PayloadHoverCardGroup();
+
+  static const destinations = [
+    _PayloadDestination(
+      'typography',
+      'Typography',
+      'Clear, readable type systems for interfaces and long-form content.',
+    ),
+    _PayloadDestination(
+      'design',
+      'Design',
+      'Intentional visual and interaction choices for useful products.',
+    ),
+    _PayloadDestination(
+      'art',
+      'Art',
+      'Creative work shaped by imagination, craft, and expression.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) => DHoverCardGroup<_PayloadDestination>(
+    items: [
+      for (final destination in destinations)
+        DHoverCardGroupItem(
+          id: destination.id,
+          payload: destination,
+          delay: const Duration(milliseconds: 100),
+          closeDelay: const Duration(milliseconds: 150),
+          builder: (context, state) => DButton(
+            label: Text(destination.label),
+            variant: DButtonVariant.link,
+            isLink: true,
+            focusNode: state.focusNode,
+            onPressed: () {},
+          ),
+        ),
+    ],
+    builder: (context, triggers) => Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 4,
+      runSpacing: 4,
+      children: triggers,
+    ),
+    contentBuilder: (context, destination) => DHoverCardContent(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 4,
+        children: [
+          Text(
+            destination.label,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          Text(destination.summary),
         ],
       ),
     ),

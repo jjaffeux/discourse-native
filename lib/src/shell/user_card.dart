@@ -109,6 +109,18 @@ class _UserCardHoverPreview extends StatelessWidget {
         if (card == null) {
           final error = controller.userCardError(username, siteUrl: targetSite);
           if (error != null) return Text(error);
+          if (!controller.contains(targetSite)) {
+            return const Text('Profile preview unavailable.');
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted ||
+                controller.userCard(username, siteUrl: targetSite) != null ||
+                controller.userCardError(username, siteUrl: targetSite) !=
+                    null) {
+              return;
+            }
+            unawaited(controller.loadUserCard(username, siteUrl: targetSite));
+          });
           return const Row(
             mainAxisSize: MainAxisSize.min,
             spacing: 8,

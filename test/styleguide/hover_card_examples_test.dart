@@ -19,6 +19,7 @@ void main() {
       'Positioning',
       'Sides',
       'RTL',
+      'Multiple triggers and payloads',
       'Controlled and controller',
     ]);
   });
@@ -103,5 +104,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Controller preview'), findsOneWidget);
     expect(find.text('Controlled preview'), findsNothing);
+  });
+
+  testWidgets('payload example hands one preview between its triggers', (
+    tester,
+  ) async {
+    final example = hoverCardExamples.examples.firstWhere(
+      (candidate) => candidate.title == 'Multiple triggers and payloads',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Center(child: Builder(builder: example.builder)),
+        ),
+      ),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Typography')));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Clear, readable type systems'), findsOneWidget);
+
+    await mouse.moveTo(tester.getCenter(find.text('Design')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Intentional visual'), findsOneWidget);
+    expect(find.textContaining('Clear, readable type systems'), findsNothing);
   });
 }

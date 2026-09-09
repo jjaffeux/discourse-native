@@ -27,6 +27,14 @@ typedef DHoverCardOpenChange =
 typedef DHoverCardTriggerBuilder =
     Widget Function(BuildContext context, DHoverCardTriggerState state);
 
+typedef DHoverCardGroupBuilder =
+    Widget Function(BuildContext context, List<Widget> triggers);
+
+typedef DHoverCardPayloadBuilder<T> =
+    DHoverCardContent Function(BuildContext context, T payload);
+
+typedef DHoverCardTriggerChange<T> = void Function(Object id, T payload);
+
 @immutable
 class DHoverCardTriggerState {
   const DHoverCardTriggerState({required this.open, required this.focusNode});
@@ -59,8 +67,13 @@ class DHoverCardController extends ChangeNotifier {
 
   void _attach(_DHoverCardState owner) {
     if (_disposed) return;
-    _owner?._setOpen(false, immediate: true);
+    final previous = _owner;
     _owner = owner;
+    if (previous != null && previous != owner) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (previous.mounted) previous._setOpen(false, immediate: true);
+      });
+    }
   }
 
   void _detach(_DHoverCardState owner) {
@@ -110,6 +123,168 @@ class DHoverCard extends StatefulWidget {
 
   @override
   State<DHoverCard> createState() => _DHoverCardState();
+}
+
+/// One trigger and its strongly typed payload inside a [DHoverCardGroup].
+@immutable
+class DHoverCardGroupItem<T> {
+  const DHoverCardGroupItem({
+    required this.id,
+    required this.payload,
+    required this.builder,
+    this.delay = const Duration(milliseconds: 600),
+    this.closeDelay = const Duration(milliseconds: 300),
+    this.focusNode,
+    this.focusable = true,
+  });
+
+  final Object id;
+  final T payload;
+  final DHoverCardTriggerBuilder builder;
+  final Duration delay;
+  final Duration closeDelay;
+  final FocusNode? focusNode;
+  final bool focusable;
+}
+
+/// A single preview-card root shared by multiple payload-bearing triggers.
+///
+/// [builder] lays out the trigger widgets without imposing a Row, Wrap, or
+/// inline layout. When an already-open group moves to another trigger, the new
+/// payload and anchor are selected immediately instead of waiting for its
+/// opening delay. This is the Flutter composition counterpart to Base UI's
+/// same-root multiple-trigger and payload API. Detached triggers remain out of
+/// scope: Flutter callers can keep the root near an arbitrary trigger layout,
+/// while [DHoverCardController] provides detached imperative open/close for a
+/// single trigger.
+class DHoverCardGroup<T> extends StatefulWidget {
+  const DHoverCardGroup({
+    super.key,
+    required this.items,
+    required this.builder,
+    required this.contentBuilder,
+    this.open,
+    this.defaultOpen = false,
+    this.triggerId,
+    this.defaultTriggerId,
+    this.onOpenChange,
+    this.onOpenChangeComplete,
+    this.onTriggerChange,
+    this.enabled = true,
+  }) : assert(items.length > 1);
+
+  final List<DHoverCardGroupItem<T>> items;
+  final DHoverCardGroupBuilder builder;
+  final DHoverCardPayloadBuilder<T> contentBuilder;
+  final bool? open;
+  final bool defaultOpen;
+  final Object? triggerId;
+  final Object? defaultTriggerId;
+  final DHoverCardOpenChange? onOpenChange;
+  final ValueChanged<bool>? onOpenChangeComplete;
+  final DHoverCardTriggerChange<T>? onTriggerChange;
+  final bool enabled;
+
+  @override
+  State<DHoverCardGroup<T>> createState() => _DHoverCardGroupState<T>();
+}
+
+class _DHoverCardGroupState<T> extends State<DHoverCardGroup<T>> {
+  late bool _open = widget.defaultOpen;
+  late Object _triggerId = widget.defaultTriggerId ?? widget.items.first.id;
+
+  bool get _effectiveOpen => widget.open ?? _open;
+  Object get _effectiveTriggerId => widget.triggerId ?? _triggerId;
+
+  @override
+  void initState() {
+    super.initState();
+    _debugCheckItems();
+  }
+
+  @override
+  void didUpdateWidget(DHoverCardGroup<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _debugCheckItems();
+    if (!widget.items.any((item) => item.id == _triggerId)) {
+      _triggerId = widget.defaultTriggerId ?? widget.items.first.id;
+    }
+  }
+
+  void _debugCheckItems() {
+    assert(() {
+      final ids = widget.items.map((item) => item.id).toSet();
+      if (ids.length != widget.items.length) {
+        throw FlutterError('DHoverCardGroup item ids must be unique.');
+      }
+      final requested = widget.triggerId ?? widget.defaultTriggerId;
+      if (requested != null && !ids.contains(requested)) {
+        throw FlutterError(
+          'DHoverCardGroup triggerId/defaultTriggerId must identify an item.',
+        );
+      }
+      return true;
+    }());
+  }
+
+  void _handleRequest(
+    DHoverCardGroupItem<T> item,
+    bool value,
+    DHoverCardChangeReason reason,
+  ) {
+    if (!widget.enabled) return;
+    if (value) {
+      final triggerChanged = _effectiveTriggerId != item.id;
+      final openChanged = !_effectiveOpen;
+      if (widget.triggerId == null) _triggerId = item.id;
+      if (widget.open == null) _open = true;
+      if (triggerChanged) widget.onTriggerChange?.call(item.id, item.payload);
+      if (openChanged) widget.onOpenChange?.call(true, reason);
+      if (triggerChanged || openChanged) setState(() {});
+      return;
+    }
+    if (_effectiveTriggerId != item.id || !_effectiveOpen) return;
+    if (widget.open == null) _open = false;
+    widget.onOpenChange?.call(false, reason);
+    setState(() {});
+  }
+
+  void _handleCompletion(Object id, bool value) {
+    if (value) {
+      if (_effectiveOpen && _effectiveTriggerId == id) {
+        widget.onOpenChangeComplete?.call(true);
+      }
+    } else if (!_effectiveOpen) {
+      widget.onOpenChangeComplete?.call(false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeId = _effectiveTriggerId;
+    final groupOpen = _effectiveOpen && widget.enabled;
+    final triggers = <Widget>[
+      for (final item in widget.items)
+        DHoverCard(
+          key: ValueKey(item.id),
+          open: groupOpen && activeId == item.id,
+          enabled: widget.enabled,
+          onOpenChange: (value, reason) => _handleRequest(item, value, reason),
+          onOpenChangeComplete: (value) => _handleCompletion(item.id, value),
+          trigger: DHoverCardTrigger(
+            delay: groupOpen && activeId != item.id
+                ? Duration.zero
+                : item.delay,
+            closeDelay: item.closeDelay,
+            focusNode: item.focusNode,
+            focusable: item.focusable,
+            builder: item.builder,
+          ),
+          content: widget.contentBuilder(context, item.payload),
+        ),
+    ];
+    return widget.builder(context, triggers);
+  }
 }
 
 class _DHoverCardLayers {
@@ -212,10 +387,24 @@ class _DHoverCardState extends State<DHoverCard>
         _focusListener,
       );
       _focus.addListener(_focusListener);
+      if (_focus.hasFocus) {
+        _focusChanged(true);
+      } else {
+        _keyboardFocused = false;
+        _cancelTimers();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_focus.hasFocus) {
+            _request(
+              false,
+              DHoverCardChangeReason.triggerFocus,
+              immediate: true,
+            );
+          }
+        });
+      }
     }
     if (!widget.enabled) {
       _cancelTimers();
-      _setOpen(false, immediate: true);
     }
     _scheduleSync();
   }
@@ -272,7 +461,6 @@ class _DHoverCardState extends State<DHoverCard>
       _portal.show();
       if (noMotion) {
         _animation.value = 1;
-        widget.onOpenChangeComplete?.call(true);
       } else {
         _animation.forward();
       }
@@ -281,7 +469,6 @@ class _DHoverCardState extends State<DHoverCard>
       if (noMotion) {
         _animation.value = 0;
         _portal.hide();
-        widget.onOpenChangeComplete?.call(false);
       } else {
         _animation.reverse();
       }
@@ -325,7 +512,11 @@ class _DHoverCardState extends State<DHoverCard>
     if (!_open || _keyboardFocused || _triggerHovered || _contentHovered) {
       return;
     }
-    if (_inBridge(_pointer)) return;
+    if (_inBridge(_pointer)) {
+      _closeTimer?.cancel();
+      _closeTimer = null;
+      return;
+    }
     _closeTimer?.cancel();
     final delay = widget.trigger.closeDelay;
     if (delay == Duration.zero) {
@@ -333,7 +524,10 @@ class _DHoverCardState extends State<DHoverCard>
     } else {
       _closeTimer = Timer(delay, () {
         _closeTimer = null;
-        if (!_keyboardFocused && !_triggerHovered && !_contentHovered) {
+        if (!_keyboardFocused &&
+            !_triggerHovered &&
+            !_contentHovered &&
+            !_inBridge(_pointer)) {
           _request(false, reason);
         }
       });
@@ -677,40 +871,69 @@ class DHoverCardContent extends StatelessWidget {
         data: IconThemeData(color: tokens.foreground, size: 16),
         child: ConstrainedBox(
           constraints: constraints.copyWith(minWidth: width, maxWidth: width),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: tokens.surface,
-              borderRadius: BorderRadius.circular(tokens.radius),
-              border: Border.all(
-                color: tokens.foreground.withValues(
-                  alpha: tokens.foreground.a * 0.10,
-                ),
+          child: CustomPaint(
+            foregroundPainter: _HoverCardRingPainter(
+              color: tokens.foreground.withValues(
+                alpha: tokens.foreground.a * 0.10,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  offset: const Offset(0, 4),
-                  blurRadius: 6,
-                  spreadRadius: -1,
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  offset: const Offset(0, 2),
-                  blurRadius: 4,
-                  spreadRadius: -2,
-                ),
-              ],
+              radius: tokens.radius,
             ),
-            child: SingleChildScrollView(
-              primary: false,
-              padding: padding,
-              child: child,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: tokens.surface,
+                borderRadius: BorderRadius.circular(tokens.radius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.10),
+                    offset: const Offset(0, 4),
+                    blurRadius: 6,
+                    spreadRadius: -1,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.10),
+                    offset: const Offset(0, 2),
+                    blurRadius: 4,
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                primary: false,
+                padding: padding,
+                child: child,
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+class _HoverCardRingPainter extends CustomPainter {
+  const _HoverCardRingPainter({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final ring = RRect.fromRectAndRadius(
+      (Offset.zero & size).inflate(0.5),
+      Radius.circular(radius + 0.5),
+    );
+    canvas.drawRRect(
+      ring,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HoverCardRingPainter oldDelegate) =>
+      color != oldDelegate.color || radius != oldDelegate.radius;
 }
 
 class _HoverCardPositioner extends SingleChildRenderObjectWidget {

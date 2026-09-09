@@ -63,6 +63,23 @@ press, Escape, imperative and lifecycle reasons; completion follows the actual
 100ms transition. Open overlays rebuild from inherited theme, direction,
 text-scale, radius and reduced-motion values.
 
+The frozen shadcn page sends its API Reference to Base UI, whose current
+reference explicitly documents multiple triggers, typed trigger payloads and
+controlled trigger IDs. `DHoverCardGroup<T>` therefore provides one Flutter
+root for two or more `DHoverCardGroupItem<T>` triggers, an unconstrained layout
+builder, strongly typed payload content, controlled/uncontrolled open and
+trigger-ID state, and immediate handoff while a group is already open. Detached
+DOM triggers and Base UI's optional animated content viewport are not copied:
+Flutter callers keep the root around an arbitrary trigger layout, the existing
+controller covers detached imperative open/close for a single trigger, and the
+group updates its one visible payload without adding a second transition API.
+
+Independent review fixed three source issues before acceptance: immediate
+animation values no longer report duplicate completion callbacks, controller /
+focus-node replacement and disabling no longer mutate an OverlayPortal during
+the persistent build phase, and an already scheduled close is cancelled and
+rechecked when the pointer enters the trigger-to-content bridge.
+
 ## Application adoption
 
 `UserCardTarget` is the suitable current core adoption. Hover or keyboard focus
@@ -92,7 +109,8 @@ fetching to the component or inventing a second application cache was rejected.
 ## Acceptance fixture
 
 The styleguide Basic, Composition, Trigger Delays, Positioning, Sides and RTL
-examples are self-contained and use real public widgets. The independent
+examples are self-contained and use real public widgets. A Multiple Triggers
+and Payloads example covers the API-reference composition. The independent
 reviewer must perform the first official browser render comparison and native
 macOS inspection under the shared desktop lease, including the Basic reference,
 all sides, dark/custom theme, narrow 200% text, Arabic RTL, reduced motion,

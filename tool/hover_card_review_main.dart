@@ -1,4 +1,6 @@
 // Source-exact native review fixture. User data and responses are local fakes.
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -20,22 +22,12 @@ const _siteUrl = 'https://hover-card-review.invalid';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const reader = DiscourseUser(username: 'reviewer', name: 'Reviewer');
+  final api = _HoverCardReviewApi();
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
       instance('hover-card-review.invalid').copyWith(user: reader),
     ]),
-    api: FakeDiscourseApi(
-      user: reader,
-      totals: const NotificationTotals(),
-      cards: const {
-        'shadcn': UserCard(
-          username: 'shadcn',
-          name: 'shadcn',
-          title: 'Design engineer and open-source maintainer',
-          location: 'San Francisco',
-        ),
-      },
-    ),
+    api: api,
     authenticator: FakeAuthenticator()..keys[_siteUrl] = 'local-key',
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
@@ -44,13 +36,43 @@ Future<void> main() async {
   );
   await controller.load();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-  runApp(_Fixture(controller: controller));
+  runApp(_Fixture(controller: controller, api: api));
+}
+
+class _HoverCardReviewApi extends FakeDiscourseApi {
+  _HoverCardReviewApi()
+    : super(
+        user: const DiscourseUser(username: 'reviewer', name: 'Reviewer'),
+        totals: const NotificationTotals(),
+      );
+
+  final loadingProfile = Completer<UserCard>();
+
+  @override
+  Future<UserCard> userCard({
+    required String siteUrl,
+    required String username,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (username == 'loading') return loadingProfile.future;
+    if (username == 'missing') {
+      throw StateError('Fixture profile failure');
+    }
+    return const UserCard(
+      username: 'shadcn',
+      name: 'shadcn',
+      title: 'Design engineer and open-source maintainer',
+      location: 'San Francisco',
+    );
+  }
 }
 
 class _Fixture extends StatefulWidget {
-  const _Fixture({required this.controller});
+  const _Fixture({required this.controller, required this.api});
 
   final ShellController controller;
+  final _HoverCardReviewApi api;
 
   @override
   State<_Fixture> createState() => _FixtureState();
@@ -124,6 +146,18 @@ class _FixtureState extends State<_Fixture> {
                             ),
                           ),
                         ),
+                        DButton(
+                          label: const Text('Complete loading profile'),
+                          onPressed: widget.api.loadingProfile.isCompleted
+                              ? null
+                              : () => widget.api.loadingProfile.complete(
+                                  const UserCard(
+                                    username: 'loading',
+                                    name: 'Loaded later',
+                                    title: 'Completed local fixture response',
+                                  ),
+                                ),
+                        ),
                       ],
                     ),
                     const Text('Frozen Basic example'),
@@ -140,11 +174,37 @@ class _FixtureState extends State<_Fixture> {
                           .firstWhere((example) => example.title == 'RTL')
                           .builder,
                     ),
+                    const Text('Multiple triggers and payloads'),
+                    Builder(
+                      builder: hoverCardExamples.examples
+                          .firstWhere(
+                            (example) =>
+                                example.title ==
+                                'Multiple triggers and payloads',
+                          )
+                          .builder,
+                    ),
                     const Text('Production UserCardTarget'),
-                    const UserCardTarget(
-                      username: 'shadcn',
-                      siteUrl: _siteUrl,
-                      child: Text('@shadcn'),
+                    const Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      children: [
+                        UserCardTarget(
+                          username: 'shadcn',
+                          siteUrl: _siteUrl,
+                          child: Text('@shadcn ready'),
+                        ),
+                        UserCardTarget(
+                          username: 'loading',
+                          siteUrl: _siteUrl,
+                          child: Text('@loading pending'),
+                        ),
+                        UserCardTarget(
+                          username: 'missing',
+                          siteUrl: _siteUrl,
+                          child: Text('@missing error'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
