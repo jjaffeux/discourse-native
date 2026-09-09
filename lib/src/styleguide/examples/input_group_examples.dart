@@ -130,14 +130,19 @@ final inputGroupExamples = ComponentExamples(
     StyleguideExample(
       title: 'Form validation',
       description:
-          'Form validation, save and reset remain owned by the grouped control.',
-      states: const ['Form', 'Invalid', 'Reset', 'Read-only'],
-      code: '''Form(key: form, child: DInputGroup(invalid: invalid, children: [
-  DInputGroupInput(initialValue: 'shadcn', semanticLabel: 'Username',
-    validator: (value) => value!.isEmpty ? 'Required' : null,
-    onSaved: (value) => saved = value),
-  DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
-    child: DInputGroupText(Text('@company.com'))),
+          'Field owns the external label, description and error while the grouped editor retains Form, focus, save and reset ownership.',
+      states: const ['Field', 'Form', 'Invalid', 'Reset', 'Read-only'],
+      code: '''Form(key: form, child: DField(invalid: invalid, children: [
+  DFieldLabel(focusNode: focusNode, excludeSemantics: true,
+    child: Text('Username')),
+  DInputGroup(invalid: invalid, children: [
+    DInputGroupInput(focusNode: focusNode, initialValue: 'shadcn',
+      semanticLabel: 'Username', validator: validate, onSaved: save),
+    DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
+      child: DInputGroupText(Text('@company.com'))),
+  ]),
+  DFieldDescription(child: Text('Choose your workspace username.')),
+  if (invalid) DFieldError(errors: ['Required']),
 ]))''',
       builder: (_) => const _FormExample(),
     ),
@@ -553,8 +558,15 @@ class _CustomInputExampleState extends State<_CustomInputExample> {
 
 class _FormExampleState extends State<_FormExample> {
   final _form = GlobalKey<FormState>();
+  final _focus = FocusNode();
   bool _invalid = false;
   String _status = 'Not saved';
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Column(
@@ -562,20 +574,36 @@ class _FormExampleState extends State<_FormExample> {
     children: [
       Form(
         key: _form,
-        child: DInputGroup(
+        child: DField(
           invalid: _invalid,
           children: [
-            DInputGroupInput(
-              initialValue: 'shadcn',
-              semanticLabel: 'Username',
-              isRequired: true,
-              validator: (value) => value!.trim().isEmpty ? 'Required' : null,
-              onSaved: (value) => _status = 'Saved $value',
+            DFieldLabel(
+              focusNode: _focus,
+              excludeSemantics: true,
+              child: const Text('Username'),
             ),
-            const DInputGroupAddon(
-              alignment: DInputGroupAddonAlignment.inlineEnd,
-              child: DInputGroupText(Text('@company.com')),
+            DInputGroup(
+              invalid: _invalid,
+              children: [
+                DInputGroupInput(
+                  focusNode: _focus,
+                  initialValue: 'shadcn',
+                  semanticLabel: 'Username',
+                  isRequired: true,
+                  validator: (value) =>
+                      value!.trim().isEmpty ? 'Required' : null,
+                  onSaved: (value) => _status = 'Saved $value',
+                ),
+                const DInputGroupAddon(
+                  alignment: DInputGroupAddonAlignment.inlineEnd,
+                  child: DInputGroupText(Text('@company.com')),
+                ),
+              ],
             ),
+            const DFieldDescription(
+              child: Text('Choose your workspace username.'),
+            ),
+            if (_invalid) const DFieldError(errors: ['Required']),
           ],
         ),
       ),

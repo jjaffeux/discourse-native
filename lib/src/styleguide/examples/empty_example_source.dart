@@ -307,13 +307,28 @@ class EmptySearchSample extends StatefulWidget {
 
 class _EmptySearchSampleState extends State<EmptySearchSample> {
   final _form = GlobalKey<FormState>();
+  final _focus = FocusNode();
   String _query = '';
   String? _result;
+  String? _validationError;
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
   void _submit() {
-    if (_form.currentState!.validate()) {
-      _form.currentState!.save();
-      setState(() => _result = 'No local pages match “$_query”.');
+    final valid = _form.currentState!.validate();
+    if (!valid) {
+      setState(() => _validationError = 'Enter a search query.');
+      return;
     }
+    _form.currentState!.save();
+    setState(() {
+      _validationError = null;
+      _result = 'No local pages match “$_query”.';
+    });
   }
 
   @override
@@ -336,25 +351,41 @@ class _EmptySearchSampleState extends State<EmptySearchSample> {
                 width:
                     constraints.maxWidth *
                     (MediaQuery.sizeOf(context).width >= 640 ? .75 : 1),
-                child: DInputGroup(
-                  semanticLabel: 'Search pages',
+                child: DField(
+                  invalid: _validationError != null,
                   children: [
-                    const DInputGroupAddon(child: Icon(Icons.search, size: 16)),
-                    DInputGroupInput(
-                      hintText: 'Try searching for pages...',
+                    DFieldLabel(
+                      focusNode: _focus,
+                      excludeSemantics: true,
+                      child: const Text('Search pages'),
+                    ),
+                    DInputGroup(
                       semanticLabel: 'Search pages',
-                      textInputAction: TextInputAction.search,
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? 'Enter a search query.'
-                          : null,
-                      onSaved: (value) => _query = value!.trim(),
-                      onSubmitted: (_) => _submit(),
+                      invalid: _validationError != null,
+                      children: [
+                        const DInputGroupAddon(
+                          child: Icon(Icons.search, size: 16),
+                        ),
+                        DInputGroupInput(
+                          focusNode: _focus,
+                          hintText: 'Try searching for pages...',
+                          semanticLabel: 'Search pages',
+                          textInputAction: TextInputAction.search,
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? 'Enter a search query.'
+                              : null,
+                          onSaved: (value) => _query = value!.trim(),
+                          onSubmitted: (_) => _submit(),
+                        ),
+                        const DInputGroupAddon(
+                          alignment: DInputGroupAddonAlignment.inlineEnd,
+                          child: DKbd('/'),
+                        ),
+                      ],
                     ),
-                    const DInputGroupAddon(
-                      alignment: DInputGroupAddonAlignment.inlineEnd,
-                      child: DKbd('/'),
-                    ),
+                    if (_validationError != null)
+                      DFieldError(errors: [_validationError]),
                   ],
                 ),
               ),
