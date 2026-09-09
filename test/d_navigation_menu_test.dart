@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction, Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
@@ -103,6 +105,55 @@ void main() {
     await tester.tap(find.text('Getting started'));
     await tester.pumpAndSettle();
     expect(find.text('Introduction'), findsOneWidget);
+  });
+
+  testWidgets('borrowed controller opens and ignores calls after detach', (
+    tester,
+  ) async {
+    final controller = DNavigationMenuController<String>();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _app(
+        DNavigationMenu<String>(
+          controller: controller,
+          child: const DNavigationMenuList<String>(
+            children: [
+              DNavigationMenuItem<String>(
+                value: 'getting',
+                trigger: DNavigationMenuTrigger(child: Text('Getting started')),
+                content: DNavigationMenuContent(child: Text('Introduction')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    controller.open('getting');
+    await tester.pumpAndSettle();
+    expect(find.text('Introduction'), findsOneWidget);
+    expect(controller.value, 'getting');
+
+    await tester.pumpWidget(_app(const SizedBox()));
+    controller.close();
+    expect(controller.value, isNull);
+  });
+
+  testWidgets('direct active destination exposes link and current semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(_app(_menu(onRoute: (_) {})));
+    final data = tester
+        .getSemantics(
+          find.byWidgetPredicate(
+            (widget) => widget is DNavigationMenuLink && widget.active,
+          ),
+        )
+        .getSemanticsData();
+    expect(data.flagsCollection.isLink, isTrue);
+    expect(data.flagsCollection.isSelected, Tristate.isTrue);
+    expect(data.hasAction(SemanticsAction.tap), isTrue);
+    semantics.dispose();
   });
 
   testWidgets(

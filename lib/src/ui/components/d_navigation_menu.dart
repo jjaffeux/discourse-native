@@ -568,11 +568,15 @@ class DNavigationMenuTrigger extends StatelessWidget {
     }
     return MouseRegion(
       onEnter: (_) => root._scheduleOpen(item.value),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
         children: [
           action,
-          SizedBox(
+          PositionedDirectional(
+            start: 0,
+            end: 0,
+            bottom: -6,
             height: 6,
             child: AnimatedOpacity(
               opacity: open ? 1 : 0,
@@ -809,58 +813,60 @@ class _NavigationActionState extends State<_NavigationAction> {
               : null,
           onTapUp: interactive ? (_) => setState(() => _pressed = false) : null,
           onTap: interactive ? widget.onPressed : null,
-          child: AnimatedContainer(
-            duration: DMotion.duration(
-              context,
-              const Duration(milliseconds: 150),
-            ),
-            constraints: BoxConstraints(
-              minHeight: touch ? 48 : (visualHeight ?? 0),
-            ),
-            padding: widget.triggerStyle
-                ? const EdgeInsetsDirectional.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+          child: CustomPaint(
+            foregroundPainter: _focused
+                ? _NavigationFocusRingPainter(
+                    color: tokens.focusRing.withValues(
+                      alpha: tokens.focusRing.a * .5,
+                    ),
+                    radius: radius,
                   )
-                : const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: highlighted
-                  ? tokens.muted.withValues(
-                      alpha: widget.active
-                          ? tokens.muted.a * .5
-                          : tokens.muted.a,
-                    )
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(radius),
-              border: _focused
-                  ? Border.all(
-                      color: tokens.focusRing.withValues(
-                        alpha: tokens.focusRing.a * .5,
-                      ),
-                      width: 3,
-                    )
-                  : null,
-            ),
-            child: DefaultTextStyle.merge(
-              style: TextStyle(
-                color: tokens.foreground.withValues(
-                  alpha: widget.disabled ? .5 : 1,
-                ),
-                fontSize: DiscourseTypography.sm,
-                height: DiscourseTypography.lineHeightSmall,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0,
+                : null,
+            child: AnimatedContainer(
+              duration: DMotion.duration(
+                context,
+                const Duration(milliseconds: 150),
               ),
-              child: IconTheme.merge(
-                data: IconThemeData(
-                  size: 16,
+              constraints: BoxConstraints(
+                minHeight: touch ? 48 : (visualHeight ?? 0),
+              ),
+              padding: widget.triggerStyle
+                  ? const EdgeInsetsDirectional.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    )
+                  : const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: highlighted
+                    ? tokens.muted.withValues(
+                        alpha: widget.active
+                            ? tokens.muted.a * .5
+                            : tokens.muted.a,
+                      )
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(radius),
+              ),
+              child: DefaultTextStyle.merge(
+                style: TextStyle(
                   color: tokens.foreground.withValues(
                     alpha: widget.disabled ? .5 : 1,
                   ),
+                  fontSize: DiscourseTypography.sm,
+                  height: DiscourseTypography.lineHeightSmall,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0,
                 ),
-                child: Opacity(
-                  opacity: _pressed ? .85 : 1,
-                  child: widget.child,
+                child: IconTheme.merge(
+                  data: IconThemeData(
+                    size: 16,
+                    color: tokens.foreground.withValues(
+                      alpha: widget.disabled ? .5 : 1,
+                    ),
+                  ),
+                  child: Opacity(
+                    opacity: _pressed ? .85 : 1,
+                    child: widget.child,
+                  ),
                 ),
               ),
             ),
@@ -877,4 +883,33 @@ class _NavigationActionState extends State<_NavigationAction> {
           )
         : action;
   }
+}
+
+class _NavigationFocusRingPainter extends CustomPainter {
+  const _NavigationFocusRingPainter({
+    required this.color,
+    required this.radius,
+  });
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const width = 3.0;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        (Offset.zero & size).inflate(width / 2),
+        Radius.circular(radius + width / 2),
+      ),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width
+        ..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_NavigationFocusRingPainter oldDelegate) =>
+      color != oldDelegate.color || radius != oldDelegate.radius;
 }
