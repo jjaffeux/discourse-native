@@ -5,7 +5,7 @@ The Mac remained locked; native visual/accessibility inspection is pending.
 
 ## Source and build equality
 
-- Source commit: `3cda4109fb5846b48d0f7fe5ae2184a493e58a80` on `codex/ui-resizable`.
+- Source commit: `7ba6dd15a5134b195d8b9fb5fda6e457e8005eb0` on `codex/ui-resizable`.
 - Build checkout: `/Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native`.
 - Entrypoint: `lib/resizable_review_main.dart`, mounting actual production pane,
   Matrix column and Chat thread adapters with local widths/counters only,
@@ -14,10 +14,10 @@ The Mac remained locked; native visual/accessibility inspection is pending.
 - Flutter 3.47.2; final build succeeded. The only emitted build warning was the
   existing always-run Flutter Assemble script phase. Root/full lockfiles and
   `.fvmrc` remain unchanged. No Voice compatibility code changed.
-- Source equality checked with `git diff --exit-code 3cda4109fb5846b48d0f7fe5ae2184a493e58a80 -- lib test macos .fvmrc pubspec.lock profiles/full/pubspec.lock packages/discourse_voice/pubspec.lock`.
+- Source equality checked with `git diff --exit-code 7ba6dd15a5134b195d8b9fb5fda6e457e8005eb0 -- lib test macos .fvmrc pubspec.lock profiles/full/pubspec.lock packages/discourse_voice/pubspec.lock`.
   Subsequent handoff metadata commits change documentation only.
 
-The final build was rerun after the last source-format commit; this is not the
+The final build was rerun after the final standalone API cleanup commit; this is not the
 kernel from the earlier pre-format build.
 
 ## Isolated bundle
@@ -37,7 +37,7 @@ kernel from the earlier pre-format build.
   frameworks and debug dylibs passed strict verification.
 
 SHA256 of each of the following is identical:
-`61910f371df8867797f0a76d5b014915c0b986c0183b35ff0e4a98572dde88a7`
+`564d2ae4fcee4c667fbd4aa80521d3454cef17195e76723758130b1398918b1b`
 
 1. `.dart_tool/flutter_build/184cab88fda9e046b73a03cb7637d050/app.dill`
 2. `build/macos/Build/Products/Debug/Discourse.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin`

@@ -1199,9 +1199,9 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 **verification**
 
 - flutter pub get --enforce-lockfile at root and profiles/full passed; Flutter 3.47.2 and lockfiles unchanged.
-- Focused tests: d_resizable_test, styleguide/resizable_examples_test, resizable_pane_test, panel_width_controller_headless_test, users_page_test, chat_thread_workspace_test passed (88 tests); final radius correction additionally passed 16 component/styleguide tests including custom zero-radius assertion.
+- Final focused tests: d_resizable_test, styleguide/resizable_examples_test, resizable_pane_test, panel_width_controller_headless_test, users_page_test, chat_thread_workspace_test passed (88 tests), including radius-zero, coarse targets, RTL collapsed-edge drag and all migrations.
 - Final root and full-profile flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed. Four extracted self-contained usage programs passed Dart analysis.
-- Isolated local-data native fixture built successfully from source 3cda4109fb5846b48d0f7fe5ae2184a493e58a80. Copied /tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app has unique name/ID/URL scheme; build app.dill and original/copied kernels share SHA256 61910f371df8867797f0a76d5b014915c0b986c0183b35ff0e4a98572dde88a7. Deep strict signature verification passed. See docs/component-library/resizable-native.md and evidence/resizable logs.
+- Isolated local-data native fixture built successfully from source 7ba6dd15a5134b195d8b9fb5fda6e457e8005eb0. Copied /tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app has unique name/ID/URL scheme; build app.dill and original/copied kernels share SHA256 564d2ae4fcee4c667fbd4aa80521d3454cef17195e76723758130b1398918b1b. Deep strict signature verification passed. See docs/component-library/resizable-native.md and evidence/resizable logs.
 
 **limitations**
 
