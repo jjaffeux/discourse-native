@@ -2842,7 +2842,7 @@
         "48 Breadcrumb/Dropdown/styleguide tests passed with seed826145; both focused topic-row regressions passed; root and profiles/full analysis are clean."
       ],
       "limitations": [
-        "Dropdown Menu remains unaccepted. Its reviewer task ended after reporting a third native-control denial, despite Breadcrumb's approved CUA session successfully launching two macOS apps on the same unlocked host. Dropdown correctly did not merge. The coordinator must resume or replace that parent review; Breadcrumb will not carry the unaccepted source into main."
+        "Dropdown Menu remains unaccepted. Breadcrumb's successful approved native inspections preceded the parent reviewer's latest 2026-09-09 12:53 UTC locked-Mac denial and therefore do not supersede it. Dropdown correctly did not merge. Acceptance remains pending a manual unlock and parent-owned resume; Breadcrumb will not carry the unaccepted source into main."
       ],
       "implementationCommit": "cb039ee3072c993c80af945d4be6cda73ff32f80",
       "mergeCommit": null,

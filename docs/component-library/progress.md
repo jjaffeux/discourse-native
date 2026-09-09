@@ -2480,7 +2480,7 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 
 **limitations**
 
-- Dropdown Menu remains unaccepted. Its reviewer task ended after reporting a third native-control denial, despite Breadcrumb's approved CUA session successfully launching two macOS apps on the same unlocked host. Dropdown correctly did not merge. The coordinator must resume or replace that parent review; Breadcrumb will not carry the unaccepted source into main.
+- Dropdown Menu remains unaccepted. Breadcrumb's successful approved native inspections preceded the parent reviewer's latest 2026-09-09 12:53 UTC locked-Mac denial and therefore do not supersede it. Dropdown correctly did not merge. Acceptance remains pending a manual unlock and parent-owned resume; Breadcrumb will not carry the unaccepted source into main.
 
 ### pagination
 
