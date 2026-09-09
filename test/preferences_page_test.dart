@@ -196,7 +196,8 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-      expect(_primaryFocusIsWithin(linkedPosts), isTrue);
+      expect(_primaryFocusIsWithin(frequency), isFalse);
+      expect(_primaryFocusIsWithin(linkedPosts), isFalse);
     });
 
     testWidgets('compact form follows physical desktop alignment', (
@@ -725,9 +726,7 @@ void main() {
       expect(find.text('Chat'), findsNothing);
       expect(
         tester
-            .widget<DropdownButtonFormField<int>>(
-              find.byType(DropdownButtonFormField<int>),
-            )
+            .widget<DSelectField<int>>(find.byType(DSelectField<int>))
             .onChanged,
         isNull,
       );
@@ -768,10 +767,8 @@ void main() {
 
       expect(
         tester
-            .widget<DropdownButtonFormField<ChatSeparateSidebarPreference>>(
-              find.byType(
-                DropdownButtonFormField<ChatSeparateSidebarPreference>,
-              ),
+            .widget<DSelectField<ChatSeparateSidebarPreference>>(
+              find.byType(DSelectField<ChatSeparateSidebarPreference>),
             )
             .onChanged,
         isNotNull,

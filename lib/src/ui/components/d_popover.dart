@@ -35,6 +35,29 @@ typedef DPopoverTriggerBuilder =
 typedef DPopoverCloseBuilder =
     Widget Function(BuildContext context, VoidCallback close);
 
+typedef DPopoverPlacementResolver =
+    Offset? Function(DPopoverPlacement placement);
+
+/// Read-only geometry offered to an optional component-specific placement
+/// resolver. Returning null retains the ordinary side/alignment candidate;
+/// returned offsets still pass through Popover collision correction.
+@immutable
+class DPopoverPlacement {
+  const DPopoverPlacement({
+    required this.target,
+    required this.boundary,
+    required this.contentSize,
+    required this.defaultOffset,
+    required this.direction,
+  });
+
+  final Rect target;
+  final Rect boundary;
+  final Size contentSize;
+  final Offset defaultOffset;
+  final TextDirection direction;
+}
+
 @immutable
 class DPopoverTriggerState {
   const DPopoverTriggerState({
@@ -62,11 +85,9 @@ class DPopoverController extends ChangeNotifier {
 
   bool get isOpen => _owner?._open ?? false;
 
-  void open() => _owner?._request(
-    true,
-    DPopoverChangeReason.imperative,
-    DPopoverInteraction.imperative,
-  );
+  void open([
+    DPopoverInteraction interaction = DPopoverInteraction.imperative,
+  ]) => _owner?._request(true, DPopoverChangeReason.imperative, interaction);
 
   void close() => _owner?._request(
     false,
@@ -708,6 +729,8 @@ class DPopoverContent extends StatelessWidget {
     this.width = 288,
     this.constraints = const BoxConstraints(),
     this.padding = const EdgeInsets.all(10),
+    this.scrollable = true,
+    this.placementResolver,
   }) : assert(sideOffset >= 0),
        assert(collisionPadding >= 0),
        assert(width > 0);
@@ -725,6 +748,15 @@ class DPopoverContent extends StatelessWidget {
   final double width;
   final BoxConstraints constraints;
   final EdgeInsetsGeometry padding;
+
+  /// Optional component-specific positioning. It receives only resolved
+  /// geometry; Popover remains the collision, lifecycle and overlay owner.
+  final DPopoverPlacementResolver? placementResolver;
+
+  /// Whether the styled surface supplies its own [SingleChildScrollView].
+  /// Set false when the content owns a lazy or independently controlled
+  /// viewport. The popover never owns or disposes that viewport's controller.
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -772,11 +804,13 @@ class DPopoverContent extends StatelessWidget {
                   ),
                 ],
               ),
-              child: SingleChildScrollView(
-                primary: false,
-                padding: padding,
-                child: child,
-              ),
+              child: scrollable
+                  ? SingleChildScrollView(
+                      primary: false,
+                      padding: padding,
+                      child: child,
+                    )
+                  : Padding(padding: padding, child: child),
             ),
           ),
         ),
@@ -967,6 +1001,7 @@ class _RenderPopover extends RenderShiftedBox {
     final config = c.content;
     final boundary = c.boundary.deflate(config.collisionPadding);
     _side = _physical(config.side);
+    final customPlacement = config.placementResolver != null;
     child!.layout(
       BoxConstraints(
         maxWidth: math.max(0, boundary.width),
@@ -995,10 +1030,17 @@ class _RenderPopover extends RenderShiftedBox {
     if (config.sideCollision == DPopoverCollision.flip) {
       child!.layout(
         BoxConstraints(
-          maxWidth: math.max(0, placedVertical ? boundary.width : room(_side)),
+          maxWidth: math.max(
+            0,
+            placedVertical || customPlacement ? boundary.width : room(_side),
+          ),
           maxHeight: math.max(
             0,
-            placedVertical ? room(_side) : boundary.height,
+            customPlacement
+                ? boundary.height
+                : placedVertical
+                ? room(_side)
+                : boundary.height,
           ),
         ),
         parentUsesSize: true,
@@ -1074,6 +1116,17 @@ class _RenderPopover extends RenderShiftedBox {
       ),
     };
     var offset = place(align);
+    offset =
+        config.placementResolver?.call(
+          DPopoverPlacement(
+            target: c.target,
+            boundary: boundary,
+            contentSize: childSize,
+            defaultOffset: offset,
+            direction: c.direction,
+          ),
+        ) ??
+        offset;
     if (config.alignCollision == DPopoverCollision.flip &&
         align != DPopoverAlign.center) {
       final overflows = placedVertical
@@ -1085,7 +1138,8 @@ class _RenderPopover extends RenderShiftedBox {
         align = align == DPopoverAlign.start
             ? DPopoverAlign.end
             : DPopoverAlign.start;
-        offset = place(align);
+        final realigned = place(align);
+        offset = Offset(realigned.dx, offset.dy);
       }
     }
     var dx = offset.dx;
