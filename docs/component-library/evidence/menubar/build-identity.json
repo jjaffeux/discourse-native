@@ -1,14 +1,14 @@
 {
   "component": "menubar",
-  "sourceCommit": "aab023bf4f9f41af2b60fe1d008f010eecaa4062",
-  "branch": "codex/review-menubar-candidate",
+  "sourceCommit": "430b46a0690a23613ca795b3a95a6f64da9b590e",
+  "branch": "codex/review-menubar-final",
   "flutter": "3.47.2",
   "target": "lib/styleguide_main.dart",
   "buildCommand": "flutter build macos --debug -t lib/styleguide_main.dart --no-pub",
   "buildResult": "passed",
-  "fixturePath": "/private/tmp/discourse-menubar-review-aab0.x4CZn7/Discourse Menubar Review aab0.app",
-  "bundleIdentifier": "org.discourse.menubarreview.aab0",
-  "kernelSha256": "6affee4fa8bc5e6714b318addcac0daa2eb4d1e0dac688c119faa5547db37810",
+  "fixturePath": "/private/tmp/discourse-menubar-review-430b.2BbJSL/Discourse Menubar Review 430b.app",
+  "bundleIdentifier": "org.discourse.menubarreview.430b",
+  "kernelSha256": "ba40288f9634cf77a0a19a2caeff110ea22a327362bbb7462821ac31ec0a09c8",
   "signature": {
     "kind": "ad-hoc",
     "deepStrictVerification": "passed",
@@ -28,8 +28,8 @@
   "sourceScope": "The fixture mounts the production styleguide and registered real DMenubar examples from the exact source commit. The copied bundle only changes its Info.plist identity and ad-hoc signature; repository runner identities and entitlements are unchanged.",
   "inspection": {
     "launched": false,
-    "officialBrowserCompared": true,
+    "officialBrowserCompared": "light completed; dark still required",
     "nativeMacosInspected": false,
-    "note": "The independent reviewer compared the official rendered light reference and inspected the preceding exact-source native bundle across interaction, light/dark/Plum, RTL, 360px, 200% text and reduced motion. That pass found an off-screen focused-trigger issue, fixed in this source commit. This rebuilt exact bundle is queued for the required post-fix native confirmation before acceptance."
+    "note": "Earlier exact-source native passes inspected command/checkbox/radio/submenu/typeahead/Escape/Home/End behavior, dark/light/Plum, 360px/200% text, reduced motion, Arabic RTL and dark destructive icons. The 67aa23ab pass exposed remaining RTL anchor clipping and double-mirrored submenu chevrons. Source 430b46a0 fixes both; nested-Navigator regressions fail before and pass after. This rebuilt fixture is queued for focused native confirmation; it is not yet accepted."
   }
 }

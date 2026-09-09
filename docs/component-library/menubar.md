@@ -96,3 +96,25 @@ The audit covered core shell and plugin `MenuAnchor`, `PopupMenuButton`,
 
 These retained alternatives are specific; future product surfaces that add a
 persistent File/Edit/View-style in-app strip should adopt `DMenubar` directly.
+
+## Independent review corrections
+
+- Preserve the compact 24px desktop trigger inside the 32px root, with a 48px
+  minimum trigger hit surface on iOS.
+- Remove the example-only width cap and reveal a newly focused trigger before
+  opening its popup. The root scrolls only its matching-axis viewport.
+- The second native pass found that popup autofocus could hide that trigger
+  again in RTL. An embedded Navigator inside a scrolling host reproduced the
+  issue: an opened Profiles label moved to x=-275 and a standalone popup moved
+  its host page by 86px. Dropdown Menu now owns first-enabled-item focus instead
+  of also running Popover's default focus traversal, and item navigation scrolls
+  only the popup viewport. Both regressions fail before the fix and pass after.
+- Material chevron glyphs already mirror with text direction; selecting the left
+  glyph in RTL mirrored twice. The shared Dropdown Menu now uses the directional
+  right glyph once, matching the submenu's actual RTL opening direction.
+
+Source `430b46a0690a23613ca795b3a95a6f64da9b590e` passes 63 combined randomized
+Menubar/Dropdown Menu/Popover/Table component and styleguide tests (seed
+1320190751), root/full-profile analysis, and the debug macOS styleguide build.
+The exact-source isolated bundle and signature/kernel identity are recorded in
+`evidence/menubar/build-identity.json`; focused native confirmation is pending.

@@ -3060,11 +3060,12 @@
         "Pass focused component/styleguide/adoption regressions, formatting and static analysis; create a separate Menubar reviewer that owns final dependency reconciliation, official rendered browser/native acceptance and local main merge."
       ],
       "decisions": [
-        "Prepare against Dropdown Menu reviewer candidate d273c27e788bb3991c773c7432e0b8c927715651 on codex/review-dropdown-menu-candidate. Its reviewer reports 47 focused Dropdown/Popover/Table/styleguide tests and root/full analysis passing; official browser/native acceptance remains pending, so this source pin is not parent acceptance.",
+        "Prepared source d273c27e788bb3991c773c7432e0b8c927715651 was reconciled with accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787. Independent Menubar review subsequently found and fixed shared popup-focus and RTL-chevron defects; the new corrections still require their focused native confirmation.",
         "DMenubar owns only persistent top-level coordination: one active menu, logical arrow/Home/End roving focus, Enter/Space/open-direction entry, pointer hover switching and final trigger restoration. DDropdownMenu remains the popup/item/typeahead/submenu lifecycle owner.",
         "Use a 32px minimum root with internal horizontal scrolling only when narrow or scaled layouts cannot fit persistent triggers. Keyboard focus centers newly focused triggers in the viewport in both LTR and RTL, preserving source geometry without a RenderFlex overflow or an undiscoverable off-screen command.",
         "Keep Base UI's browser modal implementation detail with the shared Dropdown Menu lifecycle rather than expose an inert boolean; keep operating-system application menus outside this generic in-app widget.",
-        "Independent review retains the source-exact 24px trigger and 32px bar on macOS/Linux, while iOS uses a 48px minimum trigger hit surface so persistent commands remain touch-accessible."
+        "Independent review retains the source-exact 24px trigger and 32px bar on macOS/Linux, while iOS uses a 48px minimum trigger hit surface so persistent commands remain touch-accessible.",
+        "Use accepted Popover.focusContentOnOpen=false for Dropdown Menu, whose content already owns first-enabled-item focus. Restrict item reveal to the popup viewport so embedded Navigator overlays do not scroll enclosing pages or menubar strips."
       ],
       "migrations": [
         "No production migration: the audited core/plugin app currently has no persistent row of multiple independent command-menu triggers. The complete component is registered with six real styleguide compositions."
@@ -3077,17 +3078,15 @@
       ],
       "verification": [
         "Frozen Markdown fetched byte-for-byte at 8ae4486c307453e61359a37284084facbfbc6495ed0dabdc47ad991a06f734ae; base-nova registry response SHA-256 265f030bd11d52072325f749bfd2c8070a9a1cc48098aa3fb245b2460801e6cd. Exact geometry/behavior/API mapping is recorded in docs/component-library/menubar.md.",
-        "dart analyze on the component, public registration, examples and focused tests passed with no diagnostics.",
-        "Eighteen randomized component/styleguide tests passed with seed 1320190751. DMenubar coverage includes compact geometry, top-level keyboard/pointer switching, logical RTL/Home/End roving, checkbox/radio state and semantics, submenu Escape boundaries, typeahead/close restoration, disabled root, default-open/borrowed-controller coordination, live tokens, reduced motion, narrow layout and 200% text.",
-        "The same randomized run verified all six frozen styleguide groups register and mount in light, dark and plum palettes at 216px/200%/RTL/reduced-motion; composition state and exact-Lucide destructive example interactions pass.",
-        "flutter pub get --enforce-lockfile and flutter analyze --no-pub passed at repository root and profiles/full; Flutter 3.47.2 and both lockfile hashes remained unchanged.",
-        "Exact source 3aef780c8aa4ad042d464c1c6cdf9c419e996c58 built successfully as the real styleguide macOS target. Isolated copied fixture /private/tmp/discourse-menubar-review-3aef780c/Discourse Menubar Review 3aef.app has bundle ID org.discourse.menubarreview.3aef780c, kernel SHA-256 600eac87a4634f5e62bb10408817018fd4771572ee728a0f2c4c452a750c3644, passing deep strict ad-hoc signature and three permitted debug entitlements; all 7 signed executables are free of application/team/APS identifiers. See evidence/menubar/build-identity.json. This is build provenance, not native inspection.",
-        "Independent review added controlled-state coordination, borrowed-controller disposal and iOS 48px touch-target regressions. Native inspection then exposed a partially off-screen focused trigger at 360px/200% text; commits 479b850f and aab023bf remove the example-only cap and center newly focused triggers in LTR and RTL. The refreshed Menubar/styleguide matrix passes 18 tests with seed 1320190751, and root/full analysis is clean.",
-        "Accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 and its accepted Popover source were reconciled from current main. Their d_dropdown_menu.dart blob remains byte-identical to the prepared source; 61 combined Menubar/Dropdown/Popover/Table tests pass with seed 1320190751, and root/full analysis is clean.",
-        "Corrected review source aab023bf4f9f41af2b60fe1d008f010eecaa4062 built successfully as the real macOS styleguide target. The isolated fixture /private/tmp/discourse-menubar-review-aab0.x4CZn7/Discourse Menubar Review aab0.app uses bundle org.discourse.menubarreview.aab0 and kernel SHA-256 6affee4fa8bc5e6714b318addcac0daa2eb4d1e0dac688c119faa5547db37810; deep strict ad-hoc verification passes, its only main entitlements are sandbox/allow-jit/get-task-allow, and 0 of 7 signed executables contain application/team/APS identifiers. The copied provisioning profile was removed from this isolated fixture without changing repository provisioning."
+        "63 combined randomized tests pass on correction 430b46a0690a23613ca795b3a95a6f64da9b590e with seed 1320190751: Menubar, Dropdown Menu, Popover, Table and both menu styleguide suites. Coverage includes controlled/default-open coordination, borrowed controllers, iOS touch bounds, pointer/keyboard switching, checked/radio/disabled states, nested Escape, typeahead, focus restoration, live palettes, large text and RTL.",
+        "Nested-Navigator regressions reproduce both native focus failures before the correction: popup focus moved an enclosing page by 86px and an opened RTL Profiles trigger to x=-275. Popup-local scrolling plus a single menu-owned autofocus path fix both; logical trigger reveal is checked before and after opening/wrapping at 200% text in LTR and RTL.",
+        "RTL submenu regression confirms one directional Material chevron glyph, avoiding the native-observed double mirror. Native Context Menu review independently reproduced the same inherited arrow defect.",
+        "flutter pub get --enforce-lockfile previously passed at root and profiles/full with unchanged Flutter 3.47.2 and lockfiles. Current root and full-profile flutter analyze --no-pub pass; formatting and git diff --check are clean.",
+        "Official light rendered reference and earlier exact-source native fixtures were inspected for compact geometry, File/Edit/View/Profiles switching, checkbox/radio retention, nested Share/Escape, typeahead Print, Home/End, light/dark/Plum, 360px/200%, reduced motion, Arabic RTL and dark destructive icons. The 67aa23ab fixture exposed the remaining RTL clipping and mirrored arrow; final corrected native inspection and official dark comparison remain required.",
+        "Source 430b46a0690a23613ca795b3a95a6f64da9b590e builds the real debug macOS styleguide. Fixture /private/tmp/discourse-menubar-review-430b.2BbJSL/Discourse Menubar Review 430b.app; bundle org.discourse.menubarreview.430b; kernel SHA-256 ba40288f9634cf77a0a19a2caeff110ea22a327362bbb7462821ac31ec0a09c8. Deep strict ad-hoc verification passes, only sandbox/allow-jit/get-task-allow main entitlements, and 0 of 7 signed executables contain application/team/APS identifiers. Repository runner signing/provisioning is unchanged."
       ],
       "limitations": [
-        "The official rendered reference and the preceding exact-source macOS fixture were inspected after unlock. The corrected exact-source fixture is waiting in the shared FIFO desktop queue for its focused-trigger confirmation before acceptance. iOS/Linux device behavior and spoken VoiceOver remain unverified."
+        "Corrected source 430b46a0 is queued for focused native confirmation of enlarged RTL anchor reveal and submenu direction, plus remaining official dark comparison. iOS/Linux device behavior and spoken VoiceOver remain unverified."
       ],
       "implementationCommit": "3aef780c8aa4ad042d464c1c6cdf9c419e996c58",
       "mergeCommit": null,
@@ -3102,13 +3101,13 @@
       "dependencyOwners": [
         {
           "id": "dropdown-menu",
-          "status": "in_progress",
+          "status": "merged",
           "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
           "branch": "codex/ui-dropdown-menu",
           "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
           "reviewBranch": "codex/review-dropdown-menu",
           "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
-          "mergeCommit": null
+          "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
         }
       ],
       "reviewTaskId": "01a08628-7042-7173-a37d-7f1f04eade66",
@@ -3136,10 +3135,10 @@
       "reviewBlocker": {
         "status": "awaiting_desktop_slot",
         "reportedByTask": "01a08628-7042-7173-a37d-7f1f04eade66",
-        "observation": "The first unlocked reference/native pass completed and found a narrow large-text focus-reveal defect. The corrected source and bidirectional regression pass; the exact rebuilt fixture is queued for a brief post-fix native confirmation.",
-        "requiredAction": "Acquire the FIFO desktop lease, confirm focused-trigger reveal plus the remaining icon/Arabic examples in the exact corrected fixture, then complete acceptance and the latest-main merge.",
-        "preparedReviewCommit": "aab023bf4f9f41af2b60fe1d008f010eecaa4062",
-        "preparedBundle": "/private/tmp/discourse-menubar-review-aab0.x4CZn7/Discourse Menubar Review aab0.app"
+        "observation": "The 67aa23ab native pass found inherited popup focus scrolling in embedded Navigators and a double-mirrored RTL submenu arrow. Both have fail-before/pass-after regressions in source 430b46a0; the exact rebuilt fixture is queued for focused confirmation.",
+        "requiredAction": "Acquire the FIFO desktop lease, confirm open-menu trigger visibility at 360px/200% in LTR/RTL plus the Arabic submenu arrow and keyboard direction, finish the official dark comparison, then accept and merge from latest main.",
+        "preparedReviewCommit": "430b46a0690a23613ca795b3a95a6f64da9b590e",
+        "preparedBundle": "/private/tmp/discourse-menubar-review-430b.2BbJSL/Discourse Menubar Review 430b.app"
       }
     },
     {
