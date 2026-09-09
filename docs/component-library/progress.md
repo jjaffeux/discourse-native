@@ -689,6 +689,7 @@ Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/u
 - Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub pass without diagnostics. Touched Dart formatted; git diff --check passes.
 - Isolated macOS debug build succeeded; bundle org.discourse.native.badge.bebb9 / Badge Review BEBB9. Deep strict ad-hoc signature verification passes. Complete relevant Dart source matches the checkout; kernel and source-manifest hashes recorded in badge-native.md.
 - Native slot requested from coordinator; no CUA or native inspection used while the Mac is locked.
+- Exact final test command: flutter test --no-pub test/d_badge_test.dart test/badge_migrations_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart test/groups_page_test.dart test/group_page_test.dart test/user_card_test.dart test/user_card_target_accessibility_test.dart test/user_card_account_lifecycle_test.dart test/user_menu_message_accessibility_test.dart test/plugin_user_menu_widget_test.dart test/chat_drawer_test.dart test/chat_shell_integration_test.dart test/topic_list_view_lifecycle_test.dart --test-randomize-ordering-seed=792026 --reporter expanded. All 254 pass.
 
 **limitations**
 
