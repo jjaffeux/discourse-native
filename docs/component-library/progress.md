@@ -26,7 +26,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 14 | switch | planned | — | — | label | — |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
-| 17 | slider | planned | — | — | label | — |
+| 17 | slider | in_progress | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | — |
 | 18 | progress | planned | — | — | label | — |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
@@ -836,6 +836,51 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 
 - Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.
 - Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
+
+### slider
+
+Status: in_progress. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-slider.
+
+**acceptanceCriteria**
+
+- Match base-nova 4px track, 12px thumb, borders, focus and disabled styling using live tokens; record source hashes and native comparison.
+- Single/range/multiple controlled sliders, vertical/RTL, pointer capture and track jumps, overlap selection, keyboard arrows/Home/End/Page and per-thumb semantics.
+- Validate min/max/step and thumb ordering; Form save/reset/validation; safe cancellation, removal and controlled updates.
+- Migrate video seeking, topic position, Voice volume and Skeleton/AspectRatio controls; preserve domain callbacks and keyboard ownership.
+- Focused component and migration tests, root/full analysis, isolated traceable macOS bundle and offline production-widget fixture; native inspection awaits coordinator slot.
+
+**decisions**
+
+- Label is merged; compose baseline DButton for example actions. No dependency on pending Button/Input/Checkbox.
+- Slider owns interactive video seek and volume controls; noninteractive buffered progress remains part of the seek track, not a standalone Progress component.
+- Reference registry SHA256 646bcd7913417b786bbf7578484f851bf89c81a62f70ef9c4f3522e2af80a951; official examples pinned to 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048. Full source URLs/hashes and metric mapping in docs/component-library/slider.md and references/slider/sources.json.
+- Public DSlider scalar, DMultiSlider ordered range/multiple input and matching Form fields. Parent controlled values own paint, semantics and save/reset; commits report accepted values after parent frame.
+- Reference pointer push collisions plus optional stop; keyboard preserves neighbour bounds and thumb tab order. Primary-pointer capture cancels on configuration changes/removal. 12px thumb and 4px track retain 48px transparent targets.
+
+**migrations**
+
+- lib/src/shell/inline_video.dart: live buffered seek track, duration-zero disabling and unchanged session seek callback.
+- lib/src/shell/topic_progress.dart: TopicPositionSlider preserves integer post selection and editor route/lifecycle/busy ownership.
+- lib/src/plugins/voice/voice_room_view.dart: only participant volume block and VoiceParticipantVolumeSlider adapter; preserve local persistence/media calls and 0.1 steps. Coordinate adjacent Switch hunks.
+- Skeleton and Aspect Ratio example sliders preserve geometry semantics and step sizes.
+- Reading and Chat keyboard guards recognize DMultiSlider input.
+
+**retainedAlternatives**
+
+- Read-only progress and resizable/viewport semantics belong to other catalogue components. Material slider type guards retained for external consumers. No concrete Material Slider controls remain in core/bundled plugin app source.
+
+**verification**
+
+- Flutter 3.47.2 unchanged. Root and profiles/full flutter pub get --enforce-lockfile pass; lockfiles unchanged.
+- Root and profiles/full flutter analyze --no-pub: no issues. Touched Dart format and git diff --check pass.
+- Focused widget tests cover actual input, controlled ownership, Form state, cancellation/removal, semantics, keyboard/RTL/vertical, multi-pointer/collision spacing, examples and production fixtures. Existing video/topic/Voice/reading keyboard/Chat and geometry example regressions included; final count recorded with native bundle evidence.
+- tool/slider_review_main.dart mounts real production TopicPositionSlider, VoiceParticipantVolumeSlider and InlineVideoPlaybackSurface with local playback session; native app not launched.
+
+**limitations**
+
+- Mac locked; no native desktop/reference-browser inspection performed. Awaiting coordinator slot; no visual/native parity claim.
+- No iOS/Linux device or VoiceOver speech verification. Swap collision is not exposed; stable ordered native focus with default push and optional stop is documented.
+- Isolated macOS review bundle build pending; status must remain in_progress, nativeInspectionStatus awaiting_slot.
 
 ### skeleton
 

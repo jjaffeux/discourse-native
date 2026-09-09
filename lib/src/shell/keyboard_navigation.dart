@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../ui/components/d_slider.dart';
 
 /// A pane focus target whose nested controls retain their own focus handling.
 class ReadingFocusNode extends FocusNode {
@@ -40,6 +41,7 @@ bool navigationShortcutsAllowed(
       widget is RadioListTile<Object?> ||
       widget is Switch ||
       widget is SwitchListTile ||
+      widget is DMultiSlider ||
       widget is Slider ||
       widget is RangeSlider ||
       widget is SegmentedButton<Object?> ||

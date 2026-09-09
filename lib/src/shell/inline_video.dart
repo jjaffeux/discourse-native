@@ -997,27 +997,21 @@ class _PlaybackTimeline extends StatelessWidget {
       return Row(
         children: [
           Expanded(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: Colors.white,
-                inactiveTrackColor: const Color(0x55FFFFFF),
-                secondaryActiveTrackColor: const Color(0x88FFFFFF),
-                thumbColor: Colors.white,
-                overlayColor: const Color(0x33FFFFFF),
-                trackHeight: 2,
-              ),
-              child: Slider(
-                value: durationMilliseconds > 0
-                    ? positionMilliseconds.toDouble()
-                    : 0,
-                max: math.max(durationMilliseconds, 1).toDouble(),
-                secondaryTrackValue: durationMilliseconds > 0
-                    ? bufferedMilliseconds.toDouble()
-                    : null,
-                onChanged: durationMilliseconds > 0
-                    ? (value) => onSeek(Duration(milliseconds: value.round()))
-                    : null,
-              ),
+            child: DSlider(
+              value: durationMilliseconds > 0
+                  ? positionMilliseconds.toDouble()
+                  : 0,
+              max: math.max(durationMilliseconds, 1).toDouble(),
+              step: null,
+              semanticLabel: 'Playback position',
+              semanticFormatterCallback: (value) =>
+                  _duration(Duration(milliseconds: value.round())),
+              secondaryTrackValue: durationMilliseconds > 0
+                  ? bufferedMilliseconds.toDouble()
+                  : null,
+              onChanged: durationMilliseconds > 0
+                  ? (value) => onSeek(Duration(milliseconds: value.round()))
+                  : null,
             ),
           ),
           Text(

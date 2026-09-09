@@ -208,15 +208,12 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        Slider(
-          key: const ValueKey('topic-progress-slider'),
-          value: _selected.toDouble(),
-          min: 1,
-          max: widget.total.toDouble(),
-          label: 'Post $_selected',
+        TopicPositionSlider(
+          position: _selected,
+          total: widget.total,
           onChanged: _jumping
               ? null
-              : (value) => setState(() => _selected = value.round()),
+              : (value) => setState(() => _selected = value),
         ),
         if (_error case final error?) ...[
           Semantics(
@@ -254,4 +251,27 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
       ],
     );
   }
+}
+
+/// Topic-position input shared by the jump editor and offline review fixture.
+class TopicPositionSlider extends StatelessWidget {
+  const TopicPositionSlider({
+    super.key,
+    required this.position,
+    required this.total,
+    required this.onChanged,
+  });
+  final int position;
+  final int total;
+  final ValueChanged<int>? onChanged;
+  @override
+  Widget build(BuildContext context) => DSlider(
+    key: const ValueKey('topic-progress-slider'),
+    value: position.toDouble(),
+    min: 1,
+    max: total.toDouble(),
+    semanticLabel: 'Post',
+    semanticFormatterCallback: (value) => 'Post ${value.round()} of $total',
+    onChanged: onChanged == null ? null : (value) => onChanged!(value.round()),
+  );
 }
