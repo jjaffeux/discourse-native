@@ -206,34 +206,25 @@ class _AlertTableState extends State<_AlertTable> {
                 return Scrollbar(
                   controller: _scroll,
                   thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _scroll,
-                    scrollDirection: Axis.horizontal,
+                  child: Padding(
                     padding: EdgeInsets.only(
                       bottom: width > constraints.maxWidth ? 6 : 0,
                     ),
-                    child: SizedBox(
-                      width: width,
-                      child: Table(
-                        defaultVerticalAlignment:
-                            TableCellVerticalAlignment.middle,
-                        columnWidths: {
-                          0: const FlexColumnWidth(2),
-                          1: FixedColumnWidth(180 * textScale),
-                          if (group.showDescription)
-                            2: const FlexColumnWidth(3),
-                          group.showDescription ? 3 : 2: FixedColumnWidth(
-                            _actionSize(context) *
-                                (widget.onQuote == null ? 1 : 2),
-                          ),
-                        },
-                        border: TableBorder(
-                          top: BorderSide(color: theme.dividerColor),
-                          horizontalInside: BorderSide(
-                            color: theme.dividerColor,
-                          ),
+                    child: DTable(
+                      controller: _scroll,
+                      minimumWidth: width,
+                      semanticLabel: '${group.status.label}: ${group.heading}',
+                      columnWidths: {
+                        0: const FlexColumnWidth(2),
+                        1: FixedColumnWidth(180 * textScale),
+                        if (group.showDescription) 2: const FlexColumnWidth(3),
+                        group.showDescription ? 3 : 2: FixedColumnWidth(
+                          _actionSize(context) *
+                              (widget.onQuote == null ? 1 : 2),
                         ),
-                        children: [
+                      },
+                      body: DTableBody(
+                        rows: [
                           for (final alert in group.alerts)
                             _row(context, alert),
                         ],
@@ -248,7 +239,7 @@ class _AlertTableState extends State<_AlertTable> {
     );
   }
 
-  TableRow _row(BuildContext context, PrometheusAlert alert) {
+  DTableRow _row(BuildContext context, PrometheusAlert alert) {
     final now = DateTime.now();
     final graph = widget.settings.process(alert.generatorUrl, alert, now: now);
     final link = widget.settings.process(alert.linkUrl, alert, now: now);
@@ -256,10 +247,11 @@ class _AlertTableState extends State<_AlertTable> {
     final identifier = Text(
       alert.identifier.isEmpty ? 'Alert' : alert.identifier,
     );
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 3, 3, 3),
+    return DTableRow(
+      cells: [
+        DTableCell(
+          softWrap: true,
+          padding: const EdgeInsetsDirectional.fromSTEB(8, 3, 3, 3),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -301,34 +293,40 @@ class _AlertTableState extends State<_AlertTable> {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 3, 3, 3),
+        DTableCell(
+          softWrap: true,
+          padding: const EdgeInsetsDirectional.fromSTEB(8, 3, 3, 3),
           child: CookedHtml(
             html: _alertDateRangeHtml(alert),
             siteUrl: widget.siteUrl,
           ),
         ),
         if (widget.group.showDescription)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 3, 3, 3),
+          DTableCell(
+            softWrap: true,
+            padding: const EdgeInsetsDirectional.fromSTEB(8, 3, 3, 3),
             child: Text(alert.description),
           ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (link != null)
-              _AlertLinkButton(
-                uri: link,
-                siteUrl: widget.siteUrl,
-                label: alert.linkText,
-              ),
-            if (widget.onQuote case final quote?)
-              _AlertActionButton(
-                icon: DIcons.quoteLeft,
-                label: 'Quote Alert',
-                onPressed: () => quote(alert),
-              ),
-          ],
+        DTableCell(
+          padding: EdgeInsets.zero,
+          alignment: AlignmentDirectional.centerEnd,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (link != null)
+                _AlertLinkButton(
+                  uri: link,
+                  siteUrl: widget.siteUrl,
+                  label: alert.linkText,
+                ),
+              if (widget.onQuote case final quote?)
+                _AlertActionButton(
+                  icon: DIcons.quoteLeft,
+                  label: 'Quote Alert',
+                  onPressed: () => quote(alert),
+                ),
+            ],
+          ),
         ),
       ],
     );
