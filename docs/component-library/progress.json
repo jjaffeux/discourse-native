@@ -2112,7 +2112,7 @@
     },
     {
       "id": "drawer",
-      "status": "implemented",
+      "status": "merged",
       "taskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
       "branch": "codex/ui-drawer",
       "dependencies": [
@@ -2155,7 +2155,7 @@
         "Browser Geist and native host-font rasterization differ; review establishes geometry, styling, interaction and accessibility structure rather than pixel equality."
       ],
       "implementationCommit": "7b230a06c5a0f9f86aae1456146c6aca908991bd",
-      "mergeCommit": null,
+      "mergeCommit": "3e75cd97e91d04e2719c8adda5e669ed5dc9e3c1",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d486/discourse-native",
       "queueStage": "independent_review",
       "implementationBrief": "Implement the complete current Base UI Drawer API and Custom Sizes, Styling, Position, Swipe Handle, Nested, Non Modal, Snap Points and Responsive examples. Inspect the actual current reference rather than assuming old Vaul behavior. Provide genuine drag/swipe/snap/interruption physics, scroll-versus-drag coordination, axis/logical positioning, nested gesture ownership and nonmodal behavior, with typed controlled/local/controller lifecycle and correct outside/Escape/back/focus accessibility. Build on accepted Dialog/shared overlay lifecycle where appropriate; don't duplicate a route manager. Preserve safe-area/keyboard insets and reduced motion. Coordinate shared source/app-adoption boundaries with the separately queued Sheet owner. Audit existing real core/plugin bottom sheets/drawers and migrate suitable interactive surfaces without changing business callbacks/permissions or swallowing scroll gestures. Meaningful snap/gesture/lifecycle/focus/production regression coverage is required.",
@@ -2182,7 +2182,7 @@
       "reviewHandoffCommit": "8377cebe8f34ab7250dfef2c8ee03d5576307946",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "implementationHandoffVerification": {
         "focusedTests": "Source reports 57 Drawer, Dialog, example and styleguide tests passing with seed 19040911, covering lifecycle, focus, pointer policy, drag/snap/scroll handoff, nested ownership and narrow/scaled/RTL layouts.",
         "analysis": "Root and full-profile analysis, touched formatting and diff checks pass; enforced locked resolution did not change dependency pins.",
@@ -4310,16 +4310,6 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "headCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b"
-        },
-        {
-          "component": "drawer",
-          "taskId": "01a08643-3074-72e1-8b18-a2266dd724e6",
-          "branch": "codex/review-drawer",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2244/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
-          "implementationBranch": "codex/ui-drawer",
-          "headCommit": "8377cebe8f34ab7250dfef2c8ee03d5576307946"
         }
       ],
       "nativeReadyTasks": []
@@ -4753,18 +4743,6 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
-          "status": "in_progress"
-        },
-        {
-          "component": "drawer",
-          "title": "Review and merge Drawer",
-          "taskId": "01a08643-3074-72e1-8b18-a2266dd724e6",
-          "hostId": "local",
-          "branch": "codex/review-drawer",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2244/discourse-native",
-          "implementationTaskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
-          "implementationBranch": "codex/ui-drawer",
-          "implementationCommit": "7b230a06c5a0f9f86aae1456146c6aca908991bd",
           "status": "in_progress"
         }
       ],

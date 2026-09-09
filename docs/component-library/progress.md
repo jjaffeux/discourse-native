@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**46 of 64 components are merged locally.** 18 existing components are in progress; 0 are planned.
+**47 of 64 components are merged locally.** 17 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -19,7 +19,6 @@ Branch preparation does not mark a component merged or visually verified.
 | toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | alert-dialog | Implementation and checks | — | — |
 | sheet | independent review | 88e3e8c2 | 01a0862f-b27f-76d2-a441-8a77594aedc8 |
-| drawer | independent review | 8377cebe | 01a08643-3074-72e1-8b18-a2266dd724e6 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | combobox | independent review | 55dcf257 | 01a08628-7889-7dd2-a93c-c854fcdf1e9a |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
@@ -73,7 +72,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 32 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 33 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 34 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
-| 35 | drawer | implemented | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | — |
+| 35 | drawer | merged | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | 3e75cd97e91d04e2719c8adda5e669ed5dc9e3c1 |
 | 36 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
 | 37 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
 | 38 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
@@ -2069,7 +2068,7 @@ Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/u
 
 ### drawer
 
-Status: implemented. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/ui-drawer.
+Status: merged. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/ui-drawer.
 
 **acceptanceCriteria**
 
