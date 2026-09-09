@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../foundation/diagnostic_errors.dart';
@@ -390,7 +389,7 @@ class ImageGridCarousel extends StatefulWidget {
 }
 
 class _ImageGridCarouselState extends State<ImageGridCarousel> {
-  final PageController _controller = PageController();
+  final DCarouselController _controller = DCarouselController();
   int _index = 0;
 
   @override
@@ -406,7 +405,7 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
     _index = target;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _controller.hasClients) {
-        _controller.jumpToPage(target);
+        unawaited(_controller.select(target, animated: false));
       }
     });
   }
@@ -425,28 +424,7 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
   int get _next => _index == _items.length - 1 ? 0 : _index + 1;
 
   void _scrollTo(int index) {
-    unawaited(
-      _controller.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      ),
-    );
-  }
-
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-
-    return switch (event.logicalKey) {
-      LogicalKeyboardKey.arrowLeft => _handled(_previous),
-      LogicalKeyboardKey.arrowRight => _handled(_next),
-      _ => KeyEventResult.ignored,
-    };
-  }
-
-  KeyEventResult _handled(int index) {
-    _scrollTo(index);
-    return KeyEventResult.handled;
+    unawaited(_controller.select(index));
   }
 
   @override
@@ -458,26 +436,30 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Focusable rather than merely tappable, so the arrow keys are
-          // reachable at all — the web client gives the track a `tabindex` for
-          // the same reason.
-          Focus(
-            onKeyEvent: _onKey,
-            child: SizedBox(
-              height: ImageGridCarousel.trackHeight,
-              child: PageView.builder(
-                controller: _controller,
-                itemCount: _items.length,
-                onPageChanged: (index) => setState(() => _index = index),
-                itemBuilder: (context, index) => Center(
-                  child: ImageGridTile(
-                    item: _items[index],
-                    fit: BoxFit.contain,
-                    siteUrl: widget.siteUrl,
-                  ),
-                ),
+          DCarousel(
+            controller: _controller,
+            loop: true,
+            navigationInsets: false,
+            semanticLabel: 'Image gallery',
+            onSelected: (index) => setState(() => _index = index),
+            children: [
+              DCarouselContent(
+                height: ImageGridCarousel.trackHeight,
+                spacing: 0,
+                children: [
+                  for (final item in _items)
+                    DCarouselItem(
+                      child: Center(
+                        child: ImageGridTile(
+                          item: item,
+                          fit: BoxFit.contain,
+                          siteUrl: widget.siteUrl,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ),
+            ],
           ),
           if (!_isSingle) ...[
             const SizedBox(height: 8),
