@@ -202,6 +202,131 @@ void main() {
     },
   );
 
+  testWidgets(
+    'static ghost and link badges paint hover while other static variants ignore the pointer',
+    (tester) async {
+      var primaryBuilds = 0;
+      await _pump(
+        tester,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const DBadge(variant: DBadgeVariant.ghost, child: Text('Ghost')),
+            const DBadge(variant: DBadgeVariant.link, child: Text('Link')),
+            DBadge(
+              child: Builder(
+                builder: (_) {
+                  primaryBuilds++;
+                  return const Text('Primary');
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+      final tokens = DTokens.of(tester.element(find.text('Ghost')));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.text('Ghost')));
+      await tester.pumpAndSettle();
+      expect(_decorationOf(tester, 'Ghost').color, tokens.muted);
+      expect(_styleOf(tester, 'Ghost').color, tokens.mutedForeground);
+      await mouse.moveTo(tester.getCenter(find.text('Link')));
+      await tester.pumpAndSettle();
+      expect(_decorationOf(tester, 'Ghost').color, Colors.transparent);
+      expect(_styleOf(tester, 'Ghost').color, tokens.foreground);
+      expect(_decorationOf(tester, 'Link').color, Colors.transparent);
+      expect(_styleOf(tester, 'Link').decoration, TextDecoration.underline);
+      final settledBuilds = primaryBuilds;
+      await mouse.moveTo(tester.getCenter(find.text('Primary')));
+      await tester.pumpAndSettle();
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(_styleOf(tester, 'Link').decoration, TextDecoration.none);
+      expect(_decorationOf(tester, 'Primary').color, tokens.primary);
+      expect(primaryBuilds, settledBuilds);
+    },
+  );
+
+  testWidgets(
+    'switching a hovered static badge away from ghost drops the stale hover',
+    (tester) async {
+      Widget badge(DBadgeVariant variant) =>
+          DBadge(variant: variant, child: const Text('Status'));
+      await _pump(tester, badge(DBadgeVariant.ghost));
+      final state = tester.state(find.byType(DBadge));
+      final tokens = DTokens.of(tester.element(find.byType(DBadge)));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.text('Status')));
+      await tester.pumpAndSettle();
+      expect(_decoration(tester).color, tokens.muted);
+      await _pump(tester, badge(DBadgeVariant.primary));
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      await _pump(tester, badge(DBadgeVariant.ghost));
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(DBadge)), same(state));
+      expect(_decoration(tester).color, Colors.transparent);
+      await mouse.moveTo(tester.getCenter(find.text('Status')));
+      await tester.pumpAndSettle();
+      expect(_decoration(tester).color, tokens.muted);
+    },
+  );
+
+  testWidgets('decoration transitions use the reference 150ms ease timing', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const DBadge(child: Text('Badge')),
+      reducedMotion: false,
+    );
+    final container = tester.widget<AnimatedContainer>(
+      find.byType(AnimatedContainer),
+    );
+    expect(container.duration, const Duration(milliseconds: 150));
+    expect(container.curve, const Cubic(.4, 0, .2, 1));
+    await _pump(tester, const DBadge(child: Text('Badge')));
+    expect(
+      tester.widget<AnimatedContainer>(find.byType(AnimatedContainer)).duration,
+      Duration.zero,
+    );
+  });
+
+  testWidgets('badge text takes part in an enclosing selection area', (
+    tester,
+  ) async {
+    SelectedContent? selection;
+    await _pump(
+      tester,
+      SelectionArea(
+        onSelectionChanged: (content) => selection = content,
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Before'),
+            DBadge(child: Text('Badge')),
+            Text('After'),
+          ],
+        ),
+      ),
+    );
+    final gesture = await tester.startGesture(
+      tester.getTopLeft(find.text('Before')),
+      kind: PointerDeviceKind.mouse,
+    );
+    addTearDown(gesture.removePointer);
+    await tester.pump();
+    await gesture.moveTo(tester.getBottomRight(find.text('After')));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    expect(selection?.plainText, 'BeforeBadgeAfter');
+  });
+
   for (final variant in DBadgeVariant.values) {
     testWidgets(
       '${variant.name} follows four live palettes without remounting',
@@ -335,6 +460,19 @@ void main() {
 BoxDecoration _decoration(WidgetTester tester) =>
     tester.widget<AnimatedContainer>(find.byType(AnimatedContainer)).decoration!
         as BoxDecoration;
+BoxDecoration _decorationOf(WidgetTester tester, String text) =>
+    tester
+            .widget<AnimatedContainer>(
+              find.ancestor(
+                of: find.text(text),
+                matching: find.byType(AnimatedContainer),
+              ),
+            )
+            .decoration!
+        as BoxDecoration;
+TextStyle _styleOf(WidgetTester tester, String text) =>
+    (tester.renderObject<RenderParagraph>(find.text(text)).text as TextSpan)
+        .style!;
 Future<void> _pump(
   WidgetTester tester,
   Widget child, {
@@ -342,6 +480,7 @@ Future<void> _pump(
   double width = 400,
   double scale = 1,
   bool rtl = false,
+  bool reducedMotion = true,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -354,7 +493,7 @@ Future<void> _pump(
             child: MediaQuery(
               data: MediaQueryData(
                 textScaler: TextScaler.linear(scale),
-                disableAnimations: true,
+                disableAnimations: reducedMotion,
               ),
               child: Directionality(
                 textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,

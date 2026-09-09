@@ -165,8 +165,15 @@ DBadge(
     StyleguideExample(
       title: 'Long labels and RTL',
       description:
-          'Switch between English and Arabic. Try 360px, 200% text, and a custom palette; labels wrap and artwork keeps its logical position.',
-      states: const ['Long label', 'RTL', 'Large text', 'Narrow'],
+          'Cycle through the documented Arabic, English and Hebrew translations. Try 360px, 200% text, and a custom palette; labels wrap and artwork keeps its logical position.',
+      states: const [
+        'Arabic',
+        'English',
+        'Hebrew',
+        'Long label',
+        'Large text',
+        'Narrow',
+      ],
       code: r'''Directionality(
   textDirection: TextDirection.rtl,
   child: DBadge(
@@ -306,57 +313,112 @@ class _BadgeDirection extends StatefulWidget {
   State<_BadgeDirection> createState() => _BadgeDirectionState();
 }
 
+enum _Language { arabic, english, hebrew }
+
+typedef _Translation = ({
+  bool rtl,
+  String badge,
+  String secondary,
+  String destructive,
+  String outline,
+  String verified,
+  String bookmark,
+  String long,
+});
+
+// The reference language selector's ar, en and he values, in its default
+// order, plus the registry's long label in each script.
+const _translations = <_Language, _Translation>{
+  _Language.arabic: (
+    rtl: true,
+    badge: 'شارة',
+    secondary: 'ثانوي',
+    destructive: 'مدمر',
+    outline: 'مخطط',
+    verified: 'متحقق',
+    bookmark: 'إشارة مرجعية',
+    long: 'تم التحقق من حالة الحساب وجميع المعلومات المطلوبة',
+  ),
+  _Language.english: (
+    rtl: false,
+    badge: 'Badge',
+    secondary: 'Secondary',
+    destructive: 'Destructive',
+    outline: 'Outline',
+    verified: 'Verified',
+    bookmark: 'Bookmark',
+    long: 'A badge with a lot of text to see how it wraps',
+  ),
+  _Language.hebrew: (
+    rtl: true,
+    badge: 'תג',
+    secondary: 'משני',
+    destructive: 'הרסני',
+    outline: 'קווי מתאר',
+    verified: 'מאומת',
+    bookmark: 'סימנייה',
+    long: 'תג עם הרבה טקסט כדי לראות איך הוא נשבר לשורות',
+  ),
+};
+
+String _languageName(_Language language) => switch (language) {
+  _Language.arabic => 'Arabic',
+  _Language.english => 'English',
+  _Language.hebrew => 'Hebrew',
+};
+
 class _BadgeDirectionState extends State<_BadgeDirection> {
-  bool _arabic = true;
+  _Language _language = _Language.arabic;
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Directionality(
-        textDirection: _arabic ? TextDirection.rtl : TextDirection.ltr,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final (variant, ar) in const [
-              (DBadgeVariant.primary, 'شارة'),
-              (DBadgeVariant.secondary, 'ثانوي'),
-              (DBadgeVariant.destructive, 'مدمر'),
-              (DBadgeVariant.outline, 'مخطط'),
-            ])
+  Widget build(BuildContext context) {
+    final t = _translations[_language]!;
+    final next =
+        _Language.values[(_language.index + 1) % _Language.values.length];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Directionality(
+          textDirection: t.rtl ? TextDirection.rtl : TextDirection.ltr,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              DBadge(child: Text(t.badge)),
               DBadge(
-                variant: variant,
-                child: Text(_arabic ? ar : _label(variant)),
+                variant: DBadgeVariant.secondary,
+                child: Text(t.secondary),
               ),
-            DBadge(
-              variant: DBadgeVariant.secondary,
-              leading: const _BadgeIcon('badge-check'),
-              child: Text(_arabic ? 'متحقق' : 'Verified'),
-            ),
-            DBadge(
-              variant: DBadgeVariant.outline,
-              trailing: const _BadgeIcon('bookmark'),
-              child: Text(_arabic ? 'إشارة مرجعية' : 'Bookmark'),
-            ),
-            DBadge(
-              variant: DBadgeVariant.secondary,
-              leading: const _BadgeIcon('badge-check'),
-              child: Text(
-                _arabic
-                    ? 'تم التحقق من حالة الحساب وجميع المعلومات المطلوبة'
-                    : 'A badge with a lot of text to see how it wraps',
+              DBadge(
+                variant: DBadgeVariant.destructive,
+                child: Text(t.destructive),
               ),
-            ),
-          ],
+              DBadge(variant: DBadgeVariant.outline, child: Text(t.outline)),
+              DBadge(
+                variant: DBadgeVariant.secondary,
+                leading: const _BadgeIcon('badge-check'),
+                child: Text(t.verified),
+              ),
+              DBadge(
+                variant: DBadgeVariant.outline,
+                trailing: const _BadgeIcon('bookmark'),
+                child: Text(t.bookmark),
+              ),
+              DBadge(
+                variant: DBadgeVariant.secondary,
+                leading: const _BadgeIcon('badge-check'),
+                child: Text(t.long),
+              ),
+            ],
+          ),
         ),
-      ),
-      const SizedBox(height: 16),
-      DButton(
-        onPressed: () => setState(() => _arabic = !_arabic),
-        label: Text(_arabic ? 'Use English' : 'Use Arabic'),
-      ),
-    ],
-  );
+        const SizedBox(height: 16),
+        DButton(
+          onPressed: () => setState(() => _language = next),
+          label: Text('Use ${_languageName(next)}'),
+        ),
+      ],
+    );
+  }
 }
 
 // Exact Lucide source is preserved under reference/badge-icons with MIT attribution.

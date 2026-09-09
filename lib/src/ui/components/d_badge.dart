@@ -10,6 +10,9 @@ enum DBadgeVariant { primary, secondary, destructive, outline, ghost, link }
 
 enum _BadgeInteraction { none, action, link }
 
+/// Tailwind's default transition timing, `cubic-bezier(.4, 0, .2, 1)`.
+const _transitionCurve = Cubic(.4, 0, .2, 1);
+
 /// A compact status, count, or label with optional decorative inline artwork.
 ///
 /// [DBadge] is static; [DBadge.action] and [DBadge.link] own a single activation
@@ -17,10 +20,13 @@ enum _BadgeInteraction { none, action, link }
 /// owns navigation, loading and domain state; compose a DSpinner in [leading] or
 /// [trailing] and use [semanticValue] / [liveRegion] for a changing status.
 /// Children must not contain independent controls. Inline artwork is decorative
-/// and fitted to 12px; label text inherits 12/16px medium metrics and can wrap.
-/// The normal visual height is 20px, growing with text. Touch actions reserve a
-/// transparent 48px target around the compact visual. Borrowed focus nodes are
-/// never disposed. Colors are resolved every build, including custom palettes.
+/// and fitted to 12px; label text inherits 12/16px medium metrics, can wrap,
+/// and stays selectable inside an enclosing selection area like the reference
+/// span. The normal visual height is 20px, growing with text. Touch actions
+/// reserve a transparent 48px target around the compact visual. Only ghost and
+/// link paint a hover treatment on a static badge, so other static variants do
+/// not track the pointer. Borrowed focus nodes are never disposed. Colors are
+/// resolved every build, including custom palettes.
 class DBadge extends StatefulWidget {
   const DBadge({
     super.key,
@@ -118,11 +124,18 @@ class _DBadgeState extends State<DBadge> {
 
   bool get _interactive => widget._interaction != _BadgeInteraction.none;
   bool get _enabled => !_interactive || widget.onPressed != null;
+  bool get _tracksHover =>
+      _interactive ||
+      widget.variant == DBadgeVariant.ghost ||
+      widget.variant == DBadgeVariant.link;
 
   @override
   void didUpdateWidget(DBadge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_enabled) _pressed = false;
+    // A removed MouseRegion reports no exit, so a hover it observed must not
+    // resurface when a later rebuild returns to a hover-painting treatment.
+    if (!_tracksHover) _hovered = false;
   }
 
   void _activate() {
@@ -176,7 +189,7 @@ class _DBadgeState extends State<DBadge> {
                   : Colors.transparent);
     Widget visual = AnimatedContainer(
       duration: DMotion.duration(context, const Duration(milliseconds: 150)),
-      curve: Curves.easeInOut,
+      curve: _transitionCurve,
       clipBehavior: Clip.antiAlias,
       constraints: const BoxConstraints(minHeight: 20),
       decoration: BoxDecoration(
@@ -260,9 +273,10 @@ class _DBadgeState extends State<DBadge> {
           : SemanticsValidationResult.none,
       excludeSemantics: widget.semanticLabel != null,
       onTap: _interactive && _enabled ? _activate : null,
-      child: SelectionContainer.disabled(child: visual),
+      child: visual,
     );
     if (!_interactive) {
+      if (!_tracksHover) return semantics;
       return MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
