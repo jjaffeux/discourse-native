@@ -90,7 +90,7 @@ void main() {
       expect(shape, isA<RoundedRectangleBorder>());
       expect(
         (shape! as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(size == DButtonSize.small ? 2 : 4),
+        BorderRadius.circular(size == DButtonSize.small ? 3.2 : 4),
       );
       expect(
         style.backgroundColor!.resolve({WidgetState.hovered}),

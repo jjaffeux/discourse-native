@@ -994,5 +994,155 @@
       "leading": 1.4285714285714286,
       "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
     }
+  ],
+  "flutter-radius-light-4": [
+    {
+      "size": "Size(82.8, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(55.8, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(70.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(60.2, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-radius-forest-14": [
+    {
+      "size": "Size(82.8, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(55.8, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(70.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(60.2, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-radius-plum-20": [
+    {
+      "size": "Size(82.8, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(55.8, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(70.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(60.2, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
   ]
 }

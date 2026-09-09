@@ -37,7 +37,7 @@ metrics; they are not represented as completed native measurements.
 | px-2.5 or xs px-2, transparent 1px border | 10px / 8px padding plus 1px border-box inset |
 | Inline icon reduces adjacent padding | 8px default/lg, 6px xs/sm plus border inset, mirrored in RTL |
 | Default 16px SVG, xs12px, sm14px; icon-sm16px | Inherited IconTheme; explicit caller artwork can override |
-| rounded-lg; xs/sm min(radius-md,10/12px) | Host radius; small radius subtracts 2px then caps at 10/12 |
+| rounded-lg; xs/sm min(radius-md,10/12px) | Host radius; xs/sm use radius × .8, capped at 10/12px |
 | Default primary, hover primary/80 | Live primary/primaryForeground tokens and .8 alpha hover |
 | Outline background/border, muted hover; dark input/30 → /50 | Background/border tokens; dark input token alpha multiplied by .3 → .5 |
 | Secondary → foreground 5% mix | Muted surface and 5% foreground interpolation (Flutter sRGB adaptation; CSS uses OKLCH) |

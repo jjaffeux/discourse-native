@@ -95,6 +95,13 @@ void main() {
       Padding(padding:const EdgeInsets.all(16),child:Builder(builder:example.builder)),rtl:true,scale:2,width:360,height:600);
    }
   }
+  for(final (palette, radius) in [(StyleguideTheme.light,4.0),(StyleguideTheme.forest,14.0),(StyleguideTheme.plum,20.0)]) {
+    final base=palette.resolve(AppTheme.light);
+    final tokens=base.extension<DTokens>()!.copyWith(radius:radius);
+    final theme=base.copyWith(extensions:[...base.extensions.values.where((x)=>x is! DTokens),tokens]);
+    final example=buttonExamples.examples.singleWhere((e)=>e.title=='Size');
+    await capture('flutter-radius-${palette.name}-${radius.toInt()}',theme,Builder(builder:example.builder));
+  }
   File('$output/flutter-metrics.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(measurements));
  },variant:TargetPlatformVariant.only(TargetPlatform.macOS));
 }

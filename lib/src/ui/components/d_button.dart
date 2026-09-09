@@ -551,7 +551,7 @@ class DButton extends StatelessWidget {
         borderRadius ??
         BorderRadius.circular(
           size == DButtonSize.extraSmall || size == DButtonSize.small
-              ? (tokens.radius - 2).clamp(
+              ? (tokens.radius * .8).clamp(
                   0,
                   size == DButtonSize.extraSmall ? 10 : 12,
                 )

@@ -23,6 +23,63 @@ void main() {
     ),
   );
 
+  testWidgets('small radii scale proportionally with size-specific caps', (
+    tester,
+  ) async {
+    for (final (baseRadius, xsRadius, smRadius) in [
+      (0.0, 0.0, 0.0),
+      (4.0, 3.2, 3.2),
+      (10.0, 8.0, 8.0),
+      (14.0, 10.0, 11.2),
+      (20.0, 10.0, 12.0),
+    ]) {
+      final base = AppTheme.light;
+      final tokens = base.extension<DTokens>()!.copyWith(radius: baseRadius);
+      final theme = base.copyWith(
+        extensions: [
+          ...base.extensions.values.where((value) => value is! DTokens),
+          tokens,
+        ],
+      );
+      for (final size in DButtonSize.values) {
+        for (final iconOnly in [false, true]) {
+          await pump(
+            tester,
+            iconOnly
+                ? DButton.iconOnly(
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Add',
+                    size: size,
+                    onPressed: () {},
+                  )
+                : DButton(
+                    label: const Text('Button'),
+                    size: size,
+                    onPressed: () {},
+                  ),
+            theme: theme,
+          );
+          await tester.pumpAndSettle();
+          final shape =
+              tester
+                      .widget<FilledButton>(find.byType(FilledButton))
+                      .style!
+                      .shape!
+                      .resolve({})!
+                  as RoundedRectangleBorder;
+          final expected = switch (size) {
+            DButtonSize.extraSmall => xsRadius,
+            DButtonSize.small => smRadius,
+            _ => baseRadius,
+          };
+          final radius = shape.borderRadius.resolve(TextDirection.ltr);
+          expect(radius.topLeft.x, closeTo(expected, .000001));
+          expect(radius, BorderRadius.circular(radius.topLeft.x));
+        }
+      }
+    }
+  });
+
   testWidgets(
     'small leading and loading icon padding match rendered reference',
     (tester) async {

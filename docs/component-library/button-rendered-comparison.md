@@ -132,3 +132,35 @@ Kernel SHA256:
 `9e8e0376cc234c8be9299212620d118ca2a27b7b7ce3737b432318d8eb20ba9d`.
 Build log: `/private/tmp/button-review-v3-build.log`.
 All preserved comparison artifacts have hashes in `evidence/button/sha256.json`.
+
+## Proportional radius follow-up
+
+The [official theming radius scale](https://ui.shadcn.com/docs/theming#radius-scale)
+uses `radius-md = radius × .8`; the base-nova Button registry caps xs/icon-xs at
+10px and sm/icon-sm at 12px. The previous radius-minus-2 formula coincided at the
+10px reference default but was wrong for custom app radii. Source URLs, HTML
+hash and the exact size mappings are recorded in `reference/button-radius.json`.
+
+| Base app radius | xs/icon-xs | sm/icon-sm | regular/large |
+| --- | --- | --- | --- |
+| 0 | 0 | 0 | 0 |
+| 4 | 3.2 | 3.2 | 4 |
+| 10 | 8 | 8 | 10 |
+| 14 | 10 (cap) | 11.2 | 14 |
+| 20 | 10 (cap) | 12 (cap) | 20 |
+
+A regression first reproduced 2px instead of 3.2px at a 4px base, then passed
+all these radii for both text and icon-only constructors through live theme
+rebuilds. Explicit caller radius overrides remain unchanged, including joined
+compositions. The 10px neutral-reference renders retain their original geometry.
+
+The exact Size example was re-exported and visually inspected at Light radius4,
+Forest radius14 and Plum radius20 (`flutter-radius-*.png`). All existing exports
+were refreshed from the corrected source; the preserved export harness and
+artifact hash manifest are updated. No new browser or native actions occurred.
+
+All 28 affected Button/reference/example tests pass; root/full-profile analysis
+and the export harness pass. Logs: `/private/tmp/button-radius-tests.log`,
+`/private/tmp/button-radius-analysis.log`,
+`/private/tmp/button-radius-full-analysis.log`, and
+`/private/tmp/button-radius-exports.log`. Native verification is still pending.
