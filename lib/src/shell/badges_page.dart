@@ -53,7 +53,10 @@ class BadgesPage extends StatelessWidget {
                 if (state.loading &&
                     (state.catalog != null || state.badge != null))
                   const SliverToBoxAdapter(
-                    child: LinearProgressIndicator(minHeight: 2),
+                    child: DProgress(
+                      semanticsLabel: 'Refreshing badges',
+                      track: DProgressTrack(height: 2),
+                    ),
                   ),
                 if (state.error != null)
                   SliverToBoxAdapter(

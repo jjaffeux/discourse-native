@@ -1,0 +1,17 @@
+{
+  "source": "0629571a58e927f480c03de909bdfd4f676cdbd1",
+  "pinnedMain": "e612ad7b47413fa890b35ae3b55a6f6d37b08cf7",
+  "bundle": "/tmp/discourse-resizable-integration-0629571a/ResizableIntegration.app",
+  "kernelSha256": "2ffa27d7519d1edc17b8d8da3f204814298a298c4ae4b3c5cb10b76526f46840",
+  "signedEntitlements": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.device.audio-input": true,
+    "com.apple.security.device.camera": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "strictDeepSignature": "passed",
+  "launched": false
+}
