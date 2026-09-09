@@ -52,6 +52,7 @@ export 'src/ui/components/d_tabs.dart';
 export 'src/ui/components/d_textarea.dart';
 export 'src/ui/components/d_toast.dart';
 export 'src/ui/components/d_toggle.dart';
+export 'src/ui/components/d_toggle_group.dart';
 export 'src/ui/components/d_tooltip.dart';
 export 'src/ui/components/d_typography.dart';
 export 'src/ui/foundation/tokens.dart';

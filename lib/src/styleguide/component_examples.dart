@@ -48,6 +48,7 @@ import 'examples/tabs_examples.dart';
 import 'examples/textarea_examples.dart';
 import 'examples/toast_examples.dart';
 import 'examples/toggle_examples.dart';
+import 'examples/toggle_group_examples.dart';
 import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
@@ -103,6 +104,7 @@ final componentExamples = <String, ComponentExamples>{
   'tabs': tabsExamples,
   'toggle': toggleExamples,
   'toast': toastExamples,
+  'toggle-group': toggleGroupExamples,
   'button': buttonExamples,
   'tooltip': tooltipExamples,
   'select': selectExamples,
