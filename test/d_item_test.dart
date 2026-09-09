@@ -308,10 +308,15 @@ void main() {
         const DItemActions(children: [Text('Action')]),
       ],
     );
-    await tester.pumpWidget(host(item));
+    await tester.pumpWidget(host(SingleChildScrollView(child: item)));
     await tester.enterText(find.byType(DInput), 'Edited');
     await tester.pumpWidget(
-      host(item, width: 180, scale: 2, direction: TextDirection.rtl),
+      host(
+        SingleChildScrollView(child: item),
+        width: 180,
+        scale: 2,
+        direction: TextDirection.rtl,
+      ),
     );
     expect(tester.takeException(), isNull);
     expect(find.text('Edited'), findsOneWidget);
@@ -398,7 +403,7 @@ void main() {
   );
 
   testWidgets(
-    'large text and explicit unlimited notes clear an inherited menu clamp',
+    'large text and explicit unlimited notes clear inherited truncation',
     (tester) async {
       const content = DefaultTextStyle(
         style: TextStyle(),
@@ -407,34 +412,62 @@ void main() {
           children: [
             DItemContent(
               children: [
-                DItemTitle(child: Text('Long title')),
-                DItemDescription(maxLines: null, child: Text('Complete note')),
+                DItemTitle(
+                  child: Text('Long title that must remain completely visible'),
+                ),
+                DItemDescription(
+                  maxLines: null,
+                  child: Text(
+                    'Complete note that must wrap across every required line',
+                  ),
+                ),
               ],
             ),
           ],
         ),
       );
-      await tester.pumpWidget(host(content, scale: 2));
-      expect(
-        tester.renderObject<RenderParagraph>(find.text('Long title')).maxLines,
-        isNull,
+      await tester.pumpWidget(host(content, width: 300, scale: 2));
+      expect(tester.takeException(), isNull);
+      final largeTitle = tester.renderObject<RenderParagraph>(
+        find.text('Long title that must remain completely visible'),
       );
-      expect(
-        tester
-            .renderObject<RenderParagraph>(find.text('Complete note'))
-            .maxLines,
-        isNull,
+      final largeNote = tester.renderObject<RenderParagraph>(
+        find.text('Complete note that must wrap across every required line'),
       );
+      expect(largeTitle.maxLines, isNull);
+      expect(largeTitle.overflow, TextOverflow.clip);
+      expect(largeNote.maxLines, isNull);
+      expect(largeNote.overflow, TextOverflow.clip);
+      expect(largeTitle.size.height, greaterThan(38));
+      expect(largeNote.size.height, greaterThan(80));
       await tester.pumpWidget(host(content));
       expect(
-        tester.renderObject<RenderParagraph>(find.text('Long title')).maxLines,
+        tester
+            .renderObject<RenderParagraph>(
+              find.text('Long title that must remain completely visible'),
+            )
+            .maxLines,
         1,
       );
       expect(
         tester
-            .renderObject<RenderParagraph>(find.text('Complete note'))
+            .renderObject<RenderParagraph>(
+              find.text(
+                'Complete note that must wrap across every required line',
+              ),
+            )
             .maxLines,
         isNull,
+      );
+      expect(
+        tester
+            .renderObject<RenderParagraph>(
+              find.text(
+                'Complete note that must wrap across every required line',
+              ),
+            )
+            .overflow,
+        TextOverflow.clip,
       );
     },
   );
