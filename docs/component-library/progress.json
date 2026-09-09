@@ -2529,11 +2529,12 @@
       "preparedDependencies": [
         {
           "id": "command",
-          "branch": "codex/ui-command",
-          "commit": "f3180d998bd901ce24c2f21e386d5b08f78afbd5",
+          "branch": "codex/review-command-final2",
+          "commit": "090d4f5448c2d8f87183d62092c6a5393ce90bd6",
           "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
-          "evidence": "Committed Command sourcec73c39b8 and handofff3180d99 have reported focused tests/analysis and a prepared source fixture. Reviewer owns acceptance and corrects the source-only progress row misplacement; never copy its stale Select metadata over current main.",
-          "mergeGate": "Prepared source is for this isolated implementation only. The new reviewer must reconcile accepted parent revisions and verify affected behavior before final local main merge; unaccepted parent code must not reach main through a dependent."
+          "evidence": "Command was independently accepted and merged to local main as 090d4f54. The final public API and behavioral evidence are recorded in the Command row and command.md; the reviewer fixes preserve controlled/dynamic highlight state, native editor focus/IME, valid Return activation and accessibility semantics.",
+          "mergeGate": "Satisfied for new preparation from current main. Combobox must integrate accepted Command merge 090d4f54 rather than the earlier source handoff, reconcile any API overlap and rerun its affected composition tests.",
+          "acceptedMergeCommit": "090d4f5448c2d8f87183d62092c6a5393ce90bd6"
         }
       ]
     },
