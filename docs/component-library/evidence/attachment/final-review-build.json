@@ -40,6 +40,16 @@
       "Tab plus Return activates the production failure action"
     ]
   },
+  "acceptedDependencyReconciliation": {
+    "candidateCommit": "4112df91",
+    "bundle": "/private/tmp/DiscourseAttachmentDialogRechecka5fc-4112df91.app",
+    "bundleIdentifier": "org.discourse.native.attachmentdialogrechecka5fc.r4112df91",
+    "kernelSha256": "758b369c9ca18ff0eb3f6c7a865d7ee7a96827b4a1fb52ef58ade9041c9c5c6d",
+    "kernelAgreement": true,
+    "signature": "codesign --verify --deep --strict passed after isolated ad-hoc signing",
+    "verification": "105 affected Attachment, Dialog, Scroll Area, composer, chat, fixture and styleguide tests passed with seed 904748; root and profiles/full analysis passed.",
+    "nativeEvidenceReuse": "Attachment component, fixture and adoption behavior are unchanged from the completed native pass. The accepted shared-overlay Dialog refactor is covered by its focused tests plus the Attachment trigger example test, so the completed native pass remains valid under the review protocol."
+  },
   "limitations": [
     "CUA screenshots displayed the macOS launch artwork instead of Flutter's Metal layer even though the live Flutter accessibility tree and callbacks updated; no native pixel-fidelity claim is made.",
     "Space activation was verified by the focused Flutter widget test. Native CUA AX activation does not establish keyboard focus, so a separate native Space claim is not made.",
