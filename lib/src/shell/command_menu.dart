@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
 
 import '../../discourse_ui.dart';
 import '../theme/app_theme.dart';
@@ -169,7 +167,6 @@ class _CommandMenuSurface<T> extends StatelessWidget {
     final theme = Theme.of(context);
     final shell = theme.extension<ShellColors>();
     final floating = shell?.floating ?? theme.colorScheme.surfaceContainer;
-    final divider = shell?.divider ?? theme.colorScheme.outlineVariant;
     const radius = BorderRadius.all(Radius.circular(12));
     return Material(
       key: const ValueKey('command-menu-surface'),
@@ -185,14 +182,10 @@ class _CommandMenuSurface<T> extends StatelessWidget {
           maxHeight: 440,
         ),
         child: IntrinsicWidth(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(6),
-            child: _CommandMenuRows<T>(
-              title: title,
-              options: options,
-              onSelected: onSelected,
-              dividerColor: divider,
-            ),
+          child: _CommandMenuRows<T>(
+            title: title,
+            options: options,
+            onSelected: onSelected,
           ),
         ),
       ),
@@ -205,98 +198,78 @@ class _CommandMenuRows<T> extends StatefulWidget {
     required this.title,
     required this.options,
     required this.onSelected,
-    required this.dividerColor,
   });
 
   final String title;
   final List<CommandMenuOption<T>> options;
   final ValueChanged<T> onSelected;
-  final Color dividerColor;
 
   @override
   State<_CommandMenuRows<T>> createState() => _CommandMenuRowsState<T>();
 }
 
 class _CommandMenuRowsState<T> extends State<_CommandMenuRows<T>> {
-  late final List<FocusNode> _focusNodes = [
-    for (final option in widget.options)
-      FocusNode(debugLabel: 'command ${option.label}'),
-  ];
-  int _focusedIndex = 0;
+  late final DCommandController<T> _controller = DCommandController<T>(
+    initialValue: widget.options.first.value,
+  );
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNodes.first.requestFocus();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focusFirstRow());
   }
 
-  @override
-  void dispose() {
-    for (final node in _focusNodes) {
-      node.dispose();
+  void _focusFirstRow() {
+    if (!mounted) return;
+    final scope = FocusScope.of(context);
+    scope.nextFocus();
+  }
+
+  List<Widget> _children() {
+    final children = <Widget>[];
+    var group = <DCommandItem<T>>[];
+    void flush() {
+      if (group.isEmpty) return;
+      children.add(DCommandGroup<T>(items: group));
+      group = [];
     }
-    super.dispose();
-  }
 
-  void _move(int delta) {
-    _focusedIndex = (_focusedIndex + delta) % _focusNodes.length;
-    _focusNodes[_focusedIndex].requestFocus();
-  }
-
-  void _focusAt(int index) {
-    _focusedIndex = index;
-    _focusNodes[index].requestFocus();
+    for (final option in widget.options) {
+      if (option.dividerBefore) {
+        flush();
+        children.add(DCommandSeparator<T>());
+      }
+      group.add(
+        DCommandItem<T>(
+          key: option.key,
+          value: option.value,
+          searchValue: option.label,
+          leading: DIcon(option.icon, size: 16),
+          destructive: option.destructive,
+          child: Text(option.label),
+        ),
+      );
+    }
+    flush();
+    return children;
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.arrowDown): () => _move(1),
-        const SingleActivator(LogicalKeyboardKey.arrowUp): () => _move(-1),
-        const SingleActivator(LogicalKeyboardKey.home): () => _focusAt(0),
-        const SingleActivator(LogicalKeyboardKey.end): () =>
-            _focusAt(_focusNodes.length - 1),
-        const SingleActivator(LogicalKeyboardKey.escape): () =>
-            Navigator.of(context).maybePop(),
-      },
-      child: FocusTraversalGroup(
-        policy: OrderedTraversalPolicy(),
-        child: Semantics(
-          role: SemanticsRole.menu,
-          label: widget.title,
-          explicitChildNodes: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var index = 0; index < widget.options.length; index++) ...[
-                if (widget.options[index].dividerBefore)
-                  DSeparator(space: 1, color: widget.dividerColor),
-                MenuItemButton(
-                  key: widget.options[index].key,
-                  focusNode: _focusNodes[index],
-                  onFocusChange: (focused) {
-                    if (focused) _focusedIndex = index;
-                  },
-                  onPressed: () =>
-                      widget.onSelected(widget.options[index].value),
-                  leadingIcon: DIcon(widget.options[index].icon, size: 16),
-                  child: Text(
-                    widget.options[index].label,
-                    style: widget.options[index].destructive
-                        ? TextStyle(color: theme.colorScheme.error)
-                        : null,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    return DCommand<T>(
+      controller: _controller,
+      semanticLabel: widget.title,
+      shouldFilter: false,
+      loop: true,
+      onEscape: Navigator.of(context).maybePop,
+      onSelected: widget.onSelected,
+      child: DCommandList<T>(maxHeight: 428, children: _children()),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

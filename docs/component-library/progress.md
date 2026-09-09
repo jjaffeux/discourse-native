@@ -2290,8 +2290,46 @@ Status: in_progress. Task: 01a085bc-5eda-7712-9863-190bf6846bcc. Branch: codex/u
 
 **decisions**
 
-- Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration.
+- Frozen Markdown SHA256 was reverified as 1a810090b9cc629efe885d8795365280c2653fdf3e0f5d20f4ac2354b876a4b6. Official rendered HTML, base-nova registry source and cmdk API were inspected; complete geometry/API mapping is recorded in command.md.
+- DCommand<T> owns controlled or local query/highlight state, scored filtering, keyboard navigation and activation. DCommandInput and DCommandList separately own or borrow native editing/focus and scroll resources; generic code has no application networking or business state.
+- The public composition covers root, input, list, empty, loading, group, item, separator, shortcut and Dialog. Flutter cannot inspect arbitrary child text, so searchValue defaults to value.toString() and is explicit when presentation differs.
+- Arrow and Ctrl-N/J/P/K navigation use a visual active-descendant highlight while retaining native editable focus/selection/composing state. Return activates; optional looping, pointer-highlight opt-out and reduced-motion scroll behavior map cmdk.
+- Base-nova geometry maps to 4px root/group padding, 32px input and desktop rows, 8px row insets/gaps, 12px headings, 288px list cap, token surface/radius/color roles and 48px touch rows on iOS/Android.
+- CommandDialog composes prepared DDialog rather than duplicating modal lifecycle. Backward-compatible DDialogContent contentPadding/verticalPadding/spacing options preserve current defaults and enable the official edge-to-edge Command composition.
+- Prepare against the recorded tested parent source while final review continues; independent reviewer 01a085d3-21b9-75d0-a4f0-c739439ccb9d owns acceptance, required rendered/native verification and local merge only after accepted Dialog main integration.
 - Independent reviewer 01a085d3-21b9-75d0-a4f0-c739439ccb9d owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff f3180d998bd901ce24c2f21e386d5b08f78afbd5 is source evidence, not acceptance.
+- Accepted Dialog landed on main as 6a0aaa54. The reviewer reconciled Command from that accepted parent and retained only additive DDialogContent spacing parameters plus a post-frame route-notifier correction verified by the combined Dialog/Command suite.
+- Official Command shortcuts are unboxed trailing text rather than keycaps. DCommandShortcut therefore preserves the rendered reference and accepts any Widget so callers may compose DKbd/DShortcutKeycaps when an application intentionally wants keycap presentation; the generic owner does not duplicate DKbd styling.
+
+**migrations**
+
+- lib/src/shell/command_menu.dart retains CommandMenuAnchor/showCommandMenu anchoring, transparent route barrier, result and app callback ownership while replacing its private Material MenuItemButton rows with the public DCommand/DCommandList/group/item/separator owner. Topic/group core actions and Chat add actions inherit the migration without moving permissions, stale-result checks or async/domain callbacks.
+- Registered five actual-component styleguide examples covering embedded Composition, Basic Dialog, Shortcuts/Groups, custom filter/loading/dynamic results, Scrollable and Arabic RTL. Added tool/command_review_main.dart with all examples plus the actual production CommandMenuAnchor adapter using local data.
+
+**retainedAlternatives**
+
+- anchored_picker.dart remains a selected-value picker/combobox owner; the later Combobox task composes the accepted Command API.
+- choice_menu.dart and DSelect retain finite choice/form semantics. Composer autocomplete, emoji/GIF pickers and global topic/Chat search retain domain networking, token replacement, pagination or navigation ownership; they are not generic command-menu renderers.
+
+**verification**
+
+- Root and profiles/full flutter pub get --enforce-lockfile passed from committed dependencies with no lockfile or pin changes; Flutter 3.47.2 remains unchanged.
+- After current-main reconciliation, root and profiles/full flutter analyze --no-pub passed with no diagnostics; touched formatting and git diff --check passed.
+- 32 randomized Command component, narrow 200% RTL styleguide and real group-member adapter tests passed with seed 1561896842. The affected topic action hover/cursor/anchored-viewport test passed independently.
+- Focused coverage includes keyword/empty filtering, custom score ordering, filtering opt-out, controlled callbacks, native IME-composing preservation during keyboard activation, disabled suppression, loading/dynamic rendering, borrowed lifetimes, RTL, Dialog Escape/restoration and retained application result ownership.
+- Source preparation began at main 6fbecbce, integrated exact prepared Dialog 8a800783 only locally at 778539e2, committed component source at c73c39b8, reconciled current main at 072bbee3 and added the source-only native fixture at e91927bf. Reviewer merged that exact history into codex/review-command at 92800e83.
+- Independent review fixes persist imperative query/highlight state, retire disabled or removed dynamic highlights, suppress invalid Return activation, avoid compounded disabled opacity, expose checked/editor/custom-label semantics, support numpad Return, keep selected shortcuts readable, announce empty results and preserve live Dialog inherited-state updates. Pointer/touch and accessibility regressions were added.
+- After accepted Dialog reconciliation, 86 randomized Command, Dialog, DInput, styleguide and production-adapter tests passed with seed 927416; the affected topic hover/viewport test also passed independently. Root and profiles/full flutter analyze --no-pub passed with no diagnostics.
+- The official rendered page was inspected in light and dark across embedded, Basic, Shortcuts, Groups, Scrollable and Arabic RTL examples. It confirmed the compact 384px surface, 32px rows/input, grouped separators, 288px scrolling viewport, disabled 50% treatment and plain trailing shortcut text.
+- Native CUA inspected the exact isolated f0ae622b source bundle in light and Plum dark themes. Literal AZERTY-safe entry filtered to Billing, Return activated it, unmatched text announced No results found, loading changed to Privacy/Security/Devices, pointer actions updated state, and the real CommandMenuAnchor adapter returned close.
+- The native dialog retained the focused editor, dismissed with Escape, and stayed open across live palette/radius/font/RTL/200%/reduced-motion changes. At 200% RTL the result list scrolled without overflow and 15 Arrow Down movements kept View action 4 visible. RTL logical placement and disabled/checked states rendered correctly.
+- The unique bundle used identifier org.discourse.command-review.f0ae622b, display name Command Review f0ae622b and URL scheme discourse-command-review-f0ae622b. codesign --verify --deep --strict passed with only allow-jit, allow-unsigned-executable-memory and disable-library-validation entitlements. DCommand source SHA256 was 29a101237c7ef04b916e9bf6ecb3a796aca567acdf3402d3d3fec18546b3322e; fixture SHA256 adf7e5d040a0dc037c0ce3f46c3329ef900569d486fb98e1da64c6703c7cd7b3; built/copied pre-sign kernel SHA256 2788c6c952471cd70b1079f2f533bc3adf5e2db5a6049cfb2c94d531cf5f0c2a.
+
+**limitations**
+
+- No spoken VoiceOver session or iOS/Linux device run is claimed. macOS AX exposed named editors, result groups, enabled/disabled buttons, checked result content and live status text; touch-target/activation behavior is covered by widget tests rather than a touch device.
+- Native CUA Arrow navigation and Return activation were visible. Its Ctrl-N/P injection produced no visible signal on the AZERTY host, so Ctrl-N/J/P/K and native IME-composing preservation are claimed only from focused widget tests, not from the native CUA pass.
+- The full topic_reading_integration_test run showed unrelated/order-sensitive failures when run concurrently with other files; the only changed topic action test passes independently. The full suite is not required.
 
 ### combobox
 
