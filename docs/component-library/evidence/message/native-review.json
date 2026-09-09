@@ -55,6 +55,13 @@
     "accessibility": "Native AX output preserved independently labeled author/profile buttons, file link and metadata, reaction/add-reaction buttons, thread link, reply jump, toolbar actions and delivery/status nodes. Rich message content remained available without merging away descendant controls. Spoken VoiceOver was not performed.",
     "cleanup": "Quit only the isolated 5f419da1 app; a subsequent cua.listApps confirmed all owned Message review bundle IDs absent. Closed owned reference tab 3; cua.listTabs for browser 2 returned empty. Released desktop lease d501853c before any final main-checkout work."
   },
+  "finalIntegration": {
+    "candidateCommit": "a52967385af64e29e42db7c19076c571245279ff",
+    "mainBase": "5ca267b52d633b6ef1bd074833b814d3242d0a22",
+    "verification": "All 244 focused Message, example, production fixture, ChatMessageTile, Chat lifecycle, reaction accessibility, Button and styleguide-page tests passed with seed 39060. Root and profiles/full flutter analyze --no-pub passed; git diff --check passed.",
+    "sourceEquivalence": "Message, production ChatMessageTile, reaction layout and native fixture are unchanged from inspected 5f419da1. Example differences are only accepted status, notes and corrected displayed snippet text. Latest-main Button Group adds an optional joined-control scope whose absent-scope path preserves ordinary Message button behavior; Popover establishes a joined-scope boundary. The inspected fixtures have no joined-control ancestor. No additional native pass is required for this integration.",
+    "preservation": "All non-Message progress data exactly matches the integrated main base. Latest-main component registrations and exports are preserved; only Message registration/export is added."
+  },
   "limitations": [
     "No spoken VoiceOver, iOS/Linux device or physical-touch run is claimed.",
     "The production fixture uses local in-memory records. No real account, successful profile-data fetch, file transfer or delivery endpoint is exercised; mutation/permission/selection/long-press variants additionally rely on the dedicated passing widget suites.",

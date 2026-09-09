@@ -3989,7 +3989,8 @@
         "Final runtime 5f419da1: all212 affected Message, examples, actual review fixture, ChatMessageTile, Chat lifecycle and reaction accessibility tests passed seed39059. Accepted main correction7b09b62d resolves the historical Reply tooltip-field assertion; no failures remain in this run.",
         "Root and profiles/full flutter analyze --no-pub passed on5f419da1; locked dependency resolution, formatting and git diff --check passed.",
         "Independent official rendered reference comparison completed for all documented compositions in light/dark. Native seven-example coverage includes normal light/dark and Plum/360px/200%/RTL/reduced motion; local actions and status transitions confirmed.",
-        "Actual native production thread/jump/reply callbacks, independent AX nodes, hover toolbar, Tab focus, Return menu activation, Escape dismissal/focus return, rich-text selection and offline profile target passed. Exact source/bundle/kernel provenance and cleanup are recorded in review evidence."
+        "Actual native production thread/jump/reply callbacks, independent AX nodes, hover toolbar, Tab focus, Return menu activation, Escape dismissal/focus return, rich-text selection and offline profile target passed. Exact source/bundle/kernel provenance and cleanup are recorded in review evidence.",
+        "Final integration a5296738 from main 5ca267b5: all 244 focused Message/Chat/reaction/Button/styleguide-page checks passed, seed 39060; root/full analysis and diff check clean. Inspected runtime remains source-equivalent; all unrelated main progress and registrations preserved."
       ],
       "limitations": [
         "No spoken VoiceOver, iOS/Linux device or physical-touch run is claimed.",
@@ -4088,7 +4089,9 @@
         "Corrected zero default header gap, intrinsic auxiliary-child widths/order, inherited medium metadata/status typography and full registry hash; exact 14/20 and 12/16 metrics plus live font changes are tested.",
         "Completed the separate Avatar composition, exact sample text/footer spacing and observable copy/like/dislike/retry/download results.",
         "The actual production fixture exposed 360px/200% reaction-pill and thread-header overflows. Existing adapters now reflow their metadata without changing identity, permission, selection, delivery or scroll ownership."
-      ]
+      ],
+      "integratedMainCommit": "5ca267b52d633b6ef1bd074833b814d3242d0a22",
+      "integrationCandidateCommit": "a52967385af64e29e42db7c19076c571245279ff"
     },
     {
       "id": "message-scroller",

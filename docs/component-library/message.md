@@ -122,3 +122,12 @@ uses deterministic local artwork, and host font/palette/radius tokens remain
 live; cross-host bitmap identity is not claimed. The exact isolated app was
 quit, its absence verified, the owned reference tab closed, and the desktop
 lease released before final integration.
+
+Final integration candidate `a5296738` starts from main `5ca267b5`. All 244
+focused Message, Chat, reaction, Button and styleguide-page checks passed with
+seed 39060, and root/full-profile analysis passed. Message, production layout
+and native fixture source remain identical to the inspected `5f419da1`;
+acceptance labels/notes/snippet text do not change those rendered compositions.
+The latest Button Group optional joined-control scope is absent from these
+fixtures and preserves ordinary button behavior. All unrelated main progress,
+exports and registrations were retained.
