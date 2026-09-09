@@ -23,6 +23,48 @@ void main() {
     ),
   );
 
+  testWidgets(
+    'disabled opacity follows the scoped theme without enabling activation',
+    (tester) async {
+      final base = AppTheme.light;
+      expect(base.discourseButtons.disabledOpacity, .5);
+      var presses = 0;
+      for (final opacity in [.5, 1.0, .25]) {
+        final theme = base.copyWith(
+          extensions: [
+            ...base.extensions.values.where(
+              (value) => value is! DiscourseButtonTheme,
+            ),
+            base.discourseButtons.copyWith(disabledOpacity: opacity),
+          ],
+        );
+        for (final loading in [false, true]) {
+          await pump(
+            tester,
+            DButton(
+              label: const Text('Choose file'),
+              loading: loading,
+              onPressed: loading ? () => presses++ : null,
+            ),
+            theme: theme,
+          );
+          await tester.pump(const Duration(milliseconds: 300));
+          final surfaceOpacity = find.ancestor(
+            of: find.byType(FilledButton),
+            matching: find.byType(Opacity),
+          );
+          expect(tester.widget<Opacity>(surfaceOpacity).opacity, opacity);
+          expect(
+            tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+            isNull,
+          );
+          await tester.tap(find.byType(DButton));
+          expect(presses, 0);
+        }
+      }
+    },
+  );
+
   testWidgets('small radii scale proportionally with size-specific caps', (
     tester,
   ) async {

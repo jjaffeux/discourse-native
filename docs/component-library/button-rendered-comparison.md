@@ -176,3 +176,29 @@ Source manifest `/private/tmp/button-build-source-v4.json` SHA256:
 Kernel SHA256:
 `f3c167b9494e8e49c3f9f1894ff453eeffb27e0e4da57053cbb7db9102be2396`.
 Build log: `/private/tmp/button-review-v4-build.log`.
+
+## Scoped disabled-opacity integration correction
+
+DButton now reads `DiscourseButtonTheme.disabledOpacity` instead of hardcoding
+.5; the theme default is .5. This restores the existing scoped override used by
+composed fields that already dim their whole surface, without changing default
+shadcn appearance or enabling disabled/loading activation. A regression verifies
+.5,1,.25 overrides after live theme updates for both disabled and loading states,
+including blocked callback activation. All29 affected tests and root/full-profile
+analysis pass (`/private/tmp/button-opacity-*.log`). No Input code was imported.
+
+The replacement unlaunched bundle is
+`/private/tmp/DiscourseButtonReview-3a88-v5.app`, ID
+`org.discourse.native.button-review.3a88.v5`, display **Discourse Button Review V5**,
+scheme `discourse-button-review-3a88-v5`. It supersedes V4. Source-byte comparison
+and deep strict signature verification pass. Ad-hoc signing explicitly omits
+APS, team and application-identifier entitlements, verified by reading the signed
+entitlements. Sandbox, JIT, network client/server, user-selected file access,
+audio and camera entitlements remain. Project signing/provisioning is unchanged.
+Actual launch still awaits the coordinator's native slot.
+
+Manifest `/private/tmp/button-build-source-v5.json` SHA256:
+`72fe883a933e7205b1d6fbed3c0f0416ae5540559e684b5acb186ae69b3d5b11`.
+Kernel SHA256:
+`0b4bdc1f7e6292fb2eb3ff8a1803c5057abd8d85b73551d6aea25552344b0e12`.
+Build log: `/private/tmp/button-review-v5-build.log`.

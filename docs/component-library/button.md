@@ -48,7 +48,7 @@ metrics; they are not represented as completed native measurements.
 | destructive focus and invalid ring variants | Matching destructive opacity mappings, `invalid` trigger property |
 | active translate-y-px except haspopup | 1px pressed visual translation; `hasPopup` suppresses it |
 | aria-expanded surfaces | `expanded` outline/secondary/ghost style |
-| disabled opacity .5 | Whole-surface .5 opacity and no activation |
+| disabled opacity .5 | Whole-surface .5 default opacity; scoped disabledOpacity override; no activation |
 | transition-all | 150ms state style transition; zero when reduced motion is requested |
 
 The app's configured palette, font and radius remain authoritative. Native touch

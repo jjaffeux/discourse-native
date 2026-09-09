@@ -121,7 +121,7 @@ class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
     required this.transparentDanger,
     required this.transparentSuccess,
     required this.link,
-    this.disabledOpacity = 0.4,
+    this.disabledOpacity = 0.5,
   });
 
   final double borderRadius;
@@ -817,7 +817,7 @@ class DButton extends StatelessWidget {
             child: child,
           );
     if (!enabled) {
-      result = Opacity(opacity: .5, child: result);
+      result = Opacity(opacity: buttons.disabledOpacity, child: result);
     }
     if (tooltip case final tooltip?) {
       result = DTooltip(
