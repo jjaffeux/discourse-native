@@ -19,6 +19,8 @@ class DRadioGroup<T> extends FormField<T> {
     this.label,
     this.description,
     this.invalid = false,
+    this.readOnly = false,
+    this.required = false,
     super.enabled = true,
     super.validator,
     super.onSaved,
@@ -37,6 +39,8 @@ class DRadioGroup<T> extends FormField<T> {
     this.label,
     this.description,
     this.invalid = false,
+    this.readOnly = false,
+    this.required = false,
     super.enabled = true,
     super.validator,
     super.onSaved,
@@ -51,6 +55,14 @@ class DRadioGroup<T> extends FormField<T> {
   final Widget? label;
   final Widget? description;
   final bool invalid;
+
+  /// Prevent user selection while retaining focus and arrow navigation.
+  /// Individual items may override this inherited value.
+  final bool readOnly;
+
+  /// Announces the requirement. Supply [validator] for application-specific
+  /// validation and localized error text; Form remains the validation owner.
+  final bool required;
   final bool _controlled;
 
   @override
@@ -58,6 +70,7 @@ class DRadioGroup<T> extends FormField<T> {
 }
 
 class _DRadioGroupState<T> extends FormFieldState<T> {
+  final _items = <Object, ({T value, bool readOnly})>{};
   @override
   DRadioGroup<T> get widget => super.widget as DRadioGroup<T>;
 
@@ -83,15 +96,23 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
   Widget _build() {
     final tokens = DTokens.of(context);
     final enabled =
-        widget.enabled && (!widget._controlled || widget.onChanged != null);
+        widget.enabled &&
+        (widget.readOnly || !widget._controlled || widget.onChanged != null);
     final selection = widget._controlled ? widget.groupValue : value;
     Widget result = _RadioScope<T>(
+      items: _items,
+      readOnly: widget.readOnly,
+      required: widget.required,
       enabled: enabled,
       invalid: widget.invalid || hasError,
       child: RadioGroup<T>(
         groupValue: selection,
         onChanged: (next) {
-          if (!enabled) return;
+          final target = next ?? selection;
+          final item = _items.values
+              .where((item) => item.value == target)
+              .firstOrNull;
+          if (!enabled || (item?.readOnly ?? widget.readOnly)) return;
           didChange(next);
           widget.onChanged?.call(next);
           if (widget._controlled && mounted) setValue(widget.groupValue);
@@ -133,7 +154,12 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
         ],
       );
     }
-    return Semantics(container: true, explicitChildNodes: true, child: result);
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      isRequired: widget.required ? true : null,
+      child: result,
+    );
   }
 }
 
@@ -141,13 +167,23 @@ class _RadioScope<T> extends InheritedWidget {
   const _RadioScope({
     required this.enabled,
     required this.invalid,
+    required this.readOnly,
+    required this.required,
+    required this.items,
     required super.child,
   });
   final bool enabled;
   final bool invalid;
+  final bool readOnly;
+  final bool required;
+  final Map<Object, ({T value, bool readOnly})> items;
   @override
   bool updateShouldNotify(_RadioScope<T> oldWidget) =>
-      enabled != oldWidget.enabled || invalid != oldWidget.invalid;
+      enabled != oldWidget.enabled ||
+      invalid != oldWidget.invalid ||
+      readOnly != oldWidget.readOnly ||
+      required != oldWidget.required ||
+      items != oldWidget.items;
 }
 
 /// One radio, optionally with an associated label and description.
@@ -170,6 +206,8 @@ class DRadioGroupItem<T> extends StatefulWidget {
     this.autofocus = false,
     this.card = false,
     this.toggleable = false,
+    this.readOnly,
+    this.required,
   }) : assert(label != null || semanticLabel != null);
 
   final T value;
@@ -188,12 +226,20 @@ class DRadioGroupItem<T> extends StatefulWidget {
   /// Allow deselection for domains such as withdrawing a Poll vote.
   final bool toggleable;
 
+  /// Null inherits the group's readOnly value; false explicitly allows edits.
+  final bool? readOnly;
+
+  /// Null inherits the group's required announcement. The group validator
+  /// owns validation, including when this item overrides the announcement.
+  final bool? required;
+
   @override
   State<DRadioGroupItem<T>> createState() => _DRadioGroupItemState<T>();
 }
 
 class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
   late FocusNode _focus;
+  _RadioScope<T>? _scope;
   @override
   void initState() {
     super.initState();
@@ -229,6 +275,7 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
   @override
   void dispose() {
     FocusManager.instance.removeHighlightModeListener(_highlightChanged);
+    _scope?.items.remove(this);
     _detach();
     super.dispose();
   }
@@ -236,6 +283,10 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
   @override
   Widget build(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<_RadioScope<T>>();
+    if (_scope?.items != scope?.items) _scope?.items.remove(this);
+    _scope = scope;
+    final readOnly = widget.readOnly ?? scope?.readOnly ?? false;
+    scope?.items[this] = (value: widget.value, readOnly: readOnly);
     final registry = RadioGroup.maybeOf<T>(context);
     assert(
       registry != null,
@@ -342,12 +393,18 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
       child: Semantics(
         container: true,
         label: widget.semanticLabel,
+        readOnly: readOnly,
+        isRequired: (widget.required ?? scope?.required ?? false) ? true : null,
         child: RawRadio<T>(
           value: widget.value,
           enabled: enabled,
           groupRegistry: registry,
           mouseCursor: WidgetStatePropertyAll(
-            enabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+            !enabled
+                ? SystemMouseCursors.forbidden
+                : readOnly
+                ? SystemMouseCursors.basic
+                : SystemMouseCursors.click,
           ),
           toggleable: widget.toggleable,
           focusNode: _focus,

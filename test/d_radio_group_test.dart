@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction, SemanticsActionEvent;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/styleguide/examples/radio_group_examples.dart';
@@ -23,6 +25,232 @@ const choices = Column(
   ],
 );
 void main() {
+  testWidgets(
+    'read-only preserves focus and blocks pointer keyboard and semantics selection',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final first = FocusNode();
+      final second = FocusNode();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      var changes = 0;
+      await tester.pumpWidget(
+        host(
+          DRadioGroup<String>(
+            initialValue: 'a',
+            readOnly: true,
+            onChanged: (_) => changes++,
+            child: Column(
+              children: [
+                DRadioGroupItem(
+                  value: 'a',
+                  label: const Text('Alpha'),
+                  focusNode: first,
+                  toggleable: true,
+                ),
+                DRadioGroupItem(
+                  value: 'b',
+                  label: const Text('Beta'),
+                  focusNode: second,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Beta'));
+      await tester.pump();
+      await tester.tap(find.text('Alpha'));
+      await tester.pump();
+      first.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(second.hasFocus, true);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      final node = tester.getSemantics(find.byType(RawRadio<String>).last);
+      expect(
+        node,
+        isSemantics(isReadOnly: true, isEnabled: true, isFocusable: true),
+      );
+      tester.binding.performSemanticsAction(
+        SemanticsActionEvent(
+          viewId: tester.view.viewId,
+          nodeId: node.id,
+          type: SemanticsAction.tap,
+        ),
+      );
+      await tester.pump();
+      expect(changes, 0);
+      expect(
+        tester.getSemantics(find.byType(RawRadio<String>).first),
+        isSemantics(isChecked: true),
+      );
+      semantics.dispose();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'item overrides inherit live group props without stale access after removal',
+    (tester) async {
+      var readOnly = true;
+      var showOverride = true;
+      String? selected = 'a';
+      late StateSetter update;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return DRadioGroup<String>.controlled(
+                groupValue: selected,
+                readOnly: readOnly,
+                onChanged: (value) => setState(() => selected = value),
+                child: Column(
+                  children: [
+                    const DRadioGroupItem(value: 'a', label: Text('Inherited')),
+                    if (showOverride)
+                      const DRadioGroupItem(
+                        value: 'b',
+                        label: Text('Editable override'),
+                        readOnly: false,
+                      ),
+                    const DRadioGroupItem(
+                      value: 'c',
+                      label: Text('Read-only override'),
+                      readOnly: true,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(selected, 'b');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(selected, 'b');
+      await tester.tap(find.text('Editable override'));
+      await tester.pump();
+      expect(selected, 'b');
+      await tester.tap(find.text('Inherited'));
+      await tester.pump();
+      expect(selected, 'b');
+      update(() {
+        readOnly = false;
+        showOverride = false;
+      });
+      await tester.pump();
+      await tester.tap(find.text('Inherited'));
+      await tester.pump();
+      expect(selected, 'a');
+      await tester.tap(find.text('Read-only override'));
+      await tester.pump();
+      expect(selected, 'a');
+      update(() => readOnly = true);
+      await tester.pump();
+      await tester.tap(find.text('Inherited'));
+      await tester.pump();
+      expect(selected, 'a');
+    },
+  );
+  testWidgets(
+    'read-only controlled Form accepts parent changes reset and required validation',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final form = GlobalKey<FormState>();
+      String? accepted;
+      String? saved;
+      String? resetRequest = 'untouched';
+      late StateSetter update;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return Form(
+                key: form,
+                child: DRadioGroup<String>.controlled(
+                  groupValue: accepted,
+                  readOnly: true,
+                  required: true,
+                  onChanged: (value) => resetRequest = value,
+                  onSaved: (value) => saved = value,
+                  validator: (value) =>
+                      value == null ? 'A choice is required.' : null,
+                  child: const Column(
+                    children: [
+                      DRadioGroupItem(
+                        value: 'a',
+                        label: Text('Required choice'),
+                      ),
+                      DRadioGroupItem(
+                        value: 'b',
+                        label: Text('Optional announcement'),
+                        required: false,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      expect(form.currentState!.validate(), false);
+      await tester.pump();
+      expect(find.text('A choice is required.'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byType(RawRadio<String>).first),
+        isSemantics(isRequired: true, isReadOnly: true),
+      );
+      expect(
+        tester.getSemantics(find.byType(RawRadio<String>).last),
+        isSemantics(isRequired: false),
+      );
+      update(() => accepted = 'b');
+      await tester.pump();
+      expect(form.currentState!.validate(), true);
+      form.currentState!.save();
+      expect(saved, 'b');
+      form.currentState!.reset();
+      await tester.pump();
+      expect(resetRequest, isNull);
+      form.currentState!.save();
+      expect(saved, 'b');
+      semantics.dispose();
+    },
+  );
+  testWidgets('read-only controlled value without callback remains focusable', (
+    tester,
+  ) async {
+    final node = FocusNode();
+    addTearDown(node.dispose);
+    await tester.pumpWidget(
+      host(
+        DRadioGroup<String>.controlled(
+          groupValue: 'a',
+          onChanged: null,
+          readOnly: true,
+          child: DRadioGroupItem(
+            value: 'a',
+            label: const Text('Alpha'),
+            focusNode: node,
+          ),
+        ),
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(node.hasFocus, true);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('label activation updates and reset restores initial selection', (
     tester,
   ) async {

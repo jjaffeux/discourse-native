@@ -10,7 +10,9 @@ Sources retrieved 2026-09-09:
 - https://ui.shadcn.com/r/styles/base-nova/radio-group.json
 - https://ui.shadcn.com/code/apps/v4/registry/bases/base/examples/radio-group-example.tsx
 
-The registry's Base UI Markdown API link returned 404. Flutter 3.47.2's actual
+The registry's old Base UI Markdown API link returned 404. The current API is
+https://base-ui.com/react/components/radio (captured as `reference/radio-group/base-ui-radio.md`
+from https://base-ui.com/react/components/radio.md). Flutter 3.47.2's actual
 `RawRadio` and `RadioGroup` source was inspected for native focus, checked
 semantics, arrow wrapping and RTL behavior. No browser/native app was opened.
 
@@ -122,3 +124,31 @@ merge. Bundle provenance and final automated verification are recorded below.
   Only the copied bundle's display name, bundle ID and scheme were changed.
 - Main checkout/build and running application were untouched. Bundle was not
   launched; native inspection remains awaiting the coordinator desktop slot.
+
+## Read-only / required API follow-up
+
+The current Base UI API documents group and individual Radio.Root readOnly
+and required. Group `readOnly` defaults false. Nullable item `readOnly` inherits
+the group, with either boolean overriding it. The group checks the effective
+policy of the requested item before changing Form state or calling onChanged;
+a null toggle request checks the selected item's policy. Pointer, keyboard and
+semantic activation all reach that guard. Native arrows still move focus through
+read-only options; selection changes only when the destination permits it.
+Disabled options remain excluded from focus, unlike read-only options. A
+controlled read-only group with a null callback remains focusable.
+
+No opacity or border change is added for read-only: the registry has no special
+read-only appearance. The cursor becomes ordinary rather than actionable,
+and semantics exposes readOnly with enabled/focusable state retained. Native
+RawRadio continues exposing its tap action, which becomes a guarded no-op for
+read-only items; it does not dispatch user callbacks or change selection.
+
+`required` and nullable item `required` expose required-state semantics. They
+do not add hidden validation rules: pass the existing FormField `validator`
+for required-value enforcement and localized errors. This deliberate Flutter
+adaptation keeps application validation in Form rather than copying browser
+constraint validation. The new example includes both the announcement and an
+actual validator. Parent-driven controlled values, Form save and explicit reset
+continue working while read-only; declined reset preserves accepted state.
+
+Current API Markdown SHA256: `abd2d336d02fa7c04608c5ae1d21a903a447350e35b362e9770ff02d01e70dfd`.

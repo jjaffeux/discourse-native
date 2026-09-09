@@ -10,10 +10,36 @@ final radioGroupExamples = ComponentExamples(
       'Implementation awaiting rendered/native review. A 16px radio with an 8px dot, 1px border and 3px focus/invalid ring follows base-nova. '
       'Label rows use 12px gaps and 14px labels; pointer hit bounds are at least 40×32, touch bounds 48×48. '
       'Use DRadioGroup for local initialValue or DRadioGroup.controlled for parent-owned groupValue. '
-      'Both integrate with Form validator/onSaved/reset. Tab enters once, arrows wrap and skip disabled items; Space selects. '
+      'Both integrate with Form validator/onSaved/reset. readOnly preserves focus and blocks selection; nullable item overrides inherit it. required announces the requirement while validator owns enforcement and error text. Tab enters once, arrows wrap and skip disabled items; Space selects. '
       'Label, description and card slots compose presentation without implementing the pending Field component. '
       'All samples use local state. The preview toolbar changes live theme, direction, scaling and motion.',
   examples: [
+    StyleguideExample(
+      title: 'Read-only and required',
+      description:
+          'Toggle the group policy live. Inherited stays read-only with the group, Editable always permits selection, and Locked always prevents it. Arrow keys still move focus. Parent updates and Form validation remain available.',
+      states: const [
+        'Read-only',
+        'Required',
+        'Item override',
+        'Controlled',
+        'Live props',
+      ],
+      code: """DRadioGroup<String>.controlled(
+  groupValue: value,
+  readOnly: readOnly,
+  required: true,
+  onChanged: (next) => setState(() => value = next),
+  validator: (next) => next == null ? 'Choose an option.' : null,
+  child: const Column(children: [
+    DRadioGroupItem(value: 'a', label: Text('Inherited')),
+    DRadioGroupItem(value: 'b', label: Text('Editable'), readOnly: false),
+    DRadioGroupItem(value: 'c', label: Text('Locked'), readOnly: true),
+  ]),
+) // A parent may set value even when readOnly is true.""",
+      builder: (_) => const _ReadOnlyPreview(),
+    ),
+
     for (final mode in [
       'Default',
       'Description',
@@ -223,6 +249,70 @@ class _FormPreviewState extends State<_FormPreview> {
         ),
         const SizedBox(height: 8),
         Text('Saved: ${_saved ?? 'none'}'),
+      ],
+    ),
+  );
+}
+
+class _ReadOnlyPreview extends StatefulWidget {
+  const _ReadOnlyPreview();
+  @override
+  State<_ReadOnlyPreview> createState() => _ReadOnlyPreviewState();
+}
+
+class _ReadOnlyPreviewState extends State<_ReadOnlyPreview> {
+  final _form = GlobalKey<FormState>();
+  bool _readOnly = true;
+  String? _value = 'a';
+  @override
+  Widget build(BuildContext context) => Form(
+    key: _form,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DRadioGroup<String>.controlled(
+          groupValue: _value,
+          readOnly: _readOnly,
+          required: true,
+          onChanged: (next) => setState(() => _value = next),
+          validator: (next) => next == null ? 'Choose an option.' : null,
+          child: const Column(
+            children: [
+              DRadioGroupItem(value: 'a', label: Text('Inherited')),
+              DRadioGroupItem(
+                value: 'b',
+                label: Text('Editable'),
+                readOnly: false,
+              ),
+              DRadioGroupItem(
+                value: 'c',
+                label: Text('Locked'),
+                readOnly: true,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text('Group read-only: $_readOnly; value: ${_value ?? 'none'}'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            DButton(
+              label: const Text('Toggle read-only'),
+              onPressed: () => setState(() => _readOnly = !_readOnly),
+            ),
+            DButton(
+              label: const Text('Clear from parent'),
+              onPressed: () => setState(() => _value = null),
+            ),
+            DButton(
+              label: const Text('Validate'),
+              onPressed: () => _form.currentState!.validate(),
+            ),
+          ],
+        ),
       ],
     ),
   );
