@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsRole;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/pagination_examples.dart';
@@ -67,6 +69,24 @@ void main() {
       expect(
         tester.getSemantics(find.bySemanticsLabel('Pagination')).value,
         'Page 50 of 100, 25 items per page',
+      );
+      expect(
+        tester.getSemantics(find.byType(DPagination)).getSemanticsData().role,
+        SemanticsRole.navigation,
+      );
+      expect(
+        tester
+            .getSemantics(find.byType(DPaginationContent))
+            .getSemanticsData()
+            .role,
+        SemanticsRole.list,
+      );
+      expect(
+        tester
+            .getSemantics(find.byType(DPaginationItem).first)
+            .getSemanticsData()
+            .role,
+        SemanticsRole.listItem,
       );
       final firstPageSurface = find.descendant(
         of: find.byType(DPaginationLink).first,
