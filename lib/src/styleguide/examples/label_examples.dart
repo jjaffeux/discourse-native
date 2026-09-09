@@ -81,8 +81,18 @@ DCheckbox(
           'Submit a valid address, then reset. Form and DInput own validation, '
           'save/reset and editing; DLabel remains presentational.',
       states: const ['Field composition', 'Required', 'Error', 'Save', 'Reset'],
-      code: '''// Inside a State with a GlobalKey<FormState> formKey,
-// bool updates = false, and String? savedEmail.
+      code: '''// Inside a State:
+final formKey = GlobalKey<FormState>();
+final emailFocus = FocusNode();
+bool updates = false;
+String? savedEmail;
+
+@override
+void dispose() {
+  emailFocus.dispose();
+  super.dispose();
+}
+
 Form(
   key: formKey,
   child: Column(children: [
