@@ -1,10 +1,11 @@
 {
-  "sourceCommit": "0df1b03ca000166c1901825b001dbad750b04ce6",
-  "sourceTree": "ff6dd7e0476a79595e5bef85a441b3f1a596f3d8",
+  "sourceCommit": "7519fc61670d995a80dc027e902f6545105715a2",
+  "sourceTree": "544f874a9b744f6526e400abd12eda420ed6a6f1",
   "target": "tool/component_fixtures/checkbox.dart",
-  "bundle": "/private/tmp/DiscourseCheckbox132a-0df1b03c.app",
-  "bundleIdentifier": "org.discourse.native.checkbox.132a",
+  "bundle": "/private/tmp/DiscourseCheckbox132a-7519fc61.app",
+  "bundleIdentifier": "org.discourse.native.checkbox.132a.sync",
+  "urlScheme": "discourse-checkbox-132a-sync",
   "kernelPath": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin",
-  "kernelSHA256": "50658162f62e4a78954bfc3470df11c70cf72e04f308efa777562b3646d9894b",
+  "kernelSHA256": "e379f6048e80056a2d98aa976da8e850b6191b8a34b3bae299d705e0dcb35940",
   "sourceAndCopiedKernelMatch": true
 }

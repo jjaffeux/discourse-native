@@ -158,3 +158,15 @@ The coordinator reports Avatar assertion fixes on main (`adc25e7b`) and the
 separate Tooltip/compact-title Escape fix at `c5d37bd1`, pending its native
 review. This branch leaves those owners untouched. Native Checkbox inspection
 remains `awaiting_slot`; the desktop is locked and no CUA/launch was attempted.
+
+
+Latest native review checkpoint: `7519fc61670d995a80dc027e902f6545105715a2`
+(tree `544f874a9b744f6526e400abd12eda420ed6a6f1`). The rebuilt isolated bundle
+`/private/tmp/DiscourseCheckbox132a-7519fc61.app` supersedes the earlier bundle.
+Identifier `org.discourse.native.checkbox.132a.sync`; display name
+`Checkbox Review 132a Sync`; scheme `discourse-checkbox-132a-sync`.
+Source/copied kernels match SHA256
+`e379f6048e80056a2d98aa976da8e850b6191b8a34b3bae299d705e0dcb35940`.
+Deep strict ad-hoc signature verification passes. Updated provenance is in
+`checkbox-native-provenance.json`. The bundle was not launched; native status
+remains `awaiting_slot`, not `review_ready`.
