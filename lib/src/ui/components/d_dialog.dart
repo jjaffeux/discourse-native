@@ -234,6 +234,16 @@ class _DDialogState<T> extends State<DDialog<T>> {
     if (mounted) _syncRoute();
   });
 
+  void _updateRouteValue<V>(ValueNotifier<V> notifier, V value) {
+    if (notifier.value == null) {
+      notifier.value = value;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && notifier.value != value) notifier.value = value;
+    });
+  }
+
   void _requestOpen(DDialogChangeReason reason) {
     if (_desiredOpen) return;
     widget.onOpenChanged?.call(
@@ -323,23 +333,11 @@ class _DDialogState<T> extends State<DDialog<T>> {
       initialFocusNode: widget.initialFocusNode,
     );
     if (_configuration.value != nextConfiguration) {
-      if (_route == null) {
-        _configuration.value = nextConfiguration;
-      } else {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _configuration.value = nextConfiguration;
-        });
-      }
+      _updateRouteValue(_configuration, nextConfiguration);
     }
     final nextEnvironment = _DDialogEnvironment.capture(context);
     if (_environment.value != nextEnvironment) {
-      if (_route == null) {
-        _environment.value = nextEnvironment;
-      } else {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _environment.value = nextEnvironment;
-        });
-      }
+      _updateRouteValue(_environment, nextEnvironment);
     }
     return _DDialogRootScope(
       open: () => _requestOpen(DDialogChangeReason.trigger),
