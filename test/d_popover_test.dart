@@ -200,6 +200,31 @@ void main() {
     expect(find.text('Popover title'), findsOneWidget);
   });
 
+  testWidgets('controlled lifecycle dismissal reports and resynchronizes', (
+    tester,
+  ) async {
+    final reasons = <DPopoverChangeReason>[];
+    final controller = DPopoverController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _app(
+        _TestPopover(open: true, controller: controller, onReason: reasons.add),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.isOpen, isTrue);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(controller.isOpen, isFalse);
+    expect(reasons, contains(DPopoverChangeReason.lifecycle));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(controller.isOpen, isTrue);
+    expect(find.text('Popover title'), findsOneWidget);
+  });
+
   testWidgets('controller is borrowed and ignores calls after detaching', (
     tester,
   ) async {

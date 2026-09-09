@@ -295,6 +295,12 @@ class _DPopoverState extends State<DPopover>
     }
   }
 
+  void _dismissForLifecycle() {
+    if (!_open) return;
+    _setOpen(false, immediate: true, restoreFocus: false);
+    widget.onOpenChange?.call(false, DPopoverChangeReason.lifecycle);
+  }
+
   Rect? _globalRect(BuildContext? target) {
     final box = target?.findRenderObject();
     if (box is! RenderBox || !box.attached || !box.hasSize) return null;
@@ -494,14 +500,22 @@ class _DPopoverState extends State<DPopover>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _suspended = state != AppLifecycleState.resumed;
-    if (_suspended) _setOpen(false, immediate: true);
+    if (_suspended) {
+      _dismissForLifecycle();
+    } else {
+      _scheduleSync();
+    }
   }
 
   @override
   void didChangeViewFocus(ViewFocusEvent event) {
     if (event.viewId != View.of(context).viewId) return;
     _suspended = event.state == ViewFocusState.unfocused;
-    if (_suspended) _setOpen(false, immediate: true);
+    if (_suspended) {
+      _dismissForLifecycle();
+    } else {
+      _scheduleSync();
+    }
   }
 
   @override
