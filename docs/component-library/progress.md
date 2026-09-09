@@ -1536,7 +1536,7 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 
 - iOS and Linux native device inspection unavailable in this macOS session. Widget tests and platform overrides are not device testing.
 - No VoiceOver audit; some native accessibility snapshots were sparse. Widget tests verify semantic grouping and keyboard/focus behavior. Preferences, Categories, Aggregate, Voice diagnostics and cooked/request fallback migrations have focused test coverage but were not individually inspected natively.
-- Original pending-owner limitation is resolved. Native fonts, site colors/radii and the bundled cover differ from the browser; no pixel-equality claim. Cleanup hit an owned reference-tab session denial; UI stopped and desktop was released without bypass. Isolated-app cleanup was requested from the next FIFO reviewer, not claimed complete here.
+- Original pending-owner limitation is resolved. Native fonts, site colors/radii and the bundled cover differ from the browser; no pixel-equality claim. Cleanup hit an owned reference-tab session denial; UI stopped and desktop was released without bypass. Sidebar reviewer 01a086cd-3f9c-75b0-bda3-7d495758a941 subsequently confirmed native-menu quit and absence of the isolated Card app from the running-app inventory. Browser-tab cleanup remains unverified.
 
 ### empty
 

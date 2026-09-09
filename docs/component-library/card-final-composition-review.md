@@ -152,3 +152,8 @@ Cleanup of the owned browser tab returned `Tab 1 is not part of browser session
 reselection or bypass, and the desktop lease was released. The next FIFO
 reviewer was asked to quit only the isolated Card app through its native menu;
 app closure and tab cleanup were not verified by this task at release.
+
+Subsequent cleanup confirmation: Sidebar reviewer
+`01a086cd-3f9c-75b0-bda3-7d495758a941` quit the authorized isolated Card app
+through native **Quit Discourse** and verified its absence from the later
+running-app inventory. Browser-tab cleanup remains unverified.
