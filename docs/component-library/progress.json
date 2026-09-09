@@ -1444,7 +1444,8 @@
         "Final implemented registration: 12 Avatar/styleguide-page tests passed with seed 9082026; touched-file format check, git diff --check and unrelated-row preservation check passed.",
         "Coordinator reviewed final clean Avatar HEAD c5da5fd6ee548d415c496be27052c314d391f39b, generic image stream/fallback ownership, mixed group sizing, exact plus artwork and rings, app media adapters and migrations. Independently inspected the saved official light badge comparison, native light badges, Forest 360px/200% RTL groups and actual dark RTL 200% ForumIcon/AvatarImage fixture. Native inspection and app closure are complete; only the example status changed afterward. Merge retains all prior component owners and the Tooltip rail surface, token radius and fitted monogram while adopting its DAvatar frame.",
         "Coordinator combined-main verification: all 593 focused library/styleguide, image/media/cache, shell/rail/forum, topic, Chat, Voice, Assign and Events cases passed, seed 342701054; log /private/tmp/component-avatar-integration-tests.log. All 41 touched Dart files pass formatting; flutter analyze --no-pub is clean (6.8s), log /private/tmp/component-avatar-integration-analysis.log; git diff --check passes. Generic Avatar, examples and AvatarImage/ForumIcon adapters exactly match the reviewed branch. All changed app source retains the prior Spinner, Tooltip, Skeleton, Aspect Ratio and Label owners, including Tooltip rail geometry and fitted monograms.",
-        "Final-owner follow-up: source-exact native/reference verification completed, own UI cleanup confirmed, all 147 focused tests and root/full analysis pass on reconciled candidate 90f3e019. Evidence: docs/component-library/evidence/avatar/final-composition-review.md."
+        "Final-owner follow-up: source-exact native/reference verification completed, own UI cleanup confirmed, all 147 focused tests and root/full analysis pass on reconciled candidate 90f3e019. Evidence: docs/component-library/evidence/avatar/final-composition-review.md.",
+        "Final-owner Avatar composition follow-up accepted by no-fast-forward local-main merge 10ea2ca4be81921377d1f85f0c58d3d19cbf15c8. Original Avatar acceptance/implementation history is preserved; no push."
       ],
       "limitations": [
         "No iOS/Linux device or spoken VoiceOver run. Nested styleguide main native AX tree was sparse; fixture/menu AX and visual/keyboard interaction verified without forcing global semantics.",
@@ -1482,8 +1483,8 @@
           "sha256": "921178487423ff56f4de4aa29b09541733b59359ae746fe63a8b765ae8b153d9"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress",
-        "reviewStatus": "review_ready",
+        "status": "merged",
+        "reviewStatus": "merged",
         "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
         "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
         "verification": [
@@ -1502,14 +1503,14 @@
         "nativeReview": {
           "status": "passed",
           "completed": "Exact r4 native menus, focus/actions, group keyboard actions, light/dark/Forest/Plum, LTR/RTL 360px 200% reduced motion, production fixture states and full styleguide groups inspected; screenshots saved.",
-          "remaining": "Final authorized local-main merge and acceptance metadata.",
           "completion": "After user-confirmed unlock, both displayed final-owner snippets and actual official light/dark dropdown/group reference were verified. Initial reference theme restored, only own tab closed and own r4 app quit; fresh CUA inventories confirm cleanup.",
           "desktopLease": "released",
           "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
           "bundle": "/private/tmp/Avatar Compositions Final 47e2 r4.app",
           "kernelSha256": "05aeba9c6a9c5bc19df2f42788c06cb9b2d15af6761ade1343e14d2d434943ef"
         },
-        "integrationCommit": "90f3e019c46d017eb1bad4273f958d31df279cf9"
+        "integrationCommit": "90f3e019c46d017eb1bad4273f958d31df279cf9",
+        "mergeCommit": "10ea2ca4be81921377d1f85f0c58d3d19cbf15c8"
       }
     },
     {
@@ -4892,15 +4893,6 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "headCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b"
-        },
-        {
-          "component": "avatar",
-          "taskId": "01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4",
-          "branch": "codex/review-avatar-compositions",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/47e2/discourse-native",
-          "status": "final_composition_review",
-          "implementationTaskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
-          "implementationBranch": "codex/ui-avatar"
         }
       ],
       "nativeReadyTasks": []
@@ -5286,18 +5278,6 @@
           "implementationBranch": "codex/ui-data-table",
           "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
           "status": "in_progress"
-        },
-        {
-          "component": "avatar",
-          "title": "Finish and review Avatar compositions",
-          "taskId": "01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4",
-          "hostId": "local",
-          "branch": "codex/review-avatar-compositions",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/47e2/discourse-native",
-          "implementationTaskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
-          "implementationBranch": "codex/ui-avatar",
-          "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
-          "status": "final_composition_review"
         }
       ],
       "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks.",
@@ -5430,8 +5410,8 @@
           "sha256": "921178487423ff56f4de4aa29b09541733b59359ae746fe63a8b765ae8b153d9"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress",
-        "reviewStatus": "review_ready",
+        "status": "merged",
+        "reviewStatus": "merged",
         "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
         "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
         "verification": [
@@ -5450,14 +5430,14 @@
         "nativeReview": {
           "status": "passed",
           "completed": "Exact r4 native menus, focus/actions, group keyboard actions, light/dark/Forest/Plum, LTR/RTL 360px 200% reduced motion, production fixture states and full styleguide groups inspected; screenshots saved.",
-          "remaining": "Final authorized local-main merge and acceptance metadata.",
           "completion": "After user-confirmed unlock, both displayed final-owner snippets and actual official light/dark dropdown/group reference were verified. Initial reference theme restored, only own tab closed and own r4 app quit; fresh CUA inventories confirm cleanup.",
           "desktopLease": "released",
           "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
           "bundle": "/private/tmp/Avatar Compositions Final 47e2 r4.app",
           "kernelSha256": "05aeba9c6a9c5bc19df2f42788c06cb9b2d15af6761ade1343e14d2d434943ef"
         },
-        "integrationCommit": "90f3e019c46d017eb1bad4273f958d31df279cf9"
+        "integrationCommit": "90f3e019c46d017eb1bad4273f958d31df279cf9",
+        "mergeCommit": "10ea2ca4be81921377d1f85f0c58d3d19cbf15c8"
       },
       {
         "component": "sidebar",

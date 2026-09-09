@@ -24,7 +24,7 @@ accepted this exact Dropdown source in local-main merge
 `d647400602824226d70d1328fba2a141195dc559`. Git blob
 `b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6` is identical between the prepared
 parent, Avatar's inspected source and the accepted merge. The parent gate is
-cleared; final current-main reconciliation is still pending. Avatar withdrew
+cleared; final current-main reconciliation is recorded below. Avatar withdrew
 its waiting desktop request during the earlier rebuild and rejoined only after
 the updated bundle was ready.
 
@@ -261,14 +261,14 @@ The later accepted Button Group changes add DJoinedControlScope-dependent
 Button geometry and a Popover scope boundary. Source inspection found no such
 scope in Avatar, Direction or this fixture: the fallback resolves the same
 radius, keeps the regular border/clip behavior, and the boundary returns null.
-The inspected ungrouped behavior is equivalent; affected tests must be rerun
-after final current-main reconciliation. Generic Avatar and the exact Dropdown
+The inspected ungrouped behavior is equivalent; affected tests were rerun
+after final current-main reconciliation, as recorded below. Generic Avatar and the exact Dropdown
 implementation remain byte-identical to the inspected source.
 
 The historical `native-review.md` and screenshots remain valid for unchanged
 Avatar presentation/adapters. The new final-owner native/reference gate is now
-complete; final current-main reconciliation and affected verification precede
-the local merge.
+complete; final current-main reconciliation and affected verification were
+completed before the local merge.
 
 ## Final integration verification
 
@@ -286,3 +286,9 @@ Input Group examples, Item examples and Table). Root analysis passed in 7.9s;
 full-profile analysis passed in 2.7s. A read-only Git connectivity check also
 passed after a transient pack-index message during the successful merge.
 No dependency lock, Flutter pin or runner configuration changed in this review.
+
+Final local-main merge: `10ea2ca4be81921377d1f85f0c58d3d19cbf15c8`.
+The no-fast-forward merge was performed from the clean repository main checkout
+under the main lease, after confirming HEAD still matched the prepared base.
+Only this review's two active queue records were removed; the original accepted
+Avatar merge and every other component owner's records remain intact. No push.
