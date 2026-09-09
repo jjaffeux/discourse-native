@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**36 of 64 components are merged locally.** 15 existing components are in progress; 13 are planned.
+**36 of 64 components are merged locally.** 28 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -21,16 +21,29 @@ Branch preparation does not mark a component merged or visually verified.
 | accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
 | hover-card | Implementation and checks | — | — |
 | alert-dialog | Implementation and checks | — | — |
+| sheet | Implementation and checks | — | — |
+| drawer | Implementation and checks | — | — |
 | select | independent review | 69e5ec66 | 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 |
 | input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | command | independent review | f3180d99 | 01a085d3-21b9-75d0-a4f0-c739439ccb9d |
 | combobox | Implementation and checks | — | — |
 | dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
+| context-menu | Implementation and checks | — | — |
+| menubar | Implementation and checks | — | — |
+| navigation-menu | Implementation and checks | — | — |
+| breadcrumb | Implementation and checks | — | — |
+| pagination | Implementation and checks | — | — |
 | calendar | Implementation and checks | — | — |
+| date-picker | Implementation and checks | — | — |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
 | bubble | Implementation and checks | — | — |
+| message | Implementation and checks | — | — |
+| message-scroller | Implementation and checks | — | — |
+| data-table | Implementation and checks | — | — |
+| input-otp | Implementation and checks | — | — |
+| questionnaire | Implementation and checks | — | — |
 
 ## Component implementation
 
@@ -70,8 +83,8 @@ Branch preparation does not mark a component merged or visually verified.
 | 32 | hover-card | in_progress | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | — |
 | 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
-| 35 | sheet | planned | — | — | dialog | — |
-| 36 | drawer | planned | — | — | dialog | — |
+| 35 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
+| 36 | drawer | in_progress | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | — |
 | 37 | select | in_progress | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | — |
 | 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
 | 39 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
@@ -80,26 +93,26 @@ Branch preparation does not mark a component merged or visually verified.
 | 42 | command | in_progress | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | — |
 | 43 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command | — |
 | 44 | dropdown-menu | in_progress | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
-| 45 | context-menu | planned | — | — | dropdown-menu | — |
-| 46 | menubar | planned | — | — | dropdown-menu | — |
-| 47 | navigation-menu | planned | — | — | popover | — |
-| 48 | breadcrumb | planned | — | — | button, dropdown-menu | — |
-| 49 | pagination | planned | — | — | button, select | — |
+| 45 | context-menu | in_progress | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | — |
+| 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
+| 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
+| 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
+| 49 | pagination | in_progress | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | — |
 | 50 | calendar | in_progress | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
-| 51 | date-picker | planned | — | — | calendar, popover, input | — |
+| 51 | date-picker | in_progress | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
 | 55 | attachment | in_progress | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
 | 57 | bubble | in_progress | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | — |
-| 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
-| 59 | message-scroller | planned | — | — | message, scroll-area | — |
+| 58 | message | in_progress | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | — |
+| 59 | message-scroller | in_progress | 01a08606-ce86-7be2-b92f-59676b40cb40 | codex/ui-message-scroller | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
-| 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
+| 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
-| 63 | input-otp | planned | — | — | input, field | — |
-| 64 | questionnaire | planned | — | — | field, button, progress, card, dialog, native-select | — |
+| 63 | input-otp | in_progress | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | — |
+| 64 | questionnaire | in_progress | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | — |
 
 ## Decisions and evidence
 
@@ -2054,6 +2067,36 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
 
+### sheet
+
+Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/ui-sheet.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Sheet complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
+### drawer
+
+Status: in_progress. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/ui-drawer.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Drawer complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
 ### select
 
 Status: in_progress. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/ui-select.
@@ -2283,12 +2326,88 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 - Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
 - Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
 
+### context-menu
+
+Status: in_progress. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/ui-context-menu.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Context Menu complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
+### menubar
+
+Status: in_progress. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/ui-menubar.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Menubar complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
+### navigation-menu
+
+Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-navigation-menu.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Navigation Menu complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
+### breadcrumb
+
+Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/ui-breadcrumb.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Breadcrumb complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
+### pagination
+
+Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/ui-pagination.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Pagination complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
 ### calendar
 
 Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-calendar.
 
 **acceptanceCriteria**
 
+- Use the existing kalender package pinned to 0.29.1 as the Calendar engine; theme its supported styles/components/builders with shared styleguide colors, typography, spacing, radii and state treatments, including existing EventCalendar and TopicCalendar app surfaces. Preserve kalender navigation/event layout and app domain behavior; Date Picker composes this same Kalender-backed Calendar API.
 - Match the frozen Base UI/base-nova Calendar API and every Basic, Range, month/year selector, Presets, date/time, booked dates, custom cell size, week numbers and RTL example; account explicitly for timezone and alternate-calendar guidance with exact primary-source mapping.
 - Provide typed date/selection/display ownership and correct date boundaries, disabled/hidden/outside/booked states, localization and keyboard navigation/focus; keep civil-day, instant/timezone and application scheduling semantics explicit.
 - Compose shared final selection, Field and Input Group owners for required examples; preserve compact shadcn geometry, live host tokens, native accessibility, touch, narrow/scaled/RTL layouts and reduced motion.
@@ -2298,6 +2417,23 @@ Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/u
 **decisions**
 
 - Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
+- Explicit user direction on 2026-09-09 requires kalender and visual consistency with the rest of the styleguide. Calendar owner acknowledged that its uncommitted custom engine will be removed, retaining only shadcn-specific state models, styling/builders and adapters around kalender. The new requirement must be carried into the independent review handoff.
+
+### date-picker
+
+Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/ui-date-picker.
+
+**acceptanceCriteria**
+
+- Compose the user-required Kalender-backed Calendar; verify an actual committed tested API from its owner before dependent integration. A baseline branch commit is not implementation readiness, and a handwritten competing engine is not permitted.
+- Match the frozen Base UI/base-nova Date Picker complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 
 ### carousel
 
@@ -2502,6 +2638,36 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/u
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
 
+### message
+
+Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/ui-message.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Message complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
+### message-scroller
+
+Status: in_progress. Task: 01a08606-ce86-7be2-b92f-59676b40cb40. Branch: codex/ui-message-scroller.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Message Scroller complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
 ### chart
 
 Status: merged. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-chart.
@@ -2550,6 +2716,21 @@ Status: merged. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-cha
 - Browser comparison and macOS native fixture/styleguide inspection are complete; evidence is recorded in chart-browser-review.md and chart-native.md.
 - No iOS/Linux device or VoiceOver speech testing was performed; macOS accessibility-tree inspection and test image geometry are not cross-platform or pixel-parity evidence.
 
+### data-table
+
+Status: in_progress. Task: 01a08606-ca45-73b1-9be1-7486d4e3fe1d. Branch: codex/ui-data-table.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Data Table complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
 ### sidebar
 
 Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sidebar.
@@ -2591,6 +2772,36 @@ Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sid
 - Native CUA Cmd/Ctrl+B attempts did not visibly toggle; exact bindings pass widget tests. Return,Tab and Escape visibly verified. No spoken VoiceOver or iOS/Linux device run.
 - Reference/native capture dimensions differ; intrinsic metrics and visual comparison,not pixel-diff equality. Sample labels/caller icons and app font/palette differ.
 - The documentation shell is the first verified adoption. Live forum/Chat adapters remain retained; pending Sheet/Input/Collapsible/Dropdown Menu owners are not declared complete.
+
+### input-otp
+
+Status: in_progress. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/ui-input-otp.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Input OTP complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+
+### questionnaire
+
+Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-questionnaire.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Questionnaire complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+
+**decisions**
+
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 
 ### Final audit
 

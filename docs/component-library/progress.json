@@ -2065,37 +2065,91 @@
     },
     {
       "id": "sheet",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
+      "branch": "codex/ui-sheet",
       "dependencies": [
         "dialog"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Sheet complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4177/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement the complete Sheet anatomy and side/dismissal API, including top/bottom/left/right or logical sides, No Close Button and RTL examples. Reuse accepted Dialog route/session/focus/dismissal ownership and live caller-scoped theme. Match shadcn size, border, close-button, header/footer and motion rather than inheriting a Material bottom-sheet appearance. Preserve controlled/local/controller lifecycle, nested overlays, typed results, outside/Escape/back policies, focus entry/restoration, safe areas, keyboard insets and scroll/narrow/scaled behavior. Audit actual core/plugin side and bottom panels, and coordinate adoption ownership with the separately queued Drawer task so neither overwrites the other's callers. Drawer owns its gesture/snap semantics; Sheet remains its documented component. Add focused route/focus/dismissal/live-theme/adoption regressions.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/sheet",
+        "sha256": "d5b0e4ef28a6fa9de830479fab61e6c8d6b8b05698dc6c109b710c4a0112d9d3",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "dialog",
+          "status": "merged",
+          "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
+          "branch": "codex/ui-dialog",
+          "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+          "reviewBranch": "codex/review-dialog",
+          "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
+          "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
+        }
+      ]
     },
     {
       "id": "drawer",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
+      "branch": "codex/ui-drawer",
       "dependencies": [
         "dialog"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Drawer complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d486/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement the complete current Base UI Drawer API and Custom Sizes, Styling, Position, Swipe Handle, Nested, Non Modal, Snap Points and Responsive examples. Inspect the actual current reference rather than assuming old Vaul behavior. Provide genuine drag/swipe/snap/interruption physics, scroll-versus-drag coordination, axis/logical positioning, nested gesture ownership and nonmodal behavior, with typed controlled/local/controller lifecycle and correct outside/Escape/back/focus accessibility. Build on accepted Dialog/shared overlay lifecycle where appropriate; don't duplicate a route manager. Preserve safe-area/keyboard insets and reduced motion. Coordinate shared source/app-adoption boundaries with the separately queued Sheet owner. Audit existing real core/plugin bottom sheets/drawers and migrate suitable interactive surfaces without changing business callbacks/permissions or swallowing scroll gestures. Meaningful snap/gesture/lifecycle/focus/production regression coverage is required.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/drawer",
+        "sha256": "e3fca4a3433436c5eb043a1075f04d064f97add28e4d89872a9a01fe493cc63a",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "dialog",
+          "status": "merged",
+          "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
+          "branch": "codex/ui-dialog",
+          "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+          "reviewBranch": "codex/review-dialog",
+          "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
+          "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
+        }
+      ]
     },
     {
       "id": "select",
@@ -2487,90 +2541,245 @@
     },
     {
       "id": "context-menu",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-5dce-7b91-9ee6-7713872f1fa7",
+      "branch": "codex/ui-context-menu",
       "dependencies": [
         "dropdown-menu"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Context Menu complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d38b/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement the complete reference Context Menu, Trigger, Content, item/group/label/separator/submenu, shortcut, checkbox/radio and destructive APIs, including Basic, Submenu, Shortcuts, Groups, Icons, Checkboxes, Radio, Destructive, Sides and RTL. Reuse the final Dropdown Menu owner for common menu content/navigation/selection instead of creating another independent menu engine. Add the actual context invocation semantics: secondary pointer at its position, keyboard context-menu/Shift-F10 where appropriate, touch long-press adaptation, disabled handling, edge collision and trigger/reader focus restoration. Preserve nested menu deepest Escape, pointer ownership, typeahead/roving navigation and scoped accelerators. Audit core/plugin context menus and migrate suitable actions preserving domain guards and values. Coordinate source extensions directly with Dropdown Menu reviewer; prepared source is not accepted until its main merge.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/context-menu",
+        "sha256": "ec20bd0ef47abb75872c1294d1563f0f279d3da5861177d8f2c588d8eb5f6895",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "dropdown-menu",
+          "status": "in_progress",
+          "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
+          "branch": "codex/ui-dropdown-menu",
+          "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+          "reviewBranch": "codex/review-dropdown-menu",
+          "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
+          "mergeCommit": null
+        }
+      ]
     },
     {
       "id": "menubar",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
+      "branch": "codex/ui-menubar",
       "dependencies": [
         "dropdown-menu"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Menubar complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8f35/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement the full reference Menubar composition and Checkbox, Radio, Submenu, With Icons and RTL examples. Compose final Dropdown Menu primitives with a menubar's distinct top-level roving focus, arrow/Home/End behavior, opening/switching menus by keyboard and pointer, submenu boundaries, typeahead and focus restoration. Support selected/checked/radio/destructive/disabled/shortcut state and live overlay tokens; keep native application/OS menu-bar integration outside the generic in-app widget. Audit appropriate core/plugin in-app menu strips and migrate actual matches; do not change operating-system menus or replace route tabs merely because they are horizontal. Coordinate shared menu logic and app-file ownership with Context Menu and Dropdown Menu reviewers; keep each documented public API complete.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/menubar",
+        "sha256": "8ae4486c307453e61359a37284084facbfbc6495ed0dabdc47ad991a06f734ae",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "dropdown-menu",
+          "status": "in_progress",
+          "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
+          "branch": "codex/ui-dropdown-menu",
+          "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+          "reviewBranch": "codex/review-dropdown-menu",
+          "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
+          "mergeCommit": null
+        }
+      ]
     },
     {
       "id": "navigation-menu",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
+      "branch": "codex/ui-navigation-menu",
       "dependencies": [
         "popover"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Navigation Menu complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5529/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement full reference Navigation Menu anatomy, including list/items, trigger/link/content, viewport/indicator and Link Component/RTL behavior as documented. This is navigation, with appropriate link/current-page semantics and controlled routing callbacks; reuse accepted Popover/shared positioning while preserving the reference pointer intent, inter-panel travel, keyboard focus/roving behavior, dismissals and viewport animations/sizing. Handle dynamic/disabled entries, nested content, live themes, reduced motion, narrow layouts and native touch adaptation. Audit real core/plugin navigation surfaces; migrate only suitable menu navigation while preserving routing, permissions and state. Do not convert ordinary buttons, Sidebar, route tabs or command menus into Navigation Menu. Keep examples functional with self-contained destinations and verify source-exact navigation and focus behavior.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/navigation-menu",
+        "sha256": "2f4297e419617d26545e1c71dbc5336f6878dd8ab687f71663fe0e2bc2126546",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "popover",
+          "status": "merged",
+          "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
+          "branch": "codex/ui-popover",
+          "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
+          "reviewBranch": "codex/review-popover",
+          "implementationCommit": "b410f9da0227b2b9e0d6518b64277e97d6517b06",
+          "mergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
+        }
+      ]
     },
     {
       "id": "breadcrumb",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-c290-7772-8b90-e5358efa6752",
+      "branch": "codex/ui-breadcrumb",
       "dependencies": [
         "button",
         "dropdown-menu"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Breadcrumb complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/812c/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement the complete Breadcrumb, List, Item, Link, Page, Separator and Ellipsis API with Basic, Custom separator, Dropdown, Collapsed, Link component and RTL examples. Use correct navigation/current-page semantics; separators/ellipsis decoration must not create noisy native roles. Preserve typed route callbacks, optional link adapters, focus and disabled/current behavior, collapsed overflow with the final Dropdown Menu, responsive wrapping/scroll decisions and logical separators. Audit actual core/plugin hierarchical paths and adopt appropriate breadcrumbs without inventing hierarchy or replacing back navigation. Record retained alternatives and test collapsed-menu keyboard behavior, current-page semantics, RTL/narrow/scaling and real routing callbacks.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/breadcrumb",
+        "sha256": "df168dd44f709ddb768995fbab0188c1934b6e95def1ba3726adf4f9302714b7",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "button",
+          "status": "merged",
+          "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+          "branch": "codex/ui-button",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "355aa84f83c5949dd5be13eaaf56dd1032c6241b",
+          "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94"
+        },
+        {
+          "id": "dropdown-menu",
+          "status": "in_progress",
+          "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
+          "branch": "codex/ui-dropdown-menu",
+          "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+          "reviewBranch": "codex/review-dropdown-menu",
+          "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
+          "mergeCommit": null
+        }
+      ]
     },
     {
       "id": "pagination",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
+      "branch": "codex/ui-pagination",
       "dependencies": [
         "button",
         "select"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Pagination complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e32a/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement full reference Pagination anatomy and Simple, Icons Only, routing/link and RTL examples, including the final Field/Select page-size composition. Provide explicit controlled/local/controller page/page-count/page-size ownership and accurate first/last/previous/next/ellipsis behavior, empty/single-page and changing total counts, disabled/current native semantics and logical labels/icons. Keep server paging, query parameters, loading and caches in adapters. Audit real core/plugin bounded-page lists; preserve infinite-scrolling surfaces where changing interaction would be inappropriate. Coordinate page-size Select/Field directly with their reviewers, and expose the final API to the separately queued Data Table task. Add meaningful boundary/dynamic-count/keyboard and migrated-consumer regressions.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/pagination",
+        "sha256": "bc07e7b5e3df7090f895a93d49a3484e828e8560c17600ab3cbd1cb92313c3f9",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "button",
+          "status": "merged",
+          "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+          "branch": "codex/ui-button",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "355aa84f83c5949dd5be13eaaf56dd1032c6241b",
+          "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94"
+        },
+        {
+          "id": "select",
+          "status": "in_progress",
+          "taskId": "01a085bb-1d11-7f52-a7bd-667348469087",
+          "branch": "codex/ui-select",
+          "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
+          "reviewBranch": "codex/review-select",
+          "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
+          "mergeCommit": null
+        }
+      ]
     },
     {
       "id": "calendar",
@@ -2582,6 +2791,7 @@
         "select"
       ],
       "acceptanceCriteria": [
+        "Use the existing kalender package pinned to 0.29.1 as the Calendar engine; theme its supported styles/components/builders with shared styleguide colors, typography, spacing, radii and state treatments, including existing EventCalendar and TopicCalendar app surfaces. Preserve kalender navigation/event layout and app domain behavior; Date Picker composes this same Kalender-backed Calendar API.",
         "Match the frozen Base UI/base-nova Calendar API and every Basic, Range, month/year selector, Presets, date/time, booked dates, custom cell size, week numbers and RTL example; account explicitly for timezone and alternate-calendar guidance with exact primary-source mapping.",
         "Provide typed date/selection/display ownership and correct date boundaries, disabled/hidden/outside/booked states, localization and keyboard navigation/focus; keep civil-day, instant/timezone and application scheduling semantics explicit.",
         "Compose shared final selection, Field and Input Group owners for required examples; preserve compact shadcn geometry, live host tokens, native accessibility, touch, narrow/scaled/RTL layouts and reduced motion.",
@@ -2589,7 +2799,8 @@
         "Prepare exact-source fixtures and create an independent reviewer that owns all remaining reference/native acceptance, final compositions and local main merge after parent acceptance."
       ],
       "decisions": [
-        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory."
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.",
+        "Explicit user direction on 2026-09-09 requires kalender and visual consistency with the rest of the styleguide. Calendar owner acknowledged that its uncommitted custom engine will be removed, retaining only shadcn-specific state models, styling/builders and adapters around kalender. The new requirement must be carried into the independent review handoff."
       ],
       "migrations": [],
       "retainedAlternatives": [],
@@ -2606,26 +2817,85 @@
           "evidence": "Select API source423d81ee with source handoff69e5ec66; source owner reported115 focused checks/root-full analysis/macOS build, then14 focused Select regression checks. Independent reviewer owns current fixes and acceptance.",
           "mergeGate": "Prepared source is for this isolated implementation only. The new reviewer must reconcile accepted parent revisions and verify affected behavior before final local main merge; unaccepted parent code must not reach main through a dependent."
         }
-      ]
+      ],
+      "requiredPackage": {
+        "name": "kalender",
+        "version": "0.29.1",
+        "manifest": "pubspec.yaml",
+        "userRequired": true,
+        "existingConsumers": [
+          "lib/src/plugins/discourse_events/event_calendar.dart",
+          "lib/src/plugins/discourse_events/topic_calendar.dart"
+        ],
+        "theming": "Shared library tokens and final controls, live light/dark/custom themes, compact shadcn geometry and native adaptations documented explicitly."
+      }
     },
     {
       "id": "date-picker",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-ca30-7bc1-8e27-69575273d443",
+      "branch": "codex/ui-date-picker",
       "dependencies": [
         "calendar",
         "popover",
         "input"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Compose the user-required Kalender-backed Calendar; verify an actual committed tested API from its owner before dependent integration. A baseline branch commit is not implementation readiness, and a handwritten competing engine is not permitted.",
+        "Match the frozen Base UI/base-nova Date Picker complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/51f7/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement full reference Date Picker Composition, Basic, Range Picker, Date of Birth, Input, Time Picker, Natural Language Picker and RTL examples. New explicit user requirement: Calendar MUST use the existing kalender package (pinned 0.29.1) and share the styleguide theme. Compose that Kalender-backed Calendar API; do not introduce a separate handwritten calendar engine, a competing date-picker package, or leave a temporary calendar accepted. Calendar owner is 01a085fd-5d83-79c3-b598-bd3ffc5b366e on codex/ui-calendar. Begin reference/API planning and app audit now, agree the API directly, then use its committed tested source when available; final merge requires accepted Calendar. Keep field text/parsing/formatting, typed value/range/timezone and popup/open/focus/Form lifecycle clear, handle bounds/disabled dates/leap/DST/invalid input and locale, and implement meaningful deterministic natural-language behavior or an explicit adapter meeting the example rather than a static demo. Reuse final Popover/Input/Field/Input Group owners. Audit real date/time inputs and retain domain scheduling, validation and async state in adapters.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/date-picker",
+        "sha256": "cedb8c5a45c2cc2cede23b564b55c7a7a3c506e5d14f6b413d7758c03a0550c6",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "calendar",
+          "status": "in_progress",
+          "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
+          "branch": "codex/ui-calendar",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": null,
+          "mergeCommit": null
+        },
+        {
+          "id": "popover",
+          "status": "merged",
+          "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
+          "branch": "codex/ui-popover",
+          "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
+          "reviewBranch": "codex/review-popover",
+          "implementationCommit": "b410f9da0227b2b9e0d6518b64277e97d6517b06",
+          "mergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
+        },
+        {
+          "id": "input",
+          "status": "merged",
+          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+          "branch": "codex/ui-input",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
+          "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
+        }
+      ]
     },
     {
       "id": "carousel",
@@ -2906,41 +3176,135 @@
     },
     {
       "id": "message",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-ca30-7bc1-8e27-693690217969",
+      "branch": "codex/ui-message",
       "dependencies": [
         "attachment",
         "avatar",
         "bubble",
         "marker"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Message complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/dee9/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement full Message, Group, Avatar, Content, Header and Footer API with Avatar, Group, Header/Footer, Actions, Attachment and accessibility/status-update examples. Compose final Attachment, Avatar, Bubble, Marker and Button components rather than duplicating their rendering/logic. Keep arbitrary rich content, timestamps, sender/status metadata and actions generic, preserving independent native action labels and appropriate live-status announcements. Handle grouping/alignment/spacing, avatar stacking/availability, deleted/failed/pending/retry or other documented states, keyboard/touch, RTL/narrow/large text and live themes. Audit core/plugin chat/message presentation and migrate suitable actual widgets while leaving delivery/fetching/permissions/network/model transformations with app adapters. Coordinate Attachment reviewer 01a085f6-d243-7d73-8a4a-c1a1225d3a8f and Bubble implementer 01a085d9-7909-7fd0-b1b8-30a76c6ab2af; agree the Message API with the separately queued Message Scroller owner. Do independent planning/audit while waiting for a tested Bubble pin; no placeholder-owned final compositions.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/message",
+        "sha256": "39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "attachment",
+          "status": "in_progress",
+          "taskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
+          "branch": "codex/ui-attachment",
+          "reviewTaskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
+          "reviewBranch": "codex/review-attachment",
+          "implementationCommit": "17f2d88f31adaf3748341745e423d37810f88419",
+          "mergeCommit": null
+        },
+        {
+          "id": "avatar",
+          "status": "merged",
+          "taskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
+          "branch": "codex/ui-avatar",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
+          "mergeCommit": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0"
+        },
+        {
+          "id": "bubble",
+          "status": "in_progress",
+          "taskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
+          "branch": "codex/ui-bubble",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": null,
+          "mergeCommit": null
+        },
+        {
+          "id": "marker",
+          "status": "merged",
+          "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
+          "branch": "codex/ui-marker",
+          "reviewTaskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
+          "reviewBranch": "codex/review-marker",
+          "implementationCommit": "ba156a2ce378787c25fdd4a8910fbf86390c4a8a",
+          "mergeCommit": "fc92f4e69042191eff5d39d52c1355a6d6a87da7"
+        }
+      ]
     },
     {
       "id": "message-scroller",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
+      "branch": "codex/ui-message-scroller",
       "dependencies": [
         "message",
         "scroll-area"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Message Scroller complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/0ff5/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement the complete documented Message Scroller behavior and public API, not just a ListView wrapper. Account for Anchoring Turns, Group Chat, Keeping Context Visible, Following Live Edge, Opening Saved Threads, Avoiding Flash on Reload, Loading Earlier Messages, Animating New Messages, Jumping to Messages, Tracking Reader Position, Reading Scroll State, Performance, Virtualization, Accessibility and Unstyled modes. Preserve reader intent during appended/streaming/resized messages, prepend anchoring, restoration with variable heights, viewport/inset changes, jump/reveal/cancel behavior, reduced motion and accessible announcements. Keep data loading/network/domain state outside the generic controller/widget. Reuse final Message/Scroll Area and every recorded example owner; Message is being queued alongside you, so discover its real owner in current main and coordinate its committed API. Begin source/reference/state-model and production chat-scroller audit now; no made-up Message fallback or accepted missing examples. Migrate appropriate real core/plugin scrollers with stable message IDs and existing pagination/unread behavior, and test actual anchoring/streaming/prepend/restoration/virtualization races with realistic variable-height data. The complete catalogue row's many exampleComponents are all accounted scope.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/message-scroller",
+        "sha256": "fc0e1a7bdc05d81c833e001292419e85e1eb7c16be3942a7468ff2d6c1d2b165",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "message",
+          "status": "in_progress",
+          "taskId": "01a08606-ca30-7bc1-8e27-693690217969",
+          "branch": "codex/ui-message",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": null,
+          "mergeCommit": null
+        },
+        {
+          "id": "scroll-area",
+          "status": "merged",
+          "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
+          "branch": "codex/ui-scroll-area",
+          "reviewTaskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
+          "reviewBranch": "codex/review-scroll-area",
+          "implementationCommit": "3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e",
+          "mergeCommit": "655be577246f1f247e1e71199d32add8366deffc"
+        }
+      ]
     },
     {
       "id": "chart",
@@ -2996,9 +3360,9 @@
     },
     {
       "id": "data-table",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
+      "branch": "codex/ui-data-table",
       "dependencies": [
         "table",
         "pagination",
@@ -3006,14 +3370,81 @@
         "input",
         "dropdown-menu"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Data Table complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/656f/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement the complete documented Data Table model/widget/compositions: typed column definitions, cell formatting, row actions, pagination, sorting, filtering, column visibility, stable row selection, reusable column header/pagination/column toggle and RTL. Reuse final Table/Pagination/Checkbox/Input/Dropdown Menu/Button/Badge owners, preserving semantic table reading order and independent action behavior. Keep external/server-controlled data operations, loading/errors and business logic in app adapters; clearly support controlled/local state where exposed, stable row/column IDs and dynamic data/selection updates. Do not force a web TanStack dependency into Flutter or silently collapse the reference to a static table. Pagination is being queued alongside you; agree its API directly and use tested prepared pins only in isolation, waiting for accepted parent main merges before final merge. Audit real core/plugin structured datasets and migrate suitable ones without converting card/infinite feeds gratuitously. Verify actual row-selection/sort/filter/page/visibility interactions and persisted state across live themes/narrow/scaled layouts.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/data-table",
+        "sha256": "31d46187a08d79ce41dd8991599ce86ff2d6fba0b99ae4ebff84cfbccce6cff4",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "table",
+          "status": "merged",
+          "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
+          "branch": "codex/ui-table",
+          "reviewTaskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
+          "reviewBranch": "codex/review-table",
+          "implementationCommit": "80c801e69ee94b8f1d02ca71ccb489bc53aec257",
+          "mergeCommit": "082fcc55ab85d3bd4012c6bd24c647c1febd7d2a"
+        },
+        {
+          "id": "pagination",
+          "status": "in_progress",
+          "taskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
+          "branch": "codex/ui-pagination",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": null,
+          "mergeCommit": null
+        },
+        {
+          "id": "checkbox",
+          "status": "merged",
+          "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
+          "branch": "codex/ui-checkbox",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "a1d2737243099e8e6565c8fad268a102aa70a843",
+          "mergeCommit": "13466a062d19c247905ccc65adc615c8d0d6273d"
+        },
+        {
+          "id": "input",
+          "status": "merged",
+          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+          "branch": "codex/ui-input",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
+          "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
+        },
+        {
+          "id": "dropdown-menu",
+          "status": "in_progress",
+          "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
+          "branch": "codex/ui-dropdown-menu",
+          "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+          "reviewBranch": "codex/review-dropdown-menu",
+          "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
+          "mergeCommit": null
+        }
+      ]
     },
     {
       "id": "sidebar",
@@ -3065,27 +3496,64 @@
     },
     {
       "id": "input-otp",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-ca44-78f3-98f2-d147200278ef",
+      "branch": "codex/ui-input-otp",
       "dependencies": [
         "input",
         "field"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Input OTP complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9aa9/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement complete Input OTP anatomy/group/slot/separator and Pattern, Separator, Disabled, Controlled, Invalid, Four Digits, Alphanumeric, Form and RTL examples. Use an actual accessible editable text owner for native typing/selection/paste/autofill/IME; do not build independent decorative fields that break platform one-time-code autofill or backspace/selection behavior. Provide typed value/controller/initial ownership, length/pattern/paste transformation, completion/reset/validation callbacks and borrowed focus/controller lifecycle. Match shadcn slots/caret/focus/error/disabled geometry using shared tokens and preserve logical order/accessibility at text scale/RTL. Compose final Field for Form/invalid examples and coordinate its reviewer. Audit actual core/plugin authentication/code inputs without touching accounts or external auth settings; migrate suitable widgets preserving their existing submission/security/business callbacks. Test paste, selection, deletion, autofill configuration, completion, validation/reset and relevant app regressions.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/input-otp",
+        "sha256": "913027458ed577e6345687c3d42b62f28e2813e1d8b000e1b8b9e52f554b1a6e",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "input",
+          "status": "merged",
+          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+          "branch": "codex/ui-input",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
+          "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
+        },
+        {
+          "id": "field",
+          "status": "merged",
+          "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
+          "branch": "codex/ui-field",
+          "reviewTaskId": "01a08558-7a22-7f53-a798-52669b7ddef5",
+          "reviewBranch": "codex/review-field-final",
+          "implementationCommit": "e298291e7c85ce47d24049004504c84208d3d07f",
+          "mergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
+        }
+      ]
     },
     {
       "id": "questionnaire",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
+      "branch": "codex/ui-questionnaire",
       "dependencies": [
         "field",
         "button",
@@ -3094,14 +3562,91 @@
         "dialog",
         "native-select"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Questionnaire complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6d37/discourse-native",
+      "queueStage": "reference_and_dependency_preparation",
+      "implementationBrief": "Implement the full reference Questionnaire state machine and API, including Composition, Multiple Selection, Freeform Answer, Explicit Skip, Shortcuts, Custom Validation, Controlled, Resume, Conditional Items, Navigation State, Custom Progress, Animated Items, Card, Dialog, Accessibility and Unstyled modes. Correctly own typed answers, item identity, conditional visibility, visited/navigation/progress state, skipped-vs-empty answers, async validation cancellation, controlled acceptance, reset and serializable/resumable state. Preserve focus/keyboard shortcuts/announcements and readable transitions with reduced motion/narrow/RTL/large text. Use final Field/Button/Progress/Card/Dialog/Native Select owners and keep persistence/network/domain branching adapters outside generic widgets. Audit core/plugin surveys/onboarding/stepped forms; migrate appropriate real flows without altering required questions, permission or validation rules. Implement the reference behavior fully even if no current app usage exists, documenting the audit. Add meaningful state-transition, resume/conditional/backtracking/async-validation and real-consumer regressions.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/questionnaire",
+        "sha256": "174687e701dfa6b70a0583de3bfee8dd2885b4c8fd51a899adfaffd689a9dc7c",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "field",
+          "status": "merged",
+          "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
+          "branch": "codex/ui-field",
+          "reviewTaskId": "01a08558-7a22-7f53-a798-52669b7ddef5",
+          "reviewBranch": "codex/review-field-final",
+          "implementationCommit": "e298291e7c85ce47d24049004504c84208d3d07f",
+          "mergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
+        },
+        {
+          "id": "button",
+          "status": "merged",
+          "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+          "branch": "codex/ui-button",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "355aa84f83c5949dd5be13eaaf56dd1032c6241b",
+          "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94"
+        },
+        {
+          "id": "progress",
+          "status": "merged",
+          "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+          "branch": "codex/ui-progress",
+          "reviewTaskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
+          "reviewBranch": "codex/review-progress",
+          "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
+          "mergeCommit": "15da313eb259c51c6bbed5974895b6616c32c84c"
+        },
+        {
+          "id": "card",
+          "status": "merged",
+          "taskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
+          "branch": "codex/ui-card",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "4c0dcc6b4fea696768722afae8837d80fbd43b40",
+          "mergeCommit": "a73f465ac86105fdda35f5b56f8b491da4b3936d"
+        },
+        {
+          "id": "dialog",
+          "status": "merged",
+          "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
+          "branch": "codex/ui-dialog",
+          "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+          "reviewBranch": "codex/review-dialog",
+          "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
+          "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
+        },
+        {
+          "id": "native-select",
+          "status": "merged",
+          "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
+          "branch": "codex/ui-native-select",
+          "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee1b7d91d022",
+          "reviewBranch": "codex/review-native-select",
+          "implementationCommit": "f9baeaa86c2bd88058ab815687543587aeec5296",
+          "mergeCommit": "0cdec859288cb2fa0369f64e1a9c1c022dc033e4"
+        }
+      ]
     }
   ],
   "finalAudit": {
@@ -3113,9 +3658,9 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T11:50:25+00:00",
+    "updatedAt": "2026-09-09T12:03:13+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
-    "maxConcurrentComponentTasks": 5,
+    "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
     "mergePolicy": "Each reviewer prepares a candidate from current main, reviews/fixes/verifies, and performs the final --no-ff merge only from the main checkout under its lease. Do not merge main into a worktree; no coordinator approval gate.",
     "nativeInspectionPolicy": "Reviewers acquire the shared desktop lease directly; busy requests join a first-come, first-served queue, retries preserve position, and callers release held leases or cancel waiting requests before ending a turn.",
@@ -3301,6 +3846,110 @@
           "branch": "codex/ui-hover-card",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/02bf/discourse-native",
           "status": "implementation"
+        },
+        {
+          "component": "sheet",
+          "taskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
+          "branch": "codex/ui-sheet",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4177/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "input-otp",
+          "taskId": "01a08606-ca44-78f3-98f2-d147200278ef",
+          "branch": "codex/ui-input-otp",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9aa9/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "message",
+          "taskId": "01a08606-ca30-7bc1-8e27-693690217969",
+          "branch": "codex/ui-message",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/dee9/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "drawer",
+          "taskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
+          "branch": "codex/ui-drawer",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d486/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "message-scroller",
+          "taskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
+          "branch": "codex/ui-message-scroller",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/0ff5/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "data-table",
+          "taskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
+          "branch": "codex/ui-data-table",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/656f/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "pagination",
+          "taskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
+          "branch": "codex/ui-pagination",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e32a/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "date-picker",
+          "taskId": "01a08606-ca30-7bc1-8e27-69575273d443",
+          "branch": "codex/ui-date-picker",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/51f7/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "questionnaire",
+          "taskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
+          "branch": "codex/ui-questionnaire",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6d37/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "navigation-menu",
+          "taskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
+          "branch": "codex/ui-navigation-menu",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5529/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "breadcrumb",
+          "taskId": "01a08606-c290-7772-8b90-e5358efa6752",
+          "branch": "codex/ui-breadcrumb",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/812c/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "context-menu",
+          "taskId": "01a08606-5dce-7b91-9ee6-7713872f1fa7",
+          "branch": "codex/ui-context-menu",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d38b/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "menubar",
+          "taskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
+          "branch": "codex/ui-menubar",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8f35/discourse-native",
+          "status": "implementation",
+          "phase": "reference_and_dependency_preparation"
         }
       ],
       "nativeReadyTasks": []
@@ -3414,13 +4063,13 @@
       "remaining": []
     },
     "dispatchPolicy": {
-      "status": "independent_backlog_review",
-      "reason": "User requested a separate finishing/review/merge task for every existing item; dispatch all 17 reviewers now. Future implementations delegate directly to new reviewers.",
+      "status": "complete_catalogue_queued",
+      "reason": "User requested queuing all remaining unimplemented components. All 13 previously unassigned entries now have verified isolated task/worktree owners.",
       "alreadyStarted": [
         "popover",
         "dialog"
       ],
-      "resumeCondition": "Continue eligible implementation work as dependencies land, using direct reviewer handoffs."
+      "resumeCondition": "Tasks proceed independently with direct dependency handoffs and independent reviewer creation; prepared source never implies parent acceptance."
     },
     "browserInspectionBlocker": {
       "status": "approved_surface_available",
@@ -3645,6 +4294,31 @@
     "resourceCoordination": {
       "main": "Shared main lease; reviewer owns local merge.",
       "desktop": "Shared FIFO desktop queue and lease for browser/native review; live holder and waiters are in the Git common directory. No coordinator scheduling gate."
+    },
+    "fullCatalogueQueue": {
+      "status": "all_remaining_components_assigned",
+      "requestedAt": "2026-09-09",
+      "recordedAt": "2026-09-09T12:03:13+00:00",
+      "instruction": "Start queuing work for the shadcn components not yet implemented; Calendar must use kalender and fit the styleguide theme.",
+      "newTaskCount": 13,
+      "components": [
+        "sheet",
+        "input-otp",
+        "message",
+        "drawer",
+        "message-scroller",
+        "data-table",
+        "pagination",
+        "date-picker",
+        "questionnaire",
+        "navigation-menu",
+        "breadcrumb",
+        "context-menu",
+        "menubar"
+      ],
+      "previousSourceTaskCap": 5,
+      "admissionPolicy": "All remaining components have their own tasks now. Begin independent reference/API/app audit and source preparation as parent APIs permit; coordinate dependencies directly. Native/browser and main writes remain leased and serial. Each implementation creates its own independent reviewer/merge owner.",
+      "finalAudit": "Keep the separate final audit planned until all 64 components and required compositions are implemented, accepted and merged locally."
     }
   },
   "visualFidelity": {
