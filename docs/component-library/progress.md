@@ -20,7 +20,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | in_progress | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | — |
 | 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
-| 11 | textarea | planned | — | — | label | — |
+| 11 | textarea | in_progress | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
 | 13 | radio-group | in_progress | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
 | 14 | switch | in_progress | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | — |
@@ -808,6 +808,47 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 
 - Native reference comparison and editing inspection await the coordinator desktop slot; the Mac was reported locked. No CUA or real app interaction has occurred.
 - No iOS/Linux device or spoken VoiceOver inspection; target-platform widget checks are not device verification.
+
+### textarea
+
+Status: in_progress. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/ui-textarea.
+
+**acceptanceCriteria**
+
+- Match frozen base-nova Textarea source: minimum height, content growth, insets, typography, proportional radius, input role, disabled alpha and exterior focus/invalid rings; preserve hashed primary source and mapping.
+- Implement native multiline editing with controller/value/initialValue, mount-time Form reset, validation/save, IME/selection and borrowed lifecycle ownership, keyboard, focus, semantics and real extension needs.
+- Demonstrate Field composition using DLabel/native Form, Disabled, Invalid, Button composition using existing StyleguideAction and RTL, plus bounded growth, read-only, live themes, narrow/large-text and reduced-motion behavior.
+- Audit all core/plugin multiline fields, migrate appropriate ordinary fields while preserving domain callbacks and async behavior, and record specific specialized retained alternatives.
+- Pass touched formatting, root/full-profile analysis and focused component/migration tests; prepare exact-source isolated signed native fixture bundle. Remain in_progress awaiting_slot until reference and native inspection.
+
+**decisions**
+
+- Frozen docs match SHA256; primary registry/example/Field sources and CSS-to-Flutter mapping preserved in textarea.md and reference/textarea/.
+- DTextarea is a standalone FormField/native TextField owner; same-string updates preserve selection/composition and reset restores mount text. No unmerged Input/Field/Button dependency.
+- Match 64px content-growing surface, 11x9px border-box text insets, explicit 14/20 desktop and 16/24 touch metrics, host radius, outlineVariant input role, multiplied alpha and exterior-only 3px rings.
+- Seven actual examples cover all frozen compositions plus native Form/reset, controlled ownership and bounded read-only editing. Field uses DLabel/native composition; Button composition uses existing StyleguideAction until pending owners merge.
+
+**migrations**
+
+- 14 ordinary multiline core/plugin call sites migrated: invitations/group request/template/bio, post flag/notice/fast edit, Assign note, Chat description, Events description, Voice description/flag/simple room chat.
+- Domain controllers, focus, max length/counter, line bounds, permissions, async callbacks and persistence remain app-owned. Downstream tests target the new public field.
+
+**retainedAlternatives**
+
+- Rich composer_panel.dart and composer_surface.dart keep specialized lossless Markdown projection/IME/selection/cursor/keyboard/lifecycle owners shared by post/chat composers.
+- Spinner Input Group multiline example retains its borderless native field inside a shared addon surface pending Input Group; remaining single-line controls belong to adjacent Input/Field/Combobox owners.
+
+**verification**
+
+- Root/full-profile enforced-lockfile pub resolution and static analysis pass; Flutter 3.47.2 and lockfiles unchanged.
+- 215 focused tests pass with seed 928374611 across Textarea/component examples/geometry/semantics, Assign, Events, Groups, Invites, post flag/notice ownership, fast edit, Chat and Voice. Logs and coverage recorded in textarea.md.
+- Eight Arial-loaded light/dark Flutter renders and pixel checks verify input alpha multiplication, exact exterior rings and unchanged interior pixels. All seven examples pass 216px/200% RTL in Light/Dark/Forest/Plum.
+- Local-data native fixture mounts actual InviteEditor and EventComposerSheet plus Textarea examples/full styleguide; isolated signed native build being prepared.
+
+**limitations**
+
+- No desktop/browser use: native Mac locked and no serialized slot granted. Actual reference-rendered comparison and native fixture/styleguide inspection remain required.
+- No iOS/Linux device or spoken VoiceOver verification; widget tests and exported renders do not claim device/pixel parity.
 
 ### checkbox
 

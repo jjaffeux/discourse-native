@@ -1,16 +1,13 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DAvatar;
-
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/anchored_picker.dart';
 import '../../shell/avatar_image.dart';
-import '../../shell/select.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_services.dart';
@@ -378,18 +375,14 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               key: const Key('assignment-note'),
               controller: _noteController,
               enabled: !_saving,
               minLines: 3,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                hintText: 'Note (optional)',
-                border: OutlineInputBorder(),
-              ),
+              hintText: 'Note (optional)',
             ),
             if (widget.statusesEnabled && statuses.isNotEmpty) ...[
               const SizedBox(height: 12),

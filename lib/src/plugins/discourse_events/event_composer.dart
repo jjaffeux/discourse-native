@@ -486,14 +486,11 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             if (_status == 'private') _field('allowed-groups'),
             _field('url'),
             _field('location'),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               controller: _description,
               minLines: 3,
               maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: 'Description (Markdown)',
-              ),
+              labelText: 'Description (Markdown)',
             ),
             ExpansionTile(
               title: const Text('More options'),

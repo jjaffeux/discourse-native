@@ -278,8 +278,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
               ),
               if (selected?.requireMessage == true) ...[
                 const SizedBox(height: 12),
-                TextField(
-                  style: Theme.of(context).textTheme.bodyMedium,
+                DTextarea(
                   key: const ValueKey('post-flag-message'),
                   controller: _message,
                   focusNode: _messageFocus,
@@ -289,12 +288,8 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                   maxLength: PostFlagType.maximumMessageLength,
                   maxLengthEnforcement: MaxLengthEnforcement.enforced,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    labelText: _messageLabel,
-                    hintText: _messageHint,
-                    alignLabelWithHint: true,
-                    counterText: '',
-                  ),
+                  labelText: _messageLabel,
+                  hintText: _messageHint,
                 ),
                 Semantics(
                   liveRegion: true,

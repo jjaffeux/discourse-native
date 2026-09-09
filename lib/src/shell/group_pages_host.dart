@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/group.dart';
 import '../models/group_route.dart';
 import '../plugin_api/plugin_registry.dart';
-import '../theme/d_button.dart';
 import 'group_page.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_port.dart';
@@ -157,13 +157,12 @@ class _GroupDetailView extends StatelessWidget {
           context: context,
           builder: (context) => AlertDialog(
             title: Text('Request to join ${group.label}'),
-            content: TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            content: DTextarea(
               controller: controller,
               minLines: 3,
               maxLines: 8,
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'Reason'),
+              labelText: 'Reason',
             ),
             actions: [
               DButton(

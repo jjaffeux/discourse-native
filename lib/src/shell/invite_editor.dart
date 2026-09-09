@@ -227,15 +227,12 @@ class _InviteEditorState extends State<InviteEditor> {
                       : (value) => setState(() => _sendEmail = value ?? false),
                 ),
                 if (_sendEmail)
-                  TextFormField(
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  DTextarea(
                     controller: _message,
                     enabled: !_saving,
                     minLines: 2,
                     maxLines: 5,
-                    decoration: const InputDecoration(
-                      labelText: 'Custom message (optional)',
-                    ),
+                    labelText: 'Custom message (optional)',
                   ),
               ],
               const SizedBox(height: 16),

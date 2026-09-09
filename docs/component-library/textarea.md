@@ -1,0 +1,146 @@
+# Textarea implementation and review checkpoint
+
+Branch `codex/ui-textarea`, base `adcb5a9fcc0468aa60f4e95a7c8919f55c1df2d0`.
+Task `01a08437-208f-7332-b373-192eaada5844`. Status remains **in_progress**:
+source/checks are complete, reference/browser and native review await a slot.
+
+## Primary reference
+
+Frozen 2026-09-08 Base UI catalogue, retrieved 2026-09-09 without UI/browser use.
+Exact responses are in `reference/textarea/`:
+
+| Source | SHA256 |
+| --- | --- |
+| [Frozen docs and all six examples](https://ui.shadcn.com/docs/components/base/textarea.md) | `7f2112811eec73ffe6ddc4f250ab4daad7a9894bd274817dda6e26dec0a03759` |
+| [base-nova registry](https://ui.shadcn.com/r/styles/base-nova/textarea.json) | `8f01f6bc4ee556263bae7644e8b527022fa77ff203f33a258bb47142ef7d9c81` |
+| [Official example source](https://ui.shadcn.com/code/apps/v4/registry/bases/base/examples/textarea-example.tsx) | `3199a0816889450768a891d9c3c97ca7618d7d03eca0867cf359bb2d3c9b30d9` |
+| [Field composition supporting source](https://ui.shadcn.com/r/styles/base-nova/field.json) | `586110f5563cbb5dc0929207ee34361f1349cf2f816465799c60b98821e4cedc` |
+
+The frozen Markdown hash matches; no catalogue resnapshot. Label is merged.
+Field and Button are pending: examples use DLabel, native Form/Column/Text,
+and the already available StyleguideAction. No unmerged dependency or pending
+public API was introduced. Input in worktree `faaa` was read for consistency;
+Textarea has no import/dependency on that worktree or DInput.
+
+## CSS to Flutter mapping
+
+CSS pixels are logical pixels at 16px/rem, 100% text scale.
+
+| Registry | Actual mapping |
+| --- | --- |
+| `min-h-16 w-full field-sizing-content` | 64px border-box minimum, stretch to finite parent width, `TextField(maxLines: null)` grows with content. Five 20px lines produce 118px total. Native `minLines`/`maxLines` reserve/bound lines; three bounded desktop lines produce 78px and scroll. |
+| `px-2.5 py-2 border` | 10px horizontal, 8px vertical, plus 1px border: text inset 11px x 9px. No Material internal padding/fill/outline. |
+| `rounded-lg` | `DTokens.radius × 1.0`, including live custom radii. |
+| `text-base md:text-sm` | Touch-platform 16px/24px and desktop 14px/20px, weight 400, tracking 0. Host font family and inherited scaler. Platform choice follows reviewed Input policy rather than changing typography when an app side pane narrows. |
+| `border-input` | `colors.outlineVariant`, independent of `DTokens.border`. |
+| transparent; dark `bg-input/30` | Transparent light fill; input alpha multiplied by .3 in dark. |
+| disabled `bg-input/50`, dark `/80`, opacity .5 | Input alpha multiplied by .5/.8 respectively, then one .5 surface/text/ring opacity layer; no pointer editing/focus, forbidden cursor. |
+| placeholder muted foreground | Same explicit text metrics, live muted foreground; no Material hint animation/label floating. |
+| focus border-ring, ring-3 ring-ring/50 | Live focus border, 3px exterior-only annulus at ring alpha × .5. No spread shadow tint behind transparent content. |
+| invalid destructive border/ring | Border destructive (dark alpha × .5); always-visible exterior 3px ring alpha × .2 light / .4 dark, plus invalid semantics and caller-visible explanation. |
+| `transition-colors` | 150ms interpolated decoration colors, zero duration with inherited reduced motion. No size animation. |
+| Field label and description | DLabel style uses 14px/19.25px, medium; invalid label destructive. Description/error uses 14px/21px and 8px composition spacing. Field's intricate sibling CSS margins are not a new generic Field implementation. |
+
+No artwork/icons are present in the reference. There is no stock Material
+outline, ripple or shadow. The native browser resize grip is omitted: automatic
+content growth and explicit line bounds respect native parent layout constraints.
+The 64px field already exceeds the 48px native touch minimum. Native selection,
+clipboard/context menus, undo, shortcuts, IME and scrolling remain Flutter-owned.
+
+## Editing API and lifecycle
+
+One reusable owner: `lib/src/ui/components/d_textarea.dart`, exported by
+`discourse_ui.dart`. A FormField wraps the native TextField. Controller, value,
+and initialValue modes are exclusive. Same-string parent updates preserve the
+entire editing value. Changed strings collapse selection at the end and end
+composition. Reset restores the text captured on mount and emits onChanged.
+Switching to an external controller takes its text; switching to local ownership
+copies the previous complete editing value. Borrowed focus, editing, undo and
+scroll controllers are never disposed. Selection-only and IME-only notifications
+do not write into the controller. `onChanged` retains native user-change semantics;
+programmatic changes still update Form state and the optional grapheme counter.
+Validation/save/autovalidation/reset, formatter/length enforcement, keyboard
+configuration, read-only selection, context menus and external callbacks are
+forwarded. Required semantics does not invent a validation rule.
+
+Native extensions justified by existing consumers: static label/helper/error,
+reserved/bounded lines, borrowed editing/focus/scroll/undo owners, length limits
+and optional grapheme counter (Chat channel description), text capitalization,
+formatters and caller-owned submit/editing callbacks. Domain writes stay outside
+this component.
+
+## Adoption audit
+
+Current core and all bundled-plugin Dart sources were searched for TextField,
+TextFormField, EditableText, CupertinoTextField, multiline keyboard, minLines,
+and maxLines. Ordinary multiline fields migrated:
+
+- Core InviteEditor custom message and group invitation message.
+- Group membership-request reason, management request template, and profile bio.
+- Post flag message, staff notice, and selected-text fast edit.
+- Assign optional note.
+- Chat channel description (280-character limit/counter retained).
+- Events Markdown description.
+- Voice room description, moderator flag message, and simple room chat message.
+
+These 14 call sites retain controllers, keys, focus, line bounds, max length,
+capitalization, onChanged, save/disabled guards, permission checks, request target
+ownership, async completion handling and persistence callbacks. Group schema
+helpers choose DTextarea only for multiline rows; single-line fields remain
+with their adjacent owner. Core/plugin imports use the public barrel. Existing
+migration tests were updated to target DTextarea instead of casting its key to
+TextField or testing a Material OutlineInputBorder.
+
+Retained alternatives:
+
+- `shell/composer_panel.dart`: rich `MarkdownEditingController`, selection
+  projection, atomic pills/images/quotes, custom context menus, cursor hiding,
+  composer focus/scroll and lifecycle generation, syntax formatters, expanding
+  layout, desktop submit shortcuts. This is the shared post/chat composer
+  editing owner, not an ordinary boxed textarea. Replacing it with a generic
+  field would violate lossless Markdown and native editing contracts.
+- `shell/composer_surface/composer_surface.dart`: hybrid projected composer
+  surface and its plain-text fallback; maintains coordinate/selection adapters,
+  hidden markers and IME under the composer migration gates.
+- `styleguide/examples/spinner_examples.dart`: borderless multiline text within
+  the pending Input Group's shared outer border and addon/footer. Wrapping it in
+  a boxed DTextarea would create two field surfaces; Input Group must own that
+  composition. Its note remains explicitly temporary.
+- All remaining directory/search/title/member-picker and group schema
+  single-line controls belong to Input/Field/Combobox owners, not Textarea.
+
+Coordinator must reconcile shared export/registration/progress files and
+adjacent Input migrations in InviteEditor, Events, Chat and Voice metadata.
+
+## Verification and native review
+
+Root/full-profile enforced-lockfile resolution passed, without SDK/pin/lockfile
+changes. Root/full-profile analysis is clean. The main focused run passed **215
+ tests** (seed 928374611): component state/geometry/semantics, all seven examples
+at 216px/200% RTL in Light/Dark/Forest/Plum, Assign, Events, Groups, Invites,
+post flag/notice ownership, fast edit, Chat channel info and Voice room behavior.
+The user-authorized focused policy replaces the blanket full-suite gate.
+No compatibility bridge/package implementation changed.
+
+Logs: `/tmp/textarea-final-focused.log`, `/tmp/textarea-analysis.log`,
+`/tmp/textarea-full-analysis.log`, `/tmp/textarea-visual.log`.
+
+Eight 344×88px Flutter software-renderer exports are under `evidence/textarea/`,
+using real macOS Arial loaded as TextareaReference, 320×64px field, 12px canvas
+inset, 1× raster scale. Test theme has radius 10 and deliberately separate border
+and input roles; dark input alpha .149. Pixel checks prove alpha multiplication,
+unchanged interior focus/invalid pixels, and exact exterior ring extent. Export:
+`TEXTAREA_EXPORT=docs/component-library/evidence/textarea flutter test --no-pub test/d_textarea_visual_test.dart`.
+These exports are source/renderer evidence, not browser or device parity.
+
+`tool/textarea_review_main.dart` mounts actual production InviteEditor and
+EventComposerSheet with local data, plus the actual seven Textarea examples and
+full styleguide. Invite writes can succeed, fail, or wait for the fixture's
+finish button, entirely in memory; an email and send-email selection reveal its
+message field. Events edits operate on a local parsed event block. No account,
+network, real application state or platform service is required.
+
+Native bundle/source/signature evidence is recorded below after the build.
+Native app has not been launched. Reference-rendered comparison and native
+styleguide/production fixture inspection remain required after unlock. No iOS,
+Linux device or spoken VoiceOver verification is claimed.

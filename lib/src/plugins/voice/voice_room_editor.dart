@@ -88,10 +88,9 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                 ),
               ),
             ),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               controller: _description,
-              decoration: const InputDecoration(labelText: 'Description'),
+              labelText: 'Description',
               minLines: 2,
               maxLines: 5,
             ),

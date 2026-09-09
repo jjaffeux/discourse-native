@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DTextarea;
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -222,7 +223,7 @@ void main() {
     expect(find.text('The server refused this flag.'), findsOneWidget);
     expect(
       tester
-          .widget<TextField>(find.byKey(const ValueKey('post-flag-message')))
+          .widget<DTextarea>(find.byKey(const ValueKey('post-flag-message')))
           .controller
           ?.text,
       'Please revise this wording.',

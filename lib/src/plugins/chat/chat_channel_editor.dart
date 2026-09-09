@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/d_button.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 
@@ -128,20 +128,16 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               key: const ValueKey('chat-channel-description-input'),
               controller: _description,
               enabled: !_saving,
               minLines: 3,
               maxLines: 6,
               maxLength: 280,
+              showCounter: true,
               onChanged: (_) => setState(() => _error = null),
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
-              ),
+              labelText: 'Description',
             ),
             if (_error case final error?)
               Align(
