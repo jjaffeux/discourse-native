@@ -1674,12 +1674,10 @@ class _TopicCopy extends StatelessWidget {
                           newTab: true,
                         );
                         if (!opened && context.mounted) {
-                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Could not open this tag in a new tab.',
-                              ),
-                            ),
+                          DToast.show(
+                            context,
+                            'Could not open this tag in a new tab.',
+                            type: DToastType.error,
                           );
                         }
                       },
