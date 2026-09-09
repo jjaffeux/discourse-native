@@ -102,7 +102,7 @@ final datePickerExamples = ComponentExamples(
       '''DDatePickerInput.controlled(
   label: 'Schedule Date',
   naturalDateParser: DEnglishNaturalDateParser(),
-  referenceDate: DateTime(2025, 6, 1),
+  referenceDate: DateTime(2026, 9, 9),
 )''',
       (_) => const _NaturalExample(),
     ),
@@ -136,7 +136,7 @@ class _DateAndTimeExample extends StatefulWidget {
 }
 
 class _DateAndTimeExampleState extends State<_DateAndTimeExample> {
-  DCalendarDate? date = DCalendarDate(2025, 6, 1);
+  DCalendarDate? date;
   DTimeValue? time = const DTimeValue(hour: 10, minute: 30);
   @override
   Widget build(BuildContext context) => Wrap(
@@ -168,9 +168,9 @@ class _NaturalExample extends StatefulWidget {
 }
 
 class _NaturalExampleState extends State<_NaturalExample> {
-  final reference = DateTime(2025, 6, 1);
+  final reference = DateTime(2026, 9, 9);
   final controller = TextEditingController(text: 'In 2 days');
-  DCalendarDate? date = DCalendarDate(2025, 6, 3);
+  DCalendarDate? date = DCalendarDate(2026, 9, 11);
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 320,
