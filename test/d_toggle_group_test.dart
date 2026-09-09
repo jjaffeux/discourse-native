@@ -347,6 +347,38 @@ void main() {
     },
   );
 
+  testWidgets('connected icon text padding follows the logical icon edge', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      const DToggleGroup<String>(
+        spacing: 0,
+        items: [
+          DToggleGroupItem(
+            value: 'start',
+            icon: Icon(Icons.format_align_left),
+            child: Text('Start'),
+          ),
+          DToggleGroupItem(
+            value: 'end',
+            icon: Icon(Icons.format_align_right),
+            iconPosition: DToggleIconPosition.end,
+            child: Text('End'),
+          ),
+        ],
+      ),
+      direction: TextDirection.rtl,
+    );
+
+    final padding = tester
+        .widgetList<AnimatedContainer>(find.byType(AnimatedContainer))
+        .map((container) => container.padding!.resolve(TextDirection.rtl))
+        .toList();
+    expect(padding[0], const EdgeInsets.only(left: 8, right: 6));
+    expect(padding[1], const EdgeInsets.only(left: 6, right: 8));
+  });
+
   testWidgets(
     'styleguide examples survive narrow RTL large text live palettes and reduced motion',
     (tester) async {

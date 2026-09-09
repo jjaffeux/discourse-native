@@ -415,7 +415,11 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         padding:
             baseStyle?.padding ??
             (connected && !item._iconOnly
-                ? const EdgeInsets.symmetric(horizontal: 8)
+                ? item.icon == null
+                      ? const EdgeInsets.symmetric(horizontal: 8)
+                      : item.iconPosition == DToggleIconPosition.start
+                      ? const EdgeInsetsDirectional.only(start: 6, end: 8)
+                      : const EdgeInsetsDirectional.only(start: 8, end: 6)
                 : null),
         borderRadius: joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,

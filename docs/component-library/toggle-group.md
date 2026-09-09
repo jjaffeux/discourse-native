@@ -30,7 +30,7 @@ CSS pixels map one-to-one to Flutter logical pixels at 100% text scale.
 | `orientation="vertical"`, `items-stretch` | vertical `Flex`, stretched item widths and Up/Down navigation |
 | 2026-05-17 `spacing=2` default | two 4px units = 8 logical pixels; `spacing=1` is 4px |
 | `spacing=0`, `rounded-none` | connected items remove inner corners |
-| joined `px-2` | connected text items use 8px horizontal padding; standalone Toggle retains its accepted 10px |
+| joined `px-2`, icon-side `p*-1.5` | connected text items use 8px horizontal padding, reduced to 6px on an inline icon edge; standalone Toggle retains its accepted 10px |
 | outline `border-l-0` / `border-t-0`, first edge restored | one logical leading/top shared seam without double-width borders |
 | first/last `rounded-l/r/t/b-lg` | direction-aware exterior group corners using the live host radius |
 | `focus:z-10`, `focus-visible:z-10` | each real `DToggle` paints its outside-only focus ring above adjacent seams |
