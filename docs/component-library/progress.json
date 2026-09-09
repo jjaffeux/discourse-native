@@ -1535,13 +1535,14 @@
         "323 selected component, fixture, styleguide and production migration tests passed; routed Chat notification integration test also passed.",
         "Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.",
         "Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch.",
-        "2026-09-09 correction: 155 impact tests and 2 manual font-loaded render tests passed. Official light/dark/disabled/invalid/focus/groups/RTL/narrow browser capture compared with registered examples; production fixture renders captured in both app themes. See native-select-review.md and reference/native-select-review/manifest.json."
+        "2026-09-09 correction: 155 impact tests and 2 manual font-loaded render tests passed. Official light/dark/disabled/invalid/focus/groups/RTL/narrow browser capture compared with registered examples; production fixture renders captured in both app themes. See native-select-review.md and reference/native-select-review/manifest.json.",
+        "Corrected source d2e500f95d25f9901f74b37d0784aeb1e1ebf071 rebuilt into the unique ad-hoc verified review app; all four kernels match 47fabe4db51b73135427cc6ab941765ad04b53c4433693b36b29babf03691efc."
       ],
       "limitations": [
         "awaiting_slot: browser slot released with original dark theme and viewport restored; native app/device/VoiceOver inspection remains required before review_ready or merge.",
         "No native CUA/app launch. Font-loaded widget screenshots are not device rendering, VoiceOver or OS-popup parity evidence."
       ],
-      "implementationCommit": "b6a1e7f736966ffc6c3923f353f7f007faa30e43",
+      "implementationCommit": "d2e500f95d25f9901f74b37d0784aeb1e1ebf071",
       "mergeCommit": null
     },
     {

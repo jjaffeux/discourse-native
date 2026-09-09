@@ -1343,6 +1343,7 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 - Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.
 - Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch.
 - 2026-09-09 correction: 155 impact tests and 2 manual font-loaded render tests passed. Official light/dark/disabled/invalid/focus/groups/RTL/narrow browser capture compared with registered examples; production fixture renders captured in both app themes. See native-select-review.md and reference/native-select-review/manifest.json.
+- Corrected source d2e500f95d25f9901f74b37d0784aeb1e1ebf071 rebuilt into the unique ad-hoc verified review app; all four kernels match 47fabe4db51b73135427cc6ab941765ad04b53c4433693b36b29babf03691efc.
 
 **limitations**
 
