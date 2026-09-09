@@ -2224,11 +2224,14 @@
       ],
       "limitations": [
         "Official browser-rendered comparison and native macOS inspection have not been performed in this implementation task.",
-        "Final acceptance must integrate Textarea's accepted main merge, then notify/coordinate with Button Group reviewer 01a0859e-170c-7821-b0fd-9ff24a9bfaac before either component is merged.",
+        "Final acceptance must reconcile accepted-main Field, Button Group, Dropdown Menu and Popover owner compositions without reducing either owner's frozen examples; direct handoffs were sent to their implementation/review tasks.",
         "No iOS/Linux device or spoken VoiceOver verification."
       ],
-      "implementationCommit": "a7c78d3a497819d025ee3ee27fdfa3f84166e093",
+      "implementationCommit": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
       "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
+      "reviewBranch": "codex/review-input-group",
       "preparedDependencies": [
         {
           "id": "textarea",
@@ -2244,7 +2247,7 @@
           "component": "button-group",
           "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
           "reviewTaskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
-          "inputGroupImplementationCommit": "a7c78d3a497819d025ee3ee27fdfa3f84166e093",
+          "inputGroupImplementationCommit": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
           "requirement": "Replace the frozen Button Group styleguide's explicitly labeled local Input Group handoff fixture with final public DInputGroup composition without reducing the example surface; preserve joined input/action geometry plus independent input/button semantics, focus, actions, RTL and scaling.",
           "policyCommit": "af91afb9b1bed13eaac8e932ac55dfdedd0b8ce5"
         }

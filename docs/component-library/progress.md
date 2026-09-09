@@ -25,7 +25,7 @@ Branch preparation does not mark a component merged or visually verified.
 | select | Implementation and checks | — | — |
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
-| input-group | Implementation and checks | — | — |
+| input-group | Implementation and checks | — | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | a0cca310 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
 | command | Implementation and checks | — | — |
 | dropdown-menu | Implementation and checks | — | — |
@@ -2145,7 +2145,7 @@ Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/u
 **limitations**
 
 - Official browser-rendered comparison and native macOS inspection have not been performed in this implementation task.
-- Final acceptance must integrate Textarea's accepted main merge, then notify/coordinate with Button Group reviewer 01a0859e-170c-7821-b0fd-9ff24a9bfaac before either component is merged.
+- Final acceptance must reconcile accepted-main Field, Button Group, Dropdown Menu and Popover owner compositions without reducing either owner's frozen examples; direct handoffs were sent to their implementation/review tasks.
 - No iOS/Linux device or spoken VoiceOver verification.
 
 ### button-group
