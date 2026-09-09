@@ -10,6 +10,7 @@ import '../models/post_flag.dart';
 import '../models/topic.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'adaptive_dialog_action.dart';
 import 'bookmark_ui.dart';
 import 'choice_menu.dart';
 import 'command_menu.dart';
@@ -227,27 +228,19 @@ class TopicStatusButton extends StatelessWidget {
         controller.currentInstance?.url == siteUrl &&
         route?.topicId == topic.id;
     if (deleted) {
-      final confirmed = await showDialog<bool>(
+      final confirmed = await showDiscourseAlertDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Delete topic?'),
-          content: const Text(
-            'This removes the topic and all of its replies. Staff may be able '
-            'to recover it later.',
-          ),
-          actions: [
-            DButton(
-              label: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(false),
-            ),
-            DButton(
-              key: const ValueKey('topic-delete-confirm'),
-              label: const Text('Delete'),
-              onPressed: () => Navigator.of(context).pop(true),
-              variant: DButtonVariant.danger,
-            ),
-          ],
+        title: const Text('Delete topic?'),
+        description: const Text(
+          'This removes the topic and all of its replies. Staff may be able '
+          'to recover it later.',
         ),
+        cancelLabel: const Text('Cancel'),
+        actionLabel: const Text('Delete'),
+        cancelResult: false,
+        actionResult: true,
+        actionKey: const ValueKey('topic-delete-confirm'),
+        actionVariant: DButtonVariant.destructive,
       );
       if (confirmed != true || !context.mounted) return;
     }

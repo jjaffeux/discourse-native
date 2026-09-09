@@ -1192,23 +1192,15 @@ Future<bool> _confirm(
   required String message,
   required String action,
 }) async =>
-    await showDiscourseDialog<bool>(
+    await showDiscourseAlertDialog<bool>(
       context: context,
-      builder: (context) => DiscourseAlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          AdaptiveDialogAction(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          AdaptiveDialogAction(
-            kind: AdaptiveDialogActionKind.destructive,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(action),
-          ),
-        ],
-      ),
+      title: Text(title),
+      description: Text(message),
+      cancelLabel: const Text('Cancel'),
+      actionLabel: Text(action),
+      cancelResult: false,
+      actionResult: true,
+      actionVariant: DButtonVariant.destructive,
     ) ??
     false;
 

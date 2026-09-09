@@ -231,29 +231,20 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
   Future<void> _toggleCapture(bool enabled) async {
     if (_busy || enabled == widget.readState().enabled) return;
     if (enabled) {
-      final confirmed = await showDiscourseDialog<bool>(
+      final confirmed = await showDiscourseAlertDialog<bool>(
         context: context,
-        builder: (dialogContext) => DiscourseAlertDialog(
-          title: const Text('Turn on deep Voice capture?'),
-          content: const Text(
-            'This records usernames and user IDs, network addresses, raw '
-            'SDP and ICE negotiation, media statistics, and device details. '
-            'Credentials and other secrets are redacted. Capture stays on '
-            'until you turn it off or restart the app.',
-          ),
-          actions: [
-            AdaptiveDialogAction(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            AdaptiveDialogAction(
-              key: const ValueKey('voice-confirm-start-capture'),
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              kind: AdaptiveDialogActionKind.primary,
-              child: const Text('Turn on capture'),
-            ),
-          ],
+        title: const Text('Turn on deep Voice capture?'),
+        description: const Text(
+          'This records usernames and user IDs, network addresses, raw '
+          'SDP and ICE negotiation, media statistics, and device details. '
+          'Credentials and other secrets are redacted. Capture stays on '
+          'until you turn it off or restart the app.',
         ),
+        cancelLabel: const Text('Cancel'),
+        actionLabel: const Text('Turn on capture'),
+        cancelResult: false,
+        actionResult: true,
+        actionKey: const ValueKey('voice-confirm-start-capture'),
       );
       if (confirmed != true) return;
     }
@@ -266,27 +257,19 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
 
   Future<void> _confirmClear() async {
     if (widget.readState().enabled) return;
-    final confirmed = await showDiscourseDialog<bool>(
+    final confirmed = await showDiscourseAlertDialog<bool>(
       context: context,
-      builder: (dialogContext) => DiscourseAlertDialog(
-        title: const Text('Clear Voice capture?'),
-        content: const Text(
-          'This permanently removes the retained deep-capture records from '
-          'this device.',
-        ),
-        actions: [
-          AdaptiveDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          AdaptiveDialogAction(
-            key: const ValueKey('voice-confirm-clear-capture'),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            kind: AdaptiveDialogActionKind.destructive,
-            child: const Text('Clear capture'),
-          ),
-        ],
+      title: const Text('Clear Voice capture?'),
+      description: const Text(
+        'This permanently removes the retained deep-capture records from '
+        'this device.',
       ),
+      cancelLabel: const Text('Cancel'),
+      actionLabel: const Text('Clear capture'),
+      cancelResult: false,
+      actionResult: true,
+      actionKey: const ValueKey('voice-confirm-clear-capture'),
+      actionVariant: DButtonVariant.destructive,
     );
     if (confirmed != true) return;
     await _runBusy(widget.clear, successMessage: 'Voice capture cleared');
