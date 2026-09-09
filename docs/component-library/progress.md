@@ -2294,7 +2294,7 @@ Status: review_ready. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/
 - Pinned main e612ad7b merged at 1edacc28; final component owners/adapters and all non-Chart rows preserved. 193 integration tests pass seed 4024479176; root/full analysis clean. Source-exact isolated bundle /tmp/chart-review-eab4-1edacc28/Chart Review eab4.app; explicit restricted-free debug/JIT signed readback and deep strict signature pass. Evidence: docs/component-library/evidence/chart/integration/build-identity.json. No CUA/browser/native launch; awaiting_slot.
 - Independent macOS review exercised actual Users ready/loading/empty/error states; Poll radio, checkbox, confidential and closed-zero paths; Chart pointer/keyboard/Escape semantics; light/dark, Forest/Plum, RTL and narrow/large-text states. Palette corrections were rechecked natively.
 - Final exact-source bundle /tmp/chart-review-c0d7-6a07c5ea/Chart Review c0d7.app (org.discourse.chartreviewc0d7) passed deep strict signature verification; source/copy kernel SHA256 3f0236a425737cfafc39f2d7577481d26e9e8c15a1d6c511810fe92ade77cae2. Plum + 360px + 200% Tooltip anatomy remained readable, stacked and complete in the native accessibility tree.
-- After integrating current main, 151 focused Chart/styleguide/Poll/Users tests passed with randomized seed 291187402; root and full-profile flutter analyze --no-pub were clean.
+- After final latest-main integration, 151 focused Chart/styleguide/Poll/Users tests passed with randomized seed 2389001480; root and full-profile flutter analyze --no-pub were clean.
 
 **limitations**
 
