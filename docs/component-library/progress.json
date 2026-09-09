@@ -2187,6 +2187,11 @@
         "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
         "issue": "Complete referenced swap collision policy and absolute default largeStep 10; document native onChangeEnd distinction from changed-only onValueCommitted.",
         "status": "in_progress"
+      },
+      "resizable": {
+        "taskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
+        "issue": "Verify pointer midpoint collapse/expand and full opposite-panel capacity; discrete snap distance can exceed requested pointer delta while remaining valid.",
+        "status": "in_progress"
       }
     }
   },
@@ -2259,7 +2264,8 @@
       "Final standalone macOS build passes at 6d8c63edcbcd8372408a4a5ec8ccc9d8479e5bbb. Its isolated kernel matches the workspace build: SHA256 90f5d1b5d4689ca2a660441be25859071c9f9c9f15bf3dc10817147efc373342. Deep strict signature verification passes.",
       "Native dark/light documentation, independent preview theme, code/state retention, 360px/200% swatches, centered Card, actual narrow-window Sidebar search/selection, Escape/focus return, and compact desktop Sidebar demo were inspected. Exact source checkpoints, evidence and limits: docs/component-library/styleguide-design.md.",
       "Real application flutter build macos --debug --no-pub passed from 07539c2c57533835094f70b02e07cfbbba92896a in the isolated coordinator checkout. Its complete Git tree f288c94ea575d48a3585b1ca6355e4d35ce0ddf3 exactly matches merged main 0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5. The running app in the main checkout build directory was preserved. Log: /private/tmp/styleguide-real-app-final-build.log.",
-      "Coordinator exported and visually inspected Light/Dark Foundations at 1270\u00d7847 logical pixels / 2\u00d7 output with the Flutter widget-test renderer and explicitly loaded SFNS/Material fonts. Source c5d37bd1 has identical styleguide/Sidebar code to final 6d8c63ed. Export harness completed successfully; /private/tmp/styleguide-b104-render.log. PNGs/provenance: /Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/styleguide-current-{dark,light}.png and styleguide-preview-provenance.json. This is a test-renderer preview, not native desktop verification."
+      "Coordinator exported and visually inspected Light/Dark Foundations at 1270\u00d7847 logical pixels / 2\u00d7 output with the Flutter widget-test renderer and explicitly loaded SFNS/Material fonts. Source c5d37bd1 has identical styleguide/Sidebar code to final 6d8c63ed. Export harness completed successfully; /private/tmp/styleguide-b104-render.log. PNGs/provenance: /Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/styleguide-current-{dark,light}.png and styleguide-preview-provenance.json. This is a test-renderer preview, not native desktop verification.",
+      "Coordinator inspected the live official Button documentation in CUA Chrome at a matched 1270\u00d7847 viewport after discovering browser control remains available independently of the Mac lock. The live h1 measures 30px / 36px, weight 600 and -0.75px tracking, matching the documentation shell specification. Compared live dark reference canvas/panel/navigation with the current Flutter test export. Temporary browser viewport was reset and the created tab closed before granting Button the browser-only comparison slot. This still does not verify native application interactions."
     ],
     "limitations": [
       "The Mac locked before the final explicit-scrollbar screenshot. Its appearance and native drag remain unverified; the mouse-drag widget test passes.",
