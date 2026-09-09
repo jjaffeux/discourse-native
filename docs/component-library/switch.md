@@ -109,11 +109,11 @@ suites run now. No iOS/Linux device or spoken VoiceOver verification is claimed.
 
 ## Isolated macOS bundle
 
-Source commit: `404a1748bc0a11faa01f425ee74f920cc8bddb5e`.
+Source commit: `9ab5a887cbf71b021022454f91cbdcd8f6041a4b`.
 Build: `flutter build macos --debug --no-pub -t tool/switch_review_main.dart`.
-Bundle: `/private/tmp/discourse-switch-review-404a1748/Discourse Switch Review.app`.
+Bundle: `/private/tmp/discourse-switch-review-9ab5a887/Discourse Switch Review.app`.
 The original worktree build and isolated bundle have the same kernel SHA256:
-`3b08262090a788c933ea6f36ecd28644a5998f25aad3b4d9968b2b4347395ee1`.
+`4545ebfacea1b7417d4f2e5820a2fa1a2be8c2714f208b015b608b5ff0df7d59`.
 
 The copy has bundle ID `org.discourse.switch-review` and URL scheme
 `discourse-switch-review`; `codesign --verify --deep --strict --verbose=2`

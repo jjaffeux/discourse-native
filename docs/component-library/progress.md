@@ -904,6 +904,7 @@ Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/u
 - Final correction verification: 63 focused tests passed with seed 782311 (21 Switch, 2 production fixture, 39 affected Settings/Preferences/AI tests, 1 font export). /private/tmp/switch-fidelity-final-tests.log.
 - Restored website dark theme, no viewport override used, closed sole comparison tab and explicitly released browser slot before build. No native app launched.
 - Final browser-corrected root and profiles/full flutter analyze --no-pub passed; touched Dart format and git diff --check clean. Logs /private/tmp/switch-browser-final-analyze.log and /private/tmp/switch-browser-final-full-analyze.log.
+- Refreshed browser-corrected macOS debug review bundle: /private/tmp/discourse-switch-review-9ab5a887/Discourse Switch Review.app. Source 9ab5a887cbf71b021022454f91cbdcd8f6041a4b; kernel SHA256 4545ebfacea1b7417d4f2e5820a2fa1a2be8c2714f208b015b608b5ff0df7d59 matches original build; tracked lib/test/tool equality and deep strict ad-hoc signature verification passed. Trace docs/component-library/switch-review-build.json. Native inspection remains awaiting_slot; bundle not launched.
 
 **limitations**
 
