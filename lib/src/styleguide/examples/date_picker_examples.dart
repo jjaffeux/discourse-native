@@ -5,7 +5,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../styleguide_example.dart';
 
 final datePickerExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Select a civil date or range from a Kalender-backed calendar.',
   notes:
       'Composes Button, Popover, Field, Input Group and Kalender-backed '

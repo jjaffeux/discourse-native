@@ -83,7 +83,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
 | 49 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
 | 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
-| 51 | date-picker | in_progress | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
+| 51 | date-picker | review_ready | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | merged | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | d454c8f62fb4ab8718b3a32b2743556f2f78609d |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
@@ -2768,7 +2768,7 @@ Status: merged. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-cal
 
 ### date-picker
 
-Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/ui-date-picker.
+Status: review_ready. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/ui-date-picker.
 
 **acceptanceCriteria**
 
@@ -2809,6 +2809,7 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/u
 
 - No physical iOS/Linux device or spoken VoiceOver verification was performed; widget coverage verifies the iOS 48px action target and semantic/keyboard contracts.
 - Browser and native font rasterizers differ, so acceptance establishes mapped geometry, palette relationships and behavior rather than pixel equality.
+- Native geometry and interaction inspection preceded the data-only correction that changed Time to an empty initial date and froze Natural Language at September 11, 2026. A dedicated rendered widget regression verifies those exact final values, and the corrected source was rebuilt and signed in the final isolated candidate.
 
 ### carousel
 

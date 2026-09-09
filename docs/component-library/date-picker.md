@@ -106,3 +106,7 @@ picker migrations.
   tests cover the iOS minimum action target and the semantic/keyboard contracts;
   native acceptance establishes mapped geometry and behavior rather than pixel
   equality across browser and Flutter font rasterizers.
+- The native geometry/interaction pass found the Time and Natural Language
+  example-data mismatches. Their data-only correction is locked by a rendered
+  widget regression and included in the final signed build; the geometry and
+  picker implementation inspected natively did not change afterward.

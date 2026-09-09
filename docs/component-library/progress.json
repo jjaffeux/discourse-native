@@ -3249,7 +3249,7 @@
     },
     {
       "id": "date-picker",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a08606-ca30-7bc1-8e27-69575273d443",
       "branch": "codex/ui-date-picker",
       "dependencies": [
@@ -3289,12 +3289,12 @@
       ],
       "limitations": [
         "No physical iOS/Linux device or spoken VoiceOver verification was performed; widget coverage verifies the iOS 48px action target and semantic/keyboard contracts.",
-        "Browser and native font rasterizers differ, so acceptance establishes mapped geometry, palette relationships and behavior rather than pixel equality."
+        "Browser and native font rasterizers differ, so acceptance establishes mapped geometry, palette relationships and behavior rather than pixel equality.",
+        "Native geometry and interaction inspection preceded the data-only correction that changed Time to an empty initial date and froze Natural Language at September 11, 2026. A dedicated rendered widget regression verifies those exact final values, and the corrected source was rebuilt and signed in the final isolated candidate."
       ],
       "implementationCommit": "f980b6f5c7e0e0a0fe2888f6f3c1a1f4f563421e",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/51f7/discourse-native",
-      "queueStage": "independent_review",
       "implementationBrief": "Implement full reference Date Picker Composition, Basic, Range Picker, Date of Birth, Input, Time Picker, Natural Language Picker and RTL examples. New explicit user requirement: Calendar MUST use the existing kalender package (pinned 0.29.1) and share the styleguide theme. Compose that Kalender-backed Calendar API; do not introduce a separate handwritten calendar engine, a competing date-picker package, or leave a temporary calendar accepted. Calendar owner is 01a085fd-5d83-79c3-b598-bd3ffc5b366e on codex/ui-calendar. Begin reference/API planning and app audit now, agree the API directly, then use its committed tested source when available; final merge requires accepted Calendar. Keep field text/parsing/formatting, typed value/range/timezone and popup/open/focus/Form lifecycle clear, handle bounds/disabled dates/leap/DST/invalid input and locale, and implement meaningful deterministic natural-language behavior or an explicit adapter meeting the example rather than a static demo. Reuse final Popover/Input/Field/Input Group owners. Audit real date/time inputs and retain domain scheduling, validation and async state in adapters.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/date-picker",
@@ -3357,7 +3357,10 @@
       "reviewBranch": "codex/review-date-picker",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native",
       "reviewHandoffCommit": "bb6072283237d82ff9d95eeef62b5938f0940cf2",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "accepted",
+      "reviewedBranchHead": "ae53cf7ad5ebaa75c0080cd5bf41cc6495d55b34",
+      "browserInspectionStatus": "completed",
+      "nativeInspectionStatus": "completed",
       "implementationHandoffVerification": {
         "focusedTests": "Source reports 36 Date Picker, Calendar and Local Date checks passing with seed 9082026, covering parsing, state/Form ownership, range completion, bounds, invalid-text retention, focus, scaled/RTL layouts and all eight examples.",
         "analysis": "Root and full-profile analysis and diff checks pass; exact-source offline macOS fixture builds.",
