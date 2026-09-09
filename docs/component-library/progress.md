@@ -2587,7 +2587,8 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Breadcrumb (01a08623-9d6e-7393-b3e8-fb4c402b8c71) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
-- Reviewer preserved the finalized cd9c542d implementation history, added a source-exact local-data TopicListView fixture, and completed Breadcrumb's first official browser and native macOS comparison. Final acceptance remains gated on Dropdown Menu's accepted local-main merge.
+- Reviewer preserved the finalized cd9c542d implementation history, added a source-exact local-data TopicListView fixture, and completed Breadcrumb's first official browser and native macOS comparison.
+- Dropdown Menu is accepted on main at 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787. Breadcrumb's prepared pin is its ancestor and all Dropdown component/example/focused-test paths are byte-equal to the accepted revision.
 
 **migrations**
 
@@ -2599,10 +2600,11 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 - Reviewer launched an isolated macOS fixture and inspected Light, Dark, Forest, Plum, pointer/keyboard callbacks, visible focus, RTL, 240px/200% text, reduced motion, wrapping/scrolling, native AX boundaries, Dropdown/Collapsed focus/navigation/typeahead/selection/Escape/restoration/outside dismissal. No VoiceOver/iOS/Linux claim.
 - A source-exact offline DiscourseApp/TopicListView fixture exposed both production category links in native AX, kept the long path bounded and confirmed parent/child callbacks navigate to the correct local feeds.
 - 48 Breadcrumb/Dropdown/styleguide tests passed with seed826145; both focused topic-row regressions passed; root and profiles/full analysis are clean.
+- After accepted Dropdown reconciliation, the same 48 affected tests and both production topic-row regressions passed with seed826145; root and profiles/full analysis remained clean. Final accepted-source macOS bundle /private/tmp/breadcrumb-final.7BTZ0L/Breadcrumb Final ebcec.app built and passed deep/strict ad-hoc signing with restricted developer entitlements omitted; kernel SHA256 60dfdb795ece4294d03de84c3d49eb29c3029862848677e19cf1cae05ff4795b.
 
 **limitations**
 
-- Dropdown Menu remains unaccepted. Breadcrumb's successful approved native inspections preceded the parent reviewer's latest 2026-09-09 12:53 UTC locked-Mac denial and therefore do not supersede it. Dropdown correctly did not merge. Acceptance remains pending a manual unlock and parent-owned resume; Breadcrumb will not carry the unaccepted source into main.
+- The first official/native Breadcrumb pass remains valid because accepted Dropdown component/example/test paths are byte-equal. A final attempt to inspect the reviewer-added timed live-theme-while-open control was blocked by a fresh locked-Mac denial after acquiring the FIFO lease; the lease was released immediately. Parent focused coverage verifies live theme while open, but no native claim is made for that single timed interaction. No iOS/Linux device or spoken VoiceOver claim.
 
 ### pagination
 
@@ -3086,4 +3088,3 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
-
