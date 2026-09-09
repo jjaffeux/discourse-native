@@ -161,6 +161,10 @@ typedef DCalendarDayBuilder =
       DCalendarDayDetails details,
       Widget defaultChild,
     );
+typedef DCalendarDateStringBuilder =
+    String Function(BuildContext context, DCalendarDate date);
+typedef DCalendarMonthStringBuilder =
+    String Function(BuildContext context, DCalendarDate month, bool short);
 
 @immutable
 class DCalendarLabels {
@@ -265,8 +269,13 @@ class DCalendarController extends ChangeNotifier {
 /// theme gives the package grid, dates, week numbers, timelines and overlays a
 /// live host palette/font/radius baseline.
 class DKalenderTheme extends StatelessWidget {
-  const DKalenderTheme({super.key, required this.child});
+  const DKalenderTheme({
+    super.key,
+    required this.child,
+    this.compactMonthLayout = true,
+  });
   final Widget child;
+  final bool compactMonthLayout;
 
   @override
   Widget build(BuildContext context) {
@@ -292,22 +301,24 @@ class DKalenderTheme extends StatelessWidget {
         ),
         weekDayHeaderStyle: kalender.WeekDayHeaderStyle(
           textStyle: mutedLabel,
-          padding: EdgeInsets.zero,
+          padding: compactMonthLayout ? EdgeInsets.zero : null,
         ),
         monthDayHeaderStyle: kalender.MonthDayHeaderStyle(
           numberTextStyle: label,
-          margin: EdgeInsets.zero,
+          margin: compactMonthLayout ? EdgeInsets.zero : null,
         ),
         weekNumberStyle: kalender.WeekNumberStyle(
           textStyle: mutedLabel,
-          buttonSize: const Size.square(28),
-          padding: EdgeInsets.zero,
-          alignment: Alignment.topCenter,
+          buttonSize: compactMonthLayout ? const Size.square(28) : null,
+          padding: compactMonthLayout ? EdgeInsets.zero : null,
+          alignment: compactMonthLayout ? Alignment.topCenter : null,
         ),
-        monthGridStyle: const kalender.MonthGridStyle(
-          color: Colors.transparent,
-          thickness: 0,
-        ),
+        monthGridStyle: compactMonthLayout
+            ? const kalender.MonthGridStyle(
+                color: Colors.transparent,
+                thickness: 0,
+              )
+            : null,
         hourLinesStyle: kalender.HourLinesStyle(
           color: tokens.border,
           thickness: 1,
@@ -388,10 +399,35 @@ class DCalendar extends StatefulWidget {
     this.excludeDisabledInRange = false,
     this.dayBuilder,
     this.weekNumberBuilder,
+    this.dayNumberBuilder,
+    this.weekdayLabelBuilder,
+    this.monthLabelBuilder,
+    this.yearLabelBuilder,
+    this.dateSemanticLabelBuilder,
     this.today,
     this.bordered = false,
     this.semanticLabel,
-  }) : assert(numberOfMonths > 0),
+  }) : assert(
+         selection == null ||
+             (mode == DCalendarSelectionMode.single &&
+                 selection is DCalendarSingleSelection) ||
+             (mode == DCalendarSelectionMode.multiple &&
+                 selection is DCalendarMultipleSelection) ||
+             (mode == DCalendarSelectionMode.range &&
+                 selection is DCalendarRangeSelection),
+         'selection must match mode',
+       ),
+       assert(
+         initialSelection == null ||
+             (mode == DCalendarSelectionMode.single &&
+                 initialSelection is DCalendarSingleSelection) ||
+             (mode == DCalendarSelectionMode.multiple &&
+                 initialSelection is DCalendarMultipleSelection) ||
+             (mode == DCalendarSelectionMode.range &&
+                 initialSelection is DCalendarRangeSelection),
+         'initialSelection must match mode',
+       ),
+       assert(numberOfMonths > 0),
        assert(cellSize >= 24),
        assert(
          firstWeekday >= DateTime.monday && firstWeekday <= DateTime.sunday,
@@ -435,6 +471,11 @@ class DCalendar extends StatefulWidget {
   final bool excludeDisabledInRange;
   final DCalendarDayBuilder? dayBuilder;
   final int Function(DCalendarDate weekStart)? weekNumberBuilder;
+  final DCalendarDateStringBuilder? dayNumberBuilder;
+  final DCalendarDateStringBuilder? weekdayLabelBuilder;
+  final DCalendarMonthStringBuilder? monthLabelBuilder;
+  final DCalendarDateStringBuilder? yearLabelBuilder;
+  final DCalendarDateStringBuilder? dateSemanticLabelBuilder;
   final DCalendarDate? today;
   final bool bordered;
   final String? semanticLabel;
@@ -979,6 +1020,10 @@ class _DCalendarState extends State<DCalendar> {
   );
 
   String _weekdayLabel(BuildContext context, DateTime date) {
+    final calendarDate = DCalendarDate.fromDateTime(date);
+    if (widget.weekdayLabelBuilder case final builder?) {
+      return builder(context, calendarDate);
+    }
     final locale = (widget.locale ?? Localizations.localeOf(context))
         .toLanguageTag();
     return DateFormat.E(locale).format(date).characters.take(2).toString();
@@ -996,7 +1041,8 @@ class _DCalendarState extends State<DCalendar> {
     );
     if (widget.captionLayout == DCalendarCaptionLayout.label) {
       return Text(
-        DateFormat.yMMMM(locale).format(month.dateTimeUtc),
+        widget.monthLabelBuilder?.call(context, month, false) ??
+            DateFormat.yMMMM(locale).format(month.dateTimeUtc),
         style: style,
       );
     }
@@ -1012,11 +1058,22 @@ class _DCalendarState extends State<DCalendar> {
               for (var value = 1; value <= 12; value++)
                 DSelectOption<int>(
                   value: value,
-                  label: DateFormat.MMM(
-                    locale,
-                  ).format(DateTime.utc(2024, value)),
+                  label:
+                      widget.monthLabelBuilder?.call(
+                        context,
+                        DCalendarDate(month.year, value, 1),
+                        true,
+                      ) ??
+                      DateFormat.MMM(locale).format(DateTime.utc(2024, value)),
                   child: Text(
-                    DateFormat.MMM(locale).format(DateTime.utc(2024, value)),
+                    widget.monthLabelBuilder?.call(
+                          context,
+                          DCalendarDate(month.year, value, 1),
+                          true,
+                        ) ??
+                        DateFormat.MMM(
+                          locale,
+                        ).format(DateTime.utc(2024, value)),
                   ),
                 ),
             ],
@@ -1034,8 +1091,19 @@ class _DCalendarState extends State<DCalendar> {
               for (var year = startYear; year <= endYear; year++)
                 DSelectOption<int>(
                   value: year,
-                  label: '$year',
-                  child: Text('$year'),
+                  label:
+                      widget.yearLabelBuilder?.call(
+                        context,
+                        DCalendarDate(year, 1, 1),
+                      ) ??
+                      '$year',
+                  child: Text(
+                    widget.yearLabelBuilder?.call(
+                          context,
+                          DCalendarDate(year, 1, 1),
+                        ) ??
+                        '$year',
+                  ),
                 ),
             ],
             value: month.year,
@@ -1128,7 +1196,9 @@ class _DCalendarState extends State<DCalendar> {
     );
     final locale = (widget.locale ?? Localizations.localeOf(context))
         .toLanguageTag();
-    final defaultChild = Text('${date.day}');
+    final defaultChild = Text(
+      widget.dayNumberBuilder?.call(context, date) ?? '${date.day}',
+    );
     return Align(
       alignment: Alignment.topCenter,
       child: SizedBox(
@@ -1136,7 +1206,9 @@ class _DCalendarState extends State<DCalendar> {
         child: DCalendarDayButton(
           details: details,
           focusNode: focusNode,
-          semanticLabel: DateFormat.yMMMMEEEEd(locale).format(rawDate),
+          semanticLabel:
+              widget.dateSemanticLabelBuilder?.call(context, date) ??
+              DateFormat.yMMMMEEEEd(locale).format(rawDate),
           bookedLabel: widget.labels.booked,
           onPressed: details.disabled
               ? null
@@ -1297,7 +1369,12 @@ class _DCalendarDayButtonState extends State<DCalendarDayButton> {
           onExit: (_) => setState(() => _hovered = false),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: widget.onPressed,
+            onTap: widget.onPressed == null
+                ? null
+                : () {
+                    widget.focusNode?.requestFocus();
+                    widget.onPressed!();
+                  },
             onTapDown: widget.onPressed == null
                 ? null
                 : (_) => setState(() => _pressed = true),
@@ -1312,17 +1389,14 @@ class _DCalendarDayButtonState extends State<DCalendarDayButton> {
               decoration: BoxDecoration(
                 color: background,
                 borderRadius: radius,
-                border: _focused ? Border.all(color: tokens.focusRing) : null,
-                boxShadow: _focused
-                    ? [
-                        BoxShadow(
-                          color: tokens.focusRing.withValues(
-                            alpha: tokens.focusRing.a * .5,
-                          ),
-                          spreadRadius: 3,
-                        ),
-                      ]
-                    : null,
+              ),
+              foregroundDecoration: _CalendarFocusRingDecoration(
+                color: _focused
+                    ? tokens.focusRing.withValues(
+                        alpha: tokens.focusRing.a * .5,
+                      )
+                    : tokens.focusRing.withValues(alpha: 0),
+                radius: radius,
               ),
               child: DefaultTextStyle(
                 style: style,
@@ -1333,6 +1407,58 @@ class _DCalendarDayButtonState extends State<DCalendarDayButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Paints only outside the day surface so the ring cannot tint its fill.
+class _CalendarFocusRingDecoration extends Decoration {
+  const _CalendarFocusRingDecoration({
+    required this.color,
+    required this.radius,
+  });
+
+  final Color color;
+  final BorderRadiusGeometry radius;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _CalendarFocusRingPainter(this);
+
+  @override
+  Decoration? lerpFrom(Decoration? a, double t) =>
+      a is _CalendarFocusRingDecoration
+      ? _CalendarFocusRingDecoration(
+          color: Color.lerp(a.color, color, t)!,
+          radius: BorderRadiusGeometry.lerp(a.radius, radius, t)!,
+        )
+      : super.lerpFrom(a, t);
+
+  @override
+  Decoration? lerpTo(Decoration? b, double t) =>
+      b is _CalendarFocusRingDecoration
+      ? _CalendarFocusRingDecoration(
+          color: Color.lerp(color, b.color, t)!,
+          radius: BorderRadiusGeometry.lerp(radius, b.radius, t)!,
+        )
+      : super.lerpTo(b, t);
+}
+
+class _CalendarFocusRingPainter extends BoxPainter {
+  _CalendarFocusRingPainter(this.decoration);
+
+  final _CalendarFocusRingDecoration decoration;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final direction = configuration.textDirection ?? TextDirection.ltr;
+    final inner = decoration.radius
+        .resolve(direction)
+        .toRRect(offset & configuration.size!);
+    canvas.drawDRRect(
+      inner.inflate(3),
+      inner,
+      Paint()..color = decoration.color,
     );
   }
 }

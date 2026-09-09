@@ -1,5 +1,3 @@
-import 'dart:ui' show SemanticsFlag;
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -77,7 +75,8 @@ void main() {
     expect(
       tester
           .getSemantics(find.bySemanticsLabel('Tuesday, September 8, 2026'))
-          .hasFlag(SemanticsFlag.isSelected),
+          .flagsCollection
+          .isSelected,
       isTrue,
     );
     await tester.tap(find.bySemanticsLabel('Thursday, September 10, 2026'));
