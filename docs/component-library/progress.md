@@ -2079,7 +2079,34 @@ Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/u
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner coordinates directly with parent owners; no coordinator admission gate and no substitute final primitives.
+- DDatePicker and DDateRangePicker compose DButton, DPopover, DField and the Kalender 0.29.1-backed DCalendar. DDatePickerInput additionally composes final DInputGroup/DInputGroupInput/addon/button owners; no overlay, form control or calendar engine is duplicated.
+- DCalendarDate is a civil date rather than an instant. DTimeValue is a strict HH:mm[:ss] wall-clock value. Generic picker code never invents timezone or DST policy; application adapters retain that responsibility.
+- Editable input retains invalid non-empty text and the last valid selection, moves Calendar only after a valid in-bounds enabled date, opens on Arrow Down, normalizes Calendar selections through the supplied locale codec and closes with focus restoration.
+- The deterministic English natural-language adapter uses an explicit reference clock and a strict date fallback. Other languages require an injected parser rather than silently applying English grammar.
+
+**migrations**
+
+- Local Date composer start/end civil-date fields now use DDatePickerInput with the existing ISO controllers, 1900-2200 bounds and existing LocalDateComposerDraft validation, recurrence, preview and timezone ownership preserved.
+
+**retainedAlternatives**
+
+- Discourse Events keeps its combined date-time text adapter and Material two-stage dialog until a Date Picker adapter can preserve all-day parsing, recurrence-until, end-after-start and site-timezone behavior without splitting its existing string ownership.
+- Bookmark reminder keeps its account-zone dialog because it explicitly rejects nonexistent DST wall times and coordinates async persistence/session currency.
+- User status custom expiry keeps its guarded async date/time flow and future-time validation; fixed relative expiry actions are domain actions, not Date Picker presets.
+- Event/topic Kalender views are full domain calendars rather than date-entry controls and remain with their owners.
+
+**verification**
+
+- Focused Date Picker, Calendar and Local Date regression set passed with randomized seed 9082026: 36 tests covering strict locale/ISO/leap parsing, deterministic natural phrases, strict seconds time, controlled/uncontrolled/Form reset-save behavior, range completion, bounds/disabled dates, close/focus restoration, invalid text retention, Calendar paging, Arrow Down, narrow 200% RTL, all eight frozen examples and migrated app behavior.
+- Local Date migration analysis and lifecycle/component tests passed; inline Calendar teardown, invalid-date application validation and existing composer behavior remain covered.
+- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed. Exact-source macOS debug fixture built successfully from tool/date_picker_review_main.dart. git diff --check passed.
+
+**limitations**
+
+- Official reference browser comparison and native macOS inspection remain reviewer-owned acceptance gates.
+- Calendar and Input Group were integrated from committed reviewed source but are not accepted dependencies until their independent reviewers merge them to main.
+- No iOS/Linux device or spoken VoiceOver verification was performed.
 
 ### drawer
 
@@ -2230,52 +2257,6 @@ Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/u
 
 - Source preparation may overlap Textarea final review using pinned committed source; acceptance and final main merge remain gated on the accepted parent revision. The implementer creates its own independent review/merge task.
 - Independent reviewer 01a085d3-1acf-7361-9dc8-fc4a99de7c45 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff bc39e7f4ffab614dad82b13f6b5ad749869fc6fa is source evidence, not acceptance.
-
-### input-group
-
-Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/ui-input-group.
-
-**acceptanceCriteria**
-
-- Reproduce the frozen Base UI/base-nova Input Group documented composition, addon alignments, icon/text/button/Kbd/Dropdown/Spinner/Textarea/custom-input/RTL examples and complete public API; record source hashes and visual/behavior mapping.
-- Compose final shared DInput, DTextarea, DButton, DKbd and DSpinner owners with unified surfaces, precise focus/error geometry, independent addon actions, bounded native editor semantics and preserved controller/Form/focus/IME lifecycle.
-- Support live host palettes/font/radius, keyboard and touch, narrow/scaled/RTL layouts and reduced motion; demonstrate every documented state and required final-owner composition.
-- Expose the joined input/action geometry required by Button Group so its local Input Group handoff fixture can be replaced without reducing example coverage, preserving independent input and button semantics, focus, actions, RTL and scaling.
-- Audit and migrate appropriate core/plugin compound fields and existing prototype compositions, preserving domain behavior; coordinate Empty, Field and Button Group directly and document retained alternatives.
-- Run meaningful focused component/consumer tests and root/full-profile analysis, prepare source-exact production fixtures, then create a new reviewer to complete official browser/native acceptance and local main merge. Every prepared dependency must first be accepted and merged in main.
-
-**decisions**
-
-- Prepared source includes Textarea accepted-review commit 4ca5aaa85681ced6dd2668a8158b7551ee176f73, merged into this isolated branch to unblock Input Group implementation. Final acceptance and main merge remain gated on Textarea's accepted main revision.
-- DInputGroup owns only the joined border/fill/focus-within/invalid surface. DInputGroupInput subclasses DInput and DInputGroupTextarea subclasses DTextarea; DInputGroupControlScope suppresses standalone surfaces while preserving editor/Form/controller/focus/IME owners.
-- DInput and DTextarea gained a non-visual semanticLabel for grouped controls so accessible names do not require visible labels. Standalone labels, helpers, validation and existing app migrations remain unchanged.
-- DInputGroupAddon supports inline-start, inline-end, block-start and block-end logical alignment. Addon taps focus the control, while nested DInputGroupButton instances retain independent DButton actions and semantics.
-- DInputGroupButton composes DButton with input-group xs/icon-xs/sm/icon-sm sizing and host-radius-minus-3 button radius, exposing the public composition needed by Button Group's handoff fixture.
-
-**migrations**
-
-- Registered public barrel export and eight actual Input Group styleguide examples.
-- Spinner's former local Input Group validation example now composes public DInputGroup/DInputGroupInput/DInputGroupTextarea/DInputGroupButton while preserving inline spinner, block footer, validation, disabled and local send behavior.
-- Button Group's local handoff fixture is in its separate worktree and must be replaced by that reviewer after this implementation commit/reviewer ID are available.
-
-**retainedAlternatives**
-
-- Dropdown, Popover and Field examples use local non-overlay stand-ins where adjacent owners are still unmerged; no duplicate overlay/menu/Form owner is introduced.
-- Rich Chat/post composer editors remain specialized production owners until their catalogue Input Group/Bubble/Message composer migrations are audited by the relevant owners.
-
-**verification**
-
-- Focused implementation tests passed: flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart --test-randomize-ordering-seed=497094161 (14 tests). Coverage includes compact 32px inline geometry, touch hit bounds, custom-control invalid reporting, block textarea footer, Form save/reset/validation, independent editor/button semantics/actions, narrow 320px RTL at 200% text across Light/Dark/Forest/Plum, and Button Group handoff editing while loading.
-- Affected Input/Textarea regression set passed: flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart --test-randomize-ordering-seed=3777303596 (52 tests).
-- Spinner styleguide fixture replacement passed: flutter test --no-pub test/styleguide/spinner_examples_test.dart --test-randomize-ordering-seed=670442656 (13 tests).
-- Migrated Chat search consumers passed focused verification: flutter test --no-pub test/chat_navigation_test.dart --plain-name 'open new and existing direct messages from search', plus chat_shell_integration_test.dart plain-name cases for scoped channel search Escape, drawer reset, site-enabled search, sort menu viewport, global search tab traversal, header inline search toggle, Command-F refocus and exact message navigation.
-- Root flutter analyze --no-pub passed; profiles/full flutter analyze --no-pub passed; git diff --check passed.
-
-**limitations**
-
-- Official browser-rendered comparison and native macOS inspection have not been performed in this implementation task.
-- Final acceptance must integrate Textarea's accepted main merge, then notify/coordinate with Button Group reviewer 01a0859e-170c-7821-b0fd-9ff24a9bfaac before either component is merged.
-- No iOS/Linux device or spoken VoiceOver verification.
 
 ### button-group
 
@@ -2453,16 +2434,19 @@ Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/u
 **acceptanceCriteria**
 
 - Use the existing kalender package pinned to 0.29.1 as the Calendar engine; theme its supported styles/components/builders with shared styleguide colors, typography, spacing, radii and state treatments, including existing EventCalendar and TopicCalendar app surfaces. Preserve kalender navigation/event layout and app domain behavior; Date Picker composes this same Kalender-backed Calendar API.
-- Match the frozen Base UI/base-nova Calendar API and every Basic, Range, month/year selector, Presets, date/time, booked dates, custom cell size, week numbers and RTL example; account explicitly for timezone and alternate-calendar guidance with exact primary-source mapping.
-- Provide typed date/selection/display ownership and correct date boundaries, disabled/hidden/outside/booked states, localization and keyboard navigation/focus; keep civil-day, instant/timezone and application scheduling semantics explicit.
-- Compose shared final selection, Field and Input Group owners for required examples; preserve compact shadcn geometry, live host tokens, native accessibility, touch, narrow/scaled/RTL layouts and reduced motion.
-- Audit core/plugin calendar and date surfaces, migrate appropriate uses while preserving server/domain state, and verify meaningful boundary/selection/focus/adoption regressions plus root/full analysis.
-- Prepare exact-source fixtures and create an independent reviewer that owns all remaining reference/native acceptance, final compositions and local main merge after parent acceptance.
+- Match the frozen Base UI/base-nova Calendar anatomy and documented Basic, Range, Month/Year Selector, Presets, Date and Time, Booked dates, Custom Cell Size, Week Numbers and RTL compositions with source-exact geometry and state mapping.
+- Provide typed single, multiple and range ownership with controlled, initial and controller APIs; controlled displayed month; disabled, hidden, booked and outside dates; bounds, range constraints, Gregorian boundary correctness and explicit date-only versus instant/timezone conversion.
+- Implement focus entry/reveal, day/week/month/year keyboard navigation, pointer/touch selection, logical RTL, localization, first weekday, week numbers, semantics, narrow/200% text and live theme/font/radius behavior without adopting Material calendar artwork.
+- Expose a functional calendar-system seam and documented Persian/Hijri/Jalali guidance matching the official engine-substitution responsibility; keep later Date Picker overlay/input composition out of Calendar.
+- Audit actual core/plugin scheduling and date UI, migrate suitable presentation while retaining server timestamps, bookings and business constraints in adapters; add real production-widget regressions and truthful isolated fixture evidence.
+- Run focused widget/adoption tests, formatting, root and profiles/full analysis and build checks, then create an independent Calendar reviewer to own official-browser/native acceptance, fixes, dependency reconciliation and local main merge.
 
 **decisions**
 
 - Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
-- Explicit user direction on 2026-09-09 requires kalender and visual consistency with the rest of the styleguide. Calendar owner acknowledged that its uncommitted custom engine will be removed, retaining only shadcn-specific state models, styling/builders and adapters around kalender. The new requirement must be carried into the independent review handoff.
+- Explicit user direction on 2026-09-09 requires kalender and visual consistency with the rest of the styleguide. Calendar retains shadcn-specific state models, styling/builders and adapters around kalender, not a separate handwritten engine.
+- Frozen Calendar Markdown SHA256 9268f3aa428b4eb36bfbd957644f9d681beab0d49575f779a2cd2620f81a58b4 reproduced on 2026-09-09. The separately fetched current base-nova registry SHA256 is cc9ff16599d1664cec2d6a91ba82d0927953d8eedd51a7d56bba48a6522c28eb; exact mapping will be recorded in calendar.md.
+- Prepared against Select implementation commit 423d81eeaf9bdda9412fa2068d4f8132fbfb53de plus source handoff correction 69e5ec663e92bb61fa734ee43b6c3e738e96961e from codex/ui-select, reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22. Select public API was confirmed stable, but this is source preparation only; Calendar review must reconcile the accepted Select revision on current main and may not carry an unaccepted parent through.
 
 ### date-picker
 

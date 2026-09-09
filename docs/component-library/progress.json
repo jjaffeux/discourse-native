@@ -2078,16 +2078,35 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner coordinates directly with parent owners; no coordinator admission gate and no substitute final primitives.",
+        "DDatePicker and DDateRangePicker compose DButton, DPopover, DField and the Kalender 0.29.1-backed DCalendar. DDatePickerInput additionally composes final DInputGroup/DInputGroupInput/addon/button owners; no overlay, form control or calendar engine is duplicated.",
+        "DCalendarDate is a civil date rather than an instant. DTimeValue is a strict HH:mm[:ss] wall-clock value. Generic picker code never invents timezone or DST policy; application adapters retain that responsibility.",
+        "Editable input retains invalid non-empty text and the last valid selection, moves Calendar only after a valid in-bounds enabled date, opens on Arrow Down, normalizes Calendar selections through the supplied locale codec and closes with focus restoration.",
+        "The deterministic English natural-language adapter uses an explicit reference clock and a strict date fallback. Other languages require an injected parser rather than silently applying English grammar."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "migrations": [
+        "Local Date composer start/end civil-date fields now use DDatePickerInput with the existing ISO controllers, 1900-2200 bounds and existing LocalDateComposerDraft validation, recurrence, preview and timezone ownership preserved."
+      ],
+      "retainedAlternatives": [
+        "Discourse Events keeps its combined date-time text adapter and Material two-stage dialog until a Date Picker adapter can preserve all-day parsing, recurrence-until, end-after-start and site-timezone behavior without splitting its existing string ownership.",
+        "Bookmark reminder keeps its account-zone dialog because it explicitly rejects nonexistent DST wall times and coordinates async persistence/session currency.",
+        "User status custom expiry keeps its guarded async date/time flow and future-time validation; fixed relative expiry actions are domain actions, not Date Picker presets.",
+        "Event/topic Kalender views are full domain calendars rather than date-entry controls and remain with their owners."
+      ],
+      "verification": [
+        "Focused Date Picker, Calendar and Local Date regression set passed with randomized seed 9082026: 36 tests covering strict locale/ISO/leap parsing, deterministic natural phrases, strict seconds time, controlled/uncontrolled/Form reset-save behavior, range completion, bounds/disabled dates, close/focus restoration, invalid text retention, Calendar paging, Arrow Down, narrow 200% RTL, all eight frozen examples and migrated app behavior.",
+        "Local Date migration analysis and lifecycle/component tests passed; inline Calendar teardown, invalid-date application validation and existing composer behavior remain covered.",
+        "Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed. Exact-source macOS debug fixture built successfully from tool/date_picker_review_main.dart. git diff --check passed."
+      ],
+      "limitations": [
+        "Official reference browser comparison and native macOS inspection remain reviewer-owned acceptance gates.",
+        "Calendar and Input Group were integrated from committed reviewed source but are not accepted dependencies until their independent reviewers merge them to main.",
+        "No iOS/Linux device or spoken VoiceOver verification was performed."
+      ],
+      "implementationCommit": "f980b6f58d40f74611e166561f33a87e4b7b1df3",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4177/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "implementation_complete_review_required",
       "implementationBrief": "Implement the complete Sheet anatomy and side/dismissal API, including top/bottom/left/right or logical sides, No Close Button and RTL examples. Reuse accepted Dialog route/session/focus/dismissal ownership and live caller-scoped theme. Match shadcn size, border, close-button, header/footer and motion rather than inheriting a Material bottom-sheet appearance. Preserve controlled/local/controller lifecycle, nested overlays, typed results, outside/Escape/back policies, focus entry/restoration, safe areas, keyboard insets and scroll/narrow/scaled behavior. Audit actual core/plugin side and bottom panels, and coordinate adoption ownership with the separately queued Drawer task so neither overwrites the other's callers. Drawer owns its gesture/snap semantics; Sheet remains its documented component. Add focused route/focus/dismissal/live-theme/adoption regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/sheet",
@@ -2873,9 +2892,9 @@
           "status": "in_progress",
           "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
           "branch": "codex/ui-calendar",
-          "reviewTaskId": null,
-          "reviewBranch": null,
-          "implementationCommit": null,
+          "reviewTaskId": "01a08631-7574-70b0-a98f-4e7217e03209",
+          "reviewBranch": "codex/review-calendar",
+          "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
           "mergeCommit": null
         },
         {
@@ -2897,6 +2916,24 @@
           "reviewBranch": null,
           "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
           "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
+        }
+      ],
+      "preparedDependencies": [
+        {
+          "id": "calendar",
+          "branch": "codex/ui-calendar",
+          "commit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
+          "reviewTaskId": "01a08631-7574-70b0-a98f-4e7217e03209",
+          "evidence": "Kalender 0.29.1-backed public Calendar source, catalogue examples and focused tests supplied by owner task 01a085fd-5d83-79c3-b598-bd3ffc5b366e.",
+          "mergeGate": "Final Date Picker reviewer must reconcile the accepted Calendar revision from main before merge."
+        },
+        {
+          "id": "input-group",
+          "branch": "codex/review-input-group",
+          "commit": "c48643dc",
+          "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
+          "evidence": "Prepared Input Group source plus shared state, native touch-bound and supporting-text fixes integrated for the editable example.",
+          "mergeGate": "Final Date Picker reviewer must use the accepted Input Group revision from main before merge."
         }
       ]
     },

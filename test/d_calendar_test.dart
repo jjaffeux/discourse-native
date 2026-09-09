@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -77,7 +79,7 @@ void main() {
           .getSemantics(find.bySemanticsLabel('Tuesday, September 8, 2026'))
           .flagsCollection
           .isSelected,
-      isTrue,
+      Tristate.isTrue,
     );
     await tester.tap(find.bySemanticsLabel('Thursday, September 10, 2026'));
     await tester.pump();
