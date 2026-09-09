@@ -2465,6 +2465,22 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Breadcrumb (01a08623-9d6e-7393-b3e8-fb4c402b8c71) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Reviewer preserved the finalized cd9c542d implementation history, added a source-exact local-data TopicListView fixture, and completed Breadcrumb's first official browser and native macOS comparison. Final acceptance remains gated on Dropdown Menu's accepted local-main merge.
+
+**migrations**
+
+- topic_list_view.dart: the real topic-row parent-category to category path uses DBreadcrumb composition while preserving LinkTarget navigation, rich badges, controller callbacks, labels and dense-row ellipsis behavior.
+
+**verification**
+
+- Reviewer measured the live Base UI light/dark and RTL examples: 14/20 text, 6px list gap, 4px item gap, 14px separators, 20px ellipsis and 28px collapsed trigger; the temporary reference tab was closed.
+- Reviewer launched an isolated macOS fixture and inspected Light, Dark, Forest, Plum, pointer/keyboard callbacks, visible focus, RTL, 240px/200% text, reduced motion, wrapping/scrolling, native AX boundaries, Dropdown/Collapsed focus/navigation/typeahead/selection/Escape/restoration/outside dismissal. No VoiceOver/iOS/Linux claim.
+- A source-exact offline DiscourseApp/TopicListView fixture exposed both production category links in native AX, kept the long path bounded and confirmed parent/child callbacks navigate to the correct local feeds.
+- 48 Breadcrumb/Dropdown/styleguide tests passed with seed826145; both focused topic-row regressions passed; root and profiles/full analysis are clean.
+
+**limitations**
+
+- Dropdown Menu remains unaccepted. Its reviewer task ended after reporting a third native-control denial, despite Breadcrumb's approved CUA session successfully launching two macOS apps on the same unlocked host. Dropdown correctly did not merge. The coordinator must resume or replace that parent review; Breadcrumb will not carry the unaccepted source into main.
 
 ### pagination
 

@@ -2828,12 +2828,22 @@
       ],
       "decisions": [
         "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
-        "Verified independent reviewer Review and merge Breadcrumb (01a08623-9d6e-7393-b3e8-fb4c402b8c71) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
+        "Verified independent reviewer Review and merge Breadcrumb (01a08623-9d6e-7393-b3e8-fb4c402b8c71) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.",
+        "Reviewer preserved the finalized cd9c542d implementation history, added a source-exact local-data TopicListView fixture, and completed Breadcrumb's first official browser and native macOS comparison. Final acceptance remains gated on Dropdown Menu's accepted local-main merge."
       ],
-      "migrations": [],
+      "migrations": [
+        "topic_list_view.dart: the real topic-row parent-category to category path uses DBreadcrumb composition while preserving LinkTarget navigation, rich badges, controller callbacks, labels and dense-row ellipsis behavior."
+      ],
       "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "verification": [
+        "Reviewer measured the live Base UI light/dark and RTL examples: 14/20 text, 6px list gap, 4px item gap, 14px separators, 20px ellipsis and 28px collapsed trigger; the temporary reference tab was closed.",
+        "Reviewer launched an isolated macOS fixture and inspected Light, Dark, Forest, Plum, pointer/keyboard callbacks, visible focus, RTL, 240px/200% text, reduced motion, wrapping/scrolling, native AX boundaries, Dropdown/Collapsed focus/navigation/typeahead/selection/Escape/restoration/outside dismissal. No VoiceOver/iOS/Linux claim.",
+        "A source-exact offline DiscourseApp/TopicListView fixture exposed both production category links in native AX, kept the long path bounded and confirmed parent/child callbacks navigate to the correct local feeds.",
+        "48 Breadcrumb/Dropdown/styleguide tests passed with seed826145; both focused topic-row regressions passed; root and profiles/full analysis are clean."
+      ],
+      "limitations": [
+        "Dropdown Menu remains unaccepted. Its reviewer task ended after reporting a third native-control denial, despite Breadcrumb's approved CUA session successfully launching two macOS apps on the same unlocked host. Dropdown correctly did not merge. The coordinator must resume or replace that parent review; Breadcrumb will not carry the unaccepted source into main."
+      ],
       "implementationCommit": "cb039ee3072c993c80af945d4be6cda73ff32f80",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/812c/discourse-native",
@@ -2870,7 +2880,7 @@
       "reviewBranch": "codex/review-breadcrumb",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ebb3/discourse-native",
       "reviewHandoffCommit": "cd9c542d249935a089f50f6f0c997c609eba10ed",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "blocked_dependency",
       "implementationHandoffVerification": {
         "focusedTests": "Implementation owner reports44 Breadcrumb/Dropdown/styleguide checks plus focused topic-row migration regressions passing.",
         "analysis": "Root and profiles/full analysis clean at source handoff.",
