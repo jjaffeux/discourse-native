@@ -2082,12 +2082,12 @@
     },
     {
       "id": "sheet",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
       "branch": "codex/ui-sheet",
       "reviewTaskId": "01a0862f-b27f-76d2-a441-8a77594aedc8",
       "reviewBranch": "codex/review-sheet",
-      "reviewStatus": "queued",
+      "reviewStatus": "accepted",
       "dependencies": [
         "dialog"
       ],
@@ -2125,20 +2125,23 @@
         "Actual Voice room chat focused regressions pass: loading-to-empty with component-owner assertion (1 test), and load-older/send/close lifecycle with component-owner assertion (1 test).",
         "Root flutter analyze --no-pub passes with no diagnostics in 15.1s; profiles/full flutter analyze --no-pub passes with no diagnostics in 4.4s. Touched Dart is formatted and focused analysis is clean.",
         "tool/sheet_review_main.dart is a local-data macOS fixture entrypoint mounting the registered Sheet styleguide and actual VoiceRoomContent through the reusable in-memory Voice fixture. It exposes light/dark, LTR/RTL, 100%/200% and reduced-motion controls without account/network/device acquisition.",
-        "Exact implementation source b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a built successfully with Flutter 3.47.2 using flutter build macos --debug --no-pub -t tool/sheet_review_main.dart after enforced-lockfile resolution. The isolated copy /private/tmp/discourse-sheet-b007d3bd.MCV4UM/Sheet Review b007d3bd.app has identifier org.discourse.native.sheet.b007d3bd, kernel SHA-256 2ea2272baa4dff5ae698b137e163c82dd74ffdf0a11d8d4ab09e387e40dcf479, deep strict ad-hoc signature verification and exactly the seven permitted debug entitlements with no APS/application/team identifiers. It was not launched or natively inspected."
+        "Exact implementation source b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a built successfully with Flutter 3.47.2 using flutter build macos --debug --no-pub -t tool/sheet_review_main.dart after enforced-lockfile resolution. The isolated copy /private/tmp/discourse-sheet-b007d3bd.MCV4UM/Sheet Review b007d3bd.app has identifier org.discourse.native.sheet.b007d3bd, kernel SHA-256 2ea2272baa4dff5ae698b137e163c82dd74ffdf0a11d8d4ab09e387e40dcf479, deep strict ad-hoc signature verification and exactly the seven permitted debug entitlements with no APS/application/team identifiers. It was not launched or natively inspected.",
+        "Independent review compared the actual current ui.shadcn.com Base Sheet in Chrome at 1024x768 and 320x640 in light, dark and RTL. It confirmed all four physical sides, 75%/384px side sizing, half-height top/bottom panels, 16px padding, 16/24px medium title, 14/20px description, 28px close at a 12px corner inset, one-pixel edge borders, black/10 backdrop, shadow, and 200ms edge travel. Current live RTL places the close at logical end, while this frozen contract intentionally retains physical right as required by the recorded acceptance criteria.",
+        "Independent review corrections a186d44e, 2f3377fe and ca13c40b keep capped top/bottom sheets reachable above a keyboard, expose the complete Voice loading/empty/ready/load-older/send lifecycle, align title geometry and documented examples with the actual rendered reference, and remove the footer action from No Close Button. A randomized combined Sheet/Dialog/styleguide/Voice run passed all 36 tests with seed 42969643; root and profiles/full analysis passed without diagnostics.",
+        "Exact reviewed source ca13c40b built as /private/tmp/discourse-sheet-review-ca13c40b/Sheet Review ca13c40b.app with identifier org.discourse.native.sheet.ca13c40b, kernel SHA-256 28b9a4b4113d641673fea889d7644f6c6a1a884681740816d084afe5f5f51b20, a strict deep ad-hoc signature, and exactly the seven permitted debug entitlements. Native macOS inspection confirmed the default typed edit/save result, all four sides, independent fields, fixed corner and footer controls, no-close composition, outside-click and Escape dismissal, physical-left Arabic panel with the required physical-right close, and accessible labels/actions."
       ],
       "limitations": [
-        "The source task did not perform official-browser or native macOS inspection and makes no iOS, Linux or spoken VoiceOver claim. The required new reviewer owns the first actual rendered comparison, exact-source isolated build and native acceptance before merge.",
-        "Styleguide status remains baseline until the reviewer completes actual reference/native acceptance. Drag/snap/detent behavior intentionally remains outside Sheet and with Drawer."
+        "Native device inspection was macOS only; iOS, Linux and spoken VoiceOver output were not exercised. macOS Accessibility API roles/actions were inspected, while safe-area, keyboard inset, closed-loop focus, narrow 320px at 200% text, live palette/direction and reduced-motion behavior are covered by deterministic widget regressions.",
+        "The current live reference moves its RTL close button to logical end, differing from the frozen explicit Sheet contract that requires physical top/right. Drag/snap/detent behavior intentionally remains outside Sheet and with Drawer."
       ],
       "implementationCommit": "b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a",
       "mergeCommit": null,
-      "reviewBuildSource": "b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a",
-      "bundle": "/private/tmp/discourse-sheet-b007d3bd.MCV4UM/Sheet Review b007d3bd.app",
-      "kernelSHA256": "2ea2272baa4dff5ae698b137e163c82dd74ffdf0a11d8d4ab09e387e40dcf479",
-      "nativeInspectionStatus": "not_started",
-      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4177/discourse-native",
-      "queueStage": "implementation_ready_for_independent_review",
+      "reviewBuildSource": "ca13c40b49ff50aa5b73f6225aa94f9428a46fda",
+      "bundle": "/private/tmp/discourse-sheet-review-ca13c40b/Sheet Review ca13c40b.app",
+      "kernelSHA256": "28b9a4b4113d641673fea889d7644f6c6a1a884681740816d084afe5f5f51b20",
+      "nativeInspectionStatus": "completed",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9bc6/discourse-native",
+      "queueStage": "independent_review_complete",
       "implementationBrief": "Implement the complete Sheet anatomy and side/dismissal API, including top/bottom/left/right or logical sides, No Close Button and RTL examples. Reuse accepted Dialog route/session/focus/dismissal ownership and live caller-scoped theme. Match shadcn size, border, close-button, header/footer and motion rather than inheriting a Material bottom-sheet appearance. Preserve controlled/local/controller lifecycle, nested overlays, typed results, outside/Escape/back policies, focus entry/restoration, safe areas, keyboard insets and scroll/narrow/scaled behavior. Audit actual core/plugin side and bottom panels, and coordinate adoption ownership with the separately queued Drawer task so neither overwrites the other's callers. Drawer owns its gesture/snap semantics; Sheet remains its documented component. Add focused route/focus/dismissal/live-theme/adoption regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/sheet",

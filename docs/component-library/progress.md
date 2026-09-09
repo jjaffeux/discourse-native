@@ -79,7 +79,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 32 | hover-card | in_progress | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | — |
 | 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
-| 35 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
+| 35 | sheet | review_ready | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
 | 36 | drawer | in_progress | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | — |
 | 37 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
 | 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
@@ -2074,7 +2074,7 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 
 ### sheet
 
-Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/ui-sheet.
+Status: review_ready. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/ui-sheet.
 
 **acceptanceCriteria**
 
@@ -2116,11 +2116,14 @@ Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/u
 - Root flutter analyze --no-pub passes with no diagnostics in 15.1s; profiles/full flutter analyze --no-pub passes with no diagnostics in 4.4s. Touched Dart is formatted and focused analysis is clean.
 - tool/sheet_review_main.dart is a local-data macOS fixture entrypoint mounting the registered Sheet styleguide and actual VoiceRoomContent through the reusable in-memory Voice fixture. It exposes light/dark, LTR/RTL, 100%/200% and reduced-motion controls without account/network/device acquisition.
 - Exact implementation source b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a built successfully with Flutter 3.47.2 using flutter build macos --debug --no-pub -t tool/sheet_review_main.dart after enforced-lockfile resolution. The isolated copy /private/tmp/discourse-sheet-b007d3bd.MCV4UM/Sheet Review b007d3bd.app has identifier org.discourse.native.sheet.b007d3bd, kernel SHA-256 2ea2272baa4dff5ae698b137e163c82dd74ffdf0a11d8d4ab09e387e40dcf479, deep strict ad-hoc signature verification and exactly the seven permitted debug entitlements with no APS/application/team identifiers. It was not launched or natively inspected.
+- Independent review compared the actual current ui.shadcn.com Base Sheet in Chrome at 1024x768 and 320x640 in light, dark and RTL. It confirmed all four physical sides, 75%/384px side sizing, half-height top/bottom panels, 16px padding, 16/24px medium title, 14/20px description, 28px close at a 12px corner inset, one-pixel edge borders, black/10 backdrop, shadow, and 200ms edge travel. Current live RTL places the close at logical end, while this frozen contract intentionally retains physical right as required by the recorded acceptance criteria.
+- Independent review corrections a186d44e, 2f3377fe and ca13c40b keep capped top/bottom sheets reachable above a keyboard, expose the complete Voice loading/empty/ready/load-older/send lifecycle, align title geometry and documented examples with the actual rendered reference, and remove the footer action from No Close Button. A randomized combined Sheet/Dialog/styleguide/Voice run passed all 36 tests with seed 42969643; root and profiles/full analysis passed without diagnostics.
+- Exact reviewed source ca13c40b built as /private/tmp/discourse-sheet-review-ca13c40b/Sheet Review ca13c40b.app with identifier org.discourse.native.sheet.ca13c40b, kernel SHA-256 28b9a4b4113d641673fea889d7644f6c6a1a884681740816d084afe5f5f51b20, a strict deep ad-hoc signature, and exactly the seven permitted debug entitlements. Native macOS inspection confirmed the default typed edit/save result, all four sides, independent fields, fixed corner and footer controls, no-close composition, outside-click and Escape dismissal, physical-left Arabic panel with the required physical-right close, and accessible labels/actions.
 
 **limitations**
 
-- The source task did not perform official-browser or native macOS inspection and makes no iOS, Linux or spoken VoiceOver claim. The required new reviewer owns the first actual rendered comparison, exact-source isolated build and native acceptance before merge.
-- Styleguide status remains baseline until the reviewer completes actual reference/native acceptance. Drag/snap/detent behavior intentionally remains outside Sheet and with Drawer.
+- Native device inspection was macOS only; iOS, Linux and spoken VoiceOver output were not exercised. macOS Accessibility API roles/actions were inspected, while safe-area, keyboard inset, closed-loop focus, narrow 320px at 200% text, live palette/direction and reduced-motion behavior are covered by deterministic widget regressions.
+- The current live reference moves its RTL close button to logical end, differing from the frozen explicit Sheet contract that requires physical top/right. Drag/snap/detent behavior intentionally remains outside Sheet and with Drawer.
 
 ### drawer
 

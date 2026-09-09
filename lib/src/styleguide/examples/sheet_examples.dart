@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final sheetExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'A Dialog-backed panel that complements the current screen from an edge.',
   notes:
@@ -43,7 +43,7 @@ final sheetExamples = ComponentExamples(
     StyleguideExample(
       title: 'No Close Button',
       description:
-          'The compact corner X is omitted; outside click, Escape and the explicit action still close.',
+          'The compact corner X is omitted; outside click and Escape still close.',
       code: _noCloseCode,
       builder: (_) => const _NoCloseSheet(),
     ),
