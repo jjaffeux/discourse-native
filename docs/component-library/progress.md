@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**60 of 64 components are merged locally.** 4 existing components are in progress; 0 are planned.
+**61 of 64 components are merged locally.** 3 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -16,7 +16,6 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
-| context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
@@ -69,7 +68,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 42 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
 | 43 | input-group | merged | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner, field, dropdown-menu, popover | d1de717b1e2d1eeaf06d86dafe1452662d05e368 |
 | 44 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
-| 45 | context-menu | in_progress | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | — |
+| 45 | context-menu | merged | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | 7583852aefa06a1a086708b064a0df53c4fff560 |
 | 46 | menubar | merged | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | 5ac59a926eab9a8a6890486e5bb37e65ce0f54a5 |
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
 | 48 | breadcrumb | merged | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | a1e23695ccd80b2a48e74fd8a92c3823fb528dac |
@@ -2648,7 +2647,7 @@ Status: merged. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/ui-com
 
 ### context-menu
 
-Status: in_progress. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/ui-context-menu.
+Status: merged. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/ui-context-menu.
 
 **acceptanceCriteria**
 
@@ -2683,6 +2682,7 @@ Status: in_progress. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/u
 - Context-specific regressions failed before the shared correction (double-mirrored RTL glyph and 62px enclosing-page scroll) and now pass against accepted Dropdown blob b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6. Final reconciled candidate c9979ec28e310617b9f31a189c098760e05fc074 passes 67 focused Context/Dropdown/Popover/styleguide/accessibility/lifecycle tests and 21 real-rail ordering/removal tests with seed 826145; root/full analysis clean. The implemented-status update passes all four styleguide tests.
 - Shared-owner native delta evidence is accepted: Menubar source e3104c9ae1547b90629f85d6e7a7bb97c863f6c7, kernel 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318, verifies the identical combined Dropdown blob at 360px/200% LTR/RTL/reduced motion and Plum RTL: stationary host during popup navigation, correctly left-pointing/opening Arabic submenu and Right return. Unchanged Context/rail behavior retains the own-native evidence; no repeat full Context native run is claimed.
 - Final composed macOS debug fixture build passed at source dd821a9d3b26c0591236e2234a903fe722c42ede with kernel SHA256 1e81e58edc4aca5ac426b709c93a18f2df44f653298190729e6a2cf78918b6dd; this is integration compilation, not a new native launch. Touched Dart formatting and git diff --check pass.
+- Final latest-main reconciliation passed all 15 Context component/styleguide tests with seed 826145 and clean root/full analysis at ce0cf2f2d93ea0e3d58d8d72c30af9d6a87b6b7b. The final Breadcrumb-only progress refresh changes no lib/test/tool source. The no-fast-forward acceptance merge was performed from the clean main checkout after lease and base-revision checks; all other component rows and accepted shared sources were preserved.
 
 **limitations**
 
