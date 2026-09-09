@@ -355,6 +355,14 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
         : rows.indexWhere((row) => !row.heading && row.value == value);
     assert(selected >= 0, 'Native Select value must be present in entries');
     KeyEventResult typeAhead(KeyEvent event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.escape &&
+          _menu.isOpen) {
+        _menu.close();
+        _clearTypeAhead();
+        _focus.requestFocus();
+        return KeyEventResult.handled;
+      }
       final keyboard = HardwareKeyboard.instance;
       final character = event.character;
       if (!_enabled ||
