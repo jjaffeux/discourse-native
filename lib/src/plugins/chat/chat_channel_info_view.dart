@@ -175,9 +175,7 @@ class _ChannelSettings extends StatelessWidget {
   final ChatController chat;
 
   void _notice(BuildContext context, String message) {
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(message)));
+    DToast.show(context, message, type: DToastType.error);
   }
 
   Future<void> _changeNotifications(
@@ -485,9 +483,9 @@ class _ChannelSettings extends StatelessWidget {
                                         .textTheme
                                         .bodyMedium
                                         ?.copyWith(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                         ),
                                   ),
                                   action: DButton(

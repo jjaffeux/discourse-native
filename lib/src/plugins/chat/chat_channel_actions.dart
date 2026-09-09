@@ -461,13 +461,15 @@ Future<void> _toggleStarred(
   String siteUrl,
   ChatChannel channel,
 ) async {
-  final messenger = ScaffoldMessenger.maybeOf(context);
+  final toast = DToast.maybeOf(context);
   final error = await chat.updateChannelStarred(
     siteUrl,
     channel.id,
     !channel.membership.starred,
   );
-  if (error != null) messenger?.showSnackBar(SnackBar(content: Text(error)));
+  if (error != null && toast?.isDisposed == false) {
+    toast!.add(DToastOptions(description: error, type: DToastType.error));
+  }
 }
 
 Future<void> _leaveChannel(
@@ -477,10 +479,12 @@ Future<void> _leaveChannel(
   ChatChannel channel,
 ) async {
   final shell = PluginUiScope.require(context, chatShellService);
-  final messenger = ScaffoldMessenger.maybeOf(context);
+  final toast = DToast.maybeOf(context);
   final error = await chat.updateChannelFollowing(siteUrl, channel, false);
   if (error != null) {
-    messenger?.showSnackBar(SnackBar(content: Text(error)));
+    if (toast?.isDisposed == false) {
+      toast!.add(DToastOptions(description: error, type: DToastType.error));
+    }
     return;
   }
 
@@ -502,7 +506,7 @@ Future<void> _applyNotificationAction(
   ChatChannel channel,
   _NotificationAction action,
 ) async {
-  final messenger = ScaffoldMessenger.maybeOf(context);
+  final toast = DToast.maybeOf(context);
   final error = switch (action) {
     _NotificationAction.mute => await chat.updateChannelNotifications(
       siteUrl,
@@ -520,5 +524,7 @@ Future<void> _applyNotificationAction(
       },
     ),
   };
-  if (error != null) messenger?.showSnackBar(SnackBar(content: Text(error)));
+  if (error != null && toast?.isDisposed == false) {
+    toast!.add(DToastOptions(description: error, type: DToastType.error));
+  }
 }

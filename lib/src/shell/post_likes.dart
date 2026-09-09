@@ -32,9 +32,8 @@ class _PostLikesState extends State<PostLikes> {
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
 
   void _load() => unawaited(
-    ShellScope.read(
-      context,
-    ).loadLikers(widget.post.id, siteUrl: widget.siteUrl),
+    ShellScope.read(context)
+        .loadLikers(widget.post.id, siteUrl: widget.siteUrl),
   );
 
   void _openPanel() => _panel.currentState?.open();
@@ -54,9 +53,7 @@ class _PostLikesState extends State<PostLikes> {
     if (_panel.currentState?.isShowing ?? false) _load();
 
     if (error != null) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      DToast.show(context, error, type: DToastType.error);
     }
   }
 

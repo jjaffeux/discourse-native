@@ -2037,6 +2037,8 @@ final class _TestView extends StatelessWidget {
       chatPluginId,
       MaterialApp(
         theme: AppTheme.light,
+        builder: (context, child) =>
+            DToaster(position: DToastPosition.topEnd, child: child!),
         home: Scaffold(
           body: TickerMode(
             enabled: tickerEnabled,
@@ -2073,6 +2075,8 @@ final class _TestStreamView extends StatelessWidget {
       chatPluginId,
       MaterialApp(
         theme: theme ?? AppTheme.light,
+        builder: (context, child) =>
+            DToaster(position: DToastPosition.topEnd, child: child!),
         home: Scaffold(
           body: ChatMessageStream(
             siteUrl: 'https://one.example',

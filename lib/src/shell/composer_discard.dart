@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
+
 import 'adaptive_dialog_action.dart';
 import 'composer_controller.dart';
 import 'shell_controller.dart';
@@ -84,9 +86,7 @@ Future<void> requestComposerDiscard({
 }
 
 void _showDiscardError(BuildContext context, String error) {
-  ScaffoldMessenger.maybeOf(
-    context,
-  )?.showSnackBar(SnackBar(content: Text(error)));
+  DToast.show(context, error, type: DToastType.error);
 }
 
 class _DiscardComposerDialog extends StatefulWidget {

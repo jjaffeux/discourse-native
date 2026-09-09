@@ -338,9 +338,8 @@ class LightboxTile extends StatelessWidget {
           opaque: false,
           barrierColor: Colors.black.withValues(alpha: 0.92),
           barrierDismissible: true,
-          barrierLabel: MaterialLocalizations.of(
-            context,
-          ).modalBarrierDismissLabel,
+          barrierLabel: MaterialLocalizations.of(context)
+              .modalBarrierDismissLabel,
           transitionDuration: const Duration(milliseconds: 200),
           reverseTransitionDuration: const Duration(milliseconds: 200),
           pageBuilder: (context, animation, secondaryAnimation) =>
@@ -441,17 +440,21 @@ class _LightboxGalleryState extends State<LightboxGallery> {
       );
       if (!mounted || outcome != ImageDownloadOutcome.saved) return;
       final filename = imageDownloadFilename(title: image.title, url: url);
-      ScaffoldMessenger.maybeOf(context)
-        ?..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Saved $filename.')));
+      DToast.show(
+        context,
+        'Saved $filename.',
+        id: 'image-download',
+        type: DToastType.success,
+      );
     } catch (error, stackTrace) {
       reportImageError(error, stackTrace, operation: 'lightbox.download');
       if (mounted) {
-        ScaffoldMessenger.maybeOf(context)
-          ?..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(content: Text("Couldn't download image.")),
-          );
+        DToast.show(
+          context,
+          "Couldn't download image.",
+          id: 'image-download',
+          type: DToastType.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _downloading = false);
@@ -871,9 +874,8 @@ class _Chrome extends StatelessWidget {
                     '${index + 1} / $total',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: Colors.white70),
                   ),
                 ),
               )
@@ -930,18 +932,16 @@ class _Chrome extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: Colors.white),
                   ),
                 if (title != null && details != null) const SizedBox(height: 2),
                 if (details != null)
                   Text(
                     details,
                     textAlign: TextAlign.center,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelSmall?.copyWith(color: Colors.white60),
+                    style: Theme.of(context).textTheme.labelSmall
+                        ?.copyWith(color: Colors.white60),
                   ),
               ],
             ),

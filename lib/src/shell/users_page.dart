@@ -702,8 +702,10 @@ class _UsersPageState extends State<UsersPage> {
     }
     final saved = await save(List.unmodifiable(result));
     if (!mounted || generation != _ownerGeneration || saved) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Couldn't update directory columns.")),
+    DToast.show(
+      context,
+      "Couldn't update directory columns.",
+      type: DToastType.error,
     );
   }
 

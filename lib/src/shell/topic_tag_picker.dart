@@ -140,9 +140,7 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
         tags: selected,
       );
       if (!mounted || !isCurrent() || error == null) return;
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      DToast.show(context, error, type: DToastType.error);
     } finally {
       // A retired picker/save must not clear a replacement operation's state.
       if (identical(_ownsTarget, ownsTarget)) {

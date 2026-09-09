@@ -178,12 +178,7 @@ class _ButtonSizes extends StatelessWidget {
                 }),
                 size: size,
                 variant: DButtonVariant.outline,
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Button activated'),
-                    duration: Duration(seconds: 1),
-                  ),
-                ),
+                onPressed: () => _buttonFeedback(context),
               ),
             ),
             const SizedBox(width: 8),
@@ -192,12 +187,7 @@ class _ButtonSizes extends StatelessWidget {
               tooltip: 'Submit ${size.name}',
               size: size,
               variant: DButtonVariant.outline,
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Button activated'),
-                  duration: Duration(seconds: 1),
-                ),
-              ),
+              onPressed: () => _buttonFeedback(context),
             ),
           ],
         ),
@@ -231,57 +221,32 @@ class _ButtonComposition extends StatelessWidget {
         ),
         tooltip: 'Upload',
         variant: DButtonVariant.outline,
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Button activated'),
-            duration: Duration(seconds: 1),
-          ),
-        ),
+        onPressed: () => _buttonFeedback(context),
       ),
       DButton(
         label: const Text('New Branch'),
         icon: const ButtonReferenceIcon(ButtonReferenceIcon.gitBranch),
         variant: DButtonVariant.outline,
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Button activated'),
-            duration: Duration(seconds: 1),
-          ),
-        ),
+        onPressed: () => _buttonFeedback(context),
       ),
       DButton(
         label: const Text('Fork'),
         icon: const ButtonReferenceIcon(ButtonReferenceIcon.gitFork),
         iconPosition: DButtonIconPosition.end,
         variant: DButtonVariant.outline,
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Button activated'),
-            duration: Duration(seconds: 1),
-          ),
-        ),
+        onPressed: () => _buttonFeedback(context),
       ),
       DButton(
         label: const Text('Get Started'),
         borderRadius: BorderRadius.circular(999),
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Button activated'),
-            duration: Duration(seconds: 1),
-          ),
-        ),
+        onPressed: () => _buttonFeedback(context),
       ),
       DButton.iconOnly(
         icon: const ButtonReferenceIcon(ButtonReferenceIcon.arrowUp),
         tooltip: 'Submit',
         borderRadius: BorderRadius.circular(999),
         variant: DButtonVariant.outline,
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Button activated'),
-            duration: Duration(seconds: 1),
-          ),
-        ),
+        onPressed: () => _buttonFeedback(context),
       ),
     ],
   );
@@ -370,12 +335,7 @@ class _ButtonLinks extends StatelessWidget {
           SingleActivator(LogicalKeyboardKey.keyR, shift: true),
         ),
         variant: DButtonVariant.outline,
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Button activated'),
-            duration: Duration(seconds: 1),
-          ),
-        ),
+        onPressed: () => _buttonFeedback(context),
       ),
       Wrap(
         children: [
@@ -385,12 +345,7 @@ class _ButtonLinks extends StatelessWidget {
             borderRadius: const BorderRadiusDirectional.horizontal(
               start: Radius.circular(4),
             ),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Button activated'),
-                duration: Duration(seconds: 1),
-              ),
-            ),
+            onPressed: () => _buttonFeedback(context),
           ),
           DButton(
             label: const Text('Report'),
@@ -398,12 +353,7 @@ class _ButtonLinks extends StatelessWidget {
             borderRadius: const BorderRadiusDirectional.horizontal(
               end: Radius.circular(4),
             ),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Button activated'),
-                duration: Duration(seconds: 1),
-              ),
-            ),
+            onPressed: () => _buttonFeedback(context),
           ),
         ],
       ),
@@ -441,12 +391,7 @@ class _ButtonEdgesState extends State<_ButtonEdges> {
             maxLines: 4,
           ),
           variant: DButtonVariant.outline,
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Button activated'),
-              duration: Duration(seconds: 1),
-            ),
-          ),
+          onPressed: () => _buttonFeedback(context),
         ),
       ),
       DButton(
@@ -460,24 +405,14 @@ class _ButtonEdgesState extends State<_ButtonEdges> {
         label: const Text('Required choice'),
         invalid: true,
         variant: DButtonVariant.outline,
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Button activated'),
-            duration: Duration(seconds: 1),
-          ),
-        ),
+        onPressed: () => _buttonFeedback(context),
       ),
       DButton(
         label: const Text('إرسال'),
         icon: const Icon(Icons.arrow_forward, textDirection: TextDirection.rtl),
         iconPosition: DButtonIconPosition.end,
         variant: DButtonVariant.outline,
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Button activated'),
-            duration: Duration(seconds: 1),
-          ),
-        ),
+        onPressed: () => _buttonFeedback(context),
       ),
     ],
   );
@@ -529,11 +464,11 @@ class _ButtonRtl extends StatelessWidget {
     ),
   );
 
-  void _feedback(BuildContext context) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم التفعيل'),
-          duration: Duration(seconds: 1),
-        ),
-      );
+  void _feedback(BuildContext context) => DToast.show(context, 'تم التفعيل');
 }
+
+void _buttonFeedback(BuildContext context) => DToast.show(
+  context,
+  'Button activated',
+  duration: const Duration(seconds: 1),
+);

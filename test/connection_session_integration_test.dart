@@ -160,7 +160,7 @@ void _registerConnectionSessionTests() {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
 
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.byType(Dismissible), findsOneWidget);
       expect(find.textContaining('could not be verified'), findsOneWidget);
     });
 
@@ -172,7 +172,7 @@ void _registerConnectionSessionTests() {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
 
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.byType(Dismissible), findsOneWidget);
       expect(find.textContaining('Could not open'), findsOneWidget);
     });
 
