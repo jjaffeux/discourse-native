@@ -167,7 +167,7 @@ multiplicative small-radius formulas can coincide at 10 and diverge elsewhere.
 Four host-palette large RTL exports and actual migration fixtures were also
 rendered. The profile overlay export confirms staff/count composition; its
 route inherits default text scaling, so it does not establish 200% overlay
-coverage. The native checklist remains pending. The reference dark theme was
+coverage. That earlier browser-only checkpoint was later completed by the native review recorded in badge-native.md. The reference dark theme was
 restored, no viewport override was applied, the sole task tab was closed, and
 the browser slot was explicitly released.
 
@@ -193,5 +193,15 @@ focus-visible. Idle invalid now has only the destructive border; focused invalid
 uses the destructive exterior ring. This is source fidelity, not a native
 adaptation. Exact compiled selectors and initial shadow value are preserved in
 `reference-ring-css.json`. No browser or native UI was accessed for this followup;
-new focused/invalid states still require live/native comparison in an assigned
-slot before review readiness.
+the subsequent assigned native/browser review is recorded in badge-native.md.
+
+## Completed native migration review
+
+The final assigned desktop slot completed native styleguide and actual migration
+inspection, including root-navigator profile badges at verified 200% scale.
+The Groups member-count footer overflow at 360px/200% now wraps in an Expanded
+text region beside the membership badge. A meaningful narrow RTL regression and
+native reinspection confirm the correction. The extra root-scaled profile and
+focusable invalid fixtures live only in the isolated review entrypoint; shared
+styleguide and dialog navigation are unchanged. See `badge-native.md` for exact
+checks, signed source/kernel identity, evidence and remaining device limits.

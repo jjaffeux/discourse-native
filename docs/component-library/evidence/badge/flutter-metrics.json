@@ -1546,5 +1546,21 @@
       "radius": 31.200000000000003,
       "visualHeight": 20.0
     }
+  ],
+  "flutter-profile-root200-plum": [
+    {
+      "size": "Size(44.8, 20.0)",
+      "variant": "primary",
+      "text": "staff",
+      "radius": 10.4,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(98.8, 20.0)",
+      "variant": "outline",
+      "text": "123 badges",
+      "radius": 10.4,
+      "visualHeight": 20.0
+    }
   ]
 }

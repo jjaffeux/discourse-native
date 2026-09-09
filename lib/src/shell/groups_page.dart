@@ -550,13 +550,15 @@ class _GroupDirectoryCard extends StatelessWidget {
                   children: [
                     const DIcon(DIcons.users, size: 14),
                     const SizedBox(width: 6),
-                    Text(
-                      group.userCount == null
-                          ? 'Members hidden'
-                          : '${group.userCount} members',
-                      style: theme.textTheme.bodySmall,
+                    Expanded(
+                      child: Text(
+                        group.userCount == null
+                            ? 'Members hidden'
+                            : '${group.userCount} members',
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     if (group.isGroupOwner)
                       const _MembershipBadge(label: 'Owner')
                     else if (group.isGroupUser)

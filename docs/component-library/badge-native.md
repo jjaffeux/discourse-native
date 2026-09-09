@@ -1,83 +1,75 @@
-# Badge native review checkpoint
+# Badge native review
 
-Status: **awaiting an explicit coordinator inspection slot and an unlocked Mac**.
-Browser-only reference inspection and widget-renderer comparison are complete;
-see `badge.md` and `evidence/badge/`. No native launch or native interaction
-checks were performed. This component is not `review_ready` yet.
+Status: **review_ready for coordinator review**. The exclusive native/browser
+slot was granted on 2026-09-09 and explicitly released after the checks below.
+The isolated app was quit through its menu; the sole task browser tab was
+closed. No shared OS preferences, viewport overrides, provisioning, real account
+state, App Store Connect, pushes or merges were changed.
 
-## Prepared app
+## Reviewed app identity
 
-- Implementation commit: `08e7042a27dc34f6db11399e26709d622fe14a7a`.
-- Source task: `01a083ac-c98c-7fe0-878d-54ee3bcbebb9`, branch `codex/ui-badge`.
-- Temporary source: `/private/tmp/discourse-badge-review-bebb9`.
-- App: `/private/tmp/discourse-badge-review-bebb9/build/macos/Build/Products/Debug/Badge Review BEBB9.app`.
-- Bundle ID: `org.discourse.native.badge.bebb9`.
-- Display name: `Badge Review BEBB9`; URL scheme `badge-review-bebb9`.
-- Target: `tool/component_review/badge_main.dart`.
-- Flutter 3.47.2 / Dart 3.13.2; `flutter build macos --debug --no-pub -t tool/component_review/badge_main.dart` succeeds.
-- Ad-hoc signature re-applied after Flutter assembly; `codesign --verify --deep --strict` passes.
-- Product name, bundle ID, URL scheme, ad-hoc signing and removal of the unused
-  push entitlement exist only in the temporary copy. Repository runners and the
-  user's running application are unchanged.
-- All `lib/**/*.dart`, `tool/component_review/*.dart` and `test/support/*.dart`
-  bytes match the current checkout. Sorted path + NUL + content manifest SHA256:
-  `6e87a28c8d82f59c3146e12161bdad6263fcf810f07f668b528092264d627c76`.
-- Built kernel SHA256: `f61d47a9c4e5d9e2be1ce0355c30eb398f4bb1e18e21b3e58a50e9b8f264720f`.
+- Source task `01a083ac-c98c-7fe0-878d-54ee3bcbebb9`, branch `codex/ui-badge`.
+- Temporary source `/private/tmp/discourse-badge-review-bebb9`.
+- App `/private/tmp/discourse-badge-review-bebb9/build/macos/Build/Products/Debug/Badge Review BEBB9.app`.
+- Bundle ID `org.discourse.native.badge.bebb9`, display name `Badge Review BEBB9`,
+  URL scheme `badge-review-bebb9`; target `tool/component_review/badge_main.dart`.
+- Flutter 3.47.2 / Dart 3.13.2; debug build succeeds. Explicit ad-hoc signing and
+  `codesign --verify --deep --strict` pass. Signed entitlement read-back exactly
+  equals the temporary signing plist, with `aps-environment` and
+  `com.apple.developer.*` absent. Repository runner entitlements are unchanged.
+- All `lib/**/*.dart`, `tool/component_review/*.dart`, `test/support/*.dart`
+  bytes match the final isolated checkout. Sorted path + NUL + content manifest:
+  `9e7f5ecfb0b95d9cd469d0bb0f274775f50f8506a2d6cc063d6c14bc87dfc4a8`.
+- Reviewed final kernel: `2b970ca82bac65b866bf7dc06211a9e1014eb170c58476e0df4ae169b4ff861e`.
+- Full signed entitlement read-back and identity: `evidence/badge/native/build-identity.json`.
 
-## Pending inspection plan
+## Observations
 
-Compare the actual [official Badge page](https://ui.shadcn.com/docs/components/base/badge)
-and the native Badge examples at matching width, 100% text and corresponding
-light/dark states. Confirm 20px bounds, 12/16px type, border-box insets, 12px SVGs,
-rounded-4xl computed radius, six variants, hover and focus rings. Preserve host
-font/palette differences explicitly instead of claiming pixel equality.
+The real native styleguide preserves compact variants and icon/spinner geometry
+in the host font/palette. Complete/restart works; pointer, Enter and Space advance
+the action counter to 3; disabled activation leaves it unchanged. A Badge link
+opens its local detail and returns. Forest/Plum switching preserves example
+state. At 360px/200%, English and Arabic labels wrap, directional artwork stays
+on its logical side, and custom colors remain distinct with reduced motion on.
 
-Inspect Light, Dark, Forest and Plum; 360px / 200% / RTL / reduced motion; local
-loading completion/restart; links and return; pointer-to-keyboard action focus;
-disabled state and invalid status. Open Migration fixtures and inspect real
-GroupsPage membership pills, exact TopicUnreadBadge counts, UserCardTarget's
-staff and 123-badge profile, and ChatDrawerChannelsView's 99+ numeric badge.
-Review the narrow large-text Chat metadata adaptation. The fixture uses only
-in-memory stores/API and the `.invalid` site; do not navigate to real sites.
+Native ghost/outline/destructive fixtures confirm idle invalid borders and
+keyboard-visible exterior rings. After clearing hover, the focused ghost
+interior stays the canvas color; destructive interiors retain their translucent
+fill. Native colors use host tokens, so the blue focus ring intentionally differs
+from the reference gray. Browser evidence contains a fresh official page capture
+and a local fixture using frozen Badge classes, merged conflicting border
+classes, and the complete official compiled stylesheet. That fixture exposes
+invalid states absent from the public example page: idle computed shadow is
+none; settled focus is 3px with 50% normal / 20% light-invalid / 40% dark-invalid
+color. It is clearly identified as a source-matched fixture, not the public page.
 
-The Mac was reported locked by the coordinator. Respect that boundary and wait
-for an explicit slot. Do not launch the app or browser while another task owns
-the desktop. Record observed evidence and limits here after the slot, then
-release it explicitly.
+Actual migrations inspected: exact 1/123 topic counts, Groups Member/Owner,
+Chat 99+ numeric count and its narrow large-text lower metadata placement, and
+the real staff profile with 123 earned badges. The profile review mode sets
+MediaQuery above the root Navigator, so the actual popup receives 200% text;
+a test checks both badge contexts at 24px scaled text. The native popup shows
+both badges at that scale. Its pre-existing name/action ellipsis remains visible
+at 200%; this Badge task does not redesign profile headers or actions.
 
-## Automated evidence
+The initial native narrow Groups inspection exposed a 4px footer overflow.
+The member-count Text now has flexible width and wraps beside the trailing
+membership badge. The final rebuilt native kernel was re-inspected: full Member
+and Owner footers wrap without overflow. The before and corrected screenshots
+are preserved. Only Badge-owned migrations and review fixtures changed.
 
-- 254 focused tests pass with seed 792026. Full command and output:
-  `/private/tmp/badge-final-tests.log`. It covers Badge, examples, source-matched
-  real-widget fixtures, Spinner composition, Groups/group members, user-card
-  accessibility/account lifecycle, user-menu/plugin menu, Chat drawer/shell and
-  topic-list lifecycle. The earlier 3px minimum-width Chat overflow was fixed
-  and the real-shell test now guards usable title width and lower metadata.
-- Root and `profiles/full` analysis pass without diagnostics. Locked dependency
-  resolution passes without lockfile or SDK pin changes.
-- Widget tests cover pointer-to-keyboard focus transfer, Enter versus Space link
-  behavior, borrowed node lifecycle, disabled/invalid semantics, full accessible
-  counts behind visual caps, hover, four live palettes, static geometry, 48px
-  touch hit testing, large RTL labels, 0/1/4/12 host radii at 300%, local navigation,
-  loading completion/restart and sample state retention.
-- iOS target-platform widget checks are not iOS device testing. No iOS/Linux
-  device run, VoiceOver speech or native focus success is
-  claimed at this checkpoint.
+## Verification and limits
 
-- Browser followup: 39 focused tests pass, seed 792027
-  (`/private/tmp/badge-browser-fix-tests.log`); actual widget export harness passes
-  (`/private/tmp/badge-export.log`). Reference screenshots and test-renderer
-  images are clearly distinguished in `evidence/badge/`. The signed isolated
-  bundle was rebuilt after the radius and SVG corrections, without launching.
-
-- Exterior ring followup: 46 affected checks pass with seed 792028 (45 permanent
-  tests and the export harness); root/full analysis clean. Logs:
-  `/private/tmp/badge-ring-final-tests.log`, `/private/tmp/badge-ring-analysis.log`,
-  `/private/tmp/badge-ring-full-analysis.log`. No UI touched.
-- Bundle rebuilt after the exterior-ring correction and signed again. Restricted
-  push/developer entitlements remain absent in the temporary runner. Entitlement
-  read-back equals the signing plist; exact source/kernel hashes and read-back
-  are saved in `evidence/badge/native-build-ring.json`. No native launch occurred.
-- Pending comparison specifically includes transparent/translucent focused
-  interiors and idle versus focused invalid states. Existing browser evidence
-  predates this correction; new widget exports do not replace a live comparison.
+- 59 affected permanent tests pass, seed 792030; `/private/tmp/badge-native-final-tests.log`.
+  Command: `flutter test --no-pub test/groups_page_test.dart test/badge_migrations_test.dart test/d_badge_ring_test.dart test/d_badge_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart --test-randomize-ordering-seed=792030 --reporter expanded`.
+- Updated renderer export harness passes (`/private/tmp/badge-native-export.log`),
+  including an actual root-scaled profile export. Earlier 254 migration checks,
+  46 ring followup checks and six before-fix pixel reproductions remain recorded.
+- Root and full-profile analysis clean; formatting and `git diff --check` pass.
+  Logs `/private/tmp/badge-native-analysis.log` and `/private/tmp/badge-native-full-analysis.log`.
+- Browser-rendered and native screenshots are in `evidence/badge/native/`;
+  top-level `flutter-*` remain widget-renderer exports. Native accessibility tree
+  confirms staff/count text, but spoken VoiceOver was not tested.
+- No iOS/Linux device or authenticated production-flow testing. Tailwind
+  wide-gamut color clipping, Geist/SF glyph metrics and underline offset remain
+  documented platform differences. These limits do not hide an unperformed
+  macOS review; the assigned representative native scenarios are complete.

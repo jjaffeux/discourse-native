@@ -1,4 +1,4 @@
-# Badge browser evidence
+# Badge comparison evidence
 
 Implementation source: `08e7042a27dc34f6db11399e26709d622fe14a7a`.
 
@@ -14,10 +14,9 @@ Neutral images use a reference-color/radius adapter for comparison. Host-palette
 images use real Light/Dark/Forest/Plum themes. Each matched neutral image is
 638×288 pixels at device pixel ratio 1. The reference has Geist; Flutter uses
 macOS SF. This is a geometry/state comparison, not pixel equality. Large RTL
-examples use 360px and 200% text. The profile overlay retains default route
-scaling; its filename describes the underlying fixture, not overlay scaling.
+examples use 360px and 200% text. The older flutter-profile-plum-rtl200 overlay retains default route scaling; its filename describes the underlying fixture. The new flutter-profile-root200-plum export and native/profile-200-plum capture use actual 200% root-overlay scaling.
 
-Native application review and VoiceOver remain pending. See `../../badge.md`
+Native application review is complete; spoken VoiceOver remains untested. See `../../badge.md`
 and `../../badge-native.md` for observations, limitations, source mappings and
 signed build identity. No native app was launched during the browser-only slot.
 
@@ -27,5 +26,4 @@ include the correction. `reference-ring-css.json` preserves exact compiled CSS
 rules; `ring-pixel-regression.json` records the reproduced tint and pixel checks.
 Use `--dart-define=BADGE_RING_ONLY=true` with the harness for only ring states;
 `--dart-define=BADGE_EXPORT_DIR=/absolute/output/path` selects an existing output
-directory. This followup involved no UI access. Live focused/invalid comparison
-and native review remain pending.
+directory. That earlier followup involved no UI access. The later native/browser slot is documented in `native/` and badge-native.md.
