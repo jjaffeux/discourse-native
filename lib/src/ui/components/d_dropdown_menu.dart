@@ -156,6 +156,7 @@ class _MenuRegistration {
 class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   final _items = <Object, _MenuRegistration>{};
   final _scrollController = ScrollController();
+  _DropdownMenuItemSurfaceState? _hoveredItem;
   DDropdownMenuController? _activeSubmenu;
   String _search = '';
   Timer? _searchTimer;
@@ -165,21 +166,53 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     _items[owner] = registration;
   }
 
-  void unregister(Object owner) => _items.remove(owner);
+  void unregister(Object owner) {
+    _items.remove(owner);
+    if (identical(_hoveredItem, owner)) _hoveredItem = null;
+  }
+
+  bool get hasActivePointerHighlight =>
+      _hoveredItem != null || _activeSubmenu != null;
+
+  void _refreshItemHighlights() {
+    for (final owner in _items.keys) {
+      if (owner is _DropdownMenuItemSurfaceState) owner.refreshHighlight();
+    }
+  }
+
+  void hover(_DropdownMenuItemSurfaceState item) {
+    if (identical(_hoveredItem, item)) return;
+    _hoveredItem = item;
+    _refreshItemHighlights();
+  }
+
+  void unhover(_DropdownMenuItemSurfaceState item) {
+    if (!identical(_hoveredItem, item)) return;
+    _hoveredItem = null;
+    _refreshItemHighlights();
+  }
+
+  bool isHovered(_DropdownMenuItemSurfaceState item) =>
+      identical(_hoveredItem, item);
 
   void activateSubmenu(DDropdownMenuController controller) {
     if (identical(_activeSubmenu, controller)) return;
     _activeSubmenu?.close();
     _activeSubmenu = controller;
+    _refreshItemHighlights();
   }
 
   void deactivateSubmenu(DDropdownMenuController controller) {
-    if (identical(_activeSubmenu, controller)) _activeSubmenu = null;
+    if (identical(_activeSubmenu, controller)) {
+      _activeSubmenu = null;
+      _refreshItemHighlights();
+    }
   }
 
   void closeActiveSubmenu() {
     _activeSubmenu?.close();
     _activeSubmenu = null;
+    _refreshItemHighlights();
   }
 
   List<_MenuRegistration> get _enabledItems => [
@@ -816,6 +849,10 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
   bool _pressed = false;
   bool _focused = false;
 
+  void refreshHighlight() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
@@ -869,10 +906,15 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final destructive = widget.variant == DDropdownMenuItemVariant.destructive;
-    // Pointer entry moves focus to this row, making focus the single source of
-    // truth for the active highlight. Independent hover state can leave two
-    // rows painted while scrolling moves content beneath a stationary pointer.
-    final interactive = widget.enabled && (_focused || _pressed);
+    // Pointer hover is menu-local and deliberately does not move keyboard
+    // focus. This keeps partially clipped rows from being implicitly revealed
+    // while ensuring only the hovered row paints as active.
+    final interactive =
+        widget.enabled &&
+        (_pressed ||
+            _content?.isHovered(this) == true ||
+            widget.expanded == true ||
+            (_content?.hasActivePointerHighlight != true && _focused));
     final background = interactive
         ? destructive
               ? tokens.destructive.withValues(
@@ -947,10 +989,11 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
             if (!widget.preserveSubmenuOnFocus) {
               _content?.closeActiveSubmenu();
             }
-            _focus.requestFocus();
+            _content?.hover(this);
             widget.onHover?.call(true);
           },
           onExit: (_) {
+            _content?.unhover(this);
             widget.onHover?.call(false);
           },
           child: Focus(
@@ -967,7 +1010,10 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: widget.enabled
-                  ? (_) => setState(() => _pressed = true)
+                  ? (_) {
+                      _focus.requestFocus();
+                      setState(() => _pressed = true);
+                    }
                   : null,
               onTapCancel: widget.enabled
                   ? () => setState(() => _pressed = false)
