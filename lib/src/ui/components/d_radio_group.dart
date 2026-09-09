@@ -239,6 +239,7 @@ class DRadioGroupItem<T> extends StatefulWidget {
 
 class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
   late FocusNode _focus;
+  bool _hovered = false;
   _RadioScope<T>? _scope;
   @override
   void initState() {
@@ -308,14 +309,20 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
     };
     final border = checked
         ? tokens.primary
+        : widget.card && focused
+        ? tokens.colors.outlineVariant
         : invalid
-        ? tokens.destructive.withValues(alpha: dark ? 0.5 : 1)
-        : focused
+        ? tokens.destructive.withValues(
+            alpha: tokens.destructive.a * (dark ? 0.5 : 1),
+          )
+        : focused && !widget.card
         ? tokens.focusRing
-        : tokens.border;
+        : tokens.colors.outlineVariant;
     final ring = invalid
-        ? tokens.destructive.withValues(alpha: dark ? 0.4 : 0.2)
-        : tokens.focusRing.withValues(alpha: 0.5);
+        ? tokens.destructive.withValues(
+            alpha: tokens.destructive.a * (dark ? 0.4 : 0.2),
+          )
+        : tokens.focusRing.withValues(alpha: tokens.focusRing.a * 0.5);
     final indicator = Container(
       width: 16,
       height: 16,
@@ -324,10 +331,12 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
         color: checked
             ? tokens.primary
             : dark
-            ? tokens.border.withValues(alpha: 0.3)
+            ? tokens.colors.outlineVariant.withValues(
+                alpha: tokens.colors.outlineVariant.a * 0.3,
+              )
             : Colors.transparent,
         border: Border.all(color: border),
-        boxShadow: invalid || focused
+        boxShadow: (invalid || focused) && !(widget.card && focused)
             ? [BoxShadow(color: ring, spreadRadius: 3)]
             : null,
       ),
@@ -351,13 +360,19 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DLabel(child: widget.label!),
+            DLabel(
+              style: widget.card || widget.description != null
+                  ? const TextStyle(height: 1.375)
+                  : null,
+              child: widget.label!,
+            ),
             if (widget.description != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 2),
               DefaultTextStyle.merge(
                 style: TextStyle(
                   fontSize: 14,
-                  height: 20 / 14,
+                  height: 1.5,
+                  fontWeight: FontWeight.w400,
                   color: tokens.mutedForeground,
                 ),
                 child: widget.description!,
@@ -366,61 +381,98 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
           ],
         ),
       );
+      final radio = widget.description != null || widget.card
+          ? Padding(padding: const EdgeInsets.only(top: 1), child: indicator)
+          : indicator;
+      final gap = widget.description != null || widget.card ? 8.0 : 12.0;
       content = Row(
+        crossAxisAlignment: widget.description != null || widget.card
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
-          if (!widget.card) ...[indicator, const SizedBox(width: 12)],
+          if (!widget.card) ...[radio, SizedBox(width: gap)],
           text,
           if (widget.trailing != null) ...[
             const SizedBox(width: 12),
             widget.trailing!,
           ],
-          if (widget.card) ...[const SizedBox(width: 12), indicator],
+          if (widget.card) ...[SizedBox(width: gap), radio],
         ],
       );
     }
     if (widget.card) {
       content = Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(tokens.radius + 4),
-          border: Border.all(color: checked ? tokens.primary : tokens.border),
-          color: checked ? tokens.primary.withValues(alpha: 0.05) : null,
+          borderRadius: BorderRadius.circular(tokens.radius),
+          border: Border.all(
+            color: focused
+                ? tokens.focusRing
+                : checked
+                ? tokens.primary.withValues(
+                    alpha: tokens.primary.a * (dark ? 0.2 : 0.3),
+                  )
+                : tokens.border,
+          ),
+          color: enabled && _hovered
+              ? tokens.muted.withValues(alpha: tokens.muted.a * 0.5)
+              : checked
+              ? tokens.primary.withValues(
+                  alpha: tokens.primary.a * (dark ? 0.1 : 0.05),
+                )
+              : null,
+          boxShadow: focused
+              ? [
+                  BoxShadow(
+                    color: tokens.focusRing.withValues(
+                      alpha: tokens.focusRing.a * 0.5,
+                    ),
+                    spreadRadius: 3,
+                  ),
+                ]
+              : null,
         ),
         child: content,
       );
     }
-    return MergeSemantics(
-      child: Semantics(
-        container: true,
-        label: widget.semanticLabel,
-        readOnly: readOnly,
-        isRequired: (widget.required ?? scope?.required ?? false) ? true : null,
-        child: RawRadio<T>(
-          value: widget.value,
-          enabled: enabled,
-          groupRegistry: registry,
-          mouseCursor: WidgetStatePropertyAll(
-            !enabled
-                ? SystemMouseCursors.forbidden
-                : readOnly
-                ? SystemMouseCursors.basic
-                : SystemMouseCursors.click,
-          ),
-          toggleable: widget.toggleable,
-          focusNode: _focus,
-          autofocus: widget.autofocus,
-          builder: (context, state) => Opacity(
-            opacity: enabled ? 1 : 0.5,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: touch ? 48 : 40,
-                minHeight: touch ? 48 : 32,
-              ),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                widthFactor: 1,
-                heightFactor: 1,
-                child: ColoredBox(color: Colors.transparent, child: content),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: MergeSemantics(
+        child: Semantics(
+          container: true,
+          label: widget.semanticLabel,
+          readOnly: readOnly,
+          isRequired: (widget.required ?? scope?.required ?? false)
+              ? true
+              : null,
+          child: RawRadio<T>(
+            value: widget.value,
+            enabled: enabled,
+            groupRegistry: registry,
+            mouseCursor: WidgetStatePropertyAll(
+              !enabled
+                  ? SystemMouseCursors.forbidden
+                  : readOnly
+                  ? SystemMouseCursors.basic
+                  : SystemMouseCursors.click,
+            ),
+            toggleable: widget.toggleable,
+            focusNode: _focus,
+            autofocus: widget.autofocus,
+            builder: (context, state) => Opacity(
+              opacity: enabled ? 1 : 0.5,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: touch ? 48 : 40,
+                  minHeight: touch ? 48 : 32,
+                ),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: ColoredBox(color: Colors.transparent, child: content),
+                ),
               ),
             ),
           ),

@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsAction, SemanticsActionEvent;
+import 'dart:ui' show SemanticsAction, SemanticsActionEvent, PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/keyboard_navigation.dart';
@@ -25,6 +25,99 @@ const choices = Column(
   ],
 );
 void main() {
+  testWidgets(
+    'input role and opacity remain distinct from card border in live themes',
+    (tester) async {
+      final base = ThemeData(platform: TargetPlatform.macOS);
+      final colors = base.colorScheme.copyWith(
+        outlineVariant: const Color(0x80443322),
+        primary: const Color(0x80665544),
+      );
+      final tokens = DTokens.fromTheme(base).copyWith(
+        colors: colors,
+        border: const Color(0xff112233),
+        muted: const Color(0x80887766),
+        radius: 7,
+      );
+      for (final dark in [false, true]) {
+        await tester.pumpWidget(
+          host(
+            DRadioGroup<String>(
+              initialValue: 'a',
+              child: const Column(
+                children: [
+                  DRadioGroupItem(
+                    value: 'a',
+                    card: true,
+                    label: Text('Selected'),
+                    description: Text('Description'),
+                  ),
+                  DRadioGroupItem(value: 'b', label: Text('Unselected')),
+                ],
+              ),
+            ),
+            theme: base.copyWith(
+              brightness: dark ? Brightness.dark : Brightness.light,
+              extensions: [tokens],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final containers = tester.widgetList<Container>(find.byType(Container));
+        final circle = containers
+            .where(
+              (c) =>
+                  c.decoration is BoxDecoration &&
+                  (c.decoration! as BoxDecoration).shape == BoxShape.circle &&
+                  (c.decoration! as BoxDecoration).border?.top.color ==
+                      colors.outlineVariant,
+            )
+            .single;
+        final fill = (circle.decoration! as BoxDecoration).color!;
+        expect(
+          fill.a,
+          closeTo(dark ? colors.outlineVariant.a * 0.3 : 0, 0.001),
+        );
+        final card = containers
+            .where(
+              (c) =>
+                  c.decoration is BoxDecoration &&
+                  (c.decoration! as BoxDecoration).borderRadius != null,
+            )
+            .single;
+        final decoration = card.decoration! as BoxDecoration;
+        expect(card.padding, const EdgeInsets.all(10));
+        expect(decoration.borderRadius, BorderRadius.circular(7));
+        expect(
+          decoration.border!.top.color.a,
+          closeTo(colors.primary.a * (dark ? 0.2 : 0.3), 0.001),
+        );
+        expect(
+          decoration.color!.a,
+          closeTo(colors.primary.a * (dark ? 0.1 : 0.05), 0.001),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(find.text('Selected')));
+        await tester.pump();
+        final hovered = tester.widget<Container>(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Container &&
+                w.decoration is BoxDecoration &&
+                (w.decoration! as BoxDecoration).borderRadius != null,
+          ),
+        );
+        expect(
+          (hovered.decoration! as BoxDecoration).color,
+          tokens.muted.withValues(alpha: tokens.muted.a * 0.5),
+        );
+        await mouse.removePointer();
+        await tester.pump();
+      }
+    },
+  );
+
   testWidgets(
     'read-only preserves focus and blocks pointer keyboard and semantics selection',
     (tester) async {

@@ -102,9 +102,7 @@ String _code(String mode) {
   final rows = <String>[];
   for (var i = 0; i < 3; i++) {
     if (i != 0) rows.add('    SizedBox(height: 8),');
-    rows.add(
-      "    DRadioGroupItem<String>(value: '${['default', 'comfortable', 'compact'][i]}',",
-    );
+    rows.add("    DRadioGroupItem<String>(value: '${sample.values[i]}',");
     rows.add("      label: Text('${labels[i].replaceAll(r'$', r'\$')}'),");
     if (sample.hasDescriptions) {
       rows.add("      description: Text('${descriptions[i]}'),");
@@ -112,13 +110,13 @@ String _code(String mode) {
     if (mode == 'Choice Card') rows.add('      card: true,');
     rows.add('    ),');
   }
-  return "${mode == 'RTL' ? 'Directionality(textDirection: TextDirection.rtl, child: ' : ''}DRadioGroup<String>(\n"
-      "  initialValue: 'default',\n"
+  return "${mode == 'Choice Card' ? 'ConstrainedBox(constraints: BoxConstraints(maxWidth: 384), child: ' : ''}${mode == 'RTL' ? 'Directionality(textDirection: TextDirection.rtl, child: ' : ''}DRadioGroup<String>(\n"
+      "  initialValue: '${sample.initial}',\n"
       "  enabled: ${mode != 'Disabled'},\n"
       "  invalid: ${mode == 'Invalid'},\n"
       "${mode == 'Fieldset' ? "  label: Text('Subscription Plan'),\n  description: Text('Yearly and lifetime plans offer significant savings.'),\n" : ''}"
       "${mode == 'Invalid' ? "  label: Text('Notification Preferences'),\n  forceErrorText: 'Choose how you want to receive notifications.',\n" : ''}"
-      "  child: const Column(children: [\n${rows.join('\n')}\n  ]),\n)${mode == 'RTL' ? ')' : ''}";
+      "  child: const Column(children: [\n${rows.join('\n')}\n  ]),\n)${mode == 'RTL' || mode == 'Choice Card' ? ')' : ''}";
 }
 
 class _Reference extends StatelessWidget {
@@ -154,6 +152,14 @@ class _Reference extends StatelessWidget {
           'More space between elements.',
           'Minimal spacing for dense layouts.',
         ];
+  List<String> get values => mode == 'Choice Card'
+      ? ['plus', 'pro', 'enterprise']
+      : ['default', 'comfortable', 'compact'];
+  String get initial => mode == 'Choice Card'
+      ? 'plus'
+      : mode == 'Description'
+      ? 'comfortable'
+      : 'default';
   bool get hasDescriptions =>
       mode == 'Choice Card' || mode == 'RTL' || mode == 'Description';
   @override
@@ -162,10 +168,10 @@ class _Reference extends StatelessWidget {
     final rtl = mode == 'RTL';
     final fieldset = mode == 'Fieldset';
     final invalid = mode == 'Invalid';
-    return Directionality(
+    final example = Directionality(
       textDirection: rtl ? TextDirection.rtl : Directionality.of(context),
       child: DRadioGroup<String>(
-        initialValue: 'default',
+        initialValue: initial,
         enabled: mode != 'Disabled',
         invalid: invalid,
         forceErrorText: invalid
@@ -185,7 +191,7 @@ class _Reference extends StatelessWidget {
             for (var i = 0; i < 3; i++) ...[
               if (i != 0) const SizedBox(height: 8),
               DRadioGroupItem<String>(
-                value: ['default', 'comfortable', 'compact'][i],
+                value: values[i],
                 label: Text(labels[i]),
                 description: cards || rtl || mode == 'Description'
                     ? Text(descriptions[i])
@@ -197,6 +203,14 @@ class _Reference extends StatelessWidget {
         ),
       ),
     );
+    return cards
+        ? Align(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 384),
+              child: example,
+            ),
+          )
+        : example;
   }
 }
 

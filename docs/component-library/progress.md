@@ -856,6 +856,7 @@ Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/u
 - Source metrics, hashes, native hit-target adaptation and API contract documented in docs/component-library/radio-group.md.
 - Poll explicitly opts into toggleable items to preserve withdrawal; normal radio groups do not deselect.
 - Current Base UI Radio API captured; readOnly guards native selection callbacks, required flags announce semantics while caller Form validator enforces requirements and localization.
+- Field composition source correction: input uses outlineVariant and alpha modifiers multiply existing alpha; choice cards use captured FieldLabel/Field 10px padding, base-radius lg, selected alpha, hover/focus and 8px/2px content geometry. No DField implementation.
 
 **migrations**
 
@@ -879,6 +880,7 @@ Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/u
 - Final Poll semantics-wrapper refinement and production fixture passed 35 tests with seed 9092026; final root/full static analysis clean. No native app launched.
 - ReadOnly/required follow-up: 162 focused component, migration, ownership, keyboard, Chat and fixture tests pass seed 9092026. Final 15 component tests also pass after semantic-action binding cleanup and extra keyboard override coverage. Root/full analyses clean.
 - ReadOnly replacement bundle /private/tmp/discourse-radio-readonly-review-l6gbqvk1/Radio Group Readonly Review.app built from 88400eed4c5d4c2215b2df534e7b419c0258b9b1; kernel c8399e45e0d59311d1bcebfc6fbef08400b7d3e29fab55ad1d36f95ef5416af9, 725 source files equal commit, matching copied kernel and deep strict ad-hoc signature verified. No native launch; awaiting_slot.
+- Visual-source correction: 163 focused tests passed seed 9092026, including translucent input/card color roles, light/dark modifier alpha, geometry and hover. Root/full static analysis clean; exact source captures and mapping updated.
 
 **limitations**
 

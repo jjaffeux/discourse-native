@@ -23,15 +23,16 @@ semantics, arrow wrapping and RTL behavior. No browser/native app was opened.
 | checked primary background/border | live DTokens.primary |
 | focus `ring-3 ring-ring/50` | 3px outer spread, focusRing at 50% |
 | invalid `ring-destructive/20`, dark `/40` | 3px spread at 20%/40%; dark unchecked border 50% |
-| dark `bg-input/30` | border token at 30% |
+| `border-input`, dark `bg-input/30` | colors.outlineVariant; multiply its existing alpha by 0.3 for dark fill |
 | disabled opacity 50%, forbidden cursor | 50% entire associated item; no activation or traversal |
 | label composition `gap-3` | 12px indicator/content gap; DLabel 14px/500/1 |
 | root `gap-2` | explicit 8px gaps in reference examples; child layout remains caller-owned |
 | CSS after inset x=12/y=8 | 40×32 pointer bounds; 48×48 native touch bounds around compact circle |
 
 The host owns fonts, palette, radius and inherited text scale. Choice-card
-presentation uses 16px padding, a 1px border, radius token+4 and selected primary
-at 5%; native rendered comparison is still required. There is no animated
+presentation uses the captured FieldLabel/Field classes: 10px padding, a 1px
+border, rounded-lg (base radius ×1), selected primary borders at 30% light/20%
+dark and backgrounds at 5% light/10% dark. Native comparison is still required. There is no animated
 transition in the registry; changes are immediate, including reduced motion.
 
 The labelled row's layout reserves non-overlapping hit bounds. This increases
@@ -172,3 +173,35 @@ This supersedes the earlier review bundle for native inspection.
 - Native status remains awaiting_slot. No rendered comparison or device/speech
   claims. The added Read-only and required example is in the actual styleguide
   linked by the production fixture.
+
+## Field composition correction
+
+Supporting source https://ui.shadcn.com/r/styles/base-nova/field.json and current
+https://ui.shadcn.com/docs/components/base/radio-group.md are preserved beside
+the radio source. They define the card composition; no DField is implemented.
+
+- FieldLabel's direct Field child uses `p-2.5`: 10px plus the outer 1px border.
+- `rounded-lg` is host base radius ×1, including zero/custom values.
+- Checked borders use primary/30 (light) and primary/20 (dark); fills primary/5
+  and primary/10. Hover uses muted/50 only when enabled. Focus is a 3px outer
+  card ring at ring/50 and ring-colored border; the radio's focus ring is
+  suppressed inside a focused card, following the group focus selectors.
+- Field horizontal composition uses an 8px gap, top alignment with FieldContent
+  and a 1px radio top margin. FieldContent uses gap-0.5 (2px). FieldTitle inherits
+  14px/500 with snug 1.375 leading; description is 14px/400 with 1.5 leading.
+- The exact Plus/Pro/Enterprise example selects Plus and uses max-w-sm (384px).
+  Description composition selects Comfortable and uses the same content metrics.
+- The plain Label composition retains its documented 12px gap and 14px/1 label.
+- Source input uses colors.outlineVariant, distinct from tokens.border. Every
+  color opacity modifier now multiplies existing alpha, including destructive
+  borders/rings, focus rings, input fill, card selected states and hover.
+- Existing transparent native hit bounds and their documented row-pitch
+  adaptation remain. ReadOnly/required and controlled reset behavior is retained.
+
+A translucent custom palette regression distinguishes input from border, checks
+light/dark selected card alpha, hover alpha, 10px padding and proportional radius.
+Browser and native comparison have not been performed for this correction.
+
+- `field.json` SHA256 `586110f5563cbb5dc0929207ee34361f1349cf2f816465799c60b98821e4cedc`
+
+- `current-radio-group.md` SHA256 `e00939e01c108da6492bdf9a3d9ccf34bbb284e3dce26260dcf44dc4ef4219f6`
