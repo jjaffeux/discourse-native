@@ -9,6 +9,7 @@ export 'src/ui/components/d_badge.dart';
 export 'src/ui/components/d_button.dart';
 export 'src/ui/components/d_card.dart';
 export 'src/ui/components/d_checkbox.dart';
+export 'src/ui/components/d_collapsible.dart';
 export 'src/ui/components/d_direction.dart';
 export 'src/ui/components/d_input.dart';
 export 'src/ui/components/d_kbd.dart';

@@ -148,103 +148,113 @@ class _AlertTableState extends State<_AlertTable> {
         border: Border.all(color: theme.dividerColor),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    minimumSize: Size(0, _actionSize(context)),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: theme.colorScheme.onSurface,
-                    textStyle: theme.textTheme.bodyMedium,
-                    alignment: Alignment.centerLeft,
-                    shape: const RoundedRectangleBorder(),
-                  ),
-                  onPressed: () => setState(() => _collapsed = !collapsed),
-                  child: Row(
-                    children: [
-                      DIcon(
-                        collapsed ? DIcons.chevronRight : DIcons.chevronDown,
-                        size: 10,
+      child: DCollapsible(
+        open: !collapsed,
+        onOpenChange: (open) => setState(() => _collapsed = !open),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: DCollapsibleTrigger(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: _actionSize(context),
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          '${group.heading} (${group.alerts.length})',
-                          semanticsLabel:
-                              '${collapsed ? 'Expand' : 'Collapse'} '
-                              '${group.status.label}: ${group.heading} (${group.alerts.length})',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        child: Row(
+                          children: [
+                            DIcon(
+                              collapsed
+                                  ? DIcons.chevronRight
+                                  : DIcons.chevronDown,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                '${group.heading} (${group.alerts.length})',
+                                semanticsLabel:
+                                    '${collapsed ? 'Expand' : 'Collapse'} '
+                                    '${group.status.label}: ${group.heading} (${group.alerts.length})',
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              if (manager != null)
-                _AlertLinkButton(
-                  uri: manager,
-                  siteUrl: widget.siteUrl,
-                  label: 'Open Alertmanager',
-                  icon: DIcons.list,
-                ),
-            ],
-          ),
-          if (!collapsed)
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = math.max(
-                  constraints.maxWidth,
-                  (group.showDescription ? 620 : 460) * textScale,
-                );
-                return DScrollBar(
-                  axis: Axis.horizontal,
-                  controller: _scroll,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _scroll,
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.only(
-                      bottom: width > constraints.maxWidth ? 6 : 0,
-                    ),
-                    child: SizedBox(
-                      width: width,
-                      child: Table(
-                        defaultVerticalAlignment:
-                            TableCellVerticalAlignment.middle,
-                        columnWidths: {
-                          0: const FlexColumnWidth(2),
-                          1: FixedColumnWidth(180 * textScale),
-                          if (group.showDescription)
-                            2: const FlexColumnWidth(3),
-                          group.showDescription ? 3 : 2: FixedColumnWidth(
-                            _actionSize(context) *
-                                (widget.onQuote == null ? 1 : 2),
-                          ),
-                        },
-                        border: TableBorder(
-                          top: BorderSide(color: theme.dividerColor),
-                          horizontalInside: BorderSide(
-                            color: theme.dividerColor,
-                          ),
-                        ),
-                        children: [
-                          for (final alert in group.alerts)
-                            _row(context, alert),
-                        ],
-                      ),
                     ),
                   ),
-                );
-              },
+                ),
+                if (manager != null)
+                  _AlertLinkButton(
+                    uri: manager,
+                    siteUrl: widget.siteUrl,
+                    label: 'Open Alertmanager',
+                    icon: DIcons.list,
+                  ),
+              ],
             ),
-        ],
+            DCollapsibleContent(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = math.max(
+                    constraints.maxWidth,
+                    (group.showDescription ? 620 : 460) * textScale,
+                  );
+                  return DScrollBar(
+                    axis: Axis.horizontal,
+                    controller: _scroll,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      key: PageStorageKey((
+                        widget.siteUrl,
+                        group.status,
+                        group.datacenter,
+                      )),
+                      controller: _scroll,
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.only(
+                        bottom: width > constraints.maxWidth ? 6 : 0,
+                      ),
+                      child: SizedBox(
+                        width: width,
+                        child: Table(
+                          defaultVerticalAlignment:
+                              TableCellVerticalAlignment.middle,
+                          columnWidths: {
+                            0: const FlexColumnWidth(2),
+                            1: FixedColumnWidth(180 * textScale),
+                            if (group.showDescription)
+                              2: const FlexColumnWidth(3),
+                            group.showDescription ? 3 : 2: FixedColumnWidth(
+                              _actionSize(context) *
+                                  (widget.onQuote == null ? 1 : 2),
+                            ),
+                          },
+                          border: TableBorder(
+                            top: BorderSide(color: theme.dividerColor),
+                            horizontalInside: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          children: [
+                            for (final alert in group.alerts)
+                              _row(context, alert),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
