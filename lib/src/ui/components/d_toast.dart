@@ -27,6 +27,7 @@ enum DToastCloseReason {
   action,
   closeButton,
   swipe,
+  replacement,
   programmatic,
   limit,
 }
@@ -138,9 +139,11 @@ class DToastController extends ChangeNotifier {
   final Map<Object, Timer> _timers = {};
   final Map<Object, Duration> _remaining = {};
   final Map<Object, Stopwatch> _elapsed = {};
+  final Set<Object> _pauseOwners = {};
   int _nextId = 0;
-  bool _paused = false;
   bool _disposed = false;
+
+  static final Object _manualPauseOwner = Object();
 
   List<DToastEntry> get toasts => List.unmodifiable(_toasts);
   bool get isDisposed => _disposed;
@@ -158,9 +161,12 @@ class DToastController extends ChangeNotifier {
     if (index < 0) {
       _toasts.add(entry);
     } else {
+      final replaced = _toasts[index];
       _toasts[index] = entry;
+      _startTimer(entry);
+      replaced.options.onClose?.call(DToastCloseReason.replacement);
     }
-    _startTimer(entry);
+    if (index < 0) _startTimer(entry);
     while (_toasts.length > limit) {
       _remove(_toasts.first.id, DToastCloseReason.limit);
     }
@@ -177,8 +183,10 @@ class DToastController extends ChangeNotifier {
       options: options,
       revision: _toasts[index].revision + 1,
     );
+    final replaced = _toasts[index];
     _toasts[index] = entry;
     _startTimer(entry);
+    replaced.options.onClose?.call(DToastCloseReason.replacement);
     notifyListeners();
     return true;
   }
@@ -231,8 +239,13 @@ class DToastController extends ChangeNotifier {
   }
 
   void pause() {
-    if (_disposed || _paused) return;
-    _paused = true;
+    _pause(_manualPauseOwner);
+  }
+
+  void _pause(Object owner) {
+    if (_disposed || !_pauseOwners.add(owner) || _pauseOwners.length != 1) {
+      return;
+    }
     for (final timer in _timers.values) {
       timer.cancel();
     }
@@ -248,8 +261,13 @@ class DToastController extends ChangeNotifier {
   }
 
   void resume() {
-    if (_disposed || !_paused) return;
-    _paused = false;
+    _resume(_manualPauseOwner);
+  }
+
+  void _resume(Object owner) {
+    if (_disposed || !_pauseOwners.remove(owner) || _pauseOwners.isNotEmpty) {
+      return;
+    }
     for (final entry in _toasts) {
       _schedule(entry, _remaining[entry.id]);
     }
@@ -271,7 +289,7 @@ class DToastController extends ChangeNotifier {
       return;
     }
     _remaining[entry.id] = duration;
-    if (!_paused) _schedule(entry, duration);
+    if (_pauseOwners.isEmpty) _schedule(entry, duration);
   }
 
   void _schedule(DToastEntry entry, Duration? duration) {
@@ -309,6 +327,9 @@ class DToastController extends ChangeNotifier {
       timer.cancel();
     }
     _timers.clear();
+    _remaining.clear();
+    _elapsed.clear();
+    _pauseOwners.clear();
     _toasts.clear();
     super.dispose();
   }
@@ -373,17 +394,22 @@ class _DToasterState extends State<DToaster> with WidgetsBindingObserver {
   late DToastController _controller;
   late bool _ownsController;
   final FocusNode _viewportFocus = FocusNode(debugLabel: 'Toast viewport');
+  final Object _lifecyclePauseOwner = Object();
+  late bool _lifecyclePaused;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _lifecyclePaused =
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
     _setController();
   }
 
   void _setController() {
     _ownsController = widget.controller == null;
     _controller = widget.controller ?? DToastController(limit: widget.limit);
+    if (_lifecyclePaused) _controller._pause(_lifecyclePauseOwner);
   }
 
   @override
@@ -393,16 +419,18 @@ class _DToasterState extends State<DToaster> with WidgetsBindingObserver {
         (widget.controller != null || oldWidget.limit == widget.limit)) {
       return;
     }
+    _controller._resume(_lifecyclePauseOwner);
     if (_ownsController) _controller.dispose();
     _setController();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _controller.resume();
+    _lifecyclePaused = state != AppLifecycleState.resumed;
+    if (!_lifecyclePaused) {
+      _controller._resume(_lifecyclePauseOwner);
     } else {
-      _controller.pause();
+      _controller._pause(_lifecyclePauseOwner);
     }
   }
 
@@ -410,6 +438,7 @@ class _DToasterState extends State<DToaster> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _viewportFocus.dispose();
+    _controller._resume(_lifecyclePauseOwner);
     if (_ownsController) _controller.dispose();
     super.dispose();
   }
@@ -478,6 +507,30 @@ class _DToastViewport extends StatefulWidget {
 
 class _DToastViewportState extends State<_DToastViewport> {
   bool _hovered = false;
+  bool _focused = false;
+  final Object _interactionPauseOwner = Object();
+
+  void _syncInteractionPause() {
+    if (_hovered || _focused) {
+      widget.controller._pause(_interactionPauseOwner);
+    } else {
+      widget.controller._resume(_interactionPauseOwner);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_DToastViewport oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.controller, widget.controller)) return;
+    oldWidget.controller._resume(_interactionPauseOwner);
+    _syncInteractionPause();
+  }
+
+  @override
+  void dispose() {
+    widget.controller._resume(_interactionPauseOwner);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -509,11 +562,11 @@ class _DToastViewportState extends State<_DToastViewport> {
             child: MouseRegion(
               onEnter: (_) {
                 setState(() => _hovered = true);
-                widget.controller.pause();
+                _syncInteractionPause();
               },
               onExit: (_) {
                 setState(() => _hovered = false);
-                widget.controller.resume();
+                _syncInteractionPause();
               },
               child: Shortcuts(
                 shortcuts: const {
@@ -531,11 +584,8 @@ class _DToastViewportState extends State<_DToastViewport> {
                   child: Focus(
                     focusNode: widget.focusNode,
                     onFocusChange: (focused) {
-                      if (focused) {
-                        widget.controller.pause();
-                      } else if (!_hovered) {
-                        widget.controller.resume();
-                      }
+                      _focused = focused;
+                      _syncInteractionPause();
                     },
                     child: Semantics(
                       container: true,
@@ -716,6 +766,14 @@ class _DToastCardState extends State<_DToastCard> {
         child: Dismissible(
           key: ValueKey(widget.entry.id),
           direction: _dismissDirection(context),
+          movementDuration: DMotion.duration(
+            context,
+            const Duration(milliseconds: 500),
+          ),
+          resizeDuration: DMotion.duration(
+            context,
+            const Duration(milliseconds: 500),
+          ),
           onDismissed: (_) => widget.controller.close(
             widget.entry.id,
             reason: DToastCloseReason.swipe,

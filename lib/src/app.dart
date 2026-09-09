@@ -595,6 +595,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     localizationsDelegates: RelativeTimeLocalizations.localizationsDelegates,
     supportedLocales: RelativeTimeLocalizations.supportedLocales,
     builder: (context, child) => DToaster(
+      key: ObjectKey(_controller),
       child: AppTextScaleRegion(
         controller: _controller.appSettings,
         child: _MouseNavigationRegion(

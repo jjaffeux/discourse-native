@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner, DSlider;
+import 'package:discourse_native/discourse_ui.dart'
+    show DSlider, DSpinner, DToaster;
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -250,6 +251,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
+          builder: (context, child) => DToaster(child: child!),
           home: Scaffold(
             body: InlineVideo(
               data: _videoData('demo.mp4', 'Demo'),
@@ -335,6 +337,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
+        builder: (context, child) => DToaster(child: child!),
         home: Scaffold(
           body: InlineVideo(
             data: _videoData('demo.mp4', 'Demo'),
@@ -964,6 +967,7 @@ void main() {
 
 Widget _downloadApp(VideoDownloader downloader) => MaterialApp(
   theme: AppTheme.dark,
+  builder: (context, child) => DToaster(child: child!),
   home: Scaffold(
     body: InlineVideo(
       data: _videoData('demo.mp4', 'Demo'),

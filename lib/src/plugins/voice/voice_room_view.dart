@@ -1167,35 +1167,28 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
       );
       if (!mounted) return;
       setState(() => _invited.addAll(result.invitedUsernames));
-      final messenger = ScaffoldMessenger.maybeOf(context);
       if (result.invitedUsernames.isNotEmpty) {
         final count = result.invitedUsernames.length;
-        messenger?.showSnackBar(
-          SnackBar(
-            content: Text(count == 1 ? 'Invite sent.' : '$count invites sent.'),
-          ),
+        DToast.show(
+          context,
+          count == 1 ? 'Invite sent.' : '$count invites sent.',
+          type: DToastType.success,
         );
       }
       if (result.skippedUsernames.isNotEmpty) {
-        messenger?.showSnackBar(
-          SnackBar(
-            content: Text(
-              "${result.skippedUsernames.map((name) => '@$name').join(', ')} "
-              "can't be invited because they don't have access to voice rooms.",
-            ),
-          ),
+        DToast.show(
+          context,
+          "${result.skippedUsernames.map((name) => '@$name').join(', ')} "
+          "can't be invited because they don't have access to voice rooms.",
+          type: DToastType.warning,
         );
       }
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(
-            error is WriteException
-                ? error.message
-                : "Couldn't send the invite.",
-          ),
-        ),
+      DToast.show(
+        context,
+        error is WriteException ? error.message : "Couldn't send the invite.",
+        type: DToastType.error,
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -1277,9 +1270,9 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                           ),
                           size: 36,
                           fallback: ColoredBox(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHigh,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHigh,
                           ),
                         ),
                       ),
@@ -1314,10 +1307,10 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: link));
                         if (context.mounted) {
-                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                            const SnackBar(
-                              content: Text('Link copied to clipboard'),
-                            ),
+                          DToast.show(
+                            context,
+                            'Link copied to clipboard',
+                            type: DToastType.success,
                           );
                         }
                       },
@@ -1501,14 +1494,12 @@ Future<void> _showMediaSettings(
                             if (ownerContext.mounted &&
                                 context.mounted &&
                                 ModalRoute.of(context)?.isCurrent == true) {
-                              ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    available
-                                        ? 'Microphone is available.'
-                                        : "Couldn't test the microphone. Please try again.",
-                                  ),
-                                ),
+                              DToast.show(
+                                context,
+                                available ? 'Microphone is available.' : "Couldn't test the microphone. Please try again.",
+                                type: available
+                                    ? DToastType.success
+                                    : DToastType.error,
                               );
                             }
                           } finally {
@@ -1648,8 +1639,10 @@ Future<void> _showParticipantFlag(
     controllerResolver,
   ).flagParticipant(participant.id, message);
   if (!sent && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Moderator notification is unavailable.')),
+    DToast.show(
+      context,
+      'Moderator notification is unavailable.',
+      type: DToastType.error,
     );
   }
 }

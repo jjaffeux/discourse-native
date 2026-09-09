@@ -23,7 +23,11 @@ void main() {
       1,
     );
     controller.add(
-      const DToastOptions(description: 'Second', duration: null),
+      DToastOptions(
+        description: 'Second',
+        duration: null,
+        onClose: reasons.add,
+      ),
       id: 'stable',
     );
     controller.add(
@@ -31,6 +35,7 @@ void main() {
       id: 'stable',
     );
 
+    expect(reasons, [DToastCloseReason.replacement]);
     expect(controller.toasts.map((toast) => toast.options.description), [
       'First',
       'Updated',
@@ -38,7 +43,7 @@ void main() {
     expect(controller.toasts.last.revision, 1);
 
     controller.add(const DToastOptions(description: 'Third', duration: null));
-    expect(reasons, [DToastCloseReason.limit]);
+    expect(reasons, [DToastCloseReason.replacement, DToastCloseReason.limit]);
     expect(controller.toasts, hasLength(2));
   });
 
@@ -127,6 +132,9 @@ void main() {
       find.bySemanticsLabel(RegExp(r'Success[\s\S]*Event created')),
       findsOneWidget,
     );
+    final dismissible = tester.widget<Dismissible>(find.byType(Dismissible));
+    expect(dismissible.movementDuration, const Duration(milliseconds: 500));
+    expect(dismissible.resizeDuration, const Duration(milliseconds: 500));
 
     setHostState(() => dark = true);
     await tester.pump();
@@ -164,9 +172,13 @@ void main() {
     await tester.pump();
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: tester.getCenter(find.text('Timed')));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump(const Duration(seconds: 3));
     expect(find.text('Timed'), findsOneWidget);
     await gesture.removePointer();
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Timed'), findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump(const Duration(seconds: 2));
     expect(find.text('Timed'), findsNothing);
 

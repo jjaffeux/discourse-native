@@ -111,10 +111,10 @@ class InstanceRail extends StatelessWidget {
           !identical(ShellScope.read(context), controller)) {
         return;
       }
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text("Couldn't save the new site order. Try again."),
-        ),
+      DToast.show(
+        context,
+        "Couldn't save the new site order. Try again.",
+        type: DToastType.error,
       );
     }());
   }

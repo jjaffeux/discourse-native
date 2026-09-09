@@ -4,12 +4,16 @@ import 'package:flutter/material.dart';
 
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
+import '../ui/components/d_toast.dart';
 import 'anchored_picker.dart';
 import 'category_icon.dart';
 import 'shell_scope.dart';
 
-typedef TopicCategoryMenuAnchorBuilder =
-    Widget Function(BuildContext context, VoidCallback? openMenu, bool saving);
+typedef TopicCategoryMenuAnchorBuilder = Widget Function(
+  BuildContext context,
+  VoidCallback? openMenu,
+  bool saving,
+);
 
 class TopicCategoryMenuAnchor extends StatefulWidget {
   const TopicCategoryMenuAnchor({
@@ -154,9 +158,7 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
         categoryId: selected,
       );
       if (!mounted || !isCurrent() || error == null) return;
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      DToast.show(context, error, type: DToastType.error);
     } finally {
       // A retired picker/save must not clear a replacement operation's state.
       if (identical(_ownsTarget, ownsTarget)) {
@@ -177,8 +179,9 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
   );
 }
 
-typedef TopicCategorySearchCallback =
-    Future<List<TopicCategory>> Function(String term);
+typedef TopicCategorySearchCallback = Future<List<TopicCategory>> Function(
+  String term,
+);
 
 Future<int?> showTopicCategoryPicker({
   required BuildContext context,

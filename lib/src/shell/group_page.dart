@@ -370,8 +370,10 @@ class _GroupHeader extends StatelessWidget {
     if (await _confirmDeleteGroup(context, group) != true) return;
     final deleted = await onDeleteGroup?.call() ?? false;
     if (context.mounted && !deleted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('The group could not be deleted.')),
+      DToast.show(
+        context,
+        'The group could not be deleted.',
+        type: DToastType.error,
       );
     }
   }

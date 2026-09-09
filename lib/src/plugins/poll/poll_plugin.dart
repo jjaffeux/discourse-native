@@ -10,6 +10,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/external_link.dart';
 import '../../theme/d_icons.dart';
+import '../../ui/components/d_toast.dart';
 import 'poll.dart';
 import 'poll_card.dart';
 import 'poll_composer_editor.dart';
@@ -437,9 +438,7 @@ Future<void> removePollComposer(
 }
 
 void _pollComposerMessage(BuildContext context, String message) {
-  ScaffoldMessenger.maybeOf(
-    context,
-  )?.showSnackBar(SnackBar(content: Text(message)));
+  DToast.show(context, message);
 }
 
 class _PostPollCard extends StatelessWidget {
@@ -522,9 +521,7 @@ class _PostPollCard extends StatelessWidget {
           _ => "Couldn't save that vote.",
         };
         if (text == null) return;
-        ScaffoldMessenger.maybeOf(
-          context,
-        )?.showSnackBar(SnackBar(content: Text(text)));
+        DToast.show(context, text, type: DToastType.error);
       },
       onVoteOnWeb: postUrl == null
           ? null
@@ -552,9 +549,7 @@ class _PostPollCard extends StatelessWidget {
       return;
     }
     if (error != null) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      DToast.show(context, error, type: DToastType.error);
     }
   }
 }

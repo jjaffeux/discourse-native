@@ -1,17 +1,20 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_notices.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('each notice is shown once as a snackbar', (tester) async {
+  testWidgets('each notice is shown once as a toast', (tester) async {
     final notices = StreamController<VoiceNotice>.broadcast();
     addTearDown(notices.close);
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: VoiceNoticeHost(notices: notices.stream)),
+        home: DToaster(
+          child: Scaffold(body: VoiceNoticeHost(notices: notices.stream)),
+        ),
       ),
     );
 
@@ -25,7 +28,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.byType(Dismissible), findsOneWidget);
     expect(find.text("You've been made a speaker."), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
@@ -41,12 +44,16 @@ void main() {
     addTearDown(second.close);
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: VoiceNoticeHost(notices: first.stream)),
+        home: DToaster(
+          child: Scaffold(body: VoiceNoticeHost(notices: first.stream)),
+        ),
       ),
     );
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: VoiceNoticeHost(notices: second.stream)),
+        home: DToaster(
+          child: Scaffold(body: VoiceNoticeHost(notices: second.stream)),
+        ),
       ),
     );
     await tester.pump();

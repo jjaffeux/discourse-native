@@ -639,9 +639,8 @@ class _MobileMemberFact extends StatelessWidget {
         : relative
         ? relativeTime(value!)
         : _dateText(context, value!)}',
-    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    ),
+    style: Theme.of(context).textTheme.labelSmall
+        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
   );
 }
 
@@ -755,8 +754,10 @@ class _MemberActions extends StatelessWidget {
     }
     final saved = await onAction?.call(member, action) ?? false;
     if (context.mounted && !saved) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('The member could not be updated.')),
+      DToast.show(
+        context,
+        'The member could not be updated.',
+        type: DToastType.error,
       );
     }
   }
@@ -928,8 +929,10 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
     final result = await controller.create();
     if (!mounted || result != GroupInviteSubmission.sent) return;
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Invitation sent to $normalizedEmail.')),
+    DToast.show(
+      context,
+      'Invitation sent to $normalizedEmail.',
+      type: DToastType.success,
     );
   }
 
@@ -974,8 +977,10 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: link));
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invite link copied.')),
+                DToast.show(
+                  context,
+                  'Invite link copied.',
+                  type: DToastType.success,
                 );
               }
             },

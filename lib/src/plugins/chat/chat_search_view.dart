@@ -187,8 +187,10 @@ class _ChatSearchViewState extends State<ChatSearchView> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Could not open this chat message.')),
+      DToast.show(
+        context,
+        'Could not open this chat message.',
+        type: DToastType.error,
       );
     }
   }

@@ -702,8 +702,10 @@ class _UsersPageState extends State<UsersPage> {
     }
     final saved = await save(List.unmodifiable(result));
     if (!mounted || generation != _ownerGeneration || saved) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Couldn't update directory columns.")),
+    DToast.show(
+      context,
+      "Couldn't update directory columns.",
+      type: DToastType.error,
     );
   }
 
@@ -1314,9 +1316,8 @@ class _TableBody extends StatelessWidget {
                     ),
                     Expanded(
                       child: ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(
-                          context,
-                        ).copyWith(scrollbars: false),
+                        behavior: ScrollConfiguration.of(context)
+                            .copyWith(scrollbars: false),
                         child: ListView.builder(
                           key: const PageStorageKey('users-identity-scroll'),
                           controller: identityVertical,
@@ -1469,9 +1470,8 @@ class _TableBody extends StatelessWidget {
                                 child: Scrollbar(
                                   controller: metricsVertical,
                                   child: ScrollConfiguration(
-                                    behavior: ScrollConfiguration.of(
-                                      context,
-                                    ).copyWith(scrollbars: false),
+                                    behavior: ScrollConfiguration.of(context)
+                                        .copyWith(scrollbars: false),
                                     child: ListView.builder(
                                       key: const PageStorageKey(
                                         'users-metrics-scroll',
@@ -1964,9 +1964,8 @@ class _IdentityRow extends StatelessWidget {
                           item.user.name ?? item.user.title ?? 'Member',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: palette.faint),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: palette.faint),
                         ),
                       ],
                     ),
@@ -1995,10 +1994,8 @@ class _AvatarFallback extends StatelessWidget {
     color: palette.avatarFor(user.id),
     child: Text(
       _initials(user),
-      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-        color: palette.dark,
-        fontWeight: FontWeight.w600,
-      ),
+      style: Theme.of(context).textTheme.labelMedium
+          ?.copyWith(color: palette.dark, fontWeight: FontWeight.w600),
     ),
   );
 }
@@ -2107,18 +2104,15 @@ class _TableState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: palette.ink,
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(color: palette.ink, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 5),
           Text(
             detail,
             textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: palette.muted),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: palette.muted),
           ),
           if (progress) ...[
             const SizedBox(height: 16),
