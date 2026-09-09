@@ -1,7 +1,10 @@
 # Item implementation and pending visual review
 
 Task `01a084bf-dd8a-7c13-86dd-63f2e60d20cd`, branch `codex/ui-item`,
-base `402fe578`. Only Item progress metadata belongs to this task.
+initial base `402fe578`; integrated pinned main
+`e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` in merge `1462873c`.
+All 17 merged component owners, coordinator Group/Sidebar/Topic Inbox fixes and
+every non-Item progress row are preserved. Only Item progress metadata belongs to this task.
 The cross-thread messaging tool was not exposed; coordinator handoff is recorded
 here and in the final task response. No desktop/browser slot has been granted.
 
@@ -82,8 +85,11 @@ Thirteen actual-component examples cover Basic, Variant, Size, Icon, Avatar,
 Image, Group/Separator, Header, Link, Dropdown, RTL, all-parts Composition and
 States with independent secondary actions. All callbacks use local state.
 
-Separator and Avatar are merged dependencies. Button is the available baseline;
-its exact outline/ghost/rounded icon visuals need reconciliation after merge.
+Separator, Avatar and Button are merged dependencies. Actions now use final
+Button outline/small styling and the Avatar/Group examples use final accessible
+round outline/ghost icon-only buttons. The composition example uses final Badge
+for the member role. The fixture uses final controlled Checkboxes; the Form-state
+regression composes final DInput. No temporary radio choice exists to replace.
 Dropdown Menu remains unmerged. Its example is explicitly a temporary
 MenuAnchor/MenuItemButton composition with passive xs Items and explicit padding,
 not an implementation of the Dropdown Menu catalogue row. The owner must replace
@@ -150,3 +156,18 @@ Build provenance is recorded in `item-build.md` after the isolated build.
 Status remains **in_progress / awaiting_slot** until the coordinator grants
 serialized reference rendering and native styleguide/production-fixture review.
 No VoiceOver, iOS/Linux device, authenticated screen or pixel-parity claim is made.
+
+## Pinned-main integration preparation
+
+This bounded follow-up keeps the generic Item owner unchanged. Tags ready-row
+presentation and assignment detail presentation retain the current-main request,
+lazy list, permission and accessible-label boundaries. Final Button activation
+passes the existing independent row/secondary-action checks; the added composed
+Checkbox regression checks pointer and Space isolation. The final Input retains
+Form save/reset and edits through large-text RTL reflow.
+
+No CUA, browser, native launch, admin-policy verification retry or workaround
+was used. The Mac is locked and browser access separately denied. Rebuild
+provenance and explicit restricted-free ad-hoc entitlement readback are recorded
+in item-build.md. Actual reference/native review and Dropdown Menu composition
+remain required; this task stays in_progress / awaiting_slot.

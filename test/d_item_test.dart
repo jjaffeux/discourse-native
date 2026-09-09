@@ -138,6 +138,52 @@ void main() {
   );
 
   testWidgets(
+    'composed final Checkbox owns Space and pointer without activating its row',
+    (tester) async {
+      final checkboxFocus = FocusNode();
+      addTearDown(checkboxFocus.dispose);
+      var opened = 0;
+      var checked = false;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) => DItem(
+              onPressed: () => opened++,
+              link: true,
+              children: [
+                const DItemContent(
+                  children: [DItemTitle(child: Text('Project'))],
+                ),
+                DItemActions(
+                  children: [
+                    DCheckbox(
+                      value: checked,
+                      focusNode: checkboxFocus,
+                      semanticLabel: 'Track project',
+                      onChanged: (value) => setState(() => checked = value!),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byType(DCheckbox));
+      await tester.pump();
+      expect((opened, checked), (0, true));
+      checkboxFocus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect((opened, checked), (0, false));
+      await tester.tap(find.text('Project'));
+      await tester.pump();
+      expect((opened, checked), (1, false));
+    },
+  );
+
+  testWidgets(
     'disabled row retains independently enabled child action and no tab stop',
     (tester) async {
       final node = FocusNode();
@@ -252,7 +298,7 @@ void main() {
             ),
             Form(
               key: form,
-              child: TextFormField(
+              child: DInput(
                 initialValue: 'Initial',
                 onSaved: (value) => saved = value,
               ),
@@ -263,7 +309,7 @@ void main() {
       ],
     );
     await tester.pumpWidget(host(item));
-    await tester.enterText(find.byType(TextFormField), 'Edited');
+    await tester.enterText(find.byType(DInput), 'Edited');
     await tester.pumpWidget(
       host(item, width: 180, scale: 2, direction: TextDirection.rtl),
     );
@@ -276,7 +322,7 @@ void main() {
     expect(find.text('Initial'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('Action')).dy,
-      greaterThan(tester.getBottomLeft(find.byType(TextFormField)).dy),
+      greaterThan(tester.getBottomLeft(find.byType(DInput)).dy),
     );
   });
 

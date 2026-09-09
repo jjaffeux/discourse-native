@@ -18,11 +18,13 @@ void main() {
         150,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Topic assigned to Sam'));
       await tester.pump();
       expect(find.text('Edit assignment 1'), findsOneWidget);
       await tester.tap(find.text('Editing allowed'));
       await tester.pump();
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Topic assigned to Sam'));
       await tester.pump();
       expect(find.text('Edit assignment 1'), findsOneWidget);

@@ -57,21 +57,37 @@ class _ItemMigrationFixtureState extends State<ItemMigrationFixture> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  DButton(
-                    label: Text(_editable ? 'Editing allowed' : 'Read only'),
-                    onPressed: () => setState(() => _editable = !_editable),
+                  SizedBox(
+                    width: 160,
+                    child: DCheckbox(
+                      value: _editable,
+                      title: Text(_editable ? 'Editing allowed' : 'Read only'),
+                      onChanged: (value) => setState(() => _editable = value!),
+                    ),
                   ),
-                  DButton(
-                    label: Text(_rtl ? 'RTL' : 'LTR'),
-                    onPressed: () => setState(() => _rtl = !_rtl),
+                  SizedBox(
+                    width: 160,
+                    child: DCheckbox(
+                      value: _rtl,
+                      title: Text(_rtl ? 'RTL' : 'LTR'),
+                      onChanged: (value) => setState(() => _rtl = value!),
+                    ),
                   ),
-                  DButton(
-                    label: Text(_large ? '200%' : '100%'),
-                    onPressed: () => setState(() => _large = !_large),
+                  SizedBox(
+                    width: 160,
+                    child: DCheckbox(
+                      value: _large,
+                      title: Text(_large ? '200%' : '100%'),
+                      onChanged: (value) => setState(() => _large = value!),
+                    ),
                   ),
-                  DButton(
-                    label: Text(_dark ? 'Dark' : 'Light'),
-                    onPressed: () => setState(() => _dark = !_dark),
+                  SizedBox(
+                    width: 160,
+                    child: DCheckbox(
+                      value: _dark,
+                      title: Text(_dark ? 'Dark' : 'Light'),
+                      onChanged: (value) => setState(() => _dark = value!),
+                    ),
                   ),
                 ],
               ),

@@ -15,8 +15,8 @@ final itemExamples = ComponentExamples(
       'Use Field for editable inputs. Default and sm share padding; sm changes '
       'image and group sizing. Native large text reflows and removes clamps. '
       'At narrow widths content and actions stack. All artwork is bundled from '
-      'the reference sources. Button remains baseline; its outline/ghost variants '
-      'and round icon buttons await reconciliation. Dropdown Menu is unmerged: '
+      'the reference sources. Actions use final Button outline/ghost variants '
+      'and accessible round icon buttons. Dropdown Menu is unmerged: '
       'the Dropdown example uses an explicitly temporary MenuAnchor with actual '
       'passive Items. It is not a completed Dropdown Menu port.',
   examples: [
@@ -75,7 +75,7 @@ const _codes = {
   'Basic': """DItem(variant: DItemVariant.outline, children: [
   DItemContent(children: [DItemTitle(child: Text('Basic Item')),
     DItemDescription(child: Text('A simple item with title and description.'))]),
-  DItemActions(children: [DButton(onPressed: action, label: Text('Action'))]),
+  DItemActions(children: [DButton(variant: DButtonVariant.outline, size: DButtonSize.small, onPressed: action, label: Text('Action'))]),
 ])""",
   'Variant': """DItem(variant: DItemVariant.muted, children: [
   DItemMedia(variant: DItemMediaVariant.icon, child: inboxIcon),
@@ -92,7 +92,7 @@ const _codes = {
   DItemMedia(variant: DItemMediaVariant.icon, child: shieldAlertIcon),
   DItemContent(children: [DItemTitle(child: Text('Security Alert')),
     DItemDescription(child: Text('New login detected from unknown device.'))]),
-  DItemActions(children: [DButton(onPressed: review, label: Text('Review'))]),
+  DItemActions(children: [DButton(variant: DButtonVariant.outline, size: DButtonSize.small, onPressed: review, label: Text('Review'))]),
 ])""",
   'Avatar': """DItem(variant: DItemVariant.outline, children: [
   DItemMedia(variant: DItemMediaVariant.avatar, child: DAvatar(
@@ -101,7 +101,8 @@ const _codes = {
     fallback: DAvatarFallback(child: Text('ER')))),
   DItemContent(children: [DItemTitle(child: Text('Evil Rabbit')),
     DItemDescription(child: Text('Last seen 5 months ago'))]),
-  DItemActions(children: [DButton(onPressed: invite, label: Text('Invite'))]),
+  DItemActions(children: [DButton.iconOnly(variant: DButtonVariant.outline, size: DButtonSize.small,
+    borderRadius: BorderRadius.circular(9999), tooltip: 'Invite', icon: plusIcon, onPressed: invite)]),
 ])""",
   'Image': """DItemGroup(children: songs.map((song) => DItem(
   variant: DItemVariant.outline, link: true, onPressed: () => play(song),
@@ -136,13 +137,14 @@ MenuAnchor(menuChildren: [
       DItemContent(spacing: 0, children: [DItemTitle(child: Text('shadcn')),
         DItemDescription(height: 1, child: Text('shadcn@vercel.com'))]),
     ]))),
-], builder: (context, controller, child) => DButton(label: Text('Select'),
+], builder: (context, controller, child) => DButton(variant: DButtonVariant.outline, hasPopup: true,
+  expanded: controller.isOpen, label: Text('Select'),
   onPressed: () => controller.isOpen ? controller.close() : controller.open()))""",
   'RTL': """DDirection(textDirection: TextDirection.rtl, child: DItem(
   variant: DItemVariant.outline, children: [DItemContent(children: [
     DItemTitle(child: Text('عنصر أساسي')),
     DItemDescription(child: Text('عنصر بسيط يحتوي على عنوان ووصف.'))]),
-    DItemActions(children: [DButton(onPressed: action, label: Text('إجراء'))]),
+    DItemActions(children: [DButton(variant: DButtonVariant.outline, size: DButtonSize.small, onPressed: action, label: Text('إجراء'))]),
   ]))""",
   'Composition': """DItem(variant: DItemVariant.outline,
   header: DItemHeader(child: Text('Project membership')),
@@ -150,12 +152,12 @@ MenuAnchor(menuChildren: [
   children: [DItemMedia(child: avatar),
     DItemContent(children: [DItemTitle(child: Text('Evil Rabbit')),
       DItemDescription(child: Text('Design team'))]),
-    DItemContent(children: [DItemDescription(child: Text('Owner'))]),
-    DItemActions(children: [DButton(onPressed: manage, label: Text('Manage'))]),
+    DItemContent(children: [DBadge(variant: DBadgeVariant.secondary, child: Text('Owner'))]),
+    DItemActions(children: [DButton(variant: DButtonVariant.outline, size: DButtonSize.small, onPressed: manage, label: Text('Manage'))]),
   ])""",
   'States': """DItem(link: true, enabled: enabled, onPressed: open, children: [
   DItemContent(children: [DItemTitle(child: Text('Project'))]),
-  DItemActions(children: [DButton(onPressed: save, label: Text('Save'))]),
+  DItemActions(children: [DButton(variant: DButtonVariant.outline, size: DButtonSize.small, onPressed: save, label: Text('Save'))]),
 ]) // Disabling the row does not disable independently owned child actions.""",
 };
 
@@ -170,6 +172,7 @@ class _ItemExampleState extends State<_ItemExample> {
   String _status = '';
   void _notice(String value) => setState(() => _status = value);
   Widget _action(String label) => DButton(
+    variant: DButtonVariant.outline,
     size: DButtonSize.small,
     label: Text(label),
     onPressed: () => _notice('$label selected'),
@@ -312,10 +315,11 @@ class _ItemExampleState extends State<_ItemExample> {
             _content('Evil Rabbit', 'Last seen 5 months ago'),
             DItemActions(
               children: [
-                DButton(
+                DButton.iconOnly(
+                  variant: DButtonVariant.outline,
                   size: DButtonSize.small,
-                  label: const SizedBox.shrink(),
-                  semanticLabel: 'Invite',
+                  borderRadius: BorderRadius.circular(9999),
+                  tooltip: 'Invite',
                   icon: _icon('plus'),
                   onPressed: () => _notice('Invite selected'),
                 ),
@@ -428,9 +432,10 @@ class _ItemExampleState extends State<_ItemExample> {
                 _content(person, '$person@vercel.com'),
                 DItemActions(
                   children: [
-                    DButton(
-                      label: const SizedBox.shrink(),
-                      semanticLabel: 'Invite $person',
+                    DButton.iconOnly(
+                      variant: DButtonVariant.ghost,
+                      borderRadius: BorderRadius.circular(9999),
+                      tooltip: 'Invite $person',
                       icon: _icon('plus'),
                       onPressed: () => _notice('Invited $person'),
                     ),
@@ -534,6 +539,9 @@ class _ItemExampleState extends State<_ItemExample> {
             ),
         ],
         builder: (context, controller, _) => DButton(
+          variant: DButtonVariant.outline,
+          hasPopup: true,
+          expanded: controller.isOpen,
           label: const Text('Select'),
           icon: _icon('chevron-down'),
           onPressed: () =>
@@ -548,7 +556,9 @@ class _ItemExampleState extends State<_ItemExample> {
           DItemMedia(child: _avatar('evilrabbit')),
           _content('Evil Rabbit', 'Design team'),
           const DItemContent(
-            children: [DItemDescription(child: Text('Owner'))],
+            children: [
+              DBadge(variant: DBadgeVariant.secondary, child: Text('Owner')),
+            ],
           ),
           DItemActions(children: [_action('Manage')]),
         ],

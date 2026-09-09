@@ -1401,7 +1401,8 @@
       "branch": "codex/ui-item",
       "dependencies": [
         "separator",
-        "avatar"
+        "avatar",
+        "button"
       ],
       "acceptanceCriteria": [
         "Provide one exported reusable owner for all ten Item parts with default/outline/muted variants, default/sm/xs metrics, image/icon/avatar media, multiple content columns, full-width header/footer and group/separator compositions.",
@@ -1415,8 +1416,10 @@
       "decisions": [
         "Own Item only on main base 402fe578. Proposed migrations: TagsPage row presentation and AssignmentDetailRow; shared tags empty/error regions overlap Empty/Alert and remain untouched. Thread messaging tool absent in this task; handoff via progress/final.",
         "One generic owner exports all ten parts; full source hashes, CSS/logical metrics, semantics/layout/keyboard/native adaptations and audit are in docs/component-library/item.md.",
-        "Thirteen actual-component examples use bundled reference artwork. Button remains baseline; Dropdown uses an explicitly temporary MenuAnchor composition pending its owning branch. No unmerged dependency imported.",
-        "Source/check/build ready; awaiting_slot. Coordinator must perform actual reference comparison and native styleguide plus production fixture inspection before review_ready/merge."
+        "Thirteen actual-component examples use bundled reference artwork. Button has been reconciled with its final merged owner; Dropdown uses an explicitly temporary MenuAnchor composition pending its owning branch. No unmerged dependency imported.",
+        "Source/check/build ready; awaiting_slot. Coordinator must perform actual reference comparison and native styleguide plus production fixture inspection before review_ready/merge.",
+        "Bounded integration merges pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 via 1462873c; all 17 merged components, coordinator Group/Sidebar/Topic Inbox fixes and every non-Item progress row preserved.",
+        "Final Button outline/small and accessible round icon-only outline/ghost actions, Badge role composition, controlled Checkbox fixture settings and DInput Form regression replace applicable temporary composition. No radio choices require replacement. Dropdown Menu remains an explicit pending owner."
       ],
       "migrations": [
         "TagsPage ready rows now use exported TagDirectoryRow/DItem; lazy builder, ShellSelector, request identity, refresh, navigation, keys and count semantics remain app-owned.",
@@ -1439,8 +1442,9 @@
       ],
       "limitations": [
         "in_progress awaiting_slot: no browser/native slot granted; actual reference comparison and native styleguide/production fixture inspection remain required.",
-        "Button and Dropdown Menu example reconciliation remains explicit pending those branches; Events row candidates retained for coordinator review.",
-        "No iOS/Linux device, VoiceOver, authenticated screen or pixel-parity validation. Cross-thread messaging API unavailable in this task."
+        "Dropdown Menu composition remains explicit pending its owner; Events row candidates retained for coordinator review.",
+        "No iOS/Linux device, VoiceOver, authenticated screen or pixel-parity validation. Cross-thread messaging API unavailable in this task.",
+        "Mac locked; browser separately denied admin-policy verification. No CUA/browser/native launch, policy retry or workaround attempted during integration."
       ],
       "implementationCommit": "e792c5156c87715d2db5549ff5d35928e0e3b46e",
       "mergeCommit": null
