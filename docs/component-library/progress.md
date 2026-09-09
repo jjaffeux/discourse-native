@@ -2659,6 +2659,7 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 - Translate framework Link composition into DNavigationMenuLink callbacks, current-page active semantics and optional closeOnActivate. Flutter owns focus nodes, pointer lifecycle and logical traversal; applications retain route ownership.
 - Map Base Nova 36px triggers, 10px/6px trigger padding, 14px medium text, 12px chevron, 8px link padding, 4px panel padding, 8px side offset, 8px indicator diamond, 10%-foreground ring, shadow and 350ms cubic panel travel to logical pixels and live DTokens/DiscourseTypography.
 - Independent reviewer 01a08621-0e86-7a62-82b9-6a8eca71227f fixed true single-stop roving traversal, disabled direct-link skipping, focus-departure dismissal without focus theft, controlled removed/disabled reconciliation, controlled Escape rejection and disposed borrowed-controller safety at ca405f0ea0af334ff68cbbace953d669ee89ee55.
+- Reconciled accepted main 32770671 with the review history at f13d014b, sharing the accepted Combobox focusContentOnOpen option. A regression reproduced off-screen focused items and missing direct-link Home/End behavior; c1614d26 reveals focused items and shares arrow/Home/End navigation between triggers and direct links in LTR and RTL.
 
 **retainedAlternatives**
 
@@ -2674,6 +2675,8 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 - Exact-source isolated macOS styleguide build succeeded at /tmp/discourse-navigation-review.SF87jt/source/build/macos/Build/Products/Debug/Navigation Menu Review 43ef3bca.app with bundle ID org.discourse.navigationmenureview.r43ef3bca. Navigation Menu, Popover and example sources match review commit ca405f0e; ad-hoc permitted-debug re-sign and deep strict verification passed; kernel SHA-256 cd6886d74ae2d7e2ee582e25e961a8f3c4eee05ad1c19443c047d2d5ac905fe1.
 - Read-only core and bundled-plugin navigation audit found no suitable production migration; retained specialized owners are recorded explicitly.
 - A second FIFO desktop lease was acquired at 2026-09-09T14:38:56Z after the coordinator reported fresh native access. The first approved CUA getState call again reported that the Mac was locked and automatic unlock failed; lease 83a9d71be9a44428acd3cbf4821aa9ab was released immediately without touching the shared desktop.
+- After current-main Popover reconciliation and the c1614d26 focus fixes, all 63 Navigation Menu, Popover and Combobox component/styleguide tests passed with seed 860606. Root and full-profile analysis passed; locked resolution preserved dependency pins. The new narrow 200% LTR/RTL keyboard visibility regression failed before the fix and passed afterward.
+- Rebuilt and deep-strict verified the isolated macOS fixture after c1614d26. Navigation Menu and example sources are byte-identical to the reviewed branch; Popover differs only in its focus-option documentation. Updated kernel SHA-256: 1dc4b912bf86c1c4af20ac4923465c7f20c3aed20c9e2a43728ca8efb543bc66.
 
 **limitations**
 
