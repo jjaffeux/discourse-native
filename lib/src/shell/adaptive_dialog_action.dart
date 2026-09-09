@@ -1,7 +1,6 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-
-import '../theme/d_button.dart';
 
 Future<T?> showDiscourseDialog<T>({
   required BuildContext context,

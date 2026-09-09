@@ -142,6 +142,7 @@ dev_dependencies:
   share_plus_platform_interface: 7.2.0
 
   flutter_lints: ^6.0.0
+  shared_preferences_platform_interface: any
 flutter:
   uses-material-design: true
   assets:

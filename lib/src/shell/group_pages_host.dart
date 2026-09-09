@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/group.dart';
 import '../models/group_route.dart';
 import '../plugin_api/plugin_registry.dart';
-import '../theme/d_button.dart';
 import 'group_page.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_port.dart';
