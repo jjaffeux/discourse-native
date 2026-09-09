@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**31 of 64 components are merged locally.** 13 existing components are in progress; 20 are planned.
+**31 of 64 components are merged locally.** 14 existing components are in progress; 19 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -16,6 +16,7 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
+| toggle-group | Implementation and checks | — | — |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
 | tabs | independent review | fcb0e06f | 01a08581-d666-7f81-b039-f9caae6c45c2 |
@@ -49,7 +50,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | merged | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | a492253dc0abaed3f424df1b59c5a11b266d5b60 |
-| 16 | toggle-group | planned | — | — | toggle | — |
+| 16 | toggle-group | in_progress | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
@@ -1149,6 +1150,22 @@ Status: merged. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/ui-tog
 
 - No physical iOS/Linux device run or spoken VoiceOver verification was performed.
 - Browser and native font rasterizers differ; review establishes measured geometry, palette mapping and behavior rather than pixel equality. The final native bundle is source-specific to d39eb0f3; the subsequent latest-main merge did not touch Toggle, its tokens/theme, Voice adapter or review fixture.
+
+### toggle-group
+
+Status: in_progress. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Toggle Group API and Composition, Outline, Size, Spacing, Vertical, Disabled, Custom and RTL examples, including the documented default-spacing change and exact primary-source mapping.
+- Compose accepted DToggle with clear single/multiple controlled/local/controller selection ownership, documented deselection, dynamic items, orientation/roving navigation, disabled state and native pressed semantics; preserve measured Toggle artwork and independent action boundaries.
+- Support live palette/font/radius, keyboard and touch, visible focus, narrow/scaled/RTL layouts and reduced motion without resetting state; coordinate shared joined-edge needs and final Field composition with their owners.
+- Audit and migrate appropriate core/plugin pressed selection groups, including the pending composer gallery grid/carousel selector, preserving domain callbacks and editor/gallery state; document all retained alternatives.
+- Pass meaningful focused component/consumer tests and root/full-profile analysis, prepare exact-source fixtures and create a new independent reviewer for required rendered/native acceptance, final compositions, fixes and local main merge.
+
+**decisions**
+
+- Started from accepted current main after Toggle merge a492253d and Carousel merge 3ec0c089. Two completed reviewer tasks freed capacity for a fifth independent source implementation; the implementer creates its own new review/merge task.
 
 ### slider
 

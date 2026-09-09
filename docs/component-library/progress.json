@@ -1038,14 +1038,22 @@
     },
     {
       "id": "toggle-group",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085ce-ca89-7af3-8375-946721be90c6",
+      "branch": "codex/ui-toggle-group",
       "dependencies": [
         "toggle"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Toggle Group API and Composition, Outline, Size, Spacing, Vertical, Disabled, Custom and RTL examples, including the documented default-spacing change and exact primary-source mapping.",
+        "Compose accepted DToggle with clear single/multiple controlled/local/controller selection ownership, documented deselection, dynamic items, orientation/roving navigation, disabled state and native pressed semantics; preserve measured Toggle artwork and independent action boundaries.",
+        "Support live palette/font/radius, keyboard and touch, visible focus, narrow/scaled/RTL layouts and reduced motion without resetting state; coordinate shared joined-edge needs and final Field composition with their owners.",
+        "Audit and migrate appropriate core/plugin pressed selection groups, including the pending composer gallery grid/carousel selector, preserving domain callbacks and editor/gallery state; document all retained alternatives.",
+        "Pass meaningful focused component/consumer tests and root/full-profile analysis, prepare exact-source fixtures and create a new independent reviewer for required rendered/native acceptance, final compositions, fixes and local main merge."
+      ],
+      "decisions": [
+        "Started from accepted current main after Toggle merge a492253d and Carousel merge 3ec0c089. Two completed reviewer tasks freed capacity for a fifth independent source implementation; the implementer creates its own new review/merge task."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -2953,7 +2961,7 @@
   "workflow": {
     "updatedAt": "2026-09-09T10:26:30+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
-    "maxConcurrentComponentTasks": 4,
+    "maxConcurrentComponentTasks": 5,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
     "mergePolicy": "Each component reviewer reviews, fixes, verifies and merges directly from the main checkout under the shared main lease; no coordinator approval gate.",
     "nativeInspectionPolicy": "Reviewers acquire the shared desktop lease directly; busy requests join a first-come, first-served queue, retries preserve position, and callers release held leases or cancel waiting requests before ending a turn.",
@@ -3130,6 +3138,13 @@
           "implementationTaskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
           "implementationBranch": "codex/ui-accordion",
           "headCommit": "42e6cc265ba2875c91af2a8cb22dd443cb80786c"
+        },
+        {
+          "component": "toggle-group",
+          "taskId": "01a085ce-ca89-7af3-8375-946721be90c6",
+          "branch": "codex/ui-toggle-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3394/discourse-native",
+          "status": "implementation"
         }
       ],
       "nativeReadyTasks": []
@@ -3150,7 +3165,7 @@
       "resolution": "After the user unlock update, fresh native Switch CUA inspection succeeded. Coordinator viewed actual size-default-focus.png and matching accessibility tree from3243a88c, including on/off switch states in the updated styleguide."
     },
     "pendingCoordinatorNativeReview": null,
-    "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
+    "implementationQueuePolicy": "Use up to five running source implementation tasks as accepted dependencies or recorded prepared parent sources become available. Each implementer creates an independent reviewer that owns remaining acceptance and local merge. Prepared source does not satisfy rendered/native or accepted-parent gates. Desktop inspection uses the FIFO lease; main-checkout mutations use the separate exclusive main lease.",
     "browserInspectionTaskId": null,
     "browserInspectionPolicy": "Coordinator grants one serialized browser inspection slot at a time after access is restored. Browser navigation currently denied because admin-enforced security policy could not be verified; no retry or alternate route while blocked.",
     "pendingSourceReviews": {
