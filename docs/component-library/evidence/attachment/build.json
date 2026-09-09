@@ -1,0 +1,38 @@
+{
+  "component": "attachment",
+  "status": "built_not_launched",
+  "sourceCommit": "259f038d4f5b4acc27ba29f5dc46c2b6544efb0b",
+  "implementationCommit": "48f552a19d64faf3f4fed6763dc5937b5e9c8d7b",
+  "integratedMainCommit": "5a26e5713719988f69930a7f02b3373b530d050a",
+  "target": "lib/attachment_review_main.dart",
+  "buildCommand": "flutter build macos --debug --no-pub -t lib/attachment_review_main.dart",
+  "bundle": "/private/tmp/DiscourseAttachmentReview39d9-259f038d.app",
+  "bundleIdentifier": "org.discourse.native.attachmentreview39d9.r259f038d",
+  "bundleName": "Attachment Review 39d9",
+  "urlScheme": "discourse-attachment-review-39d9",
+  "kernelSha256": "19235b03ef7b1892cbfd15e69e3816538c3689fca5d736c269b48231916c747a",
+  "kernelAgreement": [
+    "build/macos/Build/Products/Debug/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin",
+    "/private/tmp/DiscourseAttachmentReview39d9-259f038d.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin"
+  ],
+  "signature": "codesign --verify --deep --strict passed after isolated ad-hoc signing",
+  "entitlements": {
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.cs.allow-unsigned-executable-memory": true,
+    "com.apple.security.cs.disable-library-validation": true
+  },
+  "excludedEntitlements": [
+    "com.apple.application-identifier",
+    "com.apple.developer.aps-environment",
+    "com.apple.developer.team-identifier",
+    "com.apple.security.device.audio-input",
+    "com.apple.security.device.camera"
+  ],
+  "nativeLaunchPerformed": false,
+  "browserComparisonPerformed": false,
+  "notes": [
+    "The original worktree build was never launched. Its existing repository signing configuration was not changed.",
+    "The copied review artifact alone received a unique bundle identity, URL scheme, and explicit ad-hoc debug entitlements.",
+    "The reviewer must rebuild if accepted Dialog/current-main integration or any component, fixture, adoption, or shared scrolling source changes."
+  ]
+}

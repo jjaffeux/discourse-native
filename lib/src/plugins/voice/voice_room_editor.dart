@@ -13,9 +13,10 @@ Future<void> showVoiceRoomEditor(
   VoiceController? controller,
   VoiceController Function()? controllerResolver,
 }) async {
-  final result = await showDialog<VoiceRoomDraft>(
+  final result = await showDDialog<VoiceRoomDraft>(
     context: context,
-    builder: (context) => _VoiceRoomEditorDialog(room: room),
+    builder: (context, dialog) =>
+        _VoiceRoomEditorDialog(room: room, dialog: dialog),
   );
   if (result == null || !context.mounted) return;
   await (controllerResolver?.call() ??
@@ -28,9 +29,10 @@ Future<void> showVoiceRoomEditor(
 /// animation has removed the form. Disposing these controllers in the caller
 /// at that point leaves the outgoing text fields listening to dead objects.
 class _VoiceRoomEditorDialog extends StatefulWidget {
-  const _VoiceRoomEditorDialog({required this.room});
+  const _VoiceRoomEditorDialog({required this.room, required this.dialog});
 
   final VoiceRoom? room;
+  final DDialogController<VoiceRoomDraft> dialog;
 
   @override
   State<_VoiceRoomEditorDialog> createState() => _VoiceRoomEditorDialogState();
@@ -67,11 +69,22 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(_room == null ? 'Create voice room' : 'Edit voice room'),
-    content: SizedBox(
-      width: 420,
-      child: SingleChildScrollView(
+  Widget build(BuildContext context) => DDialogContent(
+    showCloseButton: false,
+    maxWidth: 452,
+    semanticLabel: _room == null ? 'Create voice room' : 'Edit voice room',
+    children: [
+      DDialogHeader(
+        children: [
+          DDialogTitle(
+            child: Text(
+              _room == null ? 'Create voice room' : 'Edit voice room',
+            ),
+          ),
+        ],
+      ),
+      DDialogScrollArea(
+        maxHeightFactor: .65,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -144,22 +157,26 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
           ],
         ),
       ),
-    ),
-    actions: [
-      DButton(
-        onPressed: () => Navigator.pop(context),
-        label: const Text('Cancel'),
-      ),
-      DButton(
-        onPressed: _name.text.trim().isEmpty ? null : _save,
-        label: const Text('Save'),
-        variant: DButtonVariant.primary,
+      DDialogFooter(
+        children: [
+          DDialogClose<VoiceRoomDraft>(
+            builder: (context, close) => DButton(
+              onPressed: close,
+              label: const Text('Cancel'),
+              variant: DButtonVariant.outline,
+            ),
+          ),
+          DButton(
+            onPressed: _name.text.trim().isEmpty ? null : _save,
+            label: const Text('Save'),
+            variant: DButtonVariant.primary,
+          ),
+        ],
       ),
     ],
   );
 
-  void _save() => Navigator.pop(
-    context,
+  void _save() => widget.dialog.close(
     VoiceRoomDraft(
       name: _name.text.trim(),
       description: _description.text.trim(),
