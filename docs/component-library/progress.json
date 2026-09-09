@@ -2571,14 +2571,54 @@
       ],
       "decisions": [
         "Frozen Markdown SHA256 df168dd44f709ddb768995fbab0188c1934b6e95def1ba3726adf4f9302714b7 verified on 2026-09-09. Base-nova registry source SHA256 5e7a33d921824d659494dc90411393cdf795c0ad5c94631da5c2883924623350 supplies the exact visual mapping.",
-        "Prepare Dropdown and Collapsed menu composition against the tested Dropdown Menu review candidate d273c27e788bb3991c773c7432e0b8c927715651; final Breadcrumb review remains gated on Dropdown Menu acceptance and current-main reconciliation."
+        "Prepare Dropdown and Collapsed menu composition against the tested Dropdown Menu review candidate d273c27e788bb3991c773c7432e0b8c927715651; final Breadcrumb review remains gated on Dropdown Menu acceptance and current-main reconciliation.",
+        "Map the registry's 14/20 normal text, 6px list gaps, 4px item gaps, 14px logical chevron and 20px/16px ellipsis exactly. Default wrapping follows the source; DBreadcrumbOverflow.scroll is an explicit native extension for paths that must stay intact and brings focused links into view.",
+        "DBreadcrumbLink owns hover/focus styling, link semantics and pointer/Return/Space activation. DBreadcrumbLink.route<T> preserves typed destinations and an optional adapter wraps the sole interactive surface instead of creating duplicate roles. Null callbacks are disabled and borrowed focus nodes are not disposed.",
+        "DBreadcrumbPage maps aria-current page to a selected, disabled link semantic node because Flutter has no distinct current-page flag. Separators and ellipses are excluded from semantics; an interactive ellipsis is labeled by its Button/Dropdown trigger.",
+        "Desktop links keep the 20px reference line box. iOS/Android links expand to 48px interaction bounds while retaining the same text metrics. Live DTokens/font/direction and reduced motion are resolved during build; no palette or animation controller is cached.",
+        "Independent reviewer 01a08623-9d6e-7393-b3e8-fb4c402b8c71 owns remaining fixes, official browser/native acceptance, accepted Dropdown reconciliation and the final local-main merge directly."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "migrations": [
+        "topic_list_view.dart: the genuine parent-category to category path in topic rows now composes DBreadcrumb, DBreadcrumbList, DBreadcrumbItem and DBreadcrumbSeparator while preserving LinkTarget tertiary navigation, rich category badges, controller callbacks, labels, ellipsis behavior and app data ownership. Dense-row 1.5px list spacing preserves the former 17px link separation around the new 14px artwork."
+      ],
+      "retainedAlternatives": [
+        "CategoryHeaderIdentity retains its compound flexible toolbar: the parent is an ellipsized action while the current title may itself open a menu and carry trailing controls. Treating that interactive current title as a disabled BreadcrumbPage would create false semantics and break its flex contract.",
+        "Topic taxonomy parent/child labels remain one picker value/disclosure, and Instance Sidebar hierarchy remains a tree. Neither represents a navigation path to a current resource.",
+        "User Menu, Aggregate, Group Activity, diagnostic and Voice event row chevrons are drill-in affordances. Chat/topic inbox back and previous/next, composer paging, lightbox/image navigation and diagnostic detail headers remain their existing step/back controls; no breadcrumb hierarchy was invented.",
+        "No additional genuine breadcrumb owner was found across bundled plugins, profile packages or compatibility packages."
+      ],
+      "verification": [
+        "Official frozen Markdown hash matched catalogue exactly. Base-nova registry response and linked main example source were read and hashed; complete source mapping and audit are recorded in docs/component-library/breadcrumb.md.",
+        "flutter pub get --enforce-lockfile passed in root and profiles/full without lockfile or Flutter pin changes.",
+        "flutter test --no-pub test/ui/d_breadcrumb_test.dart test/styleguide/breadcrumb_examples_test.dart --test-randomize-ordering-seed=826145: 12 passed, covering exact metrics/gaps/artwork, pointer/Return/Space, disabled/current semantics, typed adapters, borrowed focus, touch bounds, RTL, narrow wrapping, scrolling focus, reduced motion and collapsed-menu keyboard selection/restoration.",
+        "flutter test --no-pub test/ui/d_breadcrumb_test.dart test/styleguide/breadcrumb_examples_test.dart test/d_dropdown_menu_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=826145: 44 passed, covering the accepted-style Dropdown composition and complete styleguide shell.",
+        "Focused topic_reading_integration_test.dart cases 'a long category name ellipsizes instead of overflowing' and 'topic rows link each category in an embedded breadcrumb' each passed after migration. A broader randomized file run also exposed one unrelated existing New Topic failure and is not counted as Breadcrumb verification.",
+        "Root and profiles/full flutter analyze --no-pub passed clean; all touched Dart files format clean and git diff --check passed.",
+        "flutter build macos --debug --no-pub -t tool/breadcrumb_review_main.dart succeeded. Offline fixture kernel SHA256 ebac37bd057d395823aa3344e2d8d5bf9a68a8993418fb41b78c925bb79b1e67; source files are d_breadcrumb 41ab03dd507d62231796b571c62ac1f16ca0cbf86fb963e2d18dc0215028b426, examples c9461486257493f2414bcad198e68fa5300cd78e3c6b83248ab7146b3f920dff and fixture 3492089cfbf4cc5878673ad0ad71be100f977f0cf2f69359a841c3b33c6dfbbb. Build success is not native inspection."
+      ],
+      "limitations": [
+        "Official browser rendering and real macOS inspection remain required and are owned by the independent reviewer; this implementation task makes no browser/native acceptance claim.",
+        "No spoken VoiceOver, iOS device or Linux device inspection is claimed. Widget target-platform checks cover 48px touch adaptation but are not device tests.",
+        "Dropdown Menu was still unaccepted at handoff. Breadcrumb's reviewer must wait for its accepted local-main merge, reconcile the final revision and verify affected Dropdown/Collapsed behavior before merging."
+      ],
+      "implementationCommit": "cb039ee3072c993c80af945d4be6cda73ff32f80",
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "dropdown-menu",
+          "branch": "codex/review-dropdown-menu-candidate",
+          "commit": "d273c27e788bb3991c773c7432e0b8c927715651",
+          "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+          "evidence": "Exact candidate passed 47 focused Dropdown/Popover/Table/styleguide tests with seed 826145 and clean root/full analysis before Breadcrumb source preparation. Official browser/native acceptance and final merge remained pending.",
+          "mergeGate": "Wait for Dropdown Menu acceptance on local main, verify the prepared pin ancestry or reconcile accepted corrections, and rerun Breadcrumb Dropdown/Collapsed behavior before final merge."
+        }
+      ],
+      "reviewTaskId": "01a08623-9d6e-7393-b3e8-fb4c402b8c71",
+      "reviewBranch": "codex/review-breadcrumb",
+      "reviewStatus": "in_progress",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ebb3/discourse-native",
+      "clientThreadId": "client-new-thread:7f9bdf00-33b2-4ed8-a22c-1a6c97e99400",
+      "reviewHandoffCommit": null
     },
     {
       "id": "pagination",
