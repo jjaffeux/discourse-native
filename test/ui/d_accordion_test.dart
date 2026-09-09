@@ -430,6 +430,23 @@ void main() {
         tester.getSize(find.byKey(const ValueKey('trigger-a'))).height,
         40,
       );
+      final pointer = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('trigger-a'))),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<Opacity>(
+              find.descendant(
+                of: find.byKey(const ValueKey('trigger-a')),
+                matching: find.byType(Opacity),
+              ),
+            )
+            .opacity,
+        1,
+      );
+      await pointer.cancel();
+      await tester.pump();
       expect(
         tester.getSize(find.byType(DAccordionContent).first).height,
         greaterThan(20),

@@ -415,7 +415,7 @@ class DAccordionTrigger extends StatelessWidget {
       focusRingWidth: 3,
       focusRingOpacity: .5,
       builder: (context, state) => Opacity(
-        opacity: state.disabled ? .5 : (state.pressed ? .82 : 1),
+        opacity: state.disabled ? .5 : 1,
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: touch ? 48 : 40),
           child: Padding(
