@@ -1038,7 +1038,7 @@
     },
     {
       "id": "toggle-group",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a085ce-ca89-7af3-8375-946721be90c6",
       "branch": "codex/ui-toggle-group",
       "dependencies": [
@@ -2003,6 +2003,7 @@
       ],
       "implementationCommit": "c03c39b5bf037e33dd84e86db6216ee3b7febaa9",
       "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/02bf/discourse-native",
       "reviewStatus": "in_progress",
       "reviewTaskId": "01a08619-dc41-7213-a887-5afb891b99da",
       "reviewBranch": "codex/review-hover-card"
