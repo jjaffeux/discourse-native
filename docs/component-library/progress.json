@@ -3399,7 +3399,7 @@
     },
     {
       "id": "date-picker",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08606-ca30-7bc1-8e27-69575273d443",
       "branch": "codex/ui-date-picker",
       "dependencies": [
@@ -3435,7 +3435,8 @@
         "Official browser inspection covered all eight Base UI examples in light and dark, including the open Basic calendar, the two-month range, date-of-birth captions, strict Input, empty-date Time, deterministic September 11 Natural Language result and interactive Arabic/Hebrew RTL selector.",
         "Source-exact macOS inspection covered all eight examples and the production Local Date composer across light, dark, Forest and Plum palettes, 720/360 widths, 100/200% text, LTR/RTL and reduced motion. Pointer selection, focus restoration, Escape dismissal, range display and localized RTL calendar behavior were exercised.",
         "The final current-main candidate passed 107 randomized Date Picker, Calendar, Popover, Input Group, Input, Field, Local Date and event-calendar tests with seed 202609095. Locked dependency resolution, formatting, diff checks and root/profiles-full flutter analyze --no-pub were clean.",
-        "The final isolated macOS candidate is /private/tmp/discourse-date-picker-final-candidate.DcP7in/Date Picker Review Candidate.app with bundle identifier org.discourse.native.date-picker-review-candidate-11aa; deep strict ad-hoc verification passed. App.framework SHA256 is fa6887ef6cae7bf7654116b6940eefab52bc1a8d9b52f3d2d25ffb66d27ec432."
+        "The final isolated macOS candidate is /private/tmp/discourse-date-picker-final-candidate.DcP7in/Date Picker Review Candidate.app with bundle identifier org.discourse.native.date-picker-review-candidate-11aa; deep strict ad-hoc verification passed. App.framework SHA256 is fa6887ef6cae7bf7654116b6940eefab52bc1a8d9b52f3d2d25ffb66d27ec432.",
+        "The repository main checkout merged the reviewed candidate with --no-ff as 593bcc83a943ceafdf5d73804b4c8171fabaace9. No remote push, release or provisioning action was performed."
       ],
       "limitations": [
         "No physical iOS/Linux device or spoken VoiceOver verification was performed; widget coverage verifies the iOS 48px action target and semantic/keyboard contracts.",
@@ -3443,7 +3444,7 @@
         "Native geometry and interaction inspection preceded the data-only correction that changed Time to an empty initial date and froze Natural Language at September 11, 2026. A dedicated rendered widget regression verifies those exact final values, and the corrected source was rebuilt and signed in the final isolated candidate."
       ],
       "implementationCommit": "f980b6f5c7e0e0a0fe2888f6f3c1a1f4f563421e",
-      "mergeCommit": null,
+      "mergeCommit": "593bcc83a943ceafdf5d73804b4c8171fabaace9",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/51f7/discourse-native",
       "implementationBrief": "Implement full reference Date Picker Composition, Basic, Range Picker, Date of Birth, Input, Time Picker, Natural Language Picker and RTL examples. New explicit user requirement: Calendar MUST use the existing kalender package (pinned 0.29.1) and share the styleguide theme. Compose that Kalender-backed Calendar API; do not introduce a separate handwritten calendar engine, a competing date-picker package, or leave a temporary calendar accepted. Calendar owner is 01a085fd-5d83-79c3-b598-bd3ffc5b366e on codex/ui-calendar. Begin reference/API planning and app audit now, agree the API directly, then use its committed tested source when available; final merge requires accepted Calendar. Keep field text/parsing/formatting, typed value/range/timezone and popup/open/focus/Form lifecycle clear, handle bounds/disabled dates/leap/DST/invalid input and locale, and implement meaningful deterministic natural-language behavior or an explicit adapter meeting the example rather than a static demo. Reuse final Popover/Input/Field/Input Group owners. Audit real date/time inputs and retain domain scheduling, validation and async state in adapters.",
       "dispatchReference": {
@@ -3507,7 +3508,7 @@
       "reviewBranch": "codex/review-date-picker",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native",
       "reviewHandoffCommit": "bb6072283237d82ff9d95eeef62b5938f0940cf2",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewedBranchHead": "d673b077bb452963f3082f83919a9b8359ef8e68",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed",

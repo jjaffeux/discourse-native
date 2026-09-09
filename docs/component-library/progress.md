@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**53 of 64 components are merged locally.** 11 existing components are in progress; 0 are planned.
+**54 of 64 components are merged locally.** 10 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -22,7 +22,6 @@ Branch preparation does not mark a component merged or visually verified.
 | menubar | independent review | 10b63f75 | 01a08628-7042-7173-a37d-7f1f04eade66 |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
-| date-picker | independent review | bb607228 | 01a086a1-dd61-77d1-ae4f-a09fa87ff595 |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
@@ -82,7 +81,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
 | 49 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
 | 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
-| 51 | date-picker | review_ready | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
+| 51 | date-picker | merged | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | 593bcc83a943ceafdf5d73804b4c8171fabaace9 |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | merged | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | d454c8f62fb4ab8718b3a32b2743556f2f78609d |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
@@ -2793,7 +2792,7 @@ Status: merged. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-cal
 
 ### date-picker
 
-Status: review_ready. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/ui-date-picker.
+Status: merged. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/ui-date-picker.
 
 **acceptanceCriteria**
 
@@ -2829,6 +2828,7 @@ Status: review_ready. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/
 - Source-exact macOS inspection covered all eight examples and the production Local Date composer across light, dark, Forest and Plum palettes, 720/360 widths, 100/200% text, LTR/RTL and reduced motion. Pointer selection, focus restoration, Escape dismissal, range display and localized RTL calendar behavior were exercised.
 - The final current-main candidate passed 107 randomized Date Picker, Calendar, Popover, Input Group, Input, Field, Local Date and event-calendar tests with seed 202609095. Locked dependency resolution, formatting, diff checks and root/profiles-full flutter analyze --no-pub were clean.
 - The final isolated macOS candidate is /private/tmp/discourse-date-picker-final-candidate.DcP7in/Date Picker Review Candidate.app with bundle identifier org.discourse.native.date-picker-review-candidate-11aa; deep strict ad-hoc verification passed. App.framework SHA256 is fa6887ef6cae7bf7654116b6940eefab52bc1a8d9b52f3d2d25ffb66d27ec432.
+- The repository main checkout merged the reviewed candidate with --no-ff as 593bcc83a943ceafdf5d73804b4c8171fabaace9. No remote push, release or provisioning action was performed.
 
 **limitations**
 
