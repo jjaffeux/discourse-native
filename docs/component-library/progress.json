@@ -2368,79 +2368,6 @@
       "reviewBranch": "codex/review-field-final"
     },
     {
-      "id": "input-group",
-      "status": "merged",
-      "taskId": "01a085af-d606-7281-ac25-34c83adc855e",
-      "branch": "codex/ui-input-group",
-      "dependencies": [
-        "input",
-        "textarea",
-        "button",
-        "kbd",
-        "spinner",
-        "field",
-        "dropdown-menu",
-        "popover"
-      ],
-      "acceptanceCriteria": [
-        "Reproduce the frozen Base UI/base-nova Input Group documented composition, addon alignments, icon/text/button/Kbd/Dropdown/Spinner/Textarea/custom-input/RTL examples and complete public API; record source hashes and visual/behavior mapping.",
-        "Compose final shared DInput, DTextarea, DButton, DKbd and DSpinner owners with unified surfaces, precise focus/error geometry, independent addon actions, bounded native editor semantics and preserved controller/Form/focus/IME lifecycle.",
-        "Support live host palettes/font/radius, keyboard and touch, narrow/scaled/RTL layouts and reduced motion; demonstrate every documented state and required final-owner composition.",
-        "Audit and migrate appropriate core/plugin compound fields and existing prototype compositions, preserving domain behavior; coordinate Empty, Field and Button Group directly and document retained alternatives.",
-        "Run meaningful focused component/consumer tests and root/full-profile analysis, prepare source-exact production fixtures, then create a new reviewer to complete official browser/native acceptance and local main merge. Every prepared dependency must first be accepted and merged in main."
-      ],
-      "decisions": [
-        "Source preparation overlapped Textarea review using pinned committed source; final review reconciled the accepted Textarea parent from main before acceptance.",
-        "DInputGroup owns only the joined exterior surface and focus/invalid/disabled state. DInputGroupInput and DInputGroupTextarea retain native editing, selection, IME, controller, Form and focus ownership; addons and nested buttons retain independent actions and semantics.",
-        "FocusNode listeners repaint the exterior ring and are removed on replacement/disposal. Group-disabled state dims and excludes composed editors from interaction/focus. The mobile 48px wrapper focuses the editor from outer touch bands without stealing descendant button actions.",
-        "Grouped DInput and DTextarea suppress their standalone label/helper/error/counter blocks. Accepted DField metadata surrounds the group without DFieldControl wrapping multiple independent controls.",
-        "The accepted Dropdown Menu/Popover composition uses the menu trigger's own focus node and external expanded semantics; opening or selecting a menu item does not replace the editable control or its value ownership.",
-        "Independent reviewer 01a085d3-1acf-7361-9dc8-fc4a99de7c45 accepted the implementation source 30078b3bf4e4eac96411c19c3bc16b2732ceff59 after source fixes, final-owner reconciliation, official browser/native inspection and the complete affected verification matrix."
-      ],
-      "migrations": [
-        "Chat global search, channel message search and thread message search compose public DInputGroup while preserving their controllers, keys, focus, clear actions, keyboard behavior and navigation state.",
-        "Spinner's Input Group example now composes public DInputGroup and preserves its documented validation/loading surface.",
-        "Empty's functional search example now composes DField metadata and public DInputGroup while preserving Form validation, save, submission, reset and local state."
-      ],
-      "retainedAlternatives": [
-        "Multiline/rich composers, domain-specific selection controls and standalone DInput/DTextarea fields remain with their specialized owners; Input Group does not absorb their lifecycle or presentation."
-      ],
-      "verification": [
-        "Official frozen-reference browser review passed in light/dark themes for all nine actual styleguide examples; exact-bundle native macOS review passed styleguide/default/alignment/buttons/Form/RTL/360px and 200% scaling plus all three Chat search migrations. Evidence is recorded in docs/component-library/evidence/input-group/native-review.md and native-preparation.json.",
-        "Final affected matrix passed 290 tests: flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart test/styleguide/spinner_examples_test.dart test/styleguide/empty_examples_test.dart test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart test/ui/d_field_test.dart test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_popover_test.dart test/chat_navigation_test.dart test/chat_shell_integration_test.dart --test-randomize-ordering-seed=314159265.",
-        "Accepted Input API and Chat reconciliation passed 210 tests with randomization seed 42424242; Field/Empty reconciliation and focused Dropdown composition tests also passed independently.",
-        "flutter analyze --no-pub passed; profiles/full flutter analyze --no-pub passed; git diff --check passed."
-      ],
-      "limitations": [
-        "Native inspection was performed on macOS; physical iOS/Android devices, Linux and spoken VoiceOver output were not run. Widget tests cover touch targets, keyboard/focus, semantics, RTL and narrow/200% layouts.",
-        "No automated pixel-diff baseline was produced; geometry and state comparisons were inspected against the frozen official browser reference."
-      ],
-      "implementationCommit": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
-      "mergeCommit": "d1de717b1e2d1eeaf06d86dafe1452662d05e368",
-      "preparedDependencies": [
-        {
-          "id": "textarea",
-          "branch": "codex/review-textarea",
-          "commit": "4ca5aaa85681ced6dd2668a8158b7551ee176f73",
-          "reviewTaskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
-          "evidence": "Clean committed source/API with repeated 163-test affected runs and root/full analysis passing; official browser and native macOS inspection completed. Acceptance-only styleguide metadata is source-equivalent to the inspected component and production fixtures. Textarea merged through 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3.",
-          "mergeGate": "Parent is accepted on local main at 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
-          "acceptedMergeCommit": "6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3"
-        }
-      ],
-      "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
-      "reviewBranch": "codex/review-input-group",
-      "reviewStatus": "merged",
-      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/478c/discourse-native",
-      "reviewHandoffCommit": "bc39e7f4ffab614dad82b13f6b5ad749869fc6fa",
-      "reviewedBranchHead": "1be0f0c50ed93127b04b46170ee3edf03bdb30fb",
-      "nativeInspectionStatus": "passed",
-      "dependencyCoordination": [
-        "Button Group reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 owns replacing only its labeled local Input Group handoff fixture with public DInputGroup after this merge, preserving its complete example surface.",
-        "Calendar reviewer 01a08631-7574-70b0-a98f-4e7217e03209 and Combobox reviewer 01a08628-7889-7dd2-a93c-c854fcdf1e9a may reconcile against this accepted public API after the merge and tracking commits are recorded."
-      ]
-    },
-    {
       "id": "button-group",
       "status": "in_progress",
       "taskId": "01a08581-831f-7751-b714-096b5aebf86a",
@@ -2761,6 +2688,79 @@
       "nativeReviewStatus": "completed",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed"
+    },
+    {
+      "id": "input-group",
+      "status": "merged",
+      "taskId": "01a085af-d606-7281-ac25-34c83adc855e",
+      "branch": "codex/ui-input-group",
+      "dependencies": [
+        "input",
+        "textarea",
+        "button",
+        "kbd",
+        "spinner",
+        "field",
+        "dropdown-menu",
+        "popover"
+      ],
+      "acceptanceCriteria": [
+        "Reproduce the frozen Base UI/base-nova Input Group documented composition, addon alignments, icon/text/button/Kbd/Dropdown/Spinner/Textarea/custom-input/RTL examples and complete public API; record source hashes and visual/behavior mapping.",
+        "Compose final shared DInput, DTextarea, DButton, DKbd and DSpinner owners with unified surfaces, precise focus/error geometry, independent addon actions, bounded native editor semantics and preserved controller/Form/focus/IME lifecycle.",
+        "Support live host palettes/font/radius, keyboard and touch, narrow/scaled/RTL layouts and reduced motion; demonstrate every documented state and required final-owner composition.",
+        "Audit and migrate appropriate core/plugin compound fields and existing prototype compositions, preserving domain behavior; coordinate Empty, Field and Button Group directly and document retained alternatives.",
+        "Run meaningful focused component/consumer tests and root/full-profile analysis, prepare source-exact production fixtures, then create a new reviewer to complete official browser/native acceptance and local main merge. Every prepared dependency must first be accepted and merged in main."
+      ],
+      "decisions": [
+        "Source preparation overlapped Textarea review using pinned committed source; final review reconciled the accepted Textarea parent from main before acceptance.",
+        "DInputGroup owns only the joined exterior surface and focus/invalid/disabled state. DInputGroupInput and DInputGroupTextarea retain native editing, selection, IME, controller, Form and focus ownership; addons and nested buttons retain independent actions and semantics.",
+        "FocusNode listeners repaint the exterior ring and are removed on replacement/disposal. Group-disabled state dims and excludes composed editors from interaction/focus. The mobile 48px wrapper focuses the editor from outer touch bands without stealing descendant button actions.",
+        "Grouped DInput and DTextarea suppress their standalone label/helper/error/counter blocks. Accepted DField metadata surrounds the group without DFieldControl wrapping multiple independent controls.",
+        "The accepted Dropdown Menu/Popover composition uses the menu trigger's own focus node and external expanded semantics; opening or selecting a menu item does not replace the editable control or its value ownership.",
+        "Independent reviewer 01a085d3-1acf-7361-9dc8-fc4a99de7c45 accepted the implementation source 30078b3bf4e4eac96411c19c3bc16b2732ceff59 after source fixes, final-owner reconciliation, official browser/native inspection and the complete affected verification matrix."
+      ],
+      "migrations": [
+        "Chat global search, channel message search and thread message search compose public DInputGroup while preserving their controllers, keys, focus, clear actions, keyboard behavior and navigation state.",
+        "Spinner's Input Group example now composes public DInputGroup and preserves its documented validation/loading surface.",
+        "Empty's functional search example now composes DField metadata and public DInputGroup while preserving Form validation, save, submission, reset and local state."
+      ],
+      "retainedAlternatives": [
+        "Multiline/rich composers, domain-specific selection controls and standalone DInput/DTextarea fields remain with their specialized owners; Input Group does not absorb their lifecycle or presentation."
+      ],
+      "verification": [
+        "Official frozen-reference browser review passed in light/dark themes for all nine actual styleguide examples; exact-bundle native macOS review passed styleguide/default/alignment/buttons/Form/RTL/360px and 200% scaling plus all three Chat search migrations. Evidence is recorded in docs/component-library/evidence/input-group/native-review.md and native-preparation.json.",
+        "Final affected matrix passed 290 tests: flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart test/styleguide/spinner_examples_test.dart test/styleguide/empty_examples_test.dart test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart test/ui/d_field_test.dart test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_popover_test.dart test/chat_navigation_test.dart test/chat_shell_integration_test.dart --test-randomize-ordering-seed=314159265.",
+        "Accepted Input API and Chat reconciliation passed 210 tests with randomization seed 42424242; Field/Empty reconciliation and focused Dropdown composition tests also passed independently.",
+        "flutter analyze --no-pub passed; profiles/full flutter analyze --no-pub passed; git diff --check passed."
+      ],
+      "limitations": [
+        "Native inspection was performed on macOS; physical iOS/Android devices, Linux and spoken VoiceOver output were not run. Widget tests cover touch targets, keyboard/focus, semantics, RTL and narrow/200% layouts.",
+        "No automated pixel-diff baseline was produced; geometry and state comparisons were inspected against the frozen official browser reference."
+      ],
+      "implementationCommit": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
+      "mergeCommit": "d1de717b1e2d1eeaf06d86dafe1452662d05e368",
+      "preparedDependencies": [
+        {
+          "id": "textarea",
+          "branch": "codex/review-textarea",
+          "commit": "4ca5aaa85681ced6dd2668a8158b7551ee176f73",
+          "reviewTaskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
+          "evidence": "Clean committed source/API with repeated 163-test affected runs and root/full analysis passing; official browser and native macOS inspection completed. Acceptance-only styleguide metadata is source-equivalent to the inspected component and production fixtures. Textarea merged through 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3.",
+          "mergeGate": "Parent is accepted on local main at 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3"
+        }
+      ],
+      "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
+      "reviewBranch": "codex/review-input-group",
+      "reviewStatus": "merged",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/478c/discourse-native",
+      "reviewHandoffCommit": "bc39e7f4ffab614dad82b13f6b5ad749869fc6fa",
+      "reviewedBranchHead": "1be0f0c50ed93127b04b46170ee3edf03bdb30fb",
+      "nativeInspectionStatus": "passed",
+      "dependencyCoordination": [
+        "Button Group reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 owns replacing only its labeled local Input Group handoff fixture with public DInputGroup after this merge, preserving its complete example surface.",
+        "Calendar reviewer 01a08631-7574-70b0-a98f-4e7217e03209 and Combobox reviewer 01a08628-7889-7dd2-a93c-c854fcdf1e9a may reconcile against this accepted public API after the merge and tracking commits are recorded."
+      ]
     },
     {
       "id": "context-menu",
