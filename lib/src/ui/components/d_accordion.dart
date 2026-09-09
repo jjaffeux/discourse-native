@@ -111,38 +111,24 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
           widget.controller!.multiple == widget.multiple,
       'DAccordion and its controller must use the same multiple value.',
     );
-    final oldActive = oldWidget.controller ?? _ownedController;
-    final oldValues = oldWidget.values ?? oldActive.values;
-    if (oldWidget.multiple != widget.multiple) {
-      if (!(_controlled ||
-          oldWidget.controller != null ||
-          widget.controller != null)) {
-        oldActive.removeListener(_controllerChanged);
-        final oldOwned = _ownedController;
-        _ownedController = DAccordionController<T>(
-          multiple: widget.multiple,
-          initialValues: oldOwned.values,
-        );
-        oldOwned.dispose();
-      }
-    }
-    if (oldWidget.controller != null &&
-        widget.controller == null &&
-        widget.values == null) {
-      _ownedController.replace(oldValues);
-    } else if (oldWidget.values != null &&
-        widget.values == null &&
-        widget.controller == null) {
-      _ownedController.replace(oldWidget.values!);
-    }
-    final newActive = widget.controller ?? _ownedController;
     final wasControlled = oldWidget.values != null;
-    if (!wasControlled && (oldActive != newActive || _controlled)) {
-      oldActive.removeListener(_controllerChanged);
+    final oldActive = oldWidget.controller ?? _ownedController;
+    final oldValues = Set<T>.of(oldWidget.values ?? oldActive.values);
+    if (!wasControlled) oldActive.removeListener(_controllerChanged);
+
+    final becomingLocal = widget.values == null && widget.controller == null;
+    if (_ownedController.multiple != widget.multiple) {
+      final oldOwned = _ownedController;
+      _ownedController = DAccordionController<T>(
+        multiple: widget.multiple,
+        initialValues: becomingLocal ? oldValues : oldOwned.values,
+      );
+      oldOwned.dispose();
+    } else if (becomingLocal &&
+        (oldWidget.values != null || oldWidget.controller != null)) {
+      _ownedController.replace(oldValues);
     }
-    if (!_controlled && (wasControlled || oldActive != newActive)) {
-      newActive.addListener(_controllerChanged);
-    }
+    if (!_controlled) _activeController.addListener(_controllerChanged);
   }
 
   void _controllerChanged() {
@@ -202,7 +188,9 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
       children: [
         for (var index = 0; index < widget.children.length; index++)
           _DAccordionPosition(
-            key: ValueKey<Key?>(widget.children[index].key),
+            key: widget.children[index].key == null
+                ? null
+                : ValueKey<Key>(widget.children[index].key!),
             isLast: index == widget.children.length - 1,
             child: widget.children[index],
           ),
@@ -214,10 +202,7 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
           border: Border.all(color: tokens.border),
           borderRadius: BorderRadius.circular(tokens.radius),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(tokens.radius),
-          child: result,
-        ),
+        child: result,
       );
     }
     return _DAccordionVisualScope(

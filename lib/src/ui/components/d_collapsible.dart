@@ -125,7 +125,9 @@ class DCollapsibleTrigger extends StatefulWidget {
     this.focusBorder = false,
     this.focusRingWidth = 2,
     this.focusRingOpacity = 1,
-  }) : assert((child == null) != (builder == null));
+  }) : assert((child == null) != (builder == null)),
+       assert(focusRingWidth >= 0),
+       assert(focusRingOpacity >= 0 && focusRingOpacity <= 1);
 
   final Widget? child;
   final Widget Function(BuildContext, DCollapsibleTriggerState)? builder;
@@ -291,10 +293,10 @@ class _FocusOutline extends CustomPainter {
       return;
     }
     final rect = Offset.zero & size;
-    final radius = borderRadius!.resolve(TextDirection.ltr).topLeft.x;
+    final borderRRect = borderRadius!.toRRect(rect);
     if (border) {
       canvas.drawRRect(
-        RRect.fromRectAndRadius(rect.deflate(.5), Radius.circular(radius)),
+        borderRRect.deflate(.5),
         Paint()
           ..color = color
           ..style = PaintingStyle.stroke
@@ -302,10 +304,7 @@ class _FocusOutline extends CustomPainter {
       );
     }
     canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        rect.inflate(1 + ringWidth / 2),
-        Radius.circular(radius + 1 + ringWidth / 2),
-      ),
+      borderRRect.inflate(1 + ringWidth / 2),
       Paint()
         ..color = color.withValues(alpha: color.a * ringOpacity)
         ..style = PaintingStyle.stroke

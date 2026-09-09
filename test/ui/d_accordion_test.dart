@@ -144,6 +144,63 @@ void main() {
     },
   );
 
+  testWidgets('borrowed controller can hand multiple state to a local root', (
+    tester,
+  ) async {
+    final controller = DAccordionController<String>(
+      multiple: false,
+      initialValues: const ['a'],
+    );
+    addTearDown(controller.dispose);
+    var borrowed = true;
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return DAccordion<String>(
+              controller: borrowed ? controller : null,
+              multiple: !borrowed,
+              children: [item('a'), item('b')],
+            );
+          },
+        ),
+      ),
+    );
+
+    rebuild(() => borrowed = false);
+    await tester.pump();
+    await tester.tap(find.text('Question b'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Answer a'), findsOneWidget);
+    expect(find.text('Answer b'), findsOneWidget);
+  });
+
+  testWidgets('unkeyed direct items do not receive duplicate wrapper keys', (
+    tester,
+  ) async {
+    DAccordionItem<String> unkeyed(String value) => DAccordionItem<String>(
+      value: value,
+      child: Column(
+        children: [
+          DAccordionHeader(
+            child: DAccordionTrigger(child: Text('Question $value')),
+          ),
+          DAccordionContent(child: Text('Answer $value')),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      host(DAccordion<String>(children: [unkeyed('a'), unkeyed('b')])),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('Question'), findsNWidgets(2));
+  });
+
   testWidgets(
     'root and item disabled states remain discoverable and block input',
     (tester) async {
@@ -333,6 +390,13 @@ void main() {
             .first,
       );
       expect(firstItem.padding, const EdgeInsets.symmetric(horizontal: 16));
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('trigger-a')),
+          matching: find.byType(ClipRRect),
+        ),
+        findsNothing,
+      );
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(
