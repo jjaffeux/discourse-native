@@ -93,7 +93,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
 | 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
-| 49 | pagination | in_progress | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | — |
+| 49 | pagination | review_ready | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | — |
 | 50 | calendar | in_progress | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
 | 51 | date-picker | in_progress | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
@@ -2466,7 +2466,7 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 
 ### pagination
 
-Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/ui-pagination.
+Status: review_ready. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/ui-pagination.
 
 **acceptanceCriteria**
 
@@ -2485,6 +2485,7 @@ Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/u
 - The default ghost/outline current-page treatment and 32px geometry compose the accepted DButton. Direction controls expose directionVariant so Data Table can select the official outline surface without duplicating behavior or artwork.
 - Narrow layouts retain the reference's sub-640px direction-label hiding and use horizontal scrolling rather than overflow; custom 16px round-cap chevrons and dots follow logical RTL direction.
 - Prepared Select source 7d474deffdb0cdda5f13f83ceaf1b4bfff6a6581 was byte-compared after acceptance and exactly matches accepted local main 94a65e00. Accepted Field source was integrated from merge 5cd7f369 without merging newer main into this worktree.
+- Independent review found and fixed cross-axis expansion inside bounded footer layouts by shrink-wrapping DPagination's inner alignment; the regression mounts a 240x568 Wrap at 200% text. The review fixture's 216px control was also corrected to update MediaQuery and exercise the actual sub-640px branch.
 
 **migrations**
 
@@ -2499,16 +2500,18 @@ Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/u
 
 **verification**
 
-- 10 randomized Pagination tests passed with seed 391447: controller count/size clamping, empty/single boundaries, exact 32px link geometry, ellipsis windows, controlled/local/controller ownership, borrowed lifecycle, keyboard and RTL link activation, current/disabled semantics, outline embedded controls and all examples at 216px/200% text.
-- 71 combined Pagination, accepted Select/Field and styleguide-page tests passed with seed 391447; the earlier 55 focused Pagination/Select/Field set also passed.
+- 11 randomized Pagination tests passed with seed 391447: controller count/size clamping, empty/single boundaries, exact 32px link geometry, ellipsis windows, controlled/local/controller ownership, borrowed lifecycle, keyboard and RTL link activation, current/disabled semantics, outline embedded controls, bounded-footer shrink-wrapping and all examples at 216px/200% text.
+- 74 combined Pagination, accepted Select/Popover/Field and styleguide-page tests passed with seed 391447.
 - Root and profiles/full flutter analyze --no-pub pass with no diagnostics after final API changes. Touched Dart is formatted, git diff --check passes, root flutter pub get --enforce-lockfile passed and no lockfile or SDK pin changed.
 - Accepted dependency source equality confirmed: d_select.dart 8597a6cbd6b901279580c327acfaf3da37b8802a5c31fd8774c1f17c567047f1, d_popover.dart db383c502d7067fc93863998a7635738d11b97df0c6dc8bdbf52feab38b36806 and d_field.dart b72c1a6b7c58755c45914c46b6fbaa154dd2dcee0ea164c6f5549e0ed8ae1f19 exactly match accepted local main 94a65e00.
-- tool/pagination_review_main.dart is a local-data real-widget fixture with live Light/Dark/Forest/Plum, RTL, 100/200% text, reduced motion and 216/640px controls. An implementation build was started without desktop access but interrupted after Xcode remained in package/build setup for over six minutes while multiple other isolated builds were active; no successful bundle or launch is claimed.
+- The independent reviewer compared the live official light/dark Default, Simple, Icons Only/Select and Arabic RTL examples. Measured geometry was 32px controls, 2px gaps, 10px radius, 500-weight 14/20 typography, logical Previous/Next padding and unchanged dark geometry, matching the Flutter mapping.
+- The source-exact macOS fixture exercised pointer and keyboard activation, visible focus, current/disabled AX semantics, page-size 25-to-50 Select propagation, routing to /topics?page=3, total clamping 250-to-63, single/empty states, light/dark/Forest palettes, Arabic RTL, constrained 216px content, 200% text and reduced motion. Inspected reviewer commit eb2fe331 fixture SHA-256 9f6812dcbb4dce9ed6a6db93f00a06d5492fd3305b3729403896f7c14ecadd0f; build/copied kernel SHA-256 5af1cf6aceafa49a34c923a0a351e5b8f4e08ed37c9f73f25010366dcea19d39; isolated ad-hoc identity org.discourse.pagination.review.eb2fe331 verified without team identity. The harness-only MediaQuery correction was rebuilt and signature-verified at 6a3fbe6a (fixture 7edba68232f0e62a6818943eed2d2cd922569e66013a0f21f795188732b42865; kernel 3ae4143ca55457e0701e1882a81a6adfefde3319b29d06ee82d9f417d4402ead), while the true sub-640 behavior is covered by the widget suite.
 
 **limitations**
 
-- Official rendered browser comparison and actual native macOS inspection are intentionally pending for the new independent reviewer; no iOS/Linux device or spoken VoiceOver claim.
-- The prepared macOS build did not complete under concurrent Xcode toolchain contention and was explicitly interrupted; the fixture source is committed but there is no implementation-stage artifact/signature/kernel claim.
+- Native acceptance covered macOS only; no iOS/Linux device or spoken VoiceOver pass was performed.
+- No authenticated production surface was opened. The repository audit found no appropriate existing bounded-page consumer; Data Table is the first prepared consumer and retains its own server/manual paging adapter.
+- After the Mac auto-locked, the corrected review-harness bundle could not be relaunched. The unchanged Pagination implementation had already completed native inspection; only the harness toggle's corrected MediaQuery simulation remained covered by analyzer/build/signature verification and the sub-640 widget regression.
 
 ### calendar
 

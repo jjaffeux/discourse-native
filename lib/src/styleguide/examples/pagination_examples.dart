@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final paginationExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'Bounded page navigation with numbered, compact, and linked compositions.',
   notes:
@@ -14,8 +14,8 @@ final paginationExamples = ComponentExamples(
       'text hides like the reference sm breakpoint while spoken labels remain. '
       'Server paging, loading, query strings, and caches stay in adapters. '
       'Cursor and infinite-scroll feeds are intentionally unchanged. The final '
-      'Field/Select composition remains baseline until Select and Pagination '
-      'pass independent rendered/native review.',
+      'Field/Select composition uses the independently accepted Select and Field '
+      'owners and has passed Pagination rendered/native review.',
   examples: [
     StyleguideExample(
       title: 'Default',

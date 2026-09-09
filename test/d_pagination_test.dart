@@ -201,9 +201,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: Scaffold(
+        home: const Scaffold(
           body: MediaQuery(
-            data: const MediaQueryData(
+            data: MediaQueryData(
               size: Size(240, 568),
               textScaler: TextScaler.linear(2),
             ),
@@ -273,7 +273,7 @@ void main() {
     tester,
   ) async {
     expect(componentExamples['pagination'], same(paginationExamples));
-    expect(paginationExamples.status, ComponentStatus.baseline);
+    expect(paginationExamples.status, ComponentStatus.implemented);
     expect(paginationExamples.examples.map((example) => example.title), [
       'Default',
       'Simple',

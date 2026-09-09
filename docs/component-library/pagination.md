@@ -62,11 +62,33 @@ page-size composition, routing links, controller/dynamic-count edges, and the
 official Arabic RTL composition. The dynamic example exercises empty, single,
 clamped, and first/last states.
 
-Acceptance requires keyboard and pointer activation, disabled/current native
-semantics, borrowed lifecycle, live light/dark/custom themes, 216px/200% text,
-RTL and reduced motion. The independent reviewer must perform the first actual
-official browser comparison and native macOS inspection before promoting the
-example from baseline.
+Independent acceptance compared the live official light and dark examples and
+measured their 32px controls, 2px gaps, 10px radius, typography, logical
+directional padding and current-page outline. The source-exact native macOS
+fixture then exercised pointer and keyboard activation, current/disabled
+semantics, page-size Select updates, caller-owned routing, dynamic clamping,
+single/empty states, light/dark/Forest palettes, Arabic RTL, 216px/200% text and
+reduced motion. The styleguide example is therefore promoted to implemented.
+
+The review fixed `DPagination` cross-axis expansion inside bounded footer
+layouts by shrink-wrapping its inner alignment, with a 240×568, 200%-text
+regression. It also corrected the local review fixture so its 216px control
+changes `MediaQuery` and genuinely enters the sub-640px responsive branch.
+
+The inspected macOS review bundle was built from reviewer commit `eb2fe331`.
+Its fixture hash is
+`9f6812dcbb4dce9ed6a6db93f00a06d5492fd3305b3729403896f7c14ecadd0f`,
+and the build and copied bundle kernel hashes both equal
+`5af1cf6aceafa49a34c923a0a351e5b8f4e08ed37c9f73f25010366dcea19d39`.
+The isolated ad-hoc identity was
+`org.discourse.pagination.review.eb2fe331`; signing verification passed without
+an application/team identity. The harness-only responsive correction was then
+rebuilt from `6a3fbe6a`: fixture hash
+`7edba68232f0e62a6818943eed2d2cd922569e66013a0f21f795188732b42865`
+and build/copied kernel hash
+`3ae4143ca55457e0701e1882a81a6adfefde3319b29d06ee82d9f417d4402ead`.
+That replacement bundle was signature-verified but could not be relaunched after
+the Mac auto-locked; the actual sub-640 branch is covered by the widget suite.
 
 ## Application audit
 
@@ -96,8 +118,15 @@ Field source without merging newer main into its worktree.
 
 Select source preparation uses exact reviewer commit
 `7d474deffdb0cdda5f13f83ceaf1b4bfff6a6581` from `codex/review-select`, task
-`01a085e1-1106-7ba1-a30c-15a8a7a5bd22`. Its focused and downstream checks passed,
-but this is not acceptance. Pagination's reviewer must start its final candidate
-from current main, wait for accepted Select, reconcile the final owner revision,
-rerun affected Field/Select/Pagination checks, and prevent unaccepted Select
-ancestry from reaching main.
+`01a085e1-1106-7ba1-a30c-15a8a7a5bd22`. The accepted Select landed at merge
+`57bbeb94368649a4665483180e4f5c84b5f33856` with metadata follow-up
+`94a65e00c525d6096f12be94fcc2ec9bbaf888ff`; Pagination's reviewer confirmed
+its Select/Popover bytes match and will reconcile the final Pagination candidate
+from current main before merging.
+
+The native acceptance was limited to macOS. No iOS/Linux device or spoken
+VoiceOver pass was performed, and no authenticated production surface was
+opened; the application audit found no appropriate existing bounded-page
+consumer. The corrected review-harness bundle was not reopened after the host
+locked; this limitation applies only to the fixture toggle, not to the unchanged
+Pagination implementation already inspected natively.
