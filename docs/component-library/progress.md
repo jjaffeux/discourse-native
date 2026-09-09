@@ -62,7 +62,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 30 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
 | 31 | hover-card | merged | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | de39686f2a5d75651ef37268edb44adb6376cd7c |
 | 32 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
-| 33 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
+| 33 | alert-dialog | review_ready | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 34 | sheet | merged | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | b67f0068104b922ec0e80170643eddced6e27c37 |
 | 35 | drawer | merged | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | 3e75cd97e91d04e2719c8adda5e669ed5dc9e3c1 |
 | 36 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
@@ -2058,7 +2058,7 @@ Status: merged. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/ui-dia
 
 ### alert-dialog
 
-Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/ui-alert-dialog.
+Status: review_ready. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/ui-alert-dialog.
 
 **acceptanceCriteria**
 
@@ -2071,6 +2071,33 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
 - Verified independent reviewer Review and merge Alert Dialog (01a086a4-4ba7-7a63-9af8-23f4a345f270) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Independent review retained the implementation without a behavior correction after auditing the complete public API, shared Dialog/Drawer route ownership, async open-session guards and every migrated caller's permission, lifecycle and persistence boundaries.
+- Frozen source and rendered browser comparison confirmed the regular and small geometry, media and typography mapping, flush footer, action ordering and RTL behavior. Native adaptations retain host palette/font/radius tokens and accessibility semantics.
+
+**migrations**
+
+- The common application adapter now owns focused two-choice confirmations for forum/account removal, published poll removal, draft deletion, plugin notification dismissal, diagnostics clearing and bookmark destructive changes.
+- Voice deep-capture and recording confirmations, topic deletion and selected-post merge/delete, and group-member removal adopt the same owner while retaining their original mounted, permission, controller-identity, site-lifecycle, persistence and network guards.
+
+**retainedAlternatives**
+
+- Phrase-entry permanent deletion and group deletion remain specialized form dialogs; ordinary editors, composers, pickers, sheets, drawers, menus and media/full-screen routes retain their distinct owners.
+- Legacy DiscourseAlertDialog and AdaptiveDialogAction remain only for specialized bodies not safely expressible by the common two-choice adapter.
+
+**verification**
+
+- Frozen Markdown SHA256 ccc9147729b395b1d80ba6c9190ffbd5b556213571f958bb10c111a38b63c2da and the local base-nova registry/API sources were inspected for Composition, Basic, Small, Media, Small with Media, Destructive and RTL.
+- Final randomized Alert Dialog, Dialog, Drawer and styleguide matrix passed all 56 checks with seed 1113783763. Focused affected production-consumer groups passed 92 checks, including Voice, diagnostics, poll, notification, draft, bookmark, group-member, selected-post, topic-deletion and instance-removal ownership paths.
+- Root and profiles/full flutter analyze --no-pub passed. Locked dependency resolution was unchanged; JSON duplicate-key validation, strict deep signature verification and source integrity checks passed.
+- Official rendered browser inspection covered Basic, Small, Media, Destructive and RTL, including settled 384px regular and 320px small surfaces, 16px padding/gap, 40px media, 16/24 title, 14/20 description, flush footer, equal small actions and cancel-first focus.
+- Exact-source macOS bundle /private/tmp/discourse-alert-dialog-review.uFQUBx/Alert Dialog Review.app was launched. Native inspection covered the registered regular, small, media, destructive and RTL examples; light, dark and Forest palettes; pointer and keyboard activation; closed-loop Tab focus; inert outside press; Escape; semantics; reduced motion; and 360px RTL at 200 percent text.
+- Production destructive and regular fixture confirmations exercised cancellation and typed confirmation without account/server mutation. Exact component/examples/harness hashes remained 8ad4aae893a91fc74dec3e79c4bb61d4b3b176bbdd900782e60d966b8df5ab99, 244cdb6401ddf3a59c9aa4e382f14039123b2a9e421d7b2e5c1a410f01e426f9 and 34432dd7181d2f1adae42933dc0ec8ff886f104615b64424cd6d118bf6a992f5; copied kernel SHA256 a2724f22c8a502674b303547455467b94ba6df30da6cfec4ac365037cf86248d.
+- A wider parallel consumer batch was excluded from acceptance evidence: it reproduced the documented diagnostics resize-handle flake and unrelated stale Voice/topic toast expectations, then was interrupted during a long unrelated test.
+
+**limitations**
+
+- No physical iOS/Linux device or spoken VoiceOver/TalkBack session was run; macOS AX inspection and widget semantics tests do not establish cross-platform device parity.
+- Native and browser font rasterization differ, so acceptance compares composition, geometry, interaction and semantics rather than pixel identity. Touch behavior is covered by widget interaction tests; the native desktop pass used pointer and keyboard input.
 
 ### sheet
 

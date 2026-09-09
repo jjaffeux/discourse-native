@@ -18,29 +18,19 @@ Future<void> confirmInstanceRemoval(
 ) async {
   final controller = ShellScope.read(context);
 
-  final confirmed = await showDiscourseDialog<bool>(
+  final confirmed = await showDiscourseAlertDialog<bool>(
     context: context,
-    builder: (dialogContext) {
-      return DiscourseAlertDialog(
-        title: Text('Remove ${instance.title}?'),
-        content: Text(
-          'This signs out of ${instance.host} and takes it out of the rail. '
-          'The app will revoke this device’s access so notifications stop. '
-          'You can add the forum back at any time.',
-        ),
-        actions: [
-          AdaptiveDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          AdaptiveDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            kind: AdaptiveDialogActionKind.destructive,
-            child: const Text('Remove'),
-          ),
-        ],
-      );
-    },
+    title: Text('Remove ${instance.title}?'),
+    description: Text(
+      'This signs out of ${instance.host} and takes it out of the rail. '
+      'The app will revoke this device’s access so notifications stop. '
+      'You can add the forum back at any time.',
+    ),
+    cancelLabel: const Text('Cancel'),
+    actionLabel: const Text('Remove'),
+    cancelResult: false,
+    actionResult: true,
+    actionVariant: DButtonVariant.destructive,
   );
 
   if (confirmed != true || !context.mounted) return;

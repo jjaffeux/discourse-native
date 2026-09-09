@@ -1711,27 +1711,19 @@ Future<void> _confirmRecording(
   required bool active,
   VoiceController Function()? controllerResolver,
 }) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showDiscourseAlertDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(active ? 'Stop recording?' : 'Start recording?'),
-      content: Text(
-        active
-            ? 'The current room recording will stop.'
-            : 'Every participant will see that this room is being recorded.',
-      ),
-      actions: [
-        DButton(
-          onPressed: () => Navigator.pop(context, false),
-          label: const Text('Cancel'),
-        ),
-        DButton(
-          onPressed: () => Navigator.pop(context, true),
-          label: Text(active ? 'Stop' : 'Start'),
-          variant: active ? DButtonVariant.danger : DButtonVariant.primary,
-        ),
-      ],
+    title: Text(active ? 'Stop recording?' : 'Start recording?'),
+    description: Text(
+      active
+          ? 'The current room recording will stop.'
+          : 'Every participant will see that this room is being recorded.',
     ),
+    cancelLabel: const Text('Cancel'),
+    actionLabel: Text(active ? 'Stop' : 'Start'),
+    cancelResult: false,
+    actionResult: true,
+    actionVariant: active ? DButtonVariant.destructive : DButtonVariant.primary,
   );
   if (confirmed == true && context.mounted) {
     await _resolveController(
