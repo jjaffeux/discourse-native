@@ -57,8 +57,8 @@ class DToggleVisualStyle {
 /// A shadcn two-state button with native pressed-toggle semantics.
 ///
 /// Supply [pressed] for controlled state, or omit it to own state initialized
-/// by [initialPressed]. A controlled toggle with no [onPressedChanged] is
-/// disabled; an uncontrolled toggle may omit its observer. [focusNode] is
+/// by [initialPressed]. [onPressedChanged] observes or updates that state but
+/// is not required for the control to remain focusable. [focusNode] is
 /// borrowed and never disposed. Desktop artwork follows base-nova's compact
 /// bounds while touch platforms receive an invisible 48px minimum target.
 class DToggle extends StatefulWidget {
@@ -145,6 +145,25 @@ class DToggle extends StatefulWidget {
       ? DiscourseTypography.base * .8
       : DiscourseTypography.sm;
 
+  static EdgeInsetsGeometry _paddingFor(
+    DToggleSize size, {
+    required bool hasIcon,
+    required DToggleIconPosition iconPosition,
+  }) {
+    if (!hasIcon) return const EdgeInsets.symmetric(horizontal: 10);
+    final iconEdge = size == DToggleSize.small ? 6.0 : 8.0;
+    return switch (iconPosition) {
+      DToggleIconPosition.start => EdgeInsetsDirectional.only(
+        start: iconEdge,
+        end: 10,
+      ),
+      DToggleIconPosition.end => EdgeInsetsDirectional.only(
+        start: 10,
+        end: iconEdge,
+      ),
+    };
+  }
+
   @override
   State<DToggle> createState() => _DToggleState();
 }
@@ -158,9 +177,7 @@ class _DToggleState extends State<DToggle> {
 
   FocusNode get _focus => widget.focusNode ?? _ownedFocus;
   bool get _current => widget.pressed ?? _pressed;
-  bool get _enabled =>
-      widget.enabled &&
-      (widget.pressed == null || widget.onPressedChanged != null);
+  bool get _enabled => widget.enabled;
 
   @override
   void didUpdateWidget(DToggle oldWidget) {
@@ -210,7 +227,7 @@ class _DToggleState extends State<DToggle> {
         : _focusVisible
         ? tokens.focusRing
         : widget.variant == DToggleVariant.outline
-        ? tokens.colors.outlineVariant
+        ? tokens.border
         : Colors.transparent;
     final ringColor = widget.invalid
         ? tokens.destructive.withValues(
@@ -302,7 +319,11 @@ class _DToggleState extends State<DToggle> {
           widget.visualStyle?.padding ??
           (widget._iconOnly
               ? EdgeInsets.zero
-              : const EdgeInsets.symmetric(horizontal: 10)),
+              : DToggle._paddingFor(
+                  widget.size,
+                  hasIcon: effectiveIcon != null,
+                  iconPosition: widget.iconPosition,
+                )),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: activeSurface ? tokens.muted : Colors.transparent,
