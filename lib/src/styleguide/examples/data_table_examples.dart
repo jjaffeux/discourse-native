@@ -230,14 +230,18 @@ List<DDataTableColumn<_Payment>> _paymentColumns({
       ),
     ),
     if (onAction != null)
-      column(
+      DDataTableColumn<_Payment>(
         id: 'actions',
         label: t('Actions', 'الإجراءات'),
         hideable: false,
         width: const FixedColumnWidth(48),
         alignment: AlignmentDirectional.centerEnd,
         headerAlignment: AlignmentDirectional.centerEnd,
-        cell: (context, cell) => _PaymentActions(
+        headerBuilder: (context, header) => Semantics(
+          label: header.column.label,
+          child: const SizedBox.shrink(),
+        ),
+        cellBuilder: (context, cell) => _PaymentActions(
           payment: cell.row,
           arabic: arabic,
           onAction: onAction,

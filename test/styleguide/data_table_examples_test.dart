@@ -151,6 +151,7 @@ void main() {
       tester,
       'Sorting, filtering, visibility, selection, and actions',
     );
+    expect(find.text('Actions'), findsNothing);
     final trigger = find.byWidgetPredicate(
       (widget) =>
           widget is DButton &&
@@ -158,6 +159,7 @@ void main() {
     );
     await tester.tap(trigger);
     await tester.pumpAndSettle();
+    expect(find.text('Actions'), findsOneWidget);
     expect(find.text('Copy payment ID'), findsOneWidget);
     await tester.tap(find.text('Copy payment ID'));
     await tester.pumpAndSettle();
