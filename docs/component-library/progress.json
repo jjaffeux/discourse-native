@@ -2642,7 +2642,7 @@
     },
     {
       "id": "dropdown-menu",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
       "branch": "codex/ui-dropdown-menu",
       "dependencies": [
@@ -2685,7 +2685,7 @@
         "No iOS/Linux device, spoken VoiceOver session or pixel-identical screenshot claim is made; those platforms remain covered by widget behavior and geometry tests rather than this macOS acceptance pass."
       ],
       "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
-      "mergeCommit": null,
+      "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787",
       "preparedDependencies": [
         {
           "id": "popover",
@@ -2699,7 +2699,7 @@
       ],
       "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
       "reviewBranch": "codex/review-dropdown-menu-accepted",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
       "reviewHandoffCommit": "48599440787a16d27c00d1b399d021f385113be5"
     },
@@ -4069,16 +4069,6 @@
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
         },
         {
-          "component": "dropdown-menu",
-          "taskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
-          "branch": "codex/review-dropdown-menu",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
-          "implementationBranch": "codex/ui-dropdown-menu",
-          "headCommit": "48599440787a16d27c00d1b399d021f385113be5"
-        },
-        {
           "component": "input-group",
           "taskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
           "branch": "codex/review-input-group",
@@ -4502,11 +4492,12 @@
           "taskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
           "hostId": "local",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
-          "branch": "codex/review-dropdown-menu",
+          "branch": "codex/review-dropdown-menu-accepted",
           "implementationTaskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
           "implementationBranch": "codex/ui-dropdown-menu",
           "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
         },
         {
           "component": "input-group",
@@ -4997,11 +4988,12 @@
         "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45"
       },
       "dropdown-menu": {
-        "status": "independent_review",
+        "status": "complete",
         "requestedBy": "01a08558-aec4-7591-ac85-682a1eae4290",
-        "nextAction": "Dropdown Menu reviewer owns final accepted Popover integration, all required examples and app adoption, including the tracked Table Actions followup; coordinate Item, Input Group and replacement Button Group owners directly.",
+        "nextAction": "Accepted Dropdown Menu is available on local main for Context Menu, Menubar, Breadcrumb, Input Group, Button Group and Data Table reconciliation.",
         "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
-        "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5"
+        "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+        "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
       },
       "tabs": {
         "status": "complete",

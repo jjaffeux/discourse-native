@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**43 of 64 components are merged locally.** 21 existing components are in progress; 0 are planned.
+**44 of 64 components are merged locally.** 20 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -24,7 +24,6 @@ Branch preparation does not mark a component merged or visually verified.
 | input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | combobox | independent review | 55dcf257 | 01a08628-7889-7dd2-a93c-c854fcdf1e9a |
-| dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | independent review | 10b63f75 | 01a08628-7042-7173-a37d-7f1f04eade66 |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
@@ -85,7 +84,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
 | 43 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command | — |
-| 44 | dropdown-menu | review_ready | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
+| 44 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
 | 45 | context-menu | in_progress | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | — |
 | 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
@@ -2426,7 +2425,7 @@ Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/u
 
 ### dropdown-menu
 
-Status: review_ready. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dropdown-menu.
+Status: merged. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dropdown-menu.
 
 **acceptanceCriteria**
 
