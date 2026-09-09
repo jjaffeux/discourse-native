@@ -184,6 +184,15 @@ class _FixtureState extends State<_Fixture> {
                           )
                           .builder,
                     ),
+                    const Text('Controlled state and callbacks'),
+                    Builder(
+                      builder: hoverCardExamples.examples
+                          .firstWhere(
+                            (example) =>
+                                example.title == 'Controlled and controller',
+                          )
+                          .builder,
+                    ),
                     const Text('Production UserCardTarget'),
                     const Wrap(
                       spacing: 16,
