@@ -27,7 +27,7 @@ semantics, arrow wrapping and RTL behavior. No browser/native app was opened.
 | disabled opacity 50%, forbidden cursor | 50% entire associated item; no activation or traversal |
 | label composition `gap-3` | 12px indicator/content gap; DLabel 14px/500/1 |
 | root `gap-2` | explicit 8px gaps in reference examples; child layout remains caller-owned |
-| CSS after inset x=12/y=8 | 40×32 pointer bounds; 48×48 native touch bounds around compact circle |
+| CSS after inset x=12/y=8 | Desktop follows intrinsic labelled row bounds; 48×48 minimum only on native touch |
 
 The host owns fonts, palette, radius and inherited text scale. Choice-card
 presentation uses the captured FieldLabel/Field classes: 10px padding, a 1px
@@ -35,10 +35,10 @@ border, rounded-lg (base radius ×1), selected primary borders at 30% light/20%
 dark and backgrounds at 5% light/10% dark. Native comparison is still required. There is no animated
 transition in the registry; changes are immediate, including reduced motion.
 
-The labelled row's layout reserves non-overlapping hit bounds. This increases
-row pitch compared with web examples whose pseudo-element can overlap the grid
-gap. The circle remains 16px. This native adaptation avoids overlapping touch
-and semantics targets; it is explicitly subject to the pending native review.
+Desktop labelled rows use intrinsic content height with a 16px indicator. The
+whole associated row remains clickable; no extra desktop minimum increases row
+pitch. Native touch platforms retain 48px minimum bounds. The browser's enlarged
+pseudo-element area is not duplicated outside the desktop row.
 
 ## Public API and ownership
 
@@ -184,11 +184,12 @@ the radio source. They define the card composition; no DField is implemented.
 - `rounded-lg` is host base radius ×1, including zero/custom values.
 - Checked borders use primary/30 (light) and primary/20 (dark); fills primary/5
   and primary/10. Hover uses muted/50 only when enabled. Focus is a 3px outer
-  card ring at ring/50 and ring-colored border; the radio's focus ring is
-  suppressed inside a focused card, following the group focus selectors.
+  card ring at ring/50 and ring-colored border. The later browser comparison
+  below corrects the initial inference that the inner radio ring is suppressed.
 - Field horizontal composition uses an 8px gap, top alignment with FieldContent
   and a 1px radio top margin. FieldContent uses gap-0.5 (2px). FieldTitle inherits
-  14px/500 with snug 1.375 leading; description is 14px/400 with 1.5 leading.
+  14px/500; live browser measurement below resolves its title leading to 20px.
+  Description is 14px/400 with 1.5 leading.
 - The exact Plus/Pro/Enterprise example selects Plus and uses max-w-sm (384px).
   Description composition selects Comfortable and uses the same content metrics.
 - The plain Label composition retains its documented 12px gap and 14px/1 label.
@@ -219,3 +220,49 @@ Browser and native comparison have not been performed for this correction.
   documentation only. Main app/build untouched.
 - No browser/native actions or font-loaded exports performed in this slot.
   Awaiting serialized rendered comparison and native inspection; no parity claim.
+
+## Browser comparison and font-loaded exports (2026-09-09)
+
+The authorized browser slot is complete and released. The temporary reference
+Chrome tab was closed, original dark theme restored, and no user tabs or viewport
+overrides changed. Native desktop remained locked and no native app was launched.
+
+Live official reference measurements correct two source-only inferences: both
+inner radio and outer card show 3px focus rings, and card titles use 20px leading.
+Card bounds are 384×65, inner Field 382×63 with 10px padding, content gap 2px,
+radio 16×16 with 1px top offset. Descriptions use 21px leading. Fieldset headers
+use 20px leading with an effective 2px description gap and 12px before items.
+Default group measured 109.859375×64; description 264.0859375×142.75;
+fieldset group 320×73.75; RTL group 232.0546875×142.75.
+
+Examples now match reference initial selections and widths: Comfortable for
+Default/Description/RTL, Plus for cards, and Option2 for Disabled. Only the first
+Disabled option is disabled. Native browser arrows skipped it; RTL Left advanced
+to the next option and Space selected. Invalid labels are destructive and the
+reference description sits above choices without an added bottom error message.
+
+Focus rings now use outside foreground borders rather than BoxShadow, preventing
+rings from darkening translucent interiors. A regression checks both rings,
+outside stroke alignment, selected fill alpha, and card title leading.
+
+See evidence/radio-group/README.md, the reproducible export harness, 22 PNGs and
+SHA256 manifest. Widget exports include real flag/Poll and owner/move fixtures,
+light/dark, custom palettes, RTL and 200% text. These are font-loaded test renders,
+not native screenshots. Host SF/SF Arabic shaping differs from Geist/Noto Arabic;
+host focusRing maps to primary; touch targets retain 48px minimum; desktop uses intrinsic row height. The live disabled radio span remains opacity 1 while its label dims;
+our associated disabled row uniformly dims as previously documented. These
+remaining differences are explicit adaptations, not claimed pixel parity.
+
+### Desktop row geometry correction
+
+Removed the discretionary 40×32 desktop minimum. Native RawRadio focus/semantics
+remain, with 48×48 minima only on touch platforms. The associated desktop label
+row is clickable at its intrinsic height. Re-exported all22 PNGs; measurements.json
+records each row. Default is112.0094×64 versus browser109.8594×64;
+Description272.2539×142 versus264.0859×142.75; Fieldset320×73 versus320×73.75.
+Cards remain384×65. All inter-row gaps are8. The 0.75px total discrepancy is three
+fractional19.25px lines resolving to19px with the loaded SF font; width differs
+with SF versus Geist shaping. A regression checks intrinsic desktop row height,
+Default64px total and8px gaps, alongside the existing48px touch checks.
+
+Final focused impact suite:165 tests passed, seed9092026; `/tmp/radio-browser-regressions.log`. Font-loaded export run passed; root/full analyses checked separately.

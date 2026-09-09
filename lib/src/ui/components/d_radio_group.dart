@@ -126,14 +126,17 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.label != null) ...[
-            DLabel(child: widget.label!),
-            const SizedBox(height: 8),
+            DLabel(
+              style: const TextStyle(height: 20 / 14),
+              child: widget.label!,
+            ),
+            SizedBox(height: widget.description != null ? 2 : 12),
           ],
           if (widget.description != null) ...[
             DefaultTextStyle.merge(
               style: TextStyle(
                 fontSize: 14,
-                height: 20 / 14,
+                height: 1.5,
                 color: tokens.mutedForeground,
               ),
               child: widget.description!,
@@ -208,6 +211,8 @@ class DRadioGroupItem<T> extends StatefulWidget {
     this.toggleable = false,
     this.readOnly,
     this.required,
+    this.contentGap,
+    this.labelStyle,
   }) : assert(label != null || semanticLabel != null);
 
   final T value;
@@ -232,6 +237,10 @@ class DRadioGroupItem<T> extends StatefulWidget {
   /// Null inherits the group's required announcement. The group validator
   /// owns validation, including when this item overrides the announcement.
   final bool? required;
+
+  /// Overrides the label typography or indicator-to-content gap for composition.
+  final TextStyle? labelStyle;
+  final double? contentGap;
 
   @override
   State<DRadioGroupItem<T>> createState() => _DRadioGroupItemState<T>();
@@ -309,13 +318,11 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
     };
     final border = checked
         ? tokens.primary
-        : widget.card && focused
-        ? tokens.colors.outlineVariant
         : invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? 0.5 : 1),
           )
-        : focused && !widget.card
+        : focused
         ? tokens.focusRing
         : tokens.colors.outlineVariant;
     final ring = invalid
@@ -336,10 +343,17 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
               )
             : Colors.transparent,
         border: Border.all(color: border),
-        boxShadow: (invalid || focused) && !(widget.card && focused)
-            ? [BoxShadow(color: ring, spreadRadius: 3)]
-            : null,
       ),
+      foregroundDecoration: invalid || focused
+          ? BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: ring,
+                width: 3,
+                strokeAlign: BorderSide.strokeAlignOutside,
+              ),
+            )
+          : null,
       child: checked
           ? Center(
               child: Container(
@@ -361,9 +375,14 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             DLabel(
-              style: widget.card || widget.description != null
-                  ? const TextStyle(height: 1.375)
-                  : null,
+              style: TextStyle(
+                height: widget.card
+                    ? 20 / 14
+                    : widget.description != null
+                    ? 1.375
+                    : 1,
+                color: invalid ? tokens.destructive : null,
+              ).merge(widget.labelStyle),
               child: widget.label!,
             ),
             if (widget.description != null) ...[
@@ -384,7 +403,9 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
       final radio = widget.description != null || widget.card
           ? Padding(padding: const EdgeInsets.only(top: 1), child: indicator)
           : indicator;
-      final gap = widget.description != null || widget.card ? 8.0 : 12.0;
+      final gap =
+          widget.contentGap ??
+          (widget.description != null || widget.card ? 8.0 : 12.0);
       content = Row(
         crossAxisAlignment: widget.description != null || widget.card
             ? CrossAxisAlignment.start
@@ -421,17 +442,19 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
                   alpha: tokens.primary.a * (dark ? 0.1 : 0.05),
                 )
               : null,
-          boxShadow: focused
-              ? [
-                  BoxShadow(
-                    color: tokens.focusRing.withValues(
-                      alpha: tokens.focusRing.a * 0.5,
-                    ),
-                    spreadRadius: 3,
-                  ),
-                ]
-              : null,
         ),
+        foregroundDecoration: focused
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(tokens.radius),
+                border: Border.all(
+                  color: tokens.focusRing.withValues(
+                    alpha: tokens.focusRing.a * 0.5,
+                  ),
+                  width: 3,
+                  strokeAlign: BorderSide.strokeAlignOutside,
+                ),
+              )
+            : null,
         child: content,
       );
     }
@@ -464,8 +487,8 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
               opacity: enabled ? 1 : 0.5,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minWidth: touch ? 48 : 40,
-                  minHeight: touch ? 48 : 32,
+                  minWidth: touch ? 48 : 16,
+                  minHeight: touch ? 48 : 16,
                 ),
                 child: Align(
                   alignment: AlignmentDirectional.centerStart,

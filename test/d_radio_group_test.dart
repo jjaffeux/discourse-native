@@ -26,6 +26,94 @@ const choices = Column(
 );
 void main() {
   testWidgets(
+    'desktop rows follow content height and preserve eight-pixel gaps',
+    (tester) async {
+      for (final title in ['Default', 'Description', 'Fieldset']) {
+        await tester.pumpWidget(
+          host(
+            Builder(
+              builder: radioGroupExamples.examples
+                  .singleWhere((e) => e.title == title)
+                  .builder,
+            ),
+            theme: ThemeData(platform: TargetPlatform.macOS),
+          ),
+        );
+        final rows = find.byType(RawRadio<String>);
+        expect(rows, findsNWidgets(3));
+        final bounds = [
+          for (final e in rows.evaluate())
+            tester.getRect(find.byWidget(e.widget)),
+        ];
+        for (var i = 1; i < bounds.length; i++) {
+          expect(bounds[i].top - bounds[i - 1].bottom, closeTo(8, 0.001));
+        }
+        if (title == 'Default') {
+          expect(bounds.first.height, 16);
+          expect(bounds.last.bottom - bounds.first.top, 64);
+        } else {
+          final content = tester.getSize(
+            find
+                .descendant(of: rows.first, matching: find.byType(DLabel))
+                .first,
+          );
+          if (title == 'Fieldset') expect(bounds.first.height, content.height);
+          if (title == 'Description') {
+            expect(bounds.first.height, greaterThan(content.height));
+          }
+        }
+      }
+    },
+  );
+  testWidgets(
+    'card focus paints outer rings without darkening translucent content',
+    (tester) async {
+      final node = FocusNode();
+      addTearDown(node.dispose);
+      await tester.pumpWidget(
+        host(
+          DRadioGroup<String>(
+            initialValue: 'a',
+            child: DRadioGroupItem(
+              value: 'a',
+              label: const Text('Plan'),
+              description: const Text('Description'),
+              card: true,
+              focusNode: node,
+            ),
+          ),
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      final containers = tester.widgetList<Container>(find.byType(Container));
+      final rings = containers
+          .where((c) => c.foregroundDecoration is BoxDecoration)
+          .toList();
+      expect(rings.length, 2);
+      for (final ring in rings) {
+        final decoration = ring.foregroundDecoration! as BoxDecoration;
+        expect(
+          decoration.border!.top.strokeAlign,
+          BorderSide.strokeAlignOutside,
+        );
+        expect(decoration.border!.top.width, 3);
+        expect((ring.decoration! as BoxDecoration).boxShadow, isNull);
+      }
+      final card = rings.singleWhere(
+        (c) => (c.decoration! as BoxDecoration).shape == BoxShape.rectangle,
+      );
+      expect(
+        (card.decoration! as BoxDecoration).color!.a,
+        closeTo(0.05, 0.001),
+      );
+      final label = tester.element(find.text('Plan'));
+      expect(DefaultTextStyle.of(label).style.height, 20 / 14);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'input role and opacity remain distinct from card border in live themes',
     (tester) async {
       final base = ThemeData(platform: TargetPlatform.macOS);
