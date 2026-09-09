@@ -179,18 +179,10 @@ class _DToggleState extends State<DToggle> {
       context,
       const Duration(milliseconds: 150),
     );
+
     final effectiveIcon = _current
         ? widget.selectedIcon ?? widget.icon
         : widget.icon;
-    final iconEdgePadding = widget.size == DToggleSize.small ? 6.0 : 8.0;
-    final contentPadding = widget._iconOnly
-        ? EdgeInsets.zero
-        : effectiveIcon == null
-        ? const EdgeInsets.symmetric(horizontal: 10)
-        : widget.iconPosition == DToggleIconPosition.start
-        ? EdgeInsetsDirectional.only(start: iconEdgePadding, end: 10)
-        : EdgeInsetsDirectional.only(start: 10, end: iconEdgePadding);
-
     Widget content = widget._iconOnly
         ? ExcludeSemantics(child: effectiveIcon!)
         : DefaultTextStyle.merge(
@@ -241,7 +233,9 @@ class _DToggleState extends State<DToggle> {
         minWidth: visualDimension,
         minHeight: visualDimension,
       ),
-      padding: contentPadding,
+      padding: widget._iconOnly
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 10),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: activeSurface ? tokens.muted : Colors.transparent,

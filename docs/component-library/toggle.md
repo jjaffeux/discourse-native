@@ -21,7 +21,7 @@ CSS pixels map one-to-one to Flutter logical pixels at 100% text scale.
 | base-nova source | `DToggle` |
 | --- | --- |
 | `h-7/8/9`, `min-w-7/8/9` | 28/32/36px minimum visual size for small/regular/large |
-| `px-2.5`, `gap-1`, icon-edge overrides | 10px text edge, 8px regular/large or 6px small icon edge, and 4px icon gap |
+| `px-2.5`, `gap-1` | 10px logical horizontal padding and 4px icon gap |
 | `text-[.8rem]`, `text-sm`, `font-medium` | 12.8px small or 14px regular/large, host family, weight 500 |
 | default 16px SVG; small 14px SVG | `IconTheme` at 16px or 14px |
 | `rounded-lg`; small `min(radius-md,12px)` | host radius; small `min(.8 × host radius, 12px)` |

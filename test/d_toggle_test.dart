@@ -179,51 +179,6 @@ void main() {
     }
   });
 
-  testWidgets('icon compositions use the reference logical edge padding', (
-    tester,
-  ) async {
-    for (final (size, iconEdge) in [
-      (DToggleSize.small, 6.0),
-      (DToggleSize.regular, 8.0),
-      (DToggleSize.large, 8.0),
-    ]) {
-      for (final (position, rtl) in [
-        (DToggleIconPosition.start, false),
-        (DToggleIconPosition.start, true),
-        (DToggleIconPosition.end, false),
-        (DToggleIconPosition.end, true),
-      ]) {
-        await mount(
-          tester,
-          DToggle(
-            size: size,
-            iconPosition: position,
-            icon: const Icon(Icons.format_bold),
-            child: const Text('Bold'),
-          ),
-          rtl: rtl,
-        );
-        final container = tester.widget<AnimatedContainer>(
-          find.descendant(
-            of: find.byType(DToggle),
-            matching: find.byType(AnimatedContainer),
-          ),
-        );
-        final padding = container.padding!.resolve(
-          rtl ? TextDirection.rtl : TextDirection.ltr,
-        );
-        final physicalIconEdge = position == DToggleIconPosition.start
-            ? (rtl ? padding.right : padding.left)
-            : (rtl ? padding.left : padding.right);
-        final physicalTextEdge = position == DToggleIconPosition.start
-            ? (rtl ? padding.left : padding.right)
-            : (rtl ? padding.right : padding.left);
-        expect(physicalIconEdge, iconEdge);
-        expect(physicalTextEdge, 10);
-      }
-    }
-  });
-
   testWidgets('selected hover press focus and invalid map to live tokens', (
     tester,
   ) async {
