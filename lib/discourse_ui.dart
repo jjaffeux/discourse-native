@@ -6,6 +6,7 @@ export 'src/shell/select.dart';
 export 'src/theme/d_button.dart';
 export 'src/ui/components/d_aspect_ratio.dart';
 export 'src/ui/components/d_avatar.dart';
+export 'src/ui/components/d_badge.dart';
 export 'src/ui/components/d_card.dart';
 export 'src/ui/components/d_direction.dart';
 export 'src/ui/components/d_kbd.dart';

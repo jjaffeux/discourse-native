@@ -18,7 +18,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 6 | button | planned | — | — | spinner, tooltip | — |
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
-| 9 | badge | planned | — | — | spinner | — |
+| 9 | badge | in_progress | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | — |
 | 10 | input | planned | — | — | label | — |
 | 11 | textarea | planned | — | — | label | — |
 | 12 | checkbox | planned | — | — | label | — |
@@ -649,6 +649,51 @@ Status: merged. Task: 01a0825a-9fe1-7700-878c-f448801c0851. Branch: codex/ui-lab
 - iOS and Linux are uninspected on devices. A wireless iPhone was detected but has not been run. No new native platform dependency is introduced.
 - The macOS styleguide route exposed only its native search field through the CUA accessibility snapshot. Preview semantics are verified by widget tests; production dialog/view snapshots exposed the named control states. VoiceOver speech was not run.
 - Checkbox/Switch/TextFormField and baseline DButton visuals in Label examples are temporary until their catalogue tasks implement the reference controls. This task completes Label only and does not exempt those components or FieldDemo from shadcn fidelity.
+
+### badge
+
+Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/ui-badge.
+
+**acceptanceCriteria**
+
+- Reproduce base-nova default, secondary, destructive, outline, ghost and link variants with 20px visual height, 12/16px medium type, 12px icon slots, directional insets, pill shape and exact token-based states.
+- Provide static and actionable/link compositions with keyboard focus and activation, disabled and invalid semantics, borrowed focus node safety, accessible touch targets, wrapping large labels, RTL and live palettes.
+- Demonstrate every frozen section using DBadge and DSpinner, audit core and plugins and migrate justified status/counter owners without changing business state.
+- Pass root/full-profile analysis and focused component/example/migration tests; compare reference and isolated native styleguide plus real migrated fixtures under a coordinator-granted desktop slot before review_ready.
+
+**decisions**
+
+- Frozen Badge Markdown matches the catalogue hash; captured official base-nova registry, examples and Lucide artwork with exact hashes and source-to-Flutter mapping in docs/component-library/badge.md.
+- Public DBadge supports six treatments, static/action/link composition, decorative leading/trailing widgets, custom live colors, disabled callbacks, invalid/name/value/live semantics and owned-or-borrowed focus. Pointer activation transfers keyboard focus; links use Enter and actions use Enter/Space.
+- Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 8× configured radius (32px at the default 4), not rounded-full.
+- Spinner remains the only implementation dependency. Button is baseline only for example controls; Badge imports no unfinished Button code. Six full styleguide sections retain the redesigned documentation shell.
+- Native comparison is pending the coordinator slot and unlocked desktop; automated passing checks and successful debug builds are not review_ready.
+
+**migrations**
+
+- Core: TopicUnreadBadge exact count and tooltip; user-menu capped count with full accessible value; user-card staff/suspension labels and earned badge count; GroupsPage membership and GroupPage member-owner labels.
+- Plugin: Chat drawer numeric urgent counts use DBadge with preserved domain calculations and 99+ visual cap/full accessible count. At minimum width with large text, metadata moves below preview to preserve title/lock space.
+- Spinner styleguide temporary badge renderer removed in favor of DBadge and DSpinner; sample busy/direction controls retained.
+- Self-contained native-review fixtures mount real GroupsPage, TopicUnreadBadge, staff UserCardTarget and ChatDrawerChannelsView backed by in-memory stores/API.
+
+**retainedAlternatives**
+
+- Anchored avatar/header/rail counters and flair retain overlay geometry and parent-owned semantics; unread dots remain dots.
+- Composer Mention/Hashtag/Poll/Local Dates/Link pills retain editing/serialization/baseline behavior; reaction/like/taxonomy controls retain separate interaction owners.
+- Voice recording privacy banner, award artwork/tier text, image counter overlays, decorative aggregate artwork, GitHub diff counts and plugin banners remain distinct. Full core/plugin audit is documented in badge.md.
+
+**verification**
+
+- Flutter 3.47.2 / Dart 3.13.2. Root and full-profile locked pub get passed without SDK/pin/lockfile churn.
+- 254 focused component/example/real-fixture/core/Chat tests passed with seed 792026; command/output /private/tmp/badge-final-tests.log. Narrow large-text Chat overflow fixed and regression strengthened.
+- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub pass without diagnostics. Touched Dart formatted; git diff --check passes.
+- Isolated macOS debug build succeeded; bundle org.discourse.native.badge.bebb9 / Badge Review BEBB9. Deep strict ad-hoc signature verification passes. Complete relevant Dart source matches the checkout; kernel and source-manifest hashes recorded in badge-native.md.
+- Native slot requested from coordinator; no CUA or native inspection used while the Mac is locked.
+
+**limitations**
+
+- Actual reference/native rendered comparison is still required before review_ready; Mac is locked and the desktop slot has not been granted.
+- No iOS/Linux device or spoken VoiceOver verification. Native font underline offset differs from CSS underline-offset:4; custom Tailwind OKLCH examples use clipped 8-bit sRGB conversions.
 
 ### skeleton
 

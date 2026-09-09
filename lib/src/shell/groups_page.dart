@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../models/group.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'choice_menu.dart';
@@ -579,16 +578,8 @@ class _MembershipBadge extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: Theme.of(context).shell.selected,
-      borderRadius: BorderRadius.circular(999),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      child: Text(label, style: Theme.of(context).textTheme.labelSmall),
-    ),
-  );
+  Widget build(BuildContext context) =>
+      DBadge(variant: DBadgeVariant.secondary, child: Text(label));
 }
 
 class _DirectoryError extends StatelessWidget {
