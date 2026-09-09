@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction, Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/card_examples.dart';
 import 'package:flutter/material.dart';
@@ -177,4 +179,37 @@ void main() {
       expect(badge.variant, DBadgeVariant.secondary);
     },
   );
+
+  testWidgets('final form and spacing owners expose bounded native semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final spacing = cardExamples.examples.singleWhere(
+      (entry) => entry.title == 'Shared spacing',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Builder(builder: spacing.builder)),
+      ),
+    );
+
+    final email = tester
+        .getSemantics(find.byType(DFieldControl).first)
+        .getSemanticsData();
+    expect(email.label, startsWith('Email'));
+    expect(email.flagsCollection.isTextField, true);
+    expect(email.flagsCollection.isRequired, Tristate.isTrue);
+
+    final selectedSpacing = tester
+        .getSemantics(find.bySemanticsLabel('16 pixel spacing'))
+        .getSemanticsData();
+    expect(selectedSpacing.flagsCollection.isToggled, Tristate.isTrue);
+
+    final recovery = tester
+        .getSemantics(find.bySemanticsLabel('Forgot your password?'))
+        .getSemanticsData();
+    expect(recovery.hasAction(SemanticsAction.tap), true);
+    expect(recovery.flagsCollection.isLink, true);
+    semantics.dispose();
+  });
 }
