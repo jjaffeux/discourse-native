@@ -1,0 +1,18 @@
+{
+  "circle-check": {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/circle-check.svg",
+    "sha256": "9711e045a5999f8a3b0782eb88e09b04e0559bc7b379dcc0a4ae645223e10345"
+  },
+  "info": {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/info.svg",
+    "sha256": "bc977a64eb96f3e9c1041ffd09a3fceb70e3e65c02b571f76064062ed31f3cb9"
+  },
+  "circle-alert": {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/circle-alert.svg",
+    "sha256": "ce3e98b7a03b78c0071131df42466e4e1ff5187fccad30e739ec9ce951cf685a"
+  },
+  "triangle-alert": {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/triangle-alert.svg",
+    "sha256": "4866f38b8560d410f21e3226413e0b77997b6dfbb6931fadfe0a0d5aef9ffeb4"
+  }
+}

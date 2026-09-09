@@ -228,21 +228,14 @@ class _LoadMoreRow extends StatelessWidget {
 
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message});
-
   final String message;
-
   @override
-  Widget build(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.errorContainer,
-    child: ContentReadingLaneBox(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
-          const SizedBox(width: 8),
-          Expanded(child: Text(message)),
-        ],
-      ),
+  Widget build(BuildContext context) => ContentReadingLaneBox(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+    child: DAlert(
+      variant: DAlertVariant.destructive,
+      icon: const Icon(Icons.error_outline),
+      description: DAlertDescription(child: Text(message)),
     ),
   );
 }

@@ -4,6 +4,7 @@ library;
 // Baseline exports move into src/ui/components in their catalogue tasks.
 export 'src/shell/select.dart';
 export 'src/ui/components/d_accordion.dart';
+export 'src/ui/components/d_alert.dart';
 export 'src/ui/components/d_aspect_ratio.dart';
 export 'src/ui/components/d_avatar.dart';
 export 'src/ui/components/d_badge.dart';
