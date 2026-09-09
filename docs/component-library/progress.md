@@ -21,7 +21,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 9 | badge | planned | — | — | spinner | — |
 | 10 | input | planned | — | — | label | — |
 | 11 | textarea | planned | — | — | label | — |
-| 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
+| 12 | checkbox | review_ready | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
 | 13 | radio-group | planned | — | — | label | — |
 | 14 | switch | planned | — | — | label | — |
 | 15 | toggle | planned | — | — | button | — |
@@ -652,7 +652,7 @@ Status: merged. Task: 01a0825a-9fe1-7700-878c-f448801c0851. Branch: codex/ui-lab
 
 ### checkbox
 
-Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/ui-checkbox.
+Status: review_ready. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/ui-checkbox.
 
 **acceptanceCriteria**
 
@@ -694,10 +694,11 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 - Controlled consistency source 7519fc61670d995a80dc027e902f6545105715a2: root/full-profile analysis clean; 36 focused tests pass. Refreshed bundle /private/tmp/DiscourseCheckbox132a-7519fc61.app, identifier org.discourse.native.checkbox.132a.sync and unique discourse-checkbox-132a-sync URL scheme. Source/copied kernel SHA256 e379f6048e80056a2d98aa976da8e850b6191b8a34b3bae299d705e0dcb35940 matches; deep strict ad-hoc signature verification passes. This supersedes the earlier 0df1b03c inspection bundle. No CUA or launch performed.
 - Visual follow-up: 38 focused Checkbox/Label/paint tests and 118 migration tests passed; three font-loaded export/pixel tests passed. Root/full analysis clean after removing two redundant test imports. Browser-only slot released after restoring original theme/viewport and closing the temporary tab.
 - Visual source a1d2737243099e8e6565c8fad268a102aa70a843: clean-source macOS debug build passed. Refreshed signed bundle /private/tmp/DiscourseCheckbox132a-a1d27372.app, identifier org.discourse.native.checkbox.132a.visual, scheme discourse-checkbox-132a-visual. Source/copied kernel SHA256 52687198c964426357053f2039af167ad2294598607a589b091aa9d7735ce715 matches; deep strict signature verification passes. No app launch; native inspection awaiting_slot.
+- Exclusive native slot: reviewed exact signed a1d27372 app, all six actual registered examples, light/dark states, mixed table 1→4→0, keyboard/pointer focus, disabled/readOnly, outer Plum card ring, form invalid→saved→reset, Forest360px200%RTL Arabic/Hebrew wrapping and activation. Actual legal explanation editing and checked/unchecked submission gating verified; actual Voice privacy checked values and focus verified at Plum200%RTL. Screenshots and AX in evidence/checkbox/native-*. No new source issue found. App quit through native menu; process absence verified; browser/native slot explicitly released before evidence commit. No browser used this slot.
 
 **limitations**
 
-- Native desktop inspection remains awaiting_slot. Official browser comparison and font-loaded Flutter exports completed; these do not constitute native app inspection. Status remains in_progress.
+- Native review completed on exact a1d27372 bundle. Shared registered styleguide AX tree exposed search/menu overlays but not preview controls in this session; real legal and Voice dialogs exposed checkbox labels and checked values. VoiceOver speech remains unverified; coordinator should assess shared-shell AX behavior.
 - Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
 - Coordinator reports base Avatar assertions corrected on main adc25e7b and Tooltip/compact-title Escape fixed separately at c5d37bd1 pending native review; no changes to these owners in this follow-up.
 

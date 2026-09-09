@@ -2,7 +2,7 @@
 
 Task `01a083ad-91cf-7e91-9083-a861d5c4fa28`, branch `codex/ui-checkbox`.
 Dependency Label is merged at `9bbc2806020646451fd1c283d347283fe4e45f67`.
-Native comparison remains pending; this is not `review_ready`.
+Native review completed on the exact source-matching bundle; ready for coordinator review. Historical pending notes below describe earlier checkpoints.
 
 ## Reference capture
 
@@ -172,3 +172,15 @@ Corrections: input uses outlineVariant independently of general border; opacity 
 The app retains its fonts, palettes and radius. Browser Geist/Noto and native SF shaping can differ in widths and breaks. The native Minus mixed extension remains explicit. Exported real Voice privacy content scrolls at 200%; its checkbox and actions remain reachable. No native app was launched. Status remains `awaiting_slot`.
 
 Latest visual-review bundle: `/private/tmp/DiscourseCheckbox132a-a1d27372.app`, built from `a1d2737243099e8e6565c8fad268a102aa70a843`. Source/copied kernel SHA256 `52687198c964426357053f2039af167ad2294598607a589b091aa9d7735ce715` matches and deep strict ad-hoc signature verification passes. This supersedes the sync bundle. See `checkbox-native-provenance.json`; no launch performed.
+
+## Completed native gate
+
+Reviewed `/private/tmp/DiscourseCheckbox132a-a1d27372.app` from implementation `a1d2737243099e8e6565c8fad268a102aa70a843` in the coordinator-granted exclusive desktop slot. It launched without entitlement changes. No implementation edits or rebuild were needed.
+
+Native screenshots cover every registered example: basic checked/focus and description, light/dark states, mixed Minus table header (one selected → all four → none via Space), disabled/read-only refusal, form error → checked/save → reset, custom Plum outer-card focus and groups. The Minus extension is visually distinct and suitable for partial selection; coordinator acceptance remains part of review. Forest at 360px/200%/RTL wraps Latin, Arabic and Hebrew without overflow; scrolling reaches all controls and pointer/keyboard activation works.
+
+Real production fixtures use local data only. Legal explanation editing was verified from the actual resulting text; checking enables Message, Space unchecks and disables it. Native AX reports its label and Value 1/0. Voice privacy in Plum at 200% RTL exposes its checkbox label and checked values; Space toggles and renders the exterior focus ring. No messages or voice connection were sent.
+
+Native AX limitation: the registered styleguide returned only its search field and transient menu overlays, despite working visual/pointer/keyboard controls. Production dialogs returned checkbox semantics correctly. The styleguide also displays its existing pending-implementation caption because catalogue completion is coordinator-owned. Neither shared-shell issue was changed here. VoiceOver speech and other-device execution remain unverified.
+
+After the final group screenshot, the isolated app was quit through its native Quit menu. A process-path check found no matching running process. No browser tab was opened in this slot. The native/browser slot was explicitly released to the coordinator before documentation work. Status: `review_ready`. Native evidence hashes and source identity are in `evidence/checkbox/native-manifest.json`.
