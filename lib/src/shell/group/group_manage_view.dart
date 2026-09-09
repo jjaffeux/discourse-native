@@ -369,16 +369,25 @@ class _GroupManageFormState extends State<_GroupManageForm> {
     bool obscure = false,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 14),
-    child: TextFormField(
-      style: Theme.of(context).textTheme.bodyMedium,
-      key: ValueKey('group-field-$key'),
-      controller: controller.textController(key),
-      minLines: obscure ? 1 : lines,
-      maxLines: obscure ? 1 : lines,
-      obscureText: obscure,
-      keyboardType: numeric ? TextInputType.number : TextInputType.text,
-      decoration: InputDecoration(labelText: label, hintText: hint),
-    ),
+    child: lines > 1 && !obscure
+        ? DTextarea(
+            key: ValueKey('group-field-$key'),
+            controller: controller.textController(key),
+            minLines: lines,
+            maxLines: lines,
+            labelText: label,
+            hintText: hint,
+          )
+        : TextFormField(
+            style: Theme.of(context).textTheme.bodyMedium,
+            key: ValueKey('group-field-$key'),
+            controller: controller.textController(key),
+            minLines: obscure ? 1 : lines,
+            maxLines: obscure ? 1 : lines,
+            obscureText: obscure,
+            keyboardType: numeric ? TextInputType.number : TextInputType.text,
+            decoration: InputDecoration(labelText: label, hintText: hint),
+          ),
   );
 }
 
@@ -398,19 +407,30 @@ class _ProfileFields extends StatelessWidget {
     Widget field(String key, String label, {int lines = 1, String? hint}) =>
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
-          child: TextFormField(
-            style: Theme.of(context).textTheme.bodyMedium,
-            key: ValueKey('group-field-$key'),
-            controller: controllers[key],
-            minLines: lines,
-            maxLines: lines,
-            enabled: key != 'name' || !group.automatic,
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: hint,
-              errorText: errors[key],
-            ),
-          ),
+          child: lines > 1
+              ? DTextarea(
+                  key: ValueKey('group-field-$key'),
+                  controller: controllers[key],
+                  minLines: lines,
+                  maxLines: lines,
+                  enabled: key != 'name' || !group.automatic,
+                  labelText: label,
+                  hintText: hint,
+                  errorText: errors[key],
+                )
+              : TextFormField(
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  key: ValueKey('group-field-$key'),
+                  controller: controllers[key],
+                  minLines: lines,
+                  maxLines: lines,
+                  enabled: key != 'name' || !group.automatic,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    hintText: hint,
+                    errorText: errors[key],
+                  ),
+                ),
         );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

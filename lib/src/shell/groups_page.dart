@@ -620,14 +620,18 @@ class _EmptyDirectory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Center(
-    child: Padding(
-      padding: EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    child: SingleChildScrollView(
+      child: DEmpty(
         children: [
-          DIcon(DIcons.users, size: 36),
-          SizedBox(height: 12),
-          Text('No groups match these filters.'),
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(
+                variant: DEmptyMediaVariant.icon,
+                child: DIcon(DIcons.users),
+              ),
+              DEmptyTitle('No groups match these filters.'),
+            ],
+          ),
         ],
       ),
     ),

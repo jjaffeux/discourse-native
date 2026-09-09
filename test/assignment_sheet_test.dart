@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
@@ -90,13 +91,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final note = tester.widget<TextField>(
+      final note = tester.widget<DTextarea>(
         find.byKey(const Key('assignment-note')),
       );
       expect(note.minLines, 3);
-      expect(note.decoration?.labelText, isNull);
-      expect(note.decoration?.hintText, 'Note (optional)');
-      expect(note.decoration?.border, isA<OutlineInputBorder>());
+      expect(note.labelText, isNull);
+      expect(note.hintText, 'Note (optional)');
 
       final unassignFinder = find.byKey(const Key('assignment-unassign'));
       final unassign = _materialButton(

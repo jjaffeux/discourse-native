@@ -800,13 +800,20 @@ class _AssignedEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        DIcon(DIcons.userPlus, size: 34),
-        SizedBox(height: 10),
-        Text('No active assignments match this filter.'),
-      ],
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(
+                variant: DEmptyMediaVariant.icon,
+                child: DIcon(DIcons.userPlus),
+              ),
+              DEmptyTitle('No active assignments match this filter.'),
+            ],
+          ),
+        ],
+      ),
     ),
   );
 }

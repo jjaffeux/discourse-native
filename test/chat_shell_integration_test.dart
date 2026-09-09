@@ -4535,15 +4535,29 @@ void _registerChatShellTests() {
           tester.getTopLeft(edit).dy,
           greaterThanOrEqualTo(tester.getBottomLeft(identity).dy),
         );
-        expect(tester.getSize(settingsTab).height, 58);
+        expect(tester.getSize(settingsTab).height, 48);
         expect(
-          tester.widget<Text>(settingsLabel).style?.fontSize,
-          theme.textTheme.titleSmall?.fontSize,
+          tester
+              .getSize(
+                find.descendant(
+                  of: settingsTab,
+                  matching: find.byType(AnimatedContainer),
+                ),
+              )
+              .height,
+          25,
         );
         expect(
-          tester.widget<Text>(settingsLabel).style?.fontWeight,
-          FontWeight.w500,
+          tester
+              .getSize(find.byKey(const ValueKey('chat-channel-info-tabs')))
+              .height,
+          58,
         );
+        final settingsStyle = DefaultTextStyle.of(
+          tester.element(settingsLabel),
+        ).style;
+        expect(settingsStyle.fontSize, 14);
+        expect(settingsStyle.fontWeight, FontWeight.w500);
         expect(
           tester.widget<Text>(summaryTitle).style?.fontSize,
           theme.textTheme.titleLarge?.fontSize,

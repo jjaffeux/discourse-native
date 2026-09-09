@@ -712,6 +712,23 @@ class _PrimaryTabs extends StatelessWidget {
         icon: DIcons.certificate,
       ),
     ];
+    final routes = <String, GroupRoute>{
+      for (final tab in tabs)
+        'core:${tab.section}': GroupRoute.detail(
+          group.name,
+          section: tab.section,
+          subsection: _defaultSubsection(tab.section, group, data),
+        ),
+      for (final owned in pluginTabs)
+        'plugin:${owned.owner}:${owned.tab.section}': GroupRoute.plugin(
+          groupName: group.name,
+          owner: owned.owner,
+          section: owned.tab.section,
+        ),
+    };
+    final selected = route.isPlugin
+        ? 'plugin:${route.pluginOwner}:${route.section}'
+        : 'core:${route.section}';
 
     return Material(
       color: Theme.of(context).colorScheme.surface,
@@ -731,53 +748,49 @@ class _PrimaryTabs extends StatelessWidget {
             ),
             child: ContentReadingLaneBox(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SingleChildScrollView(
+              child: SizedBox(
                 key: const ValueKey('group-primary-tabs'),
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    for (final tab in tabs)
-                      _TabButton(
-                        key: ValueKey('group-tab-${tab.section}'),
-                        selected:
-                            !route.isPlugin && route.section == tab.section,
-                        label: tab.label,
-                        icon: tab.icon,
-                        count: tab.count,
-                        compact: compact,
-                        onTap: () => onSelect(
-                          GroupRoute.detail(
-                            group.name,
-                            section: tab.section,
-                            subsection: _defaultSubsection(
-                              tab.section,
-                              group,
-                              data,
+                width: double.infinity,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: DTabs<String>.controlled(
+                    value: selected,
+                    onChanged: (value) {
+                      final destination = routes[value];
+                      if (destination != null) onSelect(destination);
+                    },
+                    children: [
+                      DTabList<String>(
+                        children: [
+                          for (final tab in tabs)
+                            DTabTrigger(
+                              key: ValueKey('group-tab-${tab.section}'),
+                              value: 'core:${tab.section}',
+                              child: _GroupTabLabel(
+                                label: tab.label,
+                                icon: tab.icon,
+                                count: tab.count,
+                                compact: compact,
+                              ),
                             ),
-                          ),
-                        ),
+                          for (final owned in pluginTabs)
+                            DTabTrigger(
+                              key: ValueKey(
+                                'group-plugin-tab-${owned.tab.section}',
+                              ),
+                              value:
+                                  'plugin:${owned.owner}:${owned.tab.section}',
+                              child: _GroupTabLabel(
+                                label: owned.tab.label,
+                                icon: owned.tab.icon,
+                                count: owned.tab.count,
+                                compact: compact,
+                              ),
+                            ),
+                        ],
                       ),
-                    for (final owned in pluginTabs)
-                      _TabButton(
-                        key: ValueKey('group-plugin-tab-${owned.tab.section}'),
-                        selected:
-                            route.isPlugin &&
-                            route.pluginOwner == owned.owner &&
-                            route.section == owned.tab.section,
-                        label: owned.tab.label,
-                        icon: owned.tab.icon,
-                        count: owned.tab.count,
-                        compact: compact,
-                        onTap: () => onSelect(
-                          GroupRoute.plugin(
-                            groupName: group.name,
-                            owner: owned.owner,
-                            section: owned.tab.section,
-                          ),
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -816,50 +829,29 @@ final class _GroupTab {
   final int? count;
 }
 
-class _TabButton extends StatelessWidget {
-  const _TabButton({
-    super.key,
-    required this.selected,
+class _GroupTabLabel extends StatelessWidget {
+  const _GroupTabLabel({
     required this.label,
     required this.icon,
-    required this.onTap,
     required this.compact,
     this.count,
   });
 
-  final bool selected;
   final String label;
   final DIconData icon;
   final int? count;
-  final VoidCallback onTap;
   final bool compact;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 6),
-    child: Material(
-      color: selected ? Theme.of(context).shell.selected : Colors.transparent,
-      borderRadius: BorderRadius.circular(7),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(7),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-          child: Row(
-            children: [
-              if (!compact) ...[
-                DIcon(icon, size: 14),
-                const SizedBox(width: 7),
-              ],
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-              if (!compact && count != null) ...[
-                const SizedBox(width: 6),
-                Text('$count', style: Theme.of(context).textTheme.labelSmall),
-              ],
-            ],
-          ),
-        ),
-      ),
-    ),
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (!compact) ...[DIcon(icon, size: 14), const SizedBox(width: 6)],
+      Text(label),
+      if (!compact && count != null) ...[
+        const SizedBox(width: 6),
+        Text('$count', style: Theme.of(context).textTheme.labelSmall),
+      ],
+    ],
   );
 }
