@@ -13,7 +13,7 @@ final switchExamples = ComponentExamples(
       'DSwitchFormField supports validation/save/reset. Read-only retains focus; '
       'disabled prevents activation. Space and Enter toggle; Tab moves focus. '
       'Default artwork is 32×18.4 with a 16px thumb; small is 24×14 with a 12px '
-      'thumb. Transparent 48px touch bounds preserve reference artwork. '
+      'thumb. Desktop rows are intrinsic; touch rows retain 48px targets. '
       'Choice cards compose local switch rows; the general Field API is pending.',
   examples: [
     StyleguideExample(
@@ -286,6 +286,7 @@ class _SwitchSizesState extends State<_SwitchSizes> {
               child: Text('Small'),
             ),
           ),
+          const SizedBox(height: 20),
           DSwitchTile(
             leading: true,
             value: _standard,

@@ -196,17 +196,16 @@ class _SwitchArtwork extends StatelessWidget {
               ? _multiplyAlpha(ring, invalid && dark ? 0.5 : 1)
               : Colors.transparent,
         ),
-        boxShadow: invalid || focused
-            ? [
-                BoxShadow(
-                  color: _multiplyAlpha(
-                    ring,
-                    invalid ? (dark ? 0.4 : 0.2) : 0.5,
-                  ),
-                  spreadRadius: 3,
-                ),
-              ]
-            : null,
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          width: 3,
+          strokeAlign: BorderSide.strokeAlignOutside,
+          color: invalid || focused
+              ? _multiplyAlpha(ring, invalid ? (dark ? 0.4 : 0.2) : 0.5)
+              : Colors.transparent,
+        ),
       ),
       child: AnimatedAlign(
         duration: duration,
@@ -283,7 +282,14 @@ class DSwitchTile extends StatelessWidget {
       return AnimatedContainer(
         duration: DMotion.duration(context, const Duration(milliseconds: 150)),
         curve: const Cubic(0.4, 0, 0.2, 1),
-        constraints: const BoxConstraints(minHeight: DSpacing.touchTarget),
+        constraints: BoxConstraints(
+          minHeight: switch (Theme.of(context).platform) {
+            TargetPlatform.android ||
+            TargetPlatform.iOS ||
+            TargetPlatform.fuchsia => DSpacing.touchTarget,
+            _ => 0,
+          },
+        ),
         padding: choiceCard
             ? const EdgeInsets.all(10).add(contentPadding)
             : contentPadding,
@@ -302,14 +308,18 @@ class DSwitchTile extends StatelessWidget {
                     : value
                     ? _multiplyAlpha(tokens.primary, dark ? 0.1 : 0.05)
                     : null,
-                boxShadow: focused
-                    ? [
-                        BoxShadow(
-                          color: _multiplyAlpha(tokens.focusRing, 0.5),
-                          spreadRadius: 3,
-                        ),
-                      ]
-                    : null,
+              )
+            : null,
+        foregroundDecoration: choiceCard
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(tokens.radius),
+                border: Border.all(
+                  width: 3,
+                  strokeAlign: BorderSide.strokeAlignOutside,
+                  color: focused
+                      ? _multiplyAlpha(tokens.focusRing, 0.5)
+                      : Colors.transparent,
+                ),
               )
             : null,
         child: Row(

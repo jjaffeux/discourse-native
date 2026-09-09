@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'dart:ui' show PointerDeviceKind, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -33,6 +34,165 @@ void main() {
         ),
       ),
     ),
+  );
+
+  testWidgets('desktop rows are intrinsic and touch rows retain 48px targets', (
+    tester,
+  ) async {
+    for (final platform in [
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    ]) {
+      final touch =
+          platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+      for (final card in [false, true]) {
+        for (final description in [false, true]) {
+          var changes = 0;
+          await mount(
+            tester,
+            DSwitchTile(
+              value: false,
+              onChanged: (_) => changes++,
+              leading: true,
+              choiceCard: card,
+              title: const Text('Title'),
+              subtitle: description ? const Text('Description') : null,
+            ),
+            theme: AppTheme.light.copyWith(platform: platform),
+          );
+          await tester.pumpAndSettle();
+          final height = tester.getSize(find.byType(DSwitchTile)).height;
+          final intrinsic = card
+              ? (description ? 65.0 : 42.0)
+              : (description ? 42.25 : 18.4);
+          expect(height, closeTo(touch && intrinsic < 48 ? 48 : intrinsic, .3));
+          await tester.tapAt(
+            tester.getBottomLeft(find.byType(DSwitchTile)) +
+                const Offset(4, -2),
+          );
+          expect(changes, 1);
+        }
+      }
+    }
+  });
+
+  testWidgets(
+    'exterior rings leave translucent track and card interiors unchanged',
+    (tester) async {
+      final strategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+      for (final dark in [false, true]) {
+        for (final card in [false, true]) {
+          final focus = FocusNode();
+          final boundary = GlobalKey();
+          final base = dark ? AppTheme.dark : AppTheme.light;
+          final tokens = DTokens.fromTheme(base).copyWith(
+            colors: base.colorScheme.copyWith(
+              outlineVariant: const Color(0x337733aa),
+              primary: const Color(0x809944cc),
+            ),
+          );
+          Future<List<int>> pixels(bool invalid, bool focused) async {
+            await mount(
+              tester,
+              RepaintBoundary(
+                key: boundary,
+                child: ColoredBox(
+                  color: tokens.background,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: card
+                        ? DSwitchTile(
+                            value: false,
+                            onChanged: (_) {},
+                            choiceCard: true,
+                            invalid: invalid,
+                            focusNode: focus,
+                            title: const Text('Card'),
+                          )
+                        : DSwitch(
+                            value: false,
+                            onChanged: (_) {},
+                            invalid: invalid,
+                            focusNode: focus,
+                          ),
+                  ),
+                ),
+              ),
+              theme: base.copyWith(
+                platform: TargetPlatform.macOS,
+                extensions: [tokens],
+              ),
+            );
+            if (focused) {
+              focus.requestFocus();
+            } else {
+              focus.unfocus();
+            }
+            await tester.pumpAndSettle();
+            final container = find.descendant(
+              of: find.byType(DSwitch),
+              matching: find.byType(AnimatedContainer),
+            );
+            final bounds = tester.getRect(
+              card ? container.first : container.last,
+            );
+            final origin = tester.getTopLeft(find.byKey(boundary));
+            final samples = [
+              card
+                  ? Offset(bounds.center.dx, bounds.bottom - 5)
+                  : Offset(bounds.right - 5, bounds.center.dy),
+              Offset(bounds.center.dx, bounds.top - 2),
+            ];
+            return (await tester.runAsync(() async {
+              final image =
+                  await (boundary.currentContext!.findRenderObject()!
+                          as RenderRepaintBoundary)
+                      .toImage(pixelRatio: 2);
+              final data = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!;
+              final result = <int>[];
+              for (final sample in samples) {
+                final point = (sample - origin) * 2;
+                final index =
+                    (point.dy.floor() * image.width + point.dx.floor()) * 4;
+                result.addAll(data.buffer.asUint8List(index, 4));
+              }
+              image.dispose();
+              return result;
+            }))!;
+          }
+
+          final normal = await pixels(false, false);
+          final focused = await pixels(false, true);
+          expect(
+            focused.take(4),
+            normal.take(4),
+            reason: 'focus must not tint interior: dark=$dark card=$card',
+          );
+          expect(
+            focused.skip(4),
+            isNot(normal.skip(4)),
+            reason: 'focus ring remains visible outside',
+          );
+          final invalid = await pixels(true, false);
+          expect(
+            invalid.take(4),
+            normal.take(4),
+            reason: 'invalid must not tint interior: dark=$dark card=$card',
+          );
+          if (!card) expect(invalid.skip(4), isNot(normal.skip(4)));
+          await tester.pumpWidget(const SizedBox());
+          focus.dispose();
+        }
+      }
+    },
   );
 
   testWidgets(
@@ -377,8 +537,8 @@ void main() {
             )
             .last,
       );
-      final decoration = track.decoration! as BoxDecoration;
-      expect(decoration.boxShadow!.single.spreadRadius, 3);
+      final ring = track.foregroundDecoration! as BoxDecoration;
+      expect((ring.border! as Border).top.width, 3);
       expect(
         tester
             .getSemantics(find.byType(DSwitch))
@@ -433,13 +593,26 @@ void main() {
       expect(card().color, tokens.muted.withValues(alpha: .5));
       focus.requestFocus();
       await tester.pumpAndSettle();
-      expect(card().boxShadow!.single.spreadRadius, 3);
       expect(
-        (tester.widget<AnimatedContainer>(containers.last).decoration!
-                as BoxDecoration)
-            .boxShadow!
-            .single
-            .spreadRadius,
+        ((tester
+                            .widget<AnimatedContainer>(containers.first)
+                            .foregroundDecoration!
+                        as BoxDecoration)
+                    .border!
+                as Border)
+            .top
+            .width,
+        3,
+      );
+      expect(
+        ((tester
+                            .widget<AnimatedContainer>(containers.last)
+                            .foregroundDecoration!
+                        as BoxDecoration)
+                    .border!
+                as Border)
+            .top
+            .width,
         3,
       );
       await mouse.removePointer();
@@ -485,7 +658,9 @@ void main() {
           ),
         );
         expect(
-          decoration.boxShadow!.single.color,
+          ((track.foregroundDecoration! as BoxDecoration).border! as Border)
+              .top
+              .color,
           tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .4 : .2),
           ),
@@ -559,7 +734,14 @@ void main() {
           await tester.pumpAndSettle();
           expect((card().border! as Border).top.color, tokens.focusRing);
           expect(
-            card().boxShadow!.single.color,
+            ((tester
+                                .widget<AnimatedContainer>(containers.first)
+                                .foregroundDecoration!
+                            as BoxDecoration)
+                        .border!
+                    as Border)
+                .top
+                .color,
             tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5),
           );
           focus.unfocus();

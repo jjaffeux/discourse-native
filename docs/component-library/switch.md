@@ -55,8 +55,8 @@ requests the declared initial value through onChanged. Uncontrolled fields own
 that transition immediately. Errors expose invalid semantics and a live region.
 
 The browser hit extension is 12px horizontally and 8px vertically; native
-standalone controls use transparent 48×48 bounds, and rows are at least 48px
-high. Artwork is never scaled to achieve that target. Choice-card focus encloses
+standalone controls use transparent 48×48 bounds. Rows have intrinsic desktop
+heights and a 48px minimum on Android/iOS/Fuchsia. Artwork is never scaled to achieve that target. Choice-card focus encloses
 the clickable card and its switch, matching the measured live CSS. Flutter FocusableActionDetector, Actions, Shortcuts,
 GestureDetector and Semantics own interaction; there is no Material/Cupertino
 switch artwork or platform-dependent shape. Space and Enter toggle. Native text
@@ -157,9 +157,9 @@ Checked light primary was observed as black and corrected in the neutral export
 adapter. Dark input is white at .15 alpha, multiplied by .8 to .12. Actual source
 `border` is white at .1 alpha. Custom Forest/Plum exports at 360px/200% RTL showed
 wrapping and preserved compact artwork with square/18px-radius choice cards.
-Size examples now center and associate each clickable label; their rows remain
-48px high for separate native touch targets, versus approximately 39px center
-spacing in the browser. This is a specific native hit-target adaptation.
+Size examples center and associate each clickable label. Intrinsic desktop
+rows plus the source 20px gap give approximately 39px center spacing. Touch
+platforms retain 48px row targets.
 
 Evidence and renderer/source hashes are in `evidence/switch/`. CSSOM stylesheet
 rules were not exposed by the read-only browser bridge (zero rules returned);
@@ -174,3 +174,34 @@ was not changed globally in this component correction.
 The original website dark theme was restored, no viewport override was applied,
 and the sole comparison tab was closed before releasing the slot. No native app
 was launched or inspected. Native inspection remains awaiting_slot.
+
+
+## Exterior-ring and compact-row correction
+
+Reused committed primary browser screenshots/metrics and read main's updated
+visual-fidelity.md on 2026-09-09. No CUA, browser or native app was launched.
+Track and card rings now use animated foreground borders with a 3px exterior
+stroke. They retain both browser-observed focus rings and do not paint behind
+translucent input/card fills. Raster regressions sample unchanged interior RGBA
+and changed exterior RGBA for normal/focused/invalid light/dark controls.
+
+Desktop single-label rows follow their intrinsic text/indicator height (18.4px
+for a leading standard switch); one-line descriptions are approximately 42px,
+and a title-only card is 42px. Wrapped reference cards remain 384×86px. Tests
+exercise macOS/Windows/Linux and Android/iOS 48px touch bounds, including row-edge
+activation. Generic layouts have no desktop minimum. Poll and Group adapters
+alone add 8px vertical padding: fixture renders exposed switch labels abutting
+adjacent fields and descriptions after removing the global minimum.
+
+Regenerated 20 component exports (including light/dark focused cards), plus 14
+real local-data fixture exports. Inspected normal/invalid/focused light/dark,
+Size spacing, Forest/Plum radius0/18 at 360px/200% RTL, and Settings, Preferences,
+Chat, Poll, Local Date, Group and Voice fixture layouts. Existing font shaping
+and shared focus-token limitations above still apply. These widget renders do
+not satisfy the native inspection gate.
+
+221 affected tests passed (seed 782312), followed by 59 component/fixture/export/
+Poll/Group checks after the narrowly scoped adapter/Size spacing adjustment.
+Logs: /private/tmp/switch-exterior-final-tests.log and
+/private/tmp/switch-exterior-adapter-tests.log. Root/full analysis was rerun
+following removal of the temporary export test. Native status stays awaiting_slot.

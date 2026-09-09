@@ -239,7 +239,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           onChanged: (value) => controller.setAdmission(value ?? 'closed'),
         ),
         DSwitchTile(
-          contentPadding: EdgeInsets.zero,
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: const DLabel(child: Text('Members can leave')),
           value: controller.publicExit,
           onChanged: controller.setPublicExit,
@@ -291,7 +291,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           onChanged: controller.setDefaultNotification,
         ),
         DSwitchTile(
-          contentPadding: EdgeInsets.zero,
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: const DLabel(child: Text('Publish read state')),
           subtitle: const Text('Let members share message read state.'),
           value: controller.publishReadState,
@@ -308,7 +308,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           description: 'Configure the mailbox used by this group.',
         ),
         DSwitchTile(
-          contentPadding: EdgeInsets.zero,
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: const DLabel(child: Text('Enable SMTP')),
           value: controller.smtpEnabled,
           onChanged: controller.setSmtpEnabled,
@@ -333,7 +333,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         ),
         _textField('email_from_alias', 'From alias'),
         DSwitchTile(
-          contentPadding: EdgeInsets.zero,
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: const DLabel(
             child: Text('Allow replies from unknown senders'),
           ),
