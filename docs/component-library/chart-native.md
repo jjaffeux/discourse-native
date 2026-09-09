@@ -8,8 +8,8 @@ The Mac remains locked. Source/build readiness does not satisfy the visual gate.
 - Branch: `codex/ui-chart`.
 - Implementation: `3c1fb60a44830fd161af196473c05a8ab0029564`.
 - Final executable source (rendered reference corrections):
-  `3dceccf13e327e931290d4f25d13f94e1fb695f5`.
-- `git diff --exit-code 3dceccf13e327e931290d4f25d13f94e1fb695f5 -- lib test packages macos profiles/full/lib pubspec.yaml pubspec.lock .fvmrc`
+  `1edacc2894f33d4002d02dd37b31baee1e0017b2`.
+- `git diff --exit-code 1edacc2894f33d4002d02dd37b31baee1e0017b2 -- lib test packages macos profiles/full/lib pubspec.yaml pubspec.lock .fvmrc`
   passed after the final build (also including `tool/`). Subsequent handoff commits change documentation
   and progress only; executable source remains equal to this commit.
 - Flutter 3.47.2 / Dart 3.13.2; root/full locked resolution succeeded and pins,
@@ -27,20 +27,20 @@ Final build log: `/tmp/chart-macos-browser-final.log` (success).
 The build uses this worktree's `build/`, never the user's main checkout build.
 The app was then copied with `ditto` and given a distinct Info.plist identity:
 
-- Bundle: `/tmp/chart-review-eab4-3dceccf1/Chart Review eab4.app`
+- Bundle: `/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app`
 - Display/name: `Chart Review eab4`
 - Identifier: `org.discourse.chartrevieweab4`
 - URL scheme: `discourse-chart-review-eab4`
 - Entry point: `lib/chart_review_main.dart`
 
 Only the copied bundle's name/identifier/URL-type fields were changed. It was
-re-signed locally with ad-hoc signing and preserved entitlements:
+re-signed locally with ad-hoc signing and an explicit review-only entitlement plist:
 
 ```sh
-codesign --force --deep --sign - --preserve-metadata=entitlements \
-  '/tmp/chart-review-eab4-3dceccf1/Chart Review eab4.app'
+codesign --force --deep --sign - --entitlements /tmp/chart-review-eab4-1edacc28/Review.entitlements \
+  '/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app'
 codesign --verify --deep --strict --verbose=2 \
-  '/tmp/chart-review-eab4-3dceccf1/Chart Review eab4.app'
+  '/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app'
 ```
 
 Deep strict verification passed: **valid on disk; satisfies its Designated
@@ -51,12 +51,12 @@ libraries. Logs: `/tmp/chart-browser-sign.log`, `/tmp/chart-browser-verify.log`,
 The build App.framework kernel, original built app's embedded kernel, and copied
 review app's embedded kernel have the identical SHA256:
 
-`ddd4ce813f3caf72ae4fa11e2f165e1574b89c1dfdafe7b65d4e7ffacf6458f0`
+`fb12b550202eafb59c899f0b5c8c3d7f9c10581766c1df53ee8988463a7eefa3`
 
 Each kernel path ends in
 `App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin`.
 Machine-readable exact paths, commit and verification output:
-`/tmp/chart-review-eab4-3dceccf1/evidence.json`.
+`/tmp/chart-review-eab4-1edacc28/evidence.json`.
 
 ## Checks completed
 
@@ -114,4 +114,12 @@ operation occurred. Coordinator alone performs the final local merge.
 
 ## Browser correction validation
 
-147 focused tests passed, seed 24615266. Final export plus registered-example checks: 3 passed (`/tmp/chart-browser-export-final.log`). Root/full analysis clean. Browser settings restored and tab closed before final checks/build. Escape bubbling and invalid borrowed-index preservation are covered. Exact current bundle evidence: `/tmp/chart-review-eab4-3dceccf1/evidence.json`.
+147 focused tests passed, seed 24615266. Final export plus registered-example checks: 3 passed (`/tmp/chart-browser-export-final.log`). Root/full analysis clean. Browser settings restored and tab closed before final checks/build. Escape bubbling and invalid borrowed-index preservation are covered. Exact current bundle evidence: `/tmp/chart-review-eab4-1edacc28/evidence.json`.
+
+## Pinned main integration
+
+Merged pinned main `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` into Chart at executable source `1edacc2894f33d4002d02dd37b31baee1e0017b2`. Final Button, Badge, Input, Radio Group and Checkbox owners and coordinator adapters are preserved. Poll keeps final Radio Group/Checkbox interactions; both result presentations use DChartBar. Users differs from pinned main only in its existing metric-bar migration. All non-Chart progress rows equal pinned main. Runner identities, entitlements, pins and lockfiles are unchanged.
+
+193 integration tests passed, seed **4024479176**, including Chart, actual Poll/Users, Radio Group, Checkbox, Button adoption and styleguide tests. Root/full analysis clean. Build, logs, signed entitlement readback and exact source/kernel provenance are committed in `evidence/chart/integration/`. The isolated copied app is signed with explicit debug/JIT entitlements; readback exactly equals the review plist and excludes APS, developer/team/application identifiers. Deep strict verification passed. Three kernels match; executable source equality passed.
+
+Browser evidence remains the completed earlier comparison; it was not repeated. No CUA, browser or native launch occurred during integration. **awaiting_slot** for native review; examples remain baseline.

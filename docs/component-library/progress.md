@@ -1905,6 +1905,8 @@ Status: in_progress. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/u
 - Browser comparison completed with font-loaded actual examples and production fixtures; evidence in chart-browser-review.md. Browser slot released. Mac locked; remain in_progress awaiting_slot until native review.
 - No iOS/Linux device or VoiceOver testing; test image geometry is not pixel-parity evidence.
 
+- Pinned main e612ad7b merged at 1edacc28; 193 integration tests pass (seed 4024479176), root/full analysis clean. Final owners/adapters and every non-Chart row preserved. Source-exact isolated bundle `/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app`; restricted-free debug/JIT signed readback and strict signature verified. Evidence: `evidence/chart/integration/build-identity.json`. No browser/native launch; awaiting_slot.
+
 ### chart
 
 Status: in_progress. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-chart.
