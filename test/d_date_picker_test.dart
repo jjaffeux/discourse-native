@@ -251,4 +251,82 @@ void main() {
     expect(find.byType(SingleChildScrollView), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'editable picker parses, preserves invalid text, and opens with Arrow Down',
+    (tester) async {
+      final changes = <DCalendarDate?>[];
+      final calendar = DCalendarController();
+      addTearDown(calendar.dispose);
+      await pump(
+        tester,
+        DDatePickerInput(
+          initialValue: DCalendarDate(2025, 6, 1),
+          calendarController: calendar,
+          onChanged: changes.add,
+        ),
+      );
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'June 01, 2025',
+      );
+      await tester.enterText(find.byType(TextField), 'February 29, 2025');
+      await tester.pump();
+      expect(find.text('February 29, 2025'), findsOneWidget);
+      expect(changes, isEmpty);
+      expect(find.text('Enter a valid date'), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'September 11, 2026');
+      await tester.pump();
+      expect(changes.last, DCalendarDate(2026, 9, 11));
+      expect(calendar.displayedMonth, DCalendarDate(2026, 9, 1));
+
+      await tester.tap(find.byType(TextField));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(find.byType(DCalendar), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'natural input uses an explicit clock and calendar selection normalizes text',
+    (tester) async {
+      final changes = <DCalendarDate?>[];
+      await pump(
+        tester,
+        DDatePickerInput(
+          naturalDateParser: const DEnglishNaturalDateParser(),
+          referenceDate: DateTime(2026, 9, 9),
+          initialValue: DCalendarDate(2026, 9, 9),
+          onChanged: changes.add,
+        ),
+      );
+      await tester.enterText(find.byType(TextField), 'In 2 days');
+      await tester.pump();
+      expect(changes.last, DCalendarDate(2026, 9, 11));
+
+      await tester.tap(find.bySemanticsLabel('Select date'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Saturday, September 12, 2026'));
+      await tester.pumpAndSettle();
+      expect(find.text('September 12, 2026'), findsOneWidget);
+      expect(find.byType(DCalendar), findsNothing);
+    },
+  );
+
+  testWidgets('time input reports only strict typed wall-clock values', (
+    tester,
+  ) async {
+    final changes = <DTimeValue?>[];
+    await pump(tester, DTimeInput(onChanged: changes.add));
+    await tester.enterText(find.byType(TextField), '25:00:00');
+    await tester.pump();
+    expect(changes, isEmpty);
+    expect(find.text('Enter a valid time'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '08:30:15');
+    await tester.pump();
+    expect(changes.last, const DTimeValue(hour: 8, minute: 30, second: 15));
+  });
 }

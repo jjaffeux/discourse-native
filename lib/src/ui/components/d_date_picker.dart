@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
@@ -11,6 +12,8 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_calendar.dart';
 import 'd_field.dart';
+import 'd_input.dart';
+import 'd_input_group.dart';
 import 'd_popover.dart';
 
 final _dateFormattingInitialization = initializeDateFormatting();
@@ -674,6 +677,403 @@ class _DDateRangePickerState extends State<DDateRangePicker> {
   void dispose() {
     _ownedPopover.dispose();
     _ownedFocus.dispose();
+    super.dispose();
+  }
+}
+
+/// An editable Date Picker composed from Input Group, Popover and Calendar.
+/// Invalid non-empty text stays editable while the last valid date is kept.
+class DDatePickerInput extends StatefulWidget {
+  const DDatePickerInput({
+    super.key,
+    this.initialValue,
+    this.onChanged,
+    this.controller,
+    this.focusNode,
+    this.popoverController,
+    this.calendarController,
+    this.label,
+    this.description,
+    this.errorText,
+    this.placeholder = 'June 01, 2025',
+    this.semanticLabel,
+    this.enabled = true,
+    this.width = 288,
+    this.locale,
+    this.dateCodec = const DIntlDateTextCodec(),
+    this.naturalDateParser,
+    this.referenceDate,
+    this.startMonth,
+    this.endMonth,
+    this.disabled,
+    this.today,
+  }) : _controlled = false,
+       value = null;
+
+  const DDatePickerInput.controlled({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.controller,
+    this.focusNode,
+    this.popoverController,
+    this.calendarController,
+    this.label,
+    this.description,
+    this.errorText,
+    this.placeholder = 'June 01, 2025',
+    this.semanticLabel,
+    this.enabled = true,
+    this.width = 288,
+    this.locale,
+    this.dateCodec = const DIntlDateTextCodec(),
+    this.naturalDateParser,
+    this.referenceDate,
+    this.startMonth,
+    this.endMonth,
+    this.disabled,
+    this.today,
+  }) : _controlled = true,
+       initialValue = null;
+
+  final DCalendarDate? value, initialValue;
+  final ValueChanged<DCalendarDate?>? onChanged;
+  final TextEditingController? controller;
+  final FocusNode? focusNode;
+  final DPopoverController? popoverController;
+  final DCalendarController? calendarController;
+  final String? label, description, errorText, semanticLabel;
+  final String placeholder;
+  final bool enabled;
+  final double width;
+  final Locale? locale;
+  final DDateTextCodec dateCodec;
+  final DNaturalDateParser? naturalDateParser;
+  final DateTime? referenceDate;
+  final DCalendarDate? startMonth, endMonth, today;
+  final DCalendarPredicate? disabled;
+  final bool _controlled;
+
+  @override
+  State<DDatePickerInput> createState() => _DDatePickerInputState();
+}
+
+class _DDatePickerInputState extends State<DDatePickerInput> {
+  TextEditingController? _ownedController;
+  FocusNode? _ownedFocus;
+  DPopoverController? _ownedPopover;
+  DCalendarController? _ownedCalendar;
+  DCalendarDate? _value;
+  bool _invalidText = false;
+
+  TextEditingController get _text => widget.controller ?? _ownedController!;
+  FocusNode get _focus => widget.focusNode ?? _ownedFocus!;
+  DPopoverController get _popover => widget.popoverController ?? _ownedPopover!;
+  DCalendarController get _calendar =>
+      widget.calendarController ?? _ownedCalendar!;
+  DCalendarDate? get _effectiveValue =>
+      widget._controlled ? widget.value : _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.initialValue;
+    if (widget.controller == null) _ownedController = TextEditingController();
+    if (widget.focusNode == null) {
+      _ownedFocus = FocusNode(debugLabel: 'DDatePickerInput editor');
+    }
+    if (widget.popoverController == null) _ownedPopover = DPopoverController();
+    if (widget.calendarController == null) {
+      _ownedCalendar = DCalendarController();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_text.text.isEmpty && _effectiveValue != null) {
+      _syncText(_effectiveValue!);
+    }
+  }
+
+  @override
+  void didUpdateWidget(DDatePickerInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      final previousOwned = _ownedController;
+      final previousText =
+          oldWidget.controller?.text ?? previousOwned?.text ?? '';
+      if (widget.controller == null) {
+        _ownedController = TextEditingController(text: previousText);
+      } else {
+        _ownedController = null;
+      }
+      if (previousOwned != null) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => previousOwned.dispose(),
+        );
+      }
+    }
+    if (oldWidget.focusNode != widget.focusNode) {
+      final previousOwned = _ownedFocus;
+      _ownedFocus = widget.focusNode == null
+          ? FocusNode(debugLabel: 'DDatePickerInput editor')
+          : null;
+      if (previousOwned != null) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => previousOwned.dispose(),
+        );
+      }
+    }
+    if (oldWidget.popoverController != widget.popoverController) {
+      _ownedPopover?.dispose();
+      _ownedPopover = widget.popoverController == null
+          ? DPopoverController()
+          : null;
+    }
+    if (oldWidget.calendarController != widget.calendarController) {
+      _ownedCalendar?.dispose();
+      _ownedCalendar = widget.calendarController == null
+          ? DCalendarController()
+          : null;
+    }
+    if (oldWidget.value != widget.value && widget._controlled) {
+      final next = widget.value;
+      if (next == null) {
+        _replaceText('');
+      } else {
+        _syncText(next);
+        _calendar.showMonth(next);
+      }
+      _invalidText = false;
+    }
+  }
+
+  void _replaceText(String text) {
+    _text.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
+  void _syncText(DCalendarDate value) {
+    final locale = widget.locale ?? Localizations.localeOf(context);
+    _replaceText(widget.dateCodec.format(value.dateTimeUtc, locale));
+  }
+
+  DCalendarDate? _parse(String raw) {
+    final locale = widget.locale ?? Localizations.localeOf(context);
+    final parsed =
+        widget.naturalDateParser?.tryParse(
+          raw,
+          reference: widget.referenceDate ?? DateTime.now(),
+          locale: locale,
+        ) ??
+        widget.dateCodec.tryParse(raw, locale);
+    return parsed == null ? null : DCalendarDate.fromDateTime(parsed);
+  }
+
+  void _typed(String raw) {
+    if (raw.trim().isEmpty) {
+      setState(() {
+        _invalidText = false;
+        if (!widget._controlled) _value = null;
+      });
+      widget.onChanged?.call(null);
+      return;
+    }
+    final next = _parse(raw);
+    final invalid =
+        next == null ||
+        (widget.startMonth != null && next.isBefore(widget.startMonth!)) ||
+        (widget.endMonth != null && next.isAfter(widget.endMonth!)) ||
+        (widget.disabled?.call(next) ?? false);
+    if (invalid) {
+      setState(() => _invalidText = true);
+      return;
+    }
+    setState(() {
+      _invalidText = false;
+      if (!widget._controlled) _value = next;
+    });
+    _calendar.showMonth(next);
+    widget.onChanged?.call(next);
+  }
+
+  void _selected(DCalendarSelection selection, DCalendarSelectReason reason) {
+    final next = (selection as DCalendarSingleSelection).date;
+    if (next == null) return;
+    setState(() {
+      _invalidText = false;
+      if (!widget._controlled) _value = next;
+    });
+    _syncText(next);
+    widget.onChanged?.call(next);
+    _popover.close();
+  }
+
+  KeyEventResult _key(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _popover.open(DPopoverInteraction.keyboard);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _effectiveValue;
+    final locale = widget.locale ?? Localizations.localeOf(context);
+    final geometry = _calendarGeometry(context);
+    final invalid = _invalidText || widget.errorText != null;
+    final picker = DPopover(
+      controller: _popover,
+      content: DPopoverContent(
+        width: geometry.popoverWidth,
+        padding: EdgeInsets.zero,
+        align: DPopoverAlign.end,
+        alignOffset: -8,
+        sideOffset: 10,
+        semanticLabel: 'Calendar',
+        child: _calendarViewport(
+          geometry,
+          DCalendar(
+            mode: DCalendarSelectionMode.single,
+            selection: DCalendarSingleSelection(value),
+            onSelectionChanged: _selected,
+            controller: _calendar,
+            locale: locale,
+            initialDisplayedMonth: value,
+            startMonth: widget.startMonth,
+            endMonth: widget.endMonth,
+            disabled: widget.disabled,
+            today: widget.today,
+          ),
+        ),
+      ),
+      child: DPopoverTrigger(
+        focusNode: _focus,
+        builder: (context, trigger) => Focus(
+          onKeyEvent: _key,
+          child: DInputGroup(
+            invalid: invalid,
+            enabled: widget.enabled,
+            semanticLabel: widget.semanticLabel ?? widget.label,
+            children: [
+              DInputGroupInput(
+                controller: _text,
+                focusNode: _focus,
+                semanticLabel: widget.semanticLabel ?? widget.label ?? 'Date',
+                hintText: widget.placeholder,
+                invalid: invalid,
+                enabled: widget.enabled,
+                onChanged: _typed,
+              ),
+              DInputGroupAddon(
+                alignment: DInputGroupAddonAlignment.inlineEnd,
+                child: DInputGroupButton.icon(
+                  icon: const DIcon(_calendarIcon, size: 16),
+                  tooltip: 'Select date',
+                  semanticLabel: 'Select date',
+                  hasPopup: true,
+                  onPressed: widget.enabled ? trigger.toggle : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (widget.label == null) {
+      return SizedBox(width: widget.width, child: picker);
+    }
+    final errors = <String?>[
+      widget.errorText,
+      if (_invalidText) 'Enter a valid date',
+    ];
+    return SizedBox(
+      width: widget.width,
+      child: DField(
+        enabled: widget.enabled,
+        invalid: invalid,
+        children: [
+          DFieldLabel(focusNode: _focus, child: Text(widget.label!)),
+          DFieldControl(
+            label: widget.label!,
+            description: widget.description,
+            errors: errors,
+            child: picker,
+          ),
+          if (widget.description != null)
+            DFieldDescription(child: Text(widget.description!)),
+          if (invalid) DFieldError(errors: errors),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ownedController?.dispose();
+    _ownedFocus?.dispose();
+    _ownedPopover?.dispose();
+    _ownedCalendar?.dispose();
+    super.dispose();
+  }
+}
+
+/// Strict wall-clock editor for a Date Picker date/time composition.
+class DTimeInput extends StatefulWidget {
+  const DTimeInput({
+    super.key,
+    this.initialValue,
+    this.onChanged,
+    this.label,
+    this.enabled = true,
+    this.includeSeconds = true,
+    this.width = 112,
+  });
+  final DTimeValue? initialValue;
+  final ValueChanged<DTimeValue?>? onChanged;
+  final String? label;
+  final bool enabled, includeSeconds;
+  final double width;
+  @override
+  State<DTimeInput> createState() => _DTimeInputState();
+}
+
+class _DTimeInputState extends State<DTimeInput> {
+  late final TextEditingController _controller = TextEditingController(
+    text:
+        widget.initialValue?.format(includeSeconds: widget.includeSeconds) ??
+        '',
+  );
+  bool _invalid = false;
+  void _changed(String text) {
+    final value = text.trim().isEmpty ? null : DTimeValue.tryParse(text);
+    setState(() => _invalid = text.trim().isNotEmpty && value == null);
+    if (!_invalid) widget.onChanged?.call(value);
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: widget.width,
+    child: DInput(
+      controller: _controller,
+      labelText: widget.label,
+      semanticLabel: widget.label ?? 'Time',
+      hintText: widget.includeSeconds ? 'HH:mm:ss' : 'HH:mm',
+      keyboardType: TextInputType.datetime,
+      invalid: _invalid,
+      errorText: _invalid ? 'Enter a valid time' : null,
+      enabled: widget.enabled,
+      onChanged: _changed,
+    ),
+  );
+  @override
+  void dispose() {
+    _controller.dispose();
     super.dispose();
   }
 }
