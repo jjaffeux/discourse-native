@@ -7,7 +7,7 @@ checks were performed. This component is not `review_ready` yet.
 
 ## Prepared app
 
-- Implementation commit: `302f4c3b3082d87a0e2fd1a1b46be873e7d14c27`.
+- Implementation commit: `08e7042a27dc34f6db11399e26709d622fe14a7a`.
 - Source task: `01a083ac-c98c-7fe0-878d-54ee3bcbebb9`, branch `codex/ui-badge`.
 - Temporary source: `/private/tmp/discourse-badge-review-bebb9`.
 - App: `/private/tmp/discourse-badge-review-bebb9/build/macos/Build/Products/Debug/Badge Review BEBB9.app`.
