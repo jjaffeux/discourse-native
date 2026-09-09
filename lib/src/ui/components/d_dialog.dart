@@ -234,6 +234,16 @@ class _DDialogState<T> extends State<DDialog<T>> {
     if (mounted) _syncRoute();
   });
 
+  void _updateRouteValue<V>(ValueNotifier<V> notifier, V value) {
+    if (notifier.value == null) {
+      notifier.value = value;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && notifier.value != value) notifier.value = value;
+    });
+  }
+
   void _requestOpen(DDialogChangeReason reason) {
     if (_desiredOpen) return;
     widget.onOpenChanged?.call(
@@ -323,23 +333,11 @@ class _DDialogState<T> extends State<DDialog<T>> {
       initialFocusNode: widget.initialFocusNode,
     );
     if (_configuration.value != nextConfiguration) {
-      if (_route == null) {
-        _configuration.value = nextConfiguration;
-      } else {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _configuration.value = nextConfiguration;
-        });
-      }
+      _updateRouteValue(_configuration, nextConfiguration);
     }
     final nextEnvironment = _DDialogEnvironment.capture(context);
     if (_environment.value != nextEnvironment) {
-      if (_route == null) {
-        _environment.value = nextEnvironment;
-      } else {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _environment.value = nextEnvironment;
-        });
-      }
+      _updateRouteValue(_environment, nextEnvironment);
     }
     return _DDialogRootScope(
       open: () => _requestOpen(DDialogChangeReason.trigger),
@@ -701,6 +699,9 @@ class DDialogContent extends StatelessWidget {
     this.closeSemanticLabel = 'Close',
     this.maxWidth = 384,
     this.semanticLabel,
+    this.contentPadding = const EdgeInsets.symmetric(horizontal: DSpacing.lg),
+    this.verticalPadding = DSpacing.lg,
+    this.spacing = DSpacing.lg,
   }) : assert(maxWidth > 0);
 
   final List<Widget> children;
@@ -709,6 +710,9 @@ class DDialogContent extends StatelessWidget {
   final String closeSemanticLabel;
   final double maxWidth;
   final String? semanticLabel;
+  final EdgeInsetsGeometry contentPadding;
+  final double verticalPadding;
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
@@ -732,21 +736,16 @@ class DDialogContent extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: DSpacing.lg),
+              SizedBox(height: verticalPadding),
               for (var index = 0; index < children.length; index++) ...[
-                if (index > 0) const SizedBox(height: DSpacing.lg),
+                if (index > 0) SizedBox(height: spacing),
                 if (children[index] is DDialogFooter)
                   children[index]
                 else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: DSpacing.lg,
-                    ),
-                    child: children[index],
-                  ),
+                  Padding(padding: contentPadding, child: children[index]),
               ],
               if (children.isEmpty || children.last is! DDialogFooter)
-                const SizedBox(height: DSpacing.lg),
+                SizedBox(height: verticalPadding),
             ],
           ),
           if (showCloseButton)

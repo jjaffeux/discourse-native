@@ -3340,21 +3340,24 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       final item = find.byKey(const ValueKey('topic-status-closed'));
-      final button = tester.widget<TextButton>(
-        find.descendant(of: item, matching: find.byType(TextButton)),
+      final mouseRegion = tester.widget<MouseRegion>(
+        find.descendant(of: item, matching: find.byType(MouseRegion)).first,
       );
-      final theme = Theme.of(tester.element(item));
-      final hoverColor = Color.alphaBlend(
-        theme.colorScheme.onSurface.withValues(
-          alpha: theme.brightness == Brightness.dark ? 0.10 : 0.06,
-        ),
-        theme.shell.floating,
+      expect(mouseRegion.cursor, SystemMouseCursors.click);
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(pointer.removePointer);
+      await pointer.addPointer(location: Offset.zero);
+      await pointer.moveTo(tester.getCenter(item));
+      await tester.pumpAndSettle();
+      final row = tester.widget<AnimatedContainer>(
+        find.descendant(of: item, matching: find.byType(AnimatedContainer)),
       );
+      final decoration = row.decoration! as BoxDecoration;
       expect(
-        button.style!.backgroundColor!.resolve({WidgetState.hovered}),
-        hoverColor,
+        decoration.color,
+        Theme.of(tester.element(item)).extension<DTokens>()?.muted ??
+            DTokens.fromTheme(Theme.of(tester.element(item))).muted,
       );
-      expect(button.style!.mouseCursor!.resolve({}), SystemMouseCursors.click);
 
       final menuSurface = find.byKey(const ValueKey('command-menu-surface'));
       expect(menuSurface, findsOneWidget);
