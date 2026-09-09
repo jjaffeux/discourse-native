@@ -116,7 +116,7 @@ adjacent Input migrations in InviteEditor, Events, Chat and Voice metadata.
 
 Root/full-profile enforced-lockfile resolution passed, without SDK/pin/lockfile
 changes. Root/full-profile analysis is clean. The main focused run passed **215
- tests** (seed 928374611): component state/geometry/semantics, all seven examples
+tests** (seed 928374611): component state/geometry/semantics, all seven examples
 at 216px/200% RTL in Light/Dark/Forest/Plum, Assign, Events, Groups, Invites,
 post flag/notice ownership, fast edit, Chat channel info and Voice room behavior.
 The user-authorized focused policy replaces the blanket full-suite gate.
@@ -144,3 +144,26 @@ Native bundle/source/signature evidence is recorded below after the build.
 Native app has not been launched. Reference-rendered comparison and native
 styleguide/production fixture inspection remain required after unlock. No iOS,
 Linux device or spoken VoiceOver verification is claimed.
+
+
+### Exact-source native bundle — 2026-09-09
+
+- Build command: `flutter build macos --debug --no-pub -t tool/textarea_review_main.dart`.
+- Committed implementation source: `118fa0f10a4d838f50117c0aa0b0b7edc2cfd44b`.
+  Tracked working tree was clean at build and copy. Later evidence/progress-only
+  commits do not alter `lib/`, `tool/`, `test/`, platform files or dependency pins.
+- Source app: this isolated checkout's `build/macos/Build/Products/Debug/Discourse.app`.
+  The user's `/Users/joffreyjaffeux/Code/discourse-native/build` was not used.
+- Review copy: `/private/tmp/DiscourseTextareaReview-01a08437.app`.
+  Bundle identifier `org.discourse.native.textarea.01a08437`, bundle name
+  `DiscourseTextareaReview-01a08437`, URL scheme
+  `discourse-textarea-review-01a08437`.
+- Source and copied `App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin`
+  SHA256 both `add8ac7965e911c3e129d7ed80b33913983d13f7e161f9257a83232effc23650`.
+- Copied Info.plist changes only identity/scheme; ad-hoc signing preserves native
+  entitlements. `codesign --verify --deep --strict --verbose=2` passed.
+- Logs: `/tmp/textarea-native-build.log`, `/tmp/textarea-codesign.log`.
+- Final pointer refinement: 12 component/visual/example tests passed afterward;
+  root/full-profile analysis remained clean. `/tmp/textarea-final-component.log`.
+- Bundle is **unlaunched**. No CUA, browser tab, application focus or account
+  interaction was used. Awaiting coordinator slot; this is not review_ready.
