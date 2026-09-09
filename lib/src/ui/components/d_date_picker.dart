@@ -30,18 +30,21 @@ class DIntlDateTextCodec implements DDateTextCodec {
   const DIntlDateTextCodec({
     this.formatPattern = 'MMMM dd, y',
     this.additionalParsePatterns = const <String>[],
+    this.useLocaleDateOrder = true,
   });
 
   final String formatPattern;
   final List<String> additionalParsePatterns;
+  final bool useLocaleDateOrder;
 
   @override
   String format(DateTime date, Locale locale) {
     _ensureDateFormattingInitialized();
-    return DateFormat(
-      formatPattern,
-      _localeName(locale),
-    ).format(_dateOnly(date));
+    final localeName = _localeName(locale);
+    final format = useLocaleDateOrder && locale.languageCode != 'en'
+        ? DateFormat.yMMMMd(localeName)
+        : DateFormat(formatPattern, localeName);
+    return format.format(_dateOnly(date));
   }
 
   @override
@@ -138,13 +141,14 @@ class DEnglishNaturalDateParser implements DNaturalDateParser {
     if (relative != null) {
       final amount = int.parse(relative.group(1)!);
       if (amount > 10000) return null;
-      return switch (relative.group(2)!) {
+      final result = switch (relative.group(2)!) {
         'day' || 'days' => _addDays(today, amount),
         'week' || 'weeks' => _addDays(today, amount * 7),
         'month' || 'months' => _addMonths(today, amount),
         'year' || 'years' => _addYears(today, amount),
         _ => null,
       };
+      return result != null && result.year <= 9999 ? result : null;
     }
 
     final weekday = RegExp(

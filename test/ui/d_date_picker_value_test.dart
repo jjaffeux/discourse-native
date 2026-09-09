@@ -35,7 +35,7 @@ void main() {
 
     test('uses the host locale for formatted and short input', () {
       const locale = Locale('fr', 'FR');
-      expect(codec.format(DateTime(2026, 9, 11), locale), 'septembre 11, 2026');
+      expect(codec.format(DateTime(2026, 9, 11), locale), '11 septembre 2026');
       expect(codec.tryParse('11/09/2026', locale), DateTime(2026, 9, 11));
     });
   });
@@ -108,6 +108,14 @@ void main() {
           'demain',
           reference: reference,
           locale: const Locale('fr', 'FR'),
+        ),
+        isNull,
+      );
+      expect(
+        parser.tryParse(
+          'in 10000 years',
+          reference: reference,
+          locale: locale,
         ),
         isNull,
       );
