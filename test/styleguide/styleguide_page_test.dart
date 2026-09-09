@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/component_catalogue.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -101,6 +102,20 @@ void main() {
       await _choose(tester, 'Viewport width', '1024 px');
       expect(tester.getSize(preview).width, 1024);
       expect(find.text('Actions: 1'), findsOneWidget);
+      final scrollbar = find.byKey(
+        const ValueKey('styleguide-preview-scrollbar'),
+      );
+      final track = tester.getRect(scrollbar);
+      await tester.dragFrom(
+        Offset(track.left + 100, track.bottom - 4),
+        const Offset(160, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Scrollbar>(scrollbar).controller!.offset,
+        greaterThan(0),
+      );
       await _choose(tester, 'Viewport width', '360 px');
       expect(tester.getSize(preview).width, 360);
       await _choose(tester, 'Text scale', '200%');

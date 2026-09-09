@@ -41,6 +41,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocus = FocusNode(debugLabel: 'Component search');
   final ScrollController _detailScroll = ScrollController();
+  final ScrollController _previewScroll = ScrollController();
   final GlobalKey _detailKey = GlobalKey();
   final GlobalKey<DSidebarProviderState> _sidebarKey =
       GlobalKey<DSidebarProviderState>();
@@ -65,6 +66,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     _search.dispose();
     _searchFocus.dispose();
     _detailScroll.dispose();
+    _previewScroll.dispose();
     super.dispose();
   }
 
@@ -700,30 +702,45 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           LayoutBuilder(
             builder: (context, constraints) {
               final width = _width == 0 ? constraints.maxWidth : _width;
+              final scrollBehavior = ScrollConfiguration.of(context);
               return ColoredBox(
                 color: tokens.muted,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: math.max(width, constraints.maxWidth),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: width,
-                        height: switch (_selected.id) {
-                          'card' => 480,
-                          'sidebar' => 500,
-                          _ => 400,
-                        },
-                        child: _ExampleViewport(
-                          key: ValueKey(
-                            '${_selected.id}/$_exampleIndex/$_reset',
+                child: Scrollbar(
+                  key: const ValueKey('styleguide-preview-scrollbar'),
+                  controller: _previewScroll,
+                  thumbVisibility: width > constraints.maxWidth,
+                  interactive: true,
+                  thickness: 6,
+                  child: ScrollConfiguration(
+                    behavior: scrollBehavior.copyWith(scrollbars: false),
+                    child: SingleChildScrollView(
+                      controller: _previewScroll,
+                      scrollDirection: Axis.horizontal,
+                      child: ScrollConfiguration(
+                        behavior: scrollBehavior,
+                        child: SizedBox(
+                          width: math.max(width, constraints.maxWidth),
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              width: width,
+                              height: switch (_selected.id) {
+                                'card' => 480,
+                                'sidebar' => 500,
+                                _ => 400,
+                              },
+                              child: _ExampleViewport(
+                                key: ValueKey(
+                                  '${_selected.id}/$_exampleIndex/$_reset',
+                                ),
+                                theme: _theme.resolve(hostTheme),
+                                scale: _scale,
+                                rtl: _rtl,
+                                reducedMotion: _reducedMotion,
+                                example: example,
+                              ),
+                            ),
                           ),
-                          theme: _theme.resolve(hostTheme),
-                          scale: _scale,
-                          rtl: _rtl,
-                          reducedMotion: _reducedMotion,
-                          example: example,
                         ),
                       ),
                     ),
