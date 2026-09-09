@@ -2293,10 +2293,11 @@
       "decisions": [
         "Four-part passive DAlert owner with exact base-nova source metrics, two actual variants, live tokens, multiplied destructive alpha, measured action reflow and platform live-region opt-out. Source/artwork hashes and geometry in docs/component-library/alert.md.",
         "Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate.",
-        "Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; retained every non-Alert progress row and merged owner. Final DButton extraSmall replaces temporary small example action; inline adapters retain callbacks and coordinator Group/Sidebar/Topic Inbox fixes."
+        "Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; retained every non-Alert progress row and merged owner. Final DButton extraSmall replaces temporary small example action; inline adapters retain callbacks and coordinator Group/Sidebar/Topic Inbox fixes.",
+        "Independent review found and reconciled four additional eligible persistent inline owners: UserSummary refresh, Badges loading/pagination, Assign loaded-list failure and Preferences loading/saved/error status. Their existing retry, loading, semantic announcement and status-color behavior remains app-owned."
       ],
       "migrations": [
-        "Inline errors: topic feed, categories, tags, groups/group, aggregate, activity pagination, draft refresh, revision history, GIF paging. Composer tag removal notice retains dismissal and controller lifetime."
+        "Inline errors: topic feed, categories, tags, groups/group, aggregate, activity pagination, draft refresh, revision history, user-summary refresh, badges, Assign loaded-list failure and GIF paging. Preferences persistent status and Composer tag removal notice retain their existing state, announcement, dismissal and controller behavior."
       ],
       "retainedAlternatives": [
         "Page-scale states owned by Empty; historical cooked post notices, chat deleted/read runs, recording/diagnostic indicators, specialized tables, field validation, media errors and Toast/Dialog content retained with specific audit rationale in alert.md."

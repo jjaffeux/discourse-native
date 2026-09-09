@@ -1942,10 +1942,11 @@ Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/u
 - Four-part passive DAlert owner with exact base-nova source metrics, two actual variants, live tokens, multiplied destructive alpha, measured action reflow and platform live-region opt-out. Source/artwork hashes and geometry in docs/component-library/alert.md.
 - Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate.
 - Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; retained every non-Alert progress row and merged owner. Final DButton extraSmall replaces temporary small example action; inline adapters retain callbacks and coordinator Group/Sidebar/Topic Inbox fixes.
+- Independent review found and reconciled four additional eligible persistent inline owners: UserSummary refresh, Badges loading/pagination, Assign loaded-list failure and Preferences loading/saved/error status. Their existing retry, loading, semantic announcement and status-color behavior remains app-owned.
 
 **migrations**
 
-- Inline errors: topic feed, categories, tags, groups/group, aggregate, activity pagination, draft refresh, revision history, GIF paging. Composer tag removal notice retains dismissal and controller lifetime.
+- Inline errors: topic feed, categories, tags, groups/group, aggregate, activity pagination, draft refresh, revision history, user-summary refresh, badges, Assign loaded-list failure and GIF paging. Preferences persistent status and Composer tag removal notice retain their existing state, announcement, dismissal and controller behavior.
 
 **retainedAlternatives**
 

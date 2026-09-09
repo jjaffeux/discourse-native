@@ -56,10 +56,13 @@ no motion; composed children keep their own behavior.
 Migrated actual inline error adapters in TopicListView (refresh and paging,
 retaining retry keys), CategoriesPage, TagsPage, GroupsPage, GroupPage,
 AggregateView partial refresh, UserActivity pagination, DraftList refresh,
-PostRevisionHistory inline failures, and bundled GIF picker paging errors.
-Existing callbacks, null/async retry guards, account ownership, feed state and
-permissions stay unchanged. ComposerTagRemovalNotice now composes all four
-parts, retaining caller dismissal and existing seven-second controller lifetime.
+PostRevisionHistory inline failures, UserSummary stale-data refresh, Badges
+loading/pagination, Assign's loaded-list failure, and bundled GIF picker paging
+errors. Preferences' persistent loading/saved/error announcement now composes
+the same Alert owner with its existing semantic status colors. Existing
+callbacks, null/async retry guards, account ownership, feed state and permissions
+stay unchanged. ComposerTagRemovalNotice now composes all four parts, retaining
+caller dismissal and existing seven-second controller lifetime.
 
 Retained alternatives:
 
@@ -174,3 +177,14 @@ Still `in_progress` / `awaiting_slot`: Mac locked and browser separately denied
 admin-policy verification. No CUA/browser/native launch, policy retry or
 workaround occurred. Actual reference-rendered comparison and native inspection
 remain required before review_ready or merge.
+
+## Independent review
+
+The reviewer rechecked the preserved registry/documentation/artwork hashes and
+the public API, render-object geometry, live theme resolution, semantics,
+keyboard ownership, reflow and RTL behavior. A fresh adoption audit found four
+eligible persistent inline owners that the implementation checkpoint had missed:
+UserSummary refresh, Badges loading/pagination, Assign's loaded-list failure and
+Preferences status. These now use DAlert while preserving retry, loading and
+announcement behavior. Their focused tests and the Alert/styleguide tests pass;
+root and full-profile analysis report no issues.

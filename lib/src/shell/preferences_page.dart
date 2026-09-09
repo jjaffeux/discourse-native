@@ -910,36 +910,18 @@ class _StatusAnnouncement extends StatelessWidget {
       ),
     };
 
-    return Semantics(
-      container: true,
-      liveRegion: true,
-      label: message,
-      child: ExcludeSemantics(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              if (kind == _StatusKind.progress)
-                const SizedBox.square(dimension: 16, child: DSpinner())
-              else
-                DIcon(icon!, size: 16, color: foreground),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  message,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: foreground,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return DAlert(
+      variant: kind == _StatusKind.error
+          ? DAlertVariant.destructive
+          : DAlertVariant.normal,
+      backgroundColor: background,
+      foregroundColor: foreground,
+      descriptionColor: foreground,
+      borderColor: foreground.withValues(alpha: foreground.a * .2),
+      icon: kind == _StatusKind.progress
+          ? const SizedBox.square(dimension: 16, child: DSpinner())
+          : DIcon(icon!, size: 16),
+      description: DAlertDescription(child: Text(message)),
     );
   }
 }
