@@ -83,7 +83,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 55 | attachment | merged | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | 99cea2172e9ddb5da775bff7b81e82c24ad72870 |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
 | 57 | bubble | merged | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | c3d6ae97af486134b32067aecc29f7191b05367d |
-| 58 | message | in_progress | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | — |
+| 58 | message | review_ready | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | in_progress | 01a08606-ce86-7be2-b92f-59676b40cb40 | codex/ui-message-scroller | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
 | 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
@@ -3176,7 +3176,7 @@ Status: merged. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/ui-bub
 
 ### message
 
-Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/ui-message.
+Status: review_ready. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/ui-message.
 
 **acceptanceCriteria**
 
@@ -3184,11 +3184,50 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/u
 - Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
 - Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
 - Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+- Reproduce the frozen base-nova Message, MessageGroup, MessageAvatar, MessageContent, MessageHeader and MessageFooter composition, start/end alignment, footer-aware avatar anchoring, exact 8px/10px/12px geometry and 14px row plus 12px metadata typography.
+- Provide complete Avatar, Group, Header/Footer, Actions, Attachment and accessibility/status-update examples by composing the final Avatar, Bubble, Button, Attachment and Marker owners without duplicated rendering or placeholder primitives.
+- Keep arbitrary rich content and sender/timestamp/status/action metadata generic; support independently labeled actions, appropriate live status announcements, keyboard/touch interaction, narrow and 200% text layouts, RTL, reduced motion and live host theme/font/radius changes.
+- Audit core and bundled plugins, migrate suitable real chat/message presentation while retaining delivery, fetching, permissions, virtualization, selection and model transformations in app adapters; coordinate the stable public contract with Message Scroller.
+- Pass focused component/styleguide/adoption regressions, formatting and root/full-profile analysis; prepare exact-source isolated browser/native evidence and create a new independent reviewer to complete acceptance, reconcile every parent against current main and merge locally.
 
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Message (01a08627-8995-7b43-9c06-8a219d472681) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Frozen Markdown SHA256 39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782 verified on 2026-09-09; official base-nova registry SHA256 6a484395f7ed32d3b254619cc542aeed6ce77a5628d1e9a04d4b5baaf7de0c41.
+- Implementation began from local main 77ee9b047528d43fcbcd4a31d464182f9640b835. One public presentational composition exports DMessage, DMessageGroup, DMessageAvatar, DMessageContent, DMessageHeader, DMessageFooter and DMessageStatus; docs/component-library/message.md records exact source mapping and adapter extensions.
+- Ordinary Message rows add no semantic boundary, preserving arbitrary rich content and independent descendant actions. Whole-row labels/live regions are explicit; DMessageStatus provides caller-controlled localizable pending, delivered, read, failed and deleted states without owning delivery or retry work.
+- Message Scroller owner 01a08606-ce86-7be2-b92f-59676b40cb40 agreed that it owns stable DMessageScrollerItem IDs, anchors, builder/viewport and scrolling externally. DMessage remains keyed presentational content and exposes no scroll or identity contract.
+- Accepted Bubble merge c3d6ae97af486134b32067aecc29f7191b05367d and accepted Attachment merge 99cea2172e9ddb5da775bff7b81e82c24ad72870 are both present on this candidate's direct local-main base b2f425545756bf78798ae2e1635b261f1719b14d. Their stable Message-facing APIs are unchanged; accepted parent source wins over every prepared snapshot.
+
+**migrations**
+
+- ChatMessageTile production presentation now composes DMessage, DMessageAvatar and DMessageContent. Its app adapter explicitly retains the existing 42px gutter, top-anchored 28px authenticated avatar, zero internal gap, chaining, exact row padding/minimum heights, CookedHtml/preview, selection, uploads, reactions, thread/reply, delivery, pin/bookmark and hover/long-press action behavior.
+- Seven actual-component styleguide groups reproduce Overview, Avatar, Group, Header/Footer, Actions, Attachment and Accessibility/Status with local state and accepted shared owners. tool/message_native_review_main.dart mounts the real local-data production tiles alongside these examples.
+
+**retainedAlternatives**
+
+- Chat transcript QuotePanel/CookedHtml with source/channel links remains a quoted transcript rather than a live conversation row; private-message inbox/topic rows remain topic summaries.
+- Voice room list rows, notification/user-menu messages, post streams, empty/error notices and composer previews retain their domain-specific ListTile, DAlert, DEmpty, SnackBar or editor owners. Full core/plugin audit and reasons are recorded in docs/component-library/message.md.
+- Message Scroller retains all viewport, virtualization, pagination, anchor and read-state ownership; Message intentionally does not inspect or wrap its stable item IDs.
+
+**verification**
+
+- Accepted-parent reconciliation: 193 Message/Bubble/Attachment/styleguide/Chat checks passed seed39054.
+- Final runtime 5f419da1: all212 affected Message, examples, actual review fixture, ChatMessageTile, Chat lifecycle and reaction accessibility tests passed seed39059. Accepted main correction7b09b62d resolves the historical Reply tooltip-field assertion; no failures remain in this run.
+- Root and profiles/full flutter analyze --no-pub passed on5f419da1; locked dependency resolution, formatting and git diff --check passed.
+- Independent official rendered reference comparison completed for all documented compositions in light/dark. Native seven-example coverage includes normal light/dark and Plum/360px/200%/RTL/reduced motion; local actions and status transitions confirmed.
+- Actual native production thread/jump/reply callbacks, independent AX nodes, hover toolbar, Tab focus, Return menu activation, Escape dismissal/focus return, rich-text selection and offline profile target passed. Exact source/bundle/kernel provenance and cleanup are recorded in review evidence.
+- Final integration a5296738 from main 5ca267b5: all 244 focused Message/Chat/reaction/Button/styleguide-page checks passed, seed 39060; root/full analysis and diff check clean. Inspected runtime remains source-equivalent; all unrelated main progress and registrations preserved.
+- Latest-main candidate 5c7c10f7 from d6474006: all 36 Dropdown Menu/Message fixture/styleguide-page checks passed seed 39061, root/full analysis clean. Accepted Dropdown Menu changes do not affect the Message MenuAnchor; inspected runtime and unrelated progress are preserved.
+- Final Menubar-main reconciliation c3386e96 from ec8bfabe: all 25 Message/Menubar examples and styleguide-page checks passed seed 39062; root/full analysis and diff check clean. Both adjacent exports/registrations and all unrelated progress retained; Message runtime unchanged.
+
+**limitations**
+
+- No spoken VoiceOver, iOS/Linux device or physical-touch run is claimed.
+- The production fixture uses local in-memory records. No real account, successful profile-data fetch, file transfer or delivery endpoint is exercised; mutation/permission/selection/long-press variants additionally rely on the dedicated passing widget suites.
+- An earlier scaled CUA session stopped responding to wheel/keys while AX clicks worked. Fresh exact-path selection after resetting CUA restored plain Tab/Return/Escape in the final pass; no modifier-chord claim is made. Explicit harness scroll controls cover inspection navigation; Message owns no scrolling.
+- The Attachment image example uses deterministic local artwork through the real Attachment owner, not the reference photograph. Host fonts, palette and radius use live Discourse tokens; literal cross-host bitmap identity is not claimed.
 
 ### message-scroller
 
@@ -3410,3 +3449,4 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+

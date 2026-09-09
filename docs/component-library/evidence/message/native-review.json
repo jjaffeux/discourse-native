@@ -1,0 +1,83 @@
+{
+  "component": "Message",
+  "reviewTaskId": "01a08627-8995-7b43-9c06-8a219d472681",
+  "sourceCommit": "5f419da121fad15bcacc4927517ef9c71ad66d9d",
+  "mainBase": "0f9b77564772646b60cebcf1731d30d6ce5b3f62",
+  "acceptedParents": {
+    "attachment": "99cea2172e9ddb5da775bff7b81e82c24ad72870",
+    "bubble": "c3d6ae97af486134b32067aecc29f7191b05367d",
+    "avatar": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0",
+    "marker": "fc92f4e69042191eff5d39d52c1355a6d6a87da7"
+  },
+  "build": {
+    "command": "flutter build macos --debug --no-pub -t tool/message_native_review_main.dart",
+    "fixture": "tool/message_native_review_main.dart",
+    "fixtureSha256": "f9fc1860cb14789f7387b54d70e656e1f36bfc99b64f3c11077e9a79d21a6828",
+    "bundle": "/private/tmp/message-review-35ac776c.BfkVrK/Message Review 5f419da1.app",
+    "bundleIdentifier": "org.discourse.native.messagereview5f419da1",
+    "urlScheme": "discourse-message-review-5f419da1",
+    "kernelSha256": "10d8cf44ec7c22929bc3d5bac09b568b9dd36e31e464bdf4ca997fb9615923fe",
+    "kernelEquivalence": "The compiler app.dill, built App.framework kernel_blob.bin and isolated copied bundle kernel_blob.bin share this SHA256.",
+    "signature": "Ad-hoc; codesign --verify --deep --strict passed. Signed entitlement readback contains exactly the three listed runtime entitlements and no team/application or push capability.",
+    "entitlements": [
+      "com.apple.security.cs.allow-jit",
+      "com.apple.security.cs.allow-unsigned-executable-memory",
+      "com.apple.security.cs.disable-library-validation"
+    ]
+  },
+  "verification": [
+    "193 combined Message, Bubble, Attachment, complete styleguide and Chat lifecycle tests passed with seed 39054.",
+    "Earlier dedicated ChatMessageTile suite: 55 passed plus one known baseline tooltip-field expectation with seed 39055. Accepted main test-only correction 7b09b62d resolves that stale assertion and is integrated in 5f419da1.",
+    "All 212 affected checks passed on 5f419da1 with seed 39059: Message, examples, review fixture, dedicated ChatMessageTile, Chat lifecycle, ReactionPill and reaction-picker accessibility. No remaining failures in this run.",
+    "Root and profiles/full flutter analyze --no-pub passed on 5f419da1. Locked full-profile dependency resolution, touched formatting and git diff --check passed."
+  ],
+  "browserInspectionStatus": "completed",
+  "nativeInspectionStatus": "completed",
+  "initialInspection": {
+    "date": "2026-09-09",
+    "sourceCommit": "c7af4ca53318d1ba94abe142383cf1f32af3258d",
+    "bundleIdentifier": "org.discourse.native.messagereviewc7af4ca5",
+    "kernelSha256": "77784879e09df53e700ed140fa5837d51c8259af6b120c4b33329f28743dbe5c",
+    "browser": "Official rendered Base UI Message overview light; Avatar, Group and Header/Footer light/dark; Actions and Attachment dark. DOM measurement confirmed 384px row, 8px row gap, 32px avatar, 344px avatar-adjacent content, 10px content gap, 14/20 row text and 12/16 weight-500 metadata with 12px horizontal inset.",
+    "native": "All seven normal light examples inspected. Dark overview/Avatar and custom Plum 360px/200%/RTL overview inspected. Copy, Like, Dislike, Retry and Download each produced visible local result changes; pending/delivered/read/failed/deleted state controls exposed independent status nodes. Avatars, reaction, file and action nodes remain independent in native accessibility output.",
+    "followUp": "The final 5f419da1 inspection below completes the remaining reference views, corrected footer, all scaled compositions and actual production tile fixture.",
+    "sourceEquivalence": "Generic Message and action/status examples are unchanged from the inspected c7af4ca5 source. The final bundle additionally contains corrected footer text, explicit review scroll controls, an unchained fixture reply target and responsive production reaction/thread metadata, all confirmed in the final pass.",
+    "cleanup": "Owned c7af4ca5 app received Quit Discourse and owned reference tab was closed; desktop lease a99d11c2 released before staging the next bundle."
+  },
+  "finalInspection": {
+    "date": "2026-09-09",
+    "sourceCommit": "5f419da121fad15bcacc4927517ef9c71ad66d9d",
+    "leaseToken": "d501853c03d1499bb98a59fa52b636c6",
+    "browser": "Completed full light Actions and Attachment and dark Overview including footer/reaction/typing. Together with the initial pass, all documented rendered compositions were compared in light and dark against the official Base UI page. Accessibility guidance was inspected; the native status example is the documented Marker/status guidance made interactive.",
+    "nativeExamples": "Inspected all seven examples in normal dark and in Plum at 360px, 200% text, RTL and reduced motion. Combined with the initial complete normal-light pass, layout coverage includes every composition. Verified the corrected Read Yesterday footer and the scaled Failed to send live-status transition. No overflow stripes or lost independent controls were observed. Review-only up/down controls navigated the full scaled content.",
+    "production": "Actual local-data ChatMessageTile inspected in light, dark and Plum/360px/200%/RTL/reduced-motion layouts: ordinary/chained rows, rich CookedHtml, file card, reactions, thread preview, direct reply, edited/pinned indicators, failed/offline and deleted rows. Corrected reaction and thread metadata reflow without overflow. Thread, jump and Reply produced Opened thread 33, Jumped to message 101 and Reply requested for message 101 respectively.",
+    "keyboardAndSelection": "Pointer interaction exposed the production Add reaction, Bookmark, Reply and More message actions toolbar. Tab visibly traversed its focus rings; Return opened the focused More menu; Escape dismissed it and returned the visible focus ring. A pointer drag selected the rich message text. The author profile target opened the expected offline fixture error surface, and Escape dismissed it.",
+    "accessibility": "Native AX output preserved independently labeled author/profile buttons, file link and metadata, reaction/add-reaction buttons, thread link, reply jump, toolbar actions and delivery/status nodes. Rich message content remained available without merging away descendant controls. Spoken VoiceOver was not performed.",
+    "cleanup": "Quit only the isolated 5f419da1 app; a subsequent cua.listApps confirmed all owned Message review bundle IDs absent. Closed owned reference tab 3; cua.listTabs for browser 2 returned empty. Released desktop lease d501853c before any final main-checkout work."
+  },
+  "finalIntegration": {
+    "candidateCommit": "a52967385af64e29e42db7c19076c571245279ff",
+    "mainBase": "5ca267b52d633b6ef1bd074833b814d3242d0a22",
+    "verification": "All 244 focused Message, example, production fixture, ChatMessageTile, Chat lifecycle, reaction accessibility, Button and styleguide-page tests passed with seed 39060. Root and profiles/full flutter analyze --no-pub passed; git diff --check passed.",
+    "sourceEquivalence": "Message, production ChatMessageTile, reaction layout and native fixture are unchanged from inspected 5f419da1. Example differences are only accepted status, notes and corrected displayed snippet text. Latest-main Button Group adds an optional joined-control scope whose absent-scope path preserves ordinary Message button behavior; Popover establishes a joined-scope boundary. The inspected fixtures have no joined-control ancestor. No additional native pass is required for this integration.",
+    "preservation": "All non-Message progress data exactly matches the integrated main base. Latest-main component registrations and exports are preserved; only Message registration/export is added."
+  },
+  "latestMainReconciliation": {
+    "candidateCommit": "5c7c10f75ce011041ba7c2f3ec541d63b607fdb2",
+    "mainBase": "d647400602824226d70d1328fba2a141195dc559",
+    "verification": "All 36 Dropdown Menu, Message production fixture and styleguide-page checks passed with seed 39061; root/full analysis and diff check passed.",
+    "sourceEquivalence": "The intervening accepted Dropdown Menu follow-up changes only its owner and tests. Message production actions use MenuAnchor, not DDropdownMenu; the inspected Message runtime is unchanged. All non-Message progress data matches this latest main base."
+  },
+  "menubarReconciliation": {
+    "candidateCommit": "c3386e969d853997f8e8fadaaa8666c179f5838a",
+    "mainBase": "ec8bfabe561f7bf5d5ddc5e8a684ca1b3ed29a55",
+    "verification": "All 25 Message/Menubar examples and styleguide-page checks passed with seed 39062; root/full analysis and diff check passed.",
+    "sourceEquivalence": "Menubar is an independent new owner. Adjacent export/registration conflicts were resolved by retaining both owners; all unrelated progress is identical to latest main. Message component, production adapters and native fixture remain unchanged from the inspected source."
+  },
+  "limitations": [
+    "No spoken VoiceOver, iOS/Linux device or physical-touch run is claimed.",
+    "The production fixture uses local in-memory records. No real account, successful profile-data fetch, file transfer or delivery endpoint is exercised; mutation/permission/selection/long-press variants additionally rely on the dedicated passing widget suites.",
+    "An earlier scaled CUA session stopped responding to wheel/keys while AX clicks worked. Fresh exact-path selection after resetting CUA restored plain Tab/Return/Escape in the final pass; no modifier-chord claim is made. Explicit harness scroll controls cover inspection navigation; Message owns no scrolling.",
+    "The Attachment image example uses deterministic local artwork through the real Attachment owner, not the reference photograph. Host fonts, palette and radius use live Discourse tokens; literal cross-host bitmap identity is not claimed."
+  ]
+}

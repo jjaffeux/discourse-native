@@ -34,6 +34,7 @@ import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
 import 'examples/menubar_examples.dart';
+import 'examples/message_examples.dart';
 import 'examples/native_select_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
@@ -108,6 +109,7 @@ final componentExamples = <String, ComponentExamples>{
   'questionnaire': questionnaireExamples,
   'marker': markerExamples,
   'menubar': menubarExamples,
+  'message': messageExamples,
   'popover': popoverExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
