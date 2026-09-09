@@ -2556,7 +2556,11 @@
           "evidence": "Reviewer reports exact candidate has 47 focused Dropdown/Popover/Table/styleguide tests passing with seed 826145 and clean root/full analysis. Public Menu, Trigger, Content, Item, Checkbox, Radio, Label, Separator, Shortcut and Sub APIs are stable at this pin; official browser/native acceptance is still pending.",
           "mergeGate": "Menubar reviewer must wait for the accepted Dropdown Menu local-main merge, reconcile its final reviewed API/current-main source and verify affected menu composition before Menubar may merge."
         }
-      ]
+      ],
+      "reviewTaskId": "01a08628-7042-7173-a37d-7f1f04eade66",
+      "reviewBranch": "codex/review-menubar",
+      "reviewStatus": "in_progress",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native"
     },
     {
       "id": "navigation-menu",
