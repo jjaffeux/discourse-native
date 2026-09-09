@@ -16,6 +16,22 @@ when code changes, conflicts, failures or uncovered behavior require them.
 Never label unperformed native/browser checks as completed or silently drop
 required documented compositions to clear the queue.
 
+## Preparing a dependent while its parent finishes review
+
+Create the dependent task from latest local main. If a required parent has
+committed source, a usable public API and passing focused verification, source
+preparation may proceed by integrating that exact prepared parent commit into
+the dependent's isolated worktree. Record the parent branch, commit, reviewer
+and evidence, and coordinate API changes directly. Do not edit the parent
+worktree, claim parent acceptance, or replace its generic control owner.
+
+The dependent's new reviewer must wait for every parent's accepted local main
+merge, integrate the accepted revisions/current main, reconcile overlap and
+verify affected behavior before its own final merge. Prepared source never
+waives native/reference verification, application adoption or documented
+composition requirements. An unaccepted parent must not reach main through
+a dependent branch. Include these obligations in the review handoff.
+
 ## Shared access without coordinator permission
 
 All worktrees use the same Git common directory. The helper below uses atomic

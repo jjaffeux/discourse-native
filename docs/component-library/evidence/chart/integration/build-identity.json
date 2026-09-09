@@ -1,0 +1,22 @@
+{
+  "sourceCommit": "1edacc2894f33d4002d02dd37b31baee1e0017b2",
+  "pinnedMain": "e612ad7b47413fa890b35ae3b55a6f6d37b08cf7",
+  "bundle": "/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app",
+  "bundleIdentifier": "org.discourse.chartrevieweab4",
+  "kernels": {
+    "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/build/macos/Build/Products/Debug/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "fb12b550202eafb59c899f0b5c8c3d7f9c10581766c1df53ee8988463a7eefa3",
+    "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/build/macos/Build/Products/Debug/Discourse.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "fb12b550202eafb59c899f0b5c8c3d7f9c10581766c1df53ee8988463a7eefa3",
+    "/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "fb12b550202eafb59c899f0b5c8c3d7f9c10581766c1df53ee8988463a7eefa3"
+  },
+  "entitlementsReadBack": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.device.audio-input": true,
+    "com.apple.security.device.camera": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "signature": "--prepared:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/MacOS/__preview.dylib\n--validated:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/MacOS/__preview.dylib\n--prepared:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--prepared:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/Frameworks/App.framework/Versions/Current/.\n--validated:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--prepared:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/MacOS/Discourse.debug.dylib\n--validated:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/MacOS/Discourse.debug.dylib\n--prepared:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--validated:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--prepared:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/private/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app/Contents/Frameworks/App.framework/Versions/Current/.\n/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app: valid on disk\n/tmp/chart-review-eab4-1edacc28/Chart Review eab4.app: satisfies its Designated Requirement\n",
+  "nativeLaunch": false
+}

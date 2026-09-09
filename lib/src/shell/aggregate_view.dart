@@ -1067,32 +1067,25 @@ class _AggregateTopicRow extends StatelessWidget {
 
 class _PartialFailureBanner extends StatelessWidget {
   const _PartialFailureBanner({required this.failed, required this.onRetry});
-
   final int failed;
   final VoidCallback onRetry;
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.errorContainer.withValues(alpha: 0.55),
-      child: ListTile(
-        leading: DIcon(
-          DIcons.triangleExclamation,
-          color: theme.colorScheme.onErrorContainer,
-          size: 18,
-        ),
-        title: Text(
-          '$failed ${failed == 1 ? 'forum could' : 'forums could'} not be refreshed.',
-        ),
-        trailing: DButton(
-          label: const Text('Retry'),
-          onPressed: onRetry,
-          variant: DButtonVariant.link,
-        ),
+  Widget build(BuildContext context) => DAlert(
+    variant: DAlertVariant.destructive,
+    icon: const DIcon(DIcons.triangleExclamation),
+    description: DAlertDescription(
+      child: Text(
+        '$failed ${failed == 1 ? 'forum could' : 'forums could'} not be refreshed.',
       ),
-    );
-  }
+    ),
+    action: DAlertAction(
+      child: DButton(
+        label: const Text('Retry'),
+        onPressed: onRetry,
+        variant: DButtonVariant.link,
+      ),
+    ),
+  );
 }
 
 class _AggregateEmptyState extends StatelessWidget {
@@ -1111,67 +1104,28 @@ class _AggregateEmptyState extends StatelessWidget {
   final VoidCallback onAction;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: DCard(
-            spacing: 0,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(36, 34, 36, 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 68,
-                    height: 68,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: DIcon(
-                        icon,
-                        size: 28,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.35,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  DButton(
-                    label: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Text(actionLabel),
-                    ),
-                    onPressed: onAction,
-                    variant: DButtonVariant.primary,
-                  ),
-                ],
-              ),
-            ),
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+              DEmptyTitle(title),
+              DEmptyDescription(message),
+            ],
           ),
-        ),
+          DEmptyContent(
+            children: [
+              DButton(
+                label: Text(actionLabel),
+                onPressed: onAction,
+                variant: DButtonVariant.primary,
+              ),
+            ],
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

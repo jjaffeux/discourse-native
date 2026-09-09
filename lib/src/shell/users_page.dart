@@ -1316,8 +1316,9 @@ class _TableBody extends StatelessWidget {
                     ),
                     Expanded(
                       child: ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(context)
-                            .copyWith(scrollbars: false),
+                        behavior: ScrollConfiguration.of(
+                          context,
+                        ).copyWith(scrollbars: false),
                         child: ListView.builder(
                           key: const PageStorageKey('users-identity-scroll'),
                           controller: identityVertical,
@@ -1470,8 +1471,9 @@ class _TableBody extends StatelessWidget {
                                 child: Scrollbar(
                                   controller: metricsVertical,
                                   child: ScrollConfiguration(
-                                    behavior: ScrollConfiguration.of(context)
-                                        .copyWith(scrollbars: false),
+                                    behavior: ScrollConfiguration.of(
+                                      context,
+                                    ).copyWith(scrollbars: false),
                                     child: ListView.builder(
                                       key: const PageStorageKey(
                                         'users-metrics-scroll',
@@ -1964,8 +1966,9 @@ class _IdentityRow extends StatelessWidget {
                           item.user.name ?? item.user.title ?? 'Member',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: palette.faint),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: palette.faint),
                         ),
                       ],
                     ),
@@ -1994,8 +1997,10 @@ class _AvatarFallback extends StatelessWidget {
     color: palette.avatarFor(user.id),
     child: Text(
       _initials(user),
-      style: Theme.of(context).textTheme.labelMedium
-          ?.copyWith(color: palette.dark, fontWeight: FontWeight.w600),
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+        color: palette.dark,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   );
 }
@@ -2032,17 +2037,13 @@ class _MetricCell extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (intensity > 0)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: math.max(.06, intensity),
-                heightFactor: .64,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: palette.accent.withValues(
-                      alpha: .12 + intensity * .18,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
+            LayoutBuilder(
+              builder: (context, constraints) => Center(
+                child: DChartBar(
+                  fraction: math.max(.06, intensity),
+                  height: constraints.maxHeight * .64,
+                  color: palette.accent.withValues(
+                    alpha: palette.accent.a * (.12 + intensity * .18),
                   ),
                 ),
               ),
@@ -2085,48 +2086,31 @@ class _TableState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    child: SingleChildScrollView(
+      child: DEmpty(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: palette.accentSoft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: DIcon(icon, size: 18, color: palette.green),
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+              DEmptyTitle(title),
+              DEmptyDescription(detail),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(color: palette.ink, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            detail,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: palette.muted),
-          ),
-          if (progress) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              width: 110,
-              child: DProgress(
-                semanticsLabel: 'Loading users',
-                track: DProgressTrack(
-                  color: palette.line,
-                  child: DProgressIndicator(color: palette.green),
+          if (progress)
+            DEmptyContent(
+              children: [
+                SizedBox(
+                  width: 110,
+                  child: DProgress(
+                    semanticsLabel: 'Loading users',
+                    track: DProgressTrack(
+                      color: palette.line,
+                      child: DProgressIndicator(color: palette.green),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
         ],
       ),
     ),
