@@ -2647,12 +2647,12 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T09:04:35.601992+00:00",
+    "updatedAt": "2026-09-09T09:19:15.387840+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Each component reviewer reviews, fixes, verifies and merges directly from the main checkout under the shared main lease; no coordinator approval gate.",
-    "nativeInspectionPolicy": "Review tasks acquire the shared desktop lease directly for native/browser actions and release promptly; no coordinator scheduling gate.",
+    "nativeInspectionPolicy": "Reviewers acquire the shared desktop lease directly; busy requests join a first-come, first-served queue, retries preserve position, and callers release held leases or cancel waiting requests before ending a turn.",
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
       "requestedBy": "user",
@@ -3129,11 +3129,12 @@
           "status": "in_progress"
         }
       ],
-      "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks."
+      "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks.",
+      "leaseVerification": "Three behavioral tests passed in an isolated candidate: eight-way main exclusion and scope independence; eight concurrent desktop waiters retain order without overtaking; cancellation and wrong-owner/token enforcement preserve the current holder."
     },
     "resourceCoordination": {
       "main": "Shared main lease; reviewer owns local merge.",
-      "desktop": "Shared desktop lease for browser and native review; live owner is in Git common directory, not cached here."
+      "desktop": "Shared FIFO desktop queue and lease for browser/native review; live holder and waiters are in the Git common directory. No coordinator scheduling gate."
     }
   },
   "visualFidelity": {
