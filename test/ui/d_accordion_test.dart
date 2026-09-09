@@ -178,6 +178,37 @@ void main() {
     expect(find.text('Answer b'), findsOneWidget);
   });
 
+  testWidgets(
+    'controlled single state stays normalized when handed to local multiple mode',
+    (tester) async {
+      var controlled = true;
+      late StateSetter rebuild;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return DAccordion<String>(
+                values: controlled ? const {'a', 'b'} : null,
+                multiple: !controlled,
+                children: [item('a'), item('b')],
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(find.text('Answer a'), findsOneWidget);
+      expect(find.text('Answer b'), findsNothing);
+
+      rebuild(() => controlled = false);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Answer a'), findsOneWidget);
+      expect(find.text('Answer b'), findsNothing);
+    },
+  );
+
   testWidgets('unkeyed direct items do not receive duplicate wrapper keys', (
     tester,
   ) async {
@@ -199,6 +230,33 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.textContaining('Question'), findsNWidgets(2));
+  });
+
+  testWidgets('item values must be unique within an accordion', (tester) async {
+    final first = item('a');
+    await tester.pumpWidget(
+      host(
+        DAccordion<String>(
+          children: [
+            first,
+            DAccordionItem<String>(
+              key: const ValueKey('duplicate-item-a'),
+              value: 'a',
+              child: first.child,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    expect(
+      tester.takeException(),
+      isA<AssertionError>().having(
+        (error) => error.message,
+        'message',
+        contains('unique value'),
+      ),
+    );
   });
 
   testWidgets(
