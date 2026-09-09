@@ -2146,7 +2146,7 @@
     },
     {
       "id": "alert-dialog",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
       "branch": "codex/ui-alert-dialog",
       "dependencies": [
@@ -2179,14 +2179,15 @@
         "Official rendered browser inspection covered Basic, Small, Media, Destructive and RTL, including settled 384px regular and 320px small surfaces, 16px padding/gap, 40px media, 16/24 title, 14/20 description, flush footer, equal small actions and cancel-first focus.",
         "Exact-source macOS bundle /private/tmp/discourse-alert-dialog-review.uFQUBx/Alert Dialog Review.app was launched. Native inspection covered the registered regular, small, media, destructive and RTL examples; light, dark and Forest palettes; pointer and keyboard activation; closed-loop Tab focus; inert outside press; Escape; semantics; reduced motion; and 360px RTL at 200 percent text.",
         "Production destructive and regular fixture confirmations exercised cancellation and typed confirmation without account/server mutation. At native inspection the component/examples/harness hashes were 8ad4aae893a91fc74dec3e79c4bb61d4b3b176bbdd900782e60d966b8df5ab99, 244cdb6401ddf3a59c9aa4e382f14039123b2a9e421d7b2e5c1a410f01e426f9 and 34432dd7181d2f1adae42933dc0ec8ff886f104615b64424cd6d118bf6a992f5; copied kernel SHA256 a2724f22c8a502674b303547455467b94ba6df30da6cfec4ac365037cf86248d. The subsequent example delta only promotes its catalogue status to implemented; inspected behavior is unchanged.",
-        "A wider parallel consumer batch was excluded from acceptance evidence: it reproduced the documented diagnostics resize-handle flake and unrelated stale Voice/topic toast expectations, then was interrupted during a long unrelated test."
+        "A wider parallel consumer batch was excluded from acceptance evidence: it reproduced the documented diagnostics resize-handle flake and unrelated stale Voice/topic toast expectations, then was interrupted during a long unrelated test.",
+        "After current-main reconciliation, the 56-test Alert Dialog/Dialog/Drawer matrix passed again with seed 1113783763 and root plus profiles/full analysis passed. Later integration changed only unrelated Input OTP registration and progress cleanup. Accepted candidate 8f8e827d1b5ae9e381999022bb927594951c8d93 was merged from the repository main checkout with no-fast-forward merge db000fee297035240af699faebc0ef3d49dae59f."
       ],
       "limitations": [
         "No physical iOS/Linux device or spoken VoiceOver/TalkBack session was run; macOS AX inspection and widget semantics tests do not establish cross-platform device parity.",
         "Native and browser font rasterization differ, so acceptance compares composition, geometry, interaction and semantics rather than pixel identity. Touch behavior is covered by widget interaction tests; the native desktop pass used pointer and keyboard input."
       ],
       "implementationCommit": "77a8933a9f58b275b44dc41ede4cf22e46ae9c9f",
-      "mergeCommit": null,
+      "mergeCommit": "db000fee297035240af699faebc0ef3d49dae59f",
       "preparedDependencies": [
         {
           "id": "dialog",
@@ -2194,7 +2195,7 @@
           "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
           "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
           "evidence": "Committed Dialog public API and close-geometry/semantics corrections with 23 focused checks, root/full analysis, real Chat/Voice migration checks and official browser inspection; final native acceptance remains with the parent reviewer.",
-          "mergeGate": "Parent is accepted on local main at 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "mergeGate": "Satisfied: accepted Dialog 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 and the accepted Drawer shared route foundation were preserved, audited and covered by the passing 56-test component/dependency matrix before the Alert Dialog merge.",
           "acceptedMergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
         }
       ],
@@ -2204,9 +2205,9 @@
       "reviewHandoffCommit": "c8c6f049c299d6b41c4cc31ac2c1f106b8f56bd0",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed",
-      "reviewStatus": "accepted",
-      "reviewedBranchHead": "64a0807193463bafeb5e5f2808b33c9256d74bba",
-      "queueStage": "review_accepted",
+      "reviewStatus": "merged",
+      "reviewedBranchHead": "8f8e827d1b5ae9e381999022bb927594951c8d93",
+      "queueStage": "complete",
       "implementationHandoffVerification": {
         "focusedTests": "Source reports 32 Alert Dialog/Dialog checks passing with seed 4155910622 after accepted Dialog integration, plus separately recorded affected production-consumer regressions in the component evidence.",
         "analysis": "Root and full-profile analysis and final source integrity checks pass.",
@@ -4707,16 +4708,6 @@
           "headCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b"
         },
         {
-          "component": "alert-dialog",
-          "taskId": "01a086a4-4ba7-7a63-9af8-23f4a345f270",
-          "branch": "codex/review-alert-dialog",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8d26/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
-          "implementationBranch": "codex/ui-alert-dialog",
-          "headCommit": "c8c6f049c299d6b41c4cc31ac2c1f106b8f56bd0"
-        },
-        {
           "component": "card",
           "taskId": "01a086cd-3f9c-75b0-bda3-7d65d96604a0",
           "branch": "codex/review-card-compositions",
@@ -5156,18 +5147,6 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
-          "status": "in_progress"
-        },
-        {
-          "component": "alert-dialog",
-          "title": "Review and merge Alert Dialog",
-          "taskId": "01a086a4-4ba7-7a63-9af8-23f4a345f270",
-          "hostId": "local",
-          "branch": "codex/review-alert-dialog",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8d26/discourse-native",
-          "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
-          "implementationBranch": "codex/ui-alert-dialog",
-          "implementationCommit": "77a8933a9f58b275b44dc41ede4cf22e46ae9c9f",
           "status": "in_progress"
         },
         {

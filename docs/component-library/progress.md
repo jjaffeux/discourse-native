@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**55 of 64 components are merged locally.** 9 existing components are in progress; 0 are planned.
+**56 of 64 components are merged locally.** 8 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -16,7 +16,6 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
-| alert-dialog | independent review | c8c6f049 | 01a086a4-4ba7-7a63-9af8-23f4a345f270 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | independent review | 10b63f75 | 01a08628-7042-7173-a37d-7f1f04eade66 |
@@ -62,7 +61,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 30 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
 | 31 | hover-card | merged | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | de39686f2a5d75651ef37268edb44adb6376cd7c |
 | 32 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
-| 33 | alert-dialog | review_ready | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
+| 33 | alert-dialog | merged | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | db000fee297035240af699faebc0ef3d49dae59f |
 | 34 | sheet | merged | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | b67f0068104b922ec0e80170643eddced6e27c37 |
 | 35 | drawer | merged | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | 3e75cd97e91d04e2719c8adda5e669ed5dc9e3c1 |
 | 36 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
@@ -2058,7 +2057,7 @@ Status: merged. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/ui-dia
 
 ### alert-dialog
 
-Status: review_ready. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/ui-alert-dialog.
+Status: merged. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/ui-alert-dialog.
 
 **acceptanceCriteria**
 
@@ -2093,6 +2092,7 @@ Status: review_ready. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/
 - Exact-source macOS bundle /private/tmp/discourse-alert-dialog-review.uFQUBx/Alert Dialog Review.app was launched. Native inspection covered the registered regular, small, media, destructive and RTL examples; light, dark and Forest palettes; pointer and keyboard activation; closed-loop Tab focus; inert outside press; Escape; semantics; reduced motion; and 360px RTL at 200 percent text.
 - Production destructive and regular fixture confirmations exercised cancellation and typed confirmation without account/server mutation. At native inspection the component/examples/harness hashes were 8ad4aae893a91fc74dec3e79c4bb61d4b3b176bbdd900782e60d966b8df5ab99, 244cdb6401ddf3a59c9aa4e382f14039123b2a9e421d7b2e5c1a410f01e426f9 and 34432dd7181d2f1adae42933dc0ec8ff886f104615b64424cd6d118bf6a992f5; copied kernel SHA256 a2724f22c8a502674b303547455467b94ba6df30da6cfec4ac365037cf86248d. The subsequent example delta only promotes its catalogue status to implemented; inspected behavior is unchanged.
 - A wider parallel consumer batch was excluded from acceptance evidence: it reproduced the documented diagnostics resize-handle flake and unrelated stale Voice/topic toast expectations, then was interrupted during a long unrelated test.
+- After current-main reconciliation, the 56-test Alert Dialog/Dialog/Drawer matrix passed again with seed 1113783763 and root plus profiles/full analysis passed. Later integration changed only unrelated Input OTP registration and progress cleanup. Accepted candidate 8f8e827d1b5ae9e381999022bb927594951c8d93 was merged from the repository main checkout with no-fast-forward merge db000fee297035240af699faebc0ef3d49dae59f.
 
 **limitations**
 
