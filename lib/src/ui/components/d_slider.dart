@@ -775,6 +775,9 @@ class _SliderTrack extends CustomPainter {
 
 /// Form-owned single value with ordinary validation, save and reset semantics.
 /// Use [value] for external updates; omit it to let the field own its value.
+/// Reset proposes the initialValue captured at mount through onChanged. A
+/// controlled parent may accept or reject it; save/validation retain the
+/// accepted value until the parent rebuilds. Re-key to change the reset baseline.
 class DSliderField extends FormField<double> {
   DSliderField({
     super.key,
@@ -785,12 +788,13 @@ class DSliderField extends FormField<double> {
     double? step = 1,
     double? largeStep,
     String? semanticLabel,
-    ValueChanged<double>? onChanged,
+    this.onChanged,
     super.enabled,
     super.onSaved,
     super.validator,
     super.autovalidateMode,
-  }) : super(
+  }) : resetValue = initialValue,
+       super(
          initialValue: value ?? initialValue,
          builder: (field) => Column(
            crossAxisAlignment: CrossAxisAlignment.start,
@@ -826,22 +830,43 @@ class DSliderField extends FormField<double> {
          ),
        );
   final double? value;
+  final double resetValue;
+  final ValueChanged<double>? onChanged;
   @override
   FormFieldState<double> createState() => _DSliderFieldState();
 }
 
 class _DSliderFieldState extends FormFieldState<double> {
+  late final double _resetValue;
+
+  @override
+  void initState() {
+    super.initState();
+    // Freeze the mounted reset baseline before subsequent parent rebuilds.
+    _resetValue = (widget as DSliderField).resetValue;
+  }
+
+  @override
+  void reset() {
+    super.reset();
+    final current = widget as DSliderField;
+    if (current.value == null) setValue(_resetValue);
+    current.onChanged?.call(_resetValue);
+  }
+
   @override
   void didUpdateWidget(covariant DSliderField oldWidget) {
     super.didUpdateWidget(oldWidget);
     final current = widget as DSliderField;
-    if (current.value != null && current.value != oldWidget.value) {
+    if (current.value != null && current.value != value) {
       setValue(current.value);
     }
   }
 }
 
 /// Form-owned ordered values for range and multiple-thumb input.
+/// Reset proposes a frozen copy of the mounted initialValue through onChanged;
+/// controlled values remain authoritative until the parent accepts the proposal.
 class DMultiSliderField extends FormField<List<double>> {
   DMultiSliderField({
     super.key,
@@ -855,12 +880,13 @@ class DMultiSliderField extends FormField<List<double>> {
         DSliderThumbCollisionBehavior.push,
     int minStepsBetweenValues = 0,
     List<String>? semanticLabels,
-    ValueChanged<List<double>>? onChanged,
+    this.onChanged,
     super.enabled,
     super.onSaved,
     super.validator,
     super.autovalidateMode,
-  }) : super(
+  }) : resetValues = List.unmodifiable(initialValue),
+       super(
          initialValue: List.unmodifiable(values ?? initialValue),
          builder: (field) => Column(
            crossAxisAlignment: CrossAxisAlignment.start,
@@ -898,17 +924,34 @@ class DMultiSliderField extends FormField<List<double>> {
          ),
        );
   final List<double>? values;
+  final List<double> resetValues;
+  final ValueChanged<List<double>>? onChanged;
   @override
   FormFieldState<List<double>> createState() => _DMultiSliderFieldState();
 }
 
 class _DMultiSliderFieldState extends FormFieldState<List<double>> {
+  late final List<double> _resetValues;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetValues = (widget as DMultiSliderField).resetValues;
+  }
+
+  @override
+  void reset() {
+    super.reset();
+    final current = widget as DMultiSliderField;
+    if (current.values == null) setValue(_resetValues);
+    current.onChanged?.call(_resetValues);
+  }
+
   @override
   void didUpdateWidget(covariant DMultiSliderField oldWidget) {
     super.didUpdateWidget(oldWidget);
     final current = widget as DMultiSliderField;
-    if (current.values != null &&
-        !listEquals(current.values, oldWidget.values)) {
+    if (current.values != null && !listEquals(current.values, value)) {
       setValue(List.unmodifiable(current.values!));
     }
   }

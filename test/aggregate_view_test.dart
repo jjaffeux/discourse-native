@@ -374,7 +374,7 @@ void main() {
       expect(tester.widget<InkWell>(signedOutTarget).onTap, isNull);
       expect(
         tester
-            .widget<Checkbox>(
+            .widget<DCheckbox>(
               find.byKey(ValueKey('aggregate-filter-$signedOutUrl')),
             )
             .onChanged,

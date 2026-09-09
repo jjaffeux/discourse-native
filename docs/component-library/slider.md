@@ -91,7 +91,10 @@ It intentionally differs from Base UI `onValueCommitted`, which fires only
 for accepted changes. Cancellation does not undo changes already accepted
 by a caller, and invokes only `onChangeCancel`. Controlled Form fields mark
 interaction without storing rejected proposals; save/reset use the supplied
-value. Uncontrolled fields reset to their initial value.
+value. Both adapters notify onChanged with the mounted initialValue on reset.
+The baseline is frozen at mount (copied for lists), so rebuilds cannot change it.
+Controlled parents may accept or reject reset proposals; synchronous save and
+validation retain accepted values. Uncontrolled fields restore that baseline.
 
 `secondaryTrackValue` is an optional buffered seek position painted below the
 active input range at 35% primary alpha. It is a native playback adaptation of

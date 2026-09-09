@@ -1,8 +1,8 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
-import '../ui/components/d_slider.dart';
 
 /// A pane focus target whose nested controls retain their own focus handling.
 class ReadingFocusNode extends FocusNode {
@@ -35,8 +35,10 @@ bool navigationShortcutsAllowed(
       widget is FormField<Object?> ||
       widget is DropdownButton<Object?> ||
       widget is DropdownMenu<Object?> ||
+      widget is DCheckbox ||
       widget is Checkbox ||
       widget is CheckboxListTile ||
+      widget is RawRadio<Object?> ||
       widget is Radio<Object?> ||
       widget is RadioListTile<Object?> ||
       widget is Switch ||

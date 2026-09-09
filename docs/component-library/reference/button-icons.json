@@ -1,0 +1,37 @@
+[
+  {
+    "name": "arrowUp",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/arrow-up.svg",
+    "sha256": "8c22c25874c80bb062bef985d207d8f1d4a4d7847237d0a8cf720a3235968518"
+  },
+  {
+    "name": "arrowUpRight",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/arrow-up-right.svg",
+    "sha256": "50b2503b9d11881142255466b7e3461d022b919735841c321d72003ac9959fe1"
+  },
+  {
+    "name": "circleFadingArrowUp",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/circle-fading-arrow-up.svg",
+    "sha256": "43c20884d879dec87c8e2b41389b86c97d9357775c70e312e1cb52354af29394"
+  },
+  {
+    "name": "gitBranch",
+    "url": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/git-branch.svg",
+    "sha256": "485a7aef87bd8f711455cc5fad59e4b011b7f02aed9f1c6d5108bece5305b588"
+  },
+  {
+    "name": "gitFork",
+    "url": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/git-fork.svg",
+    "sha256": "6d185a204b06620ad64132215c3118243b5c07f5c6bddc384f3854e9e8d4469e"
+  },
+  {
+    "name": "arrowRight",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/arrow-right.svg",
+    "sha256": "288397fdb73bb4f783cf9eabb726ff47357df1d4e3f1201dd748090579f108b9"
+  },
+  {
+    "name": "plus",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/plus.svg",
+    "sha256": "7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17"
+  }
+]

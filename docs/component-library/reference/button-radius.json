@@ -1,0 +1,24 @@
+{
+  "retrievedAt": "2026-09-09",
+  "themingUrl": "https://ui.shadcn.com/docs/theming",
+  "themingHtmlSha256": "65bb53a9fa323c149ed57f3f1b2ab2d1e63ebf16c6d966e7c9ea6e8b09608d87",
+  "scale": {
+    "sm": 0.6,
+    "md": 0.8,
+    "lg": 1,
+    "xl": 1.4,
+    "2xl": 1.8,
+    "3xl": 2.2,
+    "4xl": 2.6
+  },
+  "buttonRegistryUrl": "https://ui.shadcn.com/r/styles/base-nova/button.json",
+  "buttonRegistrySha256": "9ba7e870178813f0552b818a913a2792fb500c779e36395740b4973e3025d427",
+  "buttonSizes": {
+    "xs": "min(radius * 0.8, 10px)",
+    "icon-xs": "min(radius * 0.8, 10px)",
+    "sm": "min(radius * 0.8, 12px)",
+    "icon-sm": "min(radius * 0.8, 12px)",
+    "default/lg/icon/icon-lg": "radius",
+    "inside-button-group": "radius (explicit group-owned radius override)"
+  }
+}

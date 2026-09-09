@@ -1,0 +1,322 @@
+[
+  {
+    "background": "lab(100 0 0)",
+    "border": "1px solid lab(90.952 0 -0.0000119209)",
+    "color": "lab(0 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": -1063,
+      "height": 32,
+      "left": 718.640625,
+      "right": 784.3515625,
+      "top": -1095,
+      "width": 65.7109375,
+      "x": 718.640625,
+      "y": -1095
+    },
+    "text": "Button"
+  },
+  {
+    "background": "lab(100 0 0)",
+    "border": "1px solid lab(90.952 0 -0.0000119209)",
+    "color": "lab(0 0 0)",
+    "font": "500 12px / 16px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 8px",
+    "radius": "8px",
+    "rect": {
+      "bottom": 321.875,
+      "height": 24,
+      "left": 513.8125,
+      "right": 596.0234375,
+      "top": 297.875,
+      "width": 82.2109375,
+      "x": 513.8125,
+      "y": 297.875
+    },
+    "text": "Extra Small"
+  },
+  {
+    "background": "lab(100 0 0)",
+    "border": "1px solid lab(90.952 0 -0.0000119209)",
+    "color": "lab(0 0 0)",
+    "font": "500 12.8px / 22.4px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "8px",
+    "rect": {
+      "bottom": 325.875,
+      "height": 28,
+      "left": 660.0234375,
+      "right": 715.78125,
+      "top": 297.875,
+      "width": 55.7578125,
+      "x": 660.0234375,
+      "y": 297.875
+    },
+    "text": "Small"
+  },
+  {
+    "background": "lab(100 0 0)",
+    "border": "1px solid lab(90.952 0 -0.0000119209)",
+    "color": "lab(0 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 329.875,
+      "height": 32,
+      "left": 783.78125,
+      "right": 853.7578125,
+      "top": 297.875,
+      "width": 69.9765625,
+      "x": 783.78125,
+      "y": 297.875
+    },
+    "text": "Default"
+  },
+  {
+    "background": "lab(100 0 0)",
+    "border": "1px solid lab(90.952 0 -0.0000119209)",
+    "color": "lab(0 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 333.875,
+      "height": 36,
+      "left": 925.7578125,
+      "right": 985.1796875,
+      "top": 297.875,
+      "width": 59.421875,
+      "x": 925.7578125,
+      "y": 297.875
+    },
+    "text": "Large"
+  },
+  {
+    "background": "lab(0 0 0)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "color": "lab(98.26 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 820.625,
+      "height": 32,
+      "left": 738.640625,
+      "right": 804.3515625,
+      "top": 788.625,
+      "width": 65.7109375,
+      "x": 738.640625,
+      "y": 788.625
+    },
+    "text": "Button"
+  },
+  {
+    "background": "lab(100 0 0)",
+    "border": "1px solid lab(90.952 0 -0.0000119209)",
+    "color": "lab(0 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 1309.375,
+      "height": 32,
+      "left": 736.609375,
+      "right": 806.3828125,
+      "top": 1277.375,
+      "width": 69.7734375,
+      "x": 736.609375,
+      "y": 1277.375
+    },
+    "text": "Outline"
+  },
+  {
+    "background": "lab(96.52 -0.0000298023 0.0000119209)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "color": "lab(7.78201 -0.0000149012 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 1798.125,
+      "height": 32,
+      "left": 725.3203125,
+      "right": 817.6796875,
+      "top": 1766.125,
+      "width": 92.359375,
+      "x": 725.3203125,
+      "y": 1766.125
+    },
+    "text": "Secondary"
+  },
+  {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "color": "lab(0 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 2286.875,
+      "height": 32,
+      "left": 740.9921875,
+      "right": 802.0078125,
+      "top": 2254.875,
+      "width": 61.015625,
+      "x": 740.9921875,
+      "y": 2254.875
+    },
+    "text": "Ghost"
+  },
+  {
+    "background": "oklab(0.57701 0.217634 0.112472 / 0.1)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "color": "lab(48.4493 77.4328 61.5452)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 2775.625,
+      "height": 32,
+      "left": 722.4296875,
+      "right": 820.5703125,
+      "top": 2743.625,
+      "width": 98.140625,
+      "x": 722.4296875,
+      "y": 2743.625
+    },
+    "text": "Destructive"
+  },
+  {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "color": "lab(0 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 3264.375,
+      "height": 32,
+      "left": 746.53125,
+      "right": 796.46875,
+      "top": 3232.375,
+      "width": 49.9375,
+      "x": 746.53125,
+      "y": 3232.375
+    },
+    "text": "Link"
+  },
+  {
+    "background": "lab(100 0 0)",
+    "border": "1px solid lab(90.952 0 -0.0000119209)",
+    "color": "lab(0 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px 0px 8px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 4309.375,
+      "height": 32,
+      "left": 670.921875,
+      "right": 792.390625,
+      "top": 4277.375,
+      "width": 121.46875,
+      "x": 670.921875,
+      "y": 4277.375
+    },
+    "text": "New Branch"
+  },
+  {
+    "background": "lab(100 0 0)",
+    "border": "1px solid lab(90.952 0 -0.0000119209)",
+    "color": "lab(0 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 8px 0px 10px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 4309.375,
+      "height": 32,
+      "left": 800.390625,
+      "right": 872.078125,
+      "top": 4277.375,
+      "width": 71.6875,
+      "x": 800.390625,
+      "y": 4277.375
+    },
+    "text": "Fork"
+  },
+  {
+    "background": "lab(0 0 0)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "color": "lab(98.26 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "1",
+    "padding": "0px 10px",
+    "radius": "1.67772e+07px",
+    "rect": {
+      "bottom": 4839.375,
+      "height": 32,
+      "left": 702.453125,
+      "right": 800.5390625,
+      "top": 4807.375,
+      "width": 98.0859375,
+      "x": 702.453125,
+      "y": 4807.375
+    },
+    "text": "Get Started"
+  },
+  {
+    "background": "lab(100 0 0)",
+    "border": "1px solid lab(90.952 0 -0.0000119209)",
+    "color": "lab(0 0 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "0.5",
+    "padding": "0px 10px 0px 8px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 5421.875,
+      "height": 32,
+      "left": 646.609375,
+      "right": 760.7109375,
+      "top": 5389.875,
+      "width": 114.1015625,
+      "x": 646.609375,
+      "y": 5389.875
+    },
+    "text": "Generating"
+  },
+  {
+    "background": "lab(96.52 -0.0000298023 0.0000119209)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "color": "lab(7.78201 -0.0000149012 0)",
+    "font": "500 14px / 20px Geist, \"Geist Fallback\"",
+    "opacity": "0.5",
+    "padding": "0px 10px 0px 8px",
+    "radius": "10px",
+    "rect": {
+      "bottom": 5421.875,
+      "height": 32,
+      "left": 768.7109375,
+      "right": 896.3828125,
+      "top": 5389.875,
+      "width": 127.671875,
+      "x": 768.7109375,
+      "y": 5389.875
+    },
+    "text": "Downloading"
+  }
+]
