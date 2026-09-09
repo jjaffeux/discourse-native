@@ -87,7 +87,9 @@ class _ReviewState extends State<_Review> {
     home: Builder(
       builder: (context) => Scaffold(
         appBar: AppBar(
-          title: const Text('Alert Review 38df — local production fixtures'),
+          title: const Text(
+            'Alert Integration Review 38df — local production fixtures',
+          ),
         ),
         body: Column(
           children: [

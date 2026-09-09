@@ -1,0 +1,23 @@
+Window: "Discourse", App: Badge Review BEBB9.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Badge Review BEBB9
+		2 container (settable)
+			3 container (settable)
+				4 text (settable) R
+				5 text (settable) @reviewer
+				6 text (settable) Review account
+				7 button (settable) View profile
+				8 text (settable) staff
+				9 text (settable) 123 badges
+			10 text (settable) Dismiss
+	11 close button
+	12 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	13 minimize button
+14 menu bar
+	15 Badge Review BEBB9
+	16 Edit
+	17 View
+	18 Window
+	19 Help
+
+The focused UI element is 1 container Badge Review BEBB9

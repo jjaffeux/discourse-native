@@ -1,8 +1,34 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/alert_examples.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'action uses completed extra-small Button and toggles local state',
+    (tester) async {
+      final example = alertExamples.examples.singleWhere(
+        (item) => item.title == 'Action',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
+          home: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      );
+      expect(
+        tester.widget<DButton>(find.byType(DButton)).size,
+        DButtonSize.extraSmall,
+      );
+      await tester.tap(find.text('Enable'));
+      await tester.pump();
+      expect(find.text('Dark mode enabled'), findsOneWidget);
+      await tester.tap(find.text('Disable'));
+      await tester.pump();
+      expect(find.text('Dark mode is now available'), findsOneWidget);
+    },
+  );
+
   testWidgets('all actual examples fit narrow large-text RTL and dark themes', (
     tester,
   ) async {

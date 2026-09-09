@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,7 +10,6 @@ import 'package:html/dom.dart' as dom;
 
 import '../data/site_image_repository.dart';
 import '../plugin_api/plugin_registry.dart';
-import '../theme/d_button.dart';
 import 'image_decode.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';

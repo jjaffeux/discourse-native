@@ -568,8 +568,9 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
               borderRadius: BorderRadius.circular(9),
               child: Row(
                 children: [
-                  Checkbox(
+                  DCheckbox(
                     key: ValueKey('aggregate-filter-${forum.url}'),
+                    semanticLabel: 'Include ${forum.url} in feed',
                     value:
                         forum.isConnected &&
                         _includedForums.contains(forum.url),

@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -257,8 +258,13 @@ void main() {
       shell.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
       final assignment = find.byKey(const Key('assign-topic-header'));
-      expect(tester.getSize(assignment).width, lessThanOrEqualTo(40));
-      expect(find.byTooltip('Manage assignment to Sam'), findsOneWidget);
+      final touch =
+          Theme.of(tester.element(assignment)).platform == TargetPlatform.iOS;
+      expect(
+        tester.getSize(assignment).width,
+        touch ? greaterThanOrEqualTo(48) : lessThanOrEqualTo(40),
+      );
+      expect(find.bySemanticsLabel('Manage assignment to Sam'), findsOneWidget);
       await tester.tap(assignment);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
@@ -274,6 +280,10 @@ void main() {
       expect(setup.api.topicsUpdated, isEmpty);
       expect(tester.takeException(), isNull);
     },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+    }),
   );
 
   for (final (cachedCategory, cachedTopic) in [
@@ -631,7 +641,7 @@ void main() {
             find.byKey(const ValueKey('topic-header-edit-tags')),
             findsNothing,
           );
-          expect(find.byType(Checkbox), findsNothing);
+          expect(find.byType(DCheckbox), findsNothing);
           await tester.tap(
             find.byKey(
               const ValueKey(('topic-header-tag-option', 'region-27')),
@@ -1296,7 +1306,10 @@ void main() {
       final timeRect = tester.getRect(
         find.byKey(const ValueKey('inbox-row-time-101')),
       );
-      expect(find.bySemanticsLabel('128 unread posts'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(RegExp(r'\b128 unread posts\b')),
+        findsOneWidget,
+      );
       expect(find.text('200'), findsOneWidget);
       expect(badgeRect.right, lessThan(timeRect.left));
       expect(timeRect.right, lessThan(304));
@@ -1701,7 +1714,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('# region-27'), findsOneWidget);
-    expect(find.byType(Checkbox), findsNothing);
+    expect(find.byType(DCheckbox), findsNothing);
     expect(setup.api.topicTagsUpdated, isEmpty);
     expect(setup.controller.currentTopic!.tags, hasLength(27));
     expect(tester.takeException(), isNull);

@@ -37,8 +37,9 @@ paragraphs compose with 16px gaps. No editable Form state belongs to Alert.
 
 `DAlertVariant.normal` maps default; `destructive` is the only other variant.
 Frozen catalogue extraction captured Button's outline/xs props in this row;
-they are not Alert variants. DButton remains baseline, explicitly disclosed in
-the examples. Its native hit bounds are preserved. Examples cover basic, demo,
+they are not Alert variants. After integration with pinned main, actions use the completed DButton owner.
+The reference action uses extraSmall (24px pointer visual bounds); native hit
+bounds remain preserved. Examples cover basic, demo,
 destructive, action, custom amber light/dark colors, original Arabic RTL,
 static description-only and rich paragraphs/actions. Reference SVGs avoid the
 app's 0.875 icon glyph inset; application icons remain domain artwork.

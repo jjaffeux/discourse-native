@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
@@ -13,7 +14,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/user_status_editor.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -221,10 +221,7 @@ void main() {
 
     await tester.tap(find.text('Edit status'));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
-      isTrue,
-    );
+    expect(tester.widget<DCheckbox>(find.byType(DCheckbox)).value, isTrue);
     await tester.tap(find.text('Clear status'));
     await tester.pumpAndSettle();
     expect(api.userStatusesCleared, [_site]);

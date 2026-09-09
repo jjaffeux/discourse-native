@@ -19,7 +19,7 @@ void main() {
         await _pump(
           tester,
           StatefulBuilder(
-            builder: (context, setState) => CheckboxListTile(
+            builder: (context, setState) => DCheckbox(
               contentPadding: EdgeInsets.zero,
               value: checked,
               onChanged: (value) => setState(() => checked = value ?? false),
@@ -44,7 +44,7 @@ void main() {
         );
         expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
         expect(
-          tester.getSize(find.byType(CheckboxListTile)).height,
+          tester.getSize(find.byType(DCheckbox)).height,
           greaterThanOrEqualTo(48),
         );
 
@@ -84,7 +84,7 @@ void main() {
       StatefulBuilder(
         builder: (context, setState) => Column(
           children: [
-            CheckboxListTile(
+            DCheckbox(
               focusNode: checkboxFocus,
               autofocus: true,
               value: checked,
@@ -127,7 +127,7 @@ void main() {
       try {
         await _pump(
           tester,
-          const CheckboxListTile(
+          const DCheckbox(
             value: true,
             onChanged: null,
             title: DLabel(enabled: false, child: Text('Disabled label')),
@@ -153,10 +153,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.sendKeyEvent(LogicalKeyboardKey.space);
         await tester.pump();
-        expect(
-          tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
-          isTrue,
-        );
+        expect(tester.widget<DCheckbox>(find.byType(DCheckbox)).value, isTrue);
         expect(tester.takeException(), isNull);
       } finally {
         semantics.dispose();

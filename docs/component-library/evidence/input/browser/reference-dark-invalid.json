@@ -1,0 +1,27 @@
+{
+  "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+  "border": "1px solid oklab(0.704006 0.176798 0.0722319 / 0.5)",
+  "borderRadius": "10px",
+  "color": "lab(63.7053 60.745 31.3109)",
+  "direction": "ltr",
+  "fileButton": {
+    "border": "0px none lab(63.7053 60.745 31.3109)",
+    "font": "14px / 20px Geist, \"Geist Fallback\"",
+    "height": "auto",
+    "margin": "0px",
+    "padding": "0px"
+  },
+  "font": "14px / 20px Geist, \"Geist Fallback\"",
+  "id": "input-invalid",
+  "opacity": "1",
+  "padding": "4px 10px",
+  "parentBackground": "rgba(0, 0, 0, 0)",
+  "rect": {
+    "height": 32,
+    "width": 320,
+    "x": 534,
+    "y": 3533.25
+  },
+  "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.704006 0.176798 0.0722319 / 0.4) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+  "type": "text"
+}
