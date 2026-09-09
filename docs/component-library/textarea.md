@@ -249,6 +249,9 @@ relaunch was intentionally omitted: a direct diff confirms `DTextarea`,
 foundations, Invite/Event production owners and the review fixture are unchanged
 from native-reviewed `d286e118`; only styleguide acceptance metadata and its
 test changed. The coordinator explicitly waived that redundant desktop pass.
+Final integration of main `7d29f531` preserved accepted Table, Alert, Empty and
+Chart owners; all 163 affected tests passed again with seed 1934955355, and
+root/full analysis plus `git diff --check` remained clean.
 
 No iOS/Linux device or spoken VoiceOver verification is claimed. Browser Geist
 and native host font rasterization differ, so the review compares geometry,
