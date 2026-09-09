@@ -63,10 +63,10 @@ tiles are 64px minimum squares with 24px/24px `Aa`, 12px/16px captions and
 `xl` radius (`1.4 ×` live host radius). They grow under text scaling.
 
 The frozen Custom example is a `FieldLabel + ToggleGroup + FieldDescription`
-composition. Field is still under independent review, so the source-ready
-example keeps a clearly recorded local label/description wrapper. Toggle
-Group's reviewer must replace that wrapper with the accepted public Field API
-after Field reaches main; prepared Field source must not be imported here.
+composition. After Field's accepted local-main merge at `5cd7f369`, the example
+now uses `DField`, `DFieldLabel` and `DFieldDescription` directly. The group
+remains the owner of its multiple independent pressed controls, so the accepted
+Field contract intentionally does not place a `DFieldControl` around it.
 
 ## Application audit
 

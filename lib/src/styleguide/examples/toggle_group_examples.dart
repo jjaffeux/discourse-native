@@ -121,22 +121,28 @@ final toggleGroupExamples = ComponentExamples(
         'Custom radius',
         'Field composition',
       ],
-      code: '''DToggleGroup<String>(
-  values: [fontWeight],
-  onChanged: (values) => setState(() => fontWeight = values.firstOrNull ?? fontWeight),
-  allowEmptySelection: false,
-  variant: DToggleVariant.outline,
-  spacing: 2,
-  size: DToggleSize.large,
-  items: weights.map((weight) => DToggleGroupItem(
-    value: weight,
-    semanticLabel: weight,
-    visualStyle: const DToggleVisualStyle(
-      constraints: BoxConstraints(minWidth: 64, minHeight: 64),
-      padding: EdgeInsets.zero,
+      code: '''DField(
+  children: [
+    const DFieldLabel(child: Text('Font Weight')),
+    DToggleGroup<String>(
+      values: [fontWeight],
+      onChanged: (values) => setState(() => fontWeight = values.single),
+      allowEmptySelection: false,
+      variant: DToggleVariant.outline,
+      spacing: 2,
+      size: DToggleSize.large,
+      items: weights.map((weight) => DToggleGroupItem(
+        value: weight,
+        semanticLabel: weight,
+        visualStyle: const DToggleVisualStyle(
+          constraints: BoxConstraints(minWidth: 64, minHeight: 64),
+          padding: EdgeInsets.zero,
+        ),
+        child: WeightTile(weight),
+      )).toList(),
     ),
-    child: WeightTile(weight),
-  )).toList(),
+    DFieldDescription(child: WeightDescription(fontWeight)),
+  ],
 )''',
       builder: (_) => const _FontWeightGroup(),
     ),
@@ -257,12 +263,9 @@ class _FontWeightGroupState extends State<_FontWeightGroup> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return DField(
       children: [
-        const Text('Font Weight'),
-        const SizedBox(height: 8),
+        const DFieldLabel(child: Text('Font Weight')),
         DToggleGroup<String>(
           values: [_weight],
           onChanged: (values) {
@@ -289,22 +292,25 @@ class _FontWeightGroupState extends State<_FontWeightGroup> {
               ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text.rich(
-          TextSpan(
+        DFieldDescription(
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              const TextSpan(text: 'Use '),
-              TextSpan(
-                text: 'font-$_weight',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  backgroundColor: tokens.muted,
+              const Text('Use '),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: tokens.muted,
+                  borderRadius: BorderRadius.circular(tokens.radius * .8),
+                ),
+                child: Text(
+                  'font-$_weight',
+                  style: const TextStyle(fontFamily: 'monospace'),
                 ),
               ),
-              const TextSpan(text: ' to set the font weight.'),
+              const Text(' to set the font weight.'),
             ],
           ),
-          style: TextStyle(color: tokens.mutedForeground, fontSize: 14),
         ),
       ],
     );

@@ -394,6 +394,14 @@ void main() {
         'RTL',
         'Ownership and dynamic items',
       ]);
+      final custom = toggleGroupExamples.examples.singleWhere(
+        (example) => example.title == 'Custom font weight',
+      );
+      await mount(tester, Builder(builder: custom.builder));
+      expect(find.byType(DField), findsOneWidget);
+      expect(find.byType(DFieldLabel), findsOneWidget);
+      expect(find.byType(DFieldDescription), findsOneWidget);
+      expect(find.byType(DFieldControl), findsNothing);
       for (final example in toggleGroupExamples.examples) {
         for (final theme in [
           AppTheme.light,
