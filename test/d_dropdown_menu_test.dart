@@ -214,6 +214,21 @@ void main() {
       child: const _SubmenuHarness(),
     );
     await open(tester);
+    final chevron = tester.widget<Icon>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Icon &&
+            (widget.icon == Icons.chevron_left ||
+                widget.icon == Icons.chevron_right),
+      ),
+    );
+    // Material's directional glyph is mirrored by Icon exactly once.
+    expect(chevron.icon, Icons.chevron_right);
+    expect(chevron.icon!.matchTextDirection, isTrue);
+    expect(
+      Directionality.of(tester.element(find.byWidget(chevron))),
+      TextDirection.rtl,
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
@@ -221,6 +236,64 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     expect(find.text('Email'), findsNothing);
+  });
+
+  testWidgets('menu focus scrolls its popup without moving the host page', (
+    tester,
+  ) async {
+    final pageScroll = ScrollController();
+    addTearDown(pageScroll.dispose);
+    await pumpMenu(
+      tester,
+      child: SingleChildScrollView(
+        controller: pageScroll,
+        child: Column(
+          children: [
+            const SizedBox(height: 150),
+            SizedBox(
+              width: 360,
+              height: 360,
+              child: Navigator(
+                onGenerateRoute: (_) => MaterialPageRoute<void>(
+                  builder: (_) => Center(
+                    child: DDropdownMenu(
+                      content: DDropdownMenuContent(
+                        constraints: const BoxConstraints(maxHeight: 120),
+                        children: [
+                          for (var index = 0; index < 20; index++)
+                            DDropdownMenuItem(
+                              onPressed: () {},
+                              child: Text('Command $index'),
+                            ),
+                        ],
+                      ),
+                      child: DDropdownMenuTrigger(
+                        builder: (context, state) => DButton(
+                          label: const Text('Open'),
+                          onPressed: state.toggle,
+                          focusNode: state.focusNode,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 1000),
+          ],
+        ),
+      ),
+    );
+    await open(tester);
+    expect(pageScroll.offset, 0);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+    expect(pageScroll.offset, 0);
+    final popup = tester.getRect(find.byType(DPopoverContent));
+    final lastItem = tester.getRect(find.text('Command 19'));
+    expect(lastItem.top, greaterThanOrEqualTo(popup.top));
+    expect(lastItem.bottom, lessThanOrEqualTo(popup.bottom));
   });
 
   testWidgets('opening a sibling submenu closes the previous overlay', (
