@@ -1,14 +1,14 @@
 {
   "component": "menubar",
-  "sourceCommit": "479b850fda4f35df3eea6caad20e087b51b9b6d2",
+  "sourceCommit": "aab023bf4f9f41af2b60fe1d008f010eecaa4062",
   "branch": "codex/review-menubar-candidate",
   "flutter": "3.47.2",
   "target": "lib/styleguide_main.dart",
   "buildCommand": "flutter build macos --debug -t lib/styleguide_main.dart --no-pub",
   "buildResult": "passed",
-  "fixturePath": "/private/tmp/discourse-menubar-review-479b-styleguide.ExSAPL/Discourse Menubar Review 479b.app",
-  "bundleIdentifier": "org.discourse.menubarreview.479b",
-  "kernelSha256": "8e4a1cd44f357439868143c3c35b6e5ebfdfe7bcc8d7e002574fdb25312ea57a",
+  "fixturePath": "/private/tmp/discourse-menubar-review-aab0.x4CZn7/Discourse Menubar Review aab0.app",
+  "bundleIdentifier": "org.discourse.menubarreview.aab0",
+  "kernelSha256": "6affee4fa8bc5e6714b318addcac0daa2eb4d1e0dac688c119faa5547db37810",
   "signature": {
     "kind": "ad-hoc",
     "deepStrictVerification": "passed",
