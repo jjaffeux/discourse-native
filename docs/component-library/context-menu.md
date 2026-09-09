@@ -1,4 +1,4 @@
-# Context Menu source evidence
+# Context Menu acceptance evidence
 
 Prepared on 2026-09-09 from the frozen 2026-09-08 Base UI/base-nova
 reference.
@@ -182,7 +182,7 @@ All commands use randomized seed `826145` and `--no-pub`:
 
 These sets overlap; their counts are not a combined unique-test total.
 
-## Remaining shared-owner correction
+## Accepted shared-owner correction
 
 The final native RTL check exposed the inherited double-mirrored submenu
 chevron: the indicator points right even though logical submenu navigation is
@@ -191,14 +191,59 @@ prepared the shared Dropdown Menu correction in commit
 `430b46a0690a23613ca795b3a95a6f64da9b590e`, together with popup-local
 focus scrolling. The Dropdown Menu reviewer consolidated this with the
 registration-order correction on `codex/review-dropdown-menu-followup` at
-`7110ef80`, reported 50 focused tests and clean root/full analysis, and owns
-the accepted local-main checkpoint after exact native verification.
+`7110ef80`, then accepted it on local main at
+`85f9265bf2593a7edc0693582b7eadf1c6645b8d` with tracking commit
+`d647400602824226d70d1328fba2a141195dc559`. The accepted Dropdown
+source is byte-identical to the prepared and natively inspected Git blob
+`b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6`.
 
-Context-specific regressions reproduce both defects on the inspected source:
+Context-specific regressions reproduced both defects before the fix:
 the RTL glyph is double-mirrored, and opening a constrained context popup in an
-embedded Navigator moves its enclosing page by 62px. Acceptance remains pending
-the shared correction's native verification and local-main merge. This branch
-does not import unaccepted parent ancestors or duplicate the shared fix.
+embedded Navigator moves its enclosing page by 62px. Both now pass. Context
+Menu directly composes `DDropdownMenu`, so the correction requires no duplicate
+engine or adapter change. The accepted parent also preserves live registration
+order when item labels, enabled states or borrowed focus nodes change.
+
+The parent owner records 50 focused passing tests and clean root/full analysis.
+Menubar's source-exact native runtime
+`e3104c9ae1547b90629f85d6e7a7bb97c863f6c7`, kernel SHA256
+`71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318`,
+verified the combined source at 360px/200% text in LTR/RTL, reduced motion and
+Plum RTL. Popup row navigation did not move the host; Arabic chevrons pointed
+and opened left, and Right returned to the parent. This is shared-owner native
+evidence, not a new Context Menu native run.
+
+## Final acceptance
+
+Candidate `c9979ec28e310617b9f31a189c098760e05fc074` starts from
+accepted current main and brings in the Context Menu history. All other
+component progress records and the accepted Dropdown/Popover sources are
+preserved. The Context Menu, forum adapter, examples and fixture behavior are
+unchanged from the completed native inspection; only the accepted shared fixes,
+the implemented catalogue status and formatter-only layout differ. The
+accepted Popover's new joined-control boundary prevents grouped-trigger
+geometry from leaking into detached content and has no joined ancestor in
+these inspected Context fixtures.
+
+The final Context/Dropdown/Popover/styleguide/accessibility/lifecycle matrix
+passes **67 tests**, including both fail-before regressions. The real-rail
+ordering/removal matrix passes **21 tests** again, and the example status update
+passes all **4 styleguide tests**, all with seed `826145`. Root and
+`profiles/full` analysis are clean, touched Dart files are formatted and
+`git diff --check` passes. Counts overlap and are not a unique total.
+
+The final debug macOS integration build of
+`tool/context_menu_review_main.dart` passed at source
+`dd821a9d3b26c0591236e2234a903fe722c42ede`, with kernel SHA256
+`1e81e58edc4aca5ac426b709c93a18f2df44f653298190729e6a2cf78918b6dd`.
+This verifies compilation of the composed final source, not another native
+launch.
+
+All ten examples are marked implemented. Completed own-native evidence is
+retained for unchanged Context behavior and exact-source parent evidence
+covers the shared runtime corrections; no repeat full desktop pass is claimed.
+The following input/platform limits remain explicit rather than being counted
+as performed native interactions.
 
 ## Evidence limitations
 

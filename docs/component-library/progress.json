@@ -3090,7 +3090,7 @@
       "decisions": [
         "A Context Menu-owned 1px DPopoverAnchor tracks the exact invocation point while the accepted Dropdown Menu source remains the sole navigation, selection, submenu and popup-content engine.",
         "Keyboard and accessibility invocation anchor at logical bottom-start of the focused trigger; secondary pointer and touch long press use their local event position.",
-        "Native Sides and real forum-rail checks completed against accepted Dropdown Menu and Alert Dialog source. Acceptance awaits the Dropdown owner's combined follow-up codex/review-dropdown-menu-followup at 7110ef80 (registration order plus Menubar's 430b46a RTL-chevron/popup-focus corrections), its native verification and local-main merge; no unaccepted parent is imported."
+        "Native Sides and real forum-rail checks completed against accepted Dropdown Menu and Alert Dialog source. The Dropdown owner's combined follow-up is accepted on main at 85f9265bf2593a7edc0693582b7eadf1c6645b8d, preserving registration order and correcting RTL chevrons/popup-local focus. Context composes that exact shared owner without adapter changes; all ten examples are implemented."
       ],
       "migrations": [
         "InstanceActions forum-rail secondary/long-press menu now uses DContextMenu and shared item primitives while retaining its touch More Options sheet, custom gesture adapter, semantics action, permissions, destructive confirmation and stale-controller guard."
@@ -3106,11 +3106,12 @@
         "Current-main candidate 7431e6386578f56801131c0574fb2d7e2e80c79d reconciles accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 without modifying its source. The 64-test matrix and root/full analysis passed again; rebuilt and isolated signed macOS kernels matched at SHA256 63a6c24bdedee148bad6d808b4017644769578fa585229b4a07767ca3c9641e4.",
         "Production InstanceRail fixture source 0792b3eca67ce32ef3461758571a33e09202fa5f includes accepted Alert Dialog; built and strictly signed native kernels match SHA256 4fa70255585e2ff883e88025fa887859e137707a478bfa08e45b5ceb3a622b21. Twenty-one targeted ordering/removal tests and 26 affected post-Alert-Dialog rail/accessibility/lifecycle checks passed with seed 826145; these matrices overlap. Root/full analysis is clean.",
         "Completed remaining live native Sides and RTL inline-end placement, actual Beta rail Move up, Tab/Context Menu/Escape focus restoration, Alert Dialog Cancel and confirmed Remove, plus macOS touch-presentation More Options sheet reorder. All state changes use in-memory forums. Live official Sides opened on all four physical sides. Own app/tab closed and desktop lease released.",
-        "New Context-specific regressions reproduce the inherited double-mirrored RTL glyph and 62px enclosing-page scroll on context-popup focus; they await the single shared-owner fix's accepted main checkpoint."
+        "Context-specific regressions failed before the shared correction (double-mirrored RTL glyph and 62px enclosing-page scroll) and now pass against accepted Dropdown blob b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6. Final reconciled candidate c9979ec28e310617b9f31a189c098760e05fc074 passes 67 focused Context/Dropdown/Popover/styleguide/accessibility/lifecycle tests and 21 real-rail ordering/removal tests with seed 826145; root/full analysis clean. The implemented-status update passes all four styleguide tests.",
+        "Shared-owner native delta evidence is accepted: Menubar source e3104c9ae1547b90629f85d6e7a7bb97c863f6c7, kernel 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318, verifies the identical combined Dropdown blob at 360px/200% LTR/RTL/reduced motion and Plum RTL: stationary host during popup navigation, correctly left-pointing/opening Arabic submenu and Right return. Unchanged Context/rail behavior retains the own-native evidence; no repeat full Context native run is claimed.",
+        "Final composed macOS debug fixture build passed at source dd821a9d3b26c0591236e2234a903fe722c42ede with kernel SHA256 1e81e58edc4aca5ac426b709c93a18f2df44f653298190729e6a2cf78918b6dd; this is integration compilation, not a new native launch. Touched Dart formatting and git diff --check pass."
       ],
       "limitations": [
-        "Native Shift+F10 did not open through the available key synthesizer. Approved CUA exposes no long-press primitive or callable custom reader AX action; exact key/gesture/semantics callbacks pass focused widget/integration tests. Touch presentation was pointer-operated with an iOS theme-platform override on macOS, not a device run. No iOS/Linux device, spoken VoiceOver or pixel-diff equality is claimed.",
-        "Context Menu remains unaccepted until the Dropdown owner's combined registration-order/RTL-chevron/popup-focus correction is natively verified and merged on main; all other remaining native acceptance surfaces have been inspected."
+        "Native Shift+F10 did not open through the available key synthesizer. Approved CUA exposes no long-press primitive or callable custom reader AX action; exact key/gesture/semantics callbacks pass focused widget/integration tests. Touch presentation was pointer-operated with an iOS theme-platform override on macOS, not a device run. No iOS/Linux device, spoken VoiceOver or pixel-diff equality is claimed."
       ],
       "implementationCommit": "d1c954fefb5d461be217d443f5bf51330b7f24e7",
       "mergeCommit": null,
@@ -3138,7 +3139,7 @@
       "reviewBranch": "codex/review-context-menu",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8c70/discourse-native",
       "reviewHandoffCommit": "e9b295386d4f10e82e93b7aa6875a0a8d20598b1",
-      "reviewStatus": "in_progress"
+      "reviewStatus": "accepted"
     },
     {
       "id": "menubar",

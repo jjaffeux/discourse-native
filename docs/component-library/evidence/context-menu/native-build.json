@@ -27,12 +27,31 @@
       "macOS iOS-theme-platform override exposes More Options; the actual touch sheet Move down changes order to Gamma,Alpha and dismisses",
       "Official live Sides examples opened top/right/bottom/left for rendered placement comparison"
     ],
-    "inheritedDefect": "RTL submenu indicator points right due to the Dropdown owner's double mirroring; shared correction 430b46a is pending native acceptance/main merge",
+    "inheritedDefect": "The inspected older source showed the Dropdown owner's double-mirrored RTL indicator; resolved by the subsequently accepted shared follow-up recorded below",
     "limitations": [
       "Shift+F10 native key synthesis did not open; widget key-chord test passes",
       "No approved CUA long-press primitive or callable custom reader AX action was exposed; actual callbacks are widget/integration tested",
       "Touch presentation was exercised by mouse on macOS, not a touch device; no iOS/Linux device, spoken VoiceOver or pixel-diff pass is claimed"
     ],
     "cleanup": "Own native app quit, own reference tab closed and desktop lease released"
+  },
+  "acceptedParentFollowup": {
+    "mergeCommit": "85f9265bf2593a7edc0693582b7eadf1c6645b8d",
+    "trackingCommit": "d647400602824226d70d1328fba2a141195dc559",
+    "dropdownSourceBlob": "b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6",
+    "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+    "nativeEvidenceTaskId": "01a08628-7042-7173-a37d-7f1f04eade66",
+    "nativeSourceCommit": "e3104c9ae1547b90629f85d6e7a7bb97c863f6c7",
+    "nativeKernelSha256": "71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318",
+    "nativeEvidence": "Shared-owner Menubar native pass at 360px/200% LTR/RTL, reduced motion and Plum RTL: host remains stationary during popup navigation, Arabic chevron points/opens left, Right returns to parent",
+    "contextVerification": "67 focused Context/Dropdown/Popover/styleguide/accessibility/lifecycle tests and 21 real-rail ordering/removal tests pass on reconciled candidate c9979ec28e310617b9f31a189c098760e05fc074 with seed 826145; both fail-before Context regressions now pass; root/full analysis clean",
+    "reuseBoundary": "Context Menu directly composes the identical accepted Dropdown source; unchanged Context-specific native behavior retains its own earlier evidence. This shared-owner pass is not described as a new Context native launch."
+  },
+  "finalIntegrationBuild": {
+    "sourceCommit": "dd821a9d3b26c0591236e2234a903fe722c42ede",
+    "command": "flutter build macos --debug --target tool/context_menu_review_main.dart --no-pub",
+    "result": "passed",
+    "kernelSha256": "1e81e58edc4aca5ac426b709c93a18f2df44f653298190729e6a2cf78918b6dd",
+    "scope": "Compilation of the final composed source and implemented-status metadata; no additional native launch is claimed"
   }
 }
