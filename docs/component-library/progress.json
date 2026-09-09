@@ -3125,7 +3125,7 @@
     },
     {
       "id": "menubar",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
       "branch": "codex/ui-menubar",
       "dependencies": [
@@ -3165,15 +3165,15 @@
         "Source e3104c9ae1547b90629f85d6e7a7bb97c863f6c7 builds the real debug macOS styleguide with the exact combined Dropdown source from prepared follow-up 7110ef80. Fixture /private/tmp/discourse-menubar-review-e310.IoqW0P/Discourse Menubar Review e310.app; bundle org.discourse.menubarreview.e310; kernel SHA-256 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318. Deep strict ad-hoc verification passes, only sandbox/allow-jit/get-task-allow main entitlements, and 0 of 7 signed executables contain application/team/APS identifiers. Repository runner signing/provisioning is unchanged.",
         "Affected-consumer validation: Context Menu dfd02ea4 in a disposable checkout fails the two new regressions on its old parent (62px host scroll and double-mirrored RTL glyph). All 11 Context Menu tests pass with seed 826145 on combined Dropdown blob b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6, preserving Avatar live-registration order; the temporary checkout was removed.",
         "Exact native source e3104c9a accepted; subsequent styleguide promotion changes only status and acceptance text, not runtime behavior. Owned app and official-reference tab closed; desktop lease released.",
-        "Latest-main candidate c29732d5 based on accepted Dropdown follow-up main pin d6474006 passes all 64 focused tests again with seed 1320190751 and clean root/full-profile analysis. DMenubar and shared Dropdown runtime match native-inspected e3104c9a; example changes are status/text only. Main's additional Popover joined-control boundary does not affect ungrouped menu rendering/focus, and styleguide changes only affect its sidebar search focus."
+        "Latest-main candidate c29732d5 based on accepted Dropdown follow-up main pin d6474006 passes all 64 focused tests again with seed 1320190751 and clean root/full-profile analysis. DMenubar and shared Dropdown runtime match native-inspected e3104c9a; example changes are status/text only. Main's additional Popover joined-control boundary does not affect ungrouped menu rendering/focus, and styleguide changes only affect its sidebar search focus.",
+        "Final local no-fast-forward merge 5ac59a926eab9a8a6890486e5bb37e65ce0f54a5 performed from the repository main checkout after verifying a clean unchanged main under its exclusive lease. Additional accepted Button Group overlay-boundary regression passed. No push."
       ],
       "limitations": [
         "Native iOS/Linux device behavior and spoken VoiceOver remain unverified."
       ],
       "implementationCommit": "3aef780c8aa4ad042d464c1c6cdf9c419e996c58",
-      "mergeCommit": null,
+      "mergeCommit": "5ac59a926eab9a8a6890486e5bb37e65ce0f54a5",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8f35/discourse-native",
-      "queueStage": "independent_review",
       "implementationBrief": "Implement the full reference Menubar composition and Checkbox, Radio, Submenu, With Icons and RTL examples. Compose final Dropdown Menu primitives with a menubar's distinct top-level roving focus, arrow/Home/End behavior, opening/switching menus by keyboard and pointer, submenu boundaries, typeahead and focus restoration. Support selected/checked/radio/destructive/disabled/shortcut state and live overlay tokens; keep native application/OS menu-bar integration outside the generic in-app widget. Audit appropriate core/plugin in-app menu strips and migrate actual matches; do not change operating-system menus or replace route tabs merely because they are horizontal. Coordinate shared menu logic and app-file ownership with Context Menu and Dropdown Menu reviewers; keep each documented public API complete.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/menubar",
@@ -3196,7 +3196,7 @@
       "reviewBranch": "codex/review-menubar-accepted",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native",
       "reviewHandoffCommit": "10b63f75edad20793fd83e5b2c8e15504e602a9a",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "implementationHandoffVerification": {
         "focusedTests": "Source record reports14 randomized component/styleguide tests passing with seed1320190751, including six frozen groups, keyboard/RTL, state, live themes, narrow/200% and reduced motion.",
         "analysis": "Root and profiles/full analysis pass with unchanged SDK and lockfile hashes.",
@@ -4760,16 +4760,6 @@
           "headCommit": "2167c8715f4866a47b8b3e30045a1346f3a1f6d4"
         },
         {
-          "component": "menubar",
-          "taskId": "01a08628-7042-7173-a37d-7f1f04eade66",
-          "branch": "codex/review-menubar",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
-          "implementationBranch": "codex/ui-menubar",
-          "headCommit": "10b63f75edad20793fd83e5b2c8e15504e602a9a"
-        },
-        {
           "component": "sheet",
           "taskId": "01a0862f-b27f-76d2-a441-8a77594aedc8",
           "branch": "codex/review-sheet",
@@ -5158,12 +5148,13 @@
           "title": "Review and merge Menubar",
           "taskId": "01a08628-7042-7173-a37d-7f1f04eade66",
           "hostId": "local",
-          "branch": "codex/review-menubar",
+          "branch": "codex/review-menubar-accepted",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native",
           "implementationTaskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
           "implementationBranch": "codex/ui-menubar",
           "implementationCommit": "3aef780c8aa4ad042d464c1c6cdf9c419e996c58",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "5ac59a926eab9a8a6890486e5bb37e65ce0f54a5"
         },
         {
           "component": "sheet",
