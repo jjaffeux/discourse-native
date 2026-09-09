@@ -6,7 +6,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../styleguide_example.dart';
 
 final calendarExamples = ComponentExamples(
-  status: ComponentStatus.planned,
+  status: ComponentStatus.implemented,
   description: 'Select dates and date ranges in a compact month grid.',
   notes:
       'Backed by kalender 0.29.1 and themed with DKalenderTheme. Calendar owns '

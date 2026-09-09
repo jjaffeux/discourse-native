@@ -72,12 +72,12 @@ rules, grid lanes, overflow dialogs, and domain actions. It now uses
 `DKalenderTheme(compactMonthLayout: false)` and `DCalendarDayButton` for shared
 tokens, focus, day typography, outside-day state, and accessible activation.
 
-`TopicCalendar` is a retained domain alternative. Its embedded post geometry
-and split multi-week event-bar layout are tightly coupled to Kalender's ambient
-month header metrics, and scoping the shared theme changes that layout. The
-audit therefore leaves its rendering owner unchanged rather than regressing
-server-maintained reply dates, while Calendar and the full-page event calendar
-adopt the new shared selection/presentation layer.
+`TopicCalendar` remains a domain-specific Kalender composition for embedded
+post geometry and split multi-week event bars. It now scopes
+`DKalenderTheme(compactMonthLayout: false)` around that existing layout, so its
+paint and typography share the Calendar tokens while its lanes, bar widths,
+reply dates, paging and navigation remain unchanged. Its full focused suite,
+including the two-segment 1.5:1 width geometry assertion, passes after adoption.
 
 ## Dependency preparation
 
@@ -87,7 +87,8 @@ adopt the new shared selection/presentation layer.
   `94a65e00c525d6096f12be94fcc2ec9bbaf888ff`.
 - Field was reconciled from accepted-main merge
   `5cd7f3694498e4e09e3c114639baca834b56705e`.
-- Input Group was prepared from reviewed source `a70ba814a2a066732b7a57c30e875043bdf28ba7`.
+- Input Group was prepared from reviewed source `6775be52` after reconciliation
+  with the accepted Input API.
   It was not accepted-main at preparation time. Calendar review must reconcile
   its eventual accepted revision and must not transit an unaccepted dependency.
 
