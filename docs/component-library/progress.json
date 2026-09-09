@@ -979,7 +979,7 @@
     },
     {
       "id": "toggle",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08567-ac29-7dd0-ba78-1717a5235bd0",
       "branch": "codex/ui-toggle",
       "dependencies": [
@@ -1028,13 +1028,13 @@
         "Browser and native font rasterizers differ; review establishes measured geometry, palette mapping and behavior rather than pixel equality. The final native bundle is source-specific to d39eb0f3; the subsequent latest-main merge did not touch Toggle, its tokens/theme, Voice adapter or review fixture."
       ],
       "implementationCommit": "271c1bddbd8332741e185d9924be7690e5628646",
-      "mergeCommit": null,
+      "mergeCommit": "a492253dc0abaed3f424df1b59c5a11b266d5b60",
       "nativeInspectionStatus": "completed",
       "browserInspectionStatus": "completed",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08579-4e43-7ce2-9919-546137c84a24",
       "reviewBranch": "codex/review-toggle",
-      "reviewedBranchHead": "d88c4735dd67939b7c35795e7bf4bb935dbf6068"
+      "reviewedBranchHead": "e1299455c3a96c44e599e2f714df3ae51ddbaf99"
     },
     {
       "id": "toggle-group",
