@@ -128,19 +128,21 @@ class DFieldGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nested =
-        context.dependOnInheritedWidgetOfExactType<_GroupScope>() != null;
+    final groupedChildren = <Widget>[
+      for (final child in children)
+        if (child is DFieldGroup &&
+            child.spacing == null &&
+            child.variant == DFieldGroupVariant.standard)
+          DFieldGroup(key: child.key, spacing: 16, children: child.children)
+        else
+          child,
+    ];
     return LayoutBuilder(
       builder: (context, constraints) => _GroupScope(
         width: constraints.maxWidth,
         child: _column(
-          children,
-          spacing ??
-              (variant == DFieldGroupVariant.choice
-                  ? 12
-                  : nested
-                  ? 16
-                  : 20),
+          groupedChildren,
+          spacing ?? (variant == DFieldGroupVariant.choice ? 12 : 20),
         ),
       ),
     );

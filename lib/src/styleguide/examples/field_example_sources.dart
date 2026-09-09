@@ -1459,6 +1459,7 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
   Widget build(BuildContext context) => DFieldGroup(
     children: [
       DFieldSet(
+        spacing: 12,
         children: [
           const DFieldLegend(
             variant: DFieldLegendVariant.label,
@@ -1501,6 +1502,7 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
         ],
       ),
       DFieldSet(
+        spacing: 12,
         children: [
           const DFieldLegend(
             variant: DFieldLegendVariant.label,

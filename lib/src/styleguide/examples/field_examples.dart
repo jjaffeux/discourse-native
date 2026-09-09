@@ -13,7 +13,7 @@ final fieldExamples = ComponentExamples(
       'the native accessible name, help and errors; DFieldLabel reuses the control '
       'focus node or callback without a second tab stop. FieldGroup reflows at 448px. '
       'The Field surfaces use base-nova metrics and live host tokens. Native '
-      'TextFormField, Checkbox, Radio, Switch, RangeSlider and baseline DSelect '
+      'TextFormField, Checkbox, Radio, Switch, RangeSlider and baseline '
       'and DButton remain explicit temporary dependencies: their completed branches '
       'are not merged in this checkout. Replace those controls during coordinator '
       'reconciliation before claiming whole-example visual fidelity. '
@@ -581,6 +581,7 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
   Widget build(BuildContext context) => DFieldGroup(
     children: [
       DFieldSet(
+        spacing: 12,
         children: [
           const DFieldLegend(
             variant: DFieldLegendVariant.label,
@@ -623,6 +624,7 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
         ],
       ),
       DFieldSet(
+        spacing: 12,
         children: [
           const DFieldLegend(
             variant: DFieldLegendVariant.label,

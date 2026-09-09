@@ -324,6 +324,50 @@ void main() {
     },
   );
   testWidgets(
+    'only direct nested groups use 16px and empty errors add no gap',
+    (tester) async {
+      await tester.pumpWidget(
+        host(
+          const DFieldGroup(
+            children: [
+              DFieldGroup(
+                children: [Text('Direct first'), Text('Direct last')],
+              ),
+              DFieldSet(
+                children: [
+                  DFieldGroup(
+                    children: [Text('Wrapped first'), Text('Wrapped last')],
+                  ),
+                ],
+              ),
+              DField(
+                children: [
+                  Text('Visible'),
+                  DFieldError(errors: []),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(
+        tester.getTopLeft(find.text('Direct last')).dy -
+            tester.getBottomLeft(find.text('Direct first')).dy,
+        16,
+      );
+      expect(
+        tester.getTopLeft(find.text('Wrapped last')).dy -
+            tester.getBottomLeft(find.text('Wrapped first')).dy,
+        20,
+      );
+      expect(
+        tester.getSize(find.byType(DField)).height,
+        tester.getSize(find.text('Visible')).height,
+      );
+    },
+  );
+
+  testWidgets(
     'choice focus paints only outside and live selected alpha remains multiplicative',
     (tester) async {
       final focus = FocusNode();
