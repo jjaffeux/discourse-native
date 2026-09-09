@@ -238,8 +238,8 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           ],
           onChanged: (value) => controller.setAdmission(value ?? 'closed'),
         ),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
+        DSwitchTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: const DLabel(child: Text('Members can leave')),
           value: controller.publicExit,
           onChanged: controller.setPublicExit,
@@ -290,8 +290,8 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           value: controller.defaultNotification,
           onChanged: controller.setDefaultNotification,
         ),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
+        DSwitchTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: const DLabel(child: Text('Publish read state')),
           subtitle: const Text('Let members share message read state.'),
           value: controller.publishReadState,
@@ -307,8 +307,8 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           title: 'Email',
           description: 'Configure the mailbox used by this group.',
         ),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
+        DSwitchTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: const DLabel(child: Text('Enable SMTP')),
           value: controller.smtpEnabled,
           onChanged: controller.setSmtpEnabled,
@@ -332,8 +332,8 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           hint: 'Leave blank to keep the existing password',
         ),
         _textField('email_from_alias', 'From alias'),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
+        DSwitchTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: const DLabel(
             child: Text('Allow replies from unknown senders'),
           ),

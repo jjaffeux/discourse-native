@@ -1,0 +1,51 @@
+{
+  "retrieved": "2026-09-09",
+  "upstreamCommit": "3ba91b1cc83e1bbe4ab35a422ff2a694849c5048",
+  "sources": [
+    {
+      "file": "base-ui.md",
+      "url": "https://base-ui.com/react/components/slider.md",
+      "sha256": "660c610f54a0a19408990638ee3285dcbbf480f459cd07e13f44be54409cb93d"
+    },
+    {
+      "file": "slider-controlled.tsx",
+      "url": "https://raw.githubusercontent.com/shadcn-ui/ui/3ba91b1cc83e1bbe4ab35a422ff2a694849c5048/apps/v4/examples/base/slider-controlled.tsx",
+      "sha256": "5147f33d8728822adb66224a25125c66147c2d58bf357b56fc13b59edca4b70d"
+    },
+    {
+      "file": "slider-demo.tsx",
+      "url": "https://raw.githubusercontent.com/shadcn-ui/ui/3ba91b1cc83e1bbe4ab35a422ff2a694849c5048/apps/v4/examples/base/slider-demo.tsx",
+      "sha256": "f5b3e618f4757e12241c2b8780c586c8fcf742cbff1c271460030800c800a79b"
+    },
+    {
+      "file": "slider-disabled.tsx",
+      "url": "https://raw.githubusercontent.com/shadcn-ui/ui/3ba91b1cc83e1bbe4ab35a422ff2a694849c5048/apps/v4/examples/base/slider-disabled.tsx",
+      "sha256": "743d4a0c0ffe901485ae53ec266b6fe9a6f3a11100b387fee5843197622ab187"
+    },
+    {
+      "file": "slider-multiple.tsx",
+      "url": "https://raw.githubusercontent.com/shadcn-ui/ui/3ba91b1cc83e1bbe4ab35a422ff2a694849c5048/apps/v4/examples/base/slider-multiple.tsx",
+      "sha256": "36856a7f73be1ea7bf82b0d72327fd6752d078a297589691a7d0d662b5bea9a5"
+    },
+    {
+      "file": "slider-range.tsx",
+      "url": "https://raw.githubusercontent.com/shadcn-ui/ui/3ba91b1cc83e1bbe4ab35a422ff2a694849c5048/apps/v4/examples/base/slider-range.tsx",
+      "sha256": "6bb414d91f45efb4dd15891802a6e80c4220e82aab6aea9a07e44b4899d6d7c6"
+    },
+    {
+      "file": "slider-rtl.tsx",
+      "url": "https://raw.githubusercontent.com/shadcn-ui/ui/3ba91b1cc83e1bbe4ab35a422ff2a694849c5048/apps/v4/examples/base/slider-rtl.tsx",
+      "sha256": "305f08ad2670f51e6cb6ea1c68f42085583d2e75f13b0ae1903786fa3ce3db68"
+    },
+    {
+      "file": "slider-vertical.tsx",
+      "url": "https://raw.githubusercontent.com/shadcn-ui/ui/3ba91b1cc83e1bbe4ab35a422ff2a694849c5048/apps/v4/examples/base/slider-vertical.tsx",
+      "sha256": "f3e79d7683bf6a7a4ec444855aba3fa0d538a88b7adb93c95bc146d2c6efc7e0"
+    },
+    {
+      "file": "slider.json",
+      "url": "https://ui.shadcn.com/r/styles/base-nova/slider.json",
+      "sha256": "646bcd7913417b786bbf7578484f851bf89c81a62f70ef9c4f3522e2af80a951"
+    }
+  ]
+}

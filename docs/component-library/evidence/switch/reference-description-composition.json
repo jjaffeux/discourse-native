@@ -1,0 +1,62 @@
+[
+  {
+    "color": "lab(98.26 0 0)",
+    "font": "Geist, \"Geist Fallback\"",
+    "gap": "2px",
+    "h": 63.25,
+    "line": "20.625px",
+    "size": "15px",
+    "slot": "field-content",
+    "w": 344,
+    "x": 502,
+    "y": 243.25
+  },
+  {
+    "color": "lab(98.26 0 0)",
+    "font": "Geist, \"Geist Fallback\"",
+    "gap": "8px",
+    "h": 19.25,
+    "line": "19.25px",
+    "size": "14px",
+    "slot": "field-label",
+    "w": 139.0078125,
+    "x": 502,
+    "y": 243.25
+  },
+  {
+    "color": "lab(66.128 -0.0000298023 0.0000119209)",
+    "font": "Geist, \"Geist Fallback\"",
+    "gap": "normal",
+    "h": 42,
+    "line": "21px",
+    "size": "14px",
+    "slot": "field-description",
+    "w": 344,
+    "x": 502,
+    "y": 264.5
+  },
+  {
+    "color": "lab(98.26 0 0)",
+    "font": "Geist, \"Geist Fallback\"",
+    "gap": "normal",
+    "h": 18.3984375,
+    "line": "26.25px",
+    "size": "15px",
+    "slot": "switch",
+    "w": 32,
+    "x": 854,
+    "y": 243.25
+  },
+  {
+    "color": "lab(98.26 0 0)",
+    "font": "Geist, \"Geist Fallback\"",
+    "gap": "normal",
+    "h": 16,
+    "line": "26.25px",
+    "size": "15px",
+    "slot": "switch-thumb",
+    "w": 16,
+    "x": 855,
+    "y": 244.4453125
+  }
+]

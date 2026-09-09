@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "3243a88cf2a9a1cfee96af7877386379089ab6c5",
+  "trackedSourceEquality": "git diff --exit-code sourceCommit -- lib test tool passed; git status clean after build",
+  "sourceFilesHash": "9ce18c6e58046dc1b074996419f71a5344ecb34610f9bbc3972a4886a4542ca8",
+  "builtBundle": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native/build/macos/Build/Products/Debug/Discourse.app",
+  "isolatedBundle": "/private/tmp/discourse-switch-review-3243a88c/Discourse Switch Review 3243a88c.app",
+  "kernelSHA256": "9af57c435d269a4f97355921a29131f3f232007988984017e3db2f2413655917",
+  "kernelEquality": true,
+  "bundleIdentifier": "org.discourse.switch-review-3243a88c",
+  "urlScheme": "discourse-switch-review-3243a88c",
+  "signatureVerification": "codesign --verify --deep --strict --verbose=2 passed; ad-hoc signature",
+  "entitlementsAdaptation": "Isolated copy omits APS/team/application identifiers; codesign entitlements read-back equals intended debug entitlements. Workspace runner unchanged.",
+  "buildLog": "/private/tmp/switch-current-review-build.log",
+  "nativeInspectionStatus": "completed",
+  "nativeEvidence": "docs/component-library/evidence/switch/native-3243a88c/manifest.json",
+  "postInspectionDifference": "Only example status and notes promoted; behavior-neutral, inspected bundle retains baseline badge."
+}
