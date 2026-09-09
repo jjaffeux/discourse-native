@@ -61,6 +61,11 @@ The desktop lease covers native app and browser actions together. Switch's
 implementation task initially holds it while finishing its in-flight native
 review; its new reviewer receives the evidence and released access directly.
 Quit only your own isolated review app and close only your own browser tabs.
+The recorded host uses AZERTY: earlier native CUA `super+a` input quit an
+isolated app (the `a` key produced `q`). Use documented literal text/pointer
+editing or native Edit actions as appropriate and verify the actual field
+state. Do not classify a shortcut/tool-input incident as a component crash
+without evidence. See the Typography and Skeleton records in progress.
 Use the approved CUA surface. The prior browser denial concerned verification
 of an admin-enforced security policy. The Mac was subsequently unlocked;
 attempt the approved surface only, and stop if that denial persists. No
