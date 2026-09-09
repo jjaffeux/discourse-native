@@ -14,7 +14,7 @@ enum DButtonGroupOrientation { horizontal, vertical }
 /// Children retain their own callbacks, focus nodes and accessibility roles.
 /// The group adds a semantic boundary and joined-edge metadata only; it does
 /// not implement selection, roving focus, or toolbar keyboard behavior.
-class DButtonGroup extends StatelessWidget {
+class DButtonGroup extends StatefulWidget {
   const DButtonGroup({
     super.key,
     required this.children,
@@ -31,29 +31,55 @@ class DButtonGroup extends StatelessWidget {
   final MainAxisSize mainAxisSize;
 
   @override
+  State<DButtonGroup> createState() => _DButtonGroupState();
+}
+
+class _DButtonGroupState extends State<DButtonGroup> {
+  int? _focusedIndex;
+
+  void _focusChanged(int index, bool focused) {
+    if (!mounted) return;
+    final next = focused
+        ? index
+        : (_focusedIndex == index ? null : _focusedIndex);
+    if (next != _focusedIndex) setState(() => _focusedIndex = next);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final children = widget.children;
     assert(children.isNotEmpty, 'A button group needs at least one child.');
-    assert(semanticLabel == null || semanticLabel!.trim().isNotEmpty);
-    final axis = orientation == DButtonGroupOrientation.horizontal
+    assert(
+      widget.semanticLabel == null || widget.semanticLabel!.trim().isNotEmpty,
+    );
+    final axis = widget.orientation == DButtonGroupOrientation.horizontal
         ? Axis.horizontal
         : Axis.vertical;
+    Widget scope(int index, Widget child) => DJoinedControlScope(
+      axis: axis,
+      first: index == 0,
+      last: index == children.length - 1,
+      child: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        includeSemantics: false,
+        onFocusChange: (focused) => _focusChanged(index, focused),
+        child: child,
+      ),
+    );
     final scoped = <Widget>[
       for (var index = 0; index < children.length; index++)
         if (axis == Axis.horizontal && children[index] is DButtonGroupExpanded)
           Expanded(
-            child: DJoinedControlScope(
-              axis: axis,
-              first: index == 0,
-              last: index == children.length - 1,
-              child: (children[index] as DButtonGroupExpanded).child,
+            child: scope(
+              index,
+              (children[index] as DButtonGroupExpanded).child,
             ),
           )
         else
-          DJoinedControlScope(
-            axis: axis,
-            first: index == 0,
-            last: index == children.length - 1,
-            child: children[index] is DButtonGroupExpanded
+          scope(
+            index,
+            children[index] is DButtonGroupExpanded
                 ? (children[index] as DButtonGroupExpanded).child
                 : children[index],
           ),
@@ -61,10 +87,11 @@ class DButtonGroup extends StatelessWidget {
     return Semantics(
       container: true,
       explicitChildNodes: true,
-      label: semanticLabel,
+      label: widget.semanticLabel,
       child: _ButtonGroupFlex(
         direction: axis,
-        mainAxisSize: mainAxisSize,
+        mainAxisSize: widget.mainAxisSize,
+        focusedIndex: _focusedIndex,
         children: scoped,
       ),
     );
@@ -176,14 +203,27 @@ class _ButtonGroupFlex extends Flex {
     required super.direction,
     required super.mainAxisSize,
     required super.children,
+    required this.focusedIndex,
   });
+
+  final int? focusedIndex;
 
   @override
   RenderFlex createRenderObject(BuildContext context) => _RenderButtonGroup(
     direction: direction,
     mainAxisSize: mainAxisSize,
     textDirection: Directionality.of(context),
+    focusedIndex: focusedIndex,
   );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderButtonGroup renderObject,
+  ) {
+    super.updateRenderObject(context, renderObject);
+    renderObject.focusedIndex = focusedIndex;
+  }
 }
 
 class _RenderButtonGroup extends RenderFlex {
@@ -191,7 +231,34 @@ class _RenderButtonGroup extends RenderFlex {
     required super.direction,
     required super.mainAxisSize,
     required super.textDirection,
-  });
+    required int? focusedIndex,
+  }) : _focusedIndex = focusedIndex;
+
+  int? _focusedIndex;
+  set focusedIndex(int? value) {
+    if (_focusedIndex == value) return;
+    _focusedIndex = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void defaultPaint(PaintingContext context, Offset offset) {
+    // Match focus-visible z-index without changing layout or traversal order.
+    RenderBox? focusedChild;
+    var index = 0;
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      if (index++ == _focusedIndex) {
+        focusedChild = child;
+      } else {
+        final data = child.parentData! as FlexParentData;
+        context.paintChild(child, data.offset + offset);
+      }
+    }
+    if (focusedChild != null) {
+      final data = focusedChild.parentData! as FlexParentData;
+      context.paintChild(focusedChild, data.offset + offset);
+    }
+  }
 
   @override
   void performLayout() {

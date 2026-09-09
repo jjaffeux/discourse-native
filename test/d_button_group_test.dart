@@ -1,12 +1,75 @@
-import 'dart:ui' show SemanticsValidationResult;
+import 'dart:ui' show ImageByteFormat, SemanticsValidationResult;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('focused control paints its ring above the adjacent surface', (
+    tester,
+  ) async {
+    final highlightStrategy = FocusManager.instance.highlightStrategy;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(
+      () => FocusManager.instance.highlightStrategy = highlightStrategy,
+    );
+    final focus = FocusNode();
+    final boundary = GlobalKey();
+    addTearDown(focus.dispose);
+    await _pump(
+      tester,
+      RepaintBoundary(
+        key: boundary,
+        child: DButtonGroup(
+          children: [
+            DButton(
+              focusNode: focus,
+              variant: DButtonVariant.outline,
+              label: const Text('First'),
+              onPressed: _noop,
+            ),
+            const DButton(
+              variant: DButtonVariant.secondary,
+              label: Text('Second'),
+              onPressed: _noop,
+            ),
+          ],
+        ),
+      ),
+    );
+    final first = tester.getSize(find.byType(FilledButton).first);
+    Future<int> seamPixel() async {
+      final box =
+          boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await box.toImage(pixelRatio: 1);
+      final bytes = await image.toByteData(format: ImageByteFormat.rawRgba);
+      final index =
+          ((first.height ~/ 2) * image.width + first.width.ceil() + 1) * 4;
+      final pixel = bytes!.getUint32(index);
+      image.dispose();
+      return pixel;
+    }
+
+    final idle = await tester.runAsync(seamPixel);
+    focus.requestFocus();
+    await tester.pumpAndSettle();
+    expect(focus.hasFocus, isTrue);
+    final ring = find.byWidgetPredicate(
+      (widget) =>
+          widget is DecoratedBox &&
+          widget.decoration is BoxDecoration &&
+          (widget.decoration as BoxDecoration).border is Border &&
+          ((widget.decoration as BoxDecoration).border! as Border).top.width ==
+              3,
+    );
+    expect(ring, findsOneWidget);
+    expect(await tester.runAsync(seamPixel), isNot(idle));
+  });
+
   testWidgets(
     'horizontal group joins radii and preserves independent actions',
     (tester) async {

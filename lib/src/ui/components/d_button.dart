@@ -821,6 +821,7 @@ class DButton extends StatelessWidget {
             style: style,
             focusNode: focusNode,
             autofocus: autofocus,
+            clipBehavior: joined == null ? null : Clip.none,
             child: child,
           )
         : FilledButton(
@@ -828,6 +829,7 @@ class DButton extends StatelessWidget {
             style: style,
             focusNode: focusNode,
             autofocus: autofocus,
+            clipBehavior: joined == null ? null : Clip.none,
             child: child,
           );
     if (!enabled) {
@@ -960,6 +962,7 @@ class _DLinkPrimitive extends FilledButton {
     super.style,
     super.focusNode,
     super.autofocus,
+    super.clipBehavior,
   });
 
   @override
