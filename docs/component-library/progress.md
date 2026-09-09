@@ -65,7 +65,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 53 | toast | planned | — | — | button | — |
 | 54 | alert | planned | — | — | typography | — |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
-| 56 | marker | planned | — | — | spinner | — |
+| 56 | marker | in_progress | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | — |
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
@@ -1448,6 +1448,42 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 
 - awaiting_slot: Mac locked; reference-rendered and native visual inspection remains required before review_ready or merge.
 - No CUA/app launch; widget platform overrides and native fixture tests are not device/VoiceOver/pixel-parity evidence.
+
+### marker
+
+Status: in_progress. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-marker.
+
+**acceptanceCriteria**
+
+- Match frozen base-nova Marker/MarkerIcon/MarkerContent: inline, border, separator, 14/20 typography, 16px decorative artwork, 8px gaps and 1px border geometry using live host tokens.
+- Provide explicit status announcements, controlled status composition, optional button/link actions with disabled semantics, keyboard/visible focus and borrowed focus ownership; shimmer respects RTL, reduced motion, ticker and app lifecycle.
+- Reproduce all documented examples with local state; audit core/plugins and migrate appropriate conversation separators without moving domain callbacks or adopting unrelated Badge/Spinner/progress controls.
+- Pass touched formatting, root/full analysis and focused component/styleguide/downstream tests; prepare uniquely identified isolated native fixture bundle with source/kernel/signature provenance, then await explicit desktop slot before reference/native review.
+
+**decisions**
+
+- Reference source, hashes, measured geometry, shimmer color/motion and native adaptations: docs/component-library/marker-reference.md; captured Markdown matches frozen SHA256.
+- One public DMarker/DMarkerIcon/DMarkerContent owner; explicit liveRegion and button/link semantics, borrowed focus node, owned lifecycle-aware shimmer; no new dependency or domain state.
+
+**migrations**
+
+- Shared StreamDaySeparator now composes Marker for Topic/Chat date boundaries, preserving date formatting, label-only callback, tooltip, floating appearance and timeline sizing.
+- Four actual-component styleguide groups plus local-data native fixture lib/marker_review_main.dart.
+
+**retainedAlternatives**
+
+- Chat one-sided destructive New boundary retains DSeparator; delivery retries, badges, presence dots, circular loading and numeric progress retain existing appropriate owners. Full core/bundled-plugin audit in marker-reference.md.
+
+**verification**
+
+- Flutter 3.47.2 unchanged; root/full enforced-lockfile resolution passed without lockfile changes.
+- Root/full analysis clean; touched Dart formatting and git diff --check passed.
+- 115 focused Marker, Topic date separator, Chat stream/channel lifecycle and styleguide-page tests passed with randomized ordering; /tmp/marker-focused.log.
+
+**limitations**
+
+- Mac locked; no CUA/browser/native inspection. Remain in_progress awaiting_slot until actual reference/native styleguide and production fixture comparison.
+- No VoiceOver or iOS/Linux device testing; shimmer raster/underline placement require visual review.
 
 ### chart
 
