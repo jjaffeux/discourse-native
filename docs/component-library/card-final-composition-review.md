@@ -6,6 +6,11 @@ owners merged. The frozen Markdown was retrieved again on 2026-09-09 and its
 SHA-256 remains
 `718dec761e0ad426b53d4673d206ab6dbfbbff5757f9714b883a04126f75db3e`.
 
+Accepted local no-fast-forward merge:
+`d0de2cd12a2873a28843e8b3d358c179ceadf70b`, performed from the repository's
+main checkout. Original Card acceptance `a73f465a` and its implementation
+identity are preserved. No remote push or release change was made.
+
 ## Accepted owner reconciliation
 
 - Button `eb6d8ea0d9417f0edc830c5ce715b52436f12c94`: primary form actions,
