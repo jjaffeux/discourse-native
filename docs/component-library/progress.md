@@ -2138,6 +2138,7 @@ Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/u
 - DInput and DTextarea gained a non-visual semanticLabel for grouped controls so accessible names do not require visible labels. Standalone labels, helpers, validation and existing app migrations remain unchanged.
 - DInputGroupAddon supports inline-start, inline-end, block-start and block-end logical alignment. Addon taps focus the control, while nested DInputGroupButton instances retain independent DButton actions and semantics.
 - DInputGroupButton composes DButton with input-group xs/icon-xs/sm/icon-sm sizing and host-radius-minus-3 button radius, exposing the public composition needed by Button Group's handoff fixture.
+- Independent review found that reading FocusNode.hasFocus without subscribing left the shared exterior ring stale. DInputGroup now owns only a listener subscription for each reported node, repaints on focus changes and removes subscriptions on replacement/disposal. Group-level enabled=false now dims and excludes focus/pointer/editing for composed controls.
 
 **migrations**
 
@@ -2157,6 +2158,8 @@ Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/u
 - Affected Input/Textarea regression set passed: flutter test --no-pub test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart --test-randomize-ordering-seed=3777303596 (38 tests).
 - Migrated Chat search consumers passed full-file verification: flutter test --no-pub test/chat_navigation_test.dart test/chat_shell_integration_test.dart --test-randomize-ordering-seed=79316425 (172 tests).
 - Root flutter analyze --no-pub passed; profiles/full flutter analyze --no-pub passed; git diff --check passed.
+- Independent review focus/disabled fixes: 32 Input Group/Spinner/Empty tests passed with seed 723193665; 38 Input/Textarea regression tests passed with seed 3041037913; all 172 chat_navigation + chat_shell_integration tests passed with seed 4069762123. Root analysis passed clean in 14.2s and locked full-profile analysis passed clean in 1.5s; formatting and git diff --check passed.
+- tool/input_group_review_main.dart analyzes clean and mounts the real offline application, styleguide, and three migrated Chat search surfaces using only in-memory fakes for source-exact macOS inspection.
 
 **limitations**
 

@@ -241,7 +241,8 @@ class _DInputState extends FormFieldState<String> {
       color: t.foreground,
     );
     final group = _group;
-    group?.report(_focus, input.enabled, isInvalid);
+    final enabled = input.enabled && (group?.enabled ?? true);
+    group?.report(_focus, enabled, isInvalid);
     final editor = TextFieldTapRegion(
       child: Row(
         children: [
@@ -263,7 +264,7 @@ class _DInputState extends FormFieldState<String> {
                 key: input.editorKey,
                 controller: _controller,
                 focusNode: _focus,
-                enabled: input.enabled,
+                enabled: enabled,
                 readOnly: input.readOnly,
                 autofocus: input.autofocus,
                 style: style,
@@ -344,10 +345,7 @@ class _DInputState extends FormFieldState<String> {
             ),
           )
         else
-          Padding(
-            padding: group.inputPadding,
-            child: editor,
-          ),
+          Padding(padding: group.inputPadding, child: editor),
         if (error != null || input.helperText != null) ...[
           const SizedBox(height: 8),
           Semantics(

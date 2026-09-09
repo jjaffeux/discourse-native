@@ -12,6 +12,7 @@ class DInputGroupControlScope extends InheritedWidget {
     required this.remove,
     required this.requestControlFocus,
     required this.inputPadding,
+    required this.enabled,
     required super.child,
   });
 
@@ -19,6 +20,7 @@ class DInputGroupControlScope extends InheritedWidget {
   final ValueChanged<FocusNode> remove;
   final VoidCallback requestControlFocus;
   final EdgeInsetsGeometry inputPadding;
+  final bool enabled;
 
   static DInputGroupControlScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<DInputGroupControlScope>();
@@ -28,5 +30,6 @@ class DInputGroupControlScope extends InheritedWidget {
       report != oldWidget.report ||
       remove != oldWidget.remove ||
       requestControlFocus != oldWidget.requestControlFocus ||
-      inputPadding != oldWidget.inputPadding;
+      inputPadding != oldWidget.inputPadding ||
+      enabled != oldWidget.enabled;
 }
