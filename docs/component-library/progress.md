@@ -70,7 +70,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 44 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
 | 45 | context-menu | merged | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | 7583852aefa06a1a086708b064a0df53c4fff560 |
 | 46 | menubar | merged | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | 5ac59a926eab9a8a6890486e5bb37e65ce0f54a5 |
-| 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
+| 47 | navigation-menu | review_ready | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
 | 48 | breadcrumb | merged | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | a1e23695ccd80b2a48e74fd8a92c3823fb528dac |
 | 49 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
 | 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
@@ -2742,7 +2742,7 @@ Status: merged. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/ui-men
 
 ### navigation-menu
 
-Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-navigation-menu.
+Status: review_ready. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-navigation-menu.
 
 **acceptanceCriteria**
 
@@ -2753,8 +2753,41 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
-- Verified independent reviewer Review and merge Navigation Menu (01a08621-0e86-7a62-82b9-6a8eca71227f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Verified the frozen Markdown SHA-256 2f4297e419617d26545e1c71dbc5336f6878dd8ab687f71663fe0e2bc2126546, pinned Base Nova registry SHA-256 1fdd735ea7449af8ebbd932b3e89b34a1efa8a3b193ac979d0d723660526c017 and official Basic example SHA-256 4a2fd068c7b5c3543500d82a37cd115951e2657e4926ade4cdfa5f06ec2c752a.
+- Use one accepted DPopover positioning/dismissal owner around the menu list and extend it with opt-out content autofocus plus configurable transition timing; existing Popover defaults and regressions remain unchanged. Shared viewport anchors to the full list; viewport=false anchors the inline surface to the active trigger.
+- Translate framework Link composition into DNavigationMenuLink callbacks, current-page active semantics and optional closeOnActivate. Flutter owns focus nodes, pointer lifecycle and logical traversal; applications retain route ownership.
+- Map Base Nova 36px triggers, 10px/6px trigger padding, 14px medium text, 12px chevron, 8px link padding, 4px panel padding, 8px side offset, 8px indicator diamond, 10%-foreground ring, shadow and 350ms cubic panel travel to logical pixels and live DTokens/DiscourseTypography.
+- Independent reviewer 01a08621-0e86-7a62-82b9-6a8eca71227f fixed true single-stop roving traversal, disabled direct-link skipping, focus-departure dismissal without focus theft, controlled removed/disabled reconciliation, controlled Escape rejection and disposed borrowed-controller safety at ca405f0ea0af334ff68cbbace953d669ee89ee55.
+- Reconciled accepted main 32770671 with the review history at f13d014b, sharing the accepted Combobox focusContentOnOpen option. A regression reproduced off-screen focused items and missing direct-link Home/End behavior; c1614d26 reveals focused items and shares arrow/Home/End navigation between triggers and direct links in LTR and RTL.
+
+**retainedAlternatives**
+
+- DSidebar remains the app and styleguide navigation owner because it is persistent/collapsible application chrome, not a horizontal rich navigation popup.
+- Forum/topic/group/preferences DTabList surfaces remain Tabs because they switch route-linked panels and do not expose rich navigation content.
+- Calendar previous/next controls, ordinary route buttons, MenuAnchor/command/search pickers and user menus retain paging, button, menu or command interaction models; converting them would misstate semantics and keyboard behavior.
+- No current core or bundled-plugin surface is a genuine site-wide rich horizontal Navigation Menu, so adoption is intentionally styleguide-only until such a host surface exists.
+
+**verification**
+
+- flutter test --no-pub test/d_navigation_menu_test.dart test/styleguide/navigation_menu_examples_test.dart test/d_popover_test.dart test/styleguide/popover_examples_test.dart --test-randomize-ordering-seed=860606: 37 focused component/example/shared-owner tests passed after reviewer fixes.
+- Root and profiles/full flutter analyze --no-pub passed with no diagnostics after enforced locked resolution; no lockfile or Flutter pin changed.
+- Exact-source isolated macOS styleguide build succeeded at /tmp/discourse-navigation-review.SF87jt/source/build/macos/Build/Products/Debug/Navigation Menu Review 43ef3bca.app with bundle ID org.discourse.navigationmenureview.r43ef3bca. Navigation Menu, Popover and example sources match review commit ca405f0e; ad-hoc permitted-debug re-sign and deep strict verification passed; kernel SHA-256 cd6886d74ae2d7e2ee582e25e961a8f3c4eee05ad1c19443c047d2d5ac905fe1.
+- Read-only core and bundled-plugin navigation audit found no suitable production migration; retained specialized owners are recorded explicitly.
+- A second FIFO desktop lease was acquired at 2026-09-09T14:38:56Z after the coordinator reported fresh native access. The first approved CUA getState call again reported that the Mac was locked and automatic unlock failed; lease 83a9d71be9a44428acd3cbf4821aa9ab was released immediately without touching the shared desktop.
+- After current-main Popover reconciliation and the c1614d26 focus fixes, all 63 Navigation Menu, Popover and Combobox component/styleguide tests passed with seed 860606. Root and full-profile analysis passed; locked resolution preserved dependency pins. The new narrow 200% LTR/RTL keyboard visibility regression failed before the fix and passed afterward.
+- Rebuilt and deep-strict verified the isolated macOS fixture after c1614d26. Navigation Menu and example sources are byte-identical to the reviewed branch; Popover differs only in its focus-option documentation. Updated kernel SHA-256: 1dc4b912bf86c1c4af20ac4923465c7f20c3aed20c9e2a43728ca8efb543bc66.
+- Actual approved macOS Basic inspection and official rendered light/dark Getting started, Components and With Icon comparison completed on 2026-09-09. The native pass exposed stale trigger state and content alignment; dc3d55d4 fixes inherited selected-value notifications, expanded semantics/chevrons, indicator clipping/geometry and full-width links. The regression failed before and passed after the fix. Details and exact limits: docs/component-library/navigation-menu-review.md.
+- After latest-main integration 2141e109 onto 4d79219d, all 64 Navigation Menu/Popover/Combobox focused tests passed with seed 860606 and root/full-profile analysis passed. Rebuilt/signed/deep-strict verified fixture kernel a2a5548031becc4fd815fa106a2e9b00ee37e3c2a85e327454f92040b3610312 has byte-identical Navigation Menu/example sources. Desktop released during rebuild, then rejoined FIFO for corrected native acceptance.
+- 1bbdb00a completes vertical/live orientation and functional RTL routing. An RTL route-close regression exposed inactive custom-anchor layout; retaining the inline exit anchor and unregistering DPopoverAnchor on deactivate fixes it. Permanent removal and GlobalKey reparenting regressions pass, coordinated with Popover reviewer. All 69 focused tests pass seed 860606, root/full-profile analysis clean. Latest exact-source build/signature verification passed; kernel 2c7d7c9417233550384fe7c99ddfb2ac504a221a278f131df2997957cb199d98.
+- Integration 3c11feff onto main 2b9797fe preserves accepted Button Group popup-boundary behavior and every other progress row/workflow exactly. All 98 affected Navigation Menu/Popover/Combobox/Button Group tests pass seed 860606; root/full-profile analysis clean. Updated fixture built/signed/deep-strict verified, kernel ca1ab6d1d9dfe4e36f3c8551e2bd82931821ef5c0f3d9d5fb6007c65b9c32464. Navigation Menu/example/joined-control source is byte-identical; Popover differs only in documentation.
+- Button Group reviewer confirmed native-menu cleanup of the old isolated Navigation Menu app. Before the corrected pass reached its FIFO turn, Avatar reviewer reported approved CUA Mac-locked/automatic-unlock-failed and released desktop. Navigation Menu cancelled its own waiting request; manual unlock was required before corrected native acceptance.
+- After user unlock and ordinary-CUA recovery, corrected native acceptance passed under own desktop lease acquired 2026-09-09 18:55:09 UTC: dark/light/Forest visuals; live trigger/chevron state; rich/direct/current-page routes and dismissal; keyboard content entry/Escape focus restoration; disabled/dynamic removal/restoration; inline RTL route-close; 360px/200% RTL reduced motion; Home/End focused-item reveal; lower-popup Tab reachability, activation and reset. Official rendered RTL comparison also passed. Exact scenario/fixture evidence: docs/component-library/navigation-menu-review.md. Own app quit via native menu and reference tabs closed; desktop released.
+- Current-main reconciliation f1bb59ce onto 3178784b changes no Navigation Menu, Popover or example behavior from the verified source. Root/full-profile analysis passed again; every other component row/workflow was preserved exactly. Independent review accepted for local-main integration.
+
+**limitations**
+
+- Native acceptance covers representative desktop pointer/keyboard, theme, large-text and RTL cases. Hover timing, controlled rejection, vertical/live orientation and anchor reparenting are verified by focused widget regressions rather than separate native scenarios.
+- No iOS or Linux device run or spoken VoiceOver pass was performed. Widget tests, analysis and build/signature evidence are not native inspection.
 
 ### breadcrumb
 
