@@ -9,6 +9,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/markdown_highlight.dart';
 import '../../theme/d_icons.dart';
+import '../../ui/components/d_toast.dart';
 import '../chat/chat_preview_contract.dart';
 import 'local_date.dart';
 import 'local_date_composer_component.dart';
@@ -608,7 +609,5 @@ void insertCurrentLocalDate(
 }
 
 void _message(BuildContext context, String message) {
-  ScaffoldMessenger.maybeOf(
-    context,
-  )?.showSnackBar(SnackBar(content: Text(message)));
+  DToast.show(context, message);
 }

@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/components/d_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -197,6 +198,7 @@ void main() {
       expect(_assignments(shell).canAssign(_site, target), isTrue);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
           theme: AppTheme.light,
           home: ShellScope(
             controller: shell,
@@ -426,6 +428,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
           theme: AppTheme.light,
           home: ShellScope(
             controller: shell,
@@ -475,6 +478,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
           theme: AppTheme.light,
           home: ShellScope(
             controller: shell,
@@ -555,6 +559,7 @@ void main() {
 
         await tester.pumpWidget(
           MaterialApp(
+            builder: (context, child) => DToaster(child: child!),
             theme: AppTheme.light,
             home: ShellScope(
               controller: shell,
@@ -630,6 +635,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
           theme: AppTheme.light,
           home: ShellScope(
             controller: shell,
@@ -656,10 +662,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Topic assignment removed'), findsOneWidget);
       expect(find.text('Undo'), findsOneWidget);
-      tester
-          .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
-          .removeCurrentSnackBar();
-      await tester.pumpAndSettle();
+      DToast.of(
+        tester.element(find.text('Topic assignment removed')),
+      ).closeAll();
+      await tester.pump();
       await tester.tap(find.byKey(const Key('assign-post-12-remove')));
       await tester.pumpAndSettle();
       expect(find.text('Post #2 assignment removed'), findsOneWidget);
@@ -705,6 +711,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
           theme: AppTheme.light,
           home: ShellScope(
             controller: shell,
@@ -776,6 +783,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
           theme: AppTheme.light,
           home: ShellScope(
             controller: shell,
@@ -844,6 +852,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
           theme: AppTheme.light,
           home: ShellScope(
             controller: shell,
@@ -970,6 +979,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
           theme: AppTheme.light,
           home: ShellScope(
             controller: shell,

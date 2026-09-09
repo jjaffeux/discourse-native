@@ -3625,7 +3625,7 @@ void _registerTopicReadingTests() {
         shell.store.read<Topic>('https://meta.discourse.org', 7)?.pinned,
         isTrue,
       );
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.byType(Dismissible), findsOneWidget);
     });
 
     testWidgets('ordinary topics do not show personalized pin controls', (

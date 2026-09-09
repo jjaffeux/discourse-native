@@ -1214,9 +1214,7 @@ Future<bool> _confirm(
 
 void _showWriteMessage(BuildContext context, BookmarkWriteResult result) {
   if (result.message case final message?) {
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(message)));
+    DToast.show(context, message);
   }
 }
 

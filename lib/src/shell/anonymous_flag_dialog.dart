@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/components/d_toast.dart';
+
 import 'adaptive_dialog_action.dart';
 import 'external_link.dart';
 
@@ -59,8 +61,10 @@ Future<void> showAnonymousIllegalContentDialog({
   );
   final opened = await openExternalLink(uri.toString());
   if (!opened && context.mounted) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      const SnackBar(content: Text("Couldn't open a mail application.")),
+    DToast.show(
+      context,
+      "Couldn't open a mail application.",
+      type: DToastType.error,
     );
   }
 }
