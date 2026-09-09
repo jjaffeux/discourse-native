@@ -2563,6 +2563,22 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
           "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
           "status": "implementation"
+        },
+        {
+          "component": "textarea",
+          "taskId": "01a08437-208f-7332-b373-192eaada5844",
+          "branch": "codex/ui-textarea",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
+          "headCommit": "7cdcf022595f2330940c482e4df4b5d403599090",
+          "status": "main_integration_preparation"
+        },
+        {
+          "component": "field",
+          "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
+          "branch": "codex/ui-field",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/14b5/discourse-native",
+          "status": "main_integration_preparation",
+          "headCommit": "f3956645"
         }
       ],
       "nativeReadyTasks": [
@@ -2654,22 +2670,6 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native",
           "headCommit": "c74fea70b254abbdbef8d3704abee8452dd5adc1",
           "status": "awaiting_browser_native_and_dependency_reconciliation"
-        },
-        {
-          "component": "field",
-          "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
-          "branch": "codex/ui-field",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/14b5/discourse-native",
-          "status": "awaiting_browser_native_and_dependency_reconciliation",
-          "headCommit": "f3956645"
-        },
-        {
-          "component": "textarea",
-          "taskId": "01a08437-208f-7332-b373-192eaada5844",
-          "branch": "codex/ui-textarea",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
-          "headCommit": "7cdcf022595f2330940c482e4df4b5d403599090",
-          "status": "awaiting_native_review"
         },
         {
           "component": "table",
