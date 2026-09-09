@@ -4,10 +4,13 @@ import '../foundation/tokens.dart';
 
 /// A visual or semantic boundary between adjacent content.
 ///
-/// Fills the available length in [orientation]. In an unbounded axis, supply
-/// [length] or constrain the parent. For a vertical line beside wrapping text,
-/// use an [IntrinsicHeight] row with [CrossAxisAlignment.stretch]. Without a
-/// length or finite constraint, the line collapses along its length.
+/// Mirrors the reference `shrink-0 bg-border` rule: a one-pixel line in the
+/// live [DTokens.border] color whose box is exactly [thickness] across and
+/// which fills the available length in [orientation]. A vertical line in a
+/// [Row] fills the row's height (the reference `self-stretch`) whenever that
+/// height is finite; wrap an unbounded row in [IntrinsicHeight] so the line
+/// fits its siblings. In an unbounded axis with no [length], the line collapses
+/// along its length rather than inventing a dimension.
 ///
 /// Decorative lines are omitted from accessibility. A meaningful boundary uses
 /// `decorative: false` and a caller-localized [semanticLabel]. Flutter has no
@@ -32,6 +35,10 @@ class DSeparator extends StatelessWidget {
        assert(indent >= 0 && indent < double.infinity),
        assert(endIndent >= 0 && endIndent < double.infinity),
        assert(
+         thickness > 0 || radius == null,
+         'A hairline separator (thickness 0) cannot have rounded ends.',
+       ),
+       assert(
          decorative
              ? semanticLabel == null
              : semanticLabel != null && semanticLabel != '',
@@ -42,7 +49,8 @@ class DSeparator extends StatelessWidget {
   /// Total length, including the end insets, subject to parent constraints.
   final double? length;
 
-  /// Logical pixels. Zero draws Flutter's one-device-pixel hairline.
+  /// Logical pixels. Zero draws Flutter's one-device-pixel hairline, which
+  /// cannot be combined with [radius].
   final double thickness;
 
   /// Cross-axis extent, with the line centered inside it.
