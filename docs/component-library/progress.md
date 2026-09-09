@@ -18,7 +18,7 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
-| hover-card | Implementation and checks | — | — |
+| hover-card | Implementation and checks | — | 01a08619-dc41-7213-a887-5afb891b99da |
 | alert-dialog | Implementation and checks | — | — |
 | sheet | Implementation and checks | — | — |
 | drawer | Implementation and checks | — | — |
@@ -1994,14 +1994,47 @@ Status: in_progress. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match the frozen Hover Card full anatomy/API and Composition, Trigger Delays, Positioning, Basic, Sides and RTL examples, with actual Base UI Preview Card behavior and measured reference artwork.
-- Compose accepted Popover/Avatar/Button owners with correct hover delays, pointer-gap retention, rapid-trigger/disposal cancellation, positioning/collision, focus/Escape/touch semantics and meaningful trigger navigation; avoid an accidental modal focus trap.
-- Support live open-card themes, native accessibility, narrow/scaled/RTL layouts and reduced motion; audit and migrate appropriate core/plugin user/topic/link previews while preserving fetching, permissions, cache and navigation in adapters.
-- Verify meaningful timer/pointer/focus/state/adoption regressions and root/full analysis, prepare exact-source fixtures and create an independent reviewer for required rendered/native acceptance and final local main merge.
+- Export one generic DHoverCard owner with DHoverCardTrigger and DHoverCardContent composition, local/controlled state, borrowed-or-owned controller lifecycle, rapid peer-trigger handoff, opening/closing callbacks and explicit change reasons; generic code must contain no Discourse services, fetching, permissions or navigation.
+- Match the frozen 8f30193c Hover Card Markdown and base-nova registry at 100% scale: 256px popup, 10px padding, 14px/20px text, host-relative lg radius, popover surface/foreground, foreground/10 ring, reference shadow, 4px side offset, 4px alignment offset and 100ms fade/95% scale/2px directional slide with reduced-motion support.
+- Implement physical and logical sides, start/center/end alignment, offsets, collision flipping/shifting, viewport and safe-area bounds, live anchor tracking, narrow/200% text/RTL behavior, and live light/dark/custom token/font/radius updates while the overlay is open.
+- Implement the Base UI preview-card interaction model: 600ms/300ms defaults plus per-trigger delays, pointer travel across the trigger/content gap without flicker, rapid trigger handoff and timer cancellation, keyboard-focus opening without moving focus into the preview, Escape ownership/closure, blur/outside closure and safe removal/disable/controller replacement/disposal behavior.
+- Keep the trigger's real link/button action and semantics as the only accessible interface. The supplementary popup must not become a modal focus trap, Tooltip replacement or touch-only destination, while visible text selection, scrolling and pointer hover retention remain usable and any focusable popup descendants are excluded from traversal and assistive semantics.
+- Reproduce runnable Basic, Composition, Trigger Delays, Positioning, all physical Sides and Arabic RTL physical/logical-side examples with real Button and Avatar owners, truthful code snippets and interaction/native-adaptation notes.
+- Audit current core and bundled-plugin user/topic/link/reaction hover surfaces. Migrate suitable visual destination previews through application adapters while preserving original click/touch routing and fetch/cache/permission ownership, and record interactive pickers/essential-content panels as deliberate retained alternatives.
+- Add focused regression coverage for timers, trigger-to-content pointer travel, multiple-trigger races, focus/Escape and semantics, controlled/controller lifecycle, disposal/disable, positioning/collision/RTL/live theme, styleguide registration and each actual migration; format and analyze touched code plus root and profiles/full, then prepare exact-source browser/native fixtures and hand remaining acceptance and local-main merge to a new independent reviewer task.
 
 **decisions**
 
-- Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
+- The frozen Hover Card Markdown was downloaded again and its SHA-256 exactly matches 8f30193c745aaf270cdf63043ca452cdffb895e8643a86c662ca0804c6022dc8. hover-card.md records the official base-nova registry and Base UI Preview Card behavior source with a measurement-by-measurement Flutter mapping.
+- DHoverCard composes a real DHoverCardTrigger and DHoverCardContent, supports local or controlled state, borrowed/owned DHoverCardController lifecycle, explicit open/close reasons and completion callbacks, and keeps every Discourse service/model/navigation dependency outside generic code.
+- The visual owner uses the accepted DPopoverSide/DPopoverAlign/DPopoverCollision public positioning vocabulary while leaving Popover source and its accepted lifecycle/Escape/layering corrections unchanged. Hover Card independently owns its non-modal focus, hover timer and assistive-visibility contract.
+- Base UI's accessibility guidance is preserved: the action trigger remains the only accessible and keyboard/touch navigable interface; the supplementary surface never takes focus and is excluded from assistive semantics. It remains pointer-hoverable, scrollable and text-selectable for sighted mouse users.
+- Default 600ms open/300ms close timers are per-trigger configurable. Polygonal trigger-to-content bridge retention, content entry, rapid peer-trigger cancellation, disable, lifecycle, outside press, topmost Escape, trigger activation and disposal all cancel the appropriate pending work.
+- Seven styleguide examples reproduce frozen Basic, Composition, Trigger Delays, Positioning, all physical Sides and Arabic RTL physical/logical sides, plus controlled/controller lifecycle. Real merged Button and Avatar owners are used; status intentionally remains planned until independent rendered/native acceptance.
+- The review handoff supplied a non-resolving long SHA c03c39b5b5d2dc549e5c016e098ec404bc8cf20d. The clean codex/ui-hover-card branch and its own progress evidence identify the actual implementation commit as c03c39b5bf037e33dd84e86db6216ee3b7febaa9; review preserves that exact history.
+
+**migrations**
+
+- UserCardTarget now composes DHoverCard around its unchanged InlineAction. Hover or traditional keyboard focus loads the existing ShellController user-card cache and renders a read-only app adapter with DAvatar/AvatarImage, name, username, title and location; click, touch, Enter and Space still open the full user-card route.
+- InlineAction now accepts a borrowed FocusNode so the generic Hover Card owner can observe the existing action's true focus without adding a duplicate semantic or focus target.
+
+**retainedAlternatives**
+
+- HoverPanel remains for reaction pickers and liker/reactor panels because those surfaces contain essential focusable selection/actions and touch-sheet adaptation, which conflict with Base UI's supplementary non-navigable Preview Card contract.
+- The full user-card dialog remains the click/touch destination because it owns plugin actions, cooked links, retry behavior, routing and focus. Composer, chat and topic previews are persistent inline content rather than hover-triggered destination previews; Tooltip remains for concise labels and shortcuts.
+- No separate generic topic/link preview fetch cache currently exists. Networking or a second cache was not added to the reusable component.
+
+**verification**
+
+- Implementation evidence: flutter pub get --enforce-lockfile completed at root and profiles/full using existing pins; no lockfile changes remain.
+- Implementation evidence: root and profiles/full flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed.
+- Implementation evidence: a focused Hover Card/styleguide/UserCard run passed 27 tests, and a broader run including the complete styleguide_page_test.dart passed 42 tests.
+- Implementation evidence: flutter build macos --debug --no-pub -t tool/hover_card_review_main.dart succeeded; build success is not native inspection.
+
+**limitations**
+
+- The implementation task performed no actual official browser render or native macOS UI inspection; both remain required in this review.
+- No spoken VoiceOver session or iOS/Linux device inspection was performed.
 
 ### dialog
 

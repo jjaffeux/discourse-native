@@ -53,12 +53,150 @@ class UserCardTarget extends StatelessWidget {
       showUserCard(context: context, username: username, siteUrl: siteUrl),
     );
 
-    return InlineAction(
-      onTap: open,
-      semanticLabel: semanticLabel ?? 'View profile for @$username',
-      excludeChildSemantics: true,
-      borderRadius: BorderRadius.circular(4),
-      child: child,
+    void loadPreview() {
+      final controller = ShellScope.maybeRead(context);
+      final targetSite = siteUrl ?? controller?.currentInstance?.url;
+      if (controller == null || targetSite == null) return;
+      unawaited(
+        controller.loadUserCard(
+          username,
+          siteUrl: targetSite,
+          force:
+              controller.userCardError(username, siteUrl: targetSite) != null,
+        ),
+      );
+    }
+
+    return DHoverCard(
+      onOpenChange: (isOpen, reason) {
+        if (isOpen) loadPreview();
+      },
+      trigger: DHoverCardTrigger(
+        builder: (context, state) => InlineAction(
+          focusNode: state.focusNode,
+          onTap: open,
+          semanticLabel: semanticLabel ?? 'View profile for @$username',
+          excludeChildSemantics: true,
+          borderRadius: BorderRadius.circular(4),
+          child: child,
+        ),
+      ),
+      content: DHoverCardContent(
+        align: DPopoverAlign.start,
+        child: _UserCardHoverPreview(username: username, siteUrl: siteUrl),
+      ),
+    );
+  }
+}
+
+class _UserCardHoverPreview extends StatelessWidget {
+  const _UserCardHoverPreview({required this.username, required this.siteUrl});
+
+  final String username;
+  final String? siteUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.maybeOf(context);
+    final targetSite = siteUrl ?? controller?.currentInstance?.url;
+    if (controller == null || targetSite == null) {
+      return const Text('Profile preview unavailable.');
+    }
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final card = controller.userCard(username, siteUrl: targetSite);
+        if (card == null) {
+          final error = controller.userCardError(username, siteUrl: targetSite);
+          if (error != null) return Text(error);
+          return const Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 8,
+            children: [
+              DSpinner(size: 16, semanticLabel: null),
+              Text('Loading profile…'),
+            ],
+          );
+        }
+        return _UserCardHoverContent(card: card);
+      },
+    );
+  }
+}
+
+class _UserCardHoverContent extends StatelessWidget {
+  const _UserCardHoverContent({required this.card});
+
+  final UserCard card;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 10,
+      children: [
+        DAvatar.frame(
+          decorative: true,
+          child: SizedBox.square(
+            dimension: 40,
+            child: AvatarImage(
+              url: card.avatarUrl,
+              size: 40,
+              fallback: ColoredBox(
+                color: tokens.muted,
+                child: Center(
+                  child: Text(
+                    card.username.characters.firstOrNull?.toUpperCase() ?? '?',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 2,
+            children: [
+              Text(
+                card.displayName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text(
+                '@${card.username}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: tokens.mutedForeground),
+              ),
+              if (card.title case final title?)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              if (card.location case final location?)
+                Text(
+                  location,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tokens.mutedForeground,
+                    fontSize: DiscourseTypography.xs,
+                    height: DiscourseTypography.lineHeightCaption,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
