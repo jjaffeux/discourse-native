@@ -96,4 +96,22 @@ void main() {
     expect(find.byType(DInputGroup), findsNWidgets(2));
     expect(find.byType(DInputGroupInput), findsNWidgets(2));
   });
+
+  testWidgets('custom cells announce the actual month and price', (
+    tester,
+  ) async {
+    final custom = calendarExamples.examples.singleWhere(
+      (example) => example.title == 'Custom Cell Size',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: Builder(builder: custom.builder)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('August 30, 2026, \$120'), findsOneWidget);
+    expect(find.bySemanticsLabel('October 1, 2026, \$100'), findsOneWidget);
+  });
 }

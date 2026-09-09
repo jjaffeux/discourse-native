@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../styleguide_example.dart';
@@ -350,8 +351,8 @@ class _PricedCalendarState extends State<_PricedCalendar> {
             captionLayout: DCalendarCaptionLayout.dropdown,
             cellSize: 40,
             responsiveCellSize: (width) => width < 360 ? 40 : 48,
-            dateSemanticLabelBuilder: (_, date) =>
-                '${date.day} September ${date.year}, \$${date.weekday >= 6 ? 120 : 100}',
+            dateSemanticLabelBuilder: (context, date) =>
+                '${DateFormat.yMMMMd(Localizations.localeOf(context).toLanguageTag()).format(date.dateTimeUtc)}, \$${date.weekday >= 6 ? 120 : 100}',
             dayBuilder: (context, details, child) => FittedBox(
               fit: BoxFit.scaleDown,
               child: Column(
