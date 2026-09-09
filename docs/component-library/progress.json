@@ -2176,7 +2176,19 @@
     "pendingCoordinatorNativeReview": "Final styleguide preview scrollbar screenshot/drag plus title-tooltip Escape correction through the isolated Title Review B104 fixture after Mac unlock.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
     "browserInspectionTaskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
-    "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification."
+    "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
+    "pendingSourceReviews": {
+      "radio-group": {
+        "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+        "issue": "Implement referenced Base UI readOnly on group/items, preserving focus and preventing pointer/keyboard/semantic changes; add required semantics if appropriate. RadioGroup API is at https://base-ui.com/react/components/radio (old radio-group URL now fails).",
+        "status": "queued_for_free_execution_slot"
+      },
+      "slider": {
+        "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
+        "issue": "Complete referenced swap collision policy and absolute default largeStep 10; document native onChangeEnd distinction from changed-only onValueCommitted.",
+        "status": "in_progress"
+      }
+    }
   },
   "visualFidelity": {
     "status": "merged",
