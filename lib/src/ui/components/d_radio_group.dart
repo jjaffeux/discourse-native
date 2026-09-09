@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_label.dart';
 
@@ -11,7 +13,9 @@ import 'd_label.dart';
 /// the mounted [initialValue] and notifies [onChanged]. Controlled reset proposes
 /// that baseline while Form continues to observe the accepted [groupValue].
 /// Children may be laid out freely and compose [DRadioGroupItem] with Field
-/// widgets. Item values must be distinct within the group.
+/// widgets; the reference root is a `grid gap-2`, so stack items with an
+/// 8 logical pixel gap unless a Field composition supplies its own. Item
+/// values must be distinct within the group.
 class DRadioGroup<T> extends FormField<T> {
   DRadioGroup({
     super.key,
@@ -149,7 +153,7 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
           if (widget.description != null) ...[
             DefaultTextStyle.merge(
               style: TextStyle(
-                fontSize: 14,
+                fontSize: DiscourseTypography.sm,
                 height: 1.5,
                 color: tokens.mutedForeground,
               ),
@@ -164,7 +168,10 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
               liveRegion: true,
               child: Text(
                 message,
-                style: TextStyle(fontSize: 14, color: tokens.destructive),
+                style: TextStyle(
+                  fontSize: DiscourseTypography.sm,
+                  color: tokens.destructive,
+                ),
               ),
             ),
           ],
@@ -212,7 +219,12 @@ class _RadioScope<T> extends InheritedWidget {
 /// The entire label row activates the radio and has one focus/semantics owner.
 /// Keep independent links outside [label] and [description]. A bare item needs
 /// [semanticLabel]. Borrowed [focusNode] is never disposed by this widget.
-/// Touch platforms keep transparent 48px bounds around the 16px visual.
+/// Touch platforms keep transparent 48px bounds around the 16px visual; a
+/// pointer layout keeps the reference's compact bounds, so a bare item's hit
+/// area is its 16px circle and an associated label or Field row supplies the
+/// larger target. Like the reference `<span role="radio">`, the pointer cursor
+/// stays the default arrow, Space is the only activation key and Enter is
+/// inert; label slots activate through [ActivateIntent] rather than a key.
 class DRadioGroupItem<T> extends StatefulWidget {
   const DRadioGroupItem({
     super.key,
@@ -407,7 +419,7 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
               const SizedBox(height: 2),
               DefaultTextStyle.merge(
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: DiscourseTypography.sm,
                   height: 1.5,
                   fontWeight: FontWeight.w400,
                   color: tokens.mutedForeground,
@@ -476,31 +488,29 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
         child: content,
       );
     }
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: MergeSemantics(
-        child: Semantics(
-          container: true,
-          label: widget.semanticLabel,
-          hint: scope?.errorText,
-          validationResult: invalid
-              ? SemanticsValidationResult.invalid
-              : SemanticsValidationResult.none,
-          readOnly: readOnly,
-          isRequired: (widget.required ?? scope?.required ?? false)
-              ? true
-              : null,
+    final Widget radio = MergeSemantics(
+      child: Semantics(
+        container: true,
+        label: widget.semanticLabel,
+        hint: scope?.errorText,
+        validationResult: invalid
+            ? SemanticsValidationResult.invalid
+            : SemanticsValidationResult.none,
+        readOnly: readOnly,
+        isRequired: (widget.required ?? scope?.required ?? false) ? true : null,
+        // Base UI activates a radio with Space only and prevents Enter's
+        // default, so Enter must not reach the toggleable's ActivateIntent.
+        child: Shortcuts(
+          shortcuts: const {
+            SingleActivator(LogicalKeyboardKey.enter): DoNothingIntent(),
+            SingleActivator(LogicalKeyboardKey.numpadEnter): DoNothingIntent(),
+          },
           child: RawRadio<T>(
             value: widget.value,
             enabled: enabled,
             groupRegistry: registry,
             mouseCursor: WidgetStatePropertyAll(
-              !enabled
-                  ? SystemMouseCursors.forbidden
-                  : readOnly
-                  ? SystemMouseCursors.basic
-                  : SystemMouseCursors.click,
+              enabled ? SystemMouseCursors.basic : SystemMouseCursors.forbidden,
             ),
             toggleable: widget.toggleable,
             focusNode: _focus,
@@ -523,6 +533,14 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
           ),
         ),
       ),
+    );
+    // Only the choice card has a hover treatment; plain items must not rebuild
+    // on every pointer crossing.
+    if (!widget.card) return radio;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: radio,
     );
   }
 }

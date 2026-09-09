@@ -11,7 +11,7 @@ final radioGroupExamples = ComponentExamples(
       'A 16px radio with an 8px dot, 1px border and 3px focus/invalid ring follows base-nova. '
       'Label rows use 12px gaps and 14px labels; desktop rows follow intrinsic content height; touch bounds are at least 48×48. '
       'Use DRadioGroup for local initialValue or DRadioGroup.controlled for parent-owned groupValue. '
-      'Both integrate with Form validator/onSaved/reset. readOnly preserves focus and blocks selection; nullable item overrides inherit it. required announces the requirement while validator owns enforcement and error text. Tab enters once, arrows wrap and skip disabled items; Space selects. '
+      'Both integrate with Form validator/onSaved/reset. readOnly preserves focus and blocks selection; nullable item overrides inherit it. required announces the requirement while validator owns enforcement and error text. Tab enters once, arrows wrap and skip disabled items; Space selects and Enter is inert, as on the reference span. The pointer cursor stays the default arrow; only a disabled item shows the forbidden cursor. The root is a grid with 8px gaps, supplied here by the caller\'s Column spacing or the Field composition. '
       'The frozen Default example composes DLabel; Description, Choice Card, Fieldset, Disabled, Invalid and RTL compose the accepted DField family while each DRadioGroupItem remains the sole radio, focus and selection owner. '
       'All samples use local state. The preview toolbar changes live theme, direction, scaling and motion.',
   examples: [
@@ -48,11 +48,18 @@ final radioGroupExamples = ComponentExamples(
           'Disabled' =>
             'The first choice is disabled; the other two remain selectable.',
           'Invalid' => 'Invalid radios display error-colored labels and rings.',
-          'RTL' => 'Arabic labels and descriptions follow logical direction.',
+          'RTL' =>
+            'Choose English, Arabic or Hebrew: labels, descriptions and the indicator side follow that language\'s direction while the selector stays LTR. The selection survives the switch.',
           _ =>
             'Choose Default, Comfortable or Compact using pointer or keyboard.',
         },
-        states: [mode, 'Keyboard', 'Text scaling', 'Live theme'],
+        states: [
+          mode,
+          if (mode == 'RTL') ...['Arabic default', 'Hebrew', 'English'],
+          'Keyboard',
+          'Text scaling',
+          'Live theme',
+        ],
         code: _code(mode),
         builder: (_) => _Reference(mode: mode),
       ),
@@ -97,11 +104,45 @@ class _Reference extends StatefulWidget {
 class _ReferenceState extends State<_Reference> {
   final _focusNodes = <String, FocusNode>{};
 
+  // The reference RTL example reads useTranslation(translations, 'ar'): one
+  // record per language with its direction and strings.
+  static const _translations =
+      <String, ({TextDirection dir, List<String> labels, List<String> notes})>{
+        'en': (
+          dir: TextDirection.ltr,
+          labels: ['Default', 'Comfortable', 'Compact'],
+          notes: [
+            'Standard spacing for most use cases.',
+            'More space between elements.',
+            'Minimal spacing for dense layouts.',
+          ],
+        ),
+        'ar': (
+          dir: TextDirection.rtl,
+          labels: ['افتراضي', 'مريح', 'مضغوط'],
+          notes: [
+            'تباعد قياسي لمعظم حالات الاستخدام.',
+            'مساحة أكبر بين العناصر.',
+            'تباعد أدنى للتخطيطات الكثيفة.',
+          ],
+        ),
+        'he': (
+          dir: TextDirection.rtl,
+          labels: ['ברירת מחדל', 'נוח', 'קומפקטי'],
+          notes: [
+            'ריווח סטנדרטי לרוב מקרי השימוש.',
+            'יותר מקום בין האלמנטים.',
+            'ריווח מינימלי לפריסות צפופות.',
+          ],
+        ),
+      };
+  String _language = 'ar';
+
   String get mode => widget.mode;
   List<String> get labels => (mode == 'Choice Card')
       ? ['Plus', 'Pro', 'Enterprise']
       : (mode == 'RTL')
-      ? ['افتراضي', 'مريح', 'مضغوط']
+      ? _translations[_language]!.labels
       : (mode == 'Fieldset')
       ? [
           'Monthly (\$9.99/month)',
@@ -120,11 +161,7 @@ class _ReferenceState extends State<_Reference> {
           'For large teams and enterprises.',
         ]
       : (mode == 'RTL')
-      ? [
-          'تباعد قياسي لمعظم حالات الاستخدام.',
-          'مساحة أكبر بين العناصر.',
-          'تباعد أدنى للتخطيطات الكثيفة.',
-        ]
+      ? _translations[_language]!.notes
       : [
           'Standard spacing for most use cases.',
           'More space between elements.',
@@ -142,9 +179,6 @@ class _ReferenceState extends State<_Reference> {
     'Disabled' => 'option2',
     _ => values.first,
   };
-  bool get hasDescriptions =>
-      mode == 'Choice Card' || mode == 'RTL' || mode == 'Description';
-
   late String _value = initial;
 
   @override
@@ -295,7 +329,9 @@ class _ReferenceState extends State<_Reference> {
     final fieldset = mode == 'Fieldset';
     final invalid = mode == 'Invalid';
     final example = Directionality(
-      textDirection: rtl ? TextDirection.rtl : Directionality.of(context),
+      textDirection: rtl
+          ? _translations[_language]!.dir
+          : Directionality.of(context),
       child: switch (mode) {
         'Default' => _group(
           _spaced([
@@ -351,6 +387,51 @@ class _ReferenceState extends State<_Reference> {
         _ => const SizedBox.shrink(),
       },
     );
+    if (rtl) {
+      // The selector's popup measures itself with a LayoutBuilder, so only
+      // the group takes the reference's intrinsic w-fit width.
+      return Align(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // The reference selector keeps dir="ltr" on its trigger and
+            // popup; the chosen language owns the group's direction.
+            DDirection(
+              textDirection: TextDirection.ltr,
+              child: DSelect<String>(
+                value: _language,
+                size: DSelectSize.small,
+                width: 144,
+                semanticLabel: 'Language',
+                entries: const [
+                  DSelectOption(
+                    value: 'en',
+                    label: 'English',
+                    child: Text('English'),
+                  ),
+                  DSelectOption(
+                    value: 'ar',
+                    label: 'Arabic (العربية)',
+                    child: Text('Arabic (العربية)'),
+                  ),
+                  DSelectOption(
+                    value: 'he',
+                    label: 'Hebrew (עברית)',
+                    child: Text('Hebrew (עברית)'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _language = value);
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            IntrinsicWidth(child: example),
+          ],
+        ),
+      );
+    }
     return Align(
       child: cards || fieldset || invalid
           ? SizedBox(width: cards ? 384 : 320, child: example)
@@ -382,6 +463,7 @@ class _FormPreviewState extends State<_FormPreview> {
               value == null ? 'Choose a delivery method.' : null,
           onSaved: (value) => setState(() => _saved = value),
           child: const Column(
+            spacing: 8,
             children: [
               DRadioGroupItem(value: 'email', label: Text('Email')),
               DRadioGroupItem(value: 'sms', label: Text('SMS'), enabled: false),
@@ -436,6 +518,7 @@ class _ReadOnlyPreviewState extends State<_ReadOnlyPreview> {
           onChanged: (next) => setState(() => _value = next),
           validator: (next) => next == null ? 'Choose an option.' : null,
           child: const Column(
+            spacing: 8,
             children: [
               DRadioGroupItem(value: 'a', label: Text('Inherited')),
               DRadioGroupItem(

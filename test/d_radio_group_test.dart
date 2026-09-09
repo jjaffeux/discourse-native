@@ -201,7 +201,13 @@ void main() {
   testWidgets(
     'desktop rows follow content height and preserve eight-pixel gaps',
     (tester) async {
-      for (final title in ['Default', 'Description', 'Fieldset']) {
+      for (final title in [
+        'Default',
+        'Description',
+        'Fieldset',
+        'Controlled form and dynamic options',
+        'Read-only and required',
+      ]) {
         await tester.pumpWidget(
           host(
             Builder(
@@ -212,10 +218,11 @@ void main() {
             theme: ThemeData(platform: TargetPlatform.macOS),
           ),
         );
-        final rows = title == 'Default'
-            ? find.byType(RawRadio<String>)
-            : find.byType(DField);
-        expect(rows, findsNWidgets(3));
+        final fields = title == 'Description' || title == 'Fieldset';
+        final rows = fields
+            ? find.byType(DField)
+            : find.byType(RawRadio<String>);
+        expect(rows, findsNWidgets(3), reason: title);
         final bounds = [
           for (final e in rows.evaluate())
             tester.getRect(find.byWidget(e.widget)),
@@ -227,9 +234,9 @@ void main() {
             reason: '$title row $i: $bounds',
           );
         }
-        if (title == 'Default') {
-          expect(bounds.first.height, 16);
-          expect(bounds.last.bottom - bounds.first.top, 64);
+        if (!fields) {
+          expect(bounds.first.height, 16, reason: title);
+          expect(bounds.last.bottom - bounds.first.top, 64, reason: title);
         } else {
           final content = tester.getSize(find.byType(DFieldLabel).first);
           if (title == 'Fieldset') {
@@ -240,6 +247,57 @@ void main() {
           }
         }
       }
+    },
+  );
+  testWidgets(
+    'RTL example switches language and direction from its LTR selector',
+    (tester) async {
+      await tester.pumpWidget(
+        host(
+          Builder(
+            builder: radioGroupExamples.examples
+                .singleWhere((example) => example.title == 'RTL')
+                .builder,
+          ),
+          theme: ThemeData(platform: TargetPlatform.macOS),
+        ),
+      );
+      await tester.pump();
+      TextDirection directionOf(Finder finder) =>
+          Directionality.of(tester.element(finder));
+      double leftOf(Finder finder) => tester.getTopLeft(finder).dx;
+      final radios = find.byType(RawRadio<String>);
+      String? selected() => tester
+          .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>))
+          .groupValue;
+
+      expect(find.text('مريح'), findsOneWidget);
+      expect(directionOf(find.byType(DField).first), TextDirection.rtl);
+      expect(directionOf(find.text('Arabic (العربية)')), TextDirection.ltr);
+      expect(leftOf(radios.at(1)), greaterThan(leftOf(find.text('مريح'))));
+      expect(selected(), 'comfortable');
+
+      await tester.tap(find.text('Arabic (العربية)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hebrew (עברית)'));
+      await tester.pumpAndSettle();
+      expect(find.text('מריח'), findsNothing);
+      expect(find.text('נוח'), findsOneWidget);
+      expect(find.text('יותר מקום בין האלמנטים.'), findsOneWidget);
+      expect(directionOf(find.byType(DField).first), TextDirection.rtl);
+      expect(leftOf(radios.at(1)), greaterThan(leftOf(find.text('נוח'))));
+      expect(selected(), 'comfortable');
+
+      await tester.tap(find.text('Hebrew (עברית)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('English'));
+      await tester.pumpAndSettle();
+      expect(find.text('Comfortable'), findsOneWidget);
+      expect(find.text('More space between elements.'), findsOneWidget);
+      expect(directionOf(find.byType(DField).first), TextDirection.ltr);
+      expect(leftOf(radios.at(1)), lessThan(leftOf(find.text('Comfortable'))));
+      expect(selected(), 'comfortable');
+      await tester.pumpWidget(const SizedBox());
     },
   );
   testWidgets('composition labels activate the radio Form owner exactly once', (
@@ -940,6 +998,75 @@ void main() {
       expect(selected, 'c');
     });
   }
+  testWidgets('Enter leaves the focused radio unselected while Space selects', (
+    tester,
+  ) async {
+    final node = FocusNode();
+    addTearDown(node.dispose);
+    final requests = <String?>[];
+    await tester.pumpWidget(
+      host(
+        DRadioGroup<String>(
+          initialValue: 'a',
+          onChanged: requests.add,
+          child: Column(
+            children: [
+              const DRadioGroupItem(value: 'a', label: Text('Alpha')),
+              DRadioGroupItem(
+                value: 'c',
+                label: const Text('Charlie'),
+                focusNode: node,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    node.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
+    await tester.pump();
+    expect(requests, isEmpty);
+    expect(node.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(requests, ['c']);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets(
+    'the pointer cursor stays the default arrow and turns forbidden when disabled',
+    (tester) async {
+      await tester.pumpWidget(
+        host(
+          DRadioGroup<String>(initialValue: 'a', child: choices),
+          theme: ThemeData(platform: TargetPlatform.macOS),
+        ),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await tester.pump();
+      await mouse.moveTo(tester.getCenter(find.text('Alpha')));
+      await tester.pump();
+      expect(
+        tester.binding.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.basic,
+      );
+      await mouse.moveTo(tester.getCenter(find.byType(RawRadio<String>).last));
+      await tester.pump();
+      expect(
+        tester.binding.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.basic,
+      );
+      await mouse.moveTo(tester.getCenter(find.text('Beta')));
+      await tester.pump();
+      expect(
+        tester.binding.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.forbidden,
+      );
+    },
+  );
   testWidgets(
     'validation error clears after selection and reset notifies owner',
     (tester) async {
