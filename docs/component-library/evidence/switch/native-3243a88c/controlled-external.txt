@@ -1,0 +1,125 @@
+Window: "Discourse", App: Discourse Switch Review 3243a88c.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Discourse Switch Review 3243a88c
+		2 container (settable) Discourse / ui
+Components
+			3 button (settable) Browse components
+			4 text field (settable)
+			5 button (settable) Toggle documentation theme
+			6 button (settable) Close styleguide
+			7 container (settable) Component navigation
+				8 container (settable)
+					9 container (settable) Getting started
+					10 button (settable) Foundations
+					11 container (settable) Components
+					12 button (settable) Accordion
+					13 button (settable) Alert
+					14 button (settable) Alert Dialog
+					15 button (settable) Aspect Ratio
+					16 button (settable) Attachment
+					17 button (settable) Avatar
+					18 button (settable) Badge
+					19 button (settable) Breadcrumb
+					20 button (settable) Bubble
+					21 button (settable) Button
+					22 button (settable) Button Group
+					23 button (settable) Calendar
+					24 button (settable) Card
+					25 button (settable) Carousel
+					26 button (settable) Chart
+					27 button (settable) Checkbox
+					28 button (settable) Collapsible
+					29 button (settable) Combobox
+					30 button (settable) Command
+					31 button (settable) Context Menu
+					32 button (settable) Data Table
+					33 button (settable) Date Picker
+					34 button (settable) Dialog
+					35 button (settable) Direction
+					36 button (settable) Drawer
+					37 button (settable) Dropdown Menu
+					38 button (settable) Empty
+					39 button (settable) Field
+					40 button (settable) Hover Card
+					41 button (settable) Input
+					42 button (settable) Input Group
+					43 button (settable) Input OTP
+					44 button (settable) Item
+					45 button (settable) Kbd
+					46 button (settable) Label
+					47 button (settable) Marker
+					48 button (settable) Menubar
+					49 button (settable) Message
+					50 button (settable) Message Scroller
+					51 button (settable) Native Select
+					52 button (settable) Navigation Menu
+					53 button (settable) Pagination
+					54 button (settable) Popover
+					55 button (settable) Progress
+					56 button (settable) Questionnaire
+					57 button (settable) Radio Group
+					58 button (settable) Resizable
+					59 button (settable) Scroll Area
+					60 button (settable) Select
+					61 button (settable) Separator
+					62 button (settable) Sheet
+					63 button (settable) Sidebar
+					64 button (settable) Skeleton
+					65 button (settable) Slider
+					66 button (settable) Spinner
+					67 button (settable) Switch
+					68 button (settable) Table
+					69 button (settable) Tabs
+					70 button (settable) Textarea
+					71 button (settable) Toast
+					72 button (settable) Toggle
+					73 button (settable) Toggle Group
+					74 button (settable) Tooltip
+					75 button (settable) Typography
+			76 container (settable)
+				77 container (settable) Switch
+				78 button (settable) Previous component
+				79 button (settable) Next component
+				80 text (settable) A control that toggles a setting on or off.
+				81 text (settable) App baseline · shadcn implementation pending
+				82 button (settable) Example
+Controlled updates
+				83 button (settable) Theme
+Current app
+				84 button (settable) Viewport width
+Fit
+				85 button (settable) Preview settings
+				86 button (settable) Reset example
+				87 container (settable)
+					88 switch (settable, boolean) Enable notifications, Value: on
+					89 button (settable) Change externally
+				90 button (settable) View code
+				91 button (settable) Copy code
+				92 container (settable) Controlled updates
+				93 text (settable) An external action updates the same setting; rebuilding preserves local example state.
+				94 text (settable) Controlled · External update
+				95 button (settable) Implementation notes
+			96 container (settable)
+				97 text (settable) On This Page
+				98 button (settable) Airplane Mode
+				99 button (settable) Description
+				100 button (settable) Choice Card
+				101 button (settable) Disabled and read-only
+				102 button (settable) Invalid
+				103 button (settable) Invalid and Form
+				104 button (settable) Size
+				105 button (settable) RTL
+				106 button (settable) Controlled updates
+				107 button (settable) Usage
+				108 button (settable) Implementation notes
+	109 close button
+	110 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	111 minimize button
+112 menu bar
+	113 Discourse Switch Review 3243a88c
+	114 Edit
+	115 View
+	116 Window
+	117 Help
+
+The focused UI element is 1 container Discourse Switch Review 3243a88c

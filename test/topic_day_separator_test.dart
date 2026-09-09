@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
-import 'package:discourse_native/discourse_ui.dart' show DSeparator;
+import 'package:discourse_native/discourse_ui.dart'
+    show DMarker, DMarkerVariant;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -159,11 +160,23 @@ void main() {
     expect(openingDate, findsOneWidget);
     expect(nextDate, findsOneWidget);
     expect(
-      find.descendant(of: openingDate, matching: find.byType(DSeparator)),
+      find.descendant(
+        of: openingDate,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DMarker && widget.variant == DMarkerVariant.separator,
+        ),
+      ),
       findsNothing,
     );
     expect(
-      find.descendant(of: nextDate, matching: find.byType(DSeparator)),
+      find.descendant(
+        of: nextDate,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DMarker && widget.variant == DMarkerVariant.separator,
+        ),
+      ),
       findsOneWidget,
     );
   });
@@ -485,7 +498,10 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(ValueKey(('topic-day', targetDay))),
-        matching: find.byType(DSeparator),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DMarker && widget.variant == DMarkerVariant.separator,
+        ),
       ),
       findsOneWidget,
     );

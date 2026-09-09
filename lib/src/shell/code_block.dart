@@ -396,7 +396,8 @@ class _CodeBlockState extends State<CodeBlock> {
           // since wrapping makes indentation lie about structure. The
           // scrollbar stays up whenever there is somewhere to scroll.
           LayoutBuilder(
-            builder: (context, constraints) => Scrollbar(
+            builder: (context, constraints) => DScrollBar(
+              axis: Axis.horizontal,
               controller: _horizontal,
               thumbVisibility: true,
               child: SingleChildScrollView(
