@@ -138,6 +138,7 @@ class DPopover extends StatefulWidget {
     this.onOpenChange,
     this.onOpenChangeComplete,
     this.restoreFocus = true,
+    this.focusContentOnOpen = true,
   });
 
   final Widget child;
@@ -148,6 +149,13 @@ class DPopover extends StatefulWidget {
   final DPopoverOpenChange? onOpenChange;
   final ValueChanged<bool>? onOpenChangeComplete;
   final bool restoreFocus;
+
+  /// Whether opening moves focus into the floating surface.
+  ///
+  /// Editable composite controls such as Combobox keep focus in their anchor
+  /// input while the popup is open. Ordinary Popovers retain the default
+  /// focus-entry behavior.
+  final bool focusContentOnOpen;
 
   @override
   State<DPopover> createState() => _DPopoverState();
@@ -276,6 +284,7 @@ class _DPopoverState extends State<DPopover>
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_open) return;
+        if (!widget.focusContentOnOpen) return;
         if (_interaction == DPopoverInteraction.touch) {
           _surfaceFocus.requestFocus();
         } else {

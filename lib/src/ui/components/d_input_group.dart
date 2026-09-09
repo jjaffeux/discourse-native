@@ -595,10 +595,12 @@ class _DInputGroupControlState extends State<DInputGroupControl> {
     final enabled = widget.enabled && (_group?.enabled ?? true);
     _group?.report(_focus, enabled, widget.invalid);
     return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: widget.multiline ? 8 : 5,
-      ),
+      padding:
+          _group?.inputPadding ??
+          EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: widget.multiline ? 8 : 5,
+          ),
       child: ExcludeFocus(
         excluding: !enabled,
         child: IgnorePointer(
