@@ -1748,6 +1748,8 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 - Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch.
 - 2026-09-09 correction: 155 impact tests and 2 manual font-loaded render tests passed. Official light/dark/disabled/invalid/focus/groups/RTL/narrow browser capture compared with registered examples; production fixture renders captured in both app themes. See native-select-review.md and reference/native-select-review/manifest.json.
 - Corrected source d2e500f95d25f9901f74b37d0784aeb1e1ebf071 rebuilt into the unique ad-hoc verified review app; all four kernels match 47fabe4db51b73135427cc6ab941765ad04b53c4433693b36b29babf03691efc.
+- Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; final shared component implementations and all other progress rows preserved. 327 integration tests passed initially; sole obsolete 100px post-action test fixture resized to120px for final touch targets, all24 bookmark tests then passed. Root/full analysis clean.
+- Merge-queue bundle rebuilt from f9baeaa86c2bd88058ab815687543587aeec5296 with matching four-kernel hash bb7dca4c9c8906921f677cc834ff2b2bbe1990f4e29009a3b8144cedf1de8a37; restricted-free debug entitlements verified by signed read-back and strict deep signature.
 
 **limitations**
 
