@@ -109,3 +109,8 @@ resolution and `git diff --check` also passed. No physical iOS/Linux run or
 spoken VoiceOver verification was performed, and no pixel-equality claim is
 made. Full bundle provenance is recorded under
 `docs/component-library/evidence/toggle/native-d39eb0f3/`.
+
+The final reconciliation with local main
+`6b8ec8f85ce2270d56321a57f9a41abe05355e0f` changed Voice Empty/Textarea
+consumers but not `VoiceToolbarControl`. All 71 Toggle, Voice and fixture tests
+then passed with seed `9052033`; root/full analysis remained clean.

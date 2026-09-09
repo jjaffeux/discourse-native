@@ -44,3 +44,9 @@ resolution made no dependency changes and `git diff --check` was clean. No
 physical iOS/Linux device run or spoken VoiceOver verification was performed.
 Browser/native font rendering differs, so this is measured behavioral and
 visual acceptance rather than a pixel-equality claim.
+
+Final reconciliation integrated local main
+`6b8ec8f85ce2270d56321a57f9a41abe05355e0f`. Its Voice changes affected Empty
+and Textarea consumers outside `VoiceToolbarControl`. All 71 Toggle, Voice and
+fixture tests passed afterward with seed `9052033`; root and `profiles/full`
+analysis and branch-relative diff checks passed.

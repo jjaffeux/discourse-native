@@ -1144,6 +1144,7 @@ Status: review_ready. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/
 - Official live Base UI examples were inspected in light and dark, including 28/32/36px sizes, 14/16px icons, 4px gaps, 10px symmetric documented-example padding, 8px radius, outline/muted surfaces, disabled opacity, pressed state and RTL logical ordering.
 - Exact-source isolated macOS bundle /private/tmp/discourse-toggle-review-d39eb0f3/Discourse Toggle Review d39eb0f3.app was launched. Real Voice mute, deafen, camera, sharing, hand and recording adapters changed state/action labels in both directions while Media settings remained momentary. Default/outline/text/size/disabled/RTL/controlled/uncontrolled/icon-only/invalid examples passed across Light, Dark, Forest, Plum, RTL and 200% text; Space and Return activated focused toggles.
 - The isolated bundle uses ID org.discourse.toggle-review-d39eb0f3 and scheme discourse-toggle-review-d39eb0f3. Built and copied kernel SHA-256 values both equal 3eea3bb75a19aeab195e3ced4e91c3d6b2d01fe5fc46aad6fb9dc49d75334529; deep strict ad-hoc signature and restricted entitlement readback passed.
+- Final reconciliation integrated local main 6b8ec8f85ce2270d56321a57f9a41abe05355e0f while preserving every non-Toggle progress row and all component registrations. Main's Voice changes were confined to Empty/Textarea consumers outside VoiceToolbarControl. All 71 Toggle, Voice and fixture tests passed with seed 9052033; root and profiles/full analysis and branch-relative diff checks passed.
 
 **limitations**
 
