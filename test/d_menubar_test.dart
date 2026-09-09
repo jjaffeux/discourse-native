@@ -1,0 +1,443 @@
+import 'dart:ui' show CheckedState, PointerDeviceKind, Tristate;
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('matches compact root geometry and opens a command menu', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _TestApp(child: _BasicMenubar()));
+
+    expect(tester.getSize(find.byType(DMenubar)).height, 32);
+    expect(find.text('New Tab'), findsNothing);
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Tab'), findsOneWidget);
+    expect(find.text('New Window'), findsOneWidget);
+    expect(
+      tester
+          .getSemantics(find.byType(DMenubarTrigger).first)
+          .flagsCollection
+          .isExpanded,
+      Tristate.isTrue,
+    );
+  });
+
+  testWidgets('arrows rove triggers and switch an open menu', (tester) async {
+    await tester.pumpWidget(const _TestApp(child: _BasicMenubar()));
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Undo'), findsOneWidget);
+    expect(find.text('New Tab'), findsNothing);
+    expect(
+      tester
+          .getSemantics(find.byType(DMenubarTrigger).at(1))
+          .flagsCollection
+          .isExpanded,
+      Tristate.isTrue,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('New Tab'), findsOneWidget);
+  });
+
+  testWidgets('pointer hover switches the active top-level menu', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _TestApp(child: _BasicMenubar()));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: tester.getCenter(find.text('File')));
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+
+    await mouse.moveTo(tester.getCenter(find.text('Edit')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Tab'), findsNothing);
+    expect(find.text('Undo'), findsOneWidget);
+  });
+
+  testWidgets('Home End and RTL use logical top-level navigation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const _TestApp(textDirection: TextDirection.rtl, child: _BasicMenubar()),
+    );
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('Undo'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('Andy'), findsOneWidget);
+  });
+
+  testWidgets('checkbox and radio state remain open and update', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _TestApp(child: _StatefulMenubar()));
+
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bookmarks Bar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bookmarks Bar'), findsOneWidget);
+    expect(find.text('bookmarks:on'), findsOneWidget);
+
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profiles'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Andy'));
+    await tester.pumpAndSettle();
+    expect(find.text('Andy'), findsOneWidget);
+    expect(find.text('profile:andy'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.text('Andy')).flagsCollection.isChecked,
+      CheckedState.isTrue,
+    );
+  });
+
+  testWidgets('submenu opens and deepest Escape restores its trigger', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _TestApp(child: _BasicMenubar()));
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Share'));
+    await tester.pumpAndSettle();
+    expect(find.text('Email link'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Email link'), findsNothing);
+    expect(find.text('New Tab'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('New Tab'), findsNothing);
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Menubar trigger');
+  });
+
+  testWidgets('typeahead skips disabled items and actions close the chain', (
+    tester,
+  ) async {
+    var selected = '';
+    await tester.pumpWidget(
+      _TestApp(child: _BasicMenubar(onSelected: (value) => selected = value)),
+    );
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(selected, 'Print');
+    expect(find.text('New Tab'), findsNothing);
+  });
+
+  testWidgets('disabled roots do not open and expose disabled semantics', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const _TestApp(
+        child: DMenubar(
+          disabled: true,
+          children: [
+            DMenubarMenu(
+              trigger: DMenubarTrigger(child: Text('File')),
+              content: DMenubarContent(
+                children: [DMenubarItem(child: Text('New Tab'))],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    expect(find.text('New Tab'), findsNothing);
+    expect(
+      tester
+          .getSemantics(find.byType(DMenubarTrigger))
+          .flagsCollection
+          .isEnabled,
+      Tristate.isFalse,
+    );
+  });
+
+  testWidgets(
+    'default-open and borrowed controllers coordinate sibling menus',
+    (tester) async {
+      final controller = DMenubarMenuController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _TestApp(
+          child: DMenubar(
+            children: [
+              const DMenubarMenu(
+                defaultOpen: true,
+                trigger: DMenubarTrigger(child: Text('File')),
+                content: DMenubarContent(
+                  children: [DMenubarItem(child: Text('New Tab'))],
+                ),
+              ),
+              DMenubarMenu(
+                controller: controller,
+                trigger: const DMenubarTrigger(child: Text('Edit')),
+                content: const DMenubarContent(
+                  children: [DMenubarItem(child: Text('Undo'))],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('New Tab'), findsOneWidget);
+
+      controller.open();
+      await tester.pumpAndSettle();
+      expect(find.text('New Tab'), findsNothing);
+      expect(find.text('Undo'), findsOneWidget);
+    },
+  );
+
+  testWidgets('open overlays follow live tokens and tolerate 200% narrow RTL', (
+    tester,
+  ) async {
+    final tokens = ValueNotifier(_tokens(Colors.red));
+    addTearDown(tokens.dispose);
+    await tester.binding.setSurfaceSize(const Size(260, 420));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ValueListenableBuilder<DTokens>(
+        valueListenable: tokens,
+        builder: (_, value, _) => _TestApp(
+          tokens: value,
+          textDirection: TextDirection.rtl,
+          textScaler: const TextScaler.linear(2),
+          disableAnimations: true,
+          child: const _BasicMenubar(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('File'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).color == Colors.red,
+      ),
+      findsOneWidget,
+    );
+
+    tokens.value = _tokens(Colors.blue);
+    await tester.pumpAndSettle();
+    expect(find.text('New Tab'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).color == Colors.blue,
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+}
+
+class _TestApp extends StatelessWidget {
+  const _TestApp({
+    required this.child,
+    this.tokens,
+    this.textDirection = TextDirection.ltr,
+    this.textScaler = TextScaler.noScaling,
+    this.disableAnimations = false,
+  });
+
+  final Widget child;
+  final DTokens? tokens;
+  final TextDirection textDirection;
+  final TextScaler textScaler;
+  final bool disableAnimations;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    theme: ThemeData.light().copyWith(
+      extensions: [tokens ?? _tokens(Colors.white)],
+    ),
+    home: MediaQuery(
+      data: MediaQueryData(
+        size: const Size(800, 600),
+        textScaler: textScaler,
+        disableAnimations: disableAnimations,
+      ),
+      child: Directionality(
+        textDirection: textDirection,
+        child: Scaffold(
+          body: Align(alignment: Alignment.topCenter, child: child),
+        ),
+      ),
+    ),
+  );
+}
+
+DTokens _tokens(Color surface) => DTokens(
+  colors: ColorScheme.fromSeed(seedColor: Colors.indigo),
+  background: Colors.white,
+  surface: surface,
+  muted: Colors.grey.shade100,
+  border: Colors.grey.shade300,
+  hover: Colors.grey.shade200,
+  selected: Colors.grey.shade300,
+  selectedForeground: Colors.black,
+  radius: 10,
+);
+
+class _BasicMenubar extends StatelessWidget {
+  const _BasicMenubar({this.onSelected});
+  final ValueChanged<String>? onSelected;
+
+  @override
+  Widget build(BuildContext context) => DMenubar(
+    children: [
+      DMenubarMenu(
+        trigger: const DMenubarTrigger(child: Text('File')),
+        content: DMenubarContent(
+          children: [
+            DMenubarGroup(
+              children: [
+                DMenubarItem(
+                  onPressed: onSelected == null
+                      ? () {}
+                      : () => onSelected!('New'),
+                  trailing: const DMenubarShortcut('⌘T'),
+                  child: const Text('New Tab'),
+                ),
+                const DMenubarItem(child: Text('New Window')),
+                const DMenubarItem(child: Text('New Incognito Window')),
+              ],
+            ),
+            const DMenubarSeparator(),
+            const DMenubarSub(
+              trigger: DMenubarSubTrigger(child: Text('Share')),
+              content: DMenubarSubContent(
+                children: [
+                  DMenubarItem(child: Text('Email link')),
+                  DMenubarItem(child: Text('Messages')),
+                ],
+              ),
+            ),
+            const DMenubarSeparator(),
+            DMenubarItem(
+              onPressed: onSelected == null
+                  ? () {}
+                  : () => onSelected!('Print'),
+              trailing: const DMenubarShortcut('⌘P'),
+              child: const Text('Print...'),
+            ),
+          ],
+        ),
+      ),
+      const DMenubarMenu(
+        trigger: DMenubarTrigger(child: Text('Edit')),
+        content: DMenubarContent(
+          children: [
+            DMenubarItem(child: Text('Undo')),
+            DMenubarItem(child: Text('Redo')),
+          ],
+        ),
+      ),
+      const DMenubarMenu(
+        trigger: DMenubarTrigger(child: Text('Profiles')),
+        content: DMenubarContent(
+          children: [
+            DMenubarItem(child: Text('Andy')),
+            DMenubarItem(child: Text('Benoit')),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _StatefulMenubar extends StatefulWidget {
+  const _StatefulMenubar();
+
+  @override
+  State<_StatefulMenubar> createState() => _StatefulMenubarState();
+}
+
+class _StatefulMenubarState extends State<_StatefulMenubar> {
+  bool bookmarks = false;
+  String profile = 'benoit';
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      DMenubar(
+        children: [
+          DMenubarMenu(
+            trigger: const DMenubarTrigger(child: Text('View')),
+            content: DMenubarContent(
+              children: [
+                DMenubarCheckboxItem(
+                  checked: bookmarks,
+                  onChanged: (value) => setState(() => bookmarks = value),
+                  child: const Text('Bookmarks Bar'),
+                ),
+              ],
+            ),
+          ),
+          DMenubarMenu(
+            trigger: const DMenubarTrigger(child: Text('Profiles')),
+            content: DMenubarContent(
+              children: [
+                DMenubarRadioGroup<String>(
+                  value: profile,
+                  onChanged: (value) => setState(() => profile = value),
+                  children: const [
+                    DMenubarRadioItem(value: 'andy', child: Text('Andy')),
+                    DMenubarRadioItem(value: 'benoit', child: Text('Benoit')),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      Text('bookmarks:${bookmarks ? 'on' : 'off'}'),
+      Text('profile:$profile'),
+    ],
+  );
+}

@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
+**35 of 64 components are merged locally.** 17 existing components are in progress; 12 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -82,7 +82,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 43 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command | — |
 | 44 | dropdown-menu | in_progress | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
 | 45 | context-menu | planned | — | — | dropdown-menu | — |
-| 46 | menubar | planned | — | — | dropdown-menu | — |
+| 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
 | 47 | navigation-menu | planned | — | — | popover | — |
 | 48 | breadcrumb | planned | — | — | button, dropdown-menu | — |
 | 49 | pagination | planned | — | — | button, select | — |
@@ -2285,6 +2285,49 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 
 - Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
 - Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
+
+### menubar
+
+Status: in_progress. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/ui-menubar.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Menubar composition and full demo, Checkbox, Radio, Submenu, With Icons and RTL examples with recorded primary-source geometry, styling and behavior mapping.
+- Compose the accepted Dropdown Menu owner with distinct top-level roving focus, directional/Home/End navigation, Enter/Space/ArrowDown opening, pointer and keyboard menu switching, local typeahead, submenu boundaries and reliable focus restoration.
+- Support item, checkbox, radio, destructive, disabled, icon, shortcut, inset and nested states with native semantics, touch/pointer interaction, narrow/200% text, RTL, reduced motion and live host palette/font/radius updates while overlays are open.
+- Audit core and plugin in-app horizontal menu strips, migrate only faithful command-menu matches, retain operating-system menus and route tabs with specific rationale, and keep networking/business logic outside the generic widget.
+- Pass focused component/styleguide/adoption regressions, formatting and static analysis; create a separate Menubar reviewer that owns final dependency reconciliation, official rendered browser/native acceptance and local main merge.
+
+**decisions**
+
+- Prepare against Dropdown Menu reviewer candidate d273c27e788bb3991c773c7432e0b8c927715651 on codex/review-dropdown-menu-candidate. Its reviewer reports 47 focused Dropdown/Popover/Table/styleguide tests and root/full analysis passing; official browser/native acceptance remains pending, so this source pin is not parent acceptance.
+- DMenubar owns only persistent top-level coordination: one active menu, logical arrow/Home/End roving focus, Enter/Space/open-direction entry, pointer hover switching and final trigger restoration. DDropdownMenu remains the popup/item/typeahead/submenu lifecycle owner.
+- Use a 32px minimum root with internal horizontal scrolling only when narrow or scaled layouts cannot fit persistent triggers. This preserves source geometry and command labels without a RenderFlex overflow.
+- Keep Base UI's browser modal implementation detail with the shared Dropdown Menu lifecycle rather than expose an inert boolean; keep operating-system application menus outside this generic in-app widget.
+
+**migrations**
+
+- No production migration: the audited core/plugin app currently has no persistent row of multiple independent command-menu triggers. The complete component is registered with six real styleguide compositions.
+
+**retainedAlternatives**
+
+- Composer/topic/post/instance/user/diagnostics/forum-tab/emoji/event/chat/poll/voice MenuAnchor and PopupMenuButton surfaces are single-trigger dropdown/context actions, not menubars.
+- Diagnostics, move-posts, settings, update-channel and event-calendar SegmentedButton surfaces remain mutually exclusive mode/filter selectors.
+- Forum/group/chat information tabs and route navigation remain tabs/navigation; the event calendar period controls remain a responsive immediate-action toolbar.
+- Native macOS/iOS/Linux application menus remain platform-shell owned and were not changed.
+
+**verification**
+
+- Frozen Markdown fetched byte-for-byte at 8ae4486c307453e61359a37284084facbfbc6495ed0dabdc47ad991a06f734ae; base-nova registry response SHA-256 265f030bd11d52072325f749bfd2c8070a9a1cc48098aa3fb245b2460801e6cd. Exact geometry/behavior/API mapping is recorded in docs/component-library/menubar.md.
+- dart analyze on the component, public registration, examples and focused tests passed with no diagnostics.
+- Fourteen randomized component/styleguide tests passed with seed 1320190751. DMenubar coverage includes compact geometry, top-level keyboard/pointer switching, logical RTL/Home/End roving, checkbox/radio state and semantics, submenu Escape boundaries, typeahead/close restoration, disabled root, default-open/borrowed-controller coordination, live tokens, reduced motion, narrow layout and 200% text.
+- The same randomized run verified all six frozen styleguide groups register and mount in light, dark and plum palettes at 216px/200%/RTL/reduced-motion; composition state and exact-Lucide destructive example interactions pass.
+- flutter pub get --enforce-lockfile and flutter analyze --no-pub passed at repository root (15.1s) and profiles/full (2.1s); Flutter 3.47.2 and both lockfile hashes remained unchanged.
+
+**limitations**
+
+- Prepared Dropdown Menu candidate is not yet accepted. The Menubar reviewer must integrate its accepted local-main revision and verify overlap before merge.
+- The implementation task has not claimed official browser visual comparison or native macOS inspection. The new independent reviewer owns those first actual checks, fixes, status promotion and final local-main merge; iOS/Linux and spoken VoiceOver remain unverified.
 
 ### calendar
 

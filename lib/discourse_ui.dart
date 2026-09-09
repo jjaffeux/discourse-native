@@ -20,6 +20,7 @@ export 'src/ui/components/d_input.dart';
 export 'src/ui/components/d_kbd.dart';
 export 'src/ui/components/d_label.dart';
 export 'src/ui/components/d_marker.dart';
+export 'src/ui/components/d_menubar.dart';
 export 'src/ui/components/d_native_select.dart';
 export 'src/ui/components/d_popover.dart';
 export 'src/ui/components/d_progress.dart';
