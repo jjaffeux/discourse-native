@@ -9,6 +9,39 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final orientation in Axis.values) {
+    testWidgets(
+      '${orientation.name} default is a one-pixel square-ended border rule',
+      (tester) async {
+        await _pump(
+          tester,
+          SizedBox(
+            width: 384,
+            height: 96,
+            child: Align(child: DSeparator(orientation: orientation)),
+          ),
+        );
+        final horizontal = orientation == Axis.horizontal;
+        expect(
+          tester.getSize(find.byType(DSeparator)),
+          horizontal ? const Size(384, 1) : const Size(1, 96),
+        );
+        expect(
+          tester.getSize(_paintedLine()),
+          horizontal ? const Size(384, 1) : const Size(1, 96),
+        );
+        final decoration = _decoration(tester, find.byType(DSeparator));
+        final side = horizontal
+            ? decoration.border!.bottom
+            : (decoration.border! as Border).left;
+        expect(side.width, 1);
+        expect(
+          side.color,
+          DTokens.of(tester.element(find.byType(DSeparator))).border,
+        );
+        expect(decoration.borderRadius, BorderRadius.zero);
+      },
+    );
+
     testWidgets('${orientation.name} fills its bounded length', (tester) async {
       await _pump(
         tester,
@@ -64,6 +97,103 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+    'vertical lines fill a 20px row and an intrinsic-height row of two-line items',
+    (tester) async {
+      await _pump(
+        tester,
+        const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 20,
+              child: Row(
+                key: ValueKey('fixed-row'),
+                mainAxisSize: MainAxisSize.min,
+                spacing: 16,
+                children: [
+                  Text('Blog'),
+                  DSeparator(
+                    key: ValueKey('fixed-line'),
+                    orientation: Axis.vertical,
+                  ),
+                  Text('Docs'),
+                ],
+              ),
+            ),
+            IntrinsicHeight(
+              child: Row(
+                key: ValueKey('intrinsic-row'),
+                mainAxisSize: MainAxisSize.min,
+                spacing: 8,
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [Text('Settings'), Text('Manage preferences')],
+                  ),
+                  DSeparator(
+                    key: ValueKey('intrinsic-line'),
+                    orientation: Axis.vertical,
+                  ),
+                  Text('Account'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+      final fixedRow = tester.getRect(find.byKey(const ValueKey('fixed-row')));
+      final fixedLine = tester.getRect(
+        _paintedLine(find.byKey(const ValueKey('fixed-line'))),
+      );
+      expect(fixedRow.height, 20);
+      expect(fixedLine.top, fixedRow.top);
+      expect(fixedLine.height, 20);
+      expect(fixedLine.width, 1);
+      expect(fixedLine.left - tester.getRect(find.text('Blog')).right, 16);
+
+      final intrinsicRow = tester.getRect(
+        find.byKey(const ValueKey('intrinsic-row')),
+      );
+      final intrinsicLine = tester.getRect(
+        _paintedLine(find.byKey(const ValueKey('intrinsic-line'))),
+      );
+      expect(
+        intrinsicRow.height,
+        tester.getSize(find.text('Settings')).height +
+            tester.getSize(find.text('Manage preferences')).height,
+      );
+      expect(intrinsicLine.top, intrinsicRow.top);
+      expect(intrinsicLine.height, intrinsicRow.height);
+      expect(tester.getCenter(find.text('Account')).dy, intrinsicRow.center.dy);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a vertical line collapses inside a row of unbounded height without an error',
+    (tester) async {
+      await _pump(
+        tester,
+        const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Blog'),
+                DSeparator(orientation: Axis.vertical),
+                Text('Docs'),
+              ],
+            ),
+          ],
+        ),
+      );
+      expect(tester.getSize(find.byType(DSeparator)), const Size(1, 0));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final direction in TextDirection.values) {
     testWidgets(
@@ -179,6 +309,39 @@ void main() {
       expect(custom.border!.bottom.color, override);
       expect(custom.borderRadius, const BorderRadius.all(Radius.circular(2)));
     }
+  });
+
+  testWidgets('a hairline paints a stroke in the border color', (tester) async {
+    await _pump(
+      tester,
+      const SizedBox(width: 120, child: DSeparator(thickness: 0)),
+    );
+    expect(tester.getSize(find.byType(DSeparator)), const Size(120, 1));
+    expect(
+      tester.renderObject(_paintedLine()),
+      paints..path(
+        color: DTokens.of(tester.element(find.byType(DSeparator))).border,
+        style: PaintingStyle.stroke,
+        strokeWidth: 0,
+      ),
+    );
+  });
+
+  test('a hairline rejects rounded ends before it can fail to paint', () {
+    expect(
+      () => DSeparator(
+        thickness: 0,
+        radius: const BorderRadius.all(Radius.circular(2)),
+      ),
+      throwsAssertionError,
+    );
+    expect(
+      const DSeparator(
+        thickness: 1,
+        radius: BorderRadius.all(Radius.circular(2)),
+      ).radius,
+      const BorderRadius.all(Radius.circular(2)),
+    );
   });
 
   testWidgets(
