@@ -2164,7 +2164,7 @@
     },
     {
       "id": "select",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a085bb-1d11-7f52-a7bd-667348469087",
       "branch": "codex/ui-select",
       "dependencies": [
@@ -2172,19 +2172,41 @@
         "scroll-area"
       ],
       "acceptanceCriteria": [
-        "Match the frozen Base UI/base-nova rich Select API and Composition, Align Item With Trigger, Groups, Scrollable, Disabled, Invalid and RTL examples with measured source mapping.",
-        "Replace the appropriate generic rich selector and compose final shared popup, scrolling and control owners; preserve native option semantics, selected-item alignment/collision fallback, keyboard/typeahead/focus restoration, Form/controller lifecycle and live overlay theming.",
-        "Audit core/plugin selectors and migrate appropriate usages, coordinating final Field and Button Group compositions while retaining specifically justified native/simple selector alternatives.",
-        "Verify complete examples, narrow/scaled/RTL/touch/reduced-motion behavior, meaningful focused component/consumer tests and root/full analysis; create a new reviewer for remaining rendered/native acceptance and local merge after the accepted Popover main revision."
+        "Match frozen Base Nova Select geometry and state artwork: 32/28px trigger, 14/20px type, directional 10/8px padding, 16px chevron/check, input border, proportional lg/md radii, transparent/light and multiplicative dark input tint, exterior 3px focus/invalid rings, 144px popup minimum, 4px offset, 28px pointer rows and 100ms motion.",
+        "Provide typed value/item/group/separator composition, null placeholder/clearable values, custom value/trigger/icon/indicator builders, controlled nullable and uncontrolled ownership, object equality, disabled/read-only/required/invalid states, Form validation/save/reset and a multiple-selection counterpart.",
+        "Use DPopover and DScrollArea as overlay/scroll owners; implement selected-row alignment with mouse/keyboard plus touch/edge/insufficient-space fallback, collision boundaries, large-list initial reveal, scroll arrows, outside/Escape dismissal, deepest-layer behavior, focus restoration and live overlay themes.",
+        "Support pointer/touch, compact 48px transparent touch targets, hover/press/focus, disabled-option skipping, looped arrows/Home/End/Tab containment, keyboard typeahead, stable actionable option semantics, scaling, narrow widths, RTL and reduced motion without state reset.",
+        "Replace the shell DropdownButton renderer with the public ui/components owner, preserve current core/plugin callback/form/permission behavior through the compatibility adapter until accepted Native Select integration reclassifies plain consumers, and retain DNativeSelect only for genuine native/simple selection.",
+        "Add exhaustive real-component styleguide examples for default composition, selected alignment toggle, groups/separator, scrolling, disabled, invalid/Form, RTL, multiple/custom composition and app edge cases; run focused component/consumer tests, root and full-profile analysis and exact-source build evidence before reviewer handoff."
       ],
       "decisions": [
-        "Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration.",
-        "Independent reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 69e5ec663e92bb61fa734ee43b6c3e738e96961e is source evidence, not acceptance."
+        "Frozen Select Markdown SHA256 fc566bd829748e1caec337728e3198a951599be1c4c96f132e20d62266e2d0a9 verified on 2026-09-09; Base Nova registry SHA256 425e9b0a28b72617f18fabd75384050113295b88e7ba01c35bede2c72bd5d476 inspected with the full Base UI API.",
+        "DSelect is the single rich rendering owner and Flutter FormField; DSelect.controlled represents controlled null explicitly, the default constructor owns initialValue, and DMultiSelect maps Base UI multiple mode. Borrowed FocusNode, DPopoverController and ScrollController remain caller-owned.",
+        "The optional DPopoverPlacementResolver receives read-only target/boundary/content geometry and returns a candidate that remains subject to Popover boundary correction. Select alone decides touch and selected-row fallback; no overlay lifecycle is duplicated.",
+        "Accepted Popover main merge dc6ab75fe99f2af8b401bae60285fdbe65e8012a is reconciled, retaining lifecycle correction 8281dda2, DNativeSelect layering regression 6a608c56 and topmost Escape ownership d9ecd110.",
+        "Accepted Field remains a metadata/layout owner around Select; DSelect stays the sole Form/value/validation/focus/action owner. Button Group's internal joined-edge scope is downstream and will adapt the trigger in its own accepted composition without moving the popup into joined geometry."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "migrations": [
+        "Reduced lib/src/shell/select.dart to a compatibility export and moved DSelect/DSelectField rendering to lib/src/ui/components/d_select.dart; discourse_ui and discourse_plugin_sdk export the new owner.",
+        "Preserved accepted DNativeSelect across plain/simple Preferences, Poll, Local Dates, Chat, Assign, Voice, Bookmark, Invite, Group and status consumers; rich DSelect remains the public owner for composed selection, grouping, selected alignment, typeahead and multiple selection."
+      ],
+      "retainedAlternatives": [
+        "DSelectField remains a source-compatibility FormField adapter only; it translates DropdownMenuItem/InputDecoration into DSelect entries and does not retain the old DropdownButton renderer.",
+        "Accepted DNativeSelect remains the owner for plain/simple platform-adapted selection. Searchable, date and other purpose-built pickers retain their distinct owners."
+      ],
+      "verification": [
+        "Independent review fixed controlled-open focusability, disabled selected fallback, repeated-letter typeahead, selected-row positioning, large-text sizing, initial scroll-arrow action, disabled hover, invalid semantics and trigger state artwork; review commits f930b2d7 and 7d474def preserve source history.",
+        "flutter test --no-pub test/d_popover_test.dart test/d_select_test.dart --test-randomize-ordering-seed=391447 passed all 38 tests, including custom placement geometry/boundary correction and live theme inheritance while open.",
+        "flutter test --no-pub test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart test/topic_inbox_test.dart --test-randomize-ordering-seed=391447 passed all 168 downstream tests. Earlier Select/native-consumer and accepted-Popover integration runs passed 122 and 106 tests respectively with the same seed.",
+        "Root and profiles/full flutter analyze --no-pub passed with no diagnostics after the final Popover/Select corrections; git diff --check passed.",
+        "Exact reviewed source rebuilt as /private/tmp/select-review-56d8.VCyNHv/source/build/macos/Build/Products/Debug/Select Review 56d8.app with bundle org.discourse.select.review.56d8. DSelect, DPopover, examples and fixture hashes match the review branch; restricted debug entitlements read back correctly, strict deep signature passed, CDHash d9d20849ecee43fcbea8badef0e8dd312dfa57be and TeamIdentifier is not set.",
+        "Official ui.shadcn.com Base Select was inspected in light/dark for default, selected-item alignment, groups, scrollable, disabled, invalid and RTL surfaces. The isolated macOS fixture was inspected for pointer selection, keyboard typeahead/End/Tab/Escape and focus restoration, selected-row reveal, scroll arrows, disabled trigger/item, invalid Form state, actionable group/option semantics, multiple selection remaining open, light/dark/Forest/Plum palettes, RTL, 216px width, 200% text and reduced motion."
+      ],
+      "limitations": [
+        "Native device inspection was macOS only. Spoken VoiceOver output and iOS/Linux devices were not exercised; macOS Accessibility API roles, values and actions were inspected and widget regressions cover semantics and platform-independent behavior.",
+        "Live theme replacement while the popup stays open is covered by a widget regression because clicking the external fixture theme control normally dismisses a modal popup before activating it.",
+        "The Mac locked only during cleanup after all required captures; the reference tab was closed and the exact isolated app process was then terminated by PID before merge preparation."
+      ],
       "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
       "mergeCommit": null,
       "preparedDependencies": [
@@ -2200,7 +2222,7 @@
       ],
       "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
       "reviewBranch": "codex/review-select",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "accepted",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f6b1/discourse-native",
       "reviewHandoffCommit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e"
     },
