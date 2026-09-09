@@ -1,7 +1,39 @@
 # Chart native review handoff
 
-Status: **awaiting_slot**. Browser comparison completed; see [rendered evidence](chart-browser-review.md). No native app launch has been performed.
-The Mac remains locked. Source/build readiness does not satisfy the visual gate.
+Status: **review corrections complete; final native confirmation queued**.
+Browser comparison completed; see [rendered evidence](chart-browser-review.md).
+
+## Independent reviewer native pass
+
+Reviewer task `01a08558-4ae6-7db2-bdd6-ee52e8570ff3` launched the isolated
+macOS fixture and inspected its real accessibility tree. The Users fixture was
+visually and natively checked in ready, loading, empty and error states; its
+full/half metric marks retained visible values, synchronized layout and separate
+column resize/sort controls. Actual PollCard results were checked through both
+the Radio and Checkbox paths after adding a multiple-choice fixture. Their
+70/30 and 80/60 marks, selections and native radio/checkbox nodes remained
+distinct; confidential counts exposed no marks and the closed zero-vote case
+remained zero. Local single- and multiple-choice callbacks accepted selections
+without network or account data.
+
+The daily chart exposed one native accessibility node with the current category
+and series values. Pointer selection displayed the compact tooltip, Right moved
+inspection, the first Escape cleared it, and the second Escape left Chart
+unhandled for its ancestor. Light/dark appearance, the interactive header,
+tooltip, RTL chart/legend ordering and 360px/200% layout were inspected.
+
+Two visual defects were found and fixed in this independent review:
+
+- Forest and Plum mapped the original primary/tertiary series to one identical
+  site accent. `DChartColors.series` now derives a live palette-relative second
+  tone only when host roles collapse, preserving distinct series without fixed
+  swatches. Native Forest and Plum reinspection showed distinct paired marks.
+- The tooltip-anatomy demo retained fixed 128/144px cards at 200% text, causing
+  severe wrapping. Its source dimensions now scale with the inherited text
+  scaler, with a focused 360px/200% regression. The rebuilt exact-source bundle
+  is queued for the final native confirmation of this correction.
+
+No VoiceOver, iOS device or Linux device testing was performed.
 
 ## Exact executable source
 
