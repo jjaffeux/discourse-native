@@ -1,4 +1,6 @@
 // Offline review fixture. It uses only local sample data and real components.
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/styleguide/examples/breadcrumb_examples.dart';
@@ -26,6 +28,17 @@ class _BreadcrumbReviewAppState extends State<BreadcrumbReviewApp> {
   bool _largeText = false;
   bool _reducedMotion = false;
   bool _narrow = false;
+
+  void _scheduleThemeChange() {
+    Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() {
+        _theme = _theme == StyleguideTheme.dark
+            ? StyleguideTheme.light
+            : StyleguideTheme.dark;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -90,6 +103,12 @@ class _BreadcrumbReviewAppState extends State<BreadcrumbReviewApp> {
                 variant: DButtonVariant.outline,
                 onPressed: () => setState(() => _narrow = !_narrow),
                 label: Text(_narrow ? '240px viewport' : 'Full width'),
+              ),
+              DButton(
+                size: DButtonSize.small,
+                variant: DButtonVariant.outline,
+                onPressed: _scheduleThemeChange,
+                label: const Text('Toggle theme in 2s'),
               ),
             ],
           ),
