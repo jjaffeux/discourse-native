@@ -1,6 +1,6 @@
 # Switch implementation and review record
 
-Status: implementation in progress; native/reference inspection awaits the
+Status: implementation in progress; browser comparison completed; native inspection awaits the
 coordinator's desktop slot. No native visual parity is claimed.
 
 ## Preserved official sources
@@ -24,18 +24,18 @@ license in `reference/LICENSE.shadcn.md`.
 | sm w24 h14, thumb size-3 | 24 × 14 track, 12 × 12 thumb |
 | border transparent, rounded-full | 1px border, fully rounded track, circular thumb |
 | translate-x calc(100%-2px) | 14px default / 10px small directional travel; start/end swap in RTL |
-| primary checked, input unchecked | DTokens.primary / border (existing input/border semantic token); dark unchecked opacity .8 |
+| primary checked, input unchecked | DTokens.primary / colors.outlineVariant (input); dark unchecked alpha multiplied by .8 |
 | background thumb; dark checked primary-foreground, dark unchecked foreground | corresponding live DTokens colors |
 | focus border-ring and ring-3 ring/50 | 1px focus border and 3px outer ring at .5 opacity |
 | invalid destructive border/ring | 1px border, 3px ring .2 light / .4 dark; dark border .5 |
 | disabled opacity-50 | one .5 opacity owner, including associated label; no duplicate dimming |
 | transition-all / transition-transform | 150ms cubic(.4,0,.2,1); zero duration with disableAnimations |
 | Field gap-2, FieldContent gap-.5 | 8px horizontal gap, 2px title/description gap; description compositions align at top |
-| FieldLabel leading-snug, text-sm medium | 14px / 19.25px / w500, using host family and inherited scaler |
+| FieldLabel leading-snug, text-sm medium; card FieldTitle | Ordinary 14px / 19.25px / w500; choice-card title 14px / 20px / w500, using host family and inherited scaler |
 | FieldDescription text-sm leading-normal | 14px / 21px, muted foreground, wrapping |
-| Choice card border, p-2.5, rounded-lg | 1px border + 10px inset, radius token + 4 |
+| Choice card border, p-2.5, rounded-lg | 1px border + 10px inset, base radius token (rounded-lg ×1) |
 | Choice card selected border/background | primary .3/.05 light, .2/.1 dark; hover muted .5 |
-| Choice card focus wrapper ring, switch ring suppressed | one visible 3px wrapper focus ring; invalid switch ring remains |
+| Choice card current computed focus CSS | 3px wrapper and switch rings; current CSS specificity retains both despite the registry suppression utility |
 | FieldGroup gap-5 | 20px between reference choice cards |
 
 ## Public API and adaptations
@@ -57,7 +57,7 @@ that transition immediately. Errors expose invalid semantics and a live region.
 The browser hit extension is 12px horizontally and 8px vertically; native
 standalone controls use transparent 48×48 bounds, and rows are at least 48px
 high. Artwork is never scaled to achieve that target. Choice-card focus encloses
-the clickable card. Flutter FocusableActionDetector, Actions, Shortcuts,
+the clickable card and its switch, matching the measured live CSS. Flutter FocusableActionDetector, Actions, Shortcuts,
 GestureDetector and Semantics own interaction; there is no Material/Cupertino
 switch artwork or platform-dependent shape. Space and Enter toggle. Native text
 wrapping replaces CSS text balancing; inherited text scaling remains the sole
@@ -102,8 +102,8 @@ never starts real microphone, networking or diagnostics capture. Group saves
 report their local submitted payload; export previews stay in the fixture.
 The fixture does not start the real application or inspect real accounts.
 
-Native comparison of all Switch examples and representative migrated surfaces
-remains pending. Additional Voice room/editor and AI composer native fixture
+Browser comparison of Switch examples is recorded below. Native inspection of
+Switch and representative migrated surfaces remains pending. Additional Voice room/editor and AI composer native fixture
 coverage may be extended during the review slot; their actual-widget regression
 suites run now. No iOS/Linux device or spoken VoiceOver verification is claimed.
 
@@ -122,3 +122,55 @@ Workspace runner configuration and the user's main-checkout app were preserved.
 The full trace, source equality and source hash are recorded in
 [switch-review-build.json](switch-review-build.json). This bundle has **not been
 launched or natively inspected**; it is queued for the serialized desktop slot.
+
+## Source fidelity correction — 2026-09-09
+
+The [official theme scale](https://ui.shadcn.com/docs/theming#radius-scale)
+uses the base radius for rounded-lg; choice cards now follow it directly,
+including live custom radius changes (0, 6 and 18px tested). Source `input`
+maps separately to `DTokens.colors.outlineVariant`; `border` remains
+`DTokens.border` for the unselected choice-card border.
+
+All Switch CSS opacity modifiers now multiply the existing token alpha:
+unchecked dark input ×.8; destructive borders/rings; focus rings; selected
+choice-card borders/backgrounds; and hover muted backgrounds. Focus borders,
+checked tracks and unmodified colors retain the source alpha unchanged.
+Tests deliberately separate input and border and use translucent tokens to
+prevent opaque default palettes from masking these distinctions. Controlled
+Form/reset behavior and all production callbacks are unchanged.
+
+## Browser-only comparison — 2026-09-09
+
+The coordinator granted an exclusive Chrome slot. Official Switch previews were
+captured in light and dark, with measured default/small tracks and thumbs,
+description and choice-card compositions, invalid and RTL states. Small Space
+travel was 10px, Enter returned it to unchecked, and RTL Space travel was -14px.
+Default reference height is 18.3984375 CSS pixels (browser subpixel quantization)
+versus Flutter's declared 18.4 logical pixels. Choice cards measure 384×86px,
+including 14/20px FieldTitle leading, 2px content gap and 10px inset + 1px border.
+Invalid description text stays muted; title, border and ring signal the error.
+The current site renders both wrapper and track focus rings inside choice cards;
+the implementation now follows that observed result.
+
+Compared saved official previews with final font-loaded actual-widget exports.
+Checked light primary was observed as black and corrected in the neutral export
+adapter. Dark input is white at .15 alpha, multiplied by .8 to .12. Actual source
+`border` is white at .1 alpha. Custom Forest/Plum exports at 360px/200% RTL showed
+wrapping and preserved compact artwork with square/18px-radius choice cards.
+Size examples now center and associate each clickable label; their rows remain
+48px high for separate native touch targets, versus approximately 39px center
+spacing in the browser. This is a specific native hit-target adaptation.
+
+Evidence and renderer/source hashes are in `evidence/switch/`. CSSOM stylesheet
+rules were not exposed by the read-only browser bridge (zero rules returned);
+actual DOM classes, computed values, saved registry source and screenshots are
+preserved instead, together with SHA256 hashes of all four observed immutable
+stylesheet URLs fetched through read-only HTTP. No screenshot pixel-equality claim is made: browser Geist/
+Noto Arabic and native SF/SF Arabic shaping differ, as do canvas pixel ratios.
+The shared DTokens.focusRing maps to host primary; the official neutral focus
+ring is an independent gray. This existing theme mapping remains explicit and
+was not changed globally in this component correction.
+
+The original website dark theme was restored, no viewport override was applied,
+and the sole comparison tab was closed before releasing the slot. No native app
+was launched or inspected. Native inspection remains awaiting_slot.

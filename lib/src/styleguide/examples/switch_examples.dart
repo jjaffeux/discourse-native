@@ -75,6 +75,15 @@ const DSwitch(initialValue: true, readOnly: true, semanticLabel: 'Read-only');''
       ),
     ),
     StyleguideExample(
+      title: 'Invalid',
+      description:
+          'The reference invalid state keeps the description muted and marks the switch and title.',
+      states: const ['Invalid', 'Description'],
+      code:
+          "DSwitchTile(invalid: true, value: accepted, onChanged: (value) => setState(() => accepted = value), title: const Text('Accept terms and conditions'), subtitle: const Text('You must accept the terms and conditions to continue.'))",
+      builder: (_) => const _SwitchDemo(kind: 'invalid'),
+    ),
+    StyleguideExample(
       title: 'Invalid and Form',
       description:
           'Submit without accepting, then accept and save. Reset restores the original value.',
@@ -91,25 +100,14 @@ const DSwitch(initialValue: true, readOnly: true, semanticLabel: 'Read-only');''
       title: 'Size',
       description:
           'Small and default keep their exact artwork inside accessible targets.',
-      states: const ['Small', 'Default', 'Uncontrolled'],
-      code: '''const DSwitch(size: DSwitchSize.small, semanticLabel: 'Small');
-const DSwitch(semanticLabel: 'Default');''',
-      builder: (_) => const Column(
-        children: [
-          Row(
-            children: [
-              DSwitch(size: DSwitchSize.small, semanticLabel: 'Small'),
-              Flexible(child: DLabel(child: Text('Small'))),
-            ],
-          ),
-          Row(
-            children: [
-              DSwitch(semanticLabel: 'Default'),
-              Flexible(child: DLabel(child: Text('Default'))),
-            ],
-          ),
-        ],
-      ),
+      states: const ['Small', 'Default', 'Associated label'],
+      code: '''DSwitchTile(leading: true, size: DSwitchSize.small, value: small,
+  onChanged: (value) => setState(() => small = value),
+  title: const DLabel(style: TextStyle(height: 1.375), child: Text('Small')));
+DSwitchTile(leading: true, value: standard,
+  onChanged: (value) => setState(() => standard = value),
+  title: const DLabel(style: TextStyle(height: 1.375), child: Text('Default')));''',
+      builder: (_) => const _SwitchSizes(),
     ),
     StyleguideExample(
       title: 'RTL',
@@ -158,9 +156,12 @@ class _SwitchDemoState extends State<_SwitchDemo> {
           value: _value,
           onChanged: (value) => setState(() => _value = value),
           choiceCard: kind == 'card',
+          invalid: kind == 'invalid',
           leading: kind == 'default',
           title: Text(
-            kind == 'default'
+            kind == 'invalid'
+                ? 'Accept terms and conditions'
+                : kind == 'default'
                 ? 'Airplane Mode'
                 : kind == 'rtl'
                 ? 'المشاركة عبر الأجهزة'
@@ -171,7 +172,9 @@ class _SwitchDemoState extends State<_SwitchDemo> {
           subtitle: kind == 'default' || kind == 'controlled'
               ? null
               : Text(
-                  kind == 'rtl'
+                  kind == 'invalid'
+                      ? 'You must accept the terms and conditions to continue.'
+                      : kind == 'rtl'
                       ? 'يتم مشاركة التركيز عبر الأجهزة، ويتم إيقاف تشغيله عند مغادرة التطبيق.'
                       : 'Focus is shared across devices, and turns off when you leave the app.',
                 ),
@@ -254,6 +257,46 @@ class _SwitchFormState extends State<_SwitchForm> {
         ),
         Text(_result),
       ],
+    ),
+  );
+}
+
+class _SwitchSizes extends StatefulWidget {
+  const _SwitchSizes();
+  @override
+  State<_SwitchSizes> createState() => _SwitchSizesState();
+}
+
+class _SwitchSizesState extends State<_SwitchSizes> {
+  bool _small = false;
+  bool _standard = false;
+  @override
+  Widget build(BuildContext context) => Align(
+    child: IntrinsicWidth(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DSwitchTile(
+            leading: true,
+            size: DSwitchSize.small,
+            value: _small,
+            onChanged: (value) => setState(() => _small = value),
+            title: const DLabel(
+              style: TextStyle(height: 1.375),
+              child: Text('Small'),
+            ),
+          ),
+          DSwitchTile(
+            leading: true,
+            value: _standard,
+            onChanged: (value) => setState(() => _standard = value),
+            title: const DLabel(
+              style: TextStyle(height: 1.375),
+              child: Text('Default'),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }

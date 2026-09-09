@@ -29,8 +29,7 @@ class DSwitch extends StatefulWidget {
     this.autofocus = false,
     this.semanticLabel,
     this.semanticHint,
-  }) : _content = null,
-       _card = false;
+  }) : _content = null;
 
   const DSwitch._tile({
     required this.value,
@@ -42,7 +41,6 @@ class DSwitch extends StatefulWidget {
     required this.focusNode,
     required this.autofocus,
     required this._content,
-    required this._card,
   }) : initialValue = false,
        semanticLabel = null,
        semanticHint = null;
@@ -59,7 +57,6 @@ class DSwitch extends StatefulWidget {
   final String? semanticLabel;
   final String? semanticHint;
   final Widget Function(BuildContext, Widget, bool, bool)? _content;
-  final bool _card;
 
   @override
   State<DSwitch> createState() => _DSwitchState();
@@ -94,7 +91,7 @@ class _DSwitchState extends State<DSwitch> {
       checked: _checked,
       size: widget.size,
       invalid: widget.invalid,
-      focused: _focusVisible && !widget._card,
+      focused: _focusVisible,
     );
     return MergeSemantics(
       child: Semantics(
@@ -192,18 +189,19 @@ class _SwitchArtwork extends StatelessWidget {
       decoration: BoxDecoration(
         color: checked
             ? tokens.primary
-            : tokens.border.withValues(alpha: dark ? 0.8 : 1),
+            : _multiplyAlpha(tokens.colors.outlineVariant, dark ? 0.8 : 1),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: invalid || focused
-              ? ring.withValues(alpha: invalid && dark ? 0.5 : 1)
+              ? _multiplyAlpha(ring, invalid && dark ? 0.5 : 1)
               : Colors.transparent,
         ),
         boxShadow: invalid || focused
             ? [
                 BoxShadow(
-                  color: ring.withValues(
-                    alpha: invalid ? (dark ? 0.4 : 0.2) : 0.5,
+                  color: _multiplyAlpha(
+                    ring,
+                    invalid ? (dark ? 0.4 : 0.2) : 0.5,
                   ),
                   spreadRadius: 3,
                 ),
@@ -279,7 +277,6 @@ class DSwitchTile extends StatelessWidget {
     size: size,
     focusNode: focusNode,
     autofocus: autofocus,
-    card: choiceCard,
     content: (context, artwork, focused, hovered) {
       final tokens = DTokens.of(context);
       final dark = Theme.of(context).brightness == Brightness.dark;
@@ -296,19 +293,19 @@ class DSwitchTile extends StatelessWidget {
                   color: focused
                       ? tokens.focusRing
                       : value
-                      ? tokens.primary.withValues(alpha: dark ? 0.2 : 0.3)
+                      ? _multiplyAlpha(tokens.primary, dark ? 0.2 : 0.3)
                       : tokens.border,
                 ),
-                borderRadius: BorderRadius.circular(tokens.radius + 4),
+                borderRadius: BorderRadius.circular(tokens.radius),
                 color: hovered && enabled && onChanged != null
-                    ? tokens.muted.withValues(alpha: 0.5)
+                    ? _multiplyAlpha(tokens.muted, 0.5)
                     : value
-                    ? tokens.primary.withValues(alpha: dark ? 0.1 : 0.05)
+                    ? _multiplyAlpha(tokens.primary, dark ? 0.1 : 0.05)
                     : null,
                 boxShadow: focused
                     ? [
                         BoxShadow(
-                          color: tokens.focusRing.withValues(alpha: 0.5),
+                          color: _multiplyAlpha(tokens.focusRing, 0.5),
                           spreadRadius: 3,
                         ),
                       ]
@@ -329,14 +326,22 @@ class DSwitchTile extends StatelessWidget {
                   title is DLabel
                       ? DLabel(
                           style: TextStyle(
-                            height: subtitle == null && leading ? 1 : 1.375,
+                            height: choiceCard
+                                ? 20 / 14
+                                : subtitle == null && leading
+                                ? 1
+                                : 1.375,
                             color: invalid ? tokens.destructive : null,
                           ).merge((title as DLabel).style),
                           child: (title as DLabel).child,
                         )
                       : DLabel(
                           style: TextStyle(
-                            height: subtitle == null && leading ? 1 : 1.375,
+                            height: choiceCard
+                                ? 20 / 14
+                                : subtitle == null && leading
+                                ? 1
+                                : 1.375,
                             color: invalid ? tokens.destructive : null,
                           ),
                           child: title,
@@ -347,9 +352,7 @@ class DSwitchTile extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                         fontSize: DiscourseTypography.sm,
                         height: 1.5,
-                        color: invalid
-                            ? tokens.destructive
-                            : tokens.mutedForeground,
+                        color: tokens.mutedForeground,
                       ),
                       child: subtitle!,
                     ),
@@ -453,3 +456,7 @@ class _DSwitchFormFieldState extends FormFieldState<bool> {
     widget.onChanged?.call(widget._resetValue);
   }
 }
+
+// CSS opacity modifiers preserve any transparency in the host token.
+Color _multiplyAlpha(Color color, double factor) =>
+    color.withValues(alpha: color.a * factor);

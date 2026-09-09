@@ -1,0 +1,174 @@
+{
+  "flutter-neutral-light-airplane-mode": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-light-description": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-light-choice-card": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-light-size": [
+    {
+      "size": "Size(24.0, 14.0)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-light-rtl": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-light-invalid": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 1.0000, red: 0.9059, green: 0.0000, blue: 0.0431, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0),\n  boxShadow: [BoxShadow(Color(alpha: 0.2000, red: 0.9059, green:\n    0.0000, blue: 0.0431, colorSpace: ColorSpace.sRGB), Offset(0.0,\n    0.0), 0.0, 3.0, BlurStyle.normal)]\n  )"
+    }
+  ],
+  "flutter-neutral-light-states": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 1.0000, red: 0.9059, green: 0.0000, blue: 0.0431, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0),\n  boxShadow: [BoxShadow(Color(alpha: 0.2000, red: 0.9059, green:\n    0.0000, blue: 0.0431, colorSpace: ColorSpace.sRGB), Offset(0.0,\n    0.0), 0.0, 3.0, BlurStyle.normal)]\n  )"
+    }
+  ],
+  "flutter-neutral-dark-airplane-mode": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-dark-description": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-dark-choice-card": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-dark-size": [
+    {
+      "size": "Size(24.0, 14.0)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-dark-rtl": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-neutral-dark-invalid": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.5000, red: 1.0000, green: 0.3922, blue: 0.4039, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0),\n  boxShadow: [BoxShadow(Color(alpha: 0.4000, red: 1.0000, green:\n    0.3922, blue: 0.4039, colorSpace: ColorSpace.sRGB), Offset(0.0,\n    0.0), 0.0, 3.0, BlurStyle.normal)]\n  )"
+    }
+  ],
+  "flutter-neutral-dark-states": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8980, green: 0.8980, blue: 0.8980, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.1192, red: 1.0000, green: 1.0000, blue: 1.0000, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.5000, red: 1.0000, green: 0.3922, blue: 0.4039, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0),\n  boxShadow: [BoxShadow(Color(alpha: 0.4000, red: 1.0000, green:\n    0.3922, blue: 0.4039, colorSpace: ColorSpace.sRGB), Offset(0.0,\n    0.0), 0.0, 3.0, BlurStyle.normal)]\n  )"
+    }
+  ],
+  "flutter-forest-radius-0-rtl200": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.7961, green: 0.8667, blue: 0.8157, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.1294, green: 0.4314, blue: 0.2941, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-forest-radius-18-rtl200": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.7961, green: 0.8667, blue: 0.8157, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.1294, green: 0.4314, blue: 0.2941, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-plum-radius-0-rtl200": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.8000, red: 0.2863, green: 0.2078, blue: 0.3098, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8627, green: 0.6510, blue: 0.9412, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ],
+  "flutter-plum-radius-18-rtl200": [
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 0.8000, red: 0.2863, green: 0.2078, blue: 0.3098, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    },
+    {
+      "size": "Size(32.0, 18.4)",
+      "decoration": "BoxDecoration(color: Color(alpha: 1.0000, red: 0.8627, green: 0.6510, blue: 0.9412, colorSpace: ColorSpace.sRGB), border: Border.all(BorderSide(color: Color(alpha: 0.0000, red: 0.0000, green: 0.0000, blue: 0.0000, colorSpace: ColorSpace.sRGB))), borderRadius: BorderRadius.circular(999.0))"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/styleguide/examples/switch_examples.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -398,50 +398,239 @@ void main() {
     },
   );
 
-  testWidgets('choice card hover and keyboard focus use the wrapper ring', (
-    tester,
-  ) async {
-    final strategy = FocusManager.instance.highlightStrategy;
-    FocusManager.instance.highlightStrategy =
-        FocusHighlightStrategy.alwaysTraditional;
-    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
-    await mount(
-      tester,
-      DSwitchTile(
-        value: true,
-        onChanged: (_) {},
-        choiceCard: true,
-        focusNode: focus,
-        title: const Text('Card'),
-      ),
-    );
-    final containers = find.descendant(
-      of: find.byType(DSwitch),
-      matching: find.byType(AnimatedContainer),
-    );
-    final tokens = DTokens.of(tester.element(find.byType(DSwitch)));
-    BoxDecoration card() =>
-        tester.widget<AnimatedContainer>(containers.first).decoration!
-            as BoxDecoration;
-    expect(card().color, tokens.primary.withValues(alpha: .05));
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(tester.getCenter(find.text('Card')));
-    await tester.pumpAndSettle();
-    expect(card().color, tokens.muted.withValues(alpha: .5));
-    focus.requestFocus();
-    await tester.pumpAndSettle();
-    expect(card().boxShadow!.single.spreadRadius, 3);
-    expect(
-      (tester.widget<AnimatedContainer>(containers.last).decoration!
-              as BoxDecoration)
-          .boxShadow,
-      isNull,
-    );
-    await mouse.removePointer();
-  });
+  testWidgets(
+    'choice card hover and keyboard focus match wrapper and track rings',
+    (tester) async {
+      final strategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      await mount(
+        tester,
+        DSwitchTile(
+          value: true,
+          onChanged: (_) {},
+          choiceCard: true,
+          focusNode: focus,
+          title: const Text('Card'),
+        ),
+      );
+      final containers = find.descendant(
+        of: find.byType(DSwitch),
+        matching: find.byType(AnimatedContainer),
+      );
+      final tokens = DTokens.of(tester.element(find.byType(DSwitch)));
+      BoxDecoration card() =>
+          tester.widget<AnimatedContainer>(containers.first).decoration!
+              as BoxDecoration;
+      expect(card().color, tokens.primary.withValues(alpha: .05));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.text('Card')));
+      await tester.pumpAndSettle();
+      expect(card().color, tokens.muted.withValues(alpha: .5));
+      focus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(card().boxShadow!.single.spreadRadius, 3);
+      expect(
+        (tester.widget<AnimatedContainer>(containers.last).decoration!
+                as BoxDecoration)
+            .boxShadow!
+            .single
+            .spreadRadius,
+        3,
+      );
+      await mouse.removePointer();
+    },
+  );
+
+  testWidgets(
+    'input surface stays distinct from border and preserves translucent alpha',
+    (tester) async {
+      for (final dark in [false, true]) {
+        final base = dark ? AppTheme.dark : AppTheme.light;
+        final tokens = DTokens.fromTheme(base).copyWith(
+          border: const Color(0x66448822),
+          colors: base.colorScheme.copyWith(
+            outlineVariant: const Color(0x337733aa),
+            error: const Color(0x80dd2211),
+          ),
+        );
+        await mount(
+          tester,
+          const DSwitch(initialValue: false, invalid: true),
+          theme: base.copyWith(extensions: [tokens]),
+        );
+        await tester.pumpAndSettle();
+        final track = tester.widget<AnimatedContainer>(
+          find.descendant(
+            of: find.byType(DSwitch),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        final decoration = track.decoration! as BoxDecoration;
+        expect(
+          decoration.color,
+          tokens.colors.outlineVariant.withValues(
+            alpha: tokens.colors.outlineVariant.a * (dark ? .8 : 1),
+          ),
+        );
+        expect(decoration.color, isNot(tokens.border));
+        expect(
+          (decoration.border! as Border).top.color,
+          tokens.destructive.withValues(
+            alpha: tokens.destructive.a * (dark ? .5 : 1),
+          ),
+        );
+        expect(
+          decoration.boxShadow!.single.color,
+          tokens.destructive.withValues(
+            alpha: tokens.destructive.a * (dark ? .4 : .2),
+          ),
+        );
+      }
+    },
+  );
+
+  testWidgets(
+    'choice card live radius and translucent selected hover focus tokens follow source',
+    (tester) async {
+      final strategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      for (final dark in [false, true]) {
+        final base = dark ? AppTheme.dark : AppTheme.light;
+        for (final radius in [0.0, 6.0, 18.0]) {
+          final tokens = DTokens.fromTheme(base).copyWith(
+            radius: radius,
+            border: const Color(0x66551122),
+            muted: const Color(0x4033aabb),
+            colors: base.colorScheme.copyWith(
+              primary: const Color(0x809944cc),
+              outlineVariant: const Color(0x3333aa99),
+            ),
+          );
+          await mount(
+            tester,
+            DSwitchTile(
+              value: true,
+              onChanged: (_) {},
+              choiceCard: true,
+              focusNode: focus,
+              title: const Text('Card'),
+            ),
+            theme: base.copyWith(extensions: [tokens]),
+          );
+          await tester.pumpAndSettle();
+          final containers = find.descendant(
+            of: find.byType(DSwitch),
+            matching: find.byType(AnimatedContainer),
+          );
+          BoxDecoration card() =>
+              tester.widget<AnimatedContainer>(containers.first).decoration!
+                  as BoxDecoration;
+          expect(card().borderRadius, BorderRadius.circular(radius));
+          expect(
+            card().color,
+            tokens.primary.withValues(
+              alpha: tokens.primary.a * (dark ? .1 : .05),
+            ),
+          );
+          expect(
+            (card().border! as Border).top.color,
+            tokens.primary.withValues(
+              alpha: tokens.primary.a * (dark ? .2 : .3),
+            ),
+          );
+          await mouse.moveTo(tester.getCenter(find.text('Card')));
+          await tester.pumpAndSettle();
+          expect(
+            card().color,
+            tokens.muted.withValues(alpha: tokens.muted.a * .5),
+          );
+          focus.requestFocus();
+          await tester.pumpAndSettle();
+          expect((card().border! as Border).top.color, tokens.focusRing);
+          expect(
+            card().boxShadow!.single.color,
+            tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5),
+          );
+          focus.unfocus();
+          await mouse.moveTo(Offset.zero);
+          await tester.pumpAndSettle();
+        }
+        final tokens = DTokens.fromTheme(
+          base,
+        ).copyWith(border: const Color(0x66551122));
+        await mount(
+          tester,
+          DSwitchTile(
+            value: false,
+            onChanged: (_) {},
+            choiceCard: true,
+            title: const Text('Unchecked'),
+          ),
+          theme: base.copyWith(extensions: [tokens]),
+        );
+        final card =
+            tester
+                    .widget<AnimatedContainer>(
+                      find
+                          .descendant(
+                            of: find.byType(DSwitch),
+                            matching: find.byType(AnimatedContainer),
+                          )
+                          .first,
+                    )
+                    .decoration!
+                as BoxDecoration;
+        expect((card.border! as Border).top.color, tokens.border);
+      }
+      await mouse.removePointer();
+    },
+  );
+
+  testWidgets(
+    'choice-card title leading and invalid description match measured source',
+    (tester) async {
+      await mount(
+        tester,
+        DSwitchTile(
+          choiceCard: true,
+          invalid: true,
+          value: false,
+          onChanged: (_) {},
+          title: const Text('Title'),
+          subtitle: const Text('One\nTwo'),
+        ),
+      );
+      expect(tester.getSize(find.byType(DSwitchTile)).height, 86);
+      final titleStyle = tester
+          .renderObject<RenderParagraph>(find.text('Title'))
+          .text
+          .style!;
+      final descriptionStyle = tester
+          .renderObject<RenderParagraph>(find.text('One\nTwo'))
+          .text
+          .style!;
+      expect(titleStyle.fontSize! * titleStyle.height!, 20);
+      expect(
+        titleStyle.color,
+        DTokens.of(tester.element(find.byType(DSwitchTile))).destructive,
+      );
+      expect(
+        descriptionStyle.color,
+        DTokens.of(tester.element(find.byType(DSwitchTile))).mutedForeground,
+      );
+    },
+  );
 
   for (final example in switchExamples.examples) {
     testWidgets('${example.title} wraps at narrow width large text and RTL', (
