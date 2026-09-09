@@ -1105,7 +1105,7 @@
     },
     {
       "id": "progress",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
       "branch": "codex/ui-progress",
       "dependencies": [
@@ -1119,10 +1119,10 @@
         "Pass focused regressions, root/full analysis and isolated traceable macOS build; require exclusive rendered/native review before review_ready."
       ],
       "decisions": [
-        "Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.",
+        "Label is merged. Slider is demonstrative and not an implementation dependency; controlled progress uses DButton actions while Slider remains independently owned.",
         "Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.",
         "Range is 0–100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.",
-        "Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review.",
+        "Six real-component examples cover reference basic timer, label/value, controlled DButton actions, RTL, async/range edges and explicit parts; independent rendered/native acceptance promoted the styleguide entry to implemented.",
         "Pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 integrated; final Button/Badge/Input/Radio/Checkbox and shared application fixes preserved. DButton example actions now use merged Button."
       ],
       "migrations": [
@@ -1137,17 +1137,18 @@
         "Root/full locked pub get and root/full analyze --no-pub pass; no lockfile/pin/dependency/runner source changes.",
         "302 focused tests passed, seed 9092026; after timing/typography/example refinements 10 component/example/fixture cases passed again. Commands and logs recorded in implementation.md.",
         "Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034.",
-        "Pinned-main integration: 142 focused tests pass seed9092026; root/full analysis clean. Refreshed /tmp/DiscourseProgressc8r2.app matches source a2984ddb589533370262b77270dab688e8b0a4bc and all built Flutter assets. Kernel d7ec6e8f4046cdc6db93fb6546d22ac5c64d69faa2325b95082db0623e85808b. Deep strict ad-hoc signature and exact restricted-free entitlement readback pass; details in native-manifest.json."
+        "Pinned-main integration: 142 focused tests pass seed9092026; root/full analysis clean. Refreshed /tmp/DiscourseProgressc8r2.app matches source a2984ddb589533370262b77270dab688e8b0a4bc and all built Flutter assets. Kernel d7ec6e8f4046cdc6db93fb6546d22ac5c64d69faa2325b95082db0623e85808b. Deep strict ad-hoc signature and exact restricted-free entitlement readback pass; details in native-manifest.json.",
+        "Independent review: 26 focused component/example/fixture/update/Assign tests passed; a broader run had 115 passing cases and only an explicitly mistyped nonexistent test path, then the clean focused rerun passed. Root and profiles/full analysis passed with no issues; nine component/styleguide tests passed after the acceptance-only status update.",
+        "Official Base UI browser light/dark comparison measured 4px tracks, 384x36 composed geometry and the 150ms standard transition. Isolated macOS review passed light/dark/Forest, 360px/200%/RTL, reduced motion, keyboard activation, native AX boundaries and real upload/download/event/badge transitions. Exact-source /tmp/DiscourseProgressReview6adbb135.app has matching kernel SHA256 38e072176e4ed4538d3edea674b6044d6ad7eb7127dc7570edb9a5fb81318d7c, strict deep signature and restricted-free debug entitlements."
       ],
       "limitations": [
-        "No native/reference rendered comparison or CUA use before exclusive desktop slot; not review_ready. No iOS/Linux device or spoken VoiceOver verification.",
         "Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only.",
-        "Browser-only reference slot released immediately: first navigation denied because admin-enforced browser security policy could not be verified. No retry/workaround, website theme unchanged, native access not attempted. Rendered comparison remains pending."
+        "No iOS/Linux device run or spoken VoiceOver verification was performed; browser and native font rasterizers differ, so review establishes measured geometry, behavior and palette mapping rather than pixel equality."
       ],
       "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
-      "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot",
-      "reviewStatus": "in_progress",
+      "mergeCommit": "15da313eb259c51c6bbed5974895b6616c32c84c",
+      "nativeInspectionStatus": "completed",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
       "reviewBranch": "codex/review-progress"
     },
@@ -2844,15 +2845,6 @@
           "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a"
         },
         {
-          "component": "progress",
-          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
-          "branch": "codex/review-progress",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
-          "headCommit": "1c21a43597a31f55b7bab4a325d879dde8bcf9f4",
-          "status": "independent_review",
-          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8"
-        },
-        {
           "component": "textarea",
           "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
           "branch": "codex/review-textarea",
@@ -3145,17 +3137,6 @@
           "branch": "codex/review-table",
           "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
           "implementationBranch": "codex/ui-table",
-          "status": "in_progress"
-        },
-        {
-          "component": "progress",
-          "title": "Review and merge Progress",
-          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
-          "branch": "codex/review-progress",
-          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
-          "implementationBranch": "codex/ui-progress",
           "status": "in_progress"
         },
         {

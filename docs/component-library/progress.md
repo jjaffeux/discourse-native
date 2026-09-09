@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**22 of 64 components are merged locally.** 17 existing components are in progress; 25 are planned.
+**23 of 64 components are merged locally.** 16 existing components are in progress; 25 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -18,7 +18,6 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
 | toggle | independent review | 17e7778e | 01a08579-4e43-7ce2-9919-546137c84a24 |
-| progress | independent review | 1c21a435 | 01a08558-73d7-7d01-9b97-39615e28df0e |
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | table | independent review | b3107cab | 01a08558-73ce-7a51-bfd4-8e0f48d5f675 |
@@ -55,7 +54,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 15 | toggle | in_progress | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
-| 18 | progress | in_progress | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | — |
+| 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
@@ -1203,7 +1202,7 @@ Status: merged. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-sli
 
 ### progress
 
-Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/ui-progress.
+Status: merged. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/ui-progress.
 
 **acceptanceCriteria**
 
@@ -1215,10 +1214,10 @@ Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/u
 
 **decisions**
 
-- Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.
+- Label is merged. Slider is demonstrative and not an implementation dependency; controlled progress uses DButton actions while Slider remains independently owned.
 - Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.
 - Range is 0–100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.
-- Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review.
+- Six real-component examples cover reference basic timer, label/value, controlled DButton actions, RTL, async/range edges and explicit parts; independent rendered/native acceptance promoted the styleguide entry to implemented.
 - Pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 integrated; final Button/Badge/Input/Radio/Checkbox and shared application fixes preserved. DButton example actions now use merged Button.
 
 **migrations**
@@ -1237,12 +1236,13 @@ Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/u
 - 302 focused tests passed, seed 9092026; after timing/typography/example refinements 10 component/example/fixture cases passed again. Commands and logs recorded in implementation.md.
 - Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034.
 - Pinned-main integration: 142 focused tests pass seed9092026; root/full analysis clean. Refreshed /tmp/DiscourseProgressc8r2.app matches source a2984ddb589533370262b77270dab688e8b0a4bc and all built Flutter assets. Kernel d7ec6e8f4046cdc6db93fb6546d22ac5c64d69faa2325b95082db0623e85808b. Deep strict ad-hoc signature and exact restricted-free entitlement readback pass; details in native-manifest.json.
+- Independent review: 26 focused component/example/fixture/update/Assign tests passed; a broader run had 115 passing cases and only an explicitly mistyped nonexistent test path, then the clean focused rerun passed. Root and profiles/full analysis passed with no issues; nine component/styleguide tests passed after the acceptance-only status update.
+- Official Base UI browser light/dark comparison measured 4px tracks, 384x36 composed geometry and the 150ms standard transition. Isolated macOS review passed light/dark/Forest, 360px/200%/RTL, reduced motion, keyboard activation, native AX boundaries and real upload/download/event/badge transitions. Exact-source /tmp/DiscourseProgressReview6adbb135.app has matching kernel SHA256 38e072176e4ed4538d3edea674b6044d6ad7eb7127dc7570edb9a5fb81318d7c, strict deep signature and restricted-free debug entitlements.
 
 **limitations**
 
-- No native/reference rendered comparison or CUA use before exclusive desktop slot; not review_ready. No iOS/Linux device or spoken VoiceOver verification.
 - Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only.
-- Browser-only reference slot released immediately: first navigation denied because admin-enforced browser security policy could not be verified. No retry/workaround, website theme unchanged, native access not attempted. Rendered comparison remains pending.
+- No iOS/Linux device run or spoken VoiceOver verification was performed; browser and native font rasterizers differ, so review establishes measured geometry, behavior and palette mapping rather than pixel equality.
 
 ### skeleton
 

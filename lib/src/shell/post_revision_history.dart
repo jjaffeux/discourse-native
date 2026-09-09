@@ -186,7 +186,10 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (controller.loading)
-                  const LinearProgressIndicator(minHeight: 2),
+                  const DProgress(
+                    semanticsLabel: 'Loading revision',
+                    track: DProgressTrack(height: 2),
+                  ),
                 if (controller.error case final error?) ...[
                   _InlineError(message: error),
                   const SizedBox(height: 12),
