@@ -24,6 +24,78 @@ void main() {
   );
 
   testWidgets(
+    'small leading and loading icon padding match rendered reference',
+    (tester) async {
+      await pump(
+        tester,
+        DButton(
+          label: const Text('Small'),
+          size: DButtonSize.small,
+          onPressed: () {},
+        ),
+      );
+      final smallStyle = tester
+          .widget<FilledButton>(find.byType(FilledButton))
+          .style!;
+      expect(smallStyle.textStyle!.resolve({})!.height, 22.4 / 12.8);
+      expect(tester.getSize(find.byType(FilledButton)).height, 28);
+      for (final position in DButtonIconPosition.values) {
+        await pump(
+          tester,
+          DButton(
+            label: const Text('Generate'),
+            loading: true,
+            loadingLabel: const Text('Generating'),
+            iconPosition: position,
+            onPressed: () {},
+          ),
+        );
+        final padding =
+            tester
+                    .widget<FilledButton>(find.byType(FilledButton))
+                    .style!
+                    .padding!
+                    .resolve({})!
+                as EdgeInsetsDirectional;
+        expect(padding.start, position == DButtonIconPosition.start ? 9 : 11);
+        expect(padding.end, position == DButtonIconPosition.end ? 9 : 11);
+      }
+    },
+  );
+
+  testWidgets('dark outline preserves input token alpha through its overlays', (
+    tester,
+  ) async {
+    final base = AppTheme.dark;
+    const input = Color(0x26ffffff);
+    final tokens = base.extension<DTokens>()!.copyWith(
+      colors: base.colorScheme.copyWith(outlineVariant: input),
+    );
+    await pump(
+      tester,
+      DButton(
+        label: const Text('Outline'),
+        variant: DButtonVariant.outline,
+        onPressed: () {},
+      ),
+      theme: base.copyWith(
+        extensions: [
+          ...base.extensions.values.where((x) => x is! DTokens),
+          tokens,
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    final style = tester.widget<FilledButton>(find.byType(FilledButton)).style!;
+    expect(style.backgroundColor!.resolve({})!.a, closeTo(input.a * .3, .0001));
+    expect(
+      style.backgroundColor!.resolve({WidgetState.hovered})!.a,
+      closeTo(input.a * .5, .0001),
+    );
+    expect(style.side!.resolve({})!.color, input);
+  });
+
+  testWidgets(
     'small inset app icons keep touch targets outside their painted surface',
     (tester) async {
       final semantics = tester.ensureSemantics();

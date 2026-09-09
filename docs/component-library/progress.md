@@ -538,6 +538,7 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Preserve caller-owned loading/Futures, rich semantic names, borrowed focus nodes and shared Tooltip/Spinner.
 - Reference sources and hashes, native adaptations and pending rendered comparison recorded in docs/component-library/button.md.
 - Coordinator touch-target correction: small legacy inset surfaces keep 32px paint/40px desktop targets but clamp iOS/Android targets to 48px independently.
+- Browser/export comparison corrected Small leading to22.4px, dark input-token alpha multiplication, leading loading padding, and responsive Size composition; added exact Arabic reference composition.
 
 **migrations**
 
@@ -563,10 +564,12 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - All seven Button examples also passed the 260px/200%/RTL/reduced-motion layout test in Light, Dark, Forest and Plum. Example async and navigation tests pass.
 - Reproduced 40px small inset touch-target defect, then passed 27 Button/Chat-header/topic-creation tests including flat/flatClose/explicit inset semantic bounds and edge activation on macOS/iOS/Android profiles. Root and full-profile analysis clean. Logs /private/tmp/button-inset-*.log.
 - Corrected source byte-verified and rebuilt in /private/tmp/DiscourseButtonReview-3a88-v2.app (unique org.discourse.native.button-review.3a88.v2 ID/scheme); deep strict signature passes. Kernel SHA256 b229b90dee48bcda90cefc31e8a9f4ee398673f7400a8da4b9f3566ede5fbc26. V2 supersedes the earlier unlaunched review bundle.
+- Actual CUA Chrome reference comparison completed at1270x847 and360x700 against exact current Flutter widget-test exports, including six variants, all sizes/icons/loading, settled hover/focus and Arabic RTL. Evidence/metrics/harness in docs/component-library/evidence/button; detailed findings in button-rendered-comparison.md. Browser viewport reset, original dark theme restored and tab closed.
+- After rendered-comparison fixes,218 Button/styleguide/adoption/PollCard/UserSummary tests passed;11 final focused tests passed after Arabic example; root/full-profile analysis and font-loaded export harness pass.
 
 **limitations**
 
-- Native official-reference comparison and real app fixture inspection pending Mac unlock and explicit coordinator desktop slot. Do not mark review_ready.
+- Actual native production-fixture verification remains pending Mac unlock and coordinator native slot. Browser-versus-widget-export comparison is complete but does not satisfy the native gate; do not mark review_ready.
 - No iOS/Linux native device, spoken VoiceOver or automated cross-renderer pixel-diff claim.
 
 ### separator

@@ -48,7 +48,7 @@ final buttonExamples = ComponentExamples(
           'Icons follow the reading direction. Rounded surfaces use an explicit radius.',
       states: const ['Leading icon', 'Trailing icon', 'Rounded', 'RTL'],
       code:
-          "DButton(label: const Text('Fork'), icon: const ButtonReferenceIcon(ButtonReferenceIcon.gitFork), iconPosition: DButtonIconPosition.end, variant: DButtonVariant.outline, onPressed: fork)",
+          "DButton(label: const Text('Fork'), icon: const Icon(Icons.fork_right), iconPosition: DButtonIconPosition.end, variant: DButtonVariant.outline, onPressed: fork)",
       builder: (_) => const _ButtonComposition(),
     ),
     StyleguideExample(
@@ -83,6 +83,15 @@ final buttonExamples = ComponentExamples(
       code:
           "DButton(label: const Text('Wrap long labels', softWrap: true, maxLines: 3), variant: DButtonVariant.outline, onPressed: save)",
       builder: (_) => const _ButtonEdges(),
+    ),
+    StyleguideExample(
+      title: 'RTL',
+      description:
+          'The documented Arabic composition mirrors icons and spacing.',
+      states: const ['Arabic', 'RTL', 'Disabled spinner'],
+      code:
+          "Directionality(textDirection: TextDirection.rtl, child: DButton(label: const Text('إرسال'), iconPosition: DButtonIconPosition.end, icon: const Icon(Icons.arrow_back), variant: DButtonVariant.outline, onPressed: submit))",
+      builder: (_) => const _ButtonRtl(),
     ),
     StyleguideExample(
       title: 'Application variants',
@@ -153,10 +162,8 @@ class _ButtonVariantsState extends State<_ButtonVariants> {
 class _ButtonSizes extends StatelessWidget {
   const _ButtonSizes();
   @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: 32,
-    runSpacing: 16,
-    children: [
+  Widget build(BuildContext context) {
+    final children = <Widget>[
       for (final size in DButtonSize.values)
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -194,8 +201,21 @@ class _ButtonSizes extends StatelessWidget {
             ),
           ],
         ),
-    ],
-  );
+    ];
+    return MediaQuery.sizeOf(context).width < 640
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 32,
+            children: children,
+          )
+        : Wrap(
+            spacing: 32,
+            runSpacing: 32,
+            crossAxisAlignment: WrapCrossAlignment.start,
+            children: children,
+          );
+  }
 }
 
 class _ButtonComposition extends StatelessWidget {
@@ -461,4 +481,59 @@ class _ButtonEdgesState extends State<_ButtonEdges> {
       ),
     ],
   );
+}
+
+class _ButtonRtl extends StatelessWidget {
+  const _ButtonRtl();
+
+  @override
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        DButton(
+          label: const Text('زر'),
+          variant: DButtonVariant.outline,
+          onPressed: () => _feedback(context),
+        ),
+        DButton(
+          label: const Text('حذف'),
+          variant: DButtonVariant.destructive,
+          onPressed: () => _feedback(context),
+        ),
+        DButton(
+          label: const Text('إرسال'),
+          variant: DButtonVariant.outline,
+          iconPosition: DButtonIconPosition.end,
+          icon: Transform.flip(
+            flipX: true,
+            child: const ButtonReferenceIcon(ButtonReferenceIcon.arrowRight),
+          ),
+          onPressed: () => _feedback(context),
+        ),
+        DButton.iconOnly(
+          icon: const ButtonReferenceIcon(ButtonReferenceIcon.plus),
+          tooltip: 'إضافة',
+          variant: DButtonVariant.outline,
+          onPressed: () => _feedback(context),
+        ),
+        const DButton(
+          label: Text('جاري التحميل'),
+          icon: DSpinner(semanticLabel: null),
+          variant: DButtonVariant.secondary,
+          onPressed: null,
+        ),
+      ],
+    ),
+  );
+
+  void _feedback(BuildContext context) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم التفعيل'),
+          duration: Duration(seconds: 1),
+        ),
+      );
 }

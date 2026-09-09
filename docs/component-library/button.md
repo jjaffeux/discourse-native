@@ -15,7 +15,8 @@ Retrieved 2026-09-09 with read-only HTTPS requests:
   preserved at `reference/button.json`, SHA256
   `9ba7e870178813f0552b818a913a2792fb500c779e36395740b4973e3025d427`.
 - [Rendered documentation](https://ui.shadcn.com/docs/components/base/button).
-  Desktop inspection is pending the coordinator's slot and Mac unlock.
+  Browser comparison is complete; native application inspection remains pending.
+  See [the rendered comparison](button-rendered-comparison.md).
 - Exact Lucide and Tabler example SVG URLs and hashes are recorded in
   `reference/button-icons.json`. Reusable Button accepts caller-supplied artwork;
   the documentation specimens use the original SVGs. Existing app icons remain
@@ -31,14 +32,14 @@ metrics; they are not represented as completed native measurements.
 | --- | --- |
 | Default `h-8`, xs `h-6`, sm `h-7`, lg `h-9` | regular 32, extraSmall 24, small 28, large 36px minimum surfaces |
 | icon / icon-xs / icon-sm / icon-lg | `DButton.iconOnly` at the same sizes |
-| 14px/20px medium; xs 12px/16px; sm .8rem | Explicit 14/20, 12/16, 12.8/20 metrics and 500 weight, no extra tracking |
+| 14px/20px medium; xs 12px/16px; sm .8rem | Explicit 14/20, 12/16, 12.8/22.4 metrics and 500 weight, no extra tracking |
 | Default/lg gap 1.5, xs/sm gap 1 | 6px / 4px directional gap |
 | px-2.5 or xs px-2, transparent 1px border | 10px / 8px padding plus 1px border-box inset |
 | Inline icon reduces adjacent padding | 8px default/lg, 6px xs/sm plus border inset, mirrored in RTL |
 | Default 16px SVG, xs12px, sm14px; icon-sm16px | Inherited IconTheme; explicit caller artwork can override |
 | rounded-lg; xs/sm min(radius-md,10/12px) | Host radius; small radius subtracts 2px then caps at 10/12 |
 | Default primary, hover primary/80 | Live primary/primaryForeground tokens and .8 alpha hover |
-| Outline background/border, muted hover; dark input/30 → /50 | Background/border tokens; dark border .3 → .5 alpha |
+| Outline background/border, muted hover; dark input/30 → /50 | Background/border tokens; dark input token alpha multiplied by .3 → .5 |
 | Secondary → foreground 5% mix | Muted surface and 5% foreground interpolation (Flutter sRGB adaptation; CSS uses OKLCH) |
 | Ghost transparent → muted; dark muted/50 | Matching token/alpha mapping |
 | Destructive .1 → .2, dark .2 → .3 | Tinted destructive surface and destructive text, rather than legacy solid danger |
@@ -76,7 +77,7 @@ No widget-owned Future can finish after disposal. The example owns its Future,
 guards repeated activation and checks `mounted` after completion. Focus nodes
 are borrowed. Tooltip and shortcut presentation use the completed shared owners.
 
-The seven examples account for all frozen Button sections: variants, all sizes,
+The eight examples account for all frozen Button sections: variants, all sizes,
 Icon/With Icon, Rounded, Spinner, navigation/link semantics, RTL, shortcut hints,
 rich content and compatibility states. Joined buttons illustrate explicit radius
 composition. Button Group and Dropdown Menu are separately pending catalogue
@@ -122,9 +123,9 @@ creation, composer, settings, and plugin actions.
 
 ## Pending native evidence
 
-The Mac is locked. No CUA, apps or browser tabs were touched. The coordinator
-must grant the desktop slot before inspecting the official page and uniquely
-identified debug bundle. Native visual comparison, real-widget interactions,
+The Mac is locked. The browser-only slot allowed actual reference comparison
+with widget-test exports; see [comparison evidence](button-rendered-comparison.md).
+No native application was touched. Native visual comparison, real-widget interactions,
 custom palettes and large-text/RTL review remain required; this component is
 not review_ready. No iOS/Linux device run, spoken VoiceOver or pixel-diff parity
 is claimed by widget tests.

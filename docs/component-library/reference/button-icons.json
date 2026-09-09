@@ -23,5 +23,15 @@
     "name": "gitFork",
     "url": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/git-fork.svg",
     "sha256": "6d185a204b06620ad64132215c3118243b5c07f5c6bddc384f3854e9e8d4469e"
+  },
+  {
+    "name": "arrowRight",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/arrow-right.svg",
+    "sha256": "288397fdb73bb4f783cf9eabb726ff47357df1d4e3f1201dd748090579f108b9"
+  },
+  {
+    "name": "plus",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/plus.svg",
+    "sha256": "7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17"
   }
 ]

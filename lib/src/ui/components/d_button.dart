@@ -469,14 +469,22 @@ class DButton extends StatelessWidget {
     return switch (variant) {
       DButtonVariant.primary => pair(
         tokens.primary,
-        tokens.primary.withValues(alpha: .8),
+        tokens.primary.withValues(alpha: tokens.primary.a * .8),
         tokens.primaryForeground,
       ),
       DButtonVariant.outline => pair(
-        dark ? tokens.border.withValues(alpha: .3) : tokens.background,
-        dark ? tokens.border.withValues(alpha: .5) : tokens.muted,
+        dark
+            ? tokens.colors.outlineVariant.withValues(
+                alpha: tokens.colors.outlineVariant.a * .3,
+              )
+            : tokens.background,
+        dark
+            ? tokens.colors.outlineVariant.withValues(
+                alpha: tokens.colors.outlineVariant.a * .5,
+              )
+            : tokens.muted,
         tokens.foreground,
-        tokens.border,
+        dark ? tokens.colors.outlineVariant : tokens.border,
       ),
       DButtonVariant.secondary => pair(
         tokens.muted,
@@ -485,12 +493,16 @@ class DButton extends StatelessWidget {
       ),
       DButtonVariant.ghost => pair(
         Colors.transparent,
-        tokens.muted.withValues(alpha: dark ? .5 : 1),
+        tokens.muted.withValues(alpha: tokens.muted.a * (dark ? .5 : 1)),
         tokens.foreground,
       ),
       DButtonVariant.destructive => pair(
-        tokens.destructive.withValues(alpha: dark ? .2 : .1),
-        tokens.destructive.withValues(alpha: dark ? .3 : .2),
+        tokens.destructive.withValues(
+          alpha: tokens.destructive.a * (dark ? .2 : .1),
+        ),
+        tokens.destructive.withValues(
+          alpha: tokens.destructive.a * (dark ? .3 : .2),
+        ),
         tokens.destructive,
       ),
       DButtonVariant.link => pair(
@@ -593,7 +605,7 @@ class DButton extends StatelessWidget {
                 ? EdgeInsets.zero
                 : EdgeInsetsDirectional.only(
                     start:
-                        icon != null &&
+                        (icon != null || (loading && loadingLabel != null)) &&
                             iconPosition == DButtonIconPosition.start
                         ? (size == DButtonSize.extraSmall ||
                                   size == DButtonSize.small
@@ -608,14 +620,18 @@ class DButton extends StatelessWidget {
                               ? 7
                               : 9)
                         : (size == DButtonSize.extraSmall ? 9 : 11),
-                    top: 3,
-                    bottom: 3,
+                    top: 1,
+                    bottom: 1,
                   )),
       ),
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: fontSize,
-          height: (size == DButtonSize.extraSmall ? 16 : 20) / fontSize,
+          height: switch (size) {
+            DButtonSize.extraSmall => 16 / fontSize,
+            DButtonSize.small => 22.4 / fontSize,
+            _ => 20 / fontSize,
+          },
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
           decoration:
