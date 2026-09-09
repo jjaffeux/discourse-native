@@ -2101,7 +2101,7 @@
       ],
       "implementationCommit": "26c0970a1c4580b8f719b33b907d3966f2f02273",
       "mergeCommit": null,
-      "queueStage": "source_ready",
+      "queueStage": "independent_review",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/0ff5/discourse-native",
       "preparedDependencies": [
         {
@@ -2121,7 +2121,12 @@
       ],
       "browserInspectionStatus": "not_started",
       "nativeInspectionStatus": "not_started",
-      "reviewStatus": "not_started"
+      "clientThreadId": "client-new-thread:20e7a5ee-6751-4dec-92ec-b735416377f0",
+      "reviewTaskId": "01a08639-b066-7882-85f5-a7729bfd111b",
+      "reviewBranch": "codex/review-message-scroller",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/a0b4/discourse-native",
+      "reviewHandoffCommit": "bf5657025ea15c9e19b057c33c7592fedadeb302",
+      "reviewStatus": "in_progress"
     },
     {
       "id": "drawer",
