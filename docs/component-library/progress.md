@@ -82,7 +82,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
 | 49 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
 | 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
-| 51 | date-picker | in_progress | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
+| 51 | date-picker | review_ready | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | merged | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | d454c8f62fb4ab8718b3a32b2743556f2f78609d |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
@@ -2793,7 +2793,7 @@ Status: merged. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-cal
 
 ### date-picker
 
-Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/ui-date-picker.
+Status: review_ready. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/ui-date-picker.
 
 **acceptanceCriteria**
 
@@ -2807,6 +2807,34 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Date Picker (01a086a1-dd61-77d1-ae4f-a09fa87ff595) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Independent review retained the accepted DPopover, DField, DInput Group and Kalender-backed DCalendar owners. Date Picker owns typed civil-date/range/wall-clock values, controlled/local/Form synchronization, strict editable parsing and close policy without duplicating overlay or calendar engines.
+- The reviewer added explicit controlled open state, disabled-open enforcement, strict ISO shape and leap validation, IME-composition protection, full-width trigger justification and optional chevron parity. Natural-language parsing now requires an explicit clock rather than consulting process time.
+- The eight styleguide examples now reproduce the frozen Composition, Basic, Range, Date of Birth, Input, Time, Natural Language and interactive English/Arabic/Hebrew RTL contracts with independent real code samples.
+
+**migrations**
+
+- Local Date composer start/end civil-date fields now use DDatePickerInput with the existing ISO controllers, 1900-2200 bounds and LocalDateComposerDraft validation, timezone, recurrence, preview and final-apply ownership preserved.
+
+**retainedAlternatives**
+
+- Discourse Events retains its combined date-time adapter and Material two-stage dialog until a picker adapter can preserve all-day parsing, recurrence-until, end-after-start and site-timezone behavior without splitting its existing string ownership.
+- Bookmark reminder retains its account-zone dialog because it rejects nonexistent DST wall times and coordinates async persistence and session currency.
+- User status custom expiry retains its guarded async date/time flow and future-time validation; fixed relative expiry actions remain domain actions rather than Date Picker presets.
+- Event/topic Kalender views remain full domain calendars rather than date-entry controls.
+
+**verification**
+
+- Frozen Markdown SHA256 cedb8c5a45c2cc2cede23b564b55c7a7a3c506e5d14f6b413d7758c03a0550c6 and all eight recorded shadcn-ui primary-source hashes were reproduced at repository commit 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048.
+- Official browser inspection covered all eight Base UI examples in light and dark, including the open Basic calendar, the two-month range, date-of-birth captions, strict Input, empty-date Time, deterministic September 11 Natural Language result and interactive Arabic/Hebrew RTL selector.
+- Source-exact macOS inspection covered all eight examples and the production Local Date composer across light, dark, Forest and Plum palettes, 720/360 widths, 100/200% text, LTR/RTL and reduced motion. Pointer selection, focus restoration, Escape dismissal, range display and localized RTL calendar behavior were exercised.
+- The final current-main candidate passed 107 randomized Date Picker, Calendar, Popover, Input Group, Input, Field, Local Date and event-calendar tests with seed 202609095. Locked dependency resolution, formatting, diff checks and root/profiles-full flutter analyze --no-pub were clean.
+- The final isolated macOS candidate is /private/tmp/discourse-date-picker-final-candidate.DcP7in/Date Picker Review Candidate.app with bundle identifier org.discourse.native.date-picker-review-candidate-11aa; deep strict ad-hoc verification passed. App.framework SHA256 is fa6887ef6cae7bf7654116b6940eefab52bc1a8d9b52f3d2d25ffb66d27ec432.
+
+**limitations**
+
+- No physical iOS/Linux device or spoken VoiceOver verification was performed; widget coverage verifies the iOS 48px action target and semantic/keyboard contracts.
+- Browser and native font rasterizers differ, so acceptance establishes mapped geometry, palette relationships and behavior rather than pixel equality.
+- Native geometry and interaction inspection preceded the data-only correction that changed Time to an empty initial date and froze Natural Language at September 11, 2026. A dedicated rendered widget regression verifies those exact final values, and the corrected source was rebuilt and signed in the final isolated candidate.
 
 ### carousel
 
