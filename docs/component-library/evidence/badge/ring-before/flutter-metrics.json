@@ -1,0 +1,218 @@
+{
+  "flutter-neutral-light-ring-ghost-idle": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-ghost-focus": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-ghost-invalid-idle": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-ghost-invalid-focus": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-outline-idle": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-outline-focus": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-outline-invalid-idle": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-outline-invalid-focus": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-destructive-idle": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-destructive-focus": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-destructive-invalid-idle": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-destructive-invalid-focus": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-ghost-idle": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-ghost-focus": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-ghost-invalid-idle": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-ghost-invalid-focus": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-outline-idle": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-outline-focus": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-outline-invalid-idle": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-outline-invalid-focus": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-destructive-idle": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-destructive-focus": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-destructive-invalid-idle": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-destructive-invalid-focus": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ]
+}

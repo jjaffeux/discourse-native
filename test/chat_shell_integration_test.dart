@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -52,7 +53,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -66,7 +66,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
-
 import 'support/shell_test_harness.dart';
 
 void main() {
@@ -692,6 +691,17 @@ void _registerChatShellTests() {
           await shell.appSettings.setTextScale(AppTextScale.percent200);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
+          final row = find.byKey(const ValueKey('chat-drawer-channel-9'));
+          final title = find.descendant(
+            of: row,
+            matching: find.text('customer-projects-managers-with-a-long-name'),
+          );
+          final count = find.descendant(of: row, matching: find.text('99+'));
+          expect(tester.getSize(title).width, greaterThan(50));
+          expect(
+            tester.getTopLeft(count).dy,
+            greaterThan(tester.getBottomLeft(title).dy),
+          );
           expect(
             find.byKey(const ValueKey('chat-drawer-preview-9')),
             findsOneWidget,

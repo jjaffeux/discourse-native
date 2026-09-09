@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../foundation/tokens.dart';
+import 'd_input.dart';
 import 'd_separator.dart';
 import 'd_skeleton.dart';
 import 'd_tooltip.dart';
@@ -324,9 +325,7 @@ class _DSidebarState extends State<DSidebar> {
           child: Container(
             decoration: BoxDecoration(
               color: widget.backgroundColor ?? t.surface,
-              borderRadius: floating
-                  ? BorderRadius.circular(t.radius * 1.2)
-                  : null,
+              borderRadius: floating ? t.borderRadius : null,
 
               boxShadow: floating
                   ? [
@@ -341,7 +340,7 @@ class _DSidebarState extends State<DSidebar> {
             foregroundDecoration: floating
                 ? BoxDecoration(
                     border: Border.all(color: t.border),
-                    borderRadius: BorderRadius.circular(t.radius * 1.2),
+                    borderRadius: t.borderRadius,
                   )
                 : null,
             child: DefaultTextStyle(
@@ -1112,8 +1111,7 @@ class DSidebarInset extends StatelessWidget {
   }
 }
 
-/// Sidebar-sized native text editing. This adapter does not implement the
-/// pending Input catalogue component's validation, variants or public API.
+/// Compact Sidebar adapter backed by the shared Input editing and rendering owner.
 class DSidebarInput extends StatelessWidget {
   const DSidebarInput({
     super.key,
@@ -1129,31 +1127,11 @@ class DSidebarInput extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final bool enabled;
   @override
-  Widget build(BuildContext context) {
-    final t = DTokens.of(context);
-    return TextField(
-      controller: controller,
-      focusNode: focusNode,
-      onChanged: onChanged,
-      enabled: enabled,
-      style: Theme.of(
-        context,
-      ).textTheme.bodyMedium!.copyWith(fontSize: 14, height: 20 / 14),
-      decoration: InputDecoration(
-        hintText: hintText,
-        isDense: true,
-        filled: true,
-        fillColor: t.background,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(t.radius * .8),
-          borderSide: BorderSide(color: t.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(t.radius * .8),
-          borderSide: BorderSide(color: t.focusRing, width: 2),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DInput(
+    controller: controller,
+    focusNode: focusNode,
+    hintText: hintText,
+    onChanged: onChanged,
+    enabled: enabled,
+  );
 }

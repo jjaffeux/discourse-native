@@ -210,7 +210,7 @@ void main() {
 
       expect(
         tester
-            .widget<Checkbox>(
+            .widget<DCheckbox>(
               find.byKey(const ValueKey('chat-message-selector-2')),
             )
             .value,
@@ -242,7 +242,7 @@ void main() {
         find.byKey(const ValueKey('chat-message-selection-bar')),
         findsNothing,
       );
-      expect(find.byType(Checkbox), findsNothing);
+      expect(find.byType(DCheckbox), findsNothing);
     });
 
     testWidgets('confirms and bulk-deletes an allowed message selection', (

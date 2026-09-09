@@ -88,6 +88,55 @@ Widget fixture({
 
 void main() {
   testWidgets(
+    'sidebar input keeps sibling actions outside its editing bounds',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      var opened = 0;
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 240,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Navigation'),
+                      const DSidebarInput(hintText: 'Search navigation'),
+                      DButton(
+                        label: const Text('Open inbox'),
+                        onPressed: () => opened++,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final input = find.byType(TextField);
+        final inputSemantics = tester.getSemantics(input);
+        expect(inputSemantics.rect.size, tester.getSize(input));
+        expect(inputSemantics.label, 'Search navigation');
+        final action = tester.getSemantics(find.byType(DButton));
+        for (
+          var parent = action.parent;
+          parent != null;
+          parent = parent.parent
+        ) {
+          expect(parent, isNot(same(inputSemantics)));
+        }
+        await tester.tap(find.text('Open inbox'));
+        expect(opened, 1);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
     'content-width menu buttons expose their actual semantic hit bounds',
     (tester) async {
       final semantics = tester.ensureSemantics();

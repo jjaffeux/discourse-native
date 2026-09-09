@@ -213,13 +213,10 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            style: Theme.of(context).textTheme.bodyMedium,
+          DInput(
             controller: _title,
-            decoration: const InputDecoration(
-              labelText: 'Title (optional)',
-              hintText: 'Lunch choice',
-            ),
+            labelText: 'Title (optional)',
+            hintText: 'Lunch choice',
             textCapitalization: TextCapitalization.sentences,
           ),
           const SizedBox(height: 16),
@@ -255,14 +252,11 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
             onChanged: (value) => setState(() => _automaticClose = value),
           ),
           if (_automaticClose)
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               controller: _close,
-              decoration: const InputDecoration(
-                labelText: 'Close date and time',
-                hintText: '2026-08-30T18:00:00Z',
-                helperText: 'ISO 8601, including a time zone',
-              ),
+              labelText: 'Close date and time',
+              hintText: '2026-08-30T18:00:00Z',
+              helperText: 'ISO 8601, including a time zone',
               keyboardType: TextInputType.datetime,
             ),
           if (_error case final error?) ...[
@@ -332,10 +326,9 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
           child: Row(
             children: [
               Expanded(
-                child: TextField(
-                  style: Theme.of(context).textTheme.bodyMedium,
+                child: DInput(
                   controller: _options[index],
-                  decoration: InputDecoration(labelText: 'Option ${index + 1}'),
+                  labelText: 'Option ${index + 1}',
                 ),
               ),
               DTooltip(
@@ -413,10 +406,9 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
   );
 
   Widget _integerField(TextEditingController controller, String label) =>
-      TextField(
-        style: Theme.of(context).textTheme.bodyMedium,
+      DInput(
         controller: controller,
-        decoration: InputDecoration(labelText: label),
+        labelText: label,
         keyboardType: TextInputType.number,
       );
 

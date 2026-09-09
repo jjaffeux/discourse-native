@@ -34,6 +34,32 @@ and explicit component leading/weights/tracking. A generic Material text role
 must not silently change the specified metrics. The inherited native text
 scaler remains the sole owner of accessibility/app zoom.
 
+The official [theme radius scale](https://ui.shadcn.com/docs/theming#radius-scale)
+is proportional to the host's base radius: `sm` ×0.6, `md` ×0.8, `lg` ×1,
+`xl` ×1.4, `2xl` ×1.8, `3xl` ×2.2 and `4xl` ×2.6. Match the registry's
+actual rounded class. A fixed Tailwind fallback or additive offset can agree
+at the reference's 10px base and still be wrong for an app palette. The Badge
+browser review confirmed these factors in the live stylesheet on 2026-09-09.
+
+Map source `input` colors to `DTokens.colors.outlineVariant` and source `border`
+to `DTokens.border`. They are separate semantic roles even when an app palette
+currently gives them equal colors. CSS opacity modifiers multiply existing
+alpha: use `color.withValues(alpha: color.a * factor)`. Replacing alpha can make
+a translucent input background substantially brighter than the reference.
+
+Focus and invalid rings must paint outside the control. A Flutter `BoxShadow`
+with only `spreadRadius` also paints behind transparent or translucent content,
+which can tint an entire field/card/viewport. Use an exterior border stroke or
+equivalent outside-only painting, keeping the source ring width and radius.
+The Radio rendered comparison exposed this difference; inspect unchecked and
+translucent states as well as opaque selected surfaces.
+
+Keep desktop labeled rows as compact as the measured reference. An associated
+row already gives its indicator a larger clickable area; do not impose a
+standalone indicator's padded height or a 48px touch minimum on pointer layouts.
+Retain 48px touch bounds where required. Preserve any separately justified app
+row spacing in the app adapter rather than changing all generic examples.
+
 Use proven Flutter focus, semantics, keyboard, scrolling, selection and overlay
 owners. Style their visuals to match shadcn. Platform-specific spinner artwork,
 Material field outlines, or native switch shapes are not automatic substitutes

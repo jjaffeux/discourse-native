@@ -1137,26 +1137,12 @@ class _Badge extends StatelessWidget {
   final int count;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      constraints: const BoxConstraints(minWidth: 16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.error,
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Text(
-        count > 99 ? '99+' : '$count',
-        textAlign: TextAlign.center,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onError,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DBadge(
+    backgroundColor: Theme.of(context).colorScheme.error,
+    foregroundColor: Theme.of(context).colorScheme.onError,
+    semanticLabel: '$count unread',
+    child: Text(count > 99 ? '99+' : '$count'),
+  );
 }
 
 Future<void> showUserMenuSheet(BuildContext context) {

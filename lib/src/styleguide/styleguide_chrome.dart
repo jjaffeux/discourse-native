@@ -101,70 +101,26 @@ class StyleguideAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    final target = styleguideTargetHeight(context);
-    final button = Semantics(
+    final variant = outlined ? DButtonVariant.outline : DButtonVariant.ghost;
+    return Semantics(
       selected: selected,
-      child: TextButton(
-        onPressed: onPressed,
-        style: ButtonStyle(
-          alignment: alignment,
-          minimumSize: WidgetStatePropertyAll(Size(target, target)),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          padding: WidgetStatePropertyAll(
-            EdgeInsets.symmetric(horizontal: iconOnly ? 8 : 10, vertical: 6),
-          ),
-          textStyle: WidgetStatePropertyAll(
-            styleguideText(
-              context,
-              size: 13,
-              height: 18,
-              weight: FontWeight.w500,
+      child: iconOnly
+          ? DButton.iconOnly(
+              tooltip: label,
+              icon: Icon(icon),
+              onPressed: onPressed,
+              variant: variant,
+              expanded: selected == true,
+            )
+          : DButton(
+              label: Text(label),
+              icon: icon == null ? null : Icon(icon),
+              onPressed: onPressed,
+              variant: variant,
+              expanded: selected == true,
+              alignment: alignment,
             ),
-          ),
-          foregroundColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.disabled)
-                ? tokens.mutedForeground
-                : tokens.foreground,
-          ),
-          backgroundColor: WidgetStateProperty.resolveWith(
-            (states) => selected == true || states.contains(WidgetState.hovered)
-                ? tokens.muted
-                : Colors.transparent,
-          ),
-          overlayColor: WidgetStatePropertyAll(
-            tokens.foreground.withValues(alpha: .06),
-          ),
-          side: WidgetStateProperty.resolveWith(
-            (states) => BorderSide(
-              color: states.contains(WidgetState.focused)
-                  ? tokens.foreground
-                  : outlined
-                  ? tokens.border
-                  : Colors.transparent,
-            ),
-          ),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: tokens.borderRadius),
-          ),
-        ),
-        child: iconOnly
-            ? Icon(icon, size: 16)
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 16),
-                    const SizedBox(width: 6),
-                  ],
-                  Flexible(child: Text(label)),
-                ],
-              ),
-      ),
     );
-    return iconOnly
-        ? DTooltip(message: label, labelTrigger: true, child: button)
-        : button;
   }
 }
 
