@@ -14,7 +14,8 @@ final switchExamples = ComponentExamples(
       'disabled prevents activation. Space and Enter toggle; Tab moves focus. '
       'Default artwork is 32×18.4 with a 16px thumb; small is 24×14 with a 12px '
       'thumb. Desktop rows are intrinsic; touch rows retain 48px targets. '
-      'Choice cards compose local switch rows; the general Field API is pending.',
+      'Choice cards compose local switch rows; richer grouped layouts compose '
+      'the accepted DField API without changing Switch value ownership.',
   examples: [
     StyleguideExample(
       title: 'Airplane Mode',
