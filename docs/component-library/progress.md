@@ -47,7 +47,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 35 | sheet | planned | — | — | dialog | — |
 | 36 | drawer | planned | — | — | dialog | — |
 | 37 | select | planned | — | — | popover, scroll-area | — |
-| 38 | native-select | planned | — | — | label | — |
+| 38 | native-select | in_progress | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | — |
 | 39 | field | planned | — | — | label, separator | — |
 | 40 | input-group | planned | — | — | input, textarea, button, kbd, spinner | — |
 | 41 | button-group | planned | — | — | button, separator | — |
@@ -1303,6 +1303,46 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 - Keyboard arrows/Home/End/Enter, RTL physical drag and keyboard direction, semantics increase/decrease, mouse/touch cancellation and borrowed controller/focus lifecycle. No Form integration needed for layout geometry.
 - Audit core and plugins; migrate pane persistence adapter and appropriate split handles without changing storage, temporary maximum behavior, responsive modes or async ownership; document retained domain controls.
 - Self-contained production-widget styleguide and local fixture; focused interaction/migration tests, root/full static analysis, pinned SDK/locks, isolated uniquely identified signed macOS debug build. Native/reference comparison remains pending locked-desktop slot.
+
+### native-select
+
+Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/ui-native-select.
+
+**acceptanceCriteria**
+
+- Port base-nova closed-control geometry (32/28px, 14/20px text, directional 10/32px padding, 16px chevron), token palette/radius, disabled opacity, invalid and keyboard focus rings.
+- Provide typed text options and disabled optgroups, placeholder, controlled and initial selection, Form save/reset/validation, borrowed focus lifecycle and accessible names.
+- Use Flutter DropdownButton as selection/popup owner, document exact platform adaptation distinct from custom rich Select; cover keyboard, touch, dismissal, scrolling, large text, RTL and theme changes.
+- Self-contained actual-component styleguide covers reference simple/groups/disabled/invalid/RTL plus form and state; audit core/plugins and migrate suitable simple selectors preserving callbacks and permission/busy guards.
+- Pass focused interaction/migration tests, touched format and root/full-profile analysis with unchanged pins/lockfiles; build isolated identifiable macOS local-data fixture with source/kernel/signature evidence.
+- Remain in_progress awaiting_slot until coordinator grants desktop and reference/native production-fixture review passes.
+
+**decisions**
+
+- Plain typed DNativeSelectOption/OptGroup and single reusable DNativeSelect FormField adapter; MenuAnchor/MenuItemButton own native Flutter popup/focus, distinct from rich Select.
+- 32/28px closed geometry; token input colors with multiplicative alpha, 1x/.8x radius factors, exact Lucide chevron; mapping and hashed primary source in native-select.md.
+- Controlled Form decline/reset reads accepted props synchronously; uncontrolled reset retains mount-time default.
+- Live theme/direction/text scale reach open menus; immediate menu transitions honor reduced motion.
+
+**migrations**
+
+- Core UserStatusEditor Clear after selector: preserve busy guard and async custom picker callbacks.
+- Bundled chat_preferences sidebar mode selector: preserve can_chat/admin/editability and draft persistence.
+
+**retainedAlternatives**
+
+- Existing DSelect/DSelectField and other plain Flutter selectors remain for coordinated Select/adoption audit; precise audit listed in native-select.md.
+
+**verification**
+
+- Flutter 3.47.2 and pins/lockfiles unchanged; enforced root/full-profile pub resolution passed.
+- flutter test --no-pub test/ui/d_native_select_test.dart test/preferences_page_test.dart test/user_status_editor_test.dart test/styleguide/native_select_examples_test.dart: 62 passed.
+- Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.
+
+**limitations**
+
+- Native and reference-rendered comparison pending explicit coordinator desktop slot; no CUA/app launch performed.
+- Build/fixture provenance will be recorded in native-select-build.md. No iOS/Linux device, VoiceOver or pixel parity claim.
 
 ### sidebar
 

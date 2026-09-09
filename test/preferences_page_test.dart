@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart'
+    show DSpinner, DNativeSelect;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
@@ -767,20 +768,19 @@ void main() {
       await tester.tap(chat);
       await tester.pumpAndSettle();
 
-      expect(
-        tester
-            .widget<DropdownButtonFormField<ChatSeparateSidebarPreference>>(
-              find.byType(
-                DropdownButtonFormField<ChatSeparateSidebarPreference>,
-              ),
-            )
-            .onChanged,
-        isNotNull,
+      await tester.tap(
+        find.byType(DNativeSelect<ChatSeparateSidebarPreference>),
       );
-      await tester.tap(find.text('When chat is in fullscreen'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Always'));
+      await tester.tap(find.text('Always').last);
       await tester.pumpAndSettle();
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .draft!
+            .chatSeparateSidebarMode,
+        ChatSeparateSidebarPreference.always,
+      );
       await tester.tap(_save(PreferenceSection.chat));
       await tester.pumpAndSettle();
 
