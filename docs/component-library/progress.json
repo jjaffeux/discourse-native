@@ -1975,16 +1975,16 @@
       "verification": [
         "Root/full flutter pub get --enforce-lockfile passed; Flutter 3.47.2 and pins/lockfiles unchanged.",
         "Root/full flutter analyze --no-pub clean; touched formatting and git diff --check passed.",
-        "146 focused Chart/example/offline-fixture/PollCard/UsersPage/Poll integration/controller tests passed with randomized ordering; final log /tmp/chart-final-focused.log. Covers native semantic current/next/previous values, keyboard/RTL pointer mapping, borrowed lifetimes, live theme/alpha, image paint, confidential values, maxima/width/scroll persistence and account/accepted-result regressions.",
-        "Final focused rerun: 146 passed, seed 1577084355; final executable source 083fa3dc9ddae9e395097e46782a8d43cc560682 (format-only follow-up).",
-        "Isolated macOS debug build succeeded; unique bundle /tmp/chart-review-eab4-083fa3dc/Chart Review eab4.app, ID org.discourse.chartrevieweab4, scheme discourse-chart-review-eab4. Source equality, three-way kernel SHA256 8a93ab451b3e0f16914a276deef3d2f4adf9f385bc9b9275a93d48e854da691e and deep strict ad-hoc signature verification passed. Provenance/inspection checklist: docs/component-library/chart-native.md.",
+        "147 focused Chart/example/offline-fixture/PollCard/UsersPage/Poll integration/controller tests passed with randomized ordering; final log /tmp/chart-browser-focused.log. Covers native semantic current/next/previous values, keyboard/RTL pointer mapping, borrowed lifetimes, live theme/alpha, image paint, confidential values, maxima/width/scroll persistence and account/accepted-result regressions.",
+        "Final focused rerun: 147 passed, seed 24615266; final executable source 3dceccf13e327e931290d4f25d13f94e1fb695f5 (rendered reference and Escape corrections).",
+        "Isolated macOS debug build succeeded; unique bundle /tmp/chart-review-eab4-3dceccf1/Chart Review eab4.app, ID org.discourse.chartrevieweab4, scheme discourse-chart-review-eab4. Source equality, three-way kernel SHA256 ddd4ce813f3caf72ae4fa11e2f165e1574b89c1dfdafe7b65d4e7ffacf6458f0 and deep strict ad-hoc signature verification passed. Provenance/inspection checklist: docs/component-library/chart-native.md.",
         "15 existing styleguide-page/Button-adoption integration tests passed, seed 2936222072; /tmp/chart-styleguide-integration.log."
       ],
       "limitations": [
-        "Mac locked; no CUA/browser/native inspection performed. Remain in_progress awaiting_slot, not review_ready, until actual reference and native styleguide/production-fixture comparison.",
+        "Browser comparison completed with font-loaded actual examples and production fixtures; evidence in chart-browser-review.md. Browser slot released. Mac locked; remain in_progress awaiting_slot until native review.",
         "No iOS/Linux device or VoiceOver testing; test image geometry is not pixel-parity evidence."
       ],
-      "implementationCommit": "083fa3dc9ddae9e395097e46782a8d43cc560682",
+      "implementationCommit": "3dceccf13e327e931290d4f25d13f94e1fb695f5",
       "mergeCommit": null
     },
     {
