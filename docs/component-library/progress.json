@@ -3982,14 +3982,25 @@
       ],
       "decisions": [
         "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
-        "Verified independent reviewer Review and merge Message Scroller (01a08639-b066-7882-85f5-a7729bfd111b) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
+        "Verified independent reviewer Review and merge Message Scroller (01a08639-b066-7882-85f5-a7729bfd111b) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.",
+        "Independent review preserves exact source pin and generic scroll ownership; corrected initial landing, appended-anchor batching, custom button activation, stable release-mode row identity, command/prepend races, spacer cleanup, canceled smooth motion and sparse outline state. Full mapping and regression details are in docs/component-library/message-scroller.md.",
+        "Completed all recorded final-owner example compositions: offline Input Group composer with Dropdown Menu tools and Empty reset, Select entry presets, Toggle Group anchor role, Hover Card outline preview with an accessible inline jump list, plus existing Message/Bubble/Card/Button/Marker/Slider/Tabs/Tooltip owners."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
+      "migrations": [
+        "ChatMessageStream, the shared production channel/thread transcript, adopts DMessageScrollerProvider, DMessageScroller and the virtualized viewport builder with stable message/day/gap/deleted/unread/loading ids. The chat adapter retains reversed-index virtualization, paging, server targets, read dwell, selection, floating days and unseen counts."
+      ],
+      "retainedAlternatives": [
+        "Topic posts, ordinary search/inbox result lists, focus-sized menu/picker overlays, editable composer areas and horizontal attachment rails retain their non-transcript scroll owners."
+      ],
       "verification": [
-        "Independent review d212f7cd: 77 focused component, styleguide and production channel/timeline tests passed with seed 3931493614; root analysis clean. Added stable-target, nearest, spacer, pending-landing, child-identity and canceled-motion regressions. Parent reconciliation and native acceptance remain pending."
+        "Independent review d212f7cd: 77 focused component, styleguide and production channel/timeline tests passed with seed 3931493614; root analysis clean. Added stable-target, nearest, spacer, pending-landing, child-identity and canceled-motion regressions. Parent reconciliation and native acceptance remain pending.",
+        "Post-composition Scroller/styleguide/channel/timeline run: 80 checks passed, seed 87573987. Root analysis and profiles/full locked dependency resolution plus analysis were clean.",
+        "Prepared Message b4be43d2 integrated at 2f20c334; 89 Scroller, styleguide, Message, channel lifecycle and timeline checks passed, seed 1232392505. Root and full-profile analysis passed. This is prepared-source verification, not parent acceptance."
       ],
-      "limitations": [],
+      "limitations": [
+        "Actual official rendered reference and native Scroller inspection remain pending desktop access; final local main merge also requires accepted Message reconciliation.",
+        "No iOS/Linux or spoken VoiceOver pass has been performed."
+      ],
       "implementationCommit": "26c0970a1c4580b8f719b33b907d3966f2f02273",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/0ff5/discourse-native",
@@ -4034,7 +4045,26 @@
         "acceptance": "Reviewer owns all remaining source corrections, official browser and first native acceptance, accepted Message/Bubble/Attachment reconciliation and final local main merge. Source evidence is not acceptance."
       },
       "browserInspectionStatus": "not_started",
-      "nativeInspectionStatus": "not_started"
+      "nativeInspectionStatus": "queued",
+      "preparedDependencies": [
+        {
+          "id": "message",
+          "branch": "codex/review-message",
+          "commit": "b4be43d2",
+          "reviewTaskId": "01a08627-8995-7b43-9c06-8a219d472681",
+          "status": "prepared_only",
+          "mergeGate": "Await accepted Message main merge and reconcile final adapter changes before final Scroller merge."
+        }
+      ],
+      "nativeReviewFixture": {
+        "status": "prepared_not_inspected",
+        "sourceCommit": "2f20c334e4e6417b0a7ccec1dbb9b1f158b10cf9",
+        "libTree": "0759d17e297fa4ea41743cf541676b4c506efdfb",
+        "bundle": "/tmp/message-scroller-review-a0b4.94O6eL/MessageScrollerReview-a0b4.app",
+        "bundleId": "org.discourse.review.messagescroller.a0b4",
+        "kernelSha256": "5c4b246d4c423fdc582bba4406edb1b1f82278eb676055f1530874332e5e36da",
+        "verification": "Debug build passed. Copied bundle has a distinct name, bundle id and URL scheme; ad-hoc deep/strict signature verifies and its kernel matches the build. Only sandbox, JIT and network client/server entitlements remain. Original copied provisioning profile is retained outside the app; production runner files are unchanged."
+      }
     },
     {
       "id": "chart",
