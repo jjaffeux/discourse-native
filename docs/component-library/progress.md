@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**61 of 64 components are merged locally.** 3 existing components are in progress; 0 are planned.
+**62 of 64 components are merged locally.** 2 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -16,7 +16,6 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
-| navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
 
@@ -70,7 +69,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 44 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
 | 45 | context-menu | merged | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | 7583852aefa06a1a086708b064a0df53c4fff560 |
 | 46 | menubar | merged | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | 5ac59a926eab9a8a6890486e5bb37e65ce0f54a5 |
-| 47 | navigation-menu | review_ready | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
+| 47 | navigation-menu | merged | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | d3ad22c3d9436f5e8c41bb7f0fbd3351633f2331 |
 | 48 | breadcrumb | merged | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | a1e23695ccd80b2a48e74fd8a92c3823fb528dac |
 | 49 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
 | 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
@@ -2742,7 +2741,7 @@ Status: merged. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/ui-men
 
 ### navigation-menu
 
-Status: review_ready. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-navigation-menu.
+Status: merged. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-navigation-menu.
 
 **acceptanceCriteria**
 

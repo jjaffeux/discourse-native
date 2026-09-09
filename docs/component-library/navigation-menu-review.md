@@ -107,3 +107,14 @@ are satisfied for the recorded source and representative native scenarios.
 iOS/Linux devices and spoken VoiceOver were not run. Hover timing, controlled
 rejection, vertical/live orientation and anchor reparenting are covered by
 focused widget regressions rather than separate native scenarios.
+
+## Local main merge
+
+Merged from `/Users/joffreyjaffeux/Code/discourse-native` on `main` under the
+main lease, after clean-checkout/base checks. Merge:
+`d3ad22c3d9436f5e8c41bb7f0fbd3351633f2331`.
+Final candidate `da0808e4` starts from main `3e48124c` and preserves all other
+owners, examples, exports and progress. Its inspected Navigation Menu/Popover/
+example behavior is unchanged. The original implementation commit remains an
+ancestor. Only Navigation Menu's active/review queue entries were removed;
+no push, GitHub write or release-setting change was made.

@@ -3273,7 +3273,7 @@
     },
     {
       "id": "navigation-menu",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
       "branch": "codex/ui-navigation-menu",
       "dependencies": [
@@ -3321,9 +3321,9 @@
         "No iOS or Linux device run or spoken VoiceOver pass was performed. Widget tests, analysis and build/signature evidence are not native inspection."
       ],
       "implementationCommit": "43ef3bca0725ed27f452ed141a6eda4bf120072e",
-      "mergeCommit": null,
+      "mergeCommit": "d3ad22c3d9436f5e8c41bb7f0fbd3351633f2331",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5529/discourse-native",
-      "queueStage": "native_review_queued",
+      "queueStage": "merged",
       "implementationBrief": "Implement full reference Navigation Menu anatomy, including list/items, trigger/link/content, viewport/indicator and Link Component/RTL behavior as documented. This is navigation, with appropriate link/current-page semantics and controlled routing callbacks; reuse accepted Popover/shared positioning while preserving the reference pointer intent, inter-panel travel, keyboard focus/roving behavior, dismissals and viewport animations/sizing. Handle dynamic/disabled entries, nested content, live themes, reduced motion, narrow layouts and native touch adaptation. Audit real core/plugin navigation surfaces; migrate only suitable menu navigation while preserving routing, permissions and state. Do not convert ordinary buttons, Sidebar, route tabs or command menus into Navigation Menu. Keep examples functional with self-contained destinations and verify source-exact navigation and focus behavior.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/navigation-menu",
@@ -3346,7 +3346,12 @@
       "reviewBranch": "codex/review-navigation-menu",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/9fda/discourse-native",
       "reviewHandoffCommit": "57ee83934cd11d941b816bb1c59260e7515427b8",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
+      "reviewFixCommit": "1bbdb00afe2fd0ac809341b71f684a50a9fa4ac0",
+      "reviewAcceptanceCommit": "45946f6bc7b4b25268c06005debcfdf132a8d6b3",
+      "reviewedCandidateCommit": "da0808e44fa5edd8b673187fdf24f2eed39e7b9e",
+      "reviewEvidence": "docs/component-library/navigation-menu-review.md",
+      "sharedOwnerFollowUp": "1bbdb00a unregisters DPopoverAnchor on deactivate; permanent removal and reparenting regressions pass, with accepted Popover defaults/Escape/layer policy unchanged. Included in this accepted local merge and coordinated with the Popover reviewer.",
       "implementationHandoffVerification": {
         "focusedTests": "31 focused Navigation Menu/styleguide/Popover tests passed with seed860606, reported by the implementation owner.",
         "analysis": "Root and profiles/full analysis clean at source handoff.",
@@ -4862,16 +4867,6 @@
           "headCommit": "4d0a7058de7b91c74aa579195dea5e25741a2abf"
         },
         {
-          "component": "navigation-menu",
-          "taskId": "01a08621-0e86-7a62-82b9-6a8eca71227f",
-          "branch": "codex/review-navigation-menu",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9fda/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
-          "implementationBranch": "codex/ui-navigation-menu",
-          "headCommit": "57ee83934cd11d941b816bb1c59260e7515427b8"
-        },
-        {
           "component": "pagination",
           "taskId": "01a08629-4841-73d0-a5a6-c723f253b4b0",
           "branch": "codex/review-pagination",
@@ -5220,18 +5215,6 @@
           "implementationCommit": "d1c954fefb5d461be217d443f5bf51330b7f24e7",
           "status": "merged",
           "mergeCommit": "7583852aefa06a1a086708b064a0df53c4fff560"
-        },
-        {
-          "component": "navigation-menu",
-          "title": "Review and merge Navigation Menu",
-          "taskId": "01a08621-0e86-7a62-82b9-6a8eca71227f",
-          "hostId": "local",
-          "branch": "codex/review-navigation-menu",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9fda/discourse-native",
-          "implementationTaskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
-          "implementationBranch": "codex/ui-navigation-menu",
-          "implementationCommit": "43ef3bca0725ed27f452ed141a6eda4bf120072e",
-          "status": "in_progress"
         },
         {
           "component": "pagination",
