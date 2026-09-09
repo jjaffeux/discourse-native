@@ -2745,7 +2745,7 @@ Status: merged. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/ui-bre
 - Verified independent reviewer Review and merge Breadcrumb (01a08623-9d6e-7393-b3e8-fb4c402b8c71) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 - Reviewer preserved the finalized cd9c542d implementation history, added a source-exact local-data TopicListView fixture, and completed Breadcrumb's first official browser and native macOS comparison.
 - Dropdown Menu is accepted on main at 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787. Breadcrumb's prepared pin is its ancestor and all Dropdown component/example/focused-test paths are byte-equal to the accepted revision.
-- Candidate 12b4b531 reconciles the reviewed implementation onto current main 892e1a97, including the Combobox owner's corrected catalogue dependency order, while preserving all other component rows. Current Popover adds an opt-in focusContentOnOpen switch; Breadcrumb retains its unchanged true default, verified by the affected keyboard tests.
+- Candidate 12b4b531 reconciled the reviewed implementation onto main 892e1a97, including the Combobox owner's corrected catalogue dependency order, while preserving all other component rows. At that initial acceptance, Popover's new focusContentOnOpen switch retained its true default for Dropdown; the later accepted menu-owned focus correction is recorded in the dependency follow-up verification.
 - Independent source, application adoption, official browser and native macOS acceptance are complete. The final native interaction required no production component correction.
 
 **migrations**
@@ -2767,6 +2767,7 @@ Status: merged. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/ui-bre
 - After current-main integration, 47 of 48 combined Breadcrumb/Dropdown/styleguide checks passed; the sole failure was current main's Combobox row ordering. Its owner corrected that ledger in 892e1a97, and the exact catalogue check passed on reconciled Breadcrumb candidate 12b4b531. Both production topic-row regressions and root/full-profile analysis also passed; relevant Breadcrumb/Dropdown/Popover/topic-row source did not change during the ledger reconciliation.
 - Final native pass on 2026-09-09 at 16:37–16:39 UTC used the recorded accepted-source bundle. Dropdown remained open and repainted from Light to Dark, retained arrow navigation, and restored the visible trigger focus ring on Escape. Collapsed remained open and repainted from Dark to Light; End/Return selected GitHub, updated the local result and restored More pages focus. The app was quit through its native menu, absent from global CUA inventory, and the desktop lease was released.
 - Final candidate 2aa226bd starts from main b4e69861 and preserves every other component/progress field. Relevant Breadcrumb, Dropdown, Popover, Button, theme, fixture and topic-row source is unchanged from tested candidate 12b4b531; the full catalogue-order check passed again. The repository's main checkout accepted the branch with --no-ff as a1e23695ccd80b2a48e74fd8a92c3823fb528dac under the main lease.
+- Post-merge dependency follow-up: accepted Dropdown merge 85f9265bf2593a7edc0693582b7eadf1c6645b8d and the current Popover boundary were checked on main pin d6474006. All 50 Breadcrumb/Dropdown/styleguide tests passed with seed 826145, and root/full analysis were clean. Breadcrumb component/examples/topic-row source remains byte-equal to its accepted revision; the relevant tested shared source is also unchanged on main 49456f05. Parent-owned native Menubar evidence covers the combined menu corrections; no additional Breadcrumb native run is claimed.
 
 **limitations**
 
@@ -3449,4 +3450,3 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
-

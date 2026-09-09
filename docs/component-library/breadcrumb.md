@@ -172,7 +172,23 @@ that ledger in `892e1a97`, and the catalogue check passed on reconciled
 Breadcrumb candidate `12b4b531`. Both topic-row regressions and root/full
 analysis also passed during this integration.
 
-Breadcrumb, Dropdown, their examples and the native fixture are unchanged
-from the inspected source. Newer main added Popover's opt-in
-`focusContentOnOpen` switch; Breadcrumb retains its unchanged `true` default.
-The affected keyboard regressions verify that its focus behavior is preserved.
+At Breadcrumb's initial acceptance, Breadcrumb, Dropdown, their examples and
+the native fixture were unchanged from the inspected source. Popover had added
+an opt-in `focusContentOnOpen` switch, and Dropdown still used its `true`
+default. The affected keyboard regressions verified that focus behavior.
+
+After that acceptance, Dropdown follow-up merge
+`85f9265bf2593a7edc0693582b7eadf1c6645b8d` made the menu content the sole owner
+of initial item focus and popup-local scrolling, preserved live registration
+order, and corrected RTL submenu chevrons. Current main also isolates joined
+control styling at the Popover boundary. Breadcrumb's component, examples and
+topic-row adoption remain unchanged. All 50 Breadcrumb/Dropdown/styleguide
+checks passed with seed `826145` on main pin `d6474006`, with clean root and
+full-profile analysis; the relevant source remained identical on `49456f05`.
+
+The Dropdown reviewer supplied native evidence for the combined menu source
+from Menubar runtime `e3104c9ae1547b90629f85d6e7a7bb97c863f6c7`, including
+360px/200% LTR and RTL, reduced motion, Plum, bounded popup scrolling and
+keyboard selection. That accepted parent evidence and the refreshed consumer
+tests cover this follow-up. Breadcrumb's own native evidence above belongs to
+its original inspected bundle; no additional Breadcrumb native run is claimed.
