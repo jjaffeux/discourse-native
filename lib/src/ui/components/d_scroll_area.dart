@@ -151,6 +151,8 @@ class DScrollArea extends StatefulWidget {
 
   /// Horizontal controller when [axes] is [DScrollAxes.both].
   final ScrollController? horizontalController;
+
+  /// Insets the scrollable content on every enabled axis.
   final EdgeInsetsGeometry padding;
   final bool thumbVisibility;
   final BorderRadius? borderRadius;
@@ -217,9 +219,11 @@ class _DScrollAreaState extends State<DScrollArea> {
     final horizontal = widget.horizontalController ?? _ownedHorizontal;
     Widget content = widget.child;
     if (both) {
+      content = Padding(padding: widget.padding, child: content);
       content = DScrollViewport(
         controller: horizontal,
         axis: Axis.horizontal,
+        physics: widget.physics,
         child: content,
       );
     }
@@ -228,7 +232,7 @@ class _DScrollAreaState extends State<DScrollArea> {
       axis: widget.axes == DScrollAxes.horizontal
           ? Axis.horizontal
           : Axis.vertical,
-      padding: widget.padding,
+      padding: both ? EdgeInsets.zero : widget.padding,
       physics: widget.physics,
       child: content,
     );
