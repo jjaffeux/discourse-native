@@ -113,7 +113,14 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
     );
     final wasControlled = oldWidget.values != null;
     final oldActive = oldWidget.controller ?? _ownedController;
-    final oldValues = Set<T>.of(oldWidget.values ?? oldActive.values);
+    final oldValues = Set<T>.of(
+      oldWidget.values == null
+          ? oldActive.values
+          : DAccordionController._normalize(
+              oldWidget.values!,
+              oldWidget.multiple,
+            ),
+    );
     if (!wasControlled) oldActive.removeListener(_controllerChanged);
 
     final becomingLocal = widget.values == null && widget.controller == null;
@@ -154,6 +161,14 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
     _registrations.update(value, (count) => count + 1, ifAbsent: () => 1);
   }
 
+  bool _debugItemsHaveUniqueValues() {
+    final values = <T>{};
+    for (final child in widget.children) {
+      if (child is DAccordionItem<T> && !values.add(child.value)) return false;
+    }
+    return true;
+  }
+
   void _unregister(T value) {
     final count = _registrations[value] ?? 0;
     if (count <= 1) {
@@ -181,6 +196,10 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
 
   @override
   Widget build(BuildContext context) {
+    assert(
+      _debugItemsHaveUniqueValues(),
+      'Every direct DAccordionItem must have a unique value.',
+    );
     final tokens = DTokens.of(context);
     Widget result = Column(
       mainAxisSize: MainAxisSize.min,
