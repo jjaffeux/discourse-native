@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -86,9 +87,9 @@ void main() {
     final controller = _controller();
     addTearDown(controller.dispose);
     await _pumpPage(tester, controller, scale: 2, size: const Size(800, 800));
-    final title = Theme.of(
-      tester.element(find.text('Settings')),
-    ).textTheme.titleLarge!;
+    final title = Theme.of(tester.element(find.text('Settings')))
+        .textTheme
+        .titleLarge!;
     final header = tester.getRect(
       find.byKey(const ValueKey('app-settings-header')),
     );
@@ -174,7 +175,18 @@ void main() {
         find.descendant(of: settings, matching: find.dIcon(DIcons.gear)),
         findsOneWidget,
       );
-      expect(tester.getSize(settings), const Size.square(44));
+      for (final key in [
+        'styleguide-rail-button',
+        'settings-rail-button',
+        'diagnostics-rail-button',
+      ]) {
+        final control = find.byKey(ValueKey(key));
+        final button = tester.widget<DButton>(control);
+        expect(button.variant, DButtonVariant.ghost);
+        expect(button.insetSurface, isTrue);
+        expect(button.size, DButtonSize.regular);
+        expect(tester.getSize(control), const Size.square(48));
+      }
       expect(
         tester.getRect(diagnosticsButton).top,
         greaterThan(tester.getRect(settings).bottom),
@@ -195,10 +207,6 @@ void main() {
       expect(controller.rootMode, ShellRootMode.forum);
       expect(controller.appSettingsModalOpen, isTrue);
       expect(find.byType(AppSettingsModal), findsOneWidget);
-      final marker = tester.widget<AnimatedContainer>(
-        find.byKey(const ValueKey('settings-rail-marker')),
-      );
-      expect(marker.constraints!.minHeight, 8);
 
       await tester.tap(find.byKey(const ValueKey('app-settings-close')));
       await tester.pumpAndSettle();
@@ -252,9 +260,8 @@ Future<void> _pumpPage(
       child: MaterialApp(
         theme: AppTheme.light,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(scale)),
           child: child!,
         ),
         home: Builder(
