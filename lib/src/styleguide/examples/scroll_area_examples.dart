@@ -7,7 +7,7 @@ final scrollAreaExamples = ComponentExamples(
   status: ComponentStatus.baseline,
   description: 'Native scrolling with compact, themed draggable scrollbars.',
   notes:
-      'Reference/native comparison is queued. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork uses the live border token.',
+      'Browser reference and widget exports reviewed; native comparison is queued. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork uses the live border token.',
   examples: [
     StyleguideExample(
       title: 'Tags',
@@ -19,7 +19,7 @@ final scrollAreaExamples = ComponentExamples(
     StyleguideExample(
       title: 'Horizontal',
       description:
-          'The reference photographs, 300 × 400px, 16px gaps and padding in a 384px area. Drag the bottom thumb or use a trackpad.',
+          'The reference photographs, 150 × 200px, 16px gaps and padding in a 384px area. Drag the bottom thumb or use a trackpad.',
       code: _artworkCode,
       builder: (_) => const _Artworks(),
     ),
@@ -90,15 +90,19 @@ class _Tags extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(color: tokens.border),
-          borderRadius: tokens.borderRadius,
+          borderRadius: BorderRadius.circular(tokens.radius * .8),
         ),
         child: Padding(
           padding: const EdgeInsets.all(1),
           child: DScrollArea(
+            borderRadius: BorderRadius.circular(tokens.radius * .8),
             padding: const EdgeInsets.all(16),
             child: DefaultTextStyle(
               style: TextStyle(
                 fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+                fontFamilyFallback: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.fontFamilyFallback,
                 fontSize: 14,
                 height: 20 / 14,
                 color: tokens.foreground,
@@ -141,11 +145,12 @@ class _Artworks extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(color: tokens.border),
-          borderRadius: tokens.borderRadius,
+          borderRadius: BorderRadius.circular(tokens.radius * .8),
         ),
         child: Padding(
           padding: const EdgeInsets.all(1),
           child: DScrollArea(
+            borderRadius: BorderRadius.circular(tokens.radius * .8),
             axes: DScrollAxes.horizontal,
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -162,11 +167,11 @@ class _Artworks extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ClipRRect(
-                        borderRadius: tokens.borderRadius,
+                        borderRadius: BorderRadius.circular(tokens.radius * .8),
                         child: Image.asset(
                           'packages/discourse_native/src/styleguide/assets/scroll_area/${entry.$1}.jpg',
-                          width: 300,
-                          height: 400,
+                          width: 150,
+                          height: 200,
                           fit: BoxFit.cover,
                           semanticLabel: 'Photo by ${entry.$2}',
                         ),
@@ -271,15 +276,19 @@ class ScrollAreaTags extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(color: tokens.border),
-          borderRadius: tokens.borderRadius,
+          borderRadius: BorderRadius.circular(tokens.radius * .8),
         ),
         child: Padding(
           padding: const EdgeInsets.all(1),
           child: DScrollArea(
+            borderRadius: BorderRadius.circular(tokens.radius * .8),
             padding: const EdgeInsets.all(16),
             child: DefaultTextStyle(
               style: TextStyle(
                 fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+                fontFamilyFallback: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.fontFamilyFallback,
                 fontSize: 14,
                 height: 20 / 14,
                 color: tokens.foreground,
@@ -312,8 +321,8 @@ class ScrollAreaTags extends StatelessWidget {
   }
 }''';
 
-const _rtlCode = r'''// Mount ScrollAreaTags(rtl: true) inside:
-// Directionality(textDirection: TextDirection.rtl, child: ScrollAreaTags(rtl: true))
+const _rtlCode =
+    r'''// Mount ScrollAreaTags(rtl: true) inside Directionality(textDirection: TextDirection.rtl).
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
@@ -329,15 +338,19 @@ class ScrollAreaTags extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(color: tokens.border),
-          borderRadius: tokens.borderRadius,
+          borderRadius: BorderRadius.circular(tokens.radius * .8),
         ),
         child: Padding(
           padding: const EdgeInsets.all(1),
           child: DScrollArea(
+            borderRadius: BorderRadius.circular(tokens.radius * .8),
             padding: const EdgeInsets.all(16),
             child: DefaultTextStyle(
               style: TextStyle(
                 fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+                fontFamilyFallback: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.fontFamilyFallback,
                 fontSize: 14,
                 height: 20 / 14,
                 color: tokens.foreground,
@@ -383,11 +396,12 @@ class ScrollAreaArtworks extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(color: tokens.border),
-          borderRadius: tokens.borderRadius,
+          borderRadius: BorderRadius.circular(tokens.radius * .8),
         ),
         child: Padding(
           padding: const EdgeInsets.all(1),
           child: DScrollArea(
+            borderRadius: BorderRadius.circular(tokens.radius * .8),
             axes: DScrollAxes.horizontal,
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -404,11 +418,11 @@ class ScrollAreaArtworks extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ClipRRect(
-                        borderRadius: tokens.borderRadius,
+                        borderRadius: BorderRadius.circular(tokens.radius * .8),
                         child: Image.asset(
                           'packages/discourse_native/src/styleguide/assets/scroll_area/${entry.$1}.jpg',
-                          width: 300,
-                          height: 400,
+                          width: 150,
+                          height: 200,
                           fit: BoxFit.cover,
                           semanticLabel: 'Photo by ${entry.$2}',
                         ),

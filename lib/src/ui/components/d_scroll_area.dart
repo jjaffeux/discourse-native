@@ -340,19 +340,15 @@ class _DScrollAreaState extends State<DScrollArea> {
       child: FocusableActionDetector(
         focusNode: _focus,
         onShowFocusHighlight: (value) => setState(() => _focusVisible = value),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: widget.borderRadius ?? tokens.borderRadius,
-            border: _focusVisible ? Border.all(color: tokens.focusRing) : null,
-            boxShadow: _focusVisible
-                ? [
-                    BoxShadow(
-                      color: tokens.focusRing.withValues(alpha: .5),
-                      spreadRadius: 3,
-                    ),
-                  ]
-                : null,
-          ),
+        child: CustomPaint(
+          foregroundPainter: _focusVisible
+              ? _ScrollFocusRing(
+                  radius: widget.borderRadius ?? tokens.borderRadius,
+                  color: tokens.focusRing.withValues(
+                    alpha: tokens.focusRing.a * .5,
+                  ),
+                )
+              : null,
           child: ClipRRect(
             borderRadius: widget.borderRadius ?? tokens.borderRadius,
             child: content,
@@ -361,4 +357,21 @@ class _DScrollAreaState extends State<DScrollArea> {
       ),
     );
   }
+}
+
+/// CSS rings leave the transparent viewport untouched and occupy only the
+/// exterior band. A spread-only BoxShadow also fills the interior in Flutter.
+class _ScrollFocusRing extends CustomPainter {
+  const _ScrollFocusRing({required this.radius, required this.color});
+  final BorderRadius radius;
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inner = radius.toRRect(Offset.zero & size);
+    canvas.drawDRRect(inner.inflate(3), inner, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_ScrollFocusRing oldDelegate) =>
+      radius != oldDelegate.radius || color != oldDelegate.color;
 }

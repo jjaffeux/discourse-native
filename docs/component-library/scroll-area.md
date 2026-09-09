@@ -16,19 +16,20 @@ leading border and `p-px` leave a 7px thumb, 1px from the trailing viewport edge
 Base UI constants impose a 16px minimum thumb. RawScrollbar supplies the same
 proportional geometry, dragging and track paging, with 1px main-axis margins.
 The default transparent corner reserves 10px only when both axes overflow.
-Viewport focus paints a 1px token outline and 3px token ring at 50% opacity.
+Viewport focus paints only the exterior 3px token ring, multiplying alpha by 50%; the live reference outline-style is none.
 The viewport inherits the host radius. No default border or padding is invented.
 
 Tags: 192×288 border-box, 1px border, 16px content padding; heading 14px/14px,
 weight 500, 16px following gap; tags 14px/20px with 1px separators and 8px above
 and below. RTL uses the same tags and Arabic heading. Horizontal: 384px area,
-16px padding and gaps, 300×400 photos with cover fit, host radius, 8px caption
+16px padding and gaps, 150×200 rendered photos (300×400 intrinsic HTML attributes) with cover fit, rounded-md radius (host base ×0.8), 8px caption
 gap, 12px/16px caption and weight 600 artist. Exact reference photographs are
 bundled with attribution, without runtime network requests. Host font family,
 palette and radius stay live; the reference determines explicit text metrics.
 
-These are source measurements, not a rendered-parity claim. Reference/browser
-and native visual inspection remain blocked on the serialized desktop slot.
+Browser/render-export comparison is recorded in scroll-area-render-review.md.
+Native visual inspection still awaits a desktop slot; widget exports are not
+native screenshots.
 
 ## API and native adaptations
 
@@ -74,8 +75,7 @@ loading or validation state. No new Form or business state abstraction is added.
 - The styleguide's explicit wide-preview scrollbar is DScrollBar. Its existing
   controller, horizontal viewport, clip, 360/768/1024 widths and preview Navigator
   remain. Existing regression tests actually drag the mouse thumb and preserve
-  example state through width/theme changes. Scroll Area gets a 500px preview
-  height for the 400px reference photos and captions.
+  example state through width/theme changes. The corrected 200px reference photos fit the existing 400px preview height.
 - CodeBlock, DiagnosticsPanel, VoiceDiagnosticsView, Assign's people rail,
   Prometheus tables and EventCalendar's month pane change only scrollbar
   decoration. Their controllers, selection, filters, callbacks, permissions,

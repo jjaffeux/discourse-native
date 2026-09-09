@@ -37,17 +37,24 @@ Future<void> main() async {
     );
   }
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-  runApp(_Review(diagnostics: diagnostics));
+  runApp(ScrollAreaReviewApp(diagnostics: diagnostics));
 }
 
-class _Review extends StatefulWidget {
-  const _Review({required this.diagnostics});
+class ScrollAreaReviewApp extends StatefulWidget {
+  const ScrollAreaReviewApp({
+    super.key,
+    required this.diagnostics,
+    this.themeOverride,
+    this.textScale = 1,
+  });
+  final ThemeData? themeOverride;
+  final double textScale;
   final DiagnosticsController diagnostics;
   @override
-  State<_Review> createState() => _ReviewState();
+  State<ScrollAreaReviewApp> createState() => _ReviewState();
 }
 
-class _ReviewState extends State<_Review> {
+class _ReviewState extends State<ScrollAreaReviewApp> {
   final _voice = ChangeNotifier();
   int _page = 0;
   bool _dark = false;
@@ -61,7 +68,9 @@ class _ReviewState extends State<_Review> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    theme: _dark ? AppTheme.dark : AppTheme.light,
+    debugShowCheckedModeBanner: false,
+    themeAnimationDuration: Duration.zero,
+    theme: widget.themeOverride ?? (_dark ? AppTheme.dark : AppTheme.light),
     home: Scaffold(
       appBar: AppBar(
         title: const Text('Scroll Area • offline production fixtures'),
@@ -99,139 +108,147 @@ class _ReviewState extends State<_Review> {
             ],
           ),
           Expanded(
-            child: switch (_page) {
-              0 => const ComponentStyleguidePage(),
-              1 => DSidebarProvider(
-                child: DSidebar(
-                  child: DSidebarContent(
-                    children: [
-                      for (var i = 0; i < (_empty ? 0 : 80); i++)
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text('Destination $i'),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              2 => SingleChildScrollView(
-                child: CodeBlock(
-                  data: CodeBlockData(
-                    lines: [
-                      for (var i = 0; i < (_empty ? 0 : 30); i++)
-                        CodeLine(
-                          tokens: [
-                            CodeToken(
-                              'final entry$i = "${'long local text ' * 12}";',
+            child: Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(widget.textScale)),
+                child: switch (_page) {
+                  0 => const ComponentStyleguidePage(),
+                  1 => DSidebarProvider(
+                    child: DSidebar(
+                      collapsible: DSidebarCollapsible.none,
+                      child: DSidebarContent(
+                        children: [
+                          for (var i = 0; i < (_empty ? 0 : 80); i++)
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text('Destination $i'),
                             ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  2 => SingleChildScrollView(
+                    child: CodeBlock(
+                      data: CodeBlockData(
+                        lines: [
+                          for (var i = 0; i < (_empty ? 0 : 30); i++)
+                            CodeLine(
+                              tokens: [
+                                CodeToken(
+                                  'final entry$i = "${'long local text ' * 12}";',
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  3 => SingleChildScrollView(
+                    child: SizedBox(
+                      width: 360,
+                      child: AlertTables(
+                        siteUrl: 'https://example.invalid',
+                        data: AlertData.decode({
+                          'alert_data': [
+                            for (var i = 0; i < (_empty ? 0 : 12); i++)
+                              {
+                                'status': 'firing',
+                                'identifier': 'Local alert $i',
+                                'datacenter': 'local',
+                                'description':
+                                    'Long offline description for horizontal scrolling',
+                                'starts_at': '2026-09-09T12:00:00Z',
+                              },
                           ],
-                        ),
-                    ],
+                        })!,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              3 => SingleChildScrollView(
-                child: SizedBox(
-                  width: 360,
-                  child: AlertTables(
+                  4 => EventCalendar(
+                    page: EventCalendarPage(
+                      EventCalendarView.month,
+                      DateTime(2026, 9, 9),
+                    ),
+                    events: const [],
+                    location: tz.UTC,
+                    onPageChanged: (_) {},
+                    onOpen: (_) {},
+                    mine: false,
+                    onMineChanged: (_) {},
+                    actions: const SizedBox(),
+                  ),
+                  5 => AssignedGroupPresentationView(
                     siteUrl: 'https://example.invalid',
-                    data: AlertData.decode({
-                      'alert_data': [
-                        for (var i = 0; i < (_empty ? 0 : 12); i++)
-                          {
-                            'status': 'firing',
-                            'identifier': 'Local alert $i',
-                            'datacenter': 'local',
-                            'description':
-                                'Long offline description for horizontal scrolling',
-                            'starts_at': '2026-09-09T12:00:00Z',
-                          },
-                      ],
-                    })!,
+                    state: AssignedGroupPresentationState(
+                      groupName: 'local',
+                      filter: const AssignedGroupFilter.everyone(),
+                      query: const AssignedGroupTopicQuery(),
+                      members: AssignedGroupMembersState(
+                        loaded: true,
+                        members: [
+                          for (var i = 0; i < (_empty ? 0 : 80); i++)
+                            AssignedGroupMember(
+                              id: i + 1,
+                              username: 'Member$i',
+                              usernameLower: 'member$i',
+                              assignmentsCount: i,
+                            ),
+                        ],
+                      ),
+                      feed: const TopicFeed(),
+                      topics: const [],
+                    ),
+                    onRefresh: () async {},
+                    onSelect: (_) {},
+                    onQueryChanged: (_) {},
+                    onMemberSearch: (_) {},
+                    onLoadMoreMembers: () {},
+                    onLoadMoreTopics: () {},
+                    onOpenTopic: (_) {},
                   ),
-                ),
-              ),
-              4 => EventCalendar(
-                page: EventCalendarPage(
-                  EventCalendarView.month,
-                  DateTime(2026, 9, 9),
-                ),
-                events: const [],
-                location: tz.UTC,
-                onPageChanged: (_) {},
-                onOpen: (_) {},
-                mine: false,
-                onMineChanged: (_) {},
-                actions: const SizedBox(),
-              ),
-              5 => AssignedGroupPresentationView(
-                siteUrl: 'https://example.invalid',
-                state: AssignedGroupPresentationState(
-                  groupName: 'local',
-                  filter: const AssignedGroupFilter.everyone(),
-                  query: const AssignedGroupTopicQuery(),
-                  members: AssignedGroupMembersState(
-                    loaded: true,
-                    members: [
+                  6 => DiagnosticsPanel(
+                    controller: widget.diagnostics,
+                    onClose: () {},
+                  ),
+                  _ => VoiceDiagnosticsView(
+                    stateListenable: _voice,
+                    eventsListenable: _voice,
+                    readState: () => const VoiceDiagnosticsUiState(
+                      enabled: false,
+                      retainedBytes: 0,
+                      droppedRecords: 0,
+                      truncated: false,
+                    ),
+                    readEvents: () => [
                       for (var i = 0; i < (_empty ? 0 : 80); i++)
-                        AssignedGroupMember(
-                          id: i + 1,
-                          username: 'Member$i',
-                          usernameLower: 'member$i',
-                          assignmentsCount: i,
-                        ),
+                        {
+                          'sequence': i,
+                          'timestampUtc': DateTime.utc(
+                            2026,
+                            9,
+                            9,
+                            12,
+                            0,
+                            i,
+                          ).toIso8601String(),
+                          'event': 'Local event',
+                          'component': 'fixture',
+                          'severity': 'info',
+                          'message': 'Local event $i',
+                          'data': <String, Object?>{},
+                        },
                     ],
+                    startCapture: () async {},
+                    stopCapture: () async {},
+                    clear: () async => setState(() => _empty = true),
+                    buildJsonReport: () async => '{}',
+                    exporter: _LocalExporter(),
                   ),
-                  feed: const TopicFeed(),
-                  topics: const [],
-                ),
-                onRefresh: () async {},
-                onSelect: (_) {},
-                onQueryChanged: (_) {},
-                onMemberSearch: (_) {},
-                onLoadMoreMembers: () {},
-                onLoadMoreTopics: () {},
-                onOpenTopic: (_) {},
+                },
               ),
-              6 => DiagnosticsPanel(
-                controller: widget.diagnostics,
-                onClose: () {},
-              ),
-              _ => VoiceDiagnosticsView(
-                stateListenable: _voice,
-                eventsListenable: _voice,
-                readState: () => const VoiceDiagnosticsUiState(
-                  enabled: false,
-                  retainedBytes: 0,
-                  droppedRecords: 0,
-                  truncated: false,
-                ),
-                readEvents: () => [
-                  for (var i = 0; i < (_empty ? 0 : 80); i++)
-                    {
-                      'sequence': i,
-                      'timestampUtc': DateTime.utc(
-                        2026,
-                        9,
-                        9,
-                        12,
-                        0,
-                        i,
-                      ).toIso8601String(),
-                      'event': 'Local event',
-                      'component': 'fixture',
-                      'severity': 'info',
-                      'message': 'Local event $i',
-                      'data': <String, Object?>{},
-                    },
-                ],
-                startCapture: () async {},
-                stopCapture: () async {},
-                clear: () async => setState(() => _empty = true),
-                buildJsonReport: () async => '{}',
-                exporter: _LocalExporter(),
-              ),
-            },
+            ),
           ),
         ],
       ),

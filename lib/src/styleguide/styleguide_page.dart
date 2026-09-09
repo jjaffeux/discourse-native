@@ -725,7 +725,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                               width: width,
                               height: switch (_selected.id) {
                                 'card' => 480,
-                                'scroll-area' => 500,
                                 'sidebar' => 500,
                                 _ => 400,
                               },

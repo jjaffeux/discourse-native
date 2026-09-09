@@ -1,6 +1,9 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -329,6 +332,70 @@ void main() {
         4,
       );
       expect(bubbled.where((key) => key == LogicalKeyboardKey.space).length, 3);
+    },
+  );
+  testWidgets(
+    'focus ring paints only outside transparent content and multiplies token alpha',
+    (tester) async {
+      const background = Color(0xff204060);
+      final key = GlobalKey();
+      final theme = ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.red,
+        ).copyWith(primary: const Color(0x80ff0000)),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Center(
+            child: RepaintBoundary(
+              key: key,
+              child: const ColoredBox(
+                color: background,
+                child: Padding(
+                  padding: EdgeInsets.all(10),
+                  child: SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: DScrollArea(
+                      borderRadius: BorderRadius.zero,
+                      child: SizedBox(height: 500),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Future<List<int>> pixel(int x, int y) async =>
+          (await tester.runAsync(() async {
+            final image =
+                await (key.currentContext!.findRenderObject()!
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            );
+            final offset = (y * image.width + x) * 4;
+            final result = bytes!.buffer.asUint8List().sublist(
+              offset,
+              offset + 4,
+            );
+            image.dispose();
+            return result;
+          }))!;
+      expect(await pixel(50, 50), [32, 64, 96, 255]);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(await pixel(50, 50), [32, 64, 96, 255]);
+      final ring = await pixel(8, 50);
+      // Existing 50% alpha multiplied by ring 50% gives a 25% red blend.
+      expect(ring[0], closeTo(88, 1));
+      expect(ring[1], closeTo(48, 1));
+      expect(ring[2], closeTo(72, 1));
+      expect(await pixel(6, 50), [32, 64, 96, 255]);
     },
   );
 }
