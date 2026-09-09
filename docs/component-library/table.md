@@ -153,3 +153,33 @@ or pixel-parity claim has been made during independent implementation.
   `/tmp/table-review-7328/build.log`, `provenance.json`, `signature.log`.
 - No build touched `/Users/joffreyjaffeux/Code/discourse-native/build`.
   The prepared app has not been launched. Status remains **awaiting_slot**.
+
+
+## Pinned-main integration — superseding review artifact
+
+Merged pinned main `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` into this component
+branch. All non-Table progress rows match that main snapshot exactly. Table's
+menu and selection examples now use merged DButton; only native MenuAnchor
+remains pending Dropdown Menu. No further AlertTables/Skeleton adapter changes
+were required; custom spans, semantics and the virtualized Users boundary remain.
+
+Root/full locked resolution and analysis passed. The integration run passed 50
+focused Table, AlertTables, Skeleton and styleguide tests with seed 9092026.
+After selecting DButton's 32px regular visual surface for the menu trigger, all
+seven DTable tests passed again.
+
+The **current** bundle replaces the earlier artifact at the same isolated path:
+`/tmp/table-review-7328/Table Review 7328.app`. Source commit:
+`80c801e69ee94b8f1d02ca71ccb489bc53aec257`. Copied/built kernel SHA256:
+`ec4e523c98e3978b530bf4adda8f52ce452864c006d8d9bb3d54f0c392c54e4a`.
+Final ID `org.discourse.tablereview7328` and URL scheme
+`discourse-table-review-7328` remain unique. Runner edits restored; tracked
+source, fixture, pin and lock byte equality verified.
+
+The copied app is ad-hoc signed with only `com.apple.security.cs.allow-jit`,
+`com.apple.security.cs.allow-unsigned-executable-memory` and
+`com.apple.security.cs.disable-library-validation`. Entitlement read-back
+exactly equals this allowlist; no push or other restricted entitlement remains.
+`codesign --verify --deep --strict --verbose=2` passed. Read-back is stored at
+`/tmp/table-review-7328/entitlements-readback.plist`, alongside provenance and
+signature logs. No browser/native app use; **awaiting_slot** remains in effect.
