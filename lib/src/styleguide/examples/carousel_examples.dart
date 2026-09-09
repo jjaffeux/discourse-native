@@ -14,7 +14,7 @@ final carouselExamples = ComponentExamples(
       'the live viewport and can resolve responsively. Arrow keys follow the '
       'axis and reading direction; touch and pointer drags use Flutter paging. '
       'Autoplay pauses for focus and reduced motion and supports Embla-style '
-      'interaction stopping. The base-nova mapping is a 16px slide gap, 32px '
+      'interaction stopping. The base-nova mapping is a 16px slide gap, 28px '
       'outline circular controls, 48px control offset, 16px chevrons, and host '
       'palette/font/radius tokens. The production cooked-post image carousel '
       'uses this track while retaining its gallery dots and media rendering.',

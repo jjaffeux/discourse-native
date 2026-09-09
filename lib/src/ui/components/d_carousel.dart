@@ -733,7 +733,7 @@ class _DCarouselNavigationState extends State<DCarouselNavigation> {
           tooltip: label,
           semanticLabel: label,
           variant: DButtonVariant.outline,
-          size: DButtonSize.regular,
+          size: DButtonSize.small,
           borderRadius: BorderRadius.circular(DTokens.of(context).radius * 2.6),
           onPressed: enabled
               ? () {

@@ -11,9 +11,9 @@ Reference frozen on 2026-09-08:
 The frozen Markdown hash was reproduced before implementation. The registry
 defines a relative carousel region, an overflow-hidden viewport, a flex track,
 full-width slides, a `16px` leading slide gutter/negative track gutter,
-horizontal or vertical axis, and outline `icon-sm` circular controls centered
-`48px` outside the viewport. The icon artwork is `16px`. The host font and
-palette remain authoritative. Circular controls use the live `3xl` radius
+horizontal or vertical axis, and `28px` outline `icon-sm` circular controls
+positioned `48px` outside the viewport. The icon artwork is `16px`. The host
+font and palette remain authoritative. Circular controls use the live `3xl` radius
 factor (`DTokens.radius * 2.6`), and DButton supplies the base-nova outline,
 hover, press, focus, disabled and touch-target behavior.
 
