@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**27 of 64 components are merged locally.** 14 existing components are in progress; 23 are planned.
+**28 of 64 components are merged locally.** 13 existing components are in progress; 23 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -29,7 +29,6 @@ Branch preparation does not mark a component merged or visually verified.
 | button-group | Implementation and checks | — | — |
 | carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
-| chart | independent review | c782a940 | 01a08558-4ae6-7db2-bdd6-ee52e8570ff3 |
 
 ## Component implementation
 
@@ -94,7 +93,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
-| 60 | chart | review_ready | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | — |
+| 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
 | 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
 | 63 | input-otp | planned | — | — | input, field | — |
@@ -2257,7 +2256,7 @@ Status: merged. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-mar
 
 ### chart
 
-Status: review_ready. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-chart.
+Status: merged. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-chart.
 
 **acceptanceCriteria**
 
