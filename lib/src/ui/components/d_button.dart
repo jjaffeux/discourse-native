@@ -2,12 +2,17 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
-import '../ui/components/d_kbd.dart';
-import '../ui/components/d_spinner.dart';
-import '../ui/components/d_tooltip.dart';
-import 'discourse_typography.dart';
+import '../../theme/discourse_typography.dart';
+import '../foundation/tokens.dart';
+import 'd_kbd.dart';
+import 'd_spinner.dart';
+import 'd_tooltip.dart';
 
 enum DButtonVariant {
+  outline,
+  secondary,
+  ghost,
+  destructive,
   standard,
   primary,
   danger,
@@ -21,7 +26,10 @@ enum DButtonVariant {
   link,
 }
 
-enum DButtonSize { small, regular, large }
+enum DButtonSize { extraSmall, small, regular, large }
+
+/// Icon placement follows the ambient reading direction.
+enum DButtonIconPosition { start, end }
 
 @immutable
 class DButtonStateStyle {
@@ -113,7 +121,7 @@ class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
     required this.transparentDanger,
     required this.transparentSuccess,
     required this.link,
-    this.disabledOpacity = 0.4,
+    this.disabledOpacity = 0.5,
   });
 
   final double borderRadius;
@@ -132,6 +140,10 @@ class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
   final DButtonVariantStyle link;
 
   DButtonVariantStyle styleFor(DButtonVariant variant) => switch (variant) {
+    DButtonVariant.outline => standard,
+    DButtonVariant.secondary => standard,
+    DButtonVariant.ghost => flat,
+    DButtonVariant.destructive => danger,
     DButtonVariant.standard => standard,
     DButtonVariant.primary => primary,
     DButtonVariant.danger => danger,
@@ -301,15 +313,28 @@ extension DiscourseButtonThemeAccess on ThemeData {
       );
 }
 
+/// A compact shadcn button with application-owned activation and busy state.
+///
+/// [loading] blocks activation; callbacks own asynchronous work and errors.
+/// [focusNode] is borrowed and never disposed. [label] accepts rich content;
+/// Text can opt into wrapping using its own softWrap and maxLines properties.
+/// Icon-only controls require an accessible tooltip. Desktop surfaces follow
+/// base-nova sizes; touch platforms expand their invisible targets to 48px.
 class DButton extends StatelessWidget {
   const DButton({
     super.key,
     required this.label,
     required this.onPressed,
     this.icon,
-    this.variant = DButtonVariant.standard,
+    this.iconPosition = DButtonIconPosition.start,
+    this.expanded = false,
+    this.invalid = false,
+    this.hasPopup = false,
+    this.isLink = false,
+    this.variant = DButtonVariant.primary,
     this.size = DButtonSize.regular,
     this.loading = false,
+    this.loadingSemanticLabel = 'Loading',
     this.loadingLabel,
     this.tooltip,
     this.shortcut,
@@ -328,10 +353,11 @@ class DButton extends StatelessWidget {
     required Widget icon,
     required String tooltip,
     required this.onPressed,
-    this.variant = DButtonVariant.standard,
+    this.variant = DButtonVariant.primary,
     this.size = DButtonSize.regular,
     this.insetSurface = false,
     this.loading = false,
+    this.loadingSemanticLabel = 'Loading',
     this.shortcut,
     this.semanticLabel,
     this.focusNode,
@@ -339,7 +365,12 @@ class DButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.borderRadius,
     this.interactiveBackgroundColor,
-  }) : label = const SizedBox.shrink(),
+    this.expanded = false,
+    this.invalid = false,
+    this.hasPopup = false,
+    this.isLink = false,
+  }) : iconPosition = DButtonIconPosition.start,
+       label = const SizedBox.shrink(),
        padding = null,
        loadingLabel = null,
        // ignore: prefer_initializing_formals
@@ -351,12 +382,29 @@ class DButton extends StatelessWidget {
   final Widget label;
   final VoidCallback? onPressed;
   final Widget? icon;
+  final DButtonIconPosition iconPosition;
+
+  /// Expanded popup triggers retain their active surface.
+  final bool expanded;
+
+  /// Validation styling for a form or popup trigger.
+  final bool invalid;
+
+  /// Popup triggers do not translate down when pressed.
+  final bool hasPopup;
+
+  /// Gives navigation callbacks a link role while retaining button styling.
+  /// The application owns route or URL opening; no networking is performed.
+  final bool isLink;
   final DButtonVariant variant;
   final DButtonSize size;
 
   /// Insets the icon surface while preserving the size's full hit target.
   final bool insetSurface;
   final bool loading;
+
+  /// Localizable busy status, separate from the persistent action name.
+  final String loadingSemanticLabel;
   final Widget? loadingLabel;
   final String? tooltip;
   final DShortcut? shortcut;
@@ -371,30 +419,127 @@ class DButton extends StatelessWidget {
 
   static const double minimumDimension = 48;
   static const double flatSurfacePadding = 4;
-  static const double _borderWidth = 1;
 
-  static double fontSizeFor(DButtonSize size) => DiscourseTypography.sm;
-
-  static double _spacingUnitFor(DButtonSize size) => switch (size) {
-    DButtonSize.small => 14,
-    DButtonSize.regular => 16,
-    DButtonSize.large => 18,
+  static double fontSizeFor(DButtonSize size) => switch (size) {
+    DButtonSize.extraSmall => DiscourseTypography.xs,
+    DButtonSize.small => DiscourseTypography.base * .8,
+    _ => DiscourseTypography.sm,
   };
 
+  static double visualDimensionFor(DButtonSize size) => switch (size) {
+    DButtonSize.extraSmall => 24,
+    DButtonSize.small => 28,
+    DButtonSize.regular => 32,
+    DButtonSize.large => 36,
+  };
+
+  /// Legacy shell hit targets remain available for inset icon actions.
   static double iconOnlyDimensionFor(DButtonSize size) => switch (size) {
+    DButtonSize.extraSmall => 48,
     DButtonSize.small => 40,
     DButtonSize.regular => minimumDimension,
     DButtonSize.large => 56,
   };
 
+  DButtonVariantStyle _referenceStyle(
+    DTokens tokens,
+    bool dark,
+    DiscourseButtonTheme compatibility,
+  ) {
+    DButtonStateStyle state(
+      Color background,
+      Color foreground, [
+      Color? border,
+    ]) => DButtonStateStyle(
+      foregroundColor: foreground,
+      backgroundColor: background,
+      iconColor: foreground,
+      border: BorderSide(color: border ?? Colors.transparent),
+    );
+    DButtonVariantStyle pair(
+      Color background,
+      Color hover,
+      Color foreground, [
+      Color? border,
+    ]) => DButtonVariantStyle(
+      enabled: state(background, foreground, border),
+      interactive: state(hover, foreground, border),
+      focused: state(background, foreground, border),
+    );
+    return switch (variant) {
+      DButtonVariant.primary => pair(
+        tokens.primary,
+        tokens.primary.withValues(alpha: tokens.primary.a * .8),
+        tokens.primaryForeground,
+      ),
+      DButtonVariant.outline => pair(
+        dark
+            ? tokens.colors.outlineVariant.withValues(
+                alpha: tokens.colors.outlineVariant.a * .3,
+              )
+            : tokens.background,
+        dark
+            ? tokens.colors.outlineVariant.withValues(
+                alpha: tokens.colors.outlineVariant.a * .5,
+              )
+            : tokens.muted,
+        tokens.foreground,
+        dark ? tokens.colors.outlineVariant : tokens.border,
+      ),
+      DButtonVariant.secondary => pair(
+        tokens.muted,
+        Color.lerp(tokens.muted, tokens.foreground, .05)!,
+        tokens.foreground,
+      ),
+      DButtonVariant.ghost => pair(
+        Colors.transparent,
+        tokens.muted.withValues(alpha: tokens.muted.a * (dark ? .5 : 1)),
+        tokens.foreground,
+      ),
+      DButtonVariant.destructive => pair(
+        tokens.destructive.withValues(
+          alpha: tokens.destructive.a * (dark ? .2 : .1),
+        ),
+        tokens.destructive.withValues(
+          alpha: tokens.destructive.a * (dark ? .3 : .2),
+        ),
+        tokens.destructive,
+      ),
+      DButtonVariant.link => pair(
+        Colors.transparent,
+        Colors.transparent,
+        tokens.primary,
+      ),
+      _ => compatibility.styleFor(variant),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final effectiveSemanticLabel =
+        semanticLabel ?? (_iconOnly ? tooltip : null);
     final theme = Theme.of(context);
     final buttons = theme.discourseButtons;
-    final variantStyle = buttons.styleFor(variant);
+    final tokens = DTokens.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final variantStyle = _referenceStyle(tokens, dark, buttons);
     final fontSize = fontSizeFor(size);
-    final spacingUnit = _spacingUnitFor(size);
+    final spacingUnit = switch (size) {
+      DButtonSize.extraSmall => 12.0,
+      DButtonSize.small => _iconOnly ? 16.0 : 14.0,
+      _ => 16.0,
+    };
+    final gap = size == DButtonSize.extraSmall || size == DButtonSize.small
+        ? 4.0
+        : 6.0;
+    final visualDimension = visualDimensionFor(size);
+    final touch =
+        theme.platform == TargetPlatform.iOS ||
+        theme.platform == TargetPlatform.android;
     final iconOnlyDimension = iconOnlyDimensionFor(size);
+    final iconTargetDimension = touch
+        ? iconOnlyDimension.clamp(DSpacing.touchTarget, double.infinity)
+        : iconOnlyDimension;
     final insetIconSurface =
         _iconOnly &&
         (insetSurface ||
@@ -402,9 +547,18 @@ class DButton extends StatelessWidget {
             variant == DButtonVariant.flatClose);
     final iconOnlySurfaceDimension = insetIconSurface
         ? iconOnlyDimension - flatSurfacePadding * 2
-        : iconOnlyDimension;
+        : visualDimension;
     final enabled = onPressed != null && !loading;
-    final radius = borderRadius ?? BorderRadius.circular(buttons.borderRadius);
+    final radius =
+        borderRadius ??
+        BorderRadius.circular(
+          size == DButtonSize.extraSmall || size == DButtonSize.small
+              ? (tokens.radius * .8).clamp(
+                  0,
+                  size == DButtonSize.extraSmall ? 10 : 12,
+                )
+              : tokens.radius,
+        );
 
     DButtonStateStyle withInteractiveBackground(DButtonStateStyle state) {
       final background = interactiveBackgroundColor;
@@ -426,12 +580,20 @@ class DButton extends StatelessWidget {
       if (states.contains(WidgetState.focused)) {
         return withInteractiveBackground(variantStyle.focused);
       }
+      if (expanded &&
+          (variant == DButtonVariant.outline ||
+              variant == DButtonVariant.secondary ||
+              variant == DButtonVariant.ghost)) {
+        return variantStyle.interactive;
+      }
       return variantStyle.enabled;
     }
 
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
-        _iconOnly ? Size.square(iconOnlySurfaceDimension) : Size.zero,
+        _iconOnly
+            ? Size.square(iconOnlySurfaceDimension)
+            : Size(0, visualDimension),
       ),
       fixedSize: _iconOnly
           ? WidgetStatePropertyAll(Size.square(iconOnlySurfaceDimension))
@@ -443,15 +605,44 @@ class DButton extends StatelessWidget {
         padding ??
             (_iconOnly
                 ? EdgeInsets.zero
-                : EdgeInsets.symmetric(
-                    // Core uses border-box sizing with 1px borders around its
-                    // 0.5em/0.65em padding. Flutter paints borders inside the
-                    // layout box, so include that space in the padding here.
-                    horizontal: spacingUnit * 0.65 + _borderWidth,
-                    vertical: spacingUnit * 0.5 + _borderWidth,
+                : EdgeInsetsDirectional.only(
+                    start:
+                        (icon != null || (loading && loadingLabel != null)) &&
+                            iconPosition == DButtonIconPosition.start
+                        ? (size == DButtonSize.extraSmall ||
+                                  size == DButtonSize.small
+                              ? 7
+                              : 9)
+                        : (size == DButtonSize.extraSmall ? 9 : 11),
+                    end:
+                        (icon != null || (loading && loadingLabel != null)) &&
+                            iconPosition == DButtonIconPosition.end
+                        ? (size == DButtonSize.extraSmall ||
+                                  size == DButtonSize.small
+                              ? 7
+                              : 9)
+                        : (size == DButtonSize.extraSmall ? 9 : 11),
+                    top: 1,
+                    bottom: 1,
                   )),
       ),
-      textStyle: WidgetStatePropertyAll(theme.textTheme.labelLarge),
+      textStyle: WidgetStateProperty.resolveWith(
+        (states) => theme.textTheme.labelLarge!.copyWith(
+          fontSize: fontSize,
+          height: switch (size) {
+            DButtonSize.extraSmall => 16 / fontSize,
+            DButtonSize.small => 22.4 / fontSize,
+            _ => 20 / fontSize,
+          },
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0,
+          decoration:
+              variant == DButtonVariant.link &&
+                  states.contains(WidgetState.hovered)
+              ? TextDecoration.underline
+              : TextDecoration.none,
+        ),
+      ),
       iconSize: WidgetStatePropertyAll(spacingUnit),
       foregroundColor: WidgetStateProperty.resolveWith(
         (states) => resolveState(states).foregroundColor,
@@ -463,7 +654,17 @@ class DButton extends StatelessWidget {
         (states) => resolveState(states).backgroundColor,
       ),
       side: WidgetStateProperty.resolveWith(
-        (states) => resolveState(states).border,
+        (states) => invalid
+            ? BorderSide(
+                color: tokens.destructive.withValues(alpha: dark ? .5 : 1),
+              )
+            : states.contains(WidgetState.focused)
+            ? BorderSide(
+                color: variant == DButtonVariant.destructive
+                    ? tokens.destructive.withValues(alpha: .4)
+                    : tokens.focusRing,
+              )
+            : resolveState(states).border,
       ),
       shape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: radius),
@@ -472,30 +673,50 @@ class DButton extends StatelessWidget {
       elevation: const WidgetStatePropertyAll(0),
       shadowColor: const WidgetStatePropertyAll(Colors.transparent),
       surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-      animationDuration: Duration.zero,
+      animationDuration: DMotion.duration(
+        context,
+        const Duration(milliseconds: 150),
+      ),
       visualDensity: insetIconSurface
           ? VisualDensity(
-              // Material density changes padded targets in four-pixel steps.
-              horizontal: (iconOnlyDimension - kMinInteractiveDimension) / 4,
-              vertical: (iconOnlyDimension - kMinInteractiveDimension) / 4,
+              // Density changes only the padded target, not the fixed surface.
+              // Legacy compact desktop targets must not shrink touch bounds.
+              horizontal: (iconTargetDimension - kMinInteractiveDimension) / 4,
+              vertical: (iconTargetDimension - kMinInteractiveDimension) / 4,
             )
           : VisualDensity.standard,
-      tapTargetSize: insetIconSurface
+      tapTargetSize: insetIconSurface || touch
           ? MaterialTapTargetSize.padded
           : MaterialTapTargetSize.shrinkWrap,
       splashFactory: NoSplash.splashFactory,
       mouseCursor: WidgetStateMouseCursor.clickable,
       alignment: alignment,
       backgroundBuilder: (context, states, child) {
-        if (!states.contains(WidgetState.focused)) return child!;
-        return DecoratedBox(
-          decoration: ShapeDecoration(
-            shape: RoundedRectangleBorder(
-              borderRadius: radius,
-              side: BorderSide(color: buttons.focusRingColor, width: 2),
+        final focused = states.contains(WidgetState.focused);
+        Widget result = child!;
+        if (focused || invalid) {
+          final destructive = invalid || variant == DButtonVariant.destructive;
+          final color = destructive ? tokens.destructive : tokens.focusRing;
+          result = DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: radius.resolve(Directionality.of(context)),
+              border: Border.all(
+                color: color.withValues(
+                  alpha: destructive ? (dark ? .4 : .2) : .5,
+                ),
+                width: 3,
+                strokeAlign: BorderSide.strokeAlignOutside,
+              ),
             ),
+            child: result,
+          );
+        }
+        return Transform.translate(
+          offset: Offset(
+            0,
+            states.contains(WidgetState.pressed) && !hasPopup ? 1 : 0,
           ),
-          child: child,
+          child: result,
         );
       },
     );
@@ -514,20 +735,26 @@ class DButton extends StatelessWidget {
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      ExcludeSemantics(child: icon!),
-                      SizedBox(width: fontSize * 0.45),
+                      if (iconPosition == DButtonIconPosition.start) ...[
+                        ExcludeSemantics(child: icon!),
+                        SizedBox(width: gap),
+                      ],
                       Flexible(
                         child: ExcludeSemantics(
                           excluding: semanticLabel != null,
                           child: label,
                         ),
                       ),
+                      if (iconPosition == DButtonIconPosition.end) ...[
+                        SizedBox(width: gap),
+                        ExcludeSemantics(child: icon!),
+                      ],
                     ],
                   ),
           );
     if (loading) {
       final labelChild = child;
-      const indicator = DSpinner(semanticLabel: null);
+      final indicator = DSpinner(size: spacingUnit, semanticLabel: null);
       child = loadingLabel == null
           ? indicator
           : DefaultTextStyle.merge(
@@ -537,14 +764,20 @@ class DButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  indicator,
-                  SizedBox(width: fontSize * 0.45),
+                  if (iconPosition == DButtonIconPosition.start) ...[
+                    indicator,
+                    SizedBox(width: gap),
+                  ],
                   Flexible(
                     child: ExcludeSemantics(
                       excluding: semanticLabel != null,
                       child: loadingLabel!,
                     ),
                   ),
+                  if (iconPosition == DButtonIconPosition.end) ...[
+                    SizedBox(width: gap),
+                    indicator,
+                  ],
                 ],
               ),
             );
@@ -570,34 +803,58 @@ class DButton extends StatelessWidget {
       }
     }
 
-    Widget result = FilledButton(
-      onPressed: enabled ? onPressed : null,
-      style: style,
-      focusNode: focusNode,
-      autofocus: autofocus,
-      child: child,
-    );
-    if (onPressed == null && !loading) {
+    Widget result = isLink
+        ? _DLinkPrimitive(
+            onPressed: enabled ? onPressed : null,
+            style: style,
+            focusNode: focusNode,
+            autofocus: autofocus,
+            child: child,
+          )
+        : FilledButton(
+            onPressed: enabled ? onPressed : null,
+            style: style,
+            focusNode: focusNode,
+            autofocus: autofocus,
+            child: child,
+          );
+    if (!enabled) {
       result = Opacity(opacity: buttons.disabledOpacity, child: result);
     }
     if (tooltip case final tooltip?) {
       result = DTooltip(
         message: tooltip,
         shortcut: shortcut,
-        excludeFromSemantics: semanticLabel != null,
+        excludeFromSemantics: effectiveSemanticLabel != null,
         child: result,
       );
     }
 
     return MergeSemantics(
       child: Semantics(
-        button: true,
+        button: !isLink,
+        link: isLink,
         enabled: enabled,
         liveRegion: loading,
-        label: semanticLabel,
-        value: loading ? 'Loading' : null,
+        label: effectiveSemanticLabel,
+        value: loading ? loadingSemanticLabel : null,
         child: result,
       ),
     );
   }
+}
+
+// ButtonStyleButton retains native Actions/Focus and activation semantics.
+// Navigation must not expose the button role inherited by FilledButton.
+class _DLinkPrimitive extends FilledButton {
+  const _DLinkPrimitive({
+    required super.onPressed,
+    required super.child,
+    super.style,
+    super.focusNode,
+    super.autofocus,
+  });
+
+  @override
+  bool get isSemanticButton => false;
 }

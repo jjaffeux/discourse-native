@@ -1,0 +1,443 @@
+[
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_4k3aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_4k3aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-label\"></span><input id=\"terms-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"terms-checkbox\"><label data-slot=\"label\" class=\"flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50\" for=\"terms-checkbox\" id=\"terms-checkbox-label\">Accept terms and conditions</label></div>",
+    "rect": {
+      "bottom": 365.75,
+      "height": 16,
+      "left": 502,
+      "right": 518,
+      "top": 349.75,
+      "width": 16,
+      "x": 502,
+      "y": 349.75
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_543aanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-2-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_543aanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-2-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span><input id=\"terms-checkbox-2\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"terms-checkbox-2\" checked=\"\"><div data-slot=\"field-content\" class=\"group/field-content flex flex-1 flex-col gap-0.5 leading-snug\"><label data-slot=\"field-label\" class=\"items-center text-sm font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-",
+    "rect": {
+      "bottom": 402.75,
+      "height": 16,
+      "left": 502,
+      "right": 518,
+      "top": 386.75,
+      "width": 16,
+      "x": 502,
+      "y": 386.75
+    },
+    "style": {
+      "background": "lab(90.952 0 -0.0000119209)",
+      "border": "1px solid lab(90.952 0 -0.0000119209)",
+      "color": "lab(7.78201 -0.0000149012 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-disabled=\"\" data-unchecked=\"\" role=\"checkbox\" tabindex=\"-1\" aria-disabled=\"true\" id=\"base-ui-_R_5k3aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\" data-disabled=\"true\"><span data-disabled=\"\" data-unchecked=\"\" role=\"checkbox\" tabindex=\"-1\" aria-disabled=\"true\" id=\"base-ui-_R_5k3aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-label\"></span><input disabled=\"\" id=\"toggle-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"toggle-checkbox\"><label data-slot=\"field-label\" class=\"items-center text-sm font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[&gt;[data-slot=field]]:rounded-lg has-[&gt;[data-slot=field]]:border has-[&gt;[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-muted/50 has-[&gt;[data-slot=field]]:has-[:focus-visible]:border-ring has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-3 has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-ring/50 *:data-[slot=field]:p-2.5 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg",
+    "rect": {
+      "bottom": 465.625,
+      "height": 16,
+      "left": 502,
+      "right": 518,
+      "top": 449.625,
+      "width": 16,
+      "x": 502,
+      "y": 449.625
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_643aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-2-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_643aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-2-label\"></span><input id=\"toggle-checkbox-2\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"toggle-checkbox-2\"><div data-slot=\"field-content\" class=\"group/field-content flex flex-1 flex-col gap-0.5 leading-snug\"><div data-slot=\"field-label\" class=\"flex w-fit items-center gap-2 text-sm font-medium group-data-[disabled=true]/field:opacity-50\">Enable notifications</div><p data-slot=\"field-description\" class=\"text-left text-sm leading-normal font-normal text-muted-foreground group-has-data-horizontal/field:text-balance [[data-variant=legend]+&amp;]:-mt-1.5 last:mt-0 nth-last-2:-mt-1 [&amp;&gt;a]:underline [&amp;&gt;a]:underline-offset-4 [&amp;&gt;a:hover]:text-primary\">You can enable or disable notifications at any time.</p></div></div>",
+    "rect": {
+      "bottom": 515.25,
+      "height": 16,
+      "left": 513,
+      "right": 529,
+      "top": 499.25,
+      "width": 16,
+      "x": 513,
+      "y": 499.25
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_lfaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" aria-invalid=\"true\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-invalid-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\" data-invalid=\"true\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_lfaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" aria-invalid=\"true\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-invalid-label\"></span><input id=\"terms-checkbox-invalid\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"terms-checkbox-invalid\"><label data-slot=\"field-label\" class=\"items-center text-sm font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[&gt;[data-slot=field]]:rounded-lg has-[&gt;[data-slot=field]]:border has-[&gt;[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-muted/50 has-[&gt;[data-slot=field]]:has-[:focus-visible]:border-ring has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-3 has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-ring/50 *:data-[slot=field]:p-2.5 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10 ",
+    "rect": {
+      "bottom": 1816.4375,
+      "height": 16,
+      "left": 582,
+      "right": 598,
+      "top": 1800.4375,
+      "width": 16,
+      "x": 582,
+      "y": 1800.4375
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid oklab(0.704006 0.176798 0.0722319 / 0.5)",
+      "color": "lab(63.7053 60.745 31.3109)",
+      "radius": "4px",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.704006 0.176798 0.0722319 / 0.4) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_lraanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-basic-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_lraanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-basic-label\"></span><input id=\"terms-checkbox-basic\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"terms-checkbox-basic\"><label data-slot=\"field-label\" class=\"items-center text-sm font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[&gt;[data-slot=field]]:rounded-lg has-[&gt;[data-slot=field]]:border has-[&gt;[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-muted/50 has-[&gt;[data-slot=field]]:has-[:focus-visible]:border-ring has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-3 has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-ring/50 *:data-[slot=field]:p-2.5 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10 has-[&gt;[data-slot=field]]:w-full has-[&gt;[d",
+    "rect": {
+      "bottom": 2346.4375,
+      "height": 16,
+      "left": 582,
+      "right": 598,
+      "top": 2330.4375,
+      "width": 16,
+      "x": 582,
+      "y": 2330.4375
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_m7aanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-desc-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_m7aanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-desc-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span><input id=\"terms-checkbox-desc\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"terms-checkbox-desc\" checked=\"\"><div data-slot=\"field-content\" class=\"group/field-content flex flex-1 flex-col gap-0.5 leading-snug\"><label data-slot=\"field-label\" class=\"items-center text-sm font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-che",
+    "rect": {
+      "bottom": 2853.8125,
+      "height": 16,
+      "left": 550,
+      "right": 566,
+      "top": 2837.8125,
+      "width": 16,
+      "x": 550,
+      "y": 2837.8125
+    },
+    "style": {
+      "background": "lab(90.952 0 -0.0000119209)",
+      "border": "1px solid lab(90.952 0 -0.0000119209)",
+      "color": "lab(7.78201 -0.0000149012 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-disabled=\"\" data-unchecked=\"\" role=\"checkbox\" tabindex=\"-1\" aria-disabled=\"true\" id=\"base-ui-_R_mjaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-disabled-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\" data-disabled=\"true\"><span data-disabled=\"\" data-unchecked=\"\" role=\"checkbox\" tabindex=\"-1\" aria-disabled=\"true\" id=\"base-ui-_R_mjaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-disabled-label\"></span><input disabled=\"\" id=\"toggle-checkbox-disabled\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"toggle-checkbox-disabled\"><label data-slot=\"field-label\" class=\"items-center text-sm font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[&gt;[data-slot=field]]:rounded-lg has-[&gt;[data-slot=field]]:border has-[&gt;[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-muted/50 has-[&gt;[data-slot=field]]:has-[:focus-visible]:border-ring has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-3 has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-ring/50 *:data-[slot=field]:p-2.5 dark:has-data-checked:border-primary/2",
+    "rect": {
+      "bottom": 3432.6875,
+      "height": 16,
+      "left": 582,
+      "right": 598,
+      "top": 3416.6875,
+      "width": 16,
+      "x": 582,
+      "y": 3416.6875
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_jmvaanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"finder-pref-9k2-hard-disks-ljj-checkbox-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_jmvaanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"finder-pref-9k2-hard-disks-ljj-checkbox-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span><input id=\"finder-pref-9k2-hard-disks-ljj-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"finder-pref-9k2-hard-disks-ljj-checkbox\" checked=\"\"><label data-slot=\"field-label\" class=\"items-center text-sm select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[&gt;[data-slot=field]]:rounde",
+    "rect": {
+      "bottom": 3945.3125,
+      "height": 16,
+      "left": 532.359375,
+      "right": 548.359375,
+      "top": 3929.3125,
+      "width": 16,
+      "x": 532.359375,
+      "y": 3929.3125
+    },
+    "style": {
+      "background": "lab(90.952 0 -0.0000119209)",
+      "border": "1px solid lab(90.952 0 -0.0000119209)",
+      "color": "lab(7.78201 -0.0000149012 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_lmvaanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"finder-pref-9k2-external-disks-1yg-checkbox-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_lmvaanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"finder-pref-9k2-external-disks-1yg-checkbox-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span><input id=\"finder-pref-9k2-external-disks-1yg-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"finder-pref-9k2-external-disks-1yg-checkbox\" checked=\"\"><label data-slot=\"field-label\" class=\"items-center text-sm select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[&gt;[data-slot=fi",
+    "rect": {
+      "bottom": 3976.5625,
+      "height": 16,
+      "left": 532.359375,
+      "right": 548.359375,
+      "top": 3960.5625,
+      "width": 16,
+      "x": 532.359375,
+      "y": 3960.5625
+    },
+    "style": {
+      "background": "lab(90.952 0 -0.0000119209)",
+      "border": "1px solid lab(90.952 0 -0.0000119209)",
+      "color": "lab(7.78201 -0.0000149012 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_nmvaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"finder-pref-9k2-cds-dvds-fzt-checkbox-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_nmvaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"finder-pref-9k2-cds-dvds-fzt-checkbox-label\"></span><input id=\"finder-pref-9k2-cds-dvds-fzt-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"finder-pref-9k2-cds-dvds-fzt-checkbox\"><label data-slot=\"field-label\" class=\"items-center text-sm select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[&gt;[data-slot=field]]:rounded-lg has-[&gt;[data-slot=field]]:border has-[&gt;[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-muted/50 has-[&gt;[data-slot=field]]:has-[:focus-visible]:border-ring has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-3 has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-ring/50 *:data-[slot=field]:p-2.5 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10 has-[&",
+    "rect": {
+      "bottom": 4007.8125,
+      "height": 16,
+      "left": 532.359375,
+      "right": 548.359375,
+      "top": 3991.8125,
+      "width": 16,
+      "x": 532.359375,
+      "y": 3991.8125
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_pmvaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"finder-pref-9k2-connected-servers-6l2-checkbox-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_pmvaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"finder-pref-9k2-connected-servers-6l2-checkbox-label\"></span><input id=\"finder-pref-9k2-connected-servers-6l2-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"finder-pref-9k2-connected-servers-6l2-checkbox\"><label data-slot=\"field-label\" class=\"items-center text-sm select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[&gt;[data-slot=field]]:rounded-lg has-[&gt;[data-slot=field]]:border has-[&gt;[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-muted/50 has-[&gt;[data-slot=field]]:has-[:focus-visible]:border-ring has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-3 has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-ring/50 *:data-[slot=field]:p-2.5 dark:has-data-checked:border-primary/20 dark:has-data-c",
+    "rect": {
+      "bottom": 4039.0625,
+      "height": 16,
+      "left": 532.359375,
+      "right": 548.359375,
+      "top": 4023.0625,
+      "width": 16,
+      "x": 532.359375,
+      "y": 4023.0625
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_2n7aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"></span>",
+    "parent": "<th data-slot=\"table-head\" class=\"h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&amp;:has([role=checkbox])]:pr-0 w-8\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_2n7aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"></span><input id=\"select-all-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"select-all-checkbox\"></th>",
+    "rect": {
+      "bottom": 4377.4375,
+      "height": 16,
+      "left": 415,
+      "right": 431,
+      "top": 4361.4375,
+      "width": 16,
+      "x": 415,
+      "y": 4361.4375
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_j77aanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span>",
+    "parent": "<td data-slot=\"table-cell\" class=\"p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0\"><span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_j77aanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span><input id=\"row-1-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"row-1-checkbox\" checked=\"\"></td>",
+    "rect": {
+      "bottom": 4416.1875,
+      "height": 16,
+      "left": 415,
+      "right": 431,
+      "top": 4400.1875,
+      "width": 16,
+      "x": 415,
+      "y": 4400.1875
+    },
+    "style": {
+      "background": "lab(90.952 0 -0.0000119209)",
+      "border": "1px solid lab(90.952 0 -0.0000119209)",
+      "color": "lab(7.78201 -0.0000149012 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_l77aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"></span>",
+    "parent": "<td data-slot=\"table-cell\" class=\"p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_l77aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"></span><input id=\"row-2-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"row-2-checkbox\"></td>",
+    "rect": {
+      "bottom": 4453.1875,
+      "height": 16,
+      "left": 415,
+      "right": 431,
+      "top": 4437.1875,
+      "width": 16,
+      "x": 415,
+      "y": 4437.1875
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_n77aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"></span>",
+    "parent": "<td data-slot=\"table-cell\" class=\"p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_n77aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"></span><input id=\"row-3-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"row-3-checkbox\"></td>",
+    "rect": {
+      "bottom": 4490.1875,
+      "height": 16,
+      "left": 415,
+      "right": 431,
+      "top": 4474.1875,
+      "width": 16,
+      "x": 415,
+      "y": 4474.1875
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_p77aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"></span>",
+    "parent": "<td data-slot=\"table-cell\" class=\"p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_p77aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\"></span><input id=\"row-4-checkbox\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"row-4-checkbox\"></td>",
+    "rect": {
+      "bottom": 4527.1875,
+      "height": 16,
+      "left": 415,
+      "right": 431,
+      "top": 4511.1875,
+      "width": 16,
+      "x": 415,
+      "y": 4511.1875
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_j7jaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-rtl-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_j7jaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-rtl-label\"></span><input id=\"terms-checkbox-rtl\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"terms-checkbox\"><label data-slot=\"label\" class=\"flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50\" for=\"terms-checkbox-rtl\" id=\"terms-checkbox-rtl-label\">قبول الشروط والأحكام</label></div>",
+    "rect": {
+      "bottom": 4968.1875,
+      "height": 16,
+      "left": 870,
+      "right": 886,
+      "top": 4952.1875,
+      "width": 16,
+      "x": 870,
+      "y": 4952.1875
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_l7jaanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-2-rtl-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-checked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_l7jaanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"terms-checkbox-2-rtl-label\"><span data-checked=\"\" data-slot=\"checkbox-indicator\" class=\"grid place-content-center text-current transition-none [&amp;&gt;svg]:size-3.5\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span></span><input id=\"terms-checkbox-2-rtl\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"terms-checkbox-2\" checked=\"\"><div data-slot=\"field-content\" class=\"group/field-content flex flex-1 flex-col gap-0.5 leading-snug\"><label data-slot=\"field-label\" class=\"items-center text-sm font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-che",
+    "rect": {
+      "bottom": 5005.1875,
+      "height": 16,
+      "left": 870,
+      "right": 886,
+      "top": 4989.1875,
+      "width": 16,
+      "x": 870,
+      "y": 4989.1875
+    },
+    "style": {
+      "background": "lab(90.952 0 -0.0000119209)",
+      "border": "1px solid lab(90.952 0 -0.0000119209)",
+      "color": "lab(7.78201 -0.0000149012 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-disabled=\"\" data-unchecked=\"\" role=\"checkbox\" tabindex=\"-1\" aria-disabled=\"true\" id=\"base-ui-_R_n7jaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-rtl-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\" data-disabled=\"true\"><span data-disabled=\"\" data-unchecked=\"\" role=\"checkbox\" tabindex=\"-1\" aria-disabled=\"true\" id=\"base-ui-_R_n7jaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-rtl-label\"></span><input disabled=\"\" id=\"toggle-checkbox-rtl\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"toggle-checkbox\"><label data-slot=\"field-label\" class=\"items-center text-sm font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[&gt;[data-slot=field]]:rounded-lg has-[&gt;[data-slot=field]]:border has-[&gt;[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-muted/50 has-[&gt;[data-slot=field]]:has-[:focus-visible]:border-ring has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-3 has-[&gt;[data-slot=field]]:has-[:focus-visible]:ring-ring/50 *:data-[slot=field]:p-2.5 dark:has-data-checked:border-primary/20 dark:has-data-ch",
+    "rect": {
+      "bottom": 5068.0625,
+      "height": 16,
+      "left": 870,
+      "right": 886,
+      "top": 5052.0625,
+      "width": 16,
+      "x": 870,
+      "y": 5052.0625
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  },
+  {
+    "html": "<span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_p7jaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-2-label\"></span>",
+    "parent": "<div role=\"group\" data-slot=\"field\" data-orientation=\"horizontal\" class=\"group/field flex w-full gap-2 data-[invalid=true]:text-destructive flex-row items-center has-[&gt;[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[&gt;[data-slot=field-content]]:[&amp;&gt;[role=checkbox],[role=radio]]:mt-px\"><span data-unchecked=\"\" role=\"checkbox\" tabindex=\"0\" id=\"base-ui-_R_p7jaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"checkbox\" class=\"peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary\" aria-labelledby=\"toggle-checkbox-2-label\"></span><input id=\"toggle-checkbox-2\" style=\"clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0;padding:0;width:1px;height:1px;margin:-1px;position:absolute\" tabindex=\"-1\" type=\"checkbox\" aria-hidden=\"true\" name=\"toggle-checkbox-2\"><div data-slot=\"field-content\" class=\"group/field-content flex flex-1 flex-col gap-0.5 leading-snug\"><div data-slot=\"field-label\" class=\"flex w-fit items-center gap-2 text-sm font-medium group-data-[disabled=true]/field:opacity-50\">تفعيل الإشعارات</div><p data-slot=\"field-description\" class=\"text-start text-sm leading-normal font-normal text-muted-foreground group-has-data-horizontal/field:text-balance [[data-variant=legend]+&amp;]:-mt-1.5 last:mt-0 nth-last-2:-mt-1 [&amp;&gt;a]:underline [&amp;&gt;a]:underline-offset-4 [&amp;&gt;a:hover]:text-primary\">يمكنك تفعيل أو إلغاء تفعيل الإشعارات في أي وقت.</p></div></div>",
+    "rect": {
+      "bottom": 5117.6875,
+      "height": 16,
+      "left": 859,
+      "right": 875,
+      "top": 5101.6875,
+      "width": 16,
+      "x": 859,
+      "y": 5101.6875
+    },
+    "style": {
+      "background": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.045)",
+      "border": "1px solid lab(100 0 0 / 0.15)",
+      "color": "lab(98.26 0 0)",
+      "radius": "4px",
+      "shadow": "none"
+    }
+  }
+]

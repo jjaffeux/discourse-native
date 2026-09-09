@@ -181,7 +181,7 @@ void main() {
           matching: find.byType(EditableText),
         );
         final textField = tester.widget<TextField>(field);
-        expect(textField.decoration?.labelText, 'Forum address');
+        expect(find.text('Forum address'), findsOneWidget);
         expect(textField.decoration?.hintText, 'meta.discourse.org');
         expect(
           tester.getSemantics(editable),

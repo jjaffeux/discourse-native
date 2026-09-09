@@ -1,0 +1,42 @@
+{
+  "sourceCommit": "a1d2737243099e8e6565c8fad268a102aa70a843",
+  "bundle": {
+    "sourceCommit": "a1d2737243099e8e6565c8fad268a102aa70a843",
+    "sourceTree": "71664516b9a09e11940bf3d7706ef8e9cf1064de",
+    "target": "tool/component_fixtures/checkbox.dart",
+    "bundle": "/private/tmp/DiscourseCheckbox132a-a1d27372.app",
+    "bundleIdentifier": "org.discourse.native.checkbox.132a.visual",
+    "urlScheme": "discourse-checkbox-132a-visual",
+    "kernelPath": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin",
+    "kernelSHA256": "52687198c964426357053f2039af167ad2294598607a589b091aa9d7735ce715",
+    "sourceAndCopiedKernelMatch": true
+  },
+  "reviewedAtUTC": "2026-09-09T07:37:02.045039+00:00",
+  "slotReleased": true,
+  "appQuit": "Native Quit menu; process path absent",
+  "files": {
+    "native-basic-checked.png": "7077865b9eebf00a3cedb6cec1ceed68bb891d88079d012a878ca13122b3676a",
+    "native-basic-focus.png": "ad2b33dcf72cfb852dc493d8443cf5799dc7d2977b69006d5f6d729de784b886",
+    "native-forest-rtl200-active.png": "48b2809c17b20c6040fbd0c9f0a19c2b6d505adcc2d5257d5066f65f621f10ca",
+    "native-forest-rtl200-languages.png": "b8967909f7476e1cc3c5e32f904614079170c72a6da61048d474060525dab1b4",
+    "native-forest-rtl200-top.png": "dce7b6910b97f5a4af9ef3317e03752d818b8789b0acaf72c2ab0ffa33c9f8f6",
+    "native-form-error.png": "e7c61b58ac1859a5ea11140b80d397ebf9e1342a1ac9f35140834b77b402b46c",
+    "native-form-reset.png": "889e96f349bd7216b32b1fabc712ebb625026f5e1999880a0f7247475b5a5f1d",
+    "native-form-saved.png": "8f6584b0d6ed05da81cb49ab5e246b210127625404c1b4568547ce55093168eb",
+    "native-plum-card-focus.png": "33c1e6366c8a5f98760698ed41d33523671a064e0e90ec9ff35cfa5562df98ac",
+    "native-plum-group.png": "3b77da37b543d2336fcace411376602492835561f280f90b980fbedc4407c3db",
+    "native-readonly-focus.png": "b77ea072f463f8ac63bcf0cae6d85d5f4ff2a3437dba33966f6c56fc7ea56308",
+    "native-real-legal-checked-ax.txt": "626754d9d6f26ab2c55ac797077a849f9f24975f7778fa1f5771a6e3e6a69ab3",
+    "native-real-legal-checked.png": "87884350dc042ac378087a6eb09a1525d2493b07ad0307bca0b80451de177ba0",
+    "native-real-legal-unchecked-focus.png": "d5cce32fca603f7e05863550eaa41fa432ddb50130a43deab751dd3c7a493759",
+    "native-real-voice-ax.txt": "710b47300e555fad327fc37ef46f3d2e7766002d1cd3ec497eaa7c5d1d7a38c4",
+    "native-real-voice-plum-rtl200-checked.png": "5a9e791708711668723f2f1d32e7e7fcdc3efc715bde3f52153c593c9afea983",
+    "native-real-voice-plum-rtl200-focus.png": "10611aa7a78cd85f9b862aa939e0aeb7601237b295212b283e6e7322bc2065dd",
+    "native-states-dark.png": "21ce5113ea80664a41faf29bc4ff4e2440f2916dfe5a59bbde85147f40ca7819",
+    "native-states-light.png": "16dfd15ad7ebbc32514319303e165430c3372c10c20fb1f60c144f346cf143ec",
+    "native-styleguide-ax.txt": "51b3b36b296bbc36f0e758c0db4e942a04de6f42c66176bb27f290d974ce85d3",
+    "native-table-all.png": "2f8e7e585ed5fa8d090dfa2f902ecd043f198bc5fbbbd5ab5ea1d37cce31d329",
+    "native-table-mixed.png": "277fc4302f974ced663255afb5fd3a2b391d119e01dce7500c715f568ce3576d",
+    "native-table-none-focus.png": "1fb434ed2da517175d772513f07bee394fceb24524220e262f646d11733cf062"
+  }
+}
