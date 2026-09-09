@@ -6,11 +6,11 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final bubbleExamples = ComponentExamples(
-  status: ComponentStatus.planned,
+  status: ComponentStatus.implemented,
   description:
       'Conversational surfaces with alignment, grouping, reactions and interactive content.',
   notes:
-      'Source-ready for independent review. The frozen base-nova surface maps '
+      'Accepted by independent native and rendered-reference review. The frozen base-nova surface maps '
       '12px horizontal and 8px vertical padding, 14px/22.75px text, host-relative '
       'xl radius, 80% maximum width, 8px group gaps and 3px reaction surrounds. '
       'Ghost content stays unframed and may use the full row. Static reaction '
