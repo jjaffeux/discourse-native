@@ -1,13 +1,14 @@
 # Scroll Area native queue — awaiting_slot
 
-No desktop slot has been granted. The Mac remains locked; no browser/native app
-was launched or inspected. This record establishes build readiness only.
+No native desktop slot has been granted. The Mac remains locked; no native app
+was launched or inspected. Browser-only review was completed and released; see
+scroll-area-render-review.md. This record establishes native build readiness only.
 
 ## Final build provenance
 
-Source commit: `5ccd42497c6db763d5e37f3ffb5a5d89f5111209`. After temporary runner files were restored, production Dart, fixture, assets,
-macOS runner and dependency inputs exactly equal that commit (`git diff` checked).
-The only pending non-documentation change was a brace-only test lint correction.
+Source commit: `1514d822c89c30e32cc5d46419682c6541d7e3ad`. After temporary runner files were restored, the worktree was exactly clean.
+Production Dart, fixture, assets, macOS runner and dependency inputs equal that
+commit. This later provenance update changes only documentation.
 
 Command: `flutter build macos --debug --no-pub -t lib/scroll_area_review_main.dart`.
 Build succeeded; log `/tmp/scroll-area-macos-build.log`.
@@ -23,7 +24,7 @@ with org.discourse.native.dev; the final built Info.plist identifier was correct
 to the unique review ID before signing. The main checkout build was untouched.
 
 Build App.framework and copied bundle App.framework kernel_blob.bin bytes are
-equal. SHA256 for both: `042805352d6b28602593333032112aad0aa7b45e17eadb65cd35671894251d63`.
+equal. SHA256 for both: `42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192`.
 
 `codesign --force --deep --sign - --timestamp=none` completed locally, followed by
 `codesign --verify --deep --strict --verbose=2`: valid on disk and satisfies its
@@ -64,3 +65,14 @@ down, Shift+Space up; unrelated modified keys bubble to ancestor handlers.
 35 component/Sidebar/styleguide tests pass, including actual traversal and child
 key handling. Root/full-profile analysis are clean. The signed fixture above
 was rebuilt after these executable changes; native review remains awaiting_slot.
+
+## Browser/render follow-up build
+
+The source above includes exterior-only ring painting, multiplied ring alpha,
+reference-sized photos and proportional md radii, preserving corrected keyboard
+behavior.106 focused regressions passed (seed1519015133); root/full-profile
+analysis are clean. The renderer export runner also completes and records the
+known pre-existing Diagnostics large-text row errors; coordinator owns their
+separate fix. The native bundle was rebuilt, its effective unique identifier
+verified after correction, copied kernel compared, and deep strict signature
+verification repeated successfully. Browser slot is RELEASED; native awaiting_slot.

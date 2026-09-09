@@ -1210,6 +1210,7 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 - Keyboard follow-up: 35 focused Scroll Area/Sidebar/styleguide tests passed, including real Tab traversal, child text selection and button Enter/Space activation, content/viewport overflow transitions and modified-key propagation. Log /tmp/scroll-area-keyboard.log.
 - Keyboard follow-up final executable source 5ccd42497c6db763d5e37f3ffb5a5d89f5111209: root/full-profile analysis clean; rebuilt isolated macOS fixture, production source equality checked, copied/build kernel SHA256 042805352d6b28602593333032112aad0aa7b45e17eadb65cd35671894251d63; deep strict signature verification passed. Awaiting native slot.
 - Rendered follow-up:106 focused tests passed (seed1519015133), including RGBA focus interior/exterior/alpha regression; root/full-profile analysis clean. Export runner captured registered examples and migrated widgets with loaded SFNS/SFArabic/MaterialIcons/JetBrains Mono; fixture errors explicitly recorded, not treated as native acceptance.
+- Rendered-review final executable source 1514d822c89c30e32cc5d46419682c6541d7e3ad: clean source equality after runner restoration; isolated macOS debug build succeeded; unique ID verified; build/copied kernel SHA256 42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192; deep strict signature passed. No native launch.
 
 **limitations**
 
