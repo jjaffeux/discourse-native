@@ -810,7 +810,7 @@
         "No spoken VoiceOver or iOS/Linux device execution. Native Checkbox used the pre-Input styleguide shell; its AX search limitation was separately fixed and natively verified in merged Input. Real legal and Voice fixtures exposed checked values and focus. The status-only example promotion does not change inspected behavior."
       ],
       "implementationCommit": "a1d2737243099e8e6565c8fad268a102aa70a843",
-      "mergeCommit": null,
+      "mergeCommit": "13466a062d19c247905ccc65adc615c8d0d6273d",
       "nativeInspectionStatus": "complete_slot_released",
       "reviewedBranchHead": "13044ce83cfa282a9ae5a8d8ec52873dce68a7fa"
     },
@@ -2736,7 +2736,8 @@
       "checkbox": {
         "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
         "issue": "Source border-input/bg-input must use tokens.colors.outlineVariant and multiply existing alpha for dark /30. Current Checkbox uses tokens.border and replaces alpha. Validate actual neutral light/dark renders during its browser slot. Radio actual exports confirmed BoxShadow rings also tint transparent field interiors; use exterior-only focus/invalid rings preserving the same geometry. Match measured labeled pointer-row pitch without applying standalone indicator/touch minima to the whole associated row; preserve48px touch targets.",
-        "status": "resolved_and_merged"
+        "status": "resolved_and_merged",
+        "mergeCommit": "13466a062d19c247905ccc65adc615c8d0d6273d"
       },
       "switch": {
         "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",

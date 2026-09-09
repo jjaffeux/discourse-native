@@ -21,7 +21,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 9 | badge | merged | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | 916580e72e11de6a6b7872c41d5c4d92e27e9635 |
 | 10 | input | merged | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | 7df72ef294826616e8ba24c31c6129d8e9041fec |
 | 11 | textarea | in_progress | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
-| 12 | checkbox | merged | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
+| 12 | checkbox | merged | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | 13466a062d19c247905ccc65adc615c8d0d6273d |
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | in_progress | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | — |
 | 15 | toggle | planned | — | — | button | — |
