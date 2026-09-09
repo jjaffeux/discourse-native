@@ -1,0 +1,12 @@
+{
+  "capturedAt": "2026-09-09",
+  "referenceUrl": "https://ui.shadcn.com/docs/components/base/pagination",
+  "markdownUrl": "https://ui.shadcn.com/docs/components/base/pagination.md",
+  "markdownSha256": "bc07e7b5e3df7090f895a93d49a3484e828e8560c17600ab3cbd1cb92313c3f9",
+  "registryUrl": "https://ui.shadcn.com/r/styles/base-nova/pagination.json",
+  "upstreamRegistrySha256": "d2c45af4aaf4a676f420c673f337e8ba89dc7db75bf9fa11143f8a947f3a7f42",
+  "committedRegistrySha256": "3549dd6d6313ecb7bf604a4e40d916bda834f7f285a955051fec1082a24453e3",
+  "registrySourceSha256": "092fc14c783c11e10dfbd0636bc511af7c7ace4ccb95c3ef7ab9ea696694c422",
+  "registrySourcePath": "registry/base-nova/ui/pagination.tsx",
+  "note": "The committed JSON adds one final newline; parsed registry content is unchanged. Documented examples are preserved verbatim in pagination.md."
+}
