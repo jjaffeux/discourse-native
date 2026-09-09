@@ -91,6 +91,14 @@ void _writeReviewQueue(
       '${pending.length} existing components are in progress; $planned are planned.\n',
     );
   final workflow = progress['workflow'] as Map<String, dynamic>? ?? {};
+  final reviewPolicy = workflow['reviewPolicy'] as Map<String, dynamic>?;
+  if (reviewPolicy?['ownership'] == 'independent_reviewer') {
+    output.writeln(
+      'Each component has an independent review task that owns fixes, '
+      'remaining verification and the local main merge. '
+      'See the [review and merge procedure](review-and-merge.md).\n',
+    );
+  }
   final native = workflow['nativeInspectionBlocker'] as Map<String, dynamic>?;
   final browser = workflow['browserInspectionBlocker'] as Map<String, dynamic>?;
   if (native?['status'] == 'active') {
@@ -115,8 +123,8 @@ void _writeReviewQueue(
     ..writeln(
       'Branch preparation does not mark a component merged or visually verified.\n',
     )
-    ..writeln('| Component | Current stage | Branch head |')
-    ..writeln('| --- | --- | --- |');
+    ..writeln('| Component | Current stage | Branch head | Reviewer task |')
+    ..writeln('| --- | --- | --- | --- |');
   for (final row in pending) {
     final task = tasks[row['id']];
     if (task == null) continue;
@@ -142,7 +150,10 @@ void _writeReviewQueue(
         : head.length > 8
         ? head.substring(0, 8)
         : head;
-    output.writeln('| ${row['id']} | $stage | $abbreviated |');
+    final reviewer =
+        row['reviewTaskId'] ??
+        (row['reviewClientThreadId'] == null ? '—' : 'Worktree setup');
+    output.writeln('| ${row['id']} | $stage | $abbreviated | $reviewer |');
   }
   output.writeln();
 }
