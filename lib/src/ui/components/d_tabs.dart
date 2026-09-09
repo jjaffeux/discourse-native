@@ -102,9 +102,13 @@ class _DTabsState<T> extends State<DTabs<T>> {
   T? _highlightedForValue;
   bool _reconcileScheduled = false;
   bool _updatingController = false;
+  bool _controllerExplicitlyCleared = false;
 
-  T? get value =>
-      widget._controlled ? widget.value : widget.controller?.value ?? _value;
+  T? get value => widget._controlled
+      ? widget.value
+      : widget.controller != null
+      ? widget.controller!.value
+      : _value;
 
   @override
   void initState() {
@@ -118,6 +122,7 @@ class _DTabsState<T> extends State<DTabs<T>> {
     if (!identical(widget.controller, oldWidget.controller)) {
       oldWidget.controller?.removeListener(_controllerChanged);
       widget.controller?.addListener(_controllerChanged);
+      _controllerExplicitlyCleared = false;
     }
     _scheduleReconcile();
   }
@@ -130,6 +135,9 @@ class _DTabsState<T> extends State<DTabs<T>> {
 
   void _controllerChanged() {
     if (!mounted) return;
+    if (!_updatingController) {
+      _controllerExplicitlyCleared = widget.controller?.value == null;
+    }
     setState(() {});
     _scheduleReconcile();
     if (!_updatingController) {
@@ -141,10 +149,6 @@ class _DTabsState<T> extends State<DTabs<T>> {
 
   void register(_DTabTriggerState<T> trigger) {
     if (_triggers.contains(trigger)) return;
-    assert(
-      !_triggers.any((item) => item.widget.value == trigger.widget.value),
-      'DTabTrigger values must be unique within a DTabs root.',
-    );
     _triggers.add(trigger);
     _scheduleReconcile();
   }
@@ -165,6 +169,16 @@ class _DTabsState<T> extends State<DTabs<T>> {
   }
 
   void _reconcile() {
+    assert(() {
+      for (var index = 0; index < _triggers.length; index++) {
+        final value = _triggers[index].widget.value;
+        assert(
+          !_triggers.skip(index + 1).any((item) => item.widget.value == value),
+          'DTabTrigger values must be unique within a DTabs root.',
+        );
+      }
+      return true;
+    }());
     final enabled = _orderedTriggers().where((item) => item.isEnabled).toList();
     final selected = _triggers.where((item) => item.widget.value == value);
     final selectedTrigger = selected.firstOrNull;
@@ -172,7 +186,10 @@ class _DTabsState<T> extends State<DTabs<T>> {
     if (widget._controlled) return;
     if (selectedTrigger != null && selectedTrigger.isEnabled) return;
 
-    if (value == null && !widget.selectFirstOnMount) return;
+    if (value == null &&
+        (!widget.selectFirstOnMount || _controllerExplicitlyCleared)) {
+      return;
+    }
     final reason = selectedTrigger == null
         ? value == null
               ? DTabChangeReason.initial
@@ -235,6 +252,7 @@ class _DTabsState<T> extends State<DTabs<T>> {
     if (value == next) return;
     if (!widget._controlled) {
       if (widget.controller case final controller?) {
+        if (next != null) _controllerExplicitlyCleared = false;
         _updatingController = true;
         controller.value = next;
         _updatingController = false;
@@ -455,14 +473,30 @@ class DTabList<T> extends StatelessWidget {
       ),
     );
 
-    Widget visual = Container(
-      constraints: BoxConstraints(
-        minHeight: root.orientation == Axis.horizontal ? 32 : 0,
-      ),
-      padding: const EdgeInsets.all(3),
-      decoration: decoration,
-      child: scope,
-    );
+    Widget visual;
+    if (root.orientation == Axis.horizontal && touch) {
+      visual = Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: Center(child: Container(height: 32, decoration: decoration)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: scope,
+          ),
+        ],
+      );
+    } else {
+      visual = Container(
+        constraints: BoxConstraints(
+          minHeight: root.orientation == Axis.horizontal ? 32 : 0,
+        ),
+        padding: const EdgeInsets.all(3),
+        decoration: decoration,
+        child: scope,
+      );
+    }
     if (root.orientation == Axis.horizontal) {
       visual = Container(
         constraints: BoxConstraints(
@@ -603,6 +637,10 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final root = _DTabScope.require<T>(context);
     final list = _DTabListScope.require<T>(context);
     final tokens = DTokens.of(context);
+    final touch = switch (Theme.of(context).platform) {
+      TargetPlatform.iOS || TargetPlatform.android => true,
+      _ => false,
+    };
     final selected = root.value == widget.value;
     final enabled = widget.enabled && root.enabled;
     final originalSkip = widget.focusNode == null
@@ -753,7 +791,15 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                   root.state.select(widget.value);
                 }
               : null,
-          child: artwork,
+          child: touch
+              ? ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: DSpacing.touchTarget,
+                    minHeight: DSpacing.touchTarget,
+                  ),
+                  child: Center(child: artwork),
+                )
+              : artwork,
         ),
       ),
     );

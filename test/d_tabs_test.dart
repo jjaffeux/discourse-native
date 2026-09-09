@@ -637,6 +637,43 @@ void main() {
     },
   );
 
+  testWidgets('borrowed controller clear stays empty until user selection', (
+    tester,
+  ) async {
+    final controller = DTabController<String>('one');
+    addTearDown(controller.dispose);
+    await mount(
+      tester,
+      DTabs<String>(
+        initialValue: 'ignored-while-controller-is-present',
+        controller: controller,
+        children: const [
+          DTabList<String>(
+            children: [
+              DTabTrigger(value: 'one', child: Text('One')),
+              DTabTrigger(value: 'two', child: Text('Two')),
+            ],
+          ),
+          DTabPanel(value: 'one', child: Text('Panel one')),
+          DTabPanel(value: 'two', child: Text('Panel two')),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Panel one'), findsOneWidget);
+
+    controller.clear();
+    await tester.pumpAndSettle();
+    expect(controller.value, isNull);
+    expect(find.text('Panel one'), findsNothing);
+    expect(find.text('Panel two'), findsNothing);
+
+    await tester.tap(find.text('Two'));
+    await tester.pumpAndSettle();
+    expect(controller.value, 'two');
+    expect(find.text('Panel two'), findsOneWidget);
+  });
+
   testWidgets('narrow large-text lists scroll and touch targets are 48px', (
     tester,
   ) async {
@@ -654,6 +691,9 @@ void main() {
       tester.getSize(find.byType(DTabList<String>)).height,
       greaterThanOrEqualTo(48),
     );
+    final triggerSize = tester.getSize(find.byType(DTabTrigger<String>).first);
+    expect(triggerSize.width, greaterThanOrEqualTo(48));
+    expect(triggerSize.height, greaterThanOrEqualTo(48));
     await tester.scrollUntilVisible(
       find.text('Three'),
       100,
@@ -662,6 +702,19 @@ void main() {
     await tester.tap(find.text('Three'));
     await tester.pumpAndSettle();
     expect(find.text('Panel three'), findsOneWidget);
+
+    await mount(
+      tester,
+      tabs(orientation: Axis.vertical),
+      width: 260,
+      platform: TargetPlatform.iOS,
+    );
+    await tester.pumpAndSettle();
+    for (final trigger in find.byType(DTabTrigger<String>).evaluate()) {
+      final size = tester.getSize(find.byElementPredicate((e) => e == trigger));
+      expect(size.width, greaterThanOrEqualTo(48));
+      expect(size.height, greaterThanOrEqualTo(48));
+    }
   });
 
   testWidgets('live tokens update active surface and radius', (tester) async {
