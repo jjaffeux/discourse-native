@@ -1742,6 +1742,7 @@ Status: review_ready. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/
 - Native macOS inspection covered light/dark Order, keyboard activation, Settings, Events More options, Local Dates Display options and 32-row AlertTables groups. The initial Settings tree exposed the merged button semantics defect; the rebuilt fix confirmed a passive card, one bounded trigger and four independent text fields, with hidden descendants added only on expansion.
 - Latest-main overlap verification preserved merged DSwitchTile and DScrollBar child owners; 32 focused overlap tests plus root/full analysis passed. Final isolated Collapsible Final c91e.app rebuilt successfully with kernel SHA256 390c06fa872ff7a43f04cdb1fc59de7cce8472df097857b858e56612048a2ddc, restored runner equality and strict deep ad-hoc signature verification.
 - Final source/adoption/evidence review found no remaining Collapsible-owned issue. Full suite was not run under the user's focused-verification policy.
+- Final main 27ddc513, including the reviewed Progress owner and complete workflow metadata, integrated without Collapsible conflict. The 21 component/editor/AlertTables overlap checks and root/full analysis passed again; all other component rows were preserved.
 
 **limitations**
 
