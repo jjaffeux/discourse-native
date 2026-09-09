@@ -2283,8 +2283,32 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 
 **decisions**
 
-- Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
+- Implemented DDropdownMenu on the exact tested Popover review pin so menu overlays share Popover placement, collision, lifecycle, outside dismissal, reduced-motion and trigger-focus behavior instead of adding a native MenuAnchor owner.
+- Recorded the verified frozen Markdown SHA256 3a8ab9398fa074c3cdf023e31bc9368a3b6bafb0b0f146a326eb2c76808ba7fa and observed base-nova registry SHA256 335c59dba30145f434a9cc9ccb0438a3c5e2afe857fc11b029de1ecb415224d7 with measured mapping in docs/component-library/dropdown-menu.md.
+- Checkbox and radio items default to closeOnSelect false for repeated local editing; ordinary actions default to closing the full menu chain.
+- Submenus compose nested DDropdownMenu instances with one active sibling owner, shared close-all scope, inline-end placement, RTL mirrored chevron/directional keys and submenu-local Escape handling.
 - Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
+
+**migrations**
+
+- Added the public Dropdown Menu API export in package:discourse_native/discourse_ui.dart and registered all thirteen frozen interactive styleguide examples.
+- Migrated TableActionsExample from temporary DButton + native MenuAnchor/MenuItemButton to DButton + DDropdownMenu, preserving local edit/duplicate/delete behavior, expanded row highlighting, 32px trigger geometry and trigger focus restoration.
+
+**retainedAlternatives**
+
+- Generic ChoiceMenuAnchor/CommandMenuAnchor, category/tag/search adapters and rich chat/action menus remain specialized because they own search, async busy state, permissions, rich domain rows or additional keyboard behavior; docs/component-library/dropdown-menu.md records the audit rather than claiming these are migrated.
+- Independent review inspected the available diagnostics, bookmarks, emoji, Events, Voice and composer fixtures. Their remaining PopupMenuButton call sites preserve multi-select state, per-row async identity, rich previews, callback snapshots, permissions or platform-owned editor behavior and remain explicit adapter follow-ups; third-party package examples are outside the product owner.
+- Public icon slots accept caller widgets. Styleguide outline icons demonstrate the exact 16px slot geometry; production app icon vocabulary remains caller-owned while the internal check indicator is component-owned.
+
+**verification**
+
+- Frozen Markdown was downloaded and reproduced the required SHA256 exactly; official page, registry source and Base UI behavior API were inspected and mapped.
+- Focused coverage proves pointer/Return/Space open and first enabled focus, arrow/Home/End traversal, repeating typeahead, controlled checkbox/radio retention, deepest Escape, RTL submenu arrows, sibling submenu non-overlap, outside focus behavior, controlled open requests, live theme/text scale, desktop/iOS geometry, semantics and Table edit/duplicate/delete focus/action regressions.
+- After reconciling the accepted Popover implementation from current main, 47 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145, including overlay lifecycle and ancestor-shortcut Escape precedence.
+
+**limitations**
+
+- Official rendered reference comparison and native macOS interaction/visual inspection remain for the independent reviewer under the shared desktop lease; no iOS/Linux device or spoken VoiceOver run is claimed.
 
 ### breadcrumb
 
