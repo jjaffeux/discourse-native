@@ -145,6 +145,54 @@ void main() {
     expect(second.top - first.bottom, 8);
   });
 
+  testWidgets('uses exact type metrics and updates live host font families', (
+    tester,
+  ) async {
+    const content = DMessage(
+      children: [
+        DMessageContent(
+          children: [
+            DMessageHeader(children: [Text('Author')]),
+            Text('Body'),
+          ],
+        ),
+      ],
+    );
+
+    ThemeData themed(String family) => ThemeData(
+      textTheme: TextTheme(
+        bodyMedium: TextStyle(fontFamily: '$family-body'),
+        labelSmall: TextStyle(fontFamily: '$family-metadata'),
+      ),
+    );
+
+    await tester.pumpWidget(host(content, theme: themed('first')));
+    var body = tester.widget<RichText>(
+      find.descendant(of: find.text('Body'), matching: find.byType(RichText)),
+    );
+    var metadata = tester.widget<RichText>(
+      find.descendant(of: find.text('Author'), matching: find.byType(RichText)),
+    );
+    expect(body.text.style?.fontSize, 14);
+    expect(body.text.style?.height, closeTo(20 / 14, .0001));
+    expect(body.text.style?.fontFamily, 'first-body');
+    expect(metadata.text.style?.fontSize, 12);
+    expect(metadata.text.style?.height, closeTo(16 / 12, .0001));
+    expect(metadata.text.style?.fontWeight, FontWeight.w500);
+    expect(metadata.text.style?.fontFamily, 'first-metadata');
+
+    await tester.pumpWidget(host(content, theme: themed('second')));
+    await tester.pumpAndSettle();
+    body = tester.widget<RichText>(
+      find.descendant(of: find.text('Body'), matching: find.byType(RichText)),
+    );
+    metadata = tester.widget<RichText>(
+      find.descendant(of: find.text('Author'), matching: find.byType(RichText)),
+    );
+    expect(body.text.style?.fontFamily, 'second-body');
+    expect(metadata.text.style?.fontFamily, 'second-metadata');
+  });
+
   testWidgets('metadata follows message side and ghost removes its inset', (
     tester,
   ) async {
