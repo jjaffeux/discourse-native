@@ -8,7 +8,7 @@ import 'empty_artwork.dart';
 import 'empty_example_source.dart';
 
 final emptyExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'A composed empty state with media, explanation and next steps.',
   notes:
       'Frozen base-nova geometry: 24px padding, 16px outer gap, 384px slots, '
@@ -19,7 +19,8 @@ final emptyExamples = ComponentExamples(
       'Actions use the merged DButton owner. '
       'The search uses a merged DInput; reconcile its Input Group '
       'styling when that component merges. Avatar fallbacks are local deterministic '
-      'data in place of remote portraits. Reference/native visual review is pending.',
+      'data in place of remote portraits. Browser and native visual review passed; '
+      'Input Group reconciliation remains a coordinated follow-up.',
   examples: [
     for (final kind in [
       'Basic',

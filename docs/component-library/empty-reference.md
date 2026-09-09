@@ -15,13 +15,13 @@ compositions instead of substituting platform glyphs.
 
 ## Source-to-Flutter measurements
 
-These are source-derived measurements, with unit-test geometry verification;
-browser-rendered/native comparison is pending. CSS root rem is 16px.
+These are source-derived measurements, with unit-test geometry verification and
+browser-rendered/native comparison. CSS root rem is 16px.
 
 | Source | Flutter logical pixels / role |
 | --- | --- |
 | Empty `p-6`, `gap-4`, `w-full`, `rounded-xl` | 24 padding, 16 gap, bounded available width, radius ×1.4 |
-| Outline `border border-dashed` | 1px inward stroke and 1px box-model inset, live `border`; 3px dash/3px gap pending renderer comparison |
+| Outline `border border-dashed` | 1px inward stroke and 1px box-model inset, live `border`; the native 3px dash/3px gap visually matches the rendered reference |
 | Header `max-w-sm`, `gap-2` | maximum 384 width; centered column with 8 gap |
 | Media `mb-2` | 8 bottom margin, additional to header gap |
 | Icon `size-8`, `rounded-lg`, `bg-muted`, SVG `size-4` | 32 square, radius ×1, live muted/foreground, 16 icon |
@@ -104,9 +104,11 @@ by downstream tests. Chat retry changes the actual public production widget to
 its empty state. Light/dark/custom palette, RTL and 200% controls are available.
 The fixture smoke test checks these owners mount and Chat retry completes.
 
-This fixture is for native review after unlock. It has not been launched. Other
-migrated production owners have downstream widget coverage, not claimed native
-inspection. No VoiceOver, iOS/Linux device or pixel-parity claim is made.
+The exact-source fixture was launched during independent review. Native inspection
+covered the real no-sites, categories empty/error, groups and Chat retry owners;
+Chat retry changed the public production widget from its error to empty state.
+Other migrated production owners have downstream widget coverage, not claimed
+native inspection. No VoiceOver, iOS/Linux device or pixel-parity claim is made.
 
 ## Pinned-main integration
 
@@ -115,5 +117,29 @@ preserving all non-Empty progress rows exactly and the 17 merged components.
 Coordinator Group/Sidebar/Topic Inbox changes remain intact. Examples now use
 DButton variants/sizes and DInput Form/prefix/suffix APIs; independent action
 callbacks and page scrolling remain intact. Input Group is still not imported
-or implemented. Native/reference review is still required; no desktop action
-is authorized by this integration build.
+or implemented. At that integration point native/reference review was still
+required and no desktop action had been authorized.
+
+## Independent visual review
+
+The frozen official page was inspected in light and dark themes before native
+comparison. Its default composition uses compact icon media, 14px title and
+description, a primary Create Project action, outline Import Project action and
+muted Learn More link. The outline and muted-background examples confirm the
+documented border, spacing and color roles.
+
+The first exact-source native pass exposed two fidelity defects in the examples:
+documented Lucide RefreshCcw/Plus/ArrowUpRight artwork had been omitted or replaced,
+and primary actions used the standard button variant. Commits `6fd972c3` and
+`6134b938` restore the captured artwork and primary variants, with regression tests.
+
+The corrected signed bundle `/private/tmp/DiscourseEmptyReview-6134b938.app` was
+then inspected. Basic, outline, background, avatar-group, Arabic RTL and search
+examples matched the reference roles and remained usable at 200% in dark and
+Forest palettes. Native search showed empty validation, accepted literal editing,
+submitted a local result and activated support. The actual no-sites, categories
+empty/error, groups and Chat fixtures rendered without overflow; Chat retry changed
+“Local request failed.” to “No threads yet.” Input Group remains a coordinated
+follow-up after its prerequisite Textarea owner merges; this review does not claim
+that separate component complete. Exact provenance is recorded in
+`evidence/empty/native-review.json`.
