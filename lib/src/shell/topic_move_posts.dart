@@ -242,17 +242,13 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
 
   Widget _newTopicFields() => ListView(
     children: [
-      TextField(
-        style: Theme.of(context).textTheme.bodyMedium,
+      DInput(
         key: const ValueKey('topic-move-posts-title'),
         controller: _title,
         autofocus: true,
         enabled: !_saving,
         onChanged: (_) => setState(() => _error = null),
-        decoration: const InputDecoration(
-          labelText: 'Topic title',
-          border: OutlineInputBorder(),
-        ),
+        labelText: 'Topic title',
       ),
       const SizedBox(height: 16),
       DropdownButtonFormField<int?>(
@@ -292,17 +288,13 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
   Widget _existingTopicFields() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      TextField(
-        style: Theme.of(context).textTheme.bodyMedium,
+      DInput(
         key: const ValueKey('topic-move-posts-search'),
         controller: _search,
         autofocus: true,
         enabled: !_saving,
         onChanged: _scheduleSearch,
-        decoration: const InputDecoration(
-          labelText: 'Search by topic title or ID',
-          border: OutlineInputBorder(),
-        ),
+        labelText: 'Search by topic title or ID',
       ),
       const SizedBox(height: 8),
       Expanded(

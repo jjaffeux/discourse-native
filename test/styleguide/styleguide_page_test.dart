@@ -372,7 +372,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<TextField>(find.byKey(const ValueKey('styleguide-search')))
+          .widget<DInput>(find.byKey(const ValueKey('styleguide-search')))
           .controller!
           .text,
       'avatar',
@@ -395,7 +395,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pumpAndSettle();
-      final search = tester.widget<TextField>(
+      final search = tester.widget<DInput>(
         find.byKey(const ValueKey('styleguide-search')),
       );
       expect(search.focusNode!.hasFocus, true);

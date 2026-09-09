@@ -19,7 +19,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | planned | — | — | spinner | — |
-| 10 | input | planned | — | — | label | — |
+| 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
 | 11 | textarea | planned | — | — | label | — |
 | 12 | checkbox | planned | — | — | label | — |
 | 13 | radio-group | planned | — | — | label | — |
@@ -649,6 +649,49 @@ Status: merged. Task: 01a0825a-9fe1-7700-878c-f448801c0851. Branch: codex/ui-lab
 - iOS and Linux are uninspected on devices. A wireless iPhone was detected but has not been run. No new native platform dependency is introduced.
 - The macOS styleguide route exposed only its native search field through the CUA accessibility snapshot. Preview semantics are verified by widget tests; production dialog/view snapshots exposed the named control states. VoiceOver speech was not run.
 - Checkbox/Switch/TextFormField and baseline DButton visuals in Label examples are temporary until their catalogue tasks implement the reference controls. This task completes Label only and does not exempt those components or FieldDemo from shadcn fidelity.
+
+### input
+
+Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/ui-input.
+
+**acceptanceCriteria**
+
+- Match official base-nova Input geometry, typography, border, placeholder, focus, disabled and invalid states with recorded source hashes and actual native comparison.
+- Implement single-line native editing with owned/borrowed controller and focus lifecycle, initial and controlled updates, Form validation/save/reset, secure entry, keyboard configuration, read-only, disabled, selection and IME preservation.
+- Audit core and plugin fields; migrate appropriate single-line inputs and Sidebar adapter while preserving app behavior, documenting retained Textarea/Field/Input Group owners and shared-file conflicts.
+- Provide actual component examples for documented Input capabilities and compositions, forms, independent state, RTL/long text, live palettes and 200 percent/narrow layouts.
+- Format touched source; pass root/full-profile analysis and focused editing, lifecycle, example and migration regressions; inspect isolated exact-source native review build only after coordinator desktop authorization.
+
+**decisions**
+
+- Official Input Markdown matches frozen SHA256; base-nova source and concrete state/geometry mapping are preserved in docs/component-library/input-reference.md.
+- One DInput FormField/TextField owner handles native editing and lifecycle. Controller/value/initialValue modes are exclusive; reset preserves the mount snapshot like pinned TextFormField and synchronizes visible text/Form state.
+- Desktop uses 14/20px typography; touch uses 16/24px and a transparent 48px target. File selection composes a 24px Button visual in a 32px input and host-owned asynchronous picker callback.
+- Simple prefix/suffix slots support app search/status controls; no new shared primitive or full Field/Input Group/Textarea/OTP renderer is introduced.
+
+**migrations**
+
+- Migrated Add a Site, InviteEditor single-line validators, change-owner/move-post searches and title, link dialog, permanent-delete confirmation and message title.
+- Migrated Chat channel name/slug/thread title, GIF query, Poll title/options/range/close, Local Dates format/timezone/date/time, Events single-line attributes, Voice room metadata.
+- DSidebarInput now delegates to DInput and its duplicate InputDecoration was removed. The documentation search now uses DInput while preserving the shared Sidebar shell, shortcuts, clear and mobile state.
+
+**retainedAlternatives**
+
+- Multiline/rich composers and descriptions remain with Textarea/Input Group owners; inline tab/composer titles retain borderless inline geometry.
+- Command/Combobox/token/member-picker and schema-driven Field compositions retain their existing renderers pending their complete owner migration. Remaining directory/search and earlier component-example opportunities are listed explicitly in input-reference.md.
+
+**verification**
+
+- flutter pub get --enforce-lockfile passed at root and profiles/full without lockfile/SDK changes.
+- Root and profiles/full flutter analyze --no-pub are clean; touched files are formatted and git diff --check passes.
+- Focused impact run (19 suites, seed 928374611): 357 passed, one new semantics assertion needed a frame pump. After the test-only correction, all 12 Input tests plus the Button adoption guard passed (13 total) with the same seed. Logs: /tmp/input-final-focused.log and /tmp/input-final-unit.log.
+- Coverage includes all seven actual examples at 320px/200% RTL in Light/Dark/Forest/Plum, editing/IME/controller/reset/form/file regressions, real app async ownership and validation, Sidebar/navigation, Voice and Chat/link editing.
+- flutter build macos --debug --no-pub -t tool/input_review_main.dart passed. Fixture mounts real Add a Site and Poll editor against local fake data plus actual Input samples and the full styleguide.
+
+**limitations**
+
+- Native reference comparison and editing inspection await the coordinator desktop slot; the Mac was reported locked. No CUA or real app interaction has occurred.
+- No iOS/Linux device or spoken VoiceOver inspection; target-platform widget checks are not device verification.
 
 ### skeleton
 

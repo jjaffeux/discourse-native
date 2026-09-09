@@ -239,13 +239,10 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
             title: const Text('Display options'),
             children: [
               if (!_hasEnd) ...[
-                TextField(
-                  style: Theme.of(context).textTheme.bodyMedium,
+                DInput(
                   controller: _recurring,
-                  decoration: const InputDecoration(
-                    labelText: 'Recurrence (optional)',
-                    hintText: '1.weeks',
-                  ),
+                  labelText: 'Recurrence (optional)',
+                  hintText: '1.weeks',
                 ),
                 const SizedBox(height: 8),
                 SwitchListTile.adaptive(
@@ -286,16 +283,13 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                style: Theme.of(context).textTheme.bodyMedium,
+              DInput(
                 controller: _format,
-                decoration: InputDecoration(
-                  labelText: 'Moment format (optional)',
-                  hintText: widget.siteFormats.firstOrNull ?? 'LLL',
-                  helperText: widget.siteFormats.isEmpty
-                      ? 'For example: LLL or YYYY-MM-DD [at] HH:mm'
-                      : 'Site formats: ${widget.siteFormats.join(', ')}',
-                ),
+                labelText: 'Moment format (optional)',
+                hintText: widget.siteFormats.firstOrNull ?? 'LLL',
+                helperText: widget.siteFormats.isEmpty
+                    ? 'For example: LLL or YYYY-MM-DD [at] HH:mm'
+                    : 'Site formats: ${widget.siteFormats.join(', ')}',
               ),
               if (widget.siteFormats.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -398,11 +392,10 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       Row(
         children: [
           Expanded(
-            child: TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            child: DInput(
               controller: date,
               keyboardType: TextInputType.datetime,
-              decoration: InputDecoration(labelText: '$label date'),
+              labelText: '$label date',
             ),
           ),
           DTooltip(
@@ -427,14 +420,11 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
         Row(
           children: [
             Expanded(
-              child: TextField(
-                style: Theme.of(context).textTheme.bodyMedium,
+              child: DInput(
                 controller: time,
                 keyboardType: TextInputType.datetime,
-                decoration: InputDecoration(
-                  labelText: '$label time',
-                  hintText: '09:00:00',
-                ),
+                labelText: '$label time',
+                hintText: '09:00:00',
               ),
             ),
             DTooltip(

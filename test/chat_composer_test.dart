@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:desktop_drop/desktop_drop.dart';
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart' show DInput, DSpinner;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -773,7 +773,7 @@ void main() {
         find.byKey(const ValueKey('composer-link-dialog')),
         findsOneWidget,
       );
-      final anchor = tester.widget<TextField>(
+      final anchor = tester.widget<DInput>(
         find.byKey(const ValueKey('composer-link-anchor')),
       );
       expect(anchor.controller!.text, 'format');
