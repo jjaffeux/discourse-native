@@ -358,9 +358,7 @@ void main() {
 }
 
 Future<void> _select(WidgetTester tester, String label) async {
-  await tester.tap(
-    find.byWidgetPredicate((widget) => widget is DropdownButton),
-  );
+  await tester.tap(find.byWidgetPredicate((widget) => widget is DNativeSelect));
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
