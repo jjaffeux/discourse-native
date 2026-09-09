@@ -54,6 +54,9 @@ void main() {
       await tester.tap(playback);
       await tester.pump();
       expect(tester.widget<DSlider>(playback).value, 60000);
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+      await tester.pump();
+      expect(tester.widget<DSlider>(playback).value, 72000);
       await tester.ensureVisible(find.text('Disable / enable'));
       await tester.tap(find.text('Disable / enable'));
       await tester.pump();

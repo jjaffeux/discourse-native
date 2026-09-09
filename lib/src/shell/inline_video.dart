@@ -1003,6 +1003,8 @@ class _PlaybackTimeline extends StatelessWidget {
                   : 0,
               max: math.max(durationMilliseconds, 1).toDouble(),
               step: null,
+              // The domain uses milliseconds; Page keys seek 10% of the clip.
+              largeStep: math.max(durationMilliseconds, 1) / 10,
               semanticLabel: 'Playback position',
               semanticFormatterCallback: (value) =>
                   _duration(Duration(milliseconds: value.round())),

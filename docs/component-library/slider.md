@@ -101,7 +101,9 @@ the former Material secondary track, not a separate Progress component.
 
 - `inline_video.dart`: actual playback timeline uses DSlider and preserves
   live position/duration/buffer, duration-zero disabling and millisecond seek
-  callbacks. Playback ownership and asynchronous session behavior are unchanged.
+  callbacks. Since its units are milliseconds, it explicitly sets largeStep to
+  10% of duration for useful Page-key seeking; the library default remains 10
+  units. Playback ownership and asynchronous session behavior are unchanged.
 - `topic_progress.dart`: TopicPositionSlider sends integer post selection;
   the existing editor owns navigation, busy guards and route/lifecycle checks.
 - `voice_room_view.dart`: VoiceParticipantVolumeSlider sends 0–1 volume in 0.1
