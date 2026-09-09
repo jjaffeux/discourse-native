@@ -672,6 +672,8 @@ class _StreamState extends State<ChatMessageStream>
   final ListController _list = ListController();
 
   final ScrollController _scroll = ScrollController();
+  final DMessageScrollerController _messageScroller =
+      DMessageScrollerController();
 
   final Set<int> _expandedDeletedMessageIds = {};
 
@@ -810,6 +812,7 @@ class _StreamState extends State<ChatMessageStream>
     _highlightTimer?.cancel();
     _list.dispose();
     _scroll.dispose();
+    _messageScroller.dispose();
     super.dispose();
   }
 
@@ -1093,6 +1096,20 @@ class _StreamState extends State<ChatMessageStream>
     return widget.items[widget.items.length - 1 - index];
   }
 
+  String _rowId(int row, {required int lastRow}) {
+    if (row < _leadingRows) return 'loading-newer';
+    if (row > lastRow) return 'loading-older';
+    return switch (_itemAt(row)) {
+      ChatStreamMessage(:final id) => 'message-$id',
+      ChatStreamDay(:final day) => 'day-${day.microsecondsSinceEpoch}',
+      ChatStreamTimeGap(:final messageId) => 'time-gap-$messageId',
+      ChatStreamDeleted(:final messageIds) =>
+        'deleted-${messageIds.first}-${messageIds.last}',
+      ChatStreamNewDivider() => 'new-divider',
+      null => 'empty-$row',
+    };
+  }
+
   List<({DateTime day, int row})> _daySeparatorRows() {
     if (identical(_daySeparatorsFor, widget.items) &&
         _daySeparatorsLeadingRows == _leadingRows) {
@@ -1273,154 +1290,161 @@ class _StreamState extends State<ChatMessageStream>
 
     return ContentReadingLane(
       basePadding: _streamPadding,
-      builder: (context, lane) => Stack(
-        children: [
-          NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.depth != 0) return false;
-              // In the reversed list, extentAfter points toward older messages
-              // and extentBefore back toward the present.
-              if (notification.metrics.extentAfter <
-                  ChatChannelView._loadOlderThreshold) {
-                unawaited(chat.loadOlderFor(siteUrl, widget.target));
-              }
-              if (notification.metrics.extentBefore <
-                  ChatChannelView._loadNewerThreshold) {
-                unawaited(chat.loadNewerFor(siteUrl, widget.target));
-              }
-              _noteWhatIsOnScreen();
-              _syncAwayFromPresent();
-              _scheduleLook();
-              return false;
-            },
-            // Reversal preserves position as older, variably sized rows are
-            // added.
-            child: ListBoundaryShortcuts(
-              key: const ValueKey('chat-message-stream-keyboard-focus'),
-              debugLabel: 'chat message stream',
-              initiallyActive: widget.autofocus,
+      builder: (context, lane) => DMessageScrollerProvider(
+        controller: _messageScroller,
+        manageInitialPosition: false,
+        child: DMessageScroller(
+          children: [
+            DMessageScrollerViewport.builder(
               scrollController: _scroll,
-              onStart: _jumpToOldestLoadedMessage,
-              onEnd: () {
-                _boundaryJumpRevision++;
-                if (_chat case final chat?) {
-                  unawaited(
-                    _jumpToPresent(
-                      chat,
-                      widget.siteUrl,
-                      widget.target.channelId,
-                    ),
-                  );
-                }
-              },
-              child: SuperListView.builder(
-                reverse: true,
-                controller: _scroll,
-                listController: _list,
-                padding: lane.padding,
-                itemCount:
-                    leading + items.length + (stream.loadingOlder ? 1 : 0),
-                itemBuilder: (context, row) {
-                  if (row < leading) return const _LoadingNewerRow();
-                  if (row > lastRow) return const _LoadingOlderRow();
-
-                  // The oldest row drives fill-pane fallback when no scroll fires.
-                  if (row == lastRow && stream.canLoadMorePast) {
-                    _scheduleOlderPage(chat, siteUrl, channelId, stream);
-                  }
-
-                  return switch (_itemAt(row)) {
-                    ChatStreamMessage(:final id, :final chained) =>
-                      ConstrainedBox(
-                        // Reserve hover overflow only when the live-edge row is short.
-                        constraints: BoxConstraints(
-                          minHeight: row == 0
-                              ? ChatMessageTile.minimumHoverActionsHeight
-                              : 0,
-                        ),
-                        child: _HighlightedChatMessage(
-                          highlighted: id == _highlightMessageId,
-                          child: ChatMessageTile(
-                            siteUrl: siteUrl,
-                            messageId: id,
-                            chained: chained,
-                            contextThreadId: widget.target.threadId,
-                            onOpenThread: widget.onOpenThread,
-                            onJumpToMessage: widget.onJumpToMessage,
-                            onReply: widget.onReply,
-                            onEdit: widget.onEdit,
-                            showThreadSummary: widget.showThreadSummaries,
-                            onSelect: id > 0 && widget.onStartSelecting != null
-                                ? () => widget.onStartSelecting!(id)
-                                : null,
-                            selecting: widget.selectingMessages,
-                            selected: widget.selectedMessageIds.contains(id),
-                            onSelectedChanged: (selected) =>
-                                widget.onSelectionChanged?.call(id, selected),
+              listController: _list,
+              reverse: true,
+              gap: 0,
+              preserveScrollOnPrepend: false,
+              preserveReaderPositionOnResize: false,
+              preserveChildIdentity: false,
+              contentPadding: lane.padding,
+              itemCount: leading + items.length + (stream.loadingOlder ? 1 : 0),
+              itemIdBuilder: (row) => _rowId(row, lastRow: lastRow),
+              scrollAnchorBuilder: (row) =>
+                  _itemAt(row) is ChatStreamNewDivider,
+              scrollableBuilder: (context, controller, scrollable) =>
+                  ListBoundaryShortcuts(
+                    key: const ValueKey('chat-message-stream-keyboard-focus'),
+                    debugLabel: 'chat message stream',
+                    initiallyActive: widget.autofocus,
+                    scrollController: controller,
+                    onStart: _jumpToOldestLoadedMessage,
+                    onEnd: () {
+                      _boundaryJumpRevision++;
+                      if (_chat case final chat?) {
+                        unawaited(
+                          _jumpToPresent(
+                            chat,
+                            widget.siteUrl,
+                            widget.target.channelId,
                           ),
-                        ),
-                      ),
-                    ChatStreamDay(:final day) => IgnorePointer(
-                      ignoring: day == _floatingDay,
-                      child: Opacity(
-                        opacity: day == _floatingDay ? 0 : 1,
-                        child: StreamDaySeparator(
-                          key: ValueKey(('chat-day', day)),
-                          day: day,
-                        ),
+                        );
+                      }
+                    },
+                    child: scrollable,
+                  ),
+              onScrollNotification: (notification) {
+                if (notification.depth != 0) return false;
+                // In the reversed list, extentAfter points toward older messages
+                // and extentBefore back toward the present.
+                if (notification.metrics.extentAfter <
+                    ChatChannelView._loadOlderThreshold) {
+                  unawaited(chat.loadOlderFor(siteUrl, widget.target));
+                }
+                if (notification.metrics.extentBefore <
+                    ChatChannelView._loadNewerThreshold) {
+                  unawaited(chat.loadNewerFor(siteUrl, widget.target));
+                }
+                _noteWhatIsOnScreen();
+                _syncAwayFromPresent();
+                _scheduleLook();
+                return false;
+              },
+              itemBuilder: (context, row) {
+                if (row < leading) return const _LoadingNewerRow();
+                if (row > lastRow) return const _LoadingOlderRow();
+
+                // The oldest row drives fill-pane fallback when no scroll fires.
+                if (row == lastRow && stream.canLoadMorePast) {
+                  _scheduleOlderPage(chat, siteUrl, channelId, stream);
+                }
+
+                return switch (_itemAt(row)) {
+                  ChatStreamMessage(:final id, :final chained) => ConstrainedBox(
+                    // Reserve hover overflow only when the live-edge row is short.
+                    constraints: BoxConstraints(
+                      minHeight: row == 0
+                          ? ChatMessageTile.minimumHoverActionsHeight
+                          : 0,
+                    ),
+                    child: _HighlightedChatMessage(
+                      highlighted: id == _highlightMessageId,
+                      child: ChatMessageTile(
+                        siteUrl: siteUrl,
+                        messageId: id,
+                        chained: chained,
+                        contextThreadId: widget.target.threadId,
+                        onOpenThread: widget.onOpenThread,
+                        onJumpToMessage: widget.onJumpToMessage,
+                        onReply: widget.onReply,
+                        onEdit: widget.onEdit,
+                        showThreadSummary: widget.showThreadSummaries,
+                        onSelect: id > 0 && widget.onStartSelecting != null
+                            ? () => widget.onStartSelecting!(id)
+                            : null,
+                        selecting: widget.selectingMessages,
+                        selected: widget.selectedMessageIds.contains(id),
+                        onSelectedChanged: (selected) =>
+                            widget.onSelectionChanged?.call(id, selected),
                       ),
                     ),
-                    ChatStreamTimeGap(:final messageId, :final daysSince) =>
-                      TimeGapNotice(
-                        key: ValueKey(('chat-time-gap', messageId)),
-                        daysSince: daysSince,
-                      ),
-                    ChatStreamDeleted(:final messageIds) => _DeletedRun(
-                      siteUrl: siteUrl,
-                      messageIds: messageIds,
-                      expanded: messageIds.every(
-                        _expandedDeletedMessageIds.contains,
-                      ),
-                      contextThreadId: widget.target.threadId,
-                      onOpenThread: widget.onOpenThread,
-                      onJumpToMessage: widget.onJumpToMessage,
-                      showThreadSummaries: widget.showThreadSummaries,
-                      onExpand: () => setState(
-                        () => _expandedDeletedMessageIds.addAll(messageIds),
+                  ),
+                  ChatStreamDay(:final day) => IgnorePointer(
+                    ignoring: day == _floatingDay,
+                    child: Opacity(
+                      opacity: day == _floatingDay ? 0 : 1,
+                      child: StreamDaySeparator(
+                        key: ValueKey(('chat-day', day)),
+                        day: day,
                       ),
                     ),
-                    ChatStreamNewDivider() => const _NewDivider(),
-                    null => const SizedBox.shrink(),
-                  };
-                },
-              ),
+                  ),
+                  ChatStreamTimeGap(:final messageId, :final daysSince) =>
+                    TimeGapNotice(
+                      key: ValueKey(('chat-time-gap', messageId)),
+                      daysSince: daysSince,
+                    ),
+                  ChatStreamDeleted(:final messageIds) => _DeletedRun(
+                    siteUrl: siteUrl,
+                    messageIds: messageIds,
+                    expanded: messageIds.every(
+                      _expandedDeletedMessageIds.contains,
+                    ),
+                    contextThreadId: widget.target.threadId,
+                    onOpenThread: widget.onOpenThread,
+                    onJumpToMessage: widget.onJumpToMessage,
+                    showThreadSummaries: widget.showThreadSummaries,
+                    onExpand: () => setState(
+                      () => _expandedDeletedMessageIds.addAll(messageIds),
+                    ),
+                  ),
+                  ChatStreamNewDivider() => const _NewDivider(),
+                  null => const SizedBox.shrink(),
+                };
+              },
             ),
-          ),
-          if (_floatingDay case final day?)
-            Positioned(
-              left: lane.leftInset,
-              right: lane.rightInset,
-              top: _floatingDayOffset,
-              child: StreamDaySeparator(
-                key: ValueKey(('chat-floating-day', day)),
-                day: day,
-                floating: true,
-              ),
-            ),
-          if (_awayFromPresent)
-            Positioned(
-              left: lane.leftInset,
-              right: lane.rightInset,
-              bottom: 16,
-              child: Center(
-                child: _JumpToPresent(
-                  pendingCount:
-                      widget.stream.pendingNewMessages + _unseenLiveMessages,
-                  onTap: () => _jumpToPresent(chat, siteUrl, channelId),
+            if (_floatingDay case final day?)
+              Positioned(
+                left: lane.leftInset,
+                right: lane.rightInset,
+                top: _floatingDayOffset,
+                child: StreamDaySeparator(
+                  key: ValueKey(('chat-floating-day', day)),
+                  day: day,
+                  floating: true,
                 ),
               ),
-            ),
-        ],
+            if (_awayFromPresent)
+              Positioned(
+                left: lane.leftInset,
+                right: lane.rightInset,
+                bottom: 16,
+                child: Center(
+                  child: _JumpToPresent(
+                    pendingCount:
+                        widget.stream.pendingNewMessages + _unseenLiveMessages,
+                    onTap: () => _jumpToPresent(chat, siteUrl, channelId),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

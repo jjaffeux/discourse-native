@@ -1,0 +1,32 @@
+{
+  "capturedAt": "2026-09-09",
+  "catalogueId": "message-scroller",
+  "sources": [
+    {
+      "url": "https://ui.shadcn.com/docs/components/base/message-scroller.md",
+      "path": "documentation.md",
+      "sha256": "fc0e1a7bdc05d81c833e001292419e85e1eb7c16be3942a7468ff2d6c1d2b165",
+      "note": "Byte-exact frozen Markdown; matches catalogue.json."
+    },
+    {
+      "url": "https://ui.shadcn.com/r/styles/base-nova/message-scroller.json",
+      "path": "registry.json",
+      "sha256": "4893726e4c327b2964ba71b2ea8ca8be73a989c6cdfc567657416eacac8bcfe9",
+      "normalizedFileSha256": "7be43528b7fec5bf78470e7f66e8f0e3a1d562bf3bc250ba1ecb6f4311de4f56",
+      "note": "Captured registry source; committed copy adds one terminal newline."
+    },
+    {
+      "url": "https://ui.shadcn.com/docs/react/message-scroller.md",
+      "path": "headless-api.md",
+      "sha256": "3b56a1836fe3bb86c11b4ad2d4f807b46b1a8dd08c9a6c3e232d7789478948e0"
+    },
+    {
+      "url": "https://registry.npmjs.org/@shadcn/react/-/react-0.3.1.tgz#package/dist/message-scroller/index.js",
+      "path": "headless-0.3.1.js",
+      "package": "@shadcn/react@0.3.1",
+      "sha256": "03dce661e70800afb5dbae6f7916241cee029e15676892bda9937d3cb3a7e033",
+      "note": "Byte-exact captured published behavior implementation."
+    }
+  ],
+  "license": "MIT; see ../LICENSE.shadcn.md"
+}
