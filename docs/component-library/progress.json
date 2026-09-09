@@ -1754,7 +1754,7 @@
     },
     {
       "id": "resizable",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
       "branch": "codex/ui-resizable",
       "dependencies": [],
@@ -1793,8 +1793,8 @@
         "Browser Geist and native host-font rasterization differ; the review establishes geometry, styling, interaction and semantics rather than pixel equality."
       ],
       "implementationCommit": "0629571a58e927f480c03de909bdfd4f676cdbd1",
-      "mergeCommit": null,
-      "reviewStatus": "review_ready",
+      "mergeCommit": "eff4770f10b73dd6fb1e5eed17b374d68b68bfed",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
       "reviewBranch": "codex/review-resizable"
     },
@@ -2825,15 +2825,6 @@
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97"
         },
         {
-          "component": "resizable",
-          "taskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
-          "branch": "codex/review-resizable",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec10/discourse-native",
-          "status": "independent_review",
-          "headCommit": "a7e26a935574c44595c89bc869a0df4c7144ced7",
-          "implementationTaskId": "01a083e2-4063-7c30-89ea-fa664ff9c943"
-        },
-        {
           "component": "dialog",
           "taskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
           "branch": "codex/review-dialog",
@@ -2968,7 +2959,8 @@
       "resizable": {
         "taskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
         "issue": "Verify pointer midpoint collapse/expand and full opposite-panel capacity; discrete snap distance can exceed requested pointer delta while remaining valid. Also verify transparent coarse-pointer hit targets for group and actual app adapters.",
-        "status": "resolved_awaiting_native_review"
+        "status": "resolved_and_merged",
+        "mergeCommit": "eff4770f10b73dd6fb1e5eed17b374d68b68bfed"
       },
       "scroll-area": {
         "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
@@ -3137,17 +3129,6 @@
           "branch": "codex/review-field",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
           "implementationBranch": "codex/ui-field",
-          "status": "in_progress"
-        },
-        {
-          "component": "resizable",
-          "title": "Review and merge Resizable",
-          "taskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec10/discourse-native",
-          "branch": "codex/review-resizable",
-          "implementationTaskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
-          "implementationBranch": "codex/ui-resizable",
           "status": "in_progress"
         },
         {

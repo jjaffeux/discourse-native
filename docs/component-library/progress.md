@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**21 of 64 components are merged locally.** 18 existing components are in progress; 25 are planned.
+**22 of 64 components are merged locally.** 17 existing components are in progress; 25 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -24,7 +24,6 @@ Branch preparation does not mark a component merged or visually verified.
 | table | independent review | b3107cab | 01a08558-73ce-7a51-bfd4-8e0f48d5f675 |
 | collapsible | independent review | 684faacd | 01a08558-a79c-7911-8f75-53b3528fc08f |
 | tabs | independent review | fcb0e06f | 01a08581-d666-7f81-b039-f9caae6c45c2 |
-| resizable | independent review | a7e26a93 | 01a08558-7acd-73d3-a690-2e5ceb920d6c |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
@@ -68,7 +67,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | in_progress | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | — |
-| 30 | resizable | review_ready | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
+| 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
 | 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
 | 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
@@ -1788,7 +1787,7 @@ Status: in_progress. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/u
 
 ### resizable
 
-Status: review_ready. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-resizable.
+Status: merged. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-resizable.
 
 **acceptanceCriteria**
 
