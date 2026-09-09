@@ -87,6 +87,164 @@ Widget fixture({
 );
 
 void main() {
+  testWidgets('floating icon panel keeps32px inside its painted ring', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: DSidebarProvider(
+            child: Row(
+              children: [
+                DSidebar(
+                  variant: DSidebarVariant.floating,
+                  collapsible: DSidebarCollapsible.icon,
+                  child: DSidebarContent(
+                    children: [
+                      DSidebarGroup(
+                        child: DSidebarMenu(
+                          children: [
+                            DSidebarMenuButton(
+                              icon: const Icon(Icons.home),
+                              onPressed: () {},
+                              child: const Text('Home'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const DSidebarTrigger(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(DSidebarTrigger));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(DSidebarMenuButton).first).width, 32);
+  });
+
+  testWidgets(
+    'pointer activation owns keyboard focus for buttons and actions',
+    (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      var primary = 0, secondary = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 240,
+              child: Column(
+                children: [
+                  DSidebarMenuButton(
+                    focusNode: focus,
+                    onPressed: () => primary++,
+                    child: const Text('Primary'),
+                  ),
+                  DSidebarMenuAction(
+                    semanticLabel: 'Secondary',
+                    onPressed: () => secondary++,
+                    child: const Icon(Icons.add),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Primary'));
+      await tester.pump();
+      expect(focus.hasFocus, true);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      expect(primary, 2);
+      await tester.tap(find.byType(DSidebarMenuAction));
+      await tester.pump();
+      expect(focus.hasFocus, false);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      expect(secondary, 2);
+    },
+  );
+  testWidgets('breakpoint dismissal clears obsolete mobile open state', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(fixture(width: 360));
+    await tester.tap(find.byType(DSidebarTrigger));
+    await tester.pumpAndSettle();
+    expect(
+      DSidebarProvider.of(
+        tester.element(find.byType(DSidebarTrigger)),
+      ).openMobile,
+      true,
+    );
+    await tester.pumpWidget(fixture(width: 1000));
+    await tester.pumpAndSettle();
+    expect(
+      DSidebarProvider.of(
+        tester.element(find.byType(DSidebarTrigger)),
+      ).openMobile,
+      false,
+    );
+    await tester.pumpWidget(fixture(width: 360));
+    await tester.pumpAndSettle();
+    expect(find.text('Header'), findsNothing);
+  });
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('$platform touch target surrounds compact visuals', (
+      tester,
+    ) async {
+      var calls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: platform),
+          home: Scaffold(
+            body: DSidebarProvider(
+              child: SizedBox(
+                width: 240,
+                child: Column(
+                  children: [
+                    DSidebarMenuButton(
+                      onPressed: () => calls++,
+                      child: const Text('Touch row'),
+                    ),
+                    DSidebarMenuAction(
+                      semanticLabel: 'Touch action',
+                      onPressed: () => calls++,
+                      child: const Icon(Icons.add),
+                    ),
+                    const DSidebarTrigger(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      for (final type in [
+        DSidebarMenuButton,
+        DSidebarMenuAction,
+        DSidebarTrigger,
+      ]) {
+        final bounds = tester.getRect(find.byType(type).first);
+        expect(bounds.height, greaterThanOrEqualTo(48));
+        expect(bounds.width, greaterThanOrEqualTo(48));
+      }
+      final bounds = tester.getRect(find.byType(DSidebarMenuAction));
+      await tester.tapAt(bounds.bottomRight - const Offset(2, 2));
+      await tester.pump();
+      expect(calls, 1);
+    });
+  }
+
   testWidgets(
     'open mobile panel receives live themes and survives parent rebuild',
     (tester) async {
@@ -183,7 +341,12 @@ void main() {
     final focus = FocusNode();
     addTearDown(focus.dispose);
     await tester.pumpWidget(
-      fixture(width: 360, side: DSidebarSide.right, focus: focus),
+      fixture(
+        width: 360,
+        side: DSidebarSide.right,
+        focus: focus,
+        theme: ThemeData(platform: TargetPlatform.macOS),
+      ),
     );
     focus.requestFocus();
     await tester.pump();
@@ -227,6 +390,7 @@ void main() {
       var calls = 0;
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: SizedBox(
               width: 240,
