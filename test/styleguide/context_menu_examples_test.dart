@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('Context Menu registers every frozen documentation example', () {
     expect(componentExamples['context-menu'], same(contextMenuExamples));
-    expect(contextMenuExamples.status, ComponentStatus.baseline);
+    expect(contextMenuExamples.status, ComponentStatus.implemented);
     expect(contextMenuExamples.examples.map((example) => example.title), [
       'Basic',
       'Submenu',

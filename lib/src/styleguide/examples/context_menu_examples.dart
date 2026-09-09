@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final contextMenuExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Displays actions at a secondary click or long-press location.',
   notes:
       'Installation: import package:discourse_native/discourse_ui.dart. '
