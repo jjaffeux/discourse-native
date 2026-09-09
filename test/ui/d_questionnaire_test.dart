@@ -207,6 +207,21 @@ void main() {
 
     expect(submissions, 0);
     expect(controller.answerFor('one').freeform, 'é');
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'é',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(submissions, 1);
   });
 
   testWidgets('answer arrows wrap and Enter advances from a selected answer', (
