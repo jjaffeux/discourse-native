@@ -8,13 +8,20 @@ networking adapters and production migrations remain unchanged.
 
 ## Source and acceptance scope
 
-Native fixture source: `03d5a976417dc8e0c1f33d97a2290c87ccf45537`, prepared
-from accepted local main `7b09b62dc83b4c56665794be0548a659e0ed8c32` by merging
+Native fixture source: `3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca`, prepared
+from accepted local main `1770316fcc06f665747d6598f43dde1d093f4420` by merging
 the reviewed branch into a new candidate based on main. Main was not merged
 into the worktree. Automated runtime verification was completed at
 `fda8a23dce3ac0d5e73ce6346744907b87e89ff2`; subsequent changes only correct a
 test brace lint and the displayed Direction usage snippet. The final native
-bundle was rebuilt to include that exact snippet source as well.
+bundle was rebuilt to include that exact snippet source as well. A subsequent
+coordinated Dropdown follow-up, prepared commit
+`7110ef80b2190f3a17c6a78fbae05fe857a29d38`, adds popup-local focus scrolling and
+single RTL chevron mirroring alongside the isolated registration-order fix.
+It was integrated for source preparation and exact native verification, not
+claimed accepted. Its owner's accepted local-main merge is required before
+Avatar's final merge. Avatar withdrew its waiting desktop request during this
+rebuild and rejoined only after the updated bundle was ready.
 
 Accepted final owners are Button
 `eb6d8ea0d9417f0edc830c5ce715b52436f12c94` and Dropdown Menu
@@ -107,6 +114,22 @@ flutter test test/styleguide/input_group_examples_test.dart \
 # 17 passed; all existing downstream Dropdown Menu compositions covered.
 ```
 
+After integrating the prepared combined Dropdown correction, source `3b202d5e`:
+
+```sh
+flutter test test/ui/d_avatar_test.dart \
+  test/styleguide/avatar_examples_test.dart \
+  test/styleguide/direction_examples_test.dart test/d_dropdown_menu_test.dart \
+  test/d_popover_test.dart test/ui/d_dialog_test.dart \
+  test/styleguide/dropdown_menu_examples_test.dart \
+  test/styleguide/input_group_examples_test.dart \
+  test/styleguide/item_examples_test.dart test/d_table_test.dart \
+  --no-pub --test-randomize-ordering-seed=9082026 --reporter expanded
+# 114 passed, including popup-local scroll and RTL chevron regressions.
+flutter analyze --no-pub
+# Root: no issues, 7.2s. Full profile: no issues, 2.4s.
+```
+
 The earlier broad regression run identified an unrelated stale Chat hover
 assertion. It reproduced in a clean detached checkout at main `9834f36a` using
 `flutter test test/chat_message_tile_thread_preview_test.dart --plain-name
@@ -128,9 +151,9 @@ with local pending/error/PNG responses. All actions mutate only local sample sta
 Controls expose light/dark/Forest/Plum, 360px, 200%, RTL and reduced motion; the
 actual full styleguide remains reachable from the same executable.
 
-Review bundle: `/private/tmp/Avatar Compositions Final 47e2 r3.app`.
-Identity: `org.discourse.avatarcompositions.final.47e2.r3`;
-scheme: `discourse-avatar-compositions-final-47e2-r3`.
+Review bundle: `/private/tmp/Avatar Compositions Final 47e2 r4.app`.
+Identity: `org.discourse.avatarcompositions.final.47e2.r4`;
+scheme: `discourse-avatar-compositions-final-47e2-r4`.
 The built bundle was copied and only that copy's identity/signature was changed.
 Its embedded provisioning profile was moved out of the copy. The copied bundle
 is ad-hoc signed without push/team/application-identity entitlements; readback
@@ -140,14 +163,14 @@ passed. No real app provisioning or OS settings were changed.
 
 SHA256 agreement across `.dart_tool/flutter_build/ecc69156f4b154d909a8d39094049b93/app.dill`,
 the built Discourse bundle's kernel and the isolated review bundle's kernel:
-`cd0479edad24bc77d41a636385863272b37b36747e5d7565589d75262c8b5538`.
+`05aeba9c6a9c5bc19df2f42788c06cb9b2d15af6761ade1343e14d2d434943ef`.
 
 | Source | SHA256 |
 | --- | --- |
 | Avatar examples | `c1dcb12521a7c8e5224b3c7982306b4037baf28069fce699ce6eb814fe7bd97e` |
 | Direction examples | `7a965dc38afd194d1555cf042f74ab0d4f9a1adb168bcb72b38601abb5b9ee13` |
 | Generic Avatar | `732bc8917c8e8086fa359000de0ff4de90b07047ff4be51e79418074e5a9eac0` |
-| Dropdown Menu | `bcc8a7d9bef188047f711197835c5bfbdb225606a565e85f05030ae6aa03bf22` |
+| Dropdown Menu | `018e7a7be589f01679a66a459e4242540ae6b81554290a8d725b071c711c7987` |
 | Native fixture | `f95ece9b388b140b04b6a1383b20b93aa1ed27197e4f42c8956143b114269f3b` |
 
 ## Native/reference acceptance
