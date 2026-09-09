@@ -22,12 +22,12 @@ Branch preparation does not mark a component merged or visually verified.
 | tabs | independent review | fcb0e06f | 01a08581-d666-7f81-b039-f9caae6c45c2 |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
-| select | Implementation and checks | — | — |
+| select | Implementation and checks | — | 01a085d3-21b9-75d0-a4f0-c739439ccb9d |
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | input-group | Implementation and checks | — | — |
 | button-group | independent review | a0cca310 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
-| command | Implementation and checks | — | — |
+| command | independent review | e91927bf | — |
 | dropdown-menu | Implementation and checks | — | — |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
 
@@ -2016,7 +2016,36 @@ Status: in_progress. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/u
 
 **decisions**
 
-- Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration.
+- Frozen Markdown SHA256 was reverified as 1a810090b9cc629efe885d8795365280c2653fdf3e0f5d20f4ac2354b876a4b6. Official rendered HTML, base-nova registry source and cmdk API were inspected; complete geometry/API mapping is recorded in command.md.
+- DCommand<T> owns controlled or local query/highlight state, scored filtering, keyboard navigation and activation. DCommandInput and DCommandList separately own or borrow native editing/focus and scroll resources; generic code has no application networking or business state.
+- The public composition covers root, input, list, empty, loading, group, item, separator, shortcut and Dialog. Flutter cannot inspect arbitrary child text, so searchValue defaults to value.toString() and is explicit when presentation differs.
+- Arrow and Ctrl-N/J/P/K navigation use a visual active-descendant highlight while retaining native editable focus/selection/composing state. Return activates; optional looping, pointer-highlight opt-out and reduced-motion scroll behavior map cmdk.
+- Base-nova geometry maps to 4px root/group padding, 32px input and desktop rows, 8px row insets/gaps, 12px headings, 288px list cap, token surface/radius/color roles and 48px touch rows on iOS/Android.
+- CommandDialog composes prepared DDialog rather than duplicating modal lifecycle. Backward-compatible DDialogContent contentPadding/verticalPadding/spacing options preserve current defaults and enable the official edge-to-edge Command composition.
+- Prepare against the recorded tested parent source while final review continues; independent reviewer 01a085d3-21b9-75d0-a4f0-c739439ccb9d owns acceptance, required rendered/native verification and local merge only after accepted Dialog main integration.
+
+**migrations**
+
+- lib/src/shell/command_menu.dart retains CommandMenuAnchor/showCommandMenu anchoring, transparent route barrier, result and app callback ownership while replacing its private Material MenuItemButton rows with the public DCommand/DCommandList/group/item/separator owner. Topic/group core actions and Chat add actions inherit the migration without moving permissions, stale-result checks or async/domain callbacks.
+- Registered five actual-component styleguide examples covering embedded Composition, Basic Dialog, Shortcuts/Groups, custom filter/loading/dynamic results, Scrollable and Arabic RTL. Added tool/command_review_main.dart with all examples plus the actual production CommandMenuAnchor adapter using local data.
+
+**retainedAlternatives**
+
+- anchored_picker.dart remains a selected-value picker/combobox owner; the later Combobox task composes the accepted Command API.
+- choice_menu.dart and DSelect retain finite choice/form semantics. Composer autocomplete, emoji/GIF pickers and global topic/Chat search retain domain networking, token replacement, pagination or navigation ownership; they are not generic command-menu renderers.
+
+**verification**
+
+- Root and profiles/full flutter pub get --enforce-lockfile passed from committed dependencies with no lockfile or pin changes; Flutter 3.47.2 remains unchanged.
+- After current-main reconciliation, root and profiles/full flutter analyze --no-pub passed with no diagnostics; touched formatting and git diff --check passed.
+- 32 randomized Command component, narrow 200% RTL styleguide and real group-member adapter tests passed with seed 1561896842. The affected topic action hover/cursor/anchored-viewport test passed independently.
+- Focused coverage includes keyword/empty filtering, custom score ordering, filtering opt-out, controlled callbacks, native IME-composing preservation during keyboard activation, disabled suppression, loading/dynamic rendering, borrowed lifetimes, RTL, Dialog Escape/restoration and retained application result ownership.
+- Source preparation began at main 6fbecbce, integrated exact prepared Dialog 8a800783 only locally at 778539e2, committed component source at c73c39b8, reconciled current main at 072bbee3 and added the source-only native fixture at e91927bf. Reviewer merged that exact history into codex/review-command at 92800e83.
+
+**limitations**
+
+- No browser screenshot comparison, macOS native launch, spoken VoiceOver run, iOS device run or Linux device run is claimed. The source-only local-data fixture is committed; the independent reviewer owns unique-bundle build evidence and first rendered/native acceptance after Dialog merges.
+- The full topic_reading_integration_test run showed unrelated/order-sensitive failures when run concurrently with other files; the only changed topic action test passes independently. The full suite is not required.
 
 ### native-select
 
