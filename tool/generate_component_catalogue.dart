@@ -1,6 +1,61 @@
 import 'dart:convert';
 import 'dart:io';
 
+/// Heading indexes that were `###` entries in the frozen shadcn documents.
+///
+/// The original catalogue snapshot retained heading order but flattened its
+/// depth. Keep this metadata beside the generator so regenerating the Dart
+/// catalogue does not lose the reference document hierarchy.
+const _nestedSectionIndexes = <String, Set<int>>{
+  'alert': {9, 10, 11, 12},
+  'alert-dialog': {10},
+  'aspect-ratio': {6},
+  'attachment': {10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23},
+  'avatar': {13, 14, 15, 16, 17, 18},
+  'badge': {9},
+  'breadcrumb': {10, 11, 12, 13, 14, 15, 16},
+  'bubble': {13, 14, 15, 17, 18, 19, 20},
+  'button': {18},
+  'button-group': {17, 18, 19},
+  'calendar': {17},
+  'card': {8, 9, 10, 11, 12, 13, 14, 16},
+  'chart': {4, 5, 6, 7, 10, 11, 12, 17, 18, 19, 21, 22},
+  'combobox': {3, 4, 5},
+  'data-table': {
+    7,
+    8,
+    9,
+    11,
+    13,
+    15,
+    16,
+    18,
+    19,
+    21,
+    23,
+    25,
+    26,
+    27,
+    29,
+    30,
+    31,
+  },
+  'empty': {10, 11, 12, 13, 14, 15},
+  'field': {3, 4, 5, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32},
+  'input-group': {4, 5, 6, 7, 18, 19, 20, 21, 22},
+  'item': {15, 16, 17, 18, 19, 20, 21, 22, 23, 24},
+  'kbd': {9, 10},
+  'marker': {12, 13, 14, 15, 16, 18, 19, 20},
+  'message': {10, 11, 13, 14, 15, 16, 17, 18},
+  'message-scroller': {6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+  'native-select': {3, 4, 11, 12, 13},
+  'pagination': {8},
+  'progress': {3},
+  'resizable': {9},
+  'sidebar': {5, 6, 7, 9, 28},
+  'toggle-group': {12},
+};
+
 /// Rebuilds styleguide reference metadata from the frozen project catalogue.
 void main() {
   final snapshot =
@@ -19,19 +74,29 @@ void main() {
     )
     ..writeln('const componentCatalogue = <ComponentReference>[');
   for (final item in components.cast<Map<String, dynamic>>()) {
+    final id = item['id'] as String;
+    final nestedIndexes = _nestedSectionIndexes[id] ?? const <int>{};
+    final sections = (item['documentedSections'] as List<dynamic>)
+        .cast<String>();
     output
       ..writeln('  ComponentReference(')
-      ..writeln('    id: ${literal(item['id'] as String)},')
+      ..writeln('    id: ${literal(id)},')
       ..writeln('    name: ${literal(item['name'] as String)},')
       ..writeln('    url: ${literal(item['referenceUrl'] as String)},')
       ..writeln('    sections: [');
-    for (final section
-        in (item['documentedSections'] as List<dynamic>).cast<String>()) {
+    for (final section in sections) {
       output.writeln('      ${literal(section)},');
     }
-    output
-      ..writeln('    ],')
-      ..writeln('  ),');
+    output.writeln('    ],');
+    if (nestedIndexes.isNotEmpty) {
+      output
+        ..writeln('    sectionDepths: [')
+        ..writeln(
+          '      ${List.generate(sections.length, (index) => nestedIndexes.contains(index) ? 1 : 0).join(', ')},',
+        )
+        ..writeln('    ],');
+    }
+    output.writeln('  ),');
   }
   output.writeln('];');
   final file = File('lib/src/styleguide/component_catalogue.dart');
