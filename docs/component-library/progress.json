@@ -1945,15 +1945,22 @@
     },
     {
       "id": "hover-card",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
+      "branch": "codex/ui-hover-card",
       "dependencies": [
         "popover",
         "avatar"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Hover Card full anatomy/API and Composition, Trigger Delays, Positioning, Basic, Sides and RTL examples, with actual Base UI Preview Card behavior and measured reference artwork.",
+        "Compose accepted Popover/Avatar/Button owners with correct hover delays, pointer-gap retention, rapid-trigger/disposal cancellation, positioning/collision, focus/Escape/touch semantics and meaningful trigger navigation; avoid an accidental modal focus trap.",
+        "Support live open-card themes, native accessibility, narrow/scaled/RTL layouts and reduced motion; audit and migrate appropriate core/plugin user/topic/link previews while preserving fetching, permissions, cache and navigation in adapters.",
+        "Verify meaningful timer/pointer/focus/state/adoption regressions and root/full analysis, prepare exact-source fixtures and create an independent reviewer for required rendered/native acceptance and final local main merge."
+      ],
+      "decisions": [
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -2051,7 +2058,8 @@
           "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
           "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
           "evidence": "Committed Dialog public API and close-geometry/semantics corrections with 23 focused checks, root/full analysis, real Chat/Voice migration checks and official browser inspection; final native acceptance remains with the parent reviewer.",
-          "mergeGate": "Prepare only in this isolated worktree until the parent is accepted on local main. The new reviewer must reconcile accepted parent revisions and verify affected behavior before final local merge; an unaccepted parent must not reach main through a dependent branch."
+          "mergeGate": "Parent is accepted on local main at 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
         }
       ]
     },
@@ -2121,7 +2129,7 @@
           "commit": "d99562f0f6973c9dc3f566eea02d9b00c6de4f7b",
           "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
           "evidence": "Parent reviewer verified the exact Popover source pin contains b410f9da plus lifecycle correction 8281dda2; 100 focused tests (seed 826145) and root/full analysis passed before later main integration. Final native/reference acceptance remains with the parent reviewer.",
-          "mergeGate": "Popover is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a (record 365e093a). Reconcile its final lifecycle/Escape/layering corrections and verify affected behavior before the dependent final merge.",
+          "mergeGate": "Parent is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
           "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
         }
       ],
@@ -2280,7 +2288,8 @@
           "commit": "4ca5aaa85681ced6dd2668a8158b7551ee176f73",
           "reviewTaskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
           "evidence": "Clean committed source/API with repeated 163-test affected runs and root/full analysis passing; official browser and native macOS inspection completed. Acceptance-only styleguide metadata is source-equivalent to the inspected component and production fixtures. Textarea merged through 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3.",
-          "mergeGate": "Textarea is accepted on main. Input Group must integrate and verify main including merge 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3 before its final merge."
+          "mergeGate": "Parent is accepted on local main at 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3"
         }
       ],
       "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
@@ -2386,7 +2395,8 @@
           "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
           "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
           "evidence": "Parent reviewer verified the Dialog source pin and unchanged public API, corrected 28px corner-close geometry and unique dismiss semantics. 23 focused tests (seed 2145466268), root/full analysis and 2+2 real Chat/Voice migration tests passed; official browser comparison is complete. Final native launch/interaction remains queued.",
-          "mergeGate": "Use the accepted parent in current main if available; otherwise prepare only in this isolated worktree. The dependent reviewer must integrate the accepted parent main revision, reconcile overlap and verify affected behavior before final merge. Prepared source does not establish acceptance."
+          "mergeGate": "Parent is accepted on local main at 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
         }
       ],
       "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
@@ -2397,22 +2407,40 @@
     },
     {
       "id": "combobox",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
+      "branch": "codex/ui-combobox",
       "dependencies": [
         "input",
         "popover",
         "command"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Implement the frozen Base UI Combobox complete autocomplete/chips/collection API and Simple, chips, groups, custom items, multiple selection, clear, invalid, disabled, auto highlight, Popup, Input Group and RTL examples with primary-source mapping.",
+        "Provide typed selection/query/filter/highlight ownership, editable focus/IME, dynamic/disabled results, chip navigation/deletion, keyboard selection, anchored scrolling/collision, dismissal/restoration and safe lifecycle; preserve domain querying/network state in adapters.",
+        "Use accepted shared popup/input owners and reconcile Command/Field/Input Group/Item APIs where the actual Base UI semantics fit; retain every required example and prevent prepared parents reaching main before acceptance.",
+        "Migrate appropriate core/plugin searchable selectors and multi-value fields, preserving permissions, asynchronous results and callbacks; verify focused component/consumer regressions and root/full analysis with live themes and native/scaled/RTL behavior.",
+        "Create a new independent reviewer for remaining official rendered/native acceptance, fixes, required compositions and final local main merge."
+      ],
+      "decisions": [
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "command",
+          "branch": "codex/ui-command",
+          "commit": "f3180d998bd901ce24c2f21e386d5b08f78afbd5",
+          "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
+          "evidence": "Committed Command sourcec73c39b8 and handofff3180d99 have reported focused tests/analysis and a prepared source fixture. Reviewer owns acceptance and corrects the source-only progress row misplacement; never copy its stale Select metadata over current main.",
+          "mergeGate": "Prepared source is for this isolated implementation only. The new reviewer must reconcile accepted parent revisions and verify affected behavior before final local main merge; unaccepted parent code must not reach main through a dependent."
+        }
+      ]
     },
     {
       "id": "dropdown-menu",
@@ -2448,7 +2476,7 @@
           "commit": "d99562f0f6973c9dc3f566eea02d9b00c6de4f7b",
           "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
           "evidence": "Parent reviewer verified the exact prepared pin contains implementation b410f9da and lifecycle correction 8281dda2 with unchanged public API. 100 focused tests (seed 826145) and root/full analysis passed before its latest accepted-main integration. Final fixture repair and browser/native acceptance remain pending.",
-          "mergeGate": "Popover is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a (record 365e093a). Reconcile its final lifecycle/Escape/layering corrections and verify affected behavior before the dependent final merge.",
+          "mergeGate": "Parent is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
           "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
         }
       ],
@@ -2547,21 +2575,39 @@
     },
     {
       "id": "calendar",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
+      "branch": "codex/ui-calendar",
       "dependencies": [
         "button",
         "select"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Calendar API and every Basic, Range, month/year selector, Presets, date/time, booked dates, custom cell size, week numbers and RTL example; account explicitly for timezone and alternate-calendar guidance with exact primary-source mapping.",
+        "Provide typed date/selection/display ownership and correct date boundaries, disabled/hidden/outside/booked states, localization and keyboard navigation/focus; keep civil-day, instant/timezone and application scheduling semantics explicit.",
+        "Compose shared final selection, Field and Input Group owners for required examples; preserve compact shadcn geometry, live host tokens, native accessibility, touch, narrow/scaled/RTL layouts and reduced motion.",
+        "Audit core/plugin calendar and date surfaces, migrate appropriate uses while preserving server/domain state, and verify meaningful boundary/selection/focus/adoption regressions plus root/full analysis.",
+        "Prepare exact-source fixtures and create an independent reviewer that owns all remaining reference/native acceptance, final compositions and local main merge after parent acceptance."
+      ],
+      "decisions": [
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "select",
+          "branch": "codex/ui-select",
+          "commit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e",
+          "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
+          "evidence": "Select API source423d81ee with source handoff69e5ec66; source owner reported115 focused checks/root-full analysis/macOS build, then14 focused Select regression checks. Independent reviewer owns current fixes and acceptance.",
+          "mergeGate": "Prepared source is for this isolated implementation only. The new reviewer must reconcile accepted parent revisions and verify affected behavior before final local main merge; unaccepted parent code must not reach main through a dependent."
+        }
+      ]
     },
     {
       "id": "date-picker",
@@ -2756,7 +2802,8 @@
           "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
           "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
           "evidence": "Committed Dialog public API and close-geometry/semantics corrections with 23 focused checks, root/full analysis, real Chat/Voice migration checks and official browser inspection; final native acceptance remains with the parent reviewer.",
-          "mergeGate": "Prepare only in this isolated worktree until the parent is accepted on local main. The new reviewer must reconcile accepted parent revisions and verify affected behavior before final local merge; an unaccepted parent must not reach main through a dependent branch."
+          "mergeGate": "Parent is accepted on local main at 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
+          "acceptedMergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
         }
       ],
       "reviewTaskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
@@ -2853,7 +2900,7 @@
           "commit": "d99562f0f6973c9dc3f566eea02d9b00c6de4f7b",
           "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
           "evidence": "Committed Popover API with lifecycle correction 8281dda2; 100 focused checks and root/full analysis passed at this source pin. Parent owns final native/reference and accepted Native Select composition verification.",
-          "mergeGate": "Popover is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a (record 365e093a). Reconcile its final lifecycle/Escape/layering corrections and verify affected behavior before the dependent final merge.",
+          "mergeGate": "Parent is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
           "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
         }
       ]
@@ -3067,7 +3114,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T11:48:00+00:00",
+    "updatedAt": "2026-09-09T11:50:25+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 5,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -3243,6 +3290,27 @@
           "implementationTaskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
           "implementationBranch": "codex/ui-attachment",
           "headCommit": "7c465bd106296dd9a102af5e08aefbb04e09f265"
+        },
+        {
+          "component": "calendar",
+          "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
+          "branch": "codex/ui-calendar",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2336/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "combobox",
+          "taskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
+          "branch": "codex/ui-combobox",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/1a64/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "hover-card",
+          "taskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
+          "branch": "codex/ui-hover-card",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/02bf/discourse-native",
+          "status": "implementation"
         }
       ],
       "nativeReadyTasks": []
