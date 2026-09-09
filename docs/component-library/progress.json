@@ -2417,8 +2417,12 @@
         "Implementation source is prepared without a desktop lease. Official rendered browser comparison, native styleguide/production fixture inspection, macOS build provenance, exhaustive remaining transient notification migration and affected legacy-test updates remain owned by the new review task.",
         "No iOS or Linux device run was performed."
       ],
-      "implementationCommit": "212577a5f8750c120e0ab09ac4ea3f5a023b92e0",
-      "mergeCommit": null
+      "implementationCommit": "2c4bed89bc49e1df3dfd5f23315f97cb5c3b30fd",
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
+      "reviewClientThreadId": "client-new-thread:bc9d1205-04e1-4739-b614-dba4df508721",
+      "reviewBranch": "codex/review-toast"
     },
     {
       "id": "alert",
