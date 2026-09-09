@@ -75,7 +75,8 @@ final contextMenuExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Icons',
-      description: 'Caller-supplied artwork is constrained to the shared 16px leading slot.',
+      description:
+          'Caller-supplied artwork is constrained to the shared 16px leading slot.',
       states: const ['Leading icons', 'Destructive icon'],
       code: '''DContextMenuItem(
   leading: const Icon(Icons.copy_outlined),
@@ -86,7 +87,8 @@ final contextMenuExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Checkboxes',
-      description: 'Toggle controlled and default-owned options without closing the menu.',
+      description:
+          'Toggle controlled and default-owned options without closing the menu.',
       states: const ['Checked', 'Unchecked', 'Controlled', 'Uncontrolled'],
       code: '''DContextMenuCheckboxItem(
   checked: bookmarks,

@@ -46,10 +46,8 @@ Future<void> confirmInstanceRemoval(
   );
 }
 
-typedef InstanceTouchGestureBuilder = Widget Function(
-  Widget child,
-  ValueChanged<Offset> openActions,
-);
+typedef InstanceTouchGestureBuilder =
+    Widget Function(Widget child, ValueChanged<Offset> openActions);
 
 class InstanceActions extends StatefulWidget {
   const InstanceActions({
@@ -125,9 +123,9 @@ class _InstanceActionsState extends State<InstanceActions> {
                       label: const Text('Move up'),
                       onPressed: widget.onMoveUp == null
                           ? null
-                          : () =>
-                                Navigator.of(sheetContext)
-                                    .pop(_InstanceSheetAction.moveUp),
+                          : () => Navigator.of(
+                              sheetContext,
+                            ).pop(_InstanceSheetAction.moveUp),
                       icon: const DIcon(DIcons.arrowUp, size: 18),
                     ),
                   ),
@@ -137,9 +135,9 @@ class _InstanceActionsState extends State<InstanceActions> {
                       label: const Text('Move down'),
                       onPressed: widget.onMoveDown == null
                           ? null
-                          : () =>
-                                Navigator.of(sheetContext)
-                                    .pop(_InstanceSheetAction.moveDown),
+                          : () => Navigator.of(
+                              sheetContext,
+                            ).pop(_InstanceSheetAction.moveDown),
                       icon: const RotatedBox(
                         quarterTurns: 2,
                         child: DIcon(DIcons.arrowUp, size: 18),
