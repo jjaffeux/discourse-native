@@ -11,13 +11,13 @@ final kbdExamples = ComponentExamples(
       'DKbd displays a hint; existing controls and Shortcuts own actions. '
       'DKbdGroup wraps and inherits direction. Native labels use Apple modifier '
       'symbols on macOS/iOS and words on Linux. Spoken labels can be localized. '
-      'Text uses the host sans-serif family with reference 12/16 metrics, grows with text scale, '
-      'and uses live site tokens. Highlight feedback is optional and respects '
-      'reduced motion. The reference className customization maps to Flutter '
-      'child, style and layout composition. Outline is a Button demo variant '
-      'and inline-end is an Input Group addon position, not Kbd props. '
-      'Button, Tooltip and Input Group remain separate catalogue tasks; these '
-      'examples compose the available DButton/DTooltip and native TextField.',
+      'Text uses the host sans-serif family with reference 12/16 metrics, grows '
+      'with text scale, and uses live site tokens. Highlight feedback is '
+      'optional and respects reduced motion. The reference className '
+      'customization maps to Flutter child, style and layout composition. '
+      'Outline is a Button variant, inline-end is the Button icon slot or an '
+      'Input Group addon position, and tooltip/addon keycap colors and radius '
+      'come from DKbdTheme, which DTooltip and DInputGroupAddon supply.',
   examples: [
     StyleguideExample(
       title: 'Keys, symbols and custom content',
@@ -52,13 +52,28 @@ final kbdExamples = ComponentExamples(
     StyleguideExample(
       title: 'Groups, sequences and inline text',
       description:
-          'Group arbitrary keycaps with separators, or format existing logical '
-          'activators. Sequence steps are spoken and separated by “then”. '
-          'The inline example uses a WidgetSpan in the public typography widget.',
-      states: const ['Group', 'Sequence', 'Inline'],
+          'The reference group sentence places a keycap group inside muted '
+          'small text through a WidgetSpan. A labelled group speaks one chord; '
+          'a formatted sequence is spoken and separated by “then”.',
+      states: const ['Group', 'Inline', 'Labelled', 'Sequence'],
       code: _groupsCode,
       builder: (_) => const DProse(
         children: [
+          DText.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: 'Use '),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: DKbdGroup(
+                    children: [DKbd('Ctrl + B'), DKbd('Ctrl + K')],
+                  ),
+                ),
+                TextSpan(text: ' to open the command palette'),
+              ],
+            ),
+            variant: DTextVariant.muted,
+          ),
           DKbdGroup(
             semanticLabel: 'Control + B',
             children: [DKbd('Ctrl'), Text('+'), DKbd('B')],
@@ -69,18 +84,6 @@ final kbdExamples = ComponentExamples(
               [SingleActivator(LogicalKeyboardKey.keyH)],
             ),
           ),
-          DText.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: 'Press '),
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: DKbd('Esc'),
-                ),
-                TextSpan(text: ' to dismiss a menu.'),
-              ],
-            ),
-          ),
         ],
       ),
     ),
@@ -88,29 +91,43 @@ final kbdExamples = ComponentExamples(
       title: 'Platform modifiers and named keys',
       description:
           'The same logical activators are shown using macOS, iOS and Linux '
-          'notation. Formatting never changes the binding. These hints are '
-          'static and add no keyboard focus stops.',
-      states: const ['macOS', 'iOS', 'Linux', 'Static hint'],
+          'notation, then named keys keep their printed names. Formatting '
+          'never changes the binding. These hints are static and add no '
+          'keyboard focus stops.',
+      states: const ['macOS', 'iOS', 'Linux', 'Named keys', 'Static hint'],
       code: _platformCode,
       builder: (_) => const _PlatformHints(),
     ),
     StyleguideExample(
-      title: 'Button and live tooltip composition',
+      title: 'Button with a trailing keycap',
       description:
-          'Click Accept, focus it and press Enter, or press F6 in this preview. '
-          'The count changes through the existing button/shortcut owners. '
-          'Hover or long press Inspect hint; change the preview theme while '
-          'the tooltip is open to inspect live keycaps.',
-      states: const ['Button', 'Tooltip', 'Keyboard', 'Touch', 'Live theme'],
-      code: _actionCode,
+          'The reference outline button places the Enter keycap in its '
+          'inline-end icon slot, nudged 2px outward. Click Accept, or focus it '
+          'and press Enter; the count changes through the button itself.',
+      states: const ['Outline', 'Inline-end keycap', 'Keyboard', 'Touch'],
+      code: _buttonCode,
       builder: (_) => const KbdActionSample(),
     ),
     StyleguideExample(
-      title: 'Search input with a trailing shortcut',
+      title: 'Tooltips inside a button group',
       description:
-          'Click Focus search or press Command+K on macOS/iOS, Control+K on '
-          'Linux. Type a query, then change theme, text size or direction; the '
-          'query and focus remain native. The trailing hint wraps if necessary.',
+          'Two outline buttons in a Button Group carry keycap tooltips: a '
+          'formatted shortcut and literal Ctrl/P content. Hover or long press '
+          'a button, then change the preview theme while the tooltip is open '
+          'to inspect the live keycap tint. With the group focused, S and '
+          'Control+P run the actions.',
+      states: const ['Button Group', 'Tooltip', 'Live theme', 'Keyboard'],
+      code: _tooltipCode,
+      builder: (_) => const KbdTooltipSample(),
+    ),
+    StyleguideExample(
+      title: 'Input group with a trailing shortcut',
+      description:
+          'The reference search field keeps its search icon and two keycaps '
+          'in an inline-end addon, bounded to 320px. Press Command+K on '
+          'macOS/iOS or Control+K on Linux while the example has focus. Type '
+          'a query, then change theme, text size or direction; the query and '
+          'focus remain native.',
       states: const ['Input Group composition', 'Focus', 'State retention'],
       code: _inputCode,
       builder: (_) => const KbdInputSample(),
@@ -118,17 +135,22 @@ final kbdExamples = ComponentExamples(
     StyleguideExample(
       title: 'RTL and a fixed LTR shortcut island',
       description:
-          'The first group follows RTL reading order. The nested keyboard '
+          'The reference groups follow RTL reading order. The nested keyboard '
           'notation opts into LTR. Arrow keys describe physical directions and '
           'are never mirrored. Arabic key labels retain their text direction.',
       states: const ['RTL', 'Nested direction', 'Spoken labels'],
       code: _rtlCode,
       builder: (_) => const DDirection(
         textDirection: TextDirection.rtl,
-        child: DProse(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            DText('اختصارات لوحة المفاتيح', variant: DTextVariant.h4),
+            DKbdGroup(children: [DKbd('⌘'), DKbd('⇧'), DKbd('⌥'), DKbd('⌃')]),
+            SizedBox(height: DSpacing.lg),
+            DKbdGroup(children: [DKbd('Ctrl'), Text('+'), DKbd('B')]),
+            SizedBox(height: DSpacing.lg),
             DKbdGroup(children: [DKbd('تحكم'), DKbd('ب')]),
+            SizedBox(height: DSpacing.lg),
             DKbdGroup(
               textDirection: TextDirection.ltr,
               semanticLabel: 'Control + Arrow Left',
@@ -207,6 +229,22 @@ class _PlatformHints extends StatelessWidget {
             ),
           ],
         ),
+      const Wrap(
+        spacing: DSpacing.sm,
+        runSpacing: DSpacing.sm,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          DText('named keys', variant: DTextVariant.small),
+          DShortcutKeycaps(
+            platform: TargetPlatform.linux,
+            listenToKeyboard: false,
+            shortcut: DShortcut.sequence(
+              SingleActivator(LogicalKeyboardKey.pageDown, control: true),
+              [SingleActivator(LogicalKeyboardKey.home)],
+            ),
+          ),
+        ],
+      ),
     ],
   );
 }
@@ -219,42 +257,94 @@ class KbdActionSample extends StatefulWidget {
 }
 
 class _KbdActionSampleState extends State<KbdActionSample> {
-  static const shortcut = SingleActivator(LogicalKeyboardKey.f6);
   int _accepted = 0;
 
   void _accept() => setState(() => _accepted++);
 
   @override
+  Widget build(BuildContext context) {
+    // The reference nudges the keycap 2px toward the inline end.
+    final nudge = Directionality.of(context) == TextDirection.rtl ? -2.0 : 2.0;
+    return DProse(
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DButton(
+            variant: DButtonVariant.outline,
+            label: const Text('Accept'),
+            icon: Transform.translate(
+              offset: Offset(nudge, 0),
+              child: const DKbd('⏎'),
+            ),
+            iconPosition: DButtonIconPosition.end,
+            semanticLabel: 'Accept, Enter',
+            onPressed: _accept,
+          ),
+        ),
+        Semantics(liveRegion: true, child: DText('Accepted: $_accepted')),
+      ],
+    );
+  }
+}
+
+class KbdTooltipSample extends StatefulWidget {
+  const KbdTooltipSample({super.key});
+
+  @override
+  State<KbdTooltipSample> createState() => _KbdTooltipSampleState();
+}
+
+class _KbdTooltipSampleState extends State<KbdTooltipSample> {
+  static const save = SingleActivator(LogicalKeyboardKey.keyS);
+  static const print = SingleActivator(LogicalKeyboardKey.keyP, control: true);
+  String _status = 'No action yet.';
+
+  void _save() => setState(() => _status = 'Saved changes.');
+
+  void _print() => setState(() => _status = 'Printed document.');
+
+  @override
   Widget build(BuildContext context) => CallbackShortcuts(
-    bindings: {shortcut: _accept},
+    bindings: {save: _save, print: _print},
     child: Focus(
       autofocus: true,
       child: DProse(
         children: [
-          Wrap(
-            spacing: DSpacing.lg,
-            runSpacing: DSpacing.sm,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              DButton(
-                variant: DButtonVariant.standard,
-                onPressed: _accept,
-                label: const DKbdGroup(
-                  spacing: DSpacing.sm,
-                  children: [Text('Accept'), DKbd('F6')],
+          // The reference group never wraps; narrow previews scroll it.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DButtonGroup(
+              semanticLabel: 'Document actions',
+              children: [
+                DButton(
+                  variant: DButtonVariant.outline,
+                  label: const Text('Save'),
+                  tooltip: 'Save Changes',
+                  shortcut: const DShortcut(save),
+                  onPressed: _save,
                 ),
-              ),
-              const DTooltip(
-                message: 'Accept invitation',
-                shortcut: DShortcut(shortcut),
-                child: Padding(
-                  padding: EdgeInsets.all(DSpacing.md),
-                  child: Text('Inspect hint'),
+                DTooltip(
+                  message: 'Print Document, Control + P',
+                  containsKeycaps: true,
+                  content: const Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text('Print Document'),
+                      DKbdGroup(children: [DKbd('Ctrl'), DKbd('P')]),
+                    ],
+                  ),
+                  child: DButton(
+                    variant: DButtonVariant.outline,
+                    label: const Text('Print'),
+                    onPressed: _print,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          Semantics(liveRegion: true, child: DText('Accepted: $_accepted')),
+          Semantics(liveRegion: true, child: DText(_status)),
         ],
       ),
     ),
@@ -290,30 +380,34 @@ class _KbdInputSampleState extends State<KbdInputSample> {
     );
     return CallbackShortcuts(
       bindings: {shortcut: _focus.requestFocus},
-      child: DProse(
-        children: [
-          TextField(
-            focusNode: _focus,
-            onChanged: (value) => setState(() => _query = value),
-            decoration: InputDecoration(
-              labelText: 'Search community',
-              border: const OutlineInputBorder(),
-              suffixIconConstraints: const BoxConstraints(maxWidth: 120),
-              suffixIcon: Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: DSpacing.xs,
-                  end: DSpacing.sm,
+      child: Focus(
+        autofocus: true,
+        child: DProse(
+          children: [
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: DInputGroup(
+                  children: [
+                    DInputGroupInput(
+                      hintText: 'Search...',
+                      semanticLabel: 'Search',
+                      focusNode: _focus,
+                      onChanged: (value) => setState(() => _query = value),
+                    ),
+                    const DInputGroupAddon(child: Icon(Icons.search)),
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      children: [DKbd(apple ? '⌘' : 'Ctrl'), const DKbd('K')],
+                    ),
+                  ],
                 ),
-                child: DShortcutKeycaps(shortcut: DShortcut(shortcut)),
               ),
             ),
-          ),
-          DButton(
-            onPressed: _focus.requestFocus,
-            label: const Text('Focus search'),
-          ),
-          DText(_query.isEmpty ? 'No query yet.' : 'Query: $_query'),
-        ],
+            DText(_query.isEmpty ? 'No query yet.' : 'Query: $_query'),
+          ],
+        ),
       ),
     );
   }
@@ -335,17 +429,18 @@ const _keysCode = '''const Column(
 )''';
 
 const _groupsCode = '''const DProse(children: [
+  DText.rich(TextSpan(children: [
+    TextSpan(text: 'Use '),
+    WidgetSpan(alignment: PlaceholderAlignment.middle,
+      child: DKbdGroup(children: [DKbd('Ctrl + B'), DKbd('Ctrl + K')])),
+    TextSpan(text: ' to open the command palette'),
+  ]), variant: DTextVariant.muted),
   DKbdGroup(semanticLabel: 'Control + B',
     children: [DKbd('Ctrl'), Text('+'), DKbd('B')]),
   DShortcutKeycaps(shortcut: DShortcut.sequence(
     SingleActivator(LogicalKeyboardKey.keyG),
     [SingleActivator(LogicalKeyboardKey.keyH)],
   )),
-  DText.rich(TextSpan(children: [
-    TextSpan(text: 'Press '),
-    WidgetSpan(alignment: PlaceholderAlignment.middle, child: DKbd('Esc')),
-    TextSpan(text: ' to dismiss a menu.'),
-  ])),
 ])''';
 
 const _platformCode = '''DProse(children: [
@@ -359,12 +454,26 @@ const _platformCode = '''DProse(children: [
             control: true, alt: true, shift: true, meta: true))),
       ],
     ),
+  const Wrap(spacing: DSpacing.sm, runSpacing: DSpacing.sm,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      DText('named keys', variant: DTextVariant.small),
+      DShortcutKeycaps(platform: TargetPlatform.linux, listenToKeyboard: false,
+        shortcut: DShortcut.sequence(
+          SingleActivator(LogicalKeyboardKey.pageDown, control: true),
+          [SingleActivator(LogicalKeyboardKey.home)])),
+    ],
+  ),
 ])''';
 
 const _rtlCode = '''const DDirection(textDirection: TextDirection.rtl,
-  child: DProse(children: [
-    DText('اختصارات لوحة المفاتيح', variant: DTextVariant.h4),
+  child: Column(mainAxisSize: MainAxisSize.min, children: [
+    DKbdGroup(children: [DKbd('⌘'), DKbd('⇧'), DKbd('⌥'), DKbd('⌃')]),
+    SizedBox(height: DSpacing.lg),
+    DKbdGroup(children: [DKbd('Ctrl'), Text('+'), DKbd('B')]),
+    SizedBox(height: DSpacing.lg),
     DKbdGroup(children: [DKbd('تحكم'), DKbd('ب')]),
+    SizedBox(height: DSpacing.lg),
     DKbdGroup(textDirection: TextDirection.ltr,
       semanticLabel: 'Control + Arrow Left',
       children: [DKbd('Ctrl'), Text('+'), DKbd('←')]),
@@ -380,8 +489,8 @@ const _narrowCode = '''const DProse(children: [
   DKbdGroup(children: []),
 ])''';
 
-// The two stateful usage snippets contain the complete samples below.
-const _actionCode = r'''class KbdActionSample extends StatefulWidget {
+// The three stateful usage snippets contain the complete samples below.
+const _buttonCode = r'''class KbdActionSample extends StatefulWidget {
   const KbdActionSample({super.key});
 
   @override
@@ -389,47 +498,100 @@ const _actionCode = r'''class KbdActionSample extends StatefulWidget {
 }
 
 class _KbdActionSampleState extends State<KbdActionSample> {
-  static const shortcut = SingleActivator(LogicalKeyboardKey.f6);
   int _accepted = 0;
 
   void _accept() => setState(() => _accepted++);
 
   @override
+  Widget build(BuildContext context) {
+    // The reference nudges the keycap 2px toward the inline end.
+    final nudge = Directionality.of(context) == TextDirection.rtl ? -2.0 : 2.0;
+    return DProse(
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DButton(
+            variant: DButtonVariant.outline,
+            label: const Text('Accept'),
+            icon: Transform.translate(
+              offset: Offset(nudge, 0),
+              child: const DKbd('⏎'),
+            ),
+            iconPosition: DButtonIconPosition.end,
+            semanticLabel: 'Accept, Enter',
+            onPressed: _accept,
+          ),
+        ),
+        Semantics(liveRegion: true, child: DText('Accepted: $_accepted')),
+      ],
+    );
+  }
+}''';
+
+const _tooltipCode = r'''class KbdTooltipSample extends StatefulWidget {
+  const KbdTooltipSample({super.key});
+
+  @override
+  State<KbdTooltipSample> createState() => _KbdTooltipSampleState();
+}
+
+class _KbdTooltipSampleState extends State<KbdTooltipSample> {
+  static const save = SingleActivator(LogicalKeyboardKey.keyS);
+  static const print = SingleActivator(LogicalKeyboardKey.keyP, control: true);
+  String _status = 'No action yet.';
+
+  void _save() => setState(() => _status = 'Saved changes.');
+
+  void _print() => setState(() => _status = 'Printed document.');
+
+  @override
   Widget build(BuildContext context) => CallbackShortcuts(
-    bindings: {shortcut: _accept},
+    bindings: {save: _save, print: _print},
     child: Focus(
       autofocus: true,
       child: DProse(
         children: [
-          Wrap(
-            spacing: DSpacing.lg,
-            runSpacing: DSpacing.sm,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              DButton(
-                variant: DButtonVariant.standard,
-                onPressed: _accept,
-                label: const DKbdGroup(
-                  spacing: DSpacing.sm,
-                  children: [Text('Accept'), DKbd('F6')],
+          // The reference group never wraps; narrow previews scroll it.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DButtonGroup(
+              semanticLabel: 'Document actions',
+              children: [
+                DButton(
+                  variant: DButtonVariant.outline,
+                  label: const Text('Save'),
+                  tooltip: 'Save Changes',
+                  shortcut: const DShortcut(save),
+                  onPressed: _save,
                 ),
-              ),
-              const DTooltip(
-                message: 'Accept invitation',
-                shortcut: DShortcut(shortcut),
-                child: Padding(
-                  padding: EdgeInsets.all(DSpacing.md),
-                  child: Text('Inspect hint'),
+                DTooltip(
+                  message: 'Print Document, Control + P',
+                  containsKeycaps: true,
+                  content: const Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text('Print Document'),
+                      DKbdGroup(children: [DKbd('Ctrl'), DKbd('P')]),
+                    ],
+                  ),
+                  child: DButton(
+                    variant: DButtonVariant.outline,
+                    label: const Text('Print'),
+                    onPressed: _print,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          Semantics(liveRegion: true, child: DText('Accepted: $_accepted')),
+          Semantics(liveRegion: true, child: DText(_status)),
         ],
       ),
     ),
   );
 }''';
+
 const _inputCode = r'''class KbdInputSample extends StatefulWidget {
   const KbdInputSample({super.key});
 
@@ -458,27 +620,34 @@ class _KbdInputSampleState extends State<KbdInputSample> {
     );
     return CallbackShortcuts(
       bindings: {shortcut: _focus.requestFocus},
-      child: DProse(
-        children: [
-          TextField(
-            focusNode: _focus,
-            onChanged: (value) => setState(() => _query = value),
-            decoration: InputDecoration(
-              labelText: 'Search community',
-              border: const OutlineInputBorder(),
-              suffixIconConstraints: const BoxConstraints(maxWidth: 120),
-              suffixIcon: Padding(
-                padding: const EdgeInsetsDirectional.only(start: DSpacing.xs, end: DSpacing.sm),
-                child: DShortcutKeycaps(shortcut: DShortcut(shortcut)),
+      child: Focus(
+        autofocus: true,
+        child: DProse(
+          children: [
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: DInputGroup(
+                  children: [
+                    DInputGroupInput(
+                      hintText: 'Search...',
+                      semanticLabel: 'Search',
+                      focusNode: _focus,
+                      onChanged: (value) => setState(() => _query = value),
+                    ),
+                    const DInputGroupAddon(child: Icon(Icons.search)),
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      children: [DKbd(apple ? '⌘' : 'Ctrl'), const DKbd('K')],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          DButton(
-            onPressed: _focus.requestFocus,
-            label: const Text('Focus search'),
-          ),
-          DText(_query.isEmpty ? 'No query yet.' : 'Query: $_query'),
-        ],
+            DText(_query.isEmpty ? 'No query yet.' : 'Query: $_query'),
+          ],
+        ),
       ),
     );
   }

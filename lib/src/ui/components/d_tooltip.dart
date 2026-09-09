@@ -922,9 +922,9 @@ class _TooltipContent extends StatelessWidget {
         child: DKbdTheme(
           foregroundColor: foreground,
           backgroundColor: foreground.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.10
-                : 0.20,
+            alpha:
+                foreground.a *
+                (Theme.of(context).brightness == Brightness.dark ? 0.10 : 0.20),
           ),
           child: Padding(
             padding: EdgeInsetsDirectional.fromSTEB(
