@@ -18,23 +18,23 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
-| textarea | Reference and native review | 058bb044 | Worktree setup |
-| switch | native review | b851adbb | Worktree setup |
-| slider | Reference and native review | bbd35fec | Worktree setup |
-| progress | Reference and native review | 1c21a435 | Worktree setup |
-| empty | Input Group composition, reference and native review | 9d4ebc9e | Worktree setup |
-| item | Control composition, reference and native review | 32ce1f96 | Worktree setup |
-| table | Reference and native review | b3107cab | Worktree setup |
-| scroll-area | Native review | 5f4e58a3 | Worktree setup |
-| collapsible | Reference and native review | 684faacd | Worktree setup |
-| resizable | Reference and native review | a7e26a93 | Worktree setup |
-| popover | Control composition, reference and native review | cb7f9e2e | Worktree setup |
-| dialog | Reference and native review | 715ab477 | Worktree setup |
-| native-select | Native review | 986eb063 | Worktree setup |
-| field | Control composition, reference and native review | 09869a67 | Worktree setup |
-| alert | Reference and native review | 38002135 | Worktree setup |
-| marker | Reference and native review | c797918b | Worktree setup |
-| chart | Native review | c782a940 | Worktree setup |
+| textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
+| switch | independent review | b851adbb | 01a08558-4ae6-7db2-bdd6-ee3d564e1835 |
+| slider | independent review | bbd35fec | 01a08558-7a1d-7451-8024-e357bd0861e8 |
+| progress | independent review | 1c21a435 | 01a08558-73d7-7d01-9b97-39615e28df0e |
+| empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
+| item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
+| table | independent review | b3107cab | 01a08558-73ce-7a51-bfd4-8e0f48d5f675 |
+| scroll-area | independent review | 5f4e58a3 | 01a08558-4ae8-7152-9db9-ee52e4100dbe |
+| collapsible | independent review | 684faacd | 01a08558-a79c-7911-8f75-53b3528fc08f |
+| resizable | independent review | a7e26a93 | 01a08558-7acd-73d3-a690-2e5ceb920d6c |
+| popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
+| dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
+| native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
+| field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
+| alert | independent review | 38002135 | 01a08558-ae1e-7843-8cff-724c8e877ba5 |
+| marker | independent review | c797918b | 01a08558-a798-7b71-98a9-94ae87eae13d |
+| chart | independent review | c782a940 | 01a08558-4ae6-7db2-bdd6-ee52e8570ff3 |
 
 ## Component implementation
 
