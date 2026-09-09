@@ -783,17 +783,17 @@ class _AssignedError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(16),
-    child: Row(
-      children: [
-        const DIcon(DIcons.triangleExclamation, size: 18),
-        const SizedBox(width: 8),
-        Expanded(child: Text(message)),
-        DButton(
+    child: DAlert(
+      variant: DAlertVariant.destructive,
+      icon: const DIcon(DIcons.triangleExclamation),
+      description: DAlertDescription(child: Text(message)),
+      action: DAlertAction(
+        child: DButton(
           label: const Text('Try again'),
           onPressed: onRetry,
           variant: DButtonVariant.link,
         ),
-      ],
+      ),
     ),
   );
 }

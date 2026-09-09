@@ -1,3 +1,4 @@
+import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
@@ -5,6 +6,7 @@ import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
+import 'examples/collapsible_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
@@ -21,12 +23,16 @@ import 'examples/skeleton_examples.dart';
 import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
 import 'examples/switch_examples.dart';
+import 'examples/table_examples.dart';
 import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'alert': alertExamples,
+  'table': tableExamples,
+  'collapsible': collapsibleExamples,
   'input': inputExamples,
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
