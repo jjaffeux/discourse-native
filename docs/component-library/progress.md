@@ -69,7 +69,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
-| 60 | chart | planned | — | — | tooltip | — |
+| 60 | chart | in_progress | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | — |
 | 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
 | 63 | input-otp | planned | — | — | input, field | — |
@@ -541,6 +541,7 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Reference sources and hashes, native adaptations and pending rendered comparison recorded in docs/component-library/button.md.
 - Coordinator touch-target correction: small legacy inset surfaces keep 32px paint/40px desktop targets but clamp iOS/Android targets to 48px independently.
 - Browser/export comparison corrected Small leading to22.4px, dark input-token alpha multiplication, leading loading padding, and responsive Size composition; added exact Arabic reference composition.
+- Radius follow-up: xs/icon-xs=min(.8×base,10px), sm/icon-sm=min(.8×base,12px), regular/large=base per official theming scale; preserves caller radius overrides.
 
 **migrations**
 
@@ -569,6 +570,8 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Actual CUA Chrome reference comparison completed at1270x847 and360x700 against exact current Flutter widget-test exports, including six variants, all sizes/icons/loading, settled hover/focus and Arabic RTL. Evidence/metrics/harness in docs/component-library/evidence/button; detailed findings in button-rendered-comparison.md. Browser viewport reset, original dark theme restored and tab closed.
 - After rendered-comparison fixes,218 Button/styleguide/adoption/PollCard/UserSummary tests passed;11 final focused tests passed after Arabic example; root/full-profile analysis and font-loaded export harness pass.
 - Compared implementation 6db474b8c16529a28d77a168d9ac9dc4fb885647 rebuilt and source-byte-verified in unlaunched /private/tmp/DiscourseButtonReview-3a88-v3.app; unique V3 ID/scheme and deep strict signature pass. Kernel SHA256 9e8e0376cc234c8be9299212620d118ca2a27b7b7ce3737b432318d8eb20ba9d. V3 supersedes earlier native review bundles.
+- Radius regression reproduced 2px vs3.2px at4px base, then passed0/4/10/14/20 base radii for both constructors with live theme rebuilds. All28 affected tests and root/full analysis pass. Refreshed exact exports and inspected Light4/Forest14/Plum20 specimens without browser/native actions.
+- Radius-corrected source 4483071a2b1e4a147fb9627a8b5de9713a2138b8 byte-verified and rebuilt in unlaunched /private/tmp/DiscourseButtonReview-3a88-v4.app, unique V4 identity/scheme; deep strict signature passes. Kernel SHA256 f3c167b9494e8e49c3f9f1894ff453eeffb27e0e4da57053cbb7db9102be2396. V4 supersedes V3.
 - Coordinator inspected the saved actual dark reference Size screenshot and final neutral-dark and Plum 360px/200%/RTL Flutter exports at source 6db474b8. Compact surface/icon sizes and grouped layout agree with recorded metrics; font width/rasterizer and native-runtime caveats remain explicit. This is source/rendered review, not native acceptance or merge approval.
 
 **limitations**
@@ -1352,6 +1355,34 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 - Audit core and plugins; migrate pane persistence adapter and appropriate split handles without changing storage, temporary maximum behavior, responsive modes or async ownership; document retained domain controls.
 - Self-contained production-widget styleguide and local fixture; focused interaction/migration tests, root/full static analysis, pinned SDK/locks, isolated uniquely identified signed macOS debug build. Native/reference comparison remains pending locked-desktop slot.
 
+**decisions**
+
+- See docs/component-library/resizable.md for primary source hashes, measurements, API/constraint and native adaptation decisions. Frozen page hash matches catalogue; Base Nova 1px divider + 4x24 pill, rounded-lg = 1x token radius.
+- Public group/panel/handle plus typed explicit pixel/percentage sizes and controller; controlled/uncontrolled state, constraints/collapse, disabled panels, dynamic stable IDs, relative/pixel parent sizing. Native 48px coarse targets with in-bounds collapsed-edge semantics.
+- App adapters reuse DResizableHandle.standalone; persistence/async races remain outside generic UI. No Form field or unmerged component dependency. Styleguide status remains baseline pending native gate.
+- Independent source/check/build work complete; awaiting_slot. Coordinator must complete native/reference comparison before review_ready or merge.
+
+**migrations**
+
+- ResizablePane: sidebar, diagnostics and topic inbox retain PanelWidthController/store behavior and responsive callers.
+- Users Matrix column handles now UsersColumnResizeHandle using shared renderer; forum persistence, generation guards and pre-frame accumulation preserved.
+- ChatThreadPaneDivider replaces duplicate thread split interactions; physical-right adapter and stored widths preserved. Actual Chat split expands touch hit overlap without changing panel space.
+
+**retainedAlternatives**
+
+- Composer and Chat drawer two-axis floating corner resize/movement are domain geometry, not panel groups. Calendar resize disabled. Scrollbars and seek/volume/timeline controls remain separate owners.
+
+**verification**
+
+- flutter pub get --enforce-lockfile at root and profiles/full passed; Flutter 3.47.2 and lockfiles unchanged.
+- Final focused tests: d_resizable_test, styleguide/resizable_examples_test, resizable_pane_test, panel_width_controller_headless_test, users_page_test, chat_thread_workspace_test passed (88 tests), including radius-zero, coarse targets, RTL collapsed-edge drag and all migrations.
+- Final root and full-profile flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed. Four extracted self-contained usage programs passed Dart analysis.
+- Isolated local-data native fixture built successfully from source 7ba6dd15a5134b195d8b9fb5fda6e457e8005eb0. Copied /tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app has unique name/ID/URL scheme; build app.dill and original/copied kernels share SHA256 564d2ae4fcee4c667fbd4aa80521d3454cef17195e76723758130b1398918b1b. Deep strict signature verification passed. See docs/component-library/resizable-native.md and evidence/resizable logs.
+
+**limitations**
+
+- awaiting_slot: Mac locked; no browser/CUA/app launch performed. Native/reference-rendered light/dark/custom palette, large-text/RTL comparisons, real fixture inspection and VoiceOver/device behavior still pending. Not review_ready or mergeable.
+
 ### native-select
 
 Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/ui-native-select.
@@ -1364,6 +1395,17 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 - Self-contained actual-component styleguide covers reference simple/groups/disabled/invalid/RTL plus form and state; audit core/plugins and migrate suitable simple selectors preserving callbacks and permission/busy guards.
 - Pass focused interaction/migration tests, touched format and root/full-profile analysis with unchanged pins/lockfiles; build isolated identifiable macOS local-data fixture with source/kernel/signature evidence.
 - Remain in_progress awaiting_slot until coordinator grants desktop and reference/native production-fixture review passes.
+
+### chart
+
+Status: in_progress. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-chart.
+
+**acceptanceCriteria**
+
+- Port frozen base-nova chart container/config, grouped bar composition, grid/axes, themed colors, tooltip dot/line/dashed indicators, label/value formatters and custom tooltip/legend content; account for every frozen documentation section.
+- Keep data adapters outside the generic chart owner; audit core and every plugin, migrate suitable existing poll result presentation while preserving confidential results, voting callbacks and async ownership.
+- Provide controlled and initial chart selection with mouse/touch/keyboard focus, Escape dismissal, semantic values, responsive/large-text/RTL/live-theme support and explicit lifecycle; chart inspection is not a Form value.
+- Supply self-contained actual-component examples and offline production fixtures, meaningful component/adoption tests, root/full analysis and isolated uniquely identified macOS build with source/kernel/signature evidence; remain in_progress awaiting native/reference slot.
 
 ### sidebar
 
