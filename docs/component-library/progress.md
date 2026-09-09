@@ -2301,8 +2301,36 @@ Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/u
 
 **decisions**
 
-- Prepared against Select reviewer source 7d474deffdb0cdda5f13f83ceaf1b4bfff6a6581 on codex/review-select, reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22. Its 38 Select/Popover and 168 downstream tests, root/full analysis and exact-source macOS build passed; final Select native/reference acceptance and main merge remain pending.
-- Pagination's independent reviewer must reconcile the accepted Select revision from current main and prevent this prepared parent ancestry from reaching main before Select acceptance.
+- Frozen Markdown hash bc07e7b5e3df7090f895a93d49a3484e828e8560c17600ab3cbd1cb92313c3f9 exactly matches catalogue; current base-nova registry raw/source hashes and complete documented examples are committed under reference/pagination.
+- DPagination exposes the full explicit anatomy while DPaginationNavigation provides local, controlled or borrowed-controller bounded state. Pages remain one-based; pageCount zero is represented by page one with hasPages false and disabled movement.
+- DPaginationController coalesces dynamic updates, clamps changed totals and preserves the first visible item across page-size changes by default. Server requests, loading, caches and route/query synchronization remain caller-owned.
+- The default ghost/outline current-page treatment and 32px geometry compose the accepted DButton. Direction controls expose directionVariant so Data Table can select the official outline surface without duplicating behavior or artwork.
+- Narrow layouts retain the reference's sub-640px direction-label hiding and use horizontal scrolling rather than overflow; custom 16px round-cap chevrons and dots follow logical RTL direction.
+- Prepared Select source 7d474deffdb0cdda5f13f83ceaf1b4bfff6a6581 was byte-compared after acceptance and exactly matches accepted local main 94a65e00. Accepted Field source was integrated from merge 5cd7f369 without merging newer main into this worktree.
+
+**migrations**
+
+- Exported the single Pagination owner from discourse_ui.dart and registered six actual-component examples: Default, Simple, Icons Only with final Field/Select rows-per-page composition, routing links, dynamic/controller edges and Arabic RTL.
+- Shared the exact tested public API/commit cd69ff21400192e6a141a675ffb7ec6a7199526c with Data Table task 01a08606-ca45-73b1-9be1-7486d4e3fe1d, including directionVariant outline composition.
+
+**retainedAlternatives**
+
+- Topic/category/aggregate/search/account/draft/user/group/invite/badge/assignment lists append cursor or offset pages and preserve accumulated reading flow; numbered replacement paging would be a behavior regression.
+- Chat browse/search/thread/member and GIF results retain automatic or explicit Load more continuation for the same reason. Topic post navigation and Carousel/Lightbox PageView are position navigation, not bounded result pagination.
+- No current production surface is an appropriate bounded numbered-page consumer. Data Table is the first prepared consumer; its manual/server paging adapter remains outside this generic component.
+
+**verification**
+
+- 10 randomized Pagination tests passed with seed 391447: controller count/size clamping, empty/single boundaries, exact 32px link geometry, ellipsis windows, controlled/local/controller ownership, borrowed lifecycle, keyboard and RTL link activation, current/disabled semantics, outline embedded controls and all examples at 216px/200% text.
+- 71 combined Pagination, accepted Select/Field and styleguide-page tests passed with seed 391447; the earlier 55 focused Pagination/Select/Field set also passed.
+- Root and profiles/full flutter analyze --no-pub pass with no diagnostics after final API changes. Touched Dart is formatted, git diff --check passes, root flutter pub get --enforce-lockfile passed and no lockfile or SDK pin changed.
+- Accepted dependency source equality confirmed: d_select.dart 8597a6cbd6b901279580c327acfaf3da37b8802a5c31fd8774c1f17c567047f1, d_popover.dart db383c502d7067fc93863998a7635738d11b97df0c6dc8bdbf52feab38b36806 and d_field.dart b72c1a6b7c58755c45914c46b6fbaa154dd2dcee0ea164c6f5549e0ed8ae1f19 exactly match accepted local main 94a65e00.
+- tool/pagination_review_main.dart is a local-data real-widget fixture with live Light/Dark/Forest/Plum, RTL, 100/200% text, reduced motion and 216/640px controls. An implementation build was started without desktop access but interrupted after Xcode remained in package/build setup for over six minutes while multiple other isolated builds were active; no successful bundle or launch is claimed.
+
+**limitations**
+
+- Official rendered browser comparison and actual native macOS inspection are intentionally pending for the new independent reviewer; no iOS/Linux device or spoken VoiceOver claim.
+- The prepared macOS build did not complete under concurrent Xcode toolchain contention and was explicitly interrupted; the fixture source is committed but there is no implementation-stage artifact/signature/kernel claim.
 
 ### calendar
 
