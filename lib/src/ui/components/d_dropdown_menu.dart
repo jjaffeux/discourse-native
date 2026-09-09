@@ -818,7 +818,8 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
     if (oldWidget.focusNode != widget.focusNode ||
         oldWidget.label != widget.label ||
         oldWidget.enabled != widget.enabled) {
-      _content?.unregister(this);
+      // Replace this State's registration in place so live labels and enabled
+      // changes retain visual order for Home, arrows, and typeahead.
       _register();
     }
   }
