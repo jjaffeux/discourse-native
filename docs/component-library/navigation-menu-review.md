@@ -71,6 +71,12 @@ with the Popover reviewer and changes no API, default, Escape or layer policy.
 The corrected fixture still needs native verification of trigger visuals,
 panel switching/activation, keyboard dismissal/focus, controlled/dynamic/
 disabled examples, inline RTL, and narrow 200% reduced-motion/custom palettes.
-The desktop lease was released during the final rebuild. No corrected native
-acceptance or final merge is claimed by this checkpoint. iOS, Linux and spoken
-VoiceOver have not been run.
+The desktop lease was released during the final rebuild. While this reviewer
+waited in FIFO, the preceding Avatar reviewer reported that approved CUA now
+said the Mac was locked and automatic unlock failed. Avatar released its lease;
+Navigation Menu withdrew its waiting request without attempting a bypass.
+The old Navigation Menu app had already been quit through its native menu by
+the explicitly authorized Button Group reviewer, and its reference tab is closed.
+Manual unlock is needed before a fresh corrected native pass. No corrected
+native acceptance or final merge is claimed by this checkpoint. iOS, Linux and
+spoken VoiceOver have not been run.
