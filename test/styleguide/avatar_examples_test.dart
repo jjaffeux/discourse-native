@@ -122,6 +122,16 @@ void main() {
         ),
       );
       expect(logout.variant, DDropdownMenuItemVariant.destructive);
+      await tester.tap(find.text('Log out'));
+      await tester.pumpAndSettle();
+      expect(find.text('Log out selected'), findsOneWidget);
+
+      await tester.tap(find.byType(DButton));
+      await tester.pumpAndSettle();
+      expect(find.text('Profile'), findsOneWidget);
+      await tester.tapAt(const Offset(700, 500));
+      await tester.pumpAndSettle();
+      expect(find.text('Profile'), findsNothing);
     },
   );
   testWidgets(
