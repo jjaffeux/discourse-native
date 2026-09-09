@@ -1532,13 +1532,14 @@
       "verification": [
         "Flutter 3.47.2 and pins/lockfiles unchanged; enforced root/full-profile pub resolution passed.",
         "323 selected component, fixture, styleguide and production migration tests passed; routed Chat notification integration test also passed.",
-        "Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed."
+        "Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.",
+        "Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch."
       ],
       "limitations": [
         "awaiting_slot: Mac locked; reference-rendered and native visual inspection remains required before review_ready or merge.",
         "No CUA/app launch; widget platform overrides and native fixture tests are not device/VoiceOver/pixel-parity evidence."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "b6a1e7f736966ffc6c3923f353f7f007faa30e43",
       "mergeCommit": null
     },
     {

@@ -1340,6 +1340,7 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 - Flutter 3.47.2 and pins/lockfiles unchanged; enforced root/full-profile pub resolution passed.
 - 323 selected component, fixture, styleguide and production migration tests passed; routed Chat notification integration test also passed.
 - Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.
+- Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch.
 
 **limitations**
 
