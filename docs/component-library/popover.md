@@ -47,6 +47,12 @@ removal and the controller can dismiss; focus returns to the trigger or the
 previous focus owner. The popup is a named explicit semantic container while
 nested fields and buttons keep independent nodes and bounds.
 
+Independent review corrected controlled lifecycle synchronization: app or view
+focus loss reports `DPopoverChangeReason.lifecycle` and hides immediately
+without restoring focus into an inactive view. On resume, a still-true
+controlled `open` value is reconciled and shown again; an owner that accepted
+the close request remains closed.
+
 ## Examples and application audit
 
 The styleguide reproduces Basic, start/center/end Align, With Form, and RTL
