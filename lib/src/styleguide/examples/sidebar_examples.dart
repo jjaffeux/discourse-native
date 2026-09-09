@@ -13,8 +13,8 @@ final sidebarExamples = ComponentExamples(
     StyleguideExample(
       title: 'Application sidebar',
       description:
-          'Header, independent scrolling content, labelled groups, active destinations, badges, secondary actions and footer. Cmd/Ctrl+B toggles; below 768px use the trigger to open the modal panel. Tab navigates, Enter/Space activates and Escape dismisses.',
-      code: '''DSidebarProvider(child: Row(children: [
+          'Header, scrolling groups, active destinations, badges, actions and footer. These compact demos switch to a modal below 500px; the component default is 768px. Cmd/Ctrl+B toggles, Tab navigates, Enter/Space activates and Escape dismisses.',
+      code: '''DSidebarProvider(mobileBreakpoint: 500, child: Row(children: [
   DSidebar(header: DSidebarHeader(child: Text('Acme Inc')),
     child: DSidebarContent(children: [
       DSidebarGroup(label: DSidebarGroupLabel(child: Text('Application')),
@@ -44,8 +44,8 @@ final sidebarExamples = ComponentExamples(
       title: 'Controlled inset',
       description:
           'The parent owns open state. The inset main surface uses the live background and radius; the button reflects the requested state.',
-      code:
-          '''DSidebarProvider(open: open, onOpenChange: (value) => setState(() => open = value),
+      code: '''DSidebarProvider(mobileBreakpoint: 500,
+  open: open, onOpenChange: (value) => setState(() => open = value),
   child: Row(children: [DSidebar(variant: DSidebarVariant.inset, child: menu),
     Expanded(child: DSidebarInset(child: content))]))''',
       builder: (_) =>
@@ -133,7 +133,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
   Widget build(BuildContext context) => SizedBox(
     height: 440,
     child: DSidebarProvider(
-      mobileBreakpoint: widget.documentation ? 0 : 768,
+      mobileBreakpoint: widget.documentation ? 0 : 500,
       open: widget.controlled ? open : null,
       onOpenChange: widget.controlled ? (v) => setState(() => open = v) : null,
       child: Builder(

@@ -98,6 +98,9 @@ void main() {
       expect(DTokens.of(tester.element(preview)).radius, 12);
       expect(find.text('Actions: 1'), findsOneWidget);
 
+      await _choose(tester, 'Viewport width', '1024 px');
+      expect(tester.getSize(preview).width, 1024);
+      expect(find.text('Actions: 1'), findsOneWidget);
       await _choose(tester, 'Viewport width', '360 px');
       expect(tester.getSize(preview).width, 360);
       await _choose(tester, 'Text scale', '200%');
@@ -421,6 +424,46 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Actions: 1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Sidebar preview shows desktop navigation and retains selection on mobile',
+    (tester) async {
+      await _pump(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('styleguide-search')),
+        'sidebar',
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('styleguide-component-sidebar')),
+      );
+      await tester.pumpAndSettle();
+      final preview = find.byKey(const ValueKey('styleguide-preview'));
+      final provider = find.descendant(
+        of: preview,
+        matching: find.byType(DSidebarProvider),
+      );
+      expect(tester.state<DSidebarProviderState>(provider).isMobile, false);
+      final inbox = find.descendant(of: preview, matching: find.text('Inbox'));
+      await tester.tap(inbox);
+      await tester.pump();
+      expect(find.text('Inbox selected'), findsOneWidget);
+
+      await _choose(tester, 'Viewport width', '360 px');
+      expect(tester.state<DSidebarProviderState>(provider).isMobile, true);
+      expect(inbox, findsNothing);
+      await tester.tap(
+        find.descendant(of: preview, matching: find.byType(DSidebarTrigger)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Inbox'), findsOneWidget);
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+      expect(find.text('Home selected'), findsOneWidget);
+      expect(tester.state<DSidebarProviderState>(provider).openMobile, false);
+      expect(tester.takeException(), isNull);
     },
   );
 

@@ -699,23 +699,33 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           Divider(height: 1, color: tokens.border),
           LayoutBuilder(
             builder: (context, constraints) {
-              final width = _width == 0
-                  ? constraints.maxWidth
-                  : math.min(_width, constraints.maxWidth);
+              final width = _width == 0 ? constraints.maxWidth : _width;
               return ColoredBox(
                 color: tokens.muted,
-                child: Align(
-                  alignment: Alignment.topCenter,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
                   child: SizedBox(
-                    width: width,
-                    height: _selected.id == 'card' ? 480 : 400,
-                    child: _ExampleViewport(
-                      key: ValueKey('${_selected.id}/$_exampleIndex/$_reset'),
-                      theme: _theme.resolve(hostTheme),
-                      scale: _scale,
-                      rtl: _rtl,
-                      reducedMotion: _reducedMotion,
-                      example: example,
+                    width: math.max(width, constraints.maxWidth),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        width: width,
+                        height: switch (_selected.id) {
+                          'card' => 480,
+                          'sidebar' => 500,
+                          _ => 400,
+                        },
+                        child: _ExampleViewport(
+                          key: ValueKey(
+                            '${_selected.id}/$_exampleIndex/$_reset',
+                          ),
+                          theme: _theme.resolve(hostTheme),
+                          scale: _scale,
+                          rtl: _rtl,
+                          reducedMotion: _reducedMotion,
+                          example: example,
+                        ),
+                      ),
                     ),
                   ),
                 ),
