@@ -1,4 +1,5 @@
 import 'examples/accordion_examples.dart';
+import 'examples/alert_dialog_examples.dart';
 import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
@@ -53,6 +54,7 @@ import 'styleguide_example.dart';
 final componentExamples = <String, ComponentExamples>{
   'accordion': accordionExamples,
   'alert': alertExamples,
+  'alert-dialog': alertDialogExamples,
   'table': tableExamples,
   'textarea': textareaExamples,
   'input-group': inputGroupExamples,

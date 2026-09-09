@@ -202,25 +202,16 @@ class _PluginNotificationsSectionState
     final host = widget.host;
     final source = widget.source;
     final siteUrl = widget.siteUrl;
-    final confirmed = await showDiscourseDialog<bool>(
+    final confirmed = await showDiscourseAlertDialog<bool>(
       context: context,
-      builder: (dialogContext) => DiscourseAlertDialog(
-        title: const Text('Mark notifications as read?'),
-        content: Text(dismissal.confirmationMessage(widget.unreadCount)),
-        actions: [
-          AdaptiveDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          AdaptiveDialogAction(
-            key: ValueKey(
-              'plugin-notification-dismiss-confirm-${source.id.id}',
-            ),
-            kind: AdaptiveDialogActionKind.primary,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(dismissal.buttonLabel),
-          ),
-        ],
+      title: const Text('Mark notifications as read?'),
+      description: Text(dismissal.confirmationMessage(widget.unreadCount)),
+      cancelLabel: const Text('Cancel'),
+      actionLabel: Text(dismissal.buttonLabel),
+      cancelResult: false,
+      actionResult: true,
+      actionKey: ValueKey(
+        'plugin-notification-dismiss-confirm-${source.id.id}',
       ),
     );
     if (confirmed != true ||
