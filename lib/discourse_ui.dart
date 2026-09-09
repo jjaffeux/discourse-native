@@ -7,6 +7,7 @@ export 'src/ui/components/d_avatar.dart';
 export 'src/ui/components/d_badge.dart';
 export 'src/ui/components/d_button.dart';
 export 'src/ui/components/d_calendar.dart';
+export 'src/ui/components/d_date_picker.dart';
 export 'src/ui/components/d_card.dart';
 export 'src/ui/components/d_carousel.dart';
 export 'src/ui/components/d_chart.dart';

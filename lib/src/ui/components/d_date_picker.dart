@@ -1,10 +1,730 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
+import '../foundation/tokens.dart';
+import 'd_button.dart';
+import 'd_calendar.dart';
+import 'd_field.dart';
+import 'd_popover.dart';
+
 final _dateFormattingInitialization = initializeDateFormatting();
+
+enum DDatePickerCloseBehavior { never, onSelection }
+
+@immutable
+class DDatePickerLabels {
+  const DDatePickerLabels({
+    this.placeholder = 'Pick a date',
+    this.calendar = 'Select date',
+  });
+
+  final String placeholder;
+  final String calendar;
+}
+
+/// A typed shadcn Date Picker composition built from Button, Popover and the
+/// kalender-backed Calendar.
+///
+/// The unnamed constructor owns its value from [initialValue]. Use
+/// [DDatePicker.controlled] when the parent owns [value]. Calendar and Popover
+/// keep their own public controllers; a borrowed trigger [focusNode] is never
+/// disposed. The selected value is a civil [DCalendarDate], not an instant.
+class DDatePicker extends StatefulWidget {
+  const DDatePicker({
+    super.key,
+    this.initialValue,
+    this.onChanged,
+    this.label,
+    this.description,
+    this.errorText,
+    this.required = false,
+    this.labels = const DDatePickerLabels(),
+    this.enabled = true,
+    this.width = 212,
+    this.closeBehavior = DDatePickerCloseBehavior.never,
+    this.open,
+    this.defaultOpen = false,
+    this.onOpenChange,
+    this.popoverController,
+    this.calendarController,
+    this.focusNode,
+    this.locale,
+    this.calendarLabels = const DCalendarLabels(),
+    this.captionLayout = DCalendarCaptionLayout.label,
+    this.initialDisplayedMonth,
+    this.startMonth,
+    this.endMonth,
+    this.disabled,
+    this.today,
+    this.semanticLabel,
+    this.dateCodec = const DIntlDateTextCodec(),
+  }) : _controlled = false,
+       value = null;
+
+  const DDatePicker.controlled({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.label,
+    this.description,
+    this.errorText,
+    this.required = false,
+    this.labels = const DDatePickerLabels(),
+    this.enabled = true,
+    this.width = 212,
+    this.closeBehavior = DDatePickerCloseBehavior.never,
+    this.open,
+    this.defaultOpen = false,
+    this.onOpenChange,
+    this.popoverController,
+    this.calendarController,
+    this.focusNode,
+    this.locale,
+    this.calendarLabels = const DCalendarLabels(),
+    this.captionLayout = DCalendarCaptionLayout.label,
+    this.initialDisplayedMonth,
+    this.startMonth,
+    this.endMonth,
+    this.disabled,
+    this.today,
+    this.semanticLabel,
+    this.dateCodec = const DIntlDateTextCodec(),
+  }) : _controlled = true,
+       initialValue = null;
+
+  final DCalendarDate? value;
+  final DCalendarDate? initialValue;
+  final ValueChanged<DCalendarDate?>? onChanged;
+  final String? label;
+  final String? description;
+  final String? errorText;
+  final bool required;
+  final DDatePickerLabels labels;
+  final bool enabled;
+  final double width;
+  final DDatePickerCloseBehavior closeBehavior;
+  final bool? open;
+  final bool defaultOpen;
+  final DPopoverOpenChange? onOpenChange;
+  final DPopoverController? popoverController;
+  final DCalendarController? calendarController;
+  final FocusNode? focusNode;
+  final Locale? locale;
+  final DCalendarLabels calendarLabels;
+  final DCalendarCaptionLayout captionLayout;
+  final DCalendarDate? initialDisplayedMonth;
+  final DCalendarDate? startMonth;
+  final DCalendarDate? endMonth;
+  final DCalendarPredicate? disabled;
+  final DCalendarDate? today;
+  final String? semanticLabel;
+  final DDateTextCodec dateCodec;
+  final bool _controlled;
+
+  @override
+  State<DDatePicker> createState() => _DDatePickerState();
+}
+
+class _DDatePickerState extends State<DDatePicker> {
+  late DCalendarDate? _value = widget.initialValue;
+  late final DPopoverController _ownedPopover = DPopoverController();
+  late final FocusNode _ownedFocus = FocusNode(
+    debugLabel: 'DDatePicker trigger',
+  );
+
+  DCalendarDate? get _effectiveValue =>
+      widget._controlled ? widget.value : _value;
+  DPopoverController get _popover => widget.popoverController ?? _ownedPopover;
+  FocusNode get _focus => widget.focusNode ?? _ownedFocus;
+
+  void _select(DCalendarSelection selection, DCalendarSelectReason reason) {
+    final date = (selection as DCalendarSingleSelection).date;
+    if (!widget._controlled) setState(() => _value = date);
+    widget.onChanged?.call(date);
+    if (widget.closeBehavior == DDatePickerCloseBehavior.onSelection &&
+        date != null) {
+      _popover.close();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final date = _effectiveValue;
+    final locale = widget.locale ?? Localizations.localeOf(context);
+    final calendarGeometry = _calendarGeometry(context);
+    final picker = DPopover(
+      controller: _popover,
+      open: widget.enabled ? widget.open : false,
+      defaultOpen: widget.enabled && widget.defaultOpen,
+      onOpenChange: widget.onOpenChange,
+      content: DPopoverContent(
+        width: calendarGeometry.popoverWidth,
+        padding: EdgeInsets.zero,
+        align: DPopoverAlign.start,
+        semanticLabel: widget.calendarLabels.calendar,
+        child: _calendarViewport(
+          calendarGeometry,
+          DCalendar(
+            mode: DCalendarSelectionMode.single,
+            selection: DCalendarSingleSelection(date),
+            onSelectionChanged: _select,
+            controller: widget.calendarController,
+            locale: locale,
+            labels: widget.calendarLabels,
+            captionLayout: widget.captionLayout,
+            initialDisplayedMonth: widget.initialDisplayedMonth ?? date,
+            startMonth: widget.startMonth,
+            endMonth: widget.endMonth,
+            disabled: widget.disabled,
+            today: widget.today,
+          ),
+        ),
+      ),
+      child: DPopoverTrigger(
+        focusNode: _focus,
+        builder: (context, trigger) => SizedBox(
+          width: widget.width,
+          child: DButton(
+            label: date == null
+                ? Text(
+                    widget.labels.placeholder,
+                    style: TextStyle(
+                      color: DTokens.of(context).mutedForeground,
+                    ),
+                  )
+                : Text(widget.dateCodec.format(date.dateTimeUtc, locale)),
+            icon: const DIcon(DIcons.chevronDown, size: 16),
+            iconPosition: DButtonIconPosition.end,
+            variant: DButtonVariant.outline,
+            invalid: widget.errorText != null,
+            alignment: AlignmentDirectional.centerStart,
+            padding: const EdgeInsetsDirectional.symmetric(horizontal: 10),
+            semanticLabel: widget.semanticLabel ?? widget.label,
+            expanded: trigger.open,
+            hasPopup: true,
+            focusNode: trigger.focusNode,
+            onPressed: widget.enabled ? trigger.toggle : null,
+          ),
+        ),
+      ),
+    );
+    if (widget.label == null) return picker;
+    return SizedBox(
+      width: widget.width,
+      child: DField(
+        enabled: widget.enabled,
+        invalid: widget.errorText != null,
+        children: [
+          DFieldLabel(
+            focusNode: _focus,
+            excludeSemantics: true,
+            child: Text(widget.label!),
+          ),
+          DFieldControl(
+            label: widget.label!,
+            description: widget.description,
+            errors: [widget.errorText],
+            required: widget.required,
+            child: picker,
+          ),
+          if (widget.description != null)
+            DFieldDescription(child: Text(widget.description!)),
+          if (widget.errorText != null) DFieldError(errors: [widget.errorText]),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ownedPopover.dispose();
+    _ownedFocus.dispose();
+    super.dispose();
+  }
+}
+
+/// Flutter Form integration for a typed civil date.
+///
+/// Reset restores [initialValue], clears normal Form interaction/error state,
+/// and notifies [onChanged]. The controlled factory keeps the externally
+/// accepted value authoritative during synchronous validation and save calls.
+class DDatePickerFormField extends FormField<DCalendarDate?> {
+  factory DDatePickerFormField.controlled({
+    Key? key,
+    required DCalendarDate? value,
+    required ValueChanged<DCalendarDate?>? onChanged,
+    DCalendarDate? initialValue,
+    String? label,
+    String? description,
+    bool isRequired = false,
+    DDatePickerLabels labels = const DDatePickerLabels(),
+    bool enabled = true,
+    double width = 212,
+    DDatePickerCloseBehavior closeBehavior = DDatePickerCloseBehavior.never,
+    DPopoverController? popoverController,
+    DCalendarController? calendarController,
+    FocusNode? focusNode,
+    Locale? locale,
+    DCalendarLabels calendarLabels = const DCalendarLabels(),
+    DCalendarCaptionLayout captionLayout = DCalendarCaptionLayout.label,
+    DCalendarDate? initialDisplayedMonth,
+    DCalendarDate? startMonth,
+    DCalendarDate? endMonth,
+    DCalendarPredicate? disabled,
+    DCalendarDate? today,
+    String? semanticLabel,
+    DDateTextCodec dateCodec = const DIntlDateTextCodec(),
+    FormFieldSetter<DCalendarDate?>? onSaved,
+    FormFieldValidator<DCalendarDate?>? validator,
+    AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
+  }) => _ControlledDatePickerFormField(
+    key: key,
+    value: value,
+    resetValue: initialValue,
+    onChanged: onChanged,
+    label: label,
+    description: description,
+    isRequired: isRequired,
+    labels: labels,
+    enabled: enabled,
+    width: width,
+    closeBehavior: closeBehavior,
+    popoverController: popoverController,
+    calendarController: calendarController,
+    focusNode: focusNode,
+    locale: locale,
+    calendarLabels: calendarLabels,
+    captionLayout: captionLayout,
+    initialDisplayedMonth: initialDisplayedMonth,
+    startMonth: startMonth,
+    endMonth: endMonth,
+    disabled: disabled,
+    today: today,
+    semanticLabel: semanticLabel,
+    dateCodec: dateCodec,
+    onSaved: onSaved,
+    validator: validator,
+    autovalidateMode: autovalidateMode,
+  );
+
+  DDatePickerFormField({
+    Key? key,
+    DCalendarDate? initialValue,
+    ValueChanged<DCalendarDate?>? onChanged,
+    String? label,
+    String? description,
+    bool isRequired = false,
+    DDatePickerLabels labels = const DDatePickerLabels(),
+    bool enabled = true,
+    double width = 212,
+    DDatePickerCloseBehavior closeBehavior = DDatePickerCloseBehavior.never,
+    DPopoverController? popoverController,
+    DCalendarController? calendarController,
+    FocusNode? focusNode,
+    Locale? locale,
+    DCalendarLabels calendarLabels = const DCalendarLabels(),
+    DCalendarCaptionLayout captionLayout = DCalendarCaptionLayout.label,
+    DCalendarDate? initialDisplayedMonth,
+    DCalendarDate? startMonth,
+    DCalendarDate? endMonth,
+    DCalendarPredicate? disabled,
+    DCalendarDate? today,
+    String? semanticLabel,
+    DDateTextCodec dateCodec = const DIntlDateTextCodec(),
+    FormFieldSetter<DCalendarDate?>? onSaved,
+    FormFieldValidator<DCalendarDate?>? validator,
+    AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
+  }) : this._(
+         key: key,
+         initialValue: initialValue,
+         resetValue: initialValue,
+         onChanged: onChanged,
+         label: label,
+         description: description,
+         isRequired: isRequired,
+         labels: labels,
+         enabled: enabled,
+         width: width,
+         closeBehavior: closeBehavior,
+         popoverController: popoverController,
+         calendarController: calendarController,
+         focusNode: focusNode,
+         locale: locale,
+         calendarLabels: calendarLabels,
+         captionLayout: captionLayout,
+         initialDisplayedMonth: initialDisplayedMonth,
+         startMonth: startMonth,
+         endMonth: endMonth,
+         disabled: disabled,
+         today: today,
+         semanticLabel: semanticLabel,
+         dateCodec: dateCodec,
+         onSaved: onSaved,
+         validator: validator,
+         autovalidateMode: autovalidateMode,
+       );
+
+  DDatePickerFormField._({
+    required DCalendarDate? resetValue,
+    required ValueChanged<DCalendarDate?>? onChanged,
+    required String? label,
+    required String? description,
+    required bool isRequired,
+    required DDatePickerLabels labels,
+    required super.enabled,
+    required double width,
+    required DDatePickerCloseBehavior closeBehavior,
+    required DPopoverController? popoverController,
+    required DCalendarController? calendarController,
+    required FocusNode? focusNode,
+    required Locale? locale,
+    required DCalendarLabels calendarLabels,
+    required DCalendarCaptionLayout captionLayout,
+    required DCalendarDate? initialDisplayedMonth,
+    required DCalendarDate? startMonth,
+    required DCalendarDate? endMonth,
+    required DCalendarPredicate? disabled,
+    required DCalendarDate? today,
+    required String? semanticLabel,
+    required DDateTextCodec dateCodec,
+    super.key,
+    super.initialValue,
+    super.onSaved,
+    super.validator,
+    super.autovalidateMode,
+  }) : super(
+         onReset: () => onChanged?.call(resetValue),
+         builder: (field) => DDatePicker.controlled(
+           value: field.value,
+           onChanged: enabled
+               ? (value) {
+                   field.didChange(value);
+                   onChanged?.call(value);
+                 }
+               : null,
+           label: label,
+           description: description,
+           errorText: field.errorText,
+           required: isRequired,
+           labels: labels,
+           enabled: enabled,
+           width: width,
+           closeBehavior: closeBehavior,
+           popoverController: popoverController,
+           calendarController: calendarController,
+           focusNode: focusNode,
+           locale: locale,
+           calendarLabels: calendarLabels,
+           captionLayout: captionLayout,
+           initialDisplayedMonth: initialDisplayedMonth,
+           startMonth: startMonth,
+           endMonth: endMonth,
+           disabled: disabled,
+           today: today,
+           semanticLabel: semanticLabel,
+           dateCodec: dateCodec,
+         ),
+       );
+}
+
+class _ControlledDatePickerFormField extends DDatePickerFormField {
+  _ControlledDatePickerFormField({
+    super.key,
+    required this.value,
+    required super.resetValue,
+    required super.onChanged,
+    required super.label,
+    required super.description,
+    required super.isRequired,
+    required super.labels,
+    required super.enabled,
+    required super.width,
+    required super.closeBehavior,
+    required super.popoverController,
+    required super.calendarController,
+    required super.focusNode,
+    required super.locale,
+    required super.calendarLabels,
+    required super.captionLayout,
+    required super.initialDisplayedMonth,
+    required super.startMonth,
+    required super.endMonth,
+    required super.disabled,
+    required super.today,
+    required super.semanticLabel,
+    required super.dateCodec,
+    super.onSaved,
+    super.validator,
+    super.autovalidateMode,
+  }) : super._(initialValue: value);
+
+  final DCalendarDate? value;
+
+  @override
+  FormFieldState<DCalendarDate?> createState() =>
+      _ControlledDatePickerFormFieldState();
+}
+
+class _ControlledDatePickerFormFieldState
+    extends FormFieldState<DCalendarDate?> {
+  @override
+  void didChange(DCalendarDate? value) {
+    super.didChange((widget as _ControlledDatePickerFormField).value);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ControlledDatePickerFormField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget as _ControlledDatePickerFormField;
+    if (next.value != value) setValue(next.value);
+  }
+}
+
+/// Two-month range variant of [DDatePicker]. Incomplete ranges display their
+/// start date and remain open so the end can be chosen.
+class DDateRangePicker extends StatefulWidget {
+  const DDateRangePicker({
+    super.key,
+    this.initialValue,
+    this.onChanged,
+    this.label = 'Date Picker Range',
+    this.labels = const DDatePickerLabels(),
+    this.enabled = true,
+    this.width = 240,
+    this.open,
+    this.defaultOpen = false,
+    this.onOpenChange,
+    this.popoverController,
+    this.calendarController,
+    this.focusNode,
+    this.locale,
+    this.calendarLabels = const DCalendarLabels(),
+    this.initialDisplayedMonth,
+    this.startMonth,
+    this.endMonth,
+    this.disabled,
+    this.minRangeDays,
+    this.maxRangeDays,
+    this.excludeDisabledInRange = false,
+    this.today,
+    this.semanticLabel,
+  }) : _controlled = false,
+       value = null;
+
+  const DDateRangePicker.controlled({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.label = 'Date Picker Range',
+    this.labels = const DDatePickerLabels(),
+    this.enabled = true,
+    this.width = 240,
+    this.open,
+    this.defaultOpen = false,
+    this.onOpenChange,
+    this.popoverController,
+    this.calendarController,
+    this.focusNode,
+    this.locale,
+    this.calendarLabels = const DCalendarLabels(),
+    this.initialDisplayedMonth,
+    this.startMonth,
+    this.endMonth,
+    this.disabled,
+    this.minRangeDays,
+    this.maxRangeDays,
+    this.excludeDisabledInRange = false,
+    this.today,
+    this.semanticLabel,
+  }) : _controlled = true,
+       initialValue = null;
+
+  final DCalendarRange? value;
+  final DCalendarRange? initialValue;
+  final ValueChanged<DCalendarRange?>? onChanged;
+  final String? label;
+  final DDatePickerLabels labels;
+  final bool enabled;
+  final double width;
+  final bool? open;
+  final bool defaultOpen;
+  final DPopoverOpenChange? onOpenChange;
+  final DPopoverController? popoverController;
+  final DCalendarController? calendarController;
+  final FocusNode? focusNode;
+  final Locale? locale;
+  final DCalendarLabels calendarLabels;
+  final DCalendarDate? initialDisplayedMonth;
+  final DCalendarDate? startMonth;
+  final DCalendarDate? endMonth;
+  final DCalendarPredicate? disabled;
+  final int? minRangeDays;
+  final int? maxRangeDays;
+  final bool excludeDisabledInRange;
+  final DCalendarDate? today;
+  final String? semanticLabel;
+  final bool _controlled;
+
+  @override
+  State<DDateRangePicker> createState() => _DDateRangePickerState();
+}
+
+class _DDateRangePickerState extends State<DDateRangePicker> {
+  late DCalendarRange? _value = widget.initialValue;
+  late final DPopoverController _ownedPopover = DPopoverController();
+  late final FocusNode _ownedFocus = FocusNode(
+    debugLabel: 'DDateRangePicker trigger',
+  );
+
+  DCalendarRange? get _effectiveValue =>
+      widget._controlled ? widget.value : _value;
+  DPopoverController get _popover => widget.popoverController ?? _ownedPopover;
+  FocusNode get _focus => widget.focusNode ?? _ownedFocus;
+
+  void _select(DCalendarSelection selection, DCalendarSelectReason reason) {
+    final range = (selection as DCalendarRangeSelection).range;
+    if (!widget._controlled) setState(() => _value = range);
+    widget.onChanged?.call(range);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final range = _effectiveValue;
+    final locale = widget.locale ?? Localizations.localeOf(context);
+    final calendarGeometry = _calendarGeometry(context, numberOfMonths: 2);
+    final picker = DPopover(
+      controller: _popover,
+      open: widget.enabled ? widget.open : false,
+      defaultOpen: widget.enabled && widget.defaultOpen,
+      onOpenChange: widget.onOpenChange,
+      content: DPopoverContent(
+        width: calendarGeometry.popoverWidth,
+        padding: EdgeInsets.zero,
+        align: DPopoverAlign.start,
+        semanticLabel: widget.calendarLabels.calendar,
+        child: _calendarViewport(
+          calendarGeometry,
+          DCalendar(
+            mode: DCalendarSelectionMode.range,
+            selection: DCalendarRangeSelection(range),
+            onSelectionChanged: _select,
+            controller: widget.calendarController,
+            locale: locale,
+            labels: widget.calendarLabels,
+            numberOfMonths: 2,
+            initialDisplayedMonth: widget.initialDisplayedMonth ?? range?.from,
+            startMonth: widget.startMonth,
+            endMonth: widget.endMonth,
+            disabled: widget.disabled,
+            minRangeDays: widget.minRangeDays,
+            maxRangeDays: widget.maxRangeDays,
+            excludeDisabledInRange: widget.excludeDisabledInRange,
+            today: widget.today,
+          ),
+        ),
+      ),
+      child: DPopoverTrigger(
+        focusNode: _focus,
+        builder: (context, trigger) => SizedBox(
+          width: widget.width,
+          child: DButton(
+            label: Text(
+              _formatRange(range, locale, widget.labels.placeholder),
+              style: range == null
+                  ? TextStyle(color: DTokens.of(context).mutedForeground)
+                  : null,
+            ),
+            icon: const DIcon(_calendarIcon, size: 16),
+            variant: DButtonVariant.outline,
+            alignment: AlignmentDirectional.centerStart,
+            padding: const EdgeInsetsDirectional.symmetric(horizontal: 10),
+            semanticLabel: widget.semanticLabel ?? widget.label,
+            expanded: trigger.open,
+            hasPopup: true,
+            focusNode: trigger.focusNode,
+            onPressed: widget.enabled ? trigger.toggle : null,
+          ),
+        ),
+      ),
+    );
+    if (widget.label == null) return picker;
+    return SizedBox(
+      width: widget.width,
+      child: DField(
+        enabled: widget.enabled,
+        children: [
+          DFieldLabel(
+            focusNode: _focus,
+            excludeSemantics: true,
+            child: Text(widget.label!),
+          ),
+          DFieldControl(label: widget.label!, child: picker),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ownedPopover.dispose();
+    _ownedFocus.dispose();
+    super.dispose();
+  }
+}
+
+({double popoverWidth, double calendarWidth}) _calendarGeometry(
+  BuildContext context, {
+  int numberOfMonths = 1,
+}) {
+  final platform = Theme.of(context).platform;
+  final touch =
+      platform == TargetPlatform.iOS || platform == TargetPlatform.android;
+  final scaledText = MediaQuery.textScalerOf(context).scale(14);
+  final cell = [
+    28.0,
+    scaledText + 12,
+    if (touch) DSpacing.touchTarget,
+  ].reduce(math.max);
+  final monthWidth = 16 + 7 * cell;
+  final horizontalWidth =
+      16 + numberOfMonths * 7 * cell + (numberOfMonths - 1) * 16;
+  final available = math.max(1.0, MediaQuery.sizeOf(context).width - 10);
+  final calendarWidth = horizontalWidth <= available
+      ? horizontalWidth
+      : monthWidth;
+  return (
+    popoverWidth: math.min(calendarWidth, available),
+    calendarWidth: calendarWidth,
+  );
+}
+
+Widget _calendarViewport(
+  ({double popoverWidth, double calendarWidth}) geometry,
+  Widget calendar,
+) {
+  final sized = SizedBox(width: geometry.calendarWidth, child: calendar);
+  if (geometry.calendarWidth <= geometry.popoverWidth) return sized;
+  return SingleChildScrollView(scrollDirection: Axis.horizontal, child: sized);
+}
+
+String _formatRange(DCalendarRange? range, Locale locale, String placeholder) {
+  if (range == null) return placeholder;
+  final format = DateFormat('MMM dd, y', _localeName(locale));
+  final from = format.format(range.from.dateTimeUtc);
+  final to = range.to;
+  return to == null ? from : '$from - ${format.format(to.dateTimeUtc)}';
+}
+
+const _calendarIcon = DIconData(
+  'lucide-calendar',
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>',
+);
 
 /// Converts between a displayed date string and a date-only [DateTime].
 ///
