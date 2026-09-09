@@ -26,7 +26,7 @@ Branch preparation does not mark a component merged or visually verified.
 | tabs | Implementation and checks | — | — |
 | resizable | independent review | a7e26a93 | 01a08558-7acd-73d3-a690-2e5ceb920d6c |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
-| dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
+| dialog | review ready | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | carousel | Implementation and checks | — | — |
@@ -69,7 +69,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 30 | resizable | in_progress | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
 | 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
-| 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
+| 33 | dialog | review_ready | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
 | 34 | alert-dialog | planned | — | — | dialog | — |
 | 35 | sheet | planned | — | — | dialog | — |
 | 36 | drawer | planned | — | — | dialog | — |
@@ -1817,12 +1817,12 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/u
 
 ### dialog
 
-Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/ui-dialog.
+Status: review_ready. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/ui-dialog.
 
 **acceptanceCriteria**
 
 - Provide one public generic Dialog owner exported from discourse_ui.dart with typed DDialogController<T>, DDialog/DDialogTrigger/DDialogContent/DDialogHeader/DDialogTitle/DDialogDescription/DDialogFooter/DDialogClose composition and a showDDialog<T> helper that uses the nearest Navigator by default.
-- Match the frozen base-nova registry at 100% scale: black/10 blurred backdrop, full-width popup capped at 384px with 16px viewport margins, 16px grid gaps and padding, xl radius, foreground/10 one-pixel exterior ring, popover surface, 16px medium/leading-none title, 14px muted description, 8px header/footer gaps, muted/50 bordered footer, and a 32px ghost X close control at logical top/end 8px.
+- Match the frozen base-nova registry at 100% scale: black/10 blurred backdrop, full-width popup capped at 384px with 16px viewport margins, 16px grid gaps and padding, xl radius, foreground/10 one-pixel exterior ring, popover surface, 16px medium/leading-none title, 14px muted description, 8px header/footer gaps, muted/50 bordered footer, and a 28px ghost X close control at logical top/end 8px.
 - Support uncontrolled and externally controlled open state, typed close results, trigger/close reasons, custom or omitted corner close controls, footer close composition, custom initial/final focus, focus trap/restoration, Escape and barrier dismissal policies, programmatic close, route/widget removal, nested Navigators/dialogs, and live inherited theme/direction/text-scale/reduced-motion changes while open.
 - Keep background content modal/inert and expose a correctly labeled dialog route and independent close/actions to assistive technology; preserve keyboard Tab/Shift-Tab traversal, mouse/touch activation, 48px invisible touch affordances where needed, logical RTL placement, and focus visibility without merging editable field semantics with surrounding controls.
 - Provide constrained and scrollable layouts that avoid keyboard/view-inset obstruction and overflow at 320px width and 200% text, including documented default profile form, Custom Close Button, No Close Button, Sticky Footer, Scrollable Content and Arabic RTL examples; compose the merged Input owner while keeping Field with its separate catalogue owner.
@@ -1838,6 +1838,7 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/u
 - showDDialog<T> defers its builder into a route-descendant context and bridges live caller-scoped Theme, MediaQuery and Directionality updates while retaining caller-owned Form state.
 - The native surface uses shared DButton and DInput owners, live DTokens, exact 16px custom X artwork, closed-loop focus traversal, logical placement, modal semantics, SafeArea/view-inset handling and reduced-motion behavior.
 - Seven actual styleguide examples cover default profile editing, custom/no close controls, sticky and scrollable layouts, RTL and controlled/typed results without implementing the separately owned Field primitive.
+- Independent rendered review measured the current base-nova icon-sm close surface at 28px rather than the source task's provisional 32px criterion. The default corner close now uses DButtonSize.small without an inset surface, preserving the 16px artwork, logical 8px inset and larger invisible touch affordance.
 
 **migrations**
 
@@ -1854,13 +1855,17 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/u
 - Root and profiles/full flutter analyze --no-pub pass; touched Dart is formatted and git diff --check is clean.
 - Final randomized Dialog/styleguide/Chat/Voice run passes all 393 tests with seed 4147437372. The 22 focused Dialog/example checks pass with seed 4094924130, including typed nested routes, controller replacement, current content/dismissal policy, open-session submit ownership, disposal, live helper scope and retained Form state.
 - Isolated flutter build macos --debug --no-pub -t lib/dialog_native_fixture.dart and unique DialogNativeReview Xcode scheme build pass from final source b75bee83e15f75692e8391502e5640124f83b9ed.
-- Prepared unlaunched bundle /private/tmp/discourse-native-dialog.qNoMNI/build/DialogNativeReviewDerived/Build/Products/Debug/Dialog Native Review.app has identifier org.discourse.native.styleguide.dialog; six production source files byte-match the worktree and d_dialog.dart SHA-256 is 05993f5cb8c3e388e8ab7d5bd7a2b8260862eeef24e3c769d53a6675e34438db.
-- Final bundle kernel SHA-256 is cce09d0ea6b8e0139c0ce9f7698efaa826896280f51df75d22afa3a79486528b. Ad-hoc codesign --verify --deep --strict passes; entitlements contain only sandbox, JIT, audio/camera, user-selected read/write and network client/server, with no APS, application identifier or team identifier.
+- The implementation-prepared unlaunched bundle /private/tmp/discourse-native-dialog.qNoMNI/build/DialogNativeReviewDerived/Build/Products/Debug/Dialog Native Review.app has identifier org.discourse.native.styleguide.dialog; six production source files byte-match the implementation worktree and its d_dialog.dart SHA-256 is 05993f5cb8c3e388e8ab7d5bd7a2b8260862eeef24e3c769d53a6675e34438db.
+- The implementation-prepared bundle kernel SHA-256 is cce09d0ea6b8e0139c0ce9f7698efaa826896280f51df75d22afa3a79486528b. Ad-hoc codesign --verify --deep --strict passes; entitlements contain only sandbox, JIT, audio/camera, user-selected read/write and network client/server, with no APS, application identifier or team identifier.
+- Independent review after the 28px close correction: 23 randomized Dialog/styleguide tests passed with seed 2145466268; root analysis passed with no diagnostics. The full profile analysis passed, and focused real Chat and Voice migration checks passed 2 + 2 tests.
+- Official rendered base-nova comparison covered light and dark default Dialog, Arabic RTL and Scrollable Content. Measured default geometry was 384x305, 16px padding/gap, 14px radius, 16px/16px weight-500 title, 14px/20px description, 384x65 footer with 16px padding and 8px gaps, and a 28x28 close surface at logical top/end 8px. RTL moved the close to logical start and mirrored actions; the scroll example kept its header visible over a 50vh body.
+- Final isolated native fixture /private/tmp/discourse-native-dialog.qNoMNI/build/macos/Build/Products/Debug/Dialog Native Review.app mounts the real Chat and Voice editors plus the actual component styleguide. Reviewed Dialog source SHA-256 is f438edbbc8b0484044389d3df603bf09212ee40ad680628af930557563b80b5e; final fixture kernel SHA-256 is 662c83fdf2d391f64f8e5a34d14324bb5e6bf417c64d158fb810b0fb546a580c. Strict ad-hoc signature verification passed with the previously recorded permitted entitlements.
+- Native CUA inspection covered real Chat field editing and cancellation; real Voice edit/create in Plum, RTL and 200% text with independently scrollable bodies and sticky actions; disabled/enabled save validation; reduced-motion opening; Escape dismissal; closed-loop forward Tab focus; and default, Scrollable Content and Arabic RTL styleguide examples. The 28px close remained an independent Close button and moved to logical start in RTL. The isolated app was quit and the desktop lease released.
 
 **limitations**
 
-- Native/reference-rendered visual comparison and VoiceOver/device behavior remain awaiting the coordinator's serialized UI slot; the prepared uniquely identified app has not been launched and no CUA interaction was performed.
-- No physical iOS/Linux execution. Rich Field composition remains with its planned catalogue owner; Dialog now composes merged DInput where applicable.
+- No physical iOS/Linux execution or VoiceOver speech session was performed. macOS AX inspection and widget semantics checks cover the route label and independent fields/actions, but do not substitute for device assistive-technology testing.
+- Rich Field composition remains with its separate catalogue owner; Dialog composes the merged DInput where applicable. Native font shaping and antialiasing differ from browser rendering, so no automated pixel-identical cross-renderer claim is made.
 
 ### native-select
 

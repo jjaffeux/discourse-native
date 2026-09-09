@@ -28,7 +28,7 @@ CSS pixels map one-to-one to Flutter logical pixels at 100% scale.
 | `grid gap-4 rounded-xl bg-popover p-4 text-sm` | 16px part gap/padding, host radius ×1.4, live `DTokens.surface`, 14px type with 20px leading. |
 | `ring-1 ring-foreground/10` | One logical-pixel exterior shadow ring using live foreground at 10%; the opaque popup prevents interior tint. |
 | `fade/zoom 95`, 100ms | Backdrop fades independently; popup fades and scales from 95%. Reduced motion removes both durations and transformations. |
-| close `top-2 right-2`, ghost `icon-sm`, Lucide X | Logical top/end 8px placement, 32px compact ghost surface, exact 16px two-stroke X artwork. Touch platforms retain DButton's larger invisible target and independent button semantics. |
+| close `top-2 right-2`, ghost `icon-sm`, Lucide X | Logical top/end 8px placement, 28px compact ghost surface, exact 16px two-stroke X artwork. Touch platforms retain DButton's larger invisible target and independent button semantics. |
 | header `flex-col gap-2` | Vertical header with 8px gaps. |
 | title `text-base leading-none font-medium` | Host heading family, 16px, 16px leading, weight 500, zero tracking, heading/route-name semantics. |
 | description `text-sm text-muted-foreground` | 14px, 20px leading, weight 400 and live muted foreground. Links remain owned by their child widgets. |
@@ -106,3 +106,34 @@ Retained alternatives are narrow rather than unfinished Dialog copies:
 The merged Input owner supplies the single-line fields in the examples. Richer
 Field composition remains with that separate catalogue owner; no substitute
 Field public API is added here.
+
+## Independent rendered and native review
+
+The official rendered base-nova page was inspected in light, dark, Arabic RTL
+and Scrollable Content states. The default popup measured 384×305 logical/CSS
+pixels with 16px padding and gaps, a 14px radius, 16px/16px weight-500 title,
+14px/20px description, and a 384×65 footer with 16px padding and 8px gaps. The
+live `icon-sm` close surface measured 28×28 at logical top/end 8px, correcting
+the provisional 32px task criterion. RTL moved it to logical start and mirrored
+the actions; the scroll example retained its header above a 50vh body.
+
+The final isolated macOS fixture at
+`/private/tmp/discourse-native-dialog.qNoMNI/build/macos/Build/Products/Debug/Dialog Native Review.app`
+mounted the actual Chat and Voice editors and the actual component styleguide.
+The reviewed `d_dialog.dart` SHA-256 is
+`f438edbbc8b0484044389d3df603bf09212ee40ad680628af930557563b80b5e` and
+the final fixture kernel SHA-256 is
+`662c83fdf2d391f64f8e5a34d14324bb5e6bf417c64d158fb810b0fb546a580c`.
+The ad-hoc signature passed deep strict verification with only the documented
+debug/sandbox entitlements.
+
+Native CUA inspection covered Chat field editing and cancellation; Voice edit
+and create in Plum, RTL and 200% text with independently scrollable bodies and
+sticky actions; save validation; reduced-motion opening; Escape dismissal; and
+closed-loop forward Tab traversal. Default, Scrollable Content and Arabic RTL
+styleguide examples rendered with independent route, close, field and action
+semantics. The isolated app was quit and the shared desktop lease released.
+
+No physical iOS/Linux run or VoiceOver speech session was performed. Native
+font shaping and antialiasing differ from browser rendering, so this review does
+not claim automated pixel-identical cross-renderer output.
