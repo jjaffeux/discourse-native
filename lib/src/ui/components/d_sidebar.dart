@@ -417,7 +417,7 @@ class DSidebarGroup extends StatelessWidget {
           Row(
             children: [
               Expanded(child: label!),
-              if (action != null) action!,
+              ?action,
             ],
           ),
         child,
