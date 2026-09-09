@@ -1,4 +1,29 @@
-# Radio Group implementation — awaiting native review
+# Radio Group implementation and independent review
+
+## Final composition follow-up — 2026-09-09
+
+The original Radio Group remains accepted at merge
+`62e7d25adeb8c125faca2a6476cbb800660a2025` (implementation
+`99126e23b169f72ffde2975adb1da77fd5f966cb`). This separate follow-up composes
+Description, Choice Card, Fieldset, Disabled, Invalid and RTL with the accepted
+DField family and Default with DLabel. Radio remains the sole selection,
+keyboard and Form owner. The original evidence below is retained as history.
+
+Current source candidate: `3169db0954aa8e387ec316d1414a5a0d0cb5a919`.
+All 278 affected tests, root/full analysis, font-loaded composition exports and
+the isolated macOS build pass. Fresh official-browser and native macOS review
+accepted all seven final examples in light/dark, custom 360px/200% RTL and
+reduced-motion previews, radio/card keyboard behavior, Form validation/reset,
+and the real local-fake Poll, flag, change-owner and move-post surfaces. The
+desktop lease is released; local integration is pending.
+
+See [final-composition evidence](evidence/radio-group/final-compositions/README.md)
+for source pins, bounded shared-owner corrections, geometry and limitations.
+
+## Historical implementation and original acceptance record
+
+The remaining sections preserve the original staged implementation and review.
+Their pending-state statements are superseded by the final follow-up above.
 
 Reference: frozen 2026-09-08 Radio Group catalogue entry, all documented sections
 (Usage, Composition, Description, Choice Card, Fieldset, Disabled, Invalid, RTL).
@@ -60,7 +85,8 @@ skipping, Space activation and RTL horizontal navigation. Poll opts into
 `toggleable` to preserve withdrawal of an existing vote. This is a domain
 adaptation, not the default radio behavior. Form reset never silently changes
 an accepted controlled selection. The existing merged DLabel is composed;
-Field remains pending and is not implemented by this task.
+Field is now accepted; the final composition follow-up above uses its public
+owners. The original implementation did not introduce a substitute Field.
 
 ## Application audit
 
@@ -178,7 +204,8 @@ This supersedes the earlier review bundle for native inspection.
 
 Supporting source https://ui.shadcn.com/r/styles/base-nova/field.json and current
 https://ui.shadcn.com/docs/components/base/radio-group.md are preserved beside
-the radio source. They define the card composition; no DField is implemented.
+the radio source. They defined the original card presentation. The final
+composition follow-up now delegates that surface to the accepted DField family.
 
 - FieldLabel's direct Field child uses `p-2.5`: 10px plus the outer 1px border.
 - `rounded-lg` is host base radius ×1, including zero/custom values.

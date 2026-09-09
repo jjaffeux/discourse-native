@@ -29,6 +29,42 @@ Widget host(
 );
 
 void main() {
+  for (final orientation in [
+    DFieldOrientation.horizontal,
+    DFieldOrientation.vertical,
+  ]) {
+    testWidgets('$orientation supports intrinsic width', (tester) async {
+      await tester.pumpWidget(
+        host(
+          Align(
+            child: IntrinsicWidth(
+              child: DField(
+                orientation: orientation,
+                children: const [
+                  DFieldControl(
+                    label: 'Choice',
+                    expand: false,
+                    child: SizedBox(width: 16, height: 16),
+                  ),
+                  DFieldLabel(child: Text('Choice')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      final control = tester.getRect(find.byType(DFieldControl));
+      final label = tester.getRect(find.byType(DFieldLabel));
+      if (orientation == DFieldOrientation.horizontal) {
+        expect(label.left - control.right, 8);
+      } else {
+        expect(label.top - control.bottom, 8);
+      }
+      expect(tester.getSize(find.byType(DField)).width, lessThan(500));
+    });
+  }
+
   testWidgets(
     'label focuses the borrowed editor and metadata preserves editing semantics',
     (tester) async {
