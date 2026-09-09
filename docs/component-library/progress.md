@@ -26,7 +26,7 @@ Branch preparation does not mark a component merged or visually verified.
 | select | independent review | 69e5ec66 | 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 |
 | input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
-| command | independent review | f3180d99 | 01a085d3-21b9-75d0-a4f0-c739439ccb9d |
+| command | independent review | 4f91d697 | 01a085d3-21b9-75d0-a4f0-c739439ccb9d |
 | combobox | Implementation and checks | — | — |
 | dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
 | context-menu | Implementation and checks | — | — |
