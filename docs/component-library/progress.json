@@ -1412,7 +1412,8 @@
       "branch": "codex/ui-item",
       "dependencies": [
         "separator",
-        "avatar"
+        "avatar",
+        "button"
       ],
       "acceptanceCriteria": [
         "Provide one exported reusable owner for all ten Item parts with default/outline/muted variants, default/sm/xs metrics, image/icon/avatar media, multiple content columns, full-width header/footer and group/separator compositions.",
@@ -1426,8 +1427,11 @@
       "decisions": [
         "Own Item only on main base 402fe578. Proposed migrations: TagsPage row presentation and AssignmentDetailRow; shared tags empty/error regions overlap Empty/Alert and remain untouched. Thread messaging tool absent in this task; handoff via progress/final.",
         "One generic owner exports all ten parts; full source hashes, CSS/logical metrics, semantics/layout/keyboard/native adaptations and audit are in docs/component-library/item.md.",
-        "Thirteen actual-component examples use bundled reference artwork. Button remains baseline; Dropdown uses an explicitly temporary MenuAnchor composition pending its owning branch. No unmerged dependency imported.",
-        "Source/check/build ready; awaiting_slot. Coordinator must perform actual reference comparison and native styleguide plus production fixture inspection before review_ready/merge."
+        "Thirteen actual-component examples use bundled reference artwork. Button has been reconciled with its final merged owner; Dropdown uses an explicitly temporary MenuAnchor composition pending its owning branch. No unmerged dependency imported.",
+        "Source/check/build ready; awaiting_slot. Coordinator must perform actual reference comparison and native styleguide plus production fixture inspection before review_ready/merge.",
+        "Bounded integration merges pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 via 1462873c; all 17 merged components, coordinator Group/Sidebar/Topic Inbox fixes and every non-Item progress row preserved.",
+        "Final Button outline/small and accessible round icon-only outline/ghost actions, Badge role composition, controlled Checkbox fixture settings and DInput Form regression replace applicable temporary composition. No radio choices require replacement. Dropdown Menu remains an explicit pending owner.",
+        "Integration source/check/build ready; awaiting_slot and pending Dropdown Menu composition. No generic Item implementation changes or additional component/task ownership taken."
       ],
       "migrations": [
         "TagsPage ready rows now use exported TagDirectoryRow/DItem; lazy builder, ShellSelector, request identity, refresh, navigation, keys and count semantics remain app-owned.",
@@ -1446,14 +1450,18 @@
         "Touched formatting and git diff --check passed.",
         "Final inherited-clamp correction: 34 focused component/styleguide/migration tests passed with seed 9092026; root and full-profile analysis passed again. Earlier 47-test run also covered the unchanged styleguide shell.",
         "Isolated ItemReview82f4 macOS debug build succeeded from e792c515; actual Info.plist confirms org.discourse.itemreview82f4 and discourse-item-review-82f4 URL scheme. Local ad-hoc signature passes codesign --verify --deep --strict.",
-        "Build and copied App.framework kernels both SHA256 7f7f633347d1a22adc56397fec4be1298837c0702253676fef1662d46991b596. Runner files restored; lib/pubspec/macos equality to source commit and all pin/lockfile equality to 402fe578 verified. See item-build.md and reference/item/build.json."
+        "Build and copied App.framework kernels both SHA256 7f7f633347d1a22adc56397fec4be1298837c0702253676fef1662d46991b596. Runner files restored; lib/pubspec/macos equality to source commit and all pin/lockfile equality to 402fe578 verified. See item-build.md and reference/item/build.json.",
+        "Pinned-main integration: Item/styleguide examples/TagsPage/AssignmentSheet suites passed; fixture control-width/settled-scroll correction then passed final 11 Item/fixture tests including final Checkbox pointer/Space isolation and final Input Form retention. Root and full-profile analysis pass after final changes.",
+        "Integrated exact-source macOS build from 68402409 succeeded: ItemReview82f4Integrated.app / org.discourse.itemreview82f4integrated / discourse-item-review-82f4-integrated. Explicit local debug/JIT entitlement signed readback is restricted-free across main app/frameworks/dylibs; strict deep signature passes and no embedded profile remains.",
+        "Integrated copied/build kernel SHA256 cf0a1efc46876ee29e0fc93fcee132e6b14977e82d0f1dd725c472b55df48122. Source/runner equality to 68402409 and all pins/locks equality to e612ad7b verified; all non-Item progress and coordinator Group/Sidebar/Topic Inbox source preserved. See item-build.md and reference/item/integration-build.json."
       ],
       "limitations": [
         "in_progress awaiting_slot: no browser/native slot granted; actual reference comparison and native styleguide/production fixture inspection remain required.",
-        "Button and Dropdown Menu example reconciliation remains explicit pending those branches; Events row candidates retained for coordinator review.",
-        "No iOS/Linux device, VoiceOver, authenticated screen or pixel-parity validation. Cross-thread messaging API unavailable in this task."
+        "Dropdown Menu composition remains explicit pending its owner; Events row candidates retained for coordinator review.",
+        "No iOS/Linux device, VoiceOver, authenticated screen or pixel-parity validation. Cross-thread messaging API unavailable in this task.",
+        "Mac locked; browser separately denied admin-policy verification. No CUA/browser/native launch, policy retry or workaround attempted during integration."
       ],
-      "implementationCommit": "e792c5156c87715d2db5549ff5d35928e0e3b46e",
+      "implementationCommit": "68402409ccc314b6e9b624cf1d86b16531ccdcc4",
       "mergeCommit": null
     },
     {
@@ -2545,7 +2553,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09",
+    "updatedAt": "2026-09-09T08:30:10.010308+00:00",
     "authorization": "User requested multiple components and Codex sessions at a time.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
@@ -2620,14 +2628,6 @@
       "startingMainCommit": "8ea22c643829a10a5031019e2aef4e83956c7a8f",
       "nextComponents": [],
       "activeTasks": [
-        {
-          "component": "item",
-          "taskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
-          "branch": "codex/ui-item",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native",
-          "headCommit": "c74fea70b254abbdbef8d3704abee8452dd5adc1",
-          "status": "main_integration_preparation"
-        },
         {
           "component": "switch",
           "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
@@ -2760,6 +2760,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
           "headCommit": "5f4e58a31772cc5edb40a670cab0264e278f93fe",
           "status": "awaiting_native_review"
+        },
+        {
+          "component": "item",
+          "taskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
+          "branch": "codex/ui-item",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native",
+          "headCommit": "32ce1f96e1a1648bd5f29d8268c8b37855d3e39b",
+          "status": "awaiting_browser_native_and_control_reconciliation"
         }
       ]
     },
@@ -2772,11 +2780,11 @@
     "nativeInspectionBlocker": {
       "reason": "mac_locked",
       "observedAt": "2026-09-09T07:44:57.141232+00:00",
-      "status": "user_reported_resolved",
+      "status": "resolved",
       "userUnlockRequested": true,
       "latestResult": "Switch CUA app selection twice reported: The Mac is locked and automatic unlock could not unlock it. Native review not performed; Switch explicitly released its slot in switch-native-handoff.md.",
       "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds continue; browser reference navigation is separately blocked.",
-      "resolution": "User reported unlock in Switch task, recorded in2af89494 at2026-09-09T10:11:15+02:00. Coordinator discovered committed handoff and granted Switch current native review; fresh access will verify resolution."
+      "resolution": "After the user unlock update, fresh native Switch CUA inspection succeeded. Coordinator viewed actual size-default-focus.png and matching accessibility tree from3243a88c, including on/off switch states in the updated styleguide."
     },
     "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
@@ -2883,6 +2891,13 @@
       "reportedByTask": "01a083ce-313e-7f70-a1a8-e645f31235c8",
       "observation": "First official Progress browser navigation denied because browser could not verify admin-enforced security policy. No rendered page comparison occurred; no retry or alternate route attempted. Progress immediately released browser slot.",
       "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds."
+    },
+    "backlogPreparation": {
+      "status": "complete",
+      "componentCount": 17,
+      "pinnedMain": "e612ad7b47413fa890b35ae3b55a6f6d37b08cf7",
+      "result": "All existing unmerged branches reconciled with the17 merged component baseline, focused verification and source-exact isolated review builds. No new catalogue tasks dispatched while clearing backlog.",
+      "remaining": "Serialized native/reference review, recorded component composition follow-ups, local main merges and checks. Preparation is not merge acceptance."
     }
   },
   "visualFidelity": {
