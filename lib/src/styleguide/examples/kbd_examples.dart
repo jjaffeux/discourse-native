@@ -99,12 +99,19 @@ final kbdExamples = ComponentExamples(
       builder: (_) => const _PlatformHints(),
     ),
     StyleguideExample(
-      title: 'Button with a trailing keycap',
+      title: 'Buttons with trailing keycaps',
       description:
-          'The reference outline button places the Enter keycap in its '
-          'inline-end icon slot, nudged 2px outward. Click Accept, or focus it '
-          'and press Enter; the count changes through the button itself.',
-      states: const ['Outline', 'Inline-end keycap', 'Keyboard', 'Touch'],
+          'The reference small outline buttons place Enter and Escape keycaps '
+          'in their inline-end icon slots, nudged 2px outward. Click either '
+          'button, or focus it and press Enter; status changes through the '
+          'button itself.',
+      states: const [
+        'Small',
+        'Outline',
+        'Inline-end keycaps',
+        'Keyboard',
+        'Touch',
+      ],
       code: _buttonCode,
       builder: (_) => const KbdActionSample(),
     ),
@@ -257,9 +264,11 @@ class KbdActionSample extends StatefulWidget {
 }
 
 class _KbdActionSampleState extends State<KbdActionSample> {
-  int _accepted = 0;
+  String _status = 'No action yet.';
 
-  void _accept() => setState(() => _accepted++);
+  void _accept() => setState(() => _status = 'Accepted.');
+
+  void _cancel() => setState(() => _status = 'Cancelled.');
 
   @override
   Widget build(BuildContext context) {
@@ -267,21 +276,37 @@ class _KbdActionSampleState extends State<KbdActionSample> {
     final nudge = Directionality.of(context) == TextDirection.rtl ? -2.0 : 2.0;
     return DProse(
       children: [
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: DButton(
-            variant: DButtonVariant.outline,
-            label: const Text('Accept'),
-            icon: Transform.translate(
-              offset: Offset(nudge, 0),
-              child: const DKbd('⏎'),
+        Wrap(
+          spacing: DSpacing.lg,
+          runSpacing: DSpacing.lg,
+          children: [
+            DButton(
+              variant: DButtonVariant.outline,
+              size: DButtonSize.small,
+              label: const Text('Accept'),
+              icon: Transform.translate(
+                offset: Offset(nudge, 0),
+                child: const DKbd('⏎'),
+              ),
+              iconPosition: DButtonIconPosition.end,
+              semanticLabel: 'Accept, Enter',
+              onPressed: _accept,
             ),
-            iconPosition: DButtonIconPosition.end,
-            semanticLabel: 'Accept, Enter',
-            onPressed: _accept,
-          ),
+            DButton(
+              variant: DButtonVariant.outline,
+              size: DButtonSize.small,
+              label: const Text('Cancel'),
+              icon: Transform.translate(
+                offset: Offset(nudge, 0),
+                child: const DKbd('Esc'),
+              ),
+              iconPosition: DButtonIconPosition.end,
+              semanticLabel: 'Cancel, Escape',
+              onPressed: _cancel,
+            ),
+          ],
         ),
-        Semantics(liveRegion: true, child: DText('Accepted: $_accepted')),
+        Semantics(liveRegion: true, child: DText(_status)),
       ],
     );
   }
@@ -498,9 +523,11 @@ const _buttonCode = r'''class KbdActionSample extends StatefulWidget {
 }
 
 class _KbdActionSampleState extends State<KbdActionSample> {
-  int _accepted = 0;
+  String _status = 'No action yet.';
 
-  void _accept() => setState(() => _accepted++);
+  void _accept() => setState(() => _status = 'Accepted.');
+
+  void _cancel() => setState(() => _status = 'Cancelled.');
 
   @override
   Widget build(BuildContext context) {
@@ -508,21 +535,37 @@ class _KbdActionSampleState extends State<KbdActionSample> {
     final nudge = Directionality.of(context) == TextDirection.rtl ? -2.0 : 2.0;
     return DProse(
       children: [
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: DButton(
-            variant: DButtonVariant.outline,
-            label: const Text('Accept'),
-            icon: Transform.translate(
-              offset: Offset(nudge, 0),
-              child: const DKbd('⏎'),
+        Wrap(
+          spacing: DSpacing.lg,
+          runSpacing: DSpacing.lg,
+          children: [
+            DButton(
+              variant: DButtonVariant.outline,
+              size: DButtonSize.small,
+              label: const Text('Accept'),
+              icon: Transform.translate(
+                offset: Offset(nudge, 0),
+                child: const DKbd('⏎'),
+              ),
+              iconPosition: DButtonIconPosition.end,
+              semanticLabel: 'Accept, Enter',
+              onPressed: _accept,
             ),
-            iconPosition: DButtonIconPosition.end,
-            semanticLabel: 'Accept, Enter',
-            onPressed: _accept,
-          ),
+            DButton(
+              variant: DButtonVariant.outline,
+              size: DButtonSize.small,
+              label: const Text('Cancel'),
+              icon: Transform.translate(
+                offset: Offset(nudge, 0),
+                child: const DKbd('Esc'),
+              ),
+              iconPosition: DButtonIconPosition.end,
+              semanticLabel: 'Cancel, Escape',
+              onPressed: _cancel,
+            ),
+          ],
         ),
-        Semantics(liveRegion: true, child: DText('Accepted: $_accepted')),
+        Semantics(liveRegion: true, child: DText(_status)),
       ],
     );
   }
