@@ -88,17 +88,30 @@ class DText extends StatelessWidget {
   /// heading. Null uses h1–h4's level and leaves other variants as ordinary text.
   final int? headingLevel;
 
+  /// Tailwind's bare `rounded` utility is a fixed 0.25rem compatibility value
+  /// rather than a step of the theme radius scale, so standalone code keeps
+  /// 4px corners under every site radius.
+  static const double _codeRadius = 4;
+
   Widget _balanceHeading(BuildContext context, TextStyle style, Widget child) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (!constraints.hasBoundedWidth || constraints.maxWidth == 0) {
+        final defaults = DefaultTextStyle.of(context);
+        if (!constraints.hasBoundedWidth ||
+            constraints.maxWidth == 0 ||
+            defaults.maxLines != null) {
           return child;
         }
+        var measured = defaults.style.merge(style);
+        // Text applies the same accessibility weight, so the compact measure
+        // must be found with the weight that is actually rendered.
+        if (MediaQuery.boldTextOf(context)) {
+          measured = measured.merge(
+            const TextStyle(fontWeight: FontWeight.bold),
+          );
+        }
         final painter = TextPainter(
-          text: TextSpan(
-            text: data,
-            style: DefaultTextStyle.of(context).style.merge(style),
-          ),
+          text: TextSpan(text: data, style: measured),
           textDirection: Directionality.of(context),
           textScaler: MediaQuery.textScalerOf(context),
           locale: Localizations.maybeLocaleOf(context),
@@ -159,14 +172,39 @@ class DText extends StatelessWidget {
         color: DTokens.of(context).foreground,
       );
 
-  /// Resolves an unscaled style for native spans or composed child widgets.
+  /// The demo's inline link treatment: weight 500, primary color and a primary
+  /// underline. Size and leading are not set, so a span inherits them from the
+  /// enclosing paragraph or lead text. Flutter draws the underline where the
+  /// font places it; the reference's 4px underline offset has no counterpart.
+  /// The caller owns the span's recognizer, which also gives it link semantics
+  /// and a pointer cursor.
+  static TextStyle linkStyleOf(BuildContext context) {
+    final primary = DTokens.of(context).primary;
+    return TextStyle(
+      fontWeight: FontWeight.w500,
+      color: primary,
+      decoration: TextDecoration.underline,
+      decorationColor: primary,
+    );
+  }
+
+  /// Resolves a style for native spans or composed child widgets.
   ///
   /// Inline code spans keep a rectangular background so they can wrap and be
   /// selected within a paragraph. Use [DText] with inlineCode for a standalone
   /// padded, rounded label. Only code opts into the app's bundled monospace;
-  /// all other families remain theme-owned. Metrics use the app's unscaled
-  /// Tailwind tokens with the frozen reference's weights, leading and tracking.
+  /// all other families remain theme-owned. Sizes are the app's unscaled
+  /// Tailwind tokens with the frozen reference's weights and leading. Tracking
+  /// is em-relative in the reference, and Flutter scales font size but not
+  /// letter spacing, so it is resolved against the inherited scaler here.
   static TextStyle styleOf(BuildContext context, DTextVariant variant) {
+    final style = _resolve(context, variant);
+    return variant == DTextVariant.inlineCode
+        ? style.copyWith(backgroundColor: DTokens.of(context).muted)
+        : style;
+  }
+
+  static TextStyle _resolve(BuildContext context, DTextVariant variant) {
     final text = Theme.of(context).textTheme;
     final tokens = DTokens.of(context);
     TextStyle resolve(
@@ -180,7 +218,10 @@ class DText extends StatelessWidget {
       fontSize: size,
       height: height,
       fontWeight: weight,
-      letterSpacing: tight ? size * DiscourseTypography.trackingTight : 0,
+      letterSpacing: tight
+          ? MediaQuery.textScalerOf(context).scale(size) *
+                DiscourseTypography.trackingTight
+          : 0,
       color: color ?? tokens.foreground,
     );
     return switch (variant) {
@@ -246,13 +287,15 @@ class DText extends StatelessWidget {
         DiscourseTypography.sm,
         DiscourseTypography.lineHeightSmall,
         weight: FontWeight.w600,
-      ).copyWith(fontFamily: 'JetBrains Mono', backgroundColor: tokens.muted),
+      ).copyWith(fontFamily: 'JetBrains Mono'),
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    final resolvedStyle = styleOf(context, variant).merge(style);
+    // A standalone code box paints its own background once; a span background
+    // beneath it would double a translucent muted token.
+    final resolvedStyle = _resolve(context, variant).merge(style);
     Widget result = textSpan == null
         ? Text(
             data!,
@@ -302,7 +345,7 @@ class DText extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: tokens.muted,
-            borderRadius: tokens.borderRadius,
+            borderRadius: BorderRadius.circular(_codeRadius),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.8, vertical: 3.2),
