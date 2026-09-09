@@ -195,8 +195,18 @@ void main() {
             find.byKey(const ValueKey('styleguide-example-viewport-accordion')),
           )
           .height,
-      600,
+      800,
     );
+
+    await _choose(tester, 'Example', 'RTL');
+    await _choose(tester, 'Viewport width', '360 px');
+    await _choose(tester, 'Text scale', '200%');
+    final viewport = tester.getRect(
+      find.byKey(const ValueKey('styleguide-example-viewport-accordion')),
+    );
+    final finalTrigger = tester.getRect(find.text('ما طرق الدفع المقبولة؟'));
+    expect(finalTrigger.bottom, lessThanOrEqualTo(viewport.bottom));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Direction examples use the preview provider and retain edits', (
