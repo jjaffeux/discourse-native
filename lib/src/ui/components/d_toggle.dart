@@ -43,9 +43,9 @@ class DToggle extends StatefulWidget {
 
   const DToggle.iconOnly({
     super.key,
-    required Widget icon,
-    Widget? selectedIcon,
-    required String semanticLabel,
+    required this.icon,
+    this.selectedIcon,
+    required this.semanticLabel,
     this.pressed,
     this.initialPressed = false,
     this.onPressedChanged,
@@ -57,9 +57,6 @@ class DToggle extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
   }) : child = const SizedBox.shrink(),
-       icon = icon,
-       selectedIcon = selectedIcon,
-       semanticLabel = semanticLabel,
        iconPosition = DToggleIconPosition.start,
        _iconOnly = true;
 

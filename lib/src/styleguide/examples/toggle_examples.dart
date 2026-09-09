@@ -16,7 +16,8 @@ final toggleExamples = ComponentExamples(
   examples: [
     StyleguideExample(
       title: 'Default',
-      description: 'The frozen lead example: a small outline bookmark toggle with a filled pressed icon.',
+      description:
+          'The frozen lead example: a small outline bookmark toggle with a filled pressed icon.',
       states: const ['Outline', 'Small', 'Pressed', 'Icon and text'],
       code: '''DToggle(
   pressed: bookmarked,
@@ -32,9 +33,11 @@ final toggleExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Outline',
-      description: 'Two independent outline formatting preferences; each keeps its own state.',
+      description:
+          'Two independent outline formatting preferences; each keeps its own state.',
       states: const ['Outline', 'Icon and text', 'Independent values'],
-      code: "DToggle(pressed: italic, onPressedChanged: setItalic, variant: DToggleVariant.outline, icon: const ToggleReferenceIcon(ToggleReferenceIcon.italic), child: const Text('Italic'))",
+      code:
+          "DToggle(pressed: italic, onPressedChanged: setItalic, variant: DToggleVariant.outline, icon: const ToggleReferenceIcon(ToggleReferenceIcon.italic), child: const Text('Italic'))",
       builder: (_) => const _OutlineDemo(),
     ),
     StyleguideExample(
@@ -42,7 +45,8 @@ final toggleExamples = ComponentExamples(
       description:
           'Default treatment with the documented italic icon and label.',
       states: const ['Default', 'Icon and text', 'Hover', 'Focus'],
-      code: "DToggle(pressed: italic, onPressedChanged: setItalic, semanticLabel: 'Toggle italic', icon: const ToggleReferenceIcon(ToggleReferenceIcon.italic), child: const Text('Italic'))",
+      code:
+          "DToggle(pressed: italic, onPressedChanged: setItalic, semanticLabel: 'Toggle italic', icon: const ToggleReferenceIcon(ToggleReferenceIcon.italic), child: const Text('Italic'))",
       builder: (_) => const _TextDemo(),
     ),
     StyleguideExample(
@@ -50,14 +54,17 @@ final toggleExamples = ComponentExamples(
       description:
           'Small, default and large preserve the measured base-nova bounds.',
       states: const ['Small 28px', 'Default 32px', 'Large 36px'],
-      code: "DToggle(initialPressed: true, size: DToggleSize.small, variant: DToggleVariant.outline, child: const Text('Small'))",
+      code:
+          "DToggle(initialPressed: true, size: DToggleSize.small, variant: DToggleVariant.outline, child: const Text('Small'))",
       builder: (_) => const _SizeDemo(),
     ),
     StyleguideExample(
       title: 'Disabled',
-      description: 'Both variants retain pressed semantics while blocking every activation path.',
+      description:
+          'Both variants retain pressed semantics while blocking every activation path.',
       states: const ['Disabled', 'Default', 'Outline', 'Pressed'],
-      code: "DToggle(initialPressed: true, enabled: false, child: const Text('Disabled'))",
+      code:
+          "DToggle(initialPressed: true, enabled: false, child: const Text('Disabled'))",
       builder: (_) => const Wrap(
         spacing: 8,
         runSpacing: 8,
@@ -74,9 +81,11 @@ final toggleExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'RTL',
-      description: 'The Arabic bookmark composition uses logical icon placement and spacing.',
+      description:
+          'The Arabic bookmark composition uses logical icon placement and spacing.',
       states: const ['RTL', 'Arabic', 'Outline', 'Small'],
-      code: "Directionality(textDirection: TextDirection.rtl, child: DToggle(initialPressed: true, variant: DToggleVariant.outline, size: DToggleSize.small, icon: const ToggleReferenceIcon(ToggleReferenceIcon.bookmark), child: const Text('إشارة مرجعية'))) ",
+      code:
+          "Directionality(textDirection: TextDirection.rtl, child: DToggle(initialPressed: true, variant: DToggleVariant.outline, size: DToggleSize.small, icon: const ToggleReferenceIcon(ToggleReferenceIcon.bookmark), child: const Text('إشارة مرجعية'))) ",
       builder: (_) => const Directionality(
         textDirection: TextDirection.rtl,
         child: _BookmarkDemo(arabic: true),
@@ -84,7 +93,8 @@ final toggleExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Ownership and states',
-      description: 'Compare controlled and uncontrolled state, an icon-only button and invalid semantics.',
+      description:
+          'Compare controlled and uncontrolled state, an icon-only button and invalid semantics.',
       states: const [
         'Controlled',
         'Uncontrolled',
@@ -92,7 +102,8 @@ final toggleExamples = ComponentExamples(
         'Invalid',
         'External update',
       ],
-      code: '''DToggle(pressed: controlled, onPressedChanged: setControlled, child: const Text('Controlled'));
+      code:
+          '''DToggle(pressed: controlled, onPressedChanged: setControlled, child: const Text('Controlled'));
 DToggle(initialPressed: true, onPressedChanged: observe, child: const Text('Uncontrolled'));
 DToggle.iconOnly(semanticLabel: 'Toggle bold', icon: const ToggleReferenceIcon(ToggleReferenceIcon.bold));''',
       builder: (_) => const _OwnershipDemo(),
@@ -247,9 +258,9 @@ class _OwnershipDemoState extends State<_OwnershipDemo> {
             variant: DToggleVariant.outline,
             child: const Text('Uncontrolled'),
           ),
-          DToggle.iconOnly(
+          const DToggle.iconOnly(
             semanticLabel: 'Toggle bold',
-            icon: const ToggleReferenceIcon(ToggleReferenceIcon.bold),
+            icon: ToggleReferenceIcon(ToggleReferenceIcon.bold),
             variant: DToggleVariant.outline,
           ),
           const DToggle(
