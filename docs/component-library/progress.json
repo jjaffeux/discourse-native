@@ -3360,9 +3360,11 @@
       "implementationCommit": "1fd4d49aff7fe0b19cb7b6874e5e8610931531c4",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/dee9/discourse-native",
-      "reviewStatus": "pending_creation",
-      "reviewTaskId": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08627-8995-7b43-9c06-8a219d472681",
       "reviewBranch": "codex/review-message",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8953/discourse-native",
+      "clientThreadId": "client-new-thread:dd02f9d0-ca1f-4824-a33a-3d1f878daa65",
       "nativeInspectionStatus": "not_started",
       "browserInspectionStatus": "not_started",
       "preparedDependencies": [
