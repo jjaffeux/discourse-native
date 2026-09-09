@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**44 of 64 components are merged locally.** 20 existing components are in progress; 0 are planned.
+**45 of 64 components are merged locally.** 19 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -17,7 +17,6 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
 | toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
-| item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | alert-dialog | Implementation and checks | — | — |
 | sheet | independent review | 88e3e8c2 | 01a0862f-b27f-76d2-a441-8a77594aedc8 |
 | drawer | independent review | 8377cebe | 01a08643-3074-72e1-8b18-a2266dd724e6 |
@@ -64,7 +63,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
 | 22 | card | merged | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | a73f465ac86105fdda35f5b56f8b491da4b3936d |
 | 23 | empty | merged | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | fb790fcd2356a9acc7cd488ca587eaafb4d91ccb |
-| 24 | item | review_ready | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | — |
+| 24 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
 | 25 | table | merged | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | 082fcc55ab85d3bd4012c6bd24c647c1febd7d2a |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
@@ -1571,7 +1570,7 @@ Status: merged. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/ui-emp
 
 ### item
 
-Status: review_ready. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
+Status: merged. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
 
 **acceptanceCriteria**
 

@@ -1496,7 +1496,7 @@
     },
     {
       "id": "item",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
       "branch": "codex/ui-item",
       "dependencies": [
@@ -1556,8 +1556,8 @@
         "Events participant/day rows remain candidate follow-ups for their Calendar/Dialog/Events owners; this review did not change their async or navigation authority."
       ],
       "implementationCommit": "68402409ccc314b6e9b624cf1d86b16531ccdcc4",
-      "mergeCommit": null,
-      "reviewStatus": "review_ready",
+      "mergeCommit": "6df0ab4469e4a3f9619518c56bd6e8db847e6b2c",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-aec4-7591-ac85-682a1eae4290",
       "reviewBranch": "codex/review-item-accepted",
       "nativeReviewStatus": "completed",
@@ -4068,15 +4068,6 @@
       "nextComponents": [],
       "activeTasks": [
         {
-          "component": "item",
-          "taskId": "01a08558-aec4-7591-ac85-682a1eae4290",
-          "branch": "codex/review-item",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d14a/discourse-native",
-          "headCommit": "32ce1f96e1a1648bd5f29d8268c8b37855d3e39b",
-          "status": "independent_review",
-          "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
-        },
-        {
           "component": "input-group",
           "taskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
           "branch": "codex/review-input-group",
@@ -4446,17 +4437,6 @@
           "implementationBranch": "codex/ui-alert",
           "status": "merged",
           "mergeCommit": "a07ab617436f24f2e8116762f58b0b28e5d36918"
-        },
-        {
-          "component": "item",
-          "title": "Review and merge Item",
-          "taskId": "01a08558-aec4-7591-ac85-682a1eae4290",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d14a/discourse-native",
-          "branch": "codex/review-item",
-          "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
-          "implementationBranch": "codex/ui-item",
-          "status": "in_progress"
         },
         {
           "component": "toggle",
