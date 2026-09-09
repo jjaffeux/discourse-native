@@ -2061,10 +2061,12 @@ Status: in_progress. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match the frozen Base UI/base-nova rich Select API and Composition, Align Item With Trigger, Groups, Scrollable, Disabled, Invalid and RTL examples with measured source mapping.
-- Replace the appropriate generic rich selector and compose final shared popup, scrolling and control owners; preserve native option semantics, selected-item alignment/collision fallback, keyboard/typeahead/focus restoration, Form/controller lifecycle and live overlay theming.
-- Audit core/plugin selectors and migrate appropriate usages, coordinating final Field and Button Group compositions while retaining specifically justified native/simple selector alternatives.
-- Verify complete examples, narrow/scaled/RTL/touch/reduced-motion behavior, meaningful focused component/consumer tests and root/full analysis; create a new reviewer for remaining rendered/native acceptance and local merge after the accepted Popover main revision.
+- Match frozen Base Nova Select geometry and state artwork: 32/28px trigger, 14/20px type, directional 10/8px padding, 16px chevron/check, input border, proportional lg/md radii, transparent/light and multiplicative dark input tint, exterior 3px focus/invalid rings, 144px popup minimum, 4px offset, 28px pointer rows and 100ms motion.
+- Provide typed value/item/group/separator composition, null placeholder/clearable values, custom value/trigger/icon/indicator builders, controlled nullable and uncontrolled ownership, object equality, disabled/read-only/required/invalid states, Form validation/save/reset and a multiple-selection counterpart.
+- Use DPopover and DScrollArea as overlay/scroll owners; implement selected-row alignment with mouse/keyboard plus touch/edge/insufficient-space fallback, collision boundaries, large-list initial reveal, scroll arrows, outside/Escape dismissal, deepest-layer behavior, focus restoration and live overlay themes.
+- Support pointer/touch, compact 48px transparent touch targets, hover/press/focus, disabled-option skipping, looped arrows/Home/End/Tab containment, keyboard typeahead, stable actionable option semantics, scaling, narrow widths, RTL and reduced motion without state reset.
+- Replace the shell DropdownButton renderer with the public ui/components owner, preserve current core/plugin callback/form/permission behavior through the compatibility adapter until accepted Native Select integration reclassifies plain consumers, and retain DNativeSelect only for genuine native/simple selection.
+- Add exhaustive real-component styleguide examples for default composition, selected alignment toggle, groups/separator, scrolling, disabled, invalid/Form, RTL, multiple/custom composition and app edge cases; run focused component/consumer tests, root and full-profile analysis and exact-source build evidence before reviewer handoff.
 
 **decisions**
 
@@ -2598,3 +2600,4 @@ Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sid
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+
