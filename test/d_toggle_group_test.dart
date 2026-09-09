@@ -250,6 +250,106 @@ void main() {
     expect(third.hasFocus, isTrue);
   });
 
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'horizontal keyboard roving reveals focused items in ${direction.name}',
+      (tester) async {
+        final nodes = List.generate(6, (_) => FocusNode());
+        addTearDown(() {
+          for (final node in nodes) {
+            node.dispose();
+          }
+        });
+        var values = const ['0'];
+        await mount(
+          tester,
+          StatefulBuilder(
+            builder: (context, setState) => DToggleGroup<String>(
+              values: values,
+              onChanged: (next) => setState(() => values = next),
+              items: [
+                for (var index = 0; index < nodes.length; index++)
+                  DToggleGroupItem(
+                    value: '$index',
+                    semanticLabel: 'Choice $index',
+                    focusNode: nodes[index],
+                    child: Text('$index'),
+                  ),
+              ],
+            ),
+          ),
+          direction: direction,
+          scale: 2,
+          width: 180,
+        );
+
+        nodes.first.requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        await tester.pumpAndSettle();
+
+        expect(nodes.last.hasFocus, isTrue);
+        expect(values, ['0']);
+        final viewport = tester.getRect(find.byType(DToggleGroup<String>));
+        final focused = tester.getRect(toggle('Choice 5'));
+        expect(focused.left, greaterThanOrEqualTo(viewport.left));
+        expect(focused.right, lessThanOrEqualTo(viewport.right));
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        expect(values, ['5']);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.home);
+        await tester.pumpAndSettle();
+        expect(nodes.first.hasFocus, isTrue);
+        final first = tester.getRect(toggle('Choice 0'));
+        expect(first.left, greaterThanOrEqualTo(viewport.left));
+        expect(first.right, lessThanOrEqualTo(viewport.right));
+      },
+    );
+  }
+
+  testWidgets('vertical keyboard roving reveals focused items', (tester) async {
+    final nodes = List.generate(6, (_) => FocusNode());
+    addTearDown(() {
+      for (final node in nodes) {
+        node.dispose();
+      }
+    });
+    await mount(
+      tester,
+      SizedBox(
+        height: 120,
+        child: DToggleGroup<String>(
+          orientation: Axis.vertical,
+          initialValues: const ['0'],
+          items: [
+            for (var index = 0; index < nodes.length; index++)
+              DToggleGroupItem(
+                value: '$index',
+                semanticLabel: 'Choice $index',
+                focusNode: nodes[index],
+                child: Text('Choice $index'),
+              ),
+          ],
+        ),
+      ),
+      scale: 2,
+      width: 180,
+    );
+
+    nodes.first.requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+
+    expect(nodes.last.hasFocus, isTrue);
+    final viewport = tester.getRect(find.byType(DToggleGroup<String>));
+    final focused = tester.getRect(toggle('Choice 5'));
+    expect(focused.top, greaterThanOrEqualTo(viewport.top));
+    expect(focused.bottom, lessThanOrEqualTo(viewport.bottom));
+  });
+
   testWidgets(
     'dynamic items preserve the logical roving item and borrowed focus state',
     (tester) async {
