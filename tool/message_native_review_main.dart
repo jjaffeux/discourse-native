@@ -239,8 +239,17 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
   );
 }
 
-class _ProductionTiles extends StatelessWidget {
+class _ProductionTiles extends StatefulWidget {
   const _ProductionTiles();
+
+  @override
+  State<_ProductionTiles> createState() => _ProductionTilesState();
+}
+
+class _ProductionTilesState extends State<_ProductionTiles> {
+  var result = 'No production action yet';
+
+  void record(String action) => setState(() => result = action);
 
   @override
   Widget build(BuildContext context) => Column(
@@ -255,25 +264,27 @@ class _ProductionTiles extends StatelessWidget {
         siteUrl: _siteUrl,
         messageId: 101,
         chained: false,
-        onOpenThread: (_) {},
-        onJumpToMessage: (_) {},
-        onReply: (_) {},
-        onEdit: (_) {},
+        onOpenThread: (_) => record('Opened thread 33'),
+        onJumpToMessage: (_) => record('Jumped to message 101'),
+        onReply: (_) => record('Reply requested for message 101'),
+        onEdit: (_) => record('Edit requested for message 101'),
       ),
       ChatMessageTile(
         siteUrl: _siteUrl,
         messageId: 102,
         chained: true,
-        onJumpToMessage: (_) {},
-        onReply: (_) {},
+        onJumpToMessage: (_) => record('Jumped to message 101'),
+        onReply: (_) => record('Reply requested for message 102'),
       ),
       ChatMessageTile(
         siteUrl: _siteUrl,
         messageId: 103,
         chained: false,
-        onReply: (_) {},
+        onReply: (_) => record('Reply requested for message 103'),
       ),
       const ChatMessageTile(siteUrl: _siteUrl, messageId: 104, chained: false),
+      const SizedBox(height: 16),
+      Text(result),
     ],
   );
 }

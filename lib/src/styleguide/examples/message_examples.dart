@@ -35,6 +35,19 @@ final messageExamples = ComponentExamples(
       builder: (_) => const _OverviewExample(),
     ),
     StyleguideExample(
+      title: 'Avatar alignment',
+      description:
+          'Start and end avatars stay at the bottom of single and multiline bubble content, including a two-bubble response.',
+      states: const ['Avatar', 'Start', 'End', 'Multiline content'],
+      code: '''DMessage(children: [
+  DMessageAvatar(child: DAvatar(...)),
+  DMessageContent(children: [
+    DBubbleGroup(children: [DBubble(...), DBubble(...)]),
+  ]),
+])''',
+      builder: (_) => const _AvatarExample(),
+    ),
+    StyleguideExample(
       title: 'Avatar and message groups',
       description:
           'Empty avatar slots preserve the 32px column for earlier messages; the final message provides the actual Avatar owner.',
@@ -240,6 +253,88 @@ class _OverviewExample extends StatelessWidget {
   );
 }
 
+class _AvatarExample extends StatelessWidget {
+  const _AvatarExample();
+
+  @override
+  Widget build(BuildContext context) => const _Conversation(
+    children: [
+      DMessage(
+        children: [
+          DMessageAvatar(
+            child: _Avatar(label: 'CN', name: 'Contributor'),
+          ),
+          DMessageContent(
+            children: [
+              DBubble(
+                variant: DBubbleVariant.muted,
+                children: [
+                  DBubbleContent(
+                    child: Text(
+                      'The build failed during dependency installation.',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+      DMessage(
+        align: DMessageAlign.end,
+        children: [
+          DMessageAvatar(
+            child: _Avatar(label: 'ME', name: 'You'),
+          ),
+          DMessageContent(
+            children: [
+              DBubble(
+                align: DBubbleAlign.end,
+                children: [
+                  DBubbleContent(child: Text('Can you share the exact error?')),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+      DMessage(
+        children: [
+          DMessageAvatar(
+            child: _Avatar(label: 'CN', name: 'Contributor'),
+          ),
+          DMessageContent(
+            children: [
+              DBubbleGroup(
+                children: [
+                  DBubble(
+                    variant: DBubbleVariant.muted,
+                    children: [
+                      DBubbleContent(
+                        child: Text("Here's the error from the logs"),
+                      ),
+                    ],
+                  ),
+                  DBubble(
+                    variant: DBubbleVariant.muted,
+                    children: [
+                      DBubbleContent(
+                        child: Text(
+                          'Something went wrong with the build. The libraries are not installed correctly. Try running the build again.',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
 class _GroupExample extends StatelessWidget {
   const _GroupExample();
 
@@ -303,10 +398,7 @@ class _MetadataExample extends StatelessWidget {
         children: [
           DMessageContent(
             children: [
-              DMessageHeader(
-                spacing: 8,
-                children: [Text('Olivia'), Text('Yesterday')],
-              ),
+              DMessageHeader(children: [Text('Olivia')]),
               DBubble(
                 variant: DBubbleVariant.muted,
                 children: [
@@ -325,7 +417,11 @@ class _MetadataExample extends StatelessWidget {
               DBubble(
                 align: DBubbleAlign.end,
                 children: [
-                  DBubbleContent(child: Text('Send the report to the team.')),
+                  DBubbleContent(
+                    child: Text(
+                      'Send the report to the team. Ping @shadcn if you need help.',
+                    ),
+                  ),
                 ],
               ),
               DMessageFooter(children: [Text('Read'), Text('Yesterday')]),
@@ -503,7 +599,9 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
                 align: DBubbleAlign.end,
                 children: [
                   DBubbleContent(
-                    child: Text('Can you add this image to the PDF cover?'),
+                    child: Text(
+                      "Here's the image. Can you add it to the PDF? Use it for the cover page.",
+                    ),
                   ),
                 ],
               ),
@@ -518,7 +616,11 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
               const DBubble(
                 variant: DBubbleVariant.muted,
                 children: [
-                  DBubbleContent(child: Text("Done. Here's the PDF.")),
+                  DBubbleContent(
+                    child: Text(
+                      "Done. Here's the PDF with the image added as the cover page.",
+                    ),
+                  ),
                 ],
               ),
               DAttachment(
@@ -545,6 +647,19 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
                     ],
                   ),
                 ],
+              ),
+            ],
+          ),
+        ],
+      ),
+      const DMessage(
+        align: DMessageAlign.end,
+        children: [
+          DMessageContent(
+            children: [
+              DBubble(
+                align: DBubbleAlign.end,
+                children: [DBubbleContent(child: Text('Thanks. Looks good.'))],
               ),
             ],
           ),
