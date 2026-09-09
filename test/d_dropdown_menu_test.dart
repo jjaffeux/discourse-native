@@ -177,6 +177,36 @@ void main() {
     },
   );
 
+  testWidgets('nested Escape wins over an ancestor shortcut', (tester) async {
+    var ancestorEscapes = 0;
+    await pumpMenu(
+      tester,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): () {
+            ancestorEscapes += 1;
+          },
+        },
+        child: const _SubmenuHarness(),
+      ),
+    );
+    await open(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Email'), findsNothing);
+    expect(find.text('Invite users'), findsOneWidget);
+    expect(ancestorEscapes, 0);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Invite users'), findsNothing);
+    expect(ancestorEscapes, 0);
+  });
+
   testWidgets('RTL mirrors submenu directional navigation', (tester) async {
     await pumpMenu(
       tester,
