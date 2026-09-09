@@ -100,6 +100,73 @@ void main() {
     );
   });
 
+  testWidgets('live labels, enabled state and focus nodes retain row order', (
+    tester,
+  ) async {
+    final revision = ValueNotifier(0);
+    final first = FocusNode(debugLabel: 'First original');
+    final replacement = FocusNode(debugLabel: 'First replacement');
+    final second = FocusNode(debugLabel: 'Second');
+    addTearDown(revision.dispose);
+    addTearDown(first.dispose);
+    addTearDown(replacement.dispose);
+    addTearDown(second.dispose);
+    await pumpMenu(
+      tester,
+      child: ValueListenableBuilder<int>(
+        valueListenable: revision,
+        builder: (context, value, _) => DDropdownMenu(
+          content: DDropdownMenuContent(
+            children: [
+              DDropdownMenuItem(
+                focusNode: value < 2 ? first : replacement,
+                onPressed: value == 1 ? null : () {},
+                child: Text('First $value'),
+              ),
+              DDropdownMenuItem(
+                focusNode: second,
+                onPressed: () {},
+                child: const Text('Second'),
+              ),
+            ],
+          ),
+          child: DDropdownMenuTrigger(
+            builder: (context, menu) => DButton(
+              focusNode: menu.focusNode,
+              label: const Text('Open'),
+              onPressed: menu.toggle,
+            ),
+          ),
+        ),
+      ),
+    );
+    await open(tester);
+    expect(first.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    revision.value = 1;
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    expect(second.hasFocus, isTrue);
+
+    revision.value = 2;
+    await tester.pump();
+    expect(second.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    expect(replacement.hasFocus, isTrue);
+    expect(first.hasFocus, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(second.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    expect(replacement.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('First 2'), findsNothing);
+    // Borrowed nodes remain usable after the menu is unmounted.
+    await tester.pumpWidget(const SizedBox.shrink());
+    replacement.requestFocus();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('typeahead wraps from the active row', (tester) async {
     await pumpMenu(tester);
     await open(tester);
@@ -214,6 +281,21 @@ void main() {
       child: const _SubmenuHarness(),
     );
     await open(tester);
+    final chevron = tester.widget<Icon>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Icon &&
+            (widget.icon == Icons.chevron_left ||
+                widget.icon == Icons.chevron_right),
+      ),
+    );
+    // Material's directional glyph is mirrored by Icon exactly once.
+    expect(chevron.icon, Icons.chevron_right);
+    expect(chevron.icon!.matchTextDirection, isTrue);
+    expect(
+      Directionality.of(tester.element(find.byWidget(chevron))),
+      TextDirection.rtl,
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
@@ -221,6 +303,64 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     expect(find.text('Email'), findsNothing);
+  });
+
+  testWidgets('menu focus scrolls its popup without moving the host page', (
+    tester,
+  ) async {
+    final pageScroll = ScrollController();
+    addTearDown(pageScroll.dispose);
+    await pumpMenu(
+      tester,
+      child: SingleChildScrollView(
+        controller: pageScroll,
+        child: Column(
+          children: [
+            const SizedBox(height: 150),
+            SizedBox(
+              width: 360,
+              height: 360,
+              child: Navigator(
+                onGenerateRoute: (_) => MaterialPageRoute<void>(
+                  builder: (_) => Center(
+                    child: DDropdownMenu(
+                      content: DDropdownMenuContent(
+                        constraints: const BoxConstraints(maxHeight: 120),
+                        children: [
+                          for (var index = 0; index < 20; index++)
+                            DDropdownMenuItem(
+                              onPressed: () {},
+                              child: Text('Command $index'),
+                            ),
+                        ],
+                      ),
+                      child: DDropdownMenuTrigger(
+                        builder: (context, state) => DButton(
+                          label: const Text('Open'),
+                          onPressed: state.toggle,
+                          focusNode: state.focusNode,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 1000),
+          ],
+        ),
+      ),
+    );
+    await open(tester);
+    expect(pageScroll.offset, 0);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+    expect(pageScroll.offset, 0);
+    final popup = tester.getRect(find.byType(DPopoverContent));
+    final lastItem = tester.getRect(find.text('Command 19'));
+    expect(lastItem.top, greaterThanOrEqualTo(popup.top));
+    expect(lastItem.bottom, lessThanOrEqualTo(popup.bottom));
   });
 
   testWidgets('opening a sibling submenu closes the previous overlay', (
