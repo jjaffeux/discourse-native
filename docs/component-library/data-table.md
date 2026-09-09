@@ -80,7 +80,7 @@ with self-contained immutable payments.
 ## Independent review
 
 Reviewer task `01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a` owns
-`codex/review-data-table-accepted`. The implementation history is preserved from
+`codex/review-data-table-current`. The implementation history is preserved from
 `codex/ui-data-table`; see `data-table-review-handoff.md` for the source handoff.
 
 All prepared-parent gates are satisfied by accepted local-main merges:
@@ -191,3 +191,27 @@ is cleanup/control evidence only, not a Data Table visual pass. The reviewer
 has rejoined desktop FIFO for a fresh launch and the remaining checks.
 No iOS/Linux device or spoken
 VoiceOver pass is claimed. All examples use local immutable fixture data.
+
+### Accepted menu follow-up integration
+
+Candidate `228f838c8b476850f15029b37c9856b9f1da789e` starts from main
+`d647400602824226d70d1328fba2a141195dc559`, preserving all other progress
+rows and workflow. It incorporates accepted Dropdown Menu follow-up merge
+`85f9265bf2593a7edc0693582b7eadf1c6645b8d`: stable live item ordering,
+popup-local focus scrolling, removal of redundant Popover autofocus and the
+RTL chevron correction. The original Data Table fixes are unchanged.
+
+All 91 Data Table/example/Dropdown Menu/Select/Popover/styleguide-shell tests
+passed with seed `9092026`. Root/full analysis and the macOS build passed.
+The new final fixture is
+`/private/tmp/data-table-review-228f.B2Ba4K/Data Table Review 228f.app`, identifier
+`org.discourse.native.datatable.228f`. Original and copied kernel hashes match
+`cfe9534d81da826c7ec00558ab73bfe82bfd743ac99518948dbbae11447cb4dc`;
+deep strict signature verification passed. The same isolated name/identifier,
+URL-registration removal and minimal ad-hoc entitlement procedure was used.
+No repository runner, provisioning, release settings or lockfiles changed.
+
+The reviewer withdrew from desktop FIFO during integration/rebuild and rejoined
+with the completed bundle. Remaining native checks include the footer and empty
+action heading plus menu activation, repeated column toggles and restored focus
+against the updated parent. The rendered Tasks comparison remains pending.

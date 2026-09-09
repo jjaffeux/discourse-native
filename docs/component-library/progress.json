@@ -4260,7 +4260,7 @@
         }
       ],
       "reviewTaskId": "01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a",
-      "reviewBranch": "codex/review-data-table-accepted",
+      "reviewBranch": "codex/review-data-table-current",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f127/discourse-native",
       "reviewHandoffCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b",
       "reviewStatus": "in_progress",
@@ -4274,7 +4274,8 @@
         "pagination": "20f1673402d8b52370efacb5ca61d5f099810582",
         "select": "57bbeb94368649a4665483180e4f5c84b5f33856",
         "field": "5cd7f3694498e4e09e3c114639baca834b56705e",
-        "dropdown-menu": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
+        "dropdown-menu": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787",
+        "dropdown-menu-followup": "85f9265bf2593a7edc0693582b7eadf1c6645b8d"
       },
       "nativeInspectionStatus": "in_progress",
       "browserInspectionStatus": "in_progress"
