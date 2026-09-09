@@ -320,3 +320,12 @@ No replacement tab was opened and no other tab was modified. Explicitly RELEASED
 the browser slot to the coordinator before final tests/build. The prior tab's
 light theme and 390×844 viewport restoration could not be verified because the tab
 was gone. Native access remains ungranted; no getApp or native launch occurred.
+
+Final comparison checkpoint `a1020b6745954e54d72183729bc2f86049a949e6`: all 366 focused tests pass with seed
+`928374611`; root/full analysis and native build pass. Logs:
+`/tmp/input-browser-focused.log`, `/tmp/input-browser-analysis.log`,
+`/tmp/input-browser-full-analysis.log`, `/tmp/input-browser-native-build.log`.
+Refreshed unique `/private/tmp/DiscourseInputReview-01a083ad.app`; deep strict
+ad-hoc signature passes. Source/copy kernels both SHA256
+`b034361de32ad1e22d036fc1d4e0334f262b4ce1bc5eeee287751ad748211ba3`. Bundle unlaunched; Input remains
+`in_progress` / `awaiting_slot`.

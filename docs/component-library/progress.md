@@ -696,10 +696,12 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 - Correction passes all 363 focused component/example/migration tests (seed 928374611). Root/full analysis, formatting/diff checks and isolated macOS fixture rebuild pass. Logs are recorded in input-reference.md.
 - Eight font-loaded Flutter exports plus pixel tests verify .15*.3 dark fill, role separation, no interior focus/invalid tint, exterior ring bounds, disabled fill and equal half-opacity file trigger/filename with disabled Button semantics. Hashed exports: docs/component-library/evidence/input/correction/. No CUA or browser/app launch.
 - Correction native checkpoint 3800505aacce361f92bc71ff18332f58bf3cb07e: refreshed /private/tmp/DiscourseInputReview-01a083ad.app, unique org.discourse.native.input.01a083ad identity and discourse-input-review-01a083ad scheme. Source/copy kernel SHA256 both 661a1bb69eaf830e8c84de3f2931d1f2df5b760ea3dc4e86980c386cd243939a; deep strict ad-hoc signature passes. Remains unlaunched, in_progress/awaiting_slot.
+- Official browser computed-style/crop comparison corrected file gap to 4px and Field label/description leading to 19.25/21px. Sixteen font-loaded Flutter exports cover all registered examples in both app palettes and real Add Site/Invite editors. All 366 focused tests (seed 928374611), root/full analysis and exact-source native build pass. Browser slot explicitly released; prior tab absent after interruption, restoration not verifiable. Evidence and logs: input-reference.md.
+- Latest source a1020b6745954e54d72183729bc2f86049a949e6: unique signed /private/tmp/DiscourseInputReview-01a083ad.app refreshed, deep strict signature passes, source/copy kernel SHA256 b034361de32ad1e22d036fc1d4e0334f262b4ce1bc5eeee287751ad748211ba3. Remains unlaunched and awaiting_slot.
 
 **limitations**
 
-- Native reference comparison and editing inspection await the coordinator desktop slot; the Mac was reported locked. No CUA or real app interaction has occurred.
+- Native editing inspection awaits the coordinator desktop slot. Browser comparison completed from saved evidence; no native app interaction has occurred.
 - No iOS/Linux device or spoken VoiceOver inspection; target-platform widget checks are not device verification.
 
 ### skeleton

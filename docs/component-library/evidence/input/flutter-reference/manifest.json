@@ -26,5 +26,7 @@
     600,
     850
   ],
-  "pixelRatio": 1
+  "pixelRatio": 1,
+  "implementationCommit": "a1020b6745954e54d72183729bc2f86049a949e6",
+  "nativeKernelSha256": "b034361de32ad1e22d036fc1d4e0334f262b4ce1bc5eeee287751ad748211ba3"
 }
