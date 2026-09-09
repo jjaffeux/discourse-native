@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**20 of 64 components are merged locally.** 17 existing components are in progress; 27 are planned.
+**21 of 64 components are merged locally.** 16 existing components are in progress; 27 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -31,7 +31,6 @@ Branch preparation does not mark a component merged or visually verified.
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | carousel | Implementation and checks | — | — |
 | alert | independent review | 38002135 | 01a08558-ae1e-7843-8cff-724c8e877ba5 |
-| marker | independent review | c797918b | 01a08558-a798-7b71-98a9-94ae87eae13d |
 | chart | independent review | c782a940 | 01a08558-4ae6-7db2-bdd6-ee52e8570ff3 |
 
 ## Component implementation
@@ -93,7 +92,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 53 | toast | planned | — | — | button | — |
 | 54 | alert | in_progress | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | — |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
-| 56 | marker | in_progress | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | — |
+| 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
@@ -2017,7 +2016,7 @@ Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/u
 
 ### marker
 
-Status: in_progress. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-marker.
+Status: merged. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-marker.
 
 **acceptanceCriteria**
 
@@ -2049,12 +2048,18 @@ Status: in_progress. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/u
 - Isolated macOS fixture build succeeded: Marker Review 3d0a.app in /tmp/marker-review-3d0a-c9dffe43; ID org.discourse.markerreview3d0a, URL scheme discourse-marker-review-3d0a. All1340 lib/packages/pubspec/pin files match source4e48ba45; three-way kernel SHA256056c1ff41d714c630b966e954b39879d6c9fc78dd3bc41e05520edb4d57067fa and deep strict signature verified. Full provenance and pending inspection checklist: docs/component-library/marker-native.md.
 - Integration merge ba156a2c includes only pinned main e612ad7b; all non-Marker progress rows and17 merged owners preserved. Root/full locked resolution and analysis clean;116 focused tests passed seed2335286571, plus13 Marker tests for static-versus-live semantics seed2483898728.
 - Current exact-source isolated bundle: /tmp/marker-review-3d0a-ba156a2c/build/macos/Build/Products/Debug/Marker Review ba156a2c.app. All1350 source/package/pin files equal source ba156a2c; three-way kernel SHA256 a290d26bba0b82caefbc0645fd42c0e1725b3ac54a550bd44139e4f29279bc83. Restricted-free explicit ad-hoc JIT entitlements verified by signed readback; strict deep signature passed. Full current provenance: marker-native.md.
+- Independent reviewer reran 116 focused Marker, Topic date separator, Chat stream/channel lifecycle and styleguide tests with seed1313617513; root and profiles/full flutter analyze --no-pub passed with no issues. Touched formatting and git diff --check passed; full suite was not run.
+- Official Base UI Marker rendered comparison completed in the approved in-app browser at the source 384px example width. Live DOM measurement confirmed 14/20 Geist text, 8px flex gap, 16px icon artwork, 20px inline rows, balanced 12px separator clearance and 29px bordered rows with 8px bottom padding. The Flutter overview, status, separator, border, icon and action compositions visually matched while mapping the host font and semantic palette.
+- Native macOS inspection completed against the exact ba156a2c signed bundle. Light, dark, Plum and Forest mappings; 360px/200%/RTL wrapping; shimmer and reduced motion; retained complete/restart state; separator/border/stacked-icon examples; and the real Topic/Chat StreamDaySeparator fixture were inspected. Date label activation incremented the jump counter while rule activation did not. Return and Space activated distinct link/button markers, the disabled action was inert and skipped by Tab, and the outside focus ring was visible.
+- Native accessibility inspection exposed separate StreamDaySeparator date buttons, ordinary static marker text, live status text, link, enabled button and disabled button; decorative spinner/icon semantics remained absent. The isolated Marker app quit and the sole comparison tab closed before releasing the desktop lease. No source defect was found; only behavior-neutral status/evidence promotion follows the exact-source build.
+- After behavior-neutral styleguide status promotion, all13 Marker component/example/adoption tests passed with seed1313617514.
+- Latest main d0722ed0, including reviewed Switch plus Scroll Area/Slider owners and the dependency-classification lock metadata, was integrated without Marker source conflict. All13 Marker checks passed again with seed1313617515; exports, examples and all other progress rows were preserved.
 
 **limitations**
 
-- Mac locked; no CUA/browser/native inspection. Remain in_progress awaiting_slot until actual reference/native styleguide and production fixture comparison.
-- No VoiceOver or iOS/Linux device testing; shimmer raster/underline placement require visual review.
-- Integration preparation only: Mac locked and browser separately denied admin-policy verification. No CUA/navigation/native launch/retry/workaround; awaiting required reference/browser/native review.
+- No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.
+- The native fixture mounts the actual shared StreamDaySeparator used by Topic and Chat with local callbacks; no authenticated live account or network session was opened.
+- Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette mapping, motion, interaction and native semantics were compared directly.
 
 ### chart
 

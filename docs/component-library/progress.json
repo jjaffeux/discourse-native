@@ -2374,7 +2374,7 @@
     },
     {
       "id": "marker",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
       "branch": "codex/ui-marker",
       "dependencies": [
@@ -2404,20 +2404,28 @@
         "Final shimmer alpha correction passed all13 Marker tests; root/full analysis remains clean.",
         "Isolated macOS fixture build succeeded: Marker Review 3d0a.app in /tmp/marker-review-3d0a-c9dffe43; ID org.discourse.markerreview3d0a, URL scheme discourse-marker-review-3d0a. All1340 lib/packages/pubspec/pin files match source4e48ba45; three-way kernel SHA256056c1ff41d714c630b966e954b39879d6c9fc78dd3bc41e05520edb4d57067fa and deep strict signature verified. Full provenance and pending inspection checklist: docs/component-library/marker-native.md.",
         "Integration merge ba156a2c includes only pinned main e612ad7b; all non-Marker progress rows and17 merged owners preserved. Root/full locked resolution and analysis clean;116 focused tests passed seed2335286571, plus13 Marker tests for static-versus-live semantics seed2483898728.",
-        "Current exact-source isolated bundle: /tmp/marker-review-3d0a-ba156a2c/build/macos/Build/Products/Debug/Marker Review ba156a2c.app. All1350 source/package/pin files equal source ba156a2c; three-way kernel SHA256 a290d26bba0b82caefbc0645fd42c0e1725b3ac54a550bd44139e4f29279bc83. Restricted-free explicit ad-hoc JIT entitlements verified by signed readback; strict deep signature passed. Full current provenance: marker-native.md."
+        "Current exact-source isolated bundle: /tmp/marker-review-3d0a-ba156a2c/build/macos/Build/Products/Debug/Marker Review ba156a2c.app. All1350 source/package/pin files equal source ba156a2c; three-way kernel SHA256 a290d26bba0b82caefbc0645fd42c0e1725b3ac54a550bd44139e4f29279bc83. Restricted-free explicit ad-hoc JIT entitlements verified by signed readback; strict deep signature passed. Full current provenance: marker-native.md.",
+        "Independent reviewer reran 116 focused Marker, Topic date separator, Chat stream/channel lifecycle and styleguide tests with seed1313617513; root and profiles/full flutter analyze --no-pub passed with no issues. Touched formatting and git diff --check passed; full suite was not run.",
+        "Official Base UI Marker rendered comparison completed in the approved in-app browser at the source 384px example width. Live DOM measurement confirmed 14/20 Geist text, 8px flex gap, 16px icon artwork, 20px inline rows, balanced 12px separator clearance and 29px bordered rows with 8px bottom padding. The Flutter overview, status, separator, border, icon and action compositions visually matched while mapping the host font and semantic palette.",
+        "Native macOS inspection completed against the exact ba156a2c signed bundle. Light, dark, Plum and Forest mappings; 360px/200%/RTL wrapping; shimmer and reduced motion; retained complete/restart state; separator/border/stacked-icon examples; and the real Topic/Chat StreamDaySeparator fixture were inspected. Date label activation incremented the jump counter while rule activation did not. Return and Space activated distinct link/button markers, the disabled action was inert and skipped by Tab, and the outside focus ring was visible.",
+        "Native accessibility inspection exposed separate StreamDaySeparator date buttons, ordinary static marker text, live status text, link, enabled button and disabled button; decorative spinner/icon semantics remained absent. The isolated Marker app quit and the sole comparison tab closed before releasing the desktop lease. No source defect was found; only behavior-neutral status/evidence promotion follows the exact-source build.",
+        "After behavior-neutral styleguide status promotion, all13 Marker component/example/adoption tests passed with seed1313617514.",
+        "Latest main d0722ed0, including reviewed Switch plus Scroll Area/Slider owners and the dependency-classification lock metadata, was integrated without Marker source conflict. All13 Marker checks passed again with seed1313617515; exports, examples and all other progress rows were preserved."
       ],
       "limitations": [
-        "Mac locked; no CUA/browser/native inspection. Remain in_progress awaiting_slot until actual reference/native styleguide and production fixture comparison.",
-        "No VoiceOver or iOS/Linux device testing; shimmer raster/underline placement require visual review.",
-        "Integration preparation only: Mac locked and browser separately denied admin-policy verification. No CUA/navigation/native launch/retry/workaround; awaiting required reference/browser/native review."
+        "No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.",
+        "The native fixture mounts the actual shared StreamDaySeparator used by Topic and Chat with local callbacks; no authenticated live account or network session was opened.",
+        "Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette mapping, motion, interaction and native semantics were compared directly."
       ],
       "implementationCommit": "ba156a2ce378787c25fdd4a8910fbf86390c4a8a",
-      "mergeCommit": null,
+      "mergeCommit": "fc92f4e69042191eff5d39d52c1355a6d6a87da7",
       "clientThreadId": "client-new-thread:30c945fe-66ff-4d13-a4ed-120a945e4aa3",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
-      "reviewBranch": "codex/review-marker"
+      "reviewBranch": "codex/review-marker",
+      "browserInspectionStatus": "completed",
+      "nativeInspectionStatus": "completed"
     },
     {
       "id": "bubble",
@@ -2643,12 +2651,12 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T09:04:35.601992+00:00",
+    "updatedAt": "2026-09-09T09:19:15.387840+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Each component reviewer reviews, fixes, verifies and merges directly from the main checkout under the shared main lease; no coordinator approval gate.",
-    "nativeInspectionPolicy": "Review tasks acquire the shared desktop lease directly for native/browser actions and release promptly; no coordinator scheduling gate.",
+    "nativeInspectionPolicy": "Reviewers acquire the shared desktop lease directly; busy requests join a first-come, first-served queue, retries preserve position, and callers release held leases or cancel waiting requests before ending a turn.",
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
       "requestedBy": "user",
@@ -2770,15 +2778,6 @@
           "status": "independent_review",
           "headCommit": "715ab477e807d3ba4f1f8d3492d09036844c7505",
           "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932"
-        },
-        {
-          "component": "marker",
-          "taskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
-          "branch": "codex/review-marker",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8a02/discourse-native",
-          "headCommit": "c797918bd1446a612a1a3da7c26573169a40bad3",
-          "status": "independent_review",
-          "implementationTaskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4"
         },
         {
           "component": "collapsible",
@@ -3079,17 +3078,6 @@
           "status": "in_progress"
         },
         {
-          "component": "marker",
-          "title": "Review and merge Marker",
-          "taskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8a02/discourse-native",
-          "branch": "codex/review-marker",
-          "implementationTaskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
-          "implementationBranch": "codex/ui-marker",
-          "status": "in_progress"
-        },
-        {
           "component": "collapsible",
           "title": "Review and merge Collapsible",
           "taskId": "01a08558-a79c-7911-8f75-53b3528fc08f",
@@ -3145,11 +3133,12 @@
           "status": "in_progress"
         }
       ],
-      "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks."
+      "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks.",
+      "leaseVerification": "Three behavioral tests passed in an isolated candidate: eight-way main exclusion and scope independence; eight concurrent desktop waiters retain order without overtaking; cancellation and wrong-owner/token enforcement preserve the current holder."
     },
     "resourceCoordination": {
       "main": "Shared main lease; reviewer owns local merge.",
-      "desktop": "Shared desktop lease for browser and native review; live owner is in Git common directory, not cached here."
+      "desktop": "Shared FIFO desktop queue and lease for browser/native review; live holder and waiters are in the Git common directory. No coordinator scheduling gate."
     }
   },
   "visualFidelity": {
