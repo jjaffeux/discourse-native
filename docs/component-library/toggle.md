@@ -57,3 +57,24 @@ composition, which is more appropriate than a compact toggle button.
   native button behavior to Base UI's `aria-pressed` contract.
 - The app's configured font and semantic palette replace Geist and fixed web
   colors. Geometry, weight, leading and relative radius remain explicit.
+
+## Implementer verification
+
+Source implementation: `271c1bddbd8332741e185d9924be7690e5628646`.
+
+- 7 focused Toggle component/example tests passed with randomized seed
+  `9052026`.
+- 258 Toggle, Voice adoption, retained composer toolbar and full styleguide
+  tests passed with randomized seed `9052027`.
+- Root and `profiles/full` `flutter analyze --no-pub` passed. Locked package
+  resolution succeeded in both roots without dependency changes. Formatting
+  and `git diff --check` passed.
+- An ordinary, unlaunched macOS styleguide debug build passed. Toggle source
+  SHA-256: `966db63c7d1c41da694fd605f0970e692124beda4a2ac58324f122df50126176`.
+  Kernel SHA-256: `6ccefa7874e4d9b6f42d5c68ec3da012e6fc581a43c273961a069bd15150725c`.
+  This normal project build retains developer entitlements and is build
+  evidence only; it is not the isolated review bundle and was not launched.
+
+The independent reviewer owns official rendered reference comparison, native
+styleguide and Voice-control inspection, any resulting fixes, status promotion,
+latest-main reconciliation and the final local-main merge.
