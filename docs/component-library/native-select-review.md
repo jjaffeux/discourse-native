@@ -95,6 +95,35 @@ its wrapping44px rows, scrolling, focus and shadow are not an OS/browser popup
 reproduction. Manual render tests enable real shadows (the default test binding
 otherwise paints shadow debugging outlines). No OS-popup parity claim is made.
 
+## Independent macOS review
+
+The independent reviewer launched the exact signed bundle recorded below and
+inspected the real Preferences route plus the fixture's reference status,
+department, invalid, dark-theme, narrow RTL/200%-text, Form validation/save/reset,
+and accessibility examples. Closed-field geometry, grouped-popup scrolling,
+invalid/focus treatment, RTL chevron placement, large-text growth, and the
+production Preferences layout remained sound.
+
+The first macOS accessibility pass found that open popup choices were exposed as
+static text rather than actionable controls. Commit
+`c58487c650c7ecb01f5ffe04ec35ddaf103189af` adds an explicit bounded button
+semantics owner for each enabled choice while leaving group headings
+non-actionable. A native AX action on the Preferences "First time" choice then
+selected the value and closed the popup, and keyboard Down/Return selected
+"Never".
+
+The follow-up pass found that native Escape could remain inside Flutter's menu
+handling even though the existing widget regression passed. Commit
+`3512489c` handles Escape at the select's local keyboard owner whenever its menu
+is open, closes only that menu, clears type-ahead, and restores field focus. The
+existing keyboard dismissal regression covers this ownership rule. The final
+exact-bundle pass confirmed the repaired actionable choice semantics and native
+Escape dismissal/focus restoration on the real Preferences selector.
+
+This was macOS Accessibility API inspection, not spoken VoiceOver output. No iOS
+or Linux device was available, and no OS-popup parity claim is made because the
+popup is intentionally Flutter-owned.
+
 ## Verification and handoff
 
 155 impact-focused component, styleguide, launcher, Voice and migrated-owner tests
@@ -102,9 +131,9 @@ passed after correction. Both manual font-loaded render tests passed. Root and
 full-profile analysis passed. Existing pins and lockfiles are unchanged.
 The prior323-test migration run remains recorded in implementation history.
 
-Browser control was explicitly **RELEASED** before final checks/build: original
-dark theme restored, temporary viewport reset to1403×962, and only this task's
-created tab closed. Native Mac stayed locked: no native CUA or app launch.
-Progress remains **in_progress / awaiting_slot** until native visual/device and
-VoiceOver review. The refreshed unique signed bundle and compiled-source evidence
-are recorded in `native-select-build.md`. No merge or push was performed.
+Browser control was explicitly **RELEASED** after restoring the original dark
+theme and 1403×962 viewport and closing only this task's created tab. The shared
+desktop lease was acquired for each native pass and released immediately after
+stopping only this task's app. The refreshed unique signed bundle and
+compiled-source evidence are recorded in `native-select-build.md`. No push was
+performed.

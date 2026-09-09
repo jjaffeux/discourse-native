@@ -17,7 +17,30 @@ Compiled lib/tool/test source equals the source commit after building. This evid
 
 Refreshed after the browser correction: 155 impact-focused tests and two font-loaded render tests passed. The prior 323-test migration suite and routed Chat notification integration test also passed. Root and full-profile analysis passed. Pins and lockfiles remain unchanged.
 
-Status: **awaiting_slot**, progress **in_progress**. Browser-only comparison was completed and the slot released with original dark theme/viewport restored; details in native-select-review.md. No native app launch or native CUA occurred. Native visual/device/VoiceOver inspection remains pending coordinator desktop access. The fixture uses local fake account/API data and simulated Voice media adapters.
+That browser-stage bundle was not launched at the time. The browser comparison
+completed with original dark theme/viewport restored; details are in
+`native-select-review.md`. The fixture uses local fake account/API data and
+simulated Voice media adapters. Later independent native launches used the
+rebuilt bundles below.
+
+## Independent-review rebuilds
+
+The accessibility semantics fix was first rebuilt and inspected from commit
+`c58487c650c7ecb01f5ffe04ec35ddaf103189af` as
+`/tmp/native-select-review-4d1e.IpIwvN/Native Select Review 4d1e.app`.
+
+After the native Escape correction, the final exact bundle was rebuilt from
+commit `3512489c` as
+`/tmp/native-select-review-escape-4d1e.2aGZte/Native Select Review Escape 4d1e.app`.
+Its source `app.dill`, build-product kernel, and copied-app kernel all have
+SHA-256 `962a99807d014c8b839aa00512c5c0afe50f2243476c2de6e23920c5829fa4f5`.
+The copied bundle was ad-hoc signed with the same restricted debug entitlements;
+signed entitlement read-back matched and `codesign --verify --deep --strict`
+passed. It was the bundle used for the final Preferences accessibility and Escape
+confirmation described in `native-select-review.md`.
+
+Status after independent review: **review_ready**. Native inspection was macOS
+only; spoken VoiceOver, iOS, and Linux remain explicit limitations.
 
 ## Pinned-main merge queue refresh
 

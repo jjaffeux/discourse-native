@@ -12,10 +12,10 @@ const _fruit = <DNativeSelectEntry<String>>[
 ];
 
 final nativeSelectExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'A compact plain selection field with a Flutter-owned popup.',
   notes:
-      'Source implementation complete; reference/native visual review pending. '
+      'Independent source, browser, and macOS native review complete. '
       '32px standard / 28px small, 14px text with 20px leading, 16px Lucide chevron. '
       'The platform adaptation uses Flutter MenuAnchor/MenuItemButton on all targets, not '
       'an OS/AppKit/UIKit picker. Its popup provides scrolling, keyboard selection, '
