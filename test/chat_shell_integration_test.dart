@@ -4945,7 +4945,7 @@ void _registerChatShellTests() {
         expect(find.text('Staff'), findsNothing);
         expect(find.text('Leave this channel'), findsOneWidget);
         expect(threadingSwitch, findsOneWidget);
-        expect(tester.widget<Switch>(threadingSwitch).value, isFalse);
+        expect(tester.widget<DSwitch>(threadingSwitch).value, isFalse);
 
         await tester.tap(threadingSwitch);
         await tester.pumpAndSettle();
@@ -4955,7 +4955,7 @@ void _registerChatShellTests() {
         ]);
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.chat.channel(site, 9)?.threadingEnabled, isTrue);
-        expect(tester.widget<Switch>(threadingSwitch).value, isTrue);
+        expect(tester.widget<DSwitch>(threadingSwitch).value, isTrue);
       });
 
       testWidgets('staff close an open category channel after confirmation', (

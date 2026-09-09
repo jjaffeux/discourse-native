@@ -1,0 +1,35 @@
+{
+  "sourceCommit": "6792e34b950b780fbeb93a4aea82c57bd537f2b0",
+  "mergedMain": "e612ad7b47413fa890b35ae3b55a6f6d37b08cf7",
+  "reviewBundle": "/private/tmp/DiscourseSliderReview-6792e34b.app",
+  "bundleId": "org.discourse.native.slider.6792e34b",
+  "urlScheme": "discourse-slider-6792e34b",
+  "kernelSha256": "b37dbe5b00805e4e9cfb90f15ecf2ed5d59303b365afb296a83617ad847ad8b7",
+  "sourceKernelSha256": "b37dbe5b00805e4e9cfb90f15ecf2ed5d59303b365afb296a83617ad847ad8b7",
+  "sourceEquality": "git diff --exit-code HEAD -- lib tool macos pubspec.lock .fvmrc profiles/full/pubspec.lock passed",
+  "signedEntitlements": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.get-task-allow": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "restrictedEntitlementsAbsent": true,
+  "signatureVerification": "--prepared:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/MacOS/__preview.dylib\n--validated:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/MacOS/__preview.dylib\n--prepared:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/Frameworks/App.framework/Versions/Current/.\n--prepared:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--prepared:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/MacOS/Discourse.debug.dylib\n--validated:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/MacOS/Discourse.debug.dylib\n--prepared:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--prepared:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseSliderReview-6792e34b.app/Contents/Frameworks/App.framework/Versions/Current/.\n/private/tmp/DiscourseSliderReview-6792e34b.app: valid on disk\n/private/tmp/DiscourseSliderReview-6792e34b.app: satisfies its Designated Requirement\n",
+  "credits": "{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Helvetica;}}\n\\qc\\f0\\fs22\nDebug build\\line\nCommit: 6792e34b950b\\line\nBuilt: 2026-09-09 08:12:04 UTC\n}\n",
+  "launched": true,
+  "nativeInspectionStatus": "completed",
+  "inspectionDate": "2026-09-09",
+  "reviewTaskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
+  "observed": [
+    "Official Base UI default, range, multiple-thumb, vertical, controlled, disabled and RTL examples in light and dark browser appearances",
+    "Native production topic, participant volume and inline playback fixtures in light, dark, RTL and 2x text",
+    "LTR and RTL keyboard direction, focus halo, disabled input rejection, removal/restoration and external playback update",
+    "Native styleguide default, range, multiple-thumb, vertical, controlled, Plum palette and buffered playback examples"
+  ],
+  "limitations": [
+    "No iOS or Linux device run",
+    "No spoken VoiceOver verification",
+    "No browser/native pixel-equality claim across font rasterizers"
+  ]
+}

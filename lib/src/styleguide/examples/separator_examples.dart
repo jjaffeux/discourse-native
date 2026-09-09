@@ -196,20 +196,20 @@ class _HorizontalPreviewState extends State<_HorizontalPreview> {
         'Use a separator to mark a boundary between related sections.',
       ),
       const SizedBox(height: DSpacing.lg),
-      SwitchListTile.adaptive(
+      DSwitchTile(
         title: const Text('Meaningful boundary'),
         subtitle: const Text('Accessibility label: End of introduction'),
         contentPadding: EdgeInsets.zero,
         value: _meaningful,
         onChanged: (value) => setState(() => _meaningful = value),
       ),
-      SwitchListTile.adaptive(
+      DSwitchTile(
         title: const Text('Asymmetric insets'),
         contentPadding: EdgeInsets.zero,
         value: _inset,
         onChanged: (value) => setState(() => _inset = value),
       ),
-      SwitchListTile.adaptive(
+      DSwitchTile(
         title: const Text('Emphasize boundary'),
         contentPadding: EdgeInsets.zero,
         value: _emphasized,
