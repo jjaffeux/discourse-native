@@ -70,6 +70,46 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets(
+    'combined viewport keeps full width while padding and physics apply to both axes',
+    (tester) async {
+      const physics = BouncingScrollPhysics();
+      final vertical = ScrollController();
+      final horizontalController = ScrollController();
+      addTearDown(vertical.dispose);
+      addTearDown(horizontalController.dispose);
+      await tester.pumpWidget(
+        host(
+          DScrollArea(
+            axes: DScrollAxes.both,
+            controller: vertical,
+            horizontalController: horizontalController,
+            padding: const EdgeInsets.all(10),
+            physics: physics,
+            child: const SizedBox(width: 1000, height: 1000),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(vertical.position.maxScrollExtent, 840);
+      expect(horizontalController.position.maxScrollExtent, 820);
+      final area = tester.getRect(find.byType(DScrollArea));
+      final viewports = tester
+          .widgetList<SingleChildScrollView>(find.byType(SingleChildScrollView))
+          .toList();
+      expect(viewports, hasLength(2));
+      for (final viewport in viewports) {
+        expect(viewport.physics, same(physics));
+      }
+      final horizontal = viewports.singleWhere(
+        (viewport) => viewport.scrollDirection == Axis.horizontal,
+      );
+      final horizontalRect = tester.getRect(find.byWidget(horizontal));
+      expect(horizontalRect.left, area.left);
+      expect(horizontalRect.right, area.right);
+    },
+  );
   testWidgets('mouse thumb dragging and wheel events reach the intended axis', (
     tester,
   ) async {
