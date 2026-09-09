@@ -287,12 +287,14 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
       ComposerPollType.number,
       if (_isRanked) ComposerPollType.rankedChoice,
     ];
-    return DSelectField<ComposerPollType>(
-      initialValue: _type,
-      decoration: const InputDecoration(labelText: 'Poll type'),
-      items: [
+    return DNativeSelect<ComposerPollType>.controlled(
+      isExpanded: true,
+      placeholderEnabled: false,
+      value: _type,
+      label: 'Poll type',
+      entries: [
         for (final type in choices)
-          DropdownMenuItem(value: type, child: Text(_typeLabel(type))),
+          DNativeSelectOption(value: type, label: _typeLabel(type)),
       ],
       onChanged: _isRanked
           ? null
@@ -303,6 +305,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
                 _error = null;
               });
             },
+      initialValue: _type,
     );
   }
 
@@ -421,19 +424,19 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
         PollResultMode.staffOnly,
       if (_results == PollResultMode.unknown) PollResultMode.unknown,
     ];
-    return DSelectField<PollResultMode>(
-      initialValue: _results,
-      decoration: const InputDecoration(labelText: 'Show results'),
-      items: [
+    return DNativeSelect<PollResultMode>.controlled(
+      isExpanded: true,
+      placeholderEnabled: false,
+      value: _results,
+      label: 'Show results',
+      entries: [
         for (final result in choices)
-          DropdownMenuItem(
+          DNativeSelectOption(
             value: result,
             enabled: result != PollResultMode.unknown,
-            child: Text(
-              result == PollResultMode.unknown
-                  ? 'Preserve “${widget.draft.resultsSource}”'
-                  : result.label,
-            ),
+            label: result == PollResultMode.unknown
+                ? 'Preserve “${widget.draft.resultsSource}”'
+                : result.label,
           ),
       ],
       onChanged: (result) {
@@ -443,6 +446,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
           _error = null;
         });
       },
+      initialValue: _results,
     );
   }
 
