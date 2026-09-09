@@ -1,3 +1,4 @@
+import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/card_examples.dart';
@@ -15,6 +16,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'alert': alertExamples,
   'card': cardExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,

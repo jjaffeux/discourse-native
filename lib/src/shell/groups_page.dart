@@ -593,32 +593,20 @@ class _MembershipBadge extends StatelessWidget {
 
 class _DirectoryError extends StatelessWidget {
   const _DirectoryError({required this.message, required this.onRetry});
-
   final String message;
   final VoidCallback? onRetry;
-
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(16),
-    child: Material(
-      color: Theme.of(context).colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(
-              Icons.error_outline,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message)),
-            DButton(
-              label: const Text('Try again'),
-              onPressed: onRetry,
-              variant: DButtonVariant.link,
-            ),
-          ],
+    child: DAlert(
+      variant: DAlertVariant.destructive,
+      icon: const Icon(Icons.error_outline),
+      description: DAlertDescription(child: Text(message)),
+      action: DAlertAction(
+        child: DButton(
+          label: const Text('Try again'),
+          onPressed: onRetry,
+          variant: DButtonVariant.link,
         ),
       ),
     ),

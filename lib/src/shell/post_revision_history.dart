@@ -809,20 +809,11 @@ class _HiddenDiff extends StatelessWidget {
 
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message});
-
   final String message;
-
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(4),
-    ),
-    child: Text(
-      message,
-      style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
-    ),
+  Widget build(BuildContext context) => DAlert(
+    variant: DAlertVariant.destructive,
+    description: DAlertDescription(child: Text(message)),
   );
 }
 

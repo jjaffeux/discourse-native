@@ -1986,18 +1986,35 @@
     },
     {
       "id": "alert",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
+      "branch": "codex/ui-alert",
       "dependencies": [
         "typography"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "acceptanceCriteria": [
+        "Implement DAlert, DAlertTitle, DAlertDescription and DAlertAction with default/destructive and custom live-token colors; exact base-nova 10/8px padding plus 1px border, 16px icon with 2px offset, 8px column and 2px row gaps, 14/20 typography and proportional lg radius.",
+        "Match basic, destructive, action, custom-color and RTL reference compositions using original Lucide artwork. Preserve compact action placement and reflow at narrow/large text.",
+        "Expose live-region opt-out for static notices; preserve child keyboard focus, semantics and callback ownership without adding timers/controllers or form state to passive Alert.",
+        "Audit core and bundled plugin inline banners; migrate appropriate error/status notices with existing callbacks, async states and permissions unchanged; record retained alternatives.",
+        "Verify focused component and migration tests, root/full-profile analysis, format, exact-source unique signed macOS actual-production fixture; keep native/reference comparison pending until explicit desktop slot."
+      ],
+      "decisions": [
+        "Four-part passive DAlert owner with exact base-nova source metrics, two actual variants, live tokens, multiplied destructive alpha, measured action reflow and platform live-region opt-out. Source/artwork hashes and geometry in docs/component-library/alert.md.",
+        "Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate."
+      ],
+      "migrations": [
+        "Inline errors: topic feed, categories, tags, groups/group, aggregate, activity pagination, draft refresh, revision history, GIF paging. Composer tag removal notice retains dismissal and controller lifetime."
+      ],
+      "retainedAlternatives": [
+        "Page-scale states owned by Empty; historical cooked post notices, chat deleted/read runs, recording/diagnostic indicators, specialized tables, field validation, media errors and Toast/Dialog content retained with specific audit rationale in alert.md."
+      ],
+      "verification": [
+        "107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity tests passed. Root and full-profile enforced-lockfile resolution completed. Native build evidence pending."
+      ],
+      "limitations": [
+        "awaiting_slot: Mac locked; no browser/native access authorized. Rendered comparison, native styleguide and changed production-surface inspection remain required; no VoiceOver/device/pixel-parity claim."
+      ],
       "implementationCommit": null,
       "mergeCommit": null
     },

@@ -63,7 +63,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
 | 52 | carousel | planned | — | — | button | — |
 | 53 | toast | planned | — | — | button | — |
-| 54 | alert | planned | — | — | typography | — |
+| 54 | alert | in_progress | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | — |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
 | 56 | marker | in_progress | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | — |
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
@@ -1562,6 +1562,39 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 
 - awaiting_slot: browser slot released with original dark theme and viewport restored; native app/device/VoiceOver inspection remains required before review_ready or merge.
 - No native CUA/app launch. Font-loaded widget screenshots are not device rendering, VoiceOver or OS-popup parity evidence.
+
+### alert
+
+Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/ui-alert.
+
+**acceptanceCriteria**
+
+- Implement DAlert, DAlertTitle, DAlertDescription and DAlertAction with default/destructive and custom live-token colors; exact base-nova 10/8px padding plus 1px border, 16px icon with 2px offset, 8px column and 2px row gaps, 14/20 typography and proportional lg radius.
+- Match basic, destructive, action, custom-color and RTL reference compositions using original Lucide artwork. Preserve compact action placement and reflow at narrow/large text.
+- Expose live-region opt-out for static notices; preserve child keyboard focus, semantics and callback ownership without adding timers/controllers or form state to passive Alert.
+- Audit core and bundled plugin inline banners; migrate appropriate error/status notices with existing callbacks, async states and permissions unchanged; record retained alternatives.
+- Verify focused component and migration tests, root/full-profile analysis, format, exact-source unique signed macOS actual-production fixture; keep native/reference comparison pending until explicit desktop slot.
+
+**decisions**
+
+- Four-part passive DAlert owner with exact base-nova source metrics, two actual variants, live tokens, multiplied destructive alpha, measured action reflow and platform live-region opt-out. Source/artwork hashes and geometry in docs/component-library/alert.md.
+- Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate.
+
+**migrations**
+
+- Inline errors: topic feed, categories, tags, groups/group, aggregate, activity pagination, draft refresh, revision history, GIF paging. Composer tag removal notice retains dismissal and controller lifetime.
+
+**retainedAlternatives**
+
+- Page-scale states owned by Empty; historical cooked post notices, chat deleted/read runs, recording/diagnostic indicators, specialized tables, field validation, media errors and Toast/Dialog content retained with specific audit rationale in alert.md.
+
+**verification**
+
+- 107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity tests passed. Root and full-profile enforced-lockfile resolution completed. Native build evidence pending.
+
+**limitations**
+
+- awaiting_slot: Mac locked; no browser/native access authorized. Rendered comparison, native styleguide and changed production-surface inspection remain required; no VoiceOver/device/pixel-parity claim.
 
 ### marker
 
