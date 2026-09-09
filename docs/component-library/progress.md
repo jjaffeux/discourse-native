@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
+**35 of 64 components are merged locally.** 17 existing components are in progress; 12 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -84,7 +84,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 45 | context-menu | planned | — | — | dropdown-menu | — |
 | 46 | menubar | planned | — | — | dropdown-menu | — |
 | 47 | navigation-menu | planned | — | — | popover | — |
-| 48 | breadcrumb | planned | — | — | button, dropdown-menu | — |
+| 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
 | 49 | pagination | planned | — | — | button, select | — |
 | 50 | calendar | in_progress | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
@@ -2285,6 +2285,23 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 
 - Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
 - Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
+
+### breadcrumb
+
+Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/ui-breadcrumb.
+
+**acceptanceCriteria**
+
+- Expose complete public DBreadcrumb, DBreadcrumbList, DBreadcrumbItem, DBreadcrumbLink, DBreadcrumbPage, DBreadcrumbSeparator and DBreadcrumbEllipsis composition matching the frozen Base UI/base-nova source metrics and visual states.
+- Provide typed route callbacks and an optional route adapter while preserving disabled links, current-page semantics, focus visibility, keyboard/touch activation, quiet decorative separators/ellipsis and logical RTL artwork.
+- Reproduce Basic, Custom separator, Dropdown, Collapsed, Link component and RTL examples with the final Dropdown Menu owner; cover wrapping and opt-in horizontal scrolling at narrow widths and 200% text.
+- Audit core and bundled plugins for real hierarchical paths, migrate suitable ancestry presentation without inventing hierarchy or replacing back navigation, and record retained specialized alternatives.
+- Pass focused component/styleguide/adoption tests, formatting and root/full-profile analysis; hand remaining official rendered browser/native macOS acceptance and accepted Dropdown reconciliation to a new independent reviewer.
+
+**decisions**
+
+- Frozen Markdown SHA256 df168dd44f709ddb768995fbab0188c1934b6e95def1ba3726adf4f9302714b7 verified on 2026-09-09. Base-nova registry source SHA256 5e7a33d921824d659494dc90411393cdf795c0ad5c94631da5c2883924623350 supplies the exact visual mapping.
+- Prepare Dropdown and Collapsed menu composition against the tested Dropdown Menu review candidate d273c27e788bb3991c773c7432e0b8c927715651; final Breadcrumb review remains gated on Dropdown Menu acceptance and current-main reconciliation.
 
 ### calendar
 

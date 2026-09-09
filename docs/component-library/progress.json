@@ -2539,15 +2539,24 @@
     },
     {
       "id": "breadcrumb",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-c290-7772-8b90-e5358efa6752",
+      "branch": "codex/ui-breadcrumb",
       "dependencies": [
         "button",
         "dropdown-menu"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Expose complete public DBreadcrumb, DBreadcrumbList, DBreadcrumbItem, DBreadcrumbLink, DBreadcrumbPage, DBreadcrumbSeparator and DBreadcrumbEllipsis composition matching the frozen Base UI/base-nova source metrics and visual states.",
+        "Provide typed route callbacks and an optional route adapter while preserving disabled links, current-page semantics, focus visibility, keyboard/touch activation, quiet decorative separators/ellipsis and logical RTL artwork.",
+        "Reproduce Basic, Custom separator, Dropdown, Collapsed, Link component and RTL examples with the final Dropdown Menu owner; cover wrapping and opt-in horizontal scrolling at narrow widths and 200% text.",
+        "Audit core and bundled plugins for real hierarchical paths, migrate suitable ancestry presentation without inventing hierarchy or replacing back navigation, and record retained specialized alternatives.",
+        "Pass focused component/styleguide/adoption tests, formatting and root/full-profile analysis; hand remaining official rendered browser/native macOS acceptance and accepted Dropdown reconciliation to a new independent reviewer."
+      ],
+      "decisions": [
+        "Frozen Markdown SHA256 df168dd44f709ddb768995fbab0188c1934b6e95def1ba3726adf4f9302714b7 verified on 2026-09-09. Base-nova registry source SHA256 5e7a33d921824d659494dc90411393cdf795c0ad5c94631da5c2883924623350 supplies the exact visual mapping.",
+        "Prepare Dropdown and Collapsed menu composition against the tested Dropdown Menu review candidate d273c27e788bb3991c773c7432e0b8c927715651; final Breadcrumb review remains gated on Dropdown Menu acceptance and current-main reconciliation."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
