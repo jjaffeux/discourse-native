@@ -181,6 +181,20 @@ void main() {
     expect(find.text('Email'), findsNothing);
   });
 
+  testWidgets('opening a sibling submenu closes the previous overlay', (
+    tester,
+  ) async {
+    await pumpMenu(tester, child: const _SiblingSubmenuHarness());
+    await open(tester);
+    await tester.tap(find.text('Invite users'));
+    await tester.pumpAndSettle();
+    expect(find.text('Email'), findsOneWidget);
+    await tester.tap(find.text('Export'));
+    await tester.pumpAndSettle();
+    expect(find.text('Email'), findsNothing);
+    expect(find.text('PDF'), findsOneWidget);
+  });
+
   testWidgets('outside pointer dismisses without stealing outside focus', (
     tester,
   ) async {
@@ -416,6 +430,33 @@ class _SubmenuHarness extends StatelessWidget {
             DDropdownMenuItem(onPressed: _noop, child: Text('Email')),
             DDropdownMenuItem(onPressed: _noop, child: Text('Message')),
           ],
+        ),
+      ],
+    ),
+    child: DDropdownMenuTrigger(
+      builder: (context, state) => DButton(
+        label: const Text('Open'),
+        onPressed: state.toggle,
+        focusNode: state.focusNode,
+      ),
+    ),
+  );
+}
+
+class _SiblingSubmenuHarness extends StatelessWidget {
+  const _SiblingSubmenuHarness();
+
+  @override
+  Widget build(BuildContext context) => DDropdownMenu(
+    content: const DDropdownMenuContent(
+      children: [
+        DDropdownMenuSub(
+          trigger: Text('Invite users'),
+          children: [DDropdownMenuItem(onPressed: _noop, child: Text('Email'))],
+        ),
+        DDropdownMenuSub(
+          trigger: Text('Export'),
+          children: [DDropdownMenuItem(onPressed: _noop, child: Text('PDF'))],
         ),
       ],
     ),
