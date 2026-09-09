@@ -1,6 +1,6 @@
 # Chart native review handoff
 
-Status: **review corrections complete; final native confirmation queued**.
+Status: **accepted after independent browser and macOS native review**.
 Browser comparison completed; see [rendered evidence](chart-browser-review.md).
 
 ## Independent reviewer native pass
@@ -31,11 +31,29 @@ Two visual defects were found and fixed in this independent review:
 - The tooltip-anatomy demo retained fixed 128/144px cards at 200% text, causing
   severe wrapping. Its source dimensions now scale with the inherited text
   scaler, with a focused 360px/200% regression. The rebuilt exact-source bundle
-  is queued for the final native confirmation of this correction.
+  was confirmed at Plum + 360px + 200%: every treatment remained readable,
+  stacked cleanly and exposed its complete label/value content without overlap.
 
 No VoiceOver, iOS device or Linux device testing was performed.
 
-## Exact executable source
+## Final reviewer confirmation
+
+- Review branch: `codex/review-chart`.
+- Exact review source: `6a07c5ea9c928a36a8acf73dd60bd98339f0bd3a`.
+- Bundle: `/tmp/chart-review-c0d7-6a07c5ea/Chart Review c0d7.app`.
+- Identifier: `org.discourse.chartreviewc0d7`.
+- URL scheme: `discourse-chart-review-c0d7`.
+- Worktree and copied kernels matched SHA256
+  `3f0236a425737cfafc39f2d7577481d26e9e8c15a1d6c511810fe92ade77cae2`.
+- Deep strict signature verification passed before launch.
+
+The final pass selected the actual Tooltip anatomy example, Plum site palette,
+360px viewport and 200% text. The corrected cards expanded to 256/288 logical
+pixels, stacked without collision, retained visible indicators and values, and
+remained complete in the native accessibility tree. Only the Chart review
+window was closed and the serialized desktop lease was released afterward.
+
+## Original implementation executable source
 
 - Branch: `codex/ui-chart`.
 - Implementation: `3c1fb60a44830fd161af196473c05a8ab0029564`.
@@ -123,7 +141,10 @@ produce no quantitative marks. Existing downstream tests preserve maxima,
 column widths/scroll ownership, invalid input, accepted-result and account-race
 behavior. These tests are not device, VoiceOver or pixel-parity verification.
 
-## Required serialized review after unlock
+## Serialized review checklist completed
+
+The following checklist was completed by the independent reviewer; the detailed
+results and the two corrections are recorded above.
 
 1. Browser reference comparison is complete and recorded in chart-browser-review.md. During native review, compare the corresponding
    styleguide steps, interactive header, tooltip treatments, custom content and
@@ -154,4 +175,7 @@ Merged pinned main `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` into Chart at exec
 
 193 integration tests passed, seed **4024479176**, including Chart, actual Poll/Users, Radio Group, Checkbox, Button adoption and styleguide tests. Root/full analysis clean. Build, logs, signed entitlement readback and exact source/kernel provenance are committed in `evidence/chart/integration/`. The isolated copied app is signed with explicit debug/JIT entitlements; readback exactly equals the review plist and excludes APS, developer/team/application identifiers. Deep strict verification passed. Three kernels match; executable source equality passed.
 
-Browser evidence remains the completed earlier comparison; it was not repeated. No CUA, browser or native launch occurred during integration. **awaiting_slot** for native review; examples remain baseline.
+Browser evidence remains the completed earlier comparison; it was not repeated
+during pinned-main integration. That integration step did not launch a native
+app; the subsequent independent macOS pass above completed the native gate and
+promoted the examples.

@@ -33,7 +33,7 @@ final _series = [
 const _legend = [DChartItem(key: 'desktop'), DChartItem(key: 'mobile')];
 
 final chartExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'Compose themed charts with reusable labels, tooltips and legends.',
   notes:
@@ -47,7 +47,8 @@ final chartExamples = ComponentExamples(
       'Legend entries wrap at narrow widths. Axis ticks skip collisions while all values '
       'remain keyboard accessible. Tooltip content can be independently composed with '
       'another plotting owner. No automatic animation, so reduced motion is honored. '
-      'Reference and native visual review are pending; this page remains baseline.',
+      'The frozen browser reference and macOS native fixture were independently reviewed; '
+      'the documented palette, narrow layout, large text and RTL states are accepted.',
   examples: [
     for (var stage = 0; stage < 5; stage++)
       StyleguideExample(
