@@ -236,6 +236,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('component pages omit redundant section controls', (
+    tester,
+  ) async {
+    await _pump(tester, size: const Size(1400, 900));
+    await tester.tap(
+      find.byKey(const ValueKey('styleguide-component-accordion')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('styleguide-Example')), findsNothing);
+    expect(find.text('Implementation notes'), findsNothing);
+  });
+
   testWidgets('Direction examples use the preview provider and retain edits', (
     tester,
   ) async {

@@ -46,7 +46,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   final GlobalKey<DSidebarProviderState> _sidebarKey =
       GlobalKey<DSidebarProviderState>();
   final GlobalKey _codeKey = GlobalKey();
-  final GlobalKey _notesKey = GlobalKey();
   ComponentReference _selected = _foundations;
   StyleguideTheme _theme = StyleguideTheme.current;
   Brightness? _documentationBrightness;
@@ -56,7 +55,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   bool _reducedMotion = false;
   bool _settingsOpen = false;
   bool _codeOpen = false;
-  bool _notesOpen = false;
   bool _copied = false;
   int _exampleIndex = 0;
   int _reset = 0;
@@ -83,7 +81,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       _selected = reference;
       _exampleIndex = 0;
       _codeOpen = false;
-      _notesOpen = false;
       _copied = false;
     });
     _sidebarKey.currentState?.setOpenMobile(false);
@@ -494,50 +491,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 32),
-                  Divider(height: 1, color: DTokens.of(context).border),
-                  const SizedBox(height: 12),
-                  Align(
-                    key: _notesKey,
-                    alignment: AlignmentDirectional.centerStart,
-                    child: StyleguideAction(
-                      label: 'Implementation notes',
-                      icon: _notesOpen
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      onPressed: () => setState(() => _notesOpen = !_notesOpen),
-                    ),
-                  ),
-                  if (_notesOpen) ...[
-                    const SizedBox(height: 12),
-                    if (group != null)
-                      Text(
-                        group.notes,
-                        style: styleguideText(context, height: 24, muted: true),
-                      ),
-                    if (_selected.url.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      SelectableText(
-                        _selected.url,
-                        style: styleguideText(
-                          context,
-                          size: 12,
-                          height: 20,
-                          muted: true,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _selected.sections.join(' · '),
-                        style: styleguideText(
-                          context,
-                          size: 12,
-                          height: 20,
-                          muted: true,
-                        ),
-                      ),
-                    ],
-                  ],
                 ],
               ),
             ),
@@ -815,21 +768,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                 });
               },
             ),
-          StyleguideAction(
-            label: 'Implementation notes',
-            alignment: AlignmentDirectional.centerStart,
-            onPressed: () {
-              setState(() => _notesOpen = true);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  final target = _notesKey.currentContext;
-                  if (target != null) {
-                    unawaited(Scrollable.ensureVisible(target));
-                  }
-                }
-              });
-            },
-          ),
         ],
       ),
     );
