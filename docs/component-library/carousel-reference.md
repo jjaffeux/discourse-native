@@ -71,14 +71,16 @@ appropriate generic adoption.
 
 ## Prepared verification
 
-- `flutter test --no-pub test/d_carousel_test.dart --test-randomize-ordering-seed=940219`: 9 passed.
+- `flutter test --no-pub test/d_carousel_test.dart --test-randomize-ordering-seed=940219`: 10 passed.
 - `flutter test --no-pub test/image_grid_test.dart --test-randomize-ordering-seed=940219`: 33 passed.
 - `flutter test --no-pub test/styleguide/styleguide_access_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=940219`: 17 passed.
 - Root `flutter analyze --no-pub`: clean.
 - `profiles/full`: locked dependency resolution and `flutter analyze --no-pub`: clean.
 - `flutter build macos --debug --no-pub -t lib/styleguide_main.dart`: built `build/macos/Build/Products/Debug/Discourse.app`.
 
-The implementation task did not claim a browser pixel comparison or native
-interaction run. The independent reviewer owns those checks, any fixes they
-surface, source/kernel/signature evidence if it creates an isolated review
-bundle, and the final local-main merge.
+Independent review reproduced both official hashes and compared the live dark
+reference at a 320px viewport. The rendered reference measured 28px circular
+controls at the documented 48px outside offset, a 16px leading item gutter,
+and a 336px item box including that gutter. The native review corrected its
+controls and card composition to those measurements. Full evidence and the
+isolated bundle record are in `carousel-native.md`.
