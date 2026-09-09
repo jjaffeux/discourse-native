@@ -386,25 +386,20 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
             ),
             if (widget.statusesEnabled && statuses.isNotEmpty) ...[
               const SizedBox(height: 12),
-              DSelectField<String>(
-                key: const Key('assignment-status'),
-                initialValue: _status,
+              DNativeSelect<String>.controlled(
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Status'),
-                items: [
+                placeholderEnabled: false,
+                key: const Key('assignment-status'),
+                value: _status,
+                label: 'Status',
+                entries: [
                   for (final status in statuses)
-                    DropdownMenuItem(
-                      value: status,
-                      child: Text(
-                        status,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                    DNativeSelectOption(value: status, label: status),
                 ],
                 onChanged: _saving
                     ? null
                     : (value) => setState(() => _status = _nullableText(value)),
+                initialValue: _status,
               ),
             ],
             if (_error case final error?) ...[

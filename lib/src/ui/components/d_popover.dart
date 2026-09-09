@@ -359,6 +359,12 @@ class _DPopoverState extends State<DPopover>
         menus.last.close();
         return KeyEventResult.handled;
       }
+      _request(
+        false,
+        DPopoverChangeReason.escape,
+        DPopoverInteraction.keyboard,
+      );
+      return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }

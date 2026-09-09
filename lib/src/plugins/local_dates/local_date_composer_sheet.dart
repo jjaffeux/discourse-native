@@ -281,28 +281,29 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                             setState(() => _displayedTimezone = zone),
                       ),
                       const SizedBox(height: 12),
-                      DSelectField<_CalendarMode>(
-                        initialValue: _calendar,
-                        decoration: const InputDecoration(
-                          labelText: 'Relative day',
-                        ),
-                        items: const [
-                          DropdownMenuItem(
+                      DNativeSelect<_CalendarMode>.controlled(
+                        isExpanded: true,
+                        placeholderEnabled: false,
+                        value: _calendar,
+                        label: 'Relative day',
+                        entries: const [
+                          DNativeSelectOption(
                             value: _CalendarMode.automatic,
-                            child: Text('Automatic'),
+                            label: 'Automatic',
                           ),
-                          DropdownMenuItem(
+                          DNativeSelectOption(
                             value: _CalendarMode.on,
-                            child: Text('Always on'),
+                            label: 'Always on',
                           ),
-                          DropdownMenuItem(
+                          DNativeSelectOption(
                             value: _CalendarMode.off,
-                            child: Text('Off'),
+                            label: 'Off',
                           ),
                         ],
                         onChanged: (value) => setState(
                           () => _calendar = value ?? _CalendarMode.automatic,
                         ),
+                        initialValue: _calendar,
                       ),
                       const SizedBox(height: 12),
                       DInput(

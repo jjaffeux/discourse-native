@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**31 of 64 components are merged locally.** 14 existing components are in progress; 19 are planned.
+**34 of 64 components are merged locally.** 11 existing components are in progress; 19 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -19,11 +19,8 @@ Branch preparation does not mark a component merged or visually verified.
 | toggle-group | Implementation and checks | — | — |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
-| tabs | independent review | fcb0e06f | 01a08581-d666-7f81-b039-f9caae6c45c2 |
-| popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
 | select | Implementation and checks | — | — |
-| native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | input-group | Implementation and checks | — | — |
 | button-group | independent review | a0cca310 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
@@ -63,16 +60,16 @@ Branch preparation does not mark a component merged or visually verified.
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
 | 28 | accordion | in_progress | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | — |
-| 29 | tabs | in_progress | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | — |
+| 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
-| 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
+| 31 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
 | 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
 | 34 | alert-dialog | planned | — | — | dialog | — |
 | 35 | sheet | planned | — | — | dialog | — |
 | 36 | drawer | planned | — | — | dialog | — |
 | 37 | select | in_progress | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | — |
-| 38 | native-select | in_progress | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | — |
+| 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
 | 39 | field | in_progress | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
 | 40 | input-group | in_progress | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner | — |
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
@@ -1749,7 +1746,7 @@ Status: merged. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-col
 - Actual order, Basic, Settings, nested File Tree, RTL and lifecycle/Form examples use merged Card and available DButton/StyleguideAction/native editing. Input/Field/Tabs remain pending and exact dependent button/editor visuals are explicitly identified for reconciliation.
 - Integration refresh: merged pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 preserving all other progress rows and coordinator fixes. Examples use final DInput and DButton; trigger remains the sole disclosure interaction owner. Field/Tabs still unmerged.
 - Independent native review found and fixed an oversized semantics boundary: DCollapsibleTrigger is now an explicit semantic container, keeping enclosing cards, fields and sibling controls outside its button role.
-- Latest-main reconciliation preserves DSwitchTile in Local Dates and DScrollBar in AlertTables while DCollapsible remains the only disclosure owner. Field remains a documented DInput-owned label boundary; Tabs reviewer 01a08581-d666-7f81-b039-f9caae6c45c2 owns the explicit File Tree DTabs.controlled follow-up.
+- Latest-main reconciliation preserves DSwitchTile in Local Dates and DScrollBar in AlertTables while DCollapsible remains the only disclosure owner. Field remains a documented DInput-owned label boundary. Tabs reviewer 01a08581-d666-7f81-b039-f9caae6c45c2 completed the explicit File Tree DTabs.controlled follow-up without changing disclosure ownership.
 
 **migrations**
 
@@ -1781,7 +1778,7 @@ Status: merged. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-col
 - No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.
 - Native production inspection used actual Events, Local Dates and AlertTables widgets with fixed local data; no authenticated live account or network session was opened.
 - Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette mapping, interaction and native semantics were compared directly.
-- The File Tree keeps its temporary two-DButton Explorer/Outline selector until the separately reviewed Tabs owner performs the recorded DTabs.controlled adoption; Collapsible does not duplicate that owner.
+- The separately reviewed Tabs owner replaced the temporary File Tree Explorer/Outline buttons with controlled DTabs; Collapsible continues to own only folder disclosure state.
 
 ### accordion
 
@@ -1824,7 +1821,7 @@ Status: in_progress. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/u
 
 ### tabs
 
-Status: in_progress. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/ui-tabs.
+Status: merged. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/ui-tabs.
 
 **acceptanceCriteria**
 
@@ -1839,6 +1836,8 @@ Status: in_progress. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/u
 - Exact frozen/reference source hashes, measurements, API mapping and acceptance are recorded in docs/component-library/tabs-reference.md.
 - DTabs<T>, DTabList<T>, DTabTrigger<T>, DTabPanel<T> and DTabController<T> expose composition and selection. Hidden panels unmount by default; maintainState keeps them offstage without ticking/semantics.
 - Horizontal lists scroll and reveal focused triggers. Vertical content stacks below its still-vertical list below 320px or above 150% text scaling to prevent narrow overflow.
+- Independent review corrected roving entry focus, explicit controller clear, 48px trigger hit targets around 25px artwork, structural replacement validation and whole-trigger disabled opacity. The fixes preserve compact browser geometry while providing native touch accessibility.
+- The Collapsible File Tree now composes Explorer/Outline with controlled DTabs while its nested disclosure and selected-file state remain Collapsible-owned.
 - Collapsible reviewer 01a08558-a79c-7911-8f75-53b3528fc08f received the final API handoff for its temporary File Tree selector; the Tabs reviewer will notify it after merge.
 
 **migrations**
@@ -1855,16 +1854,21 @@ Status: in_progress. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/u
 **verification**
 
 - Frozen shadcn Markdown SHA256 reproduced exactly; current base-nova registry and Base UI Markdown inspected with hashes recorded in tabs-reference.md.
-- 16 component/styleguide widget tests passed with random seed 1188269210, covering geometry, local/controlled/controller selection, pointer/semantics, manual/automatic/RTL/vertical roving focus, Tab entry, disabled/dynamic fallback, panel lifecycle, focus restoration, touch/narrow/200% text, reduced motion and live tokens.
-- 65 Group, Chat channel-info, Diagnostics and Voice production regression tests passed with random seed 592397163 using real migrated widgets and local/fake data.
-- The two Chat shell migration-specific layout/routing tests pass after retaining the full-width 58px app bar and updating its old custom-trigger assertion to the measured 25px shared trigger.
+- 27 component, Tabs styleguide and Collapsible File Tree tests passed with random seed 1188269210 after independent corrections, covering geometry, local/controlled/controller selection and clear, pointer/semantics, manual/automatic/RTL/vertical roving focus, structural replacement, disabled/dynamic fallback, panel lifecycle, focus restoration, 48px touch targets around 25px artwork, narrow/200% text, reduced motion and live tokens.
+- 39 Group and Chat channel-info production regression tests passed with random seed 592397163 after latest-main reconciliation; four focused Diagnostics route/capture checks passed with the same seed. An earlier pre-correction 65-test migration batch also passed, but it is not presented as final-source coverage.
+- The two Chat shell migration-specific layout/routing tests pass after retaining the full-width 58px app bar and distinguishing its 48px interaction trigger from the measured 25px artwork.
 - Full test/chat_shell_integration_test.dart passed all 138 tests with random seed 1517999890 after the Chat tab migration correction.
-- Root and profiles/full flutter analyze --no-pub pass with no issues. Touched Dart format check and git diff --check pass; dependency pins, SDK and lockfiles are unchanged.
+- Root and profiles/full flutter analyze --no-pub pass with no issues after latest-main reconciliation. Touched Dart format check and git diff --check pass; dependency pins, SDK and lockfiles are unchanged.
+- Approved official-browser inspection measured the 32px list, 25px default artwork, selected/inactive palettes, complete 0.5 disabled opacity, 2px line indicator, vertical geometry and right-to-left logical order; pointer selection replaced the active Card panel.
+- Two uniquely identified signed macOS bundles passed native review. The styleguide rendered all seven examples in dark/light palettes, RTL and 200% text without clipping, and exposed one bounded button per trigger plus active-panel-only content. The production harness exercised actual Group, Chat channel-info and Diagnostics route tabs. Full observations and bundle hashes: docs/component-library/evidence/tabs/native-review.md.
+- Final latest-main reconciliation preserved every other component row, integrated Toggle Group dispatch metadata and passed 27 component/example checks, 43 production overlap checks, and root/full static analysis before local main merge 7e6bf1234fcd55aced4037c7e36946d017fe5c79.
 
 **limitations**
 
-- Implementation task did not acquire the shared desktop lease and makes no browser/native render, macOS launch, VoiceOver, iOS or Linux device claim. The independent reviewer owns those remaining acceptance checks and any fixes.
-- Current implementation branch predates later shared-main workflow/progress commits; reviewer must integrate latest main and preserve every other component row.
+- No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.
+- The production harness used local fixture data without an authenticated account; Chat Members reached its unauthenticated network-error state after the tab route changed.
+- The production harness's macOS launch image remained painted over captured frames while its live accessibility tree and route actions updated underneath. Production-widget evidence is therefore interaction/semantics only; native raster comparison comes from the separately signed styleguide bundle.
+- Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette/state mapping, direction, interaction and semantic ownership were compared directly.
 
 ### resizable
 
@@ -1912,7 +1916,7 @@ Status: merged. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-res
 
 ### popover
 
-Status: in_progress. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-popover.
+Status: merged. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-popover.
 
 **acceptanceCriteria**
 
@@ -1932,6 +1936,8 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/u
 - Base UI collision behavior maps to explicit side/align flip, shift and none policies inside a safe-area or caller Rect. A paint-transform tracker requests overlay layout only when the trigger/custom anchor moves or resizes; bounded content scrolls when collision space or accessible text makes it taller than the available side.
 - Keyboard opening focuses the first nested control; touch opening focuses the popup scope to avoid summoning an editor. Escape, outside/trigger/close press, lifecycle loss, controller action and trigger removal dismiss safely and restore trigger/previous focus. The named explicit semantic container does not merge independently interactive descendants.
 - Nested dismissal is layered: the latest open DPopover owns outside pointers, descendant MenuController scopes close before their parent, and outsidePress never schedules trigger restoration over the newly clicked focus owner. This preserves nested Popover/MenuAnchor composition and prevents one physical pointer from cascading through registered layers.
+- Independent review corrected controlled lifecycle synchronization in 8281dda2: lifecycle loss reports its reason, hides without restoring focus into an inactive view, and reconciles a still-true controlled open value on resume.
+- Native styleguide review found that an ancestor Escape shortcut could shadow the local DismissIntent. d9ecd110 makes the topmost Popover layer own Escape directly while retaining descendant-menu-first dismissal and trigger focus restoration.
 
 **migrations**
 
@@ -1941,20 +1947,23 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/u
 
 - showAnchoredPicker category/tag/time-range/assignment pickers, ChoiceMenuAnchor, CommandMenuAnchor, MenuAnchor, PopupMenuButton, Select, Combobox, Hover Card, navigation menus, dialogs and Tooltip remain specialized owners for selection/command keyboard models, search/large lists, result futures, modal or hover behavior. Their shared collision needs are deferred until their catalogue owners exist.
 - With Form now uses the merged DInput owner inside Flutter Form. Rich Field label/description/error layout remains with the separate in-progress Field owner; no substitute Field API was created.
-- DNativeSelect composition remains an integration follow-up after its owner branch lands. The equivalent public multi-entry MenuAnchor regression already verifies selection outside the parent rectangle and layered Escape behavior without importing or cherry-picking that owner.
+- DNativeSelect remains the specialized plain-selection owner. After its accepted main merge, 6a608c56 verified a non-focused option outside the Popover bounds without dismissing the parent, followed by Native Select-first and Popover-second Escape dismissal.
 
 **verification**
 
 - Frozen page, base-nova registry and Base UI API fetches matched the recorded SHA256 values; docs/component-library/popover.md records CSS-to-Flutter geometry, typography, colors, radius, shadow, motion, state and native adaptations.
 - flutter pub get --enforce-lockfile at root and profiles/full completed with Flutter 3.47.2; the incidental root dependency-classification rewrite was reverted and all pins/lockfiles are byte-unchanged.
 - flutter analyze --no-pub at root and profiles/full passed with no issues. Touched Dart formatting and git diff --check passed.
-- Final reconciled focused/downstream run passed 99 tests with seed 826145 across d_popover, Popover examples, the whole styleguide page, DButton adoption and the full TopicInbox file. The dedicated Popover suite now covers 13 cases, including nested Popover, multi-entry MenuAnchor selection outside the parent rectangle, layered Escape, non-cascading pointers and outside-field focus retention.
-- The three inherited Android compact-geometry failures originally reproduced at base commit 9d7a49e797dff14c908369315d035a1437d49c07; after the coordinator's pinned-main fixes were reconciled, the complete TopicInbox file passes in the final 99-test run.
-- Exact-source isolated macOS debug fixture built from b410f9da0227b2b9e0d6518b64277e97d6517b06, mounting the actual TopicInboxHeader adoption and full component styleguide with local fakes. /private/tmp/Popover Review b410f9da.app has unique ID org.discourse.popover.review.b410f9da and URL scheme discourse-popover-b410f9da; source/copied kernel SHA256 values match at 3c39aa89bf6e4bdd19f08b9d628125474e3e5c4de96fcbe568522de62d724831. Deep strict ad-hoc signature and read-back of only sandbox/JIT/network client+server/user-selected files/audio/camera entitlements passed; TeamIdentifier is absent. Bundle was not launched.
+- Final reconciled focused/downstream run passed 102 tests with seed 826145 across d_popover, Popover examples, the whole styleguide page, DButton adoption and the full TopicInbox file. The dedicated Popover suite covers 16 cases, including controlled lifecycle resynchronization, ancestor-shortcut Escape ownership, nested Popover/MenuAnchor, real DNativeSelect selection outside the parent rectangle, layered Escape, non-cascading pointers and outside-field focus retention.
+- The three inherited Android compact-geometry failures originally reproduced at base commit 9d7a49e797dff14c908369315d035a1437d49c07; after the coordinator's pinned-main fixes were reconciled, the complete TopicInbox file passes in the final 102-test run.
+- Official Base Nova Popover Basic was inspected live in light and dark documentation themes. The native mapping preserves the compact surface, title/description hierarchy, outline trigger, foreground ring and shadow; host font rasterization differs from the browser's Geist rendering.
+- The final isolated macOS debug fixture at /private/tmp/discourse-popover-review-85d07f90/build/macos/Build/Products/Debug/Popover Review 85d07f90.app uses unique ID org.discourse.popover.review.85d07f90. Current Popover and TopicInboxHeader source hashes match the fixture; kernel SHA256 is cdb5be91cff62cf7e2822b1a3883b266a92a424312d09aa131efa4659283c3c5. Deep strict Apple-development signature verification passed with sandbox/JIT/network client+server/user-selected files/audio/camera entitlements.
+- Native macOS inspection passed the actual TopicInboxHeader Details adoption: the named Local topic details container exposes independent description, text field and Save locally controls; pointer open, outside dismissal and Escape work. Final styleguide Basic visibly renders the expected compact surface and independent AX controls; Escape closes beneath the page-level shortcut and restores the trigger focus ring.
 
 **limitations**
 
-- awaiting_slot: no desktop slot was granted. No CUA/browser/native app launch, reference-rendered comparison, VoiceOver speech, or iOS/Linux device inspection was performed. Status remains in_progress and is not mergeable until the queued native/reference review completes.
+- No spoken VoiceOver session or iOS/Linux device inspection was performed.
+- Browser Geist and native host-font rasterization differ; review establishes geometry, styling, interaction and accessibility structure rather than pixel equality.
 
 ### dialog
 
@@ -2020,7 +2029,7 @@ Status: in_progress. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/u
 
 ### native-select
 
-Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/ui-native-select.
+Status: merged. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/ui-native-select.
 
 **acceptanceCriteria**
 
@@ -2060,11 +2069,15 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 - Corrected source d2e500f95d25f9901f74b37d0784aeb1e1ebf071 rebuilt into the unique ad-hoc verified review app; all four kernels match 47fabe4db51b73135427cc6ab941765ad04b53c4433693b36b29babf03691efc.
 - Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; final shared component implementations and all other progress rows preserved. 327 integration tests passed initially; sole obsolete 100px post-action test fixture resized to120px for final touch targets, all24 bookmark tests then passed. Root/full analysis clean.
 - Merge-queue bundle rebuilt from f9baeaa86c2bd88058ab815687543587aeec5296 with matching four-kernel hash bb7dca4c9c8906921f677cc834ff2b2bbe1990f4e29009a3b8144cedf1de8a37; restricted-free debug entitlements verified by signed read-back and strict deep signature.
+- Independent macOS review inspected the exact fixture and real Preferences route across light/dark, grouped scrolling, invalid, narrow RTL at 200% text, Form state, and accessibility. The first pass found popup choices exposed as static text; c58487c650c7ecb01f5ffe04ec35ddaf103189af adds bounded actionable choice semantics and a regression.
+- A second native pass confirmed AX choice actions and keyboard selection, then found Escape was not reliably dismissed by the native event path. 3512489c explicitly owns Escape while the select menu is open; the focused component suite passes and the final exact bundle confirmed dismissal with focus restoration.
+- Final exact bundle /tmp/native-select-review-escape-4d1e.2aGZte/Native Select Review Escape 4d1e.app has matching source/build/copied kernel SHA-256 962a99807d014c8b839aa00512c5c0afe50f2243476c2de6e23920c5829fa4f5, matching restricted entitlement read-back, and a passing strict deep signature.
+- Independent verification passed 180 focused component/styleguide/fixture/migration tests before the Escape-only correction, the 12-test component suite afterward, and a randomized 67-test component/styleguide/fixture/Preferences/Bookmark/Local Dates integration run after current-main reconciliation (seed 660499389). Root plus profiles/full flutter analyze --no-pub are clean.
 
 **limitations**
 
-- awaiting_slot: browser slot released with original dark theme and viewport restored; native app/device/VoiceOver inspection remains required before review_ready or merge.
-- No native CUA/app launch. Font-loaded widget screenshots are not device rendering, VoiceOver or OS-popup parity evidence.
+- Native device inspection was macOS only. Spoken VoiceOver output and iOS/Linux devices were not exercised; macOS Accessibility API roles/actions were inspected directly and are covered by widget regressions.
+- The open popup is intentionally Flutter-owned, so neither the font-loaded browser comparison nor native inspection claims OS-popup parity.
 
 ### field
 
@@ -2503,4 +2516,3 @@ Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sid
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
-
