@@ -196,57 +196,60 @@ class DField extends StatelessWidget {
             excluding: !active,
             child: IgnorePointer(
               ignoring: !active,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final horizontal =
-                      orientation == DFieldOrientation.horizontal ||
-                      (orientation == DFieldOrientation.responsive &&
-                          (groupWidth ?? constraints.maxWidth) >=
-                              responsiveBreakpoint);
-                  final hasContent = children.any(
-                    (child) => child is DFieldContent,
-                  );
-                  return Flex(
-                    direction: horizontal ? Axis.horizontal : Axis.vertical,
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: horizontal
-                        ? hasContent
-                              ? CrossAxisAlignment.start
-                              : CrossAxisAlignment.center
-                        : CrossAxisAlignment.stretch,
-                    children: [
-                      for (var i = 0; i < children.length; i++) ...[
-                        if (i > 0)
-                          SizedBox(
-                            width: horizontal ? 8 : 0,
-                            height: horizontal ? 0 : _gap(children, i, 8),
-                          ),
-                        Flexible(
-                          flex: horizontal && _expands(children[i]) ? 1 : 0,
-                          fit: FlexFit.loose,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              top:
-                                  horizontal &&
-                                      hasContent &&
-                                      children[i] is DFieldControl &&
-                                      (children[i] as DFieldControl)
-                                          .alignIndicatorToContent
-                                  ? 1
-                                  : 0,
-                            ),
-                            child: children[i],
-                          ),
-                        ),
-                      ],
-                    ],
-                  );
-                },
-              ),
+              child: orientation == DFieldOrientation.responsive
+                  ? LayoutBuilder(
+                      builder: (context, constraints) => _layout(
+                        children,
+                        (groupWidth ?? constraints.maxWidth) >=
+                            responsiveBreakpoint,
+                      ),
+                    )
+                  : _layout(
+                      children,
+                      orientation == DFieldOrientation.horizontal,
+                    ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _layout(List<Widget> children, bool horizontal) {
+    final hasContent = children.any((child) => child is DFieldContent);
+    return Flex(
+      direction: horizontal ? Axis.horizontal : Axis.vertical,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: horizontal
+          ? hasContent
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.center
+          : CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0)
+            SizedBox(
+              width: horizontal ? 8 : 0,
+              height: horizontal ? 0 : _gap(children, i, 8),
+            ),
+          Flexible(
+            flex: horizontal && _expands(children[i]) ? 1 : 0,
+            fit: FlexFit.loose,
+            child: Padding(
+              padding: EdgeInsets.only(
+                top:
+                    horizontal &&
+                        hasContent &&
+                        children[i] is DFieldControl &&
+                        (children[i] as DFieldControl).alignIndicatorToContent
+                    ? 1
+                    : 0,
+              ),
+              child: children[i],
+            ),
+          ),
+        ],
+      ],
     );
   }
 
