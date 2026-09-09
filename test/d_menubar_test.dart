@@ -227,6 +227,54 @@ void main() {
     },
   );
 
+  testWidgets('controlled open state coordinates through the parent', (
+    tester,
+  ) async {
+    final key = GlobalKey<_ControlledMenubarState>();
+    await tester.pumpWidget(_TestApp(child: _ControlledMenubar(key: key)));
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    expect(find.text('New Tab'), findsOneWidget);
+
+    key.currentState!.open('edit');
+    await tester.pumpAndSettle();
+    expect(find.text('New Tab'), findsNothing);
+    expect(find.text('Undo'), findsOneWidget);
+
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(find.text('Undo'), findsNothing);
+  });
+
+  testWidgets('borrowed controller remains usable after menu disposal', (
+    tester,
+  ) async {
+    final controller = DMenubarMenuController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _TestApp(
+        child: DMenubar(
+          children: [
+            DMenubarMenu(
+              controller: controller,
+              trigger: const DMenubarTrigger(child: Text('File')),
+              content: const DMenubarContent(
+                children: [DMenubarItem(child: Text('New Tab'))],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(const _TestApp(child: SizedBox.shrink()));
+    var notifications = 0;
+    controller.addListener(() => notifications++);
+    controller.open();
+    expect(notifications, 0);
+  });
+
   testWidgets('open overlays follow live tokens and tolerate 200% narrow RTL', (
     tester,
   ) async {
@@ -396,6 +444,47 @@ class _StatefulMenubar extends StatefulWidget {
 
   @override
   State<_StatefulMenubar> createState() => _StatefulMenubarState();
+}
+
+class _ControlledMenubar extends StatefulWidget {
+  const _ControlledMenubar({super.key});
+
+  @override
+  State<_ControlledMenubar> createState() => _ControlledMenubarState();
+}
+
+class _ControlledMenubarState extends State<_ControlledMenubar> {
+  String? openMenu;
+
+  void open(String menu) => setState(() => openMenu = menu);
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      DMenubar(
+        children: [
+          DMenubarMenu(
+            open: openMenu == 'file',
+            onOpenChange: (open, _) =>
+                setState(() => openMenu = open ? 'file' : null),
+            trigger: const DMenubarTrigger(child: Text('File')),
+            content: const DMenubarContent(
+              children: [DMenubarItem(child: Text('New Tab'))],
+            ),
+          ),
+          DMenubarMenu(
+            open: openMenu == 'edit',
+            onOpenChange: (open, _) =>
+                setState(() => openMenu = open ? 'edit' : null),
+            trigger: const DMenubarTrigger(child: Text('Edit')),
+            content: const DMenubarContent(
+              children: [DMenubarItem(child: Text('Undo'))],
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 class _StatefulMenubarState extends State<_StatefulMenubar> {
