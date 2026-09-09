@@ -17,7 +17,7 @@ final directionExamples = ComponentExamples(
       'remain owned by the host. Use directional padding/alignment; text is not '
       'translated and physical geometry or arbitrary icons are not mirrored. '
       'Put the scope above a Navigator for its routes, or use an OverlayPortal '
-      'consumer such as MenuAnchor for a local live overlay.',
+      'consumer such as DDropdownMenu for a local live overlay.',
   examples: [
     StyleguideExample(
       title: 'Live direction and editing',
@@ -82,31 +82,34 @@ Column(
       builder: (_) => const _NestedDirectionPreview(),
     ),
     StyleguideExample(
-      title: 'Inherited direction in a native menu',
+      title: 'Inherited direction in a dropdown menu',
       description:
           'The menu inherits preview direction and theme, including host '
           'updates while open. Arrow keys navigate; '
-          'Enter selects; Escape or an outside click dismisses. MenuAnchor owns '
+          'Enter selects; Escape or an outside click dismisses. DDropdownMenu owns '
           'positioning, scrolling, dismissal and focus restoration.',
-      states: const ['Live overlay', 'Native keyboard', 'Theme changes'],
+      states: const ['Live overlay', 'Keyboard', 'Theme changes'],
       code: '''// Own menuFocus = FocusNode() in State and dispose it there.
 DDirection(
-  child: MenuAnchor(
-    childFocusNode: menuFocus,
-    menuChildren: [
-      MenuItemButton(
+  child: DDropdownMenu(
+    content: DDropdownMenuContent(children: [
+      DDropdownMenuItem(
         onPressed: select,
         child: Builder(builder: (context) => Text(
           'Menu direction: \${DDirection.of(context).name.toUpperCase()}',
         )),
       ),
-    ],
-    builder: (context, controller, child) => TextButton(
+    ]),
+    child: DDropdownMenuTrigger(
       focusNode: menuFocus,
-      onPressed: () => controller.isOpen
-          ? controller.close()
-          : controller.open(),
-      child: const Text('Open direction menu'),
+      builder: (context, menu) => DButton(
+        focusNode: menu.focusNode,
+        label: const Text('Open direction menu'),
+        variant: DButtonVariant.outline,
+        hasPopup: true,
+        expanded: menu.open,
+        onPressed: menu.toggle,
+      ),
     ),
   ),
 )''',
@@ -268,28 +271,35 @@ class _DirectionMenuPreviewState extends State<_DirectionMenuPreview> {
       children: [
         const _DirectionReadout(label: 'Inherited direction'),
         const SizedBox(height: DSpacing.md),
-        MenuAnchor(
-          childFocusNode: _focusNode,
-          menuChildren: [
-            Builder(
-              builder: (context) {
-                final direction = DDirection.of(context).name.toUpperCase();
-                return MenuItemButton(
-                  onPressed: () => setState(() => _selection = direction),
-                  child: Text('Menu direction: $direction'),
-                );
-              },
-            ),
-            MenuItemButton(
-              onPressed: () => setState(() => _selection = 'Second action'),
-              child: const Text('Second action'),
-            ),
-          ],
-          builder: (context, controller, child) => TextButton(
+        DDropdownMenu(
+          content: DDropdownMenuContent(
+            semanticLabel: 'Direction menu',
+            children: [
+              Builder(
+                builder: (context) {
+                  final direction = DDirection.of(context).name.toUpperCase();
+                  return DDropdownMenuItem(
+                    onPressed: () => setState(() => _selection = direction),
+                    child: Text('Menu direction: $direction'),
+                  );
+                },
+              ),
+              DDropdownMenuItem(
+                onPressed: () => setState(() => _selection = 'Second action'),
+                child: const Text('Second action'),
+              ),
+            ],
+          ),
+          child: DDropdownMenuTrigger(
             focusNode: _focusNode,
-            onPressed: () =>
-                controller.isOpen ? controller.close() : controller.open(),
-            child: const Text('Open direction menu'),
+            builder: (context, menu) => DButton(
+              focusNode: menu.focusNode,
+              label: const Text('Open direction menu'),
+              variant: DButtonVariant.outline,
+              hasPopup: true,
+              expanded: menu.open,
+              onPressed: menu.toggle,
+            ),
           ),
         ),
         const SizedBox(height: DSpacing.sm),

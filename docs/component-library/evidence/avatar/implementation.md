@@ -48,10 +48,9 @@ Native adaptations are deliberately bounded:
   counts. Official source: https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/plus.svg,
   SHA256 `7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17`.
   Full ISC/Feather MIT attribution is retained in lucide-LICENSE.txt.
-  Button and Dropdown Menu
-  remain pending owners; the functional dropdown uses existing DButton and
-  native MenuAnchor/MenuItemButton. Their temporary visuals and focus ownership
-  are described directly in the styleguide. These are not Avatar variants.
+  The final composition uses the accepted DButton and DDropdownMenu owners:
+  a 32px circular ghost button around the 32px avatar, a 128px grouped menu,
+  a separator and destructive Log out item. These are not Avatar variants.
 
 Installation and Usage are covered by the public barrel import and snippets.
 Composition, Basic, Badge, Badge with Icon, Group, Group Count, Group with Icon,

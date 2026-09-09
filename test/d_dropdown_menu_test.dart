@@ -100,6 +100,73 @@ void main() {
     );
   });
 
+  testWidgets('live labels, enabled state and focus nodes retain row order', (
+    tester,
+  ) async {
+    final revision = ValueNotifier(0);
+    final first = FocusNode(debugLabel: 'First original');
+    final replacement = FocusNode(debugLabel: 'First replacement');
+    final second = FocusNode(debugLabel: 'Second');
+    addTearDown(revision.dispose);
+    addTearDown(first.dispose);
+    addTearDown(replacement.dispose);
+    addTearDown(second.dispose);
+    await pumpMenu(
+      tester,
+      child: ValueListenableBuilder<int>(
+        valueListenable: revision,
+        builder: (context, value, _) => DDropdownMenu(
+          content: DDropdownMenuContent(
+            children: [
+              DDropdownMenuItem(
+                focusNode: value < 2 ? first : replacement,
+                onPressed: value == 1 ? null : () {},
+                child: Text('First $value'),
+              ),
+              DDropdownMenuItem(
+                focusNode: second,
+                onPressed: () {},
+                child: const Text('Second'),
+              ),
+            ],
+          ),
+          child: DDropdownMenuTrigger(
+            builder: (context, menu) => DButton(
+              focusNode: menu.focusNode,
+              label: const Text('Open'),
+              onPressed: menu.toggle,
+            ),
+          ),
+        ),
+      ),
+    );
+    await open(tester);
+    expect(first.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    revision.value = 1;
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    expect(second.hasFocus, isTrue);
+
+    revision.value = 2;
+    await tester.pump();
+    expect(second.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    expect(replacement.hasFocus, isTrue);
+    expect(first.hasFocus, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(second.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    expect(replacement.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('First 2'), findsNothing);
+    // Borrowed nodes remain usable after the menu is unmounted.
+    await tester.pumpWidget(const SizedBox.shrink());
+    replacement.requestFocus();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('typeahead wraps from the active row', (tester) async {
     await pumpMenu(tester);
     await open(tester);
