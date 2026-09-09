@@ -2879,31 +2879,48 @@
         "tooltip"
       ],
       "acceptanceCriteria": [
-        "Match the frozen Bubble, Content, Reactions and Group API and every variant, alignment, link/action, Collapsible, Tooltip and Popover composition with recorded reference geometry and behavior.",
-        "Compose shared owners with accessible independent actions/reactions, focus/keyboard/touch behavior, narrow/scaled/RTL layouts, reduced motion and live host tokens; preserve domain message/network ownership outside generic widgets.",
-        "Audit and migrate appropriate core/plugin bubble surfaces, coordinate final Toast reaction and later Attachment/Message boundaries directly, and retain all documented examples without primitive duplication.",
-        "Pass focused component/consumer checks and root/full analysis, prepare exact-source fixtures, then create a new independent reviewer to finish required rendered/native review and final local main merge."
+        "Implement DBubble, DBubbleContent, DBubbleReactions and DBubbleGroup as generic presentational composition covering all seven frozen variants, logical start/end alignment, content sizing through 80% of the row, full-width-capable ghost content, edge reactions and consecutive-message grouping without absorbing later Message ownership.",
+        "Match base-nova geometry and state treatment at 100%: 12x8px content inset, 14/22.75px host-font text, transparent or semantic 1px border, host-radius xl factor 1.4, 4px internal and 8px group gaps, live semantic variant colors, and 6x2px reaction inset with 4px gap, pill radius and 3px exterior background ring.",
+        "Support real button/link content roles, pointer hover/press, visible outside-only focus, Enter/Space keyboard behavior, controlled disabled/busy/selected/invalid state, borrowed-or-owned FocusNode lifecycle, static grouped reaction descriptions and independent interactive reaction labels/counts/states with meaning beyond color.",
+        "Support 48px touch action targets without enlarged desktop artwork, ambient selection for presentational content, inherited text scaling, narrow wrapping, RTL logical positioning, reduced motion and live light/dark/custom palette, font and radius changes without resetting local or composed state.",
+        "Provide exhaustive actual-component examples and accurate snippets for Composition, Variants, Alignment, Bubble Group, Links and Buttons, Reactions, Show More/Collapsible, Tooltip, Popover and narrow/scaled/RTL edges; reconcile the final Sonner-linked action feedback with accepted Toast rather than creating a notifier.",
+        "Audit core and bundled-plugin bubble, quote, message, action and reaction surfaces; migrate only safe presentational ownership while preserving Markdown, editor/IME, reply/selection/long-press, permissions, async mutation, virtualization, streaming and domain callbacks, and record specific retained owners.",
+        "Pass touched formatting, focused Bubble/component-composition/styleguide/downstream tests, root and profiles/full locked dependency resolution and static analysis, and a macOS styleguide build; hand exact source to a new reviewer that waits for accepted Popover, integrates current main, completes Toast composition and rendered/native acceptance, fixes findings and performs the final local main merge."
       ],
       "decisions": [
-        "Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory."
+        "Frozen Markdown SHA256 6863ccd2854a6d590991fc58cb8b5ddcb82fe88d25185100b7bf111021267a82 reproduced exactly; inspected base-nova registry SHA256 be11ab3fa78ec7bd4736f4ab98c16a2d5a230536206d5a4fd06259422b55cb14. docs/component-library/bubble.md records measured mapping, API scope and native adaptations.",
+        "Catalogue aggregation was disambiguated: Bubble owns primary/default, secondary, muted, tinted, outline, ghost and destructive variants plus start/end alignment; link/ghost child-button variants, icon-xs/xs sizes, top side and type=button remain properties of composed content/reaction controls rather than duplicate Bubble props.",
+        "DBubble direct children allow native Stack ownership of edge reactions while DBubbleContent and DBubbleReactions read the inherited Bubble variant/alignment. DBubbleGroup supplies only the frozen 8px sender-group spacing; conversation author/time/status semantics remain outside Bubble.",
+        "Interactive DBubbleContent exposes button/link semantics, controlled disabled/busy/selected/invalid information and caller callbacks. Its omitted FocusNode is internally owned; a supplied node is borrowed. Static content stays selectable through an ambient SelectionArea while action content disables ambiguous selection.",
+        "Static reaction glyphs collapse to one descriptive image semantic. Interactive rows omit that grouping and compose accepted DButton controls with visible count/check/error/spinner state. Flutter interactive reaction rows use a 45% rather than 75% translation so their center remains inside bounded hit testing while retaining the edge overlap.",
+        "Source preparation integrated exact Popover review pin d99562f0f6973c9dc3f566eea02d9b00c6de4f7b from codex/review-popover, reviewer 01a08558-ae1e-7843-8cff-7221a399ea5c, including b410f9da and lifecycle fix 8281dda2. This is prepared evidence, not acceptance; Bubble cannot merge it ahead of Popover's accepted main revision.",
+        "The frozen Sonner calls only report example actions. Source examples use explicit local live result state and do not invent a notifier. Toast reviewer 01a08592-b1eb-7ad2-bebb-3ddea00f2702 remains the final DToast owner and Bubble review must complete that accepted composition."
       ],
       "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "retainedAlternatives": [
+        "ChatMessageTile retains speaker/chained layout, avatars, CookedHtml/preview, body selection keys, uploads, edit/pin/bookmark/delivery state, threads, hover/long-press actions and virtualization. Replacing the row here would pre-empt Message/Message Scroller and risk domain behavior; their later owner can compose Bubble safely.",
+        "Chat and topic-post ReactionPill/ReactionPills retain site emoji lookup, reactor hover panels/touch sheets, permissions, async toggle guards and mutation errors. DBubbleReactions provides the generic arbitrary-control boundary for later composition without importing these models.",
+        "Voice room ListTile chat and quoted/post content retain their room, list and rich-content owners. Attachment implementation task 01a085d4-9afd-7082-8081-f8b1f8f66287 retains media/upload/action lifecycle; Bubble accepts its future widget composition without duplicating it."
+      ],
+      "verification": [
+        "Root and profiles/full flutter pub get --enforce-lockfile completed from committed dependencies after fresh-worktree package setup; dependency pins and lockfiles remain unchanged.",
+        "All 84 focused Bubble, Bubble styleguide, complete styleguide-page, Collapsible, Tooltip and prepared Popover tests passed with random seed 6863. Coverage includes all variants, exact width/alignment/group geometry, RTL reaction anchoring, grouped semantics, pointer/keyboard activation, disabled/busy/selected/invalid information, 48px touch targets, 200% narrow RTL rendering, local callbacks, async reactions, disclosure and real Popover opening.",
+        "Root and profiles/full flutter analyze --no-pub passed with no issues. Touched Dart formatting and git diff --check passed.",
+        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed from implementation source 78c60d0c; build/macos/Build/Products/Debug/Discourse.app kernel SHA256 f88587be60d68500ce239860fcc82d391e37739efe363537df9631fa65675799 and deep strict signature verification passed. This ordinary development build retained existing project development entitlements and identifier, was not copied/re-signed as an isolated review app and was not launched."
+      ],
+      "limitations": [
+        "Source task performed no browser/CUA/native launch, visual screenshot comparison, VoiceOver speech, iOS or Linux device run. The new reviewer owns the required first official rendered/native inspection under the desktop lease and must keep the styleguide status non-implemented until acceptance.",
+        "Popover pin d99562f0f6973c9dc3f566eea02d9b00c6de4f7b is unaccepted preparation. Bubble reviewer must wait for Popover's accepted local-main merge, integrate accepted current main and verify overlap so this branch cannot introduce an unaccepted parent.",
+        "Final DToast composition for the frozen Sonner-linked action feedback remains blocked on Toast reviewer 01a08592-b1eb-7ad2-bebb-3ddea00f2702 and is an explicit Bubble review obligation; no duplicate notifier was added."
+      ],
+      "implementationCommit": "78c60d0cd7cf87d34c46524fff95336b43e261cd",
       "mergeCommit": null,
-      "preparedDependencies": [
-        {
-          "id": "popover",
-          "branch": "codex/review-popover",
-          "commit": "d99562f0f6973c9dc3f566eea02d9b00c6de4f7b",
-          "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
-          "evidence": "Committed Popover API with lifecycle correction 8281dda2; 100 focused checks and root/full analysis passed at this source pin. Parent owns final native/reference and accepted Native Select composition verification.",
-          "mergeGate": "Parent is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
-          "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
-        }
-      ]
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6fe3/discourse-native",
+      "nativeInspectionStatus": "not_started",
+      "reviewStatus": "handoff_ready",
+      "reviewTaskId": null,
+      "reviewBranch": "codex/review-bubble",
+      "reviewHandoff": "docs/component-library/evidence/bubble/review-handoff.md"
     },
     {
       "id": "message",
