@@ -2205,6 +2205,7 @@
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed",
       "reviewStatus": "accepted",
+      "reviewedBranchHead": "64a0807193463bafeb5e5f2808b33c9256d74bba",
       "queueStage": "review_accepted",
       "implementationHandoffVerification": {
         "focusedTests": "Source reports 32 Alert Dialog/Dialog checks passing with seed 4155910622 after accepted Dialog integration, plus separately recorded affected production-consumer regressions in the component evidence.",
