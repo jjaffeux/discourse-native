@@ -1,4 +1,5 @@
 import 'examples/accordion_examples.dart';
+import 'examples/alert_dialog_examples.dart';
 import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/attachment_examples.dart';
@@ -61,6 +62,7 @@ final componentExamples = <String, ComponentExamples>{
   'date-picker': datePickerExamples,
   'accordion': accordionExamples,
   'alert': alertExamples,
+  'alert-dialog': alertDialogExamples,
   'table': tableExamples,
   'textarea': textareaExamples,
   'input-group': inputGroupExamples,
