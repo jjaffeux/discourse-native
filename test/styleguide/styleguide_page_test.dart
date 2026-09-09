@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/component_catalogue.dart';
 import 'package:discourse_native/src/styleguide/component_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_chrome.dart';
 import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -209,7 +210,7 @@ void main() {
   testWidgets('Accordion preview reserves its large-text content height', (
     tester,
   ) async {
-    await _pump(tester);
+    await _pump(tester, size: const Size(1400, 900));
     await tester.tap(
       find.byKey(const ValueKey('styleguide-component-accordion')),
     );
@@ -224,7 +225,7 @@ void main() {
       800,
     );
 
-    await _choose(tester, 'Example', 'RTL');
+    await _chooseExample(tester, 'RTL');
     await _choose(tester, 'Viewport width', '360 px');
     await _choose(tester, 'Text scale', '200%');
     final viewport = tester.getRect(
@@ -238,7 +239,7 @@ void main() {
   testWidgets('Direction examples use the preview provider and retain edits', (
     tester,
   ) async {
-    await _pump(tester);
+    await _pump(tester, size: const Size(1400, 900));
     await tester.enterText(
       find.byKey(const ValueKey('styleguide-search')),
       'useDirection',
@@ -250,7 +251,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('تسجيل الدخول إلى حسابك'), findsOneWidget);
     expect(find.text('Arabic (العربية)'), findsOneWidget);
-    await _choose(tester, 'Example', 'Live direction and editing');
+    await _chooseExample(tester, 'Live direction and editing');
     expect(find.text('Current direction: LTR'), findsOneWidget);
     final field = find.widgetWithText(DInput, 'Display name');
     await tester.ensureVisible(field);
@@ -280,7 +281,7 @@ void main() {
     );
     await _choose(tester, 'Theme', 'Forest site');
     expect(find.text('Current direction: RTL'), findsOneWidget);
-    await _choose(tester, 'Example', 'Nested overrides and fixed content');
+    await _chooseExample(tester, 'Nested overrides and fixed content');
     expect(find.text('URL island: LTR'), findsOneWidget);
     expect(find.text('Outer sibling: RTL'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -289,7 +290,7 @@ void main() {
   testWidgets(
     'Typography preview controls retain rich action state and reset it',
     (tester) async {
-      await _pump(tester);
+      await _pump(tester, size: const Size(1400, 900));
       await tester.enterText(
         find.byKey(const ValueKey('styleguide-search')),
         'Inline code',
@@ -299,9 +300,8 @@ void main() {
         find.byKey(const ValueKey('styleguide-component-typography')),
       );
       await tester.pumpAndSettle();
-      await _choose(
+      await _chooseExample(
         tester,
-        'Example',
         'Inline code, rich text and keyboard actions',
       );
       await tester.ensureVisible(find.text('Show details'));
@@ -636,5 +636,12 @@ Future<void> _choose(WidgetTester tester, String label, String value) async {
   await tester.tap(choice);
   await tester.pumpAndSettle();
   await tester.tap(find.text(value).last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _chooseExample(WidgetTester tester, String title) async {
+  expect(find.byKey(const ValueKey('styleguide-Example')), findsNothing);
+  final action = find.widgetWithText(StyleguideAction, title);
+  await tester.tap(action);
   await tester.pumpAndSettle();
 }
