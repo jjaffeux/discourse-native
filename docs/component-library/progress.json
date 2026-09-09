@@ -1105,7 +1105,7 @@
     },
     {
       "id": "progress",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
       "branch": "codex/ui-progress",
       "dependencies": [
@@ -1119,10 +1119,10 @@
         "Pass focused regressions, root/full analysis and isolated traceable macOS build; require exclusive rendered/native review before review_ready."
       ],
       "decisions": [
-        "Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.",
+        "Label is merged. Slider is demonstrative and not an implementation dependency; controlled progress uses DButton actions while Slider remains independently owned.",
         "Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.",
         "Range is 0–100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.",
-        "Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review.",
+        "Six real-component examples cover reference basic timer, label/value, controlled DButton actions, RTL, async/range edges and explicit parts; independent rendered/native acceptance promoted the styleguide entry to implemented.",
         "Pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 integrated; final Button/Badge/Input/Radio/Checkbox and shared application fixes preserved. DButton example actions now use merged Button."
       ],
       "migrations": [
@@ -1137,17 +1137,18 @@
         "Root/full locked pub get and root/full analyze --no-pub pass; no lockfile/pin/dependency/runner source changes.",
         "302 focused tests passed, seed 9092026; after timing/typography/example refinements 10 component/example/fixture cases passed again. Commands and logs recorded in implementation.md.",
         "Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034.",
-        "Pinned-main integration: 142 focused tests pass seed9092026; root/full analysis clean. Refreshed /tmp/DiscourseProgressc8r2.app matches source a2984ddb589533370262b77270dab688e8b0a4bc and all built Flutter assets. Kernel d7ec6e8f4046cdc6db93fb6546d22ac5c64d69faa2325b95082db0623e85808b. Deep strict ad-hoc signature and exact restricted-free entitlement readback pass; details in native-manifest.json."
+        "Pinned-main integration: 142 focused tests pass seed9092026; root/full analysis clean. Refreshed /tmp/DiscourseProgressc8r2.app matches source a2984ddb589533370262b77270dab688e8b0a4bc and all built Flutter assets. Kernel d7ec6e8f4046cdc6db93fb6546d22ac5c64d69faa2325b95082db0623e85808b. Deep strict ad-hoc signature and exact restricted-free entitlement readback pass; details in native-manifest.json.",
+        "Independent review: 26 focused component/example/fixture/update/Assign tests passed; a broader run had 115 passing cases and only an explicitly mistyped nonexistent test path, then the clean focused rerun passed. Root and profiles/full analysis passed with no issues; nine component/styleguide tests passed after the acceptance-only status update.",
+        "Official Base UI browser light/dark comparison measured 4px tracks, 384x36 composed geometry and the 150ms standard transition. Isolated macOS review passed light/dark/Forest, 360px/200%/RTL, reduced motion, keyboard activation, native AX boundaries and real upload/download/event/badge transitions. Exact-source /tmp/DiscourseProgressReview6adbb135.app has matching kernel SHA256 38e072176e4ed4538d3edea674b6044d6ad7eb7127dc7570edb9a5fb81318d7c, strict deep signature and restricted-free debug entitlements."
       ],
       "limitations": [
-        "No native/reference rendered comparison or CUA use before exclusive desktop slot; not review_ready. No iOS/Linux device or spoken VoiceOver verification.",
         "Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only.",
-        "Browser-only reference slot released immediately: first navigation denied because admin-enforced browser security policy could not be verified. No retry/workaround, website theme unchanged, native access not attempted. Rendered comparison remains pending."
+        "No iOS/Linux device run or spoken VoiceOver verification was performed; browser and native font rasterizers differ, so review establishes measured geometry, behavior and palette mapping rather than pixel equality."
       ],
       "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
-      "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot",
-      "reviewStatus": "in_progress",
+      "mergeCommit": "15da313eb259c51c6bbed5974895b6616c32c84c",
+      "nativeInspectionStatus": "completed",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
       "reviewBranch": "codex/review-progress"
     },
@@ -1712,27 +1713,49 @@
         "button"
       ],
       "acceptanceCriteria": [
-        "Match the frozen Base UI/base-nova default/line, horizontal/vertical, disabled, icon, RTL and Card composition examples with explicit source-to-native geometry and behavior mapping.",
-        "Implement complete controlled/uncontrolled selection and public composition/controller APIs, native tab semantics, focus/keyboard behavior, dynamic/disabled entries and panel state lifecycle.",
-        "Support live host theme/font/radius, light/dark/custom palettes, touch, narrow layouts, text scaling, RTL and reduced motion without substituting platform-default appearance.",
-        "Audit and migrate appropriate forum/topic/group/preferences and plugin tab surfaces while keeping navigation, unread state, permissions and domain state in app adapters.",
-        "Provide complete interactive examples, accurate usage, meaningful component/consumer tests, root/full-profile analysis and honest exact-source rendered/native evidence.",
-        "Create a new independent Review and merge Tabs Codex task; it owns fixes, remaining verification and final local main merge under shared leases without coordinator approval."
+        "Match the frozen Base UI/base-nova default/line, horizontal/vertical, disabled, icon, RTL and Card compositions with explicit source-to-Flutter geometry and behavior mapping.",
+        "Provide generic local, controlled and borrowed-controller selection; dynamic fallback; native selected-button semantics; roving focus; panel lifecycle and focus restoration without app dependencies.",
+        "Support live host theme/font/radius, light/dark/custom palettes, touch, narrow layouts, text scaling, RTL and reduced motion while retaining compact shadcn artwork.",
+        "Migrate appropriate core/plugin tab surfaces while preserving application routing, permissions, plugin data and state ownership; document retained domain alternatives.",
+        "Provide complete interactive examples, meaningful component/consumer tests, root/full-profile analysis and honest rendered/native evidence owned to completion by the independent reviewer."
       ],
       "decisions": [
-        "Button dependency and Card composition owner are merged.",
-        "Collapsible File Tree composition has a direct dependency handoff between Tabs and reviewer 01a08558-a79c-7911-8f75-53b3528fc08f; retain explicit follow-up until the final DTabs composition is verified."
+        "Exact frozen/reference source hashes, measurements, API mapping and acceptance are recorded in docs/component-library/tabs-reference.md.",
+        "DTabs<T>, DTabList<T>, DTabTrigger<T>, DTabPanel<T> and DTabController<T> expose composition and selection. Hidden panels unmount by default; maintainState keeps them offstage without ticking/semantics.",
+        "Horizontal lists scroll and reveal focused triggers. Vertical content stacks below its still-vertical list below 320px or above 150% text scaling to prevent narrow overflow.",
+        "Collapsible reviewer 01a08558-a79c-7911-8f75-53b3528fc08f received the final API handoff for its temporary File Tree selector; the Tabs reviewer will notify it after merge."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "migrations": [
+        "Group primary core/plugin route tabs use controlled DTabs while capability filtering and GroupRoute translation remain in group_page.dart.",
+        "Chat channel-info Settings/Members use the line variant inside the retained 58px app bar; ChatShellService remains routing owner.",
+        "Diagnostics General/Topic scroll/plugin routes use controlled DTabs; capture and plugin state remain diagnostics-owned."
+      ],
+      "retainedAlternatives": [
+        "ForumTabsBar and Aggregate tabs retain browser-workspace close/reopen/reorder/persistence/context-menu behavior and are not layered content tabs.",
+        "Topic list and User Menu strips retain unread/filter/period/notification domain rendering; Group secondary and Preferences navigation remain sidebar/picker owners."
+      ],
+      "verification": [
+        "Frozen shadcn Markdown SHA256 reproduced exactly; current base-nova registry and Base UI Markdown inspected with hashes recorded in tabs-reference.md.",
+        "16 component/styleguide widget tests passed with random seed 1188269210, covering geometry, local/controlled/controller selection, pointer/semantics, manual/automatic/RTL/vertical roving focus, Tab entry, disabled/dynamic fallback, panel lifecycle, focus restoration, touch/narrow/200% text, reduced motion and live tokens.",
+        "65 Group, Chat channel-info, Diagnostics and Voice production regression tests passed with random seed 592397163 using real migrated widgets and local/fake data.",
+        "The two Chat shell migration-specific layout/routing tests pass after retaining the full-width 58px app bar and updating its old custom-trigger assertion to the measured 25px shared trigger.",
+        "Full test/chat_shell_integration_test.dart passed all 138 tests with random seed 1517999890 after the Chat tab migration correction.",
+        "Root and profiles/full flutter analyze --no-pub pass with no issues. Touched Dart format check and git diff --check pass; dependency pins, SDK and lockfiles are unchanged."
+      ],
+      "limitations": [
+        "Implementation task did not acquire the shared desktop lease and makes no browser/native render, macOS launch, VoiceOver, iOS or Linux device claim. The independent reviewer owns those remaining acceptance checks and any fixes.",
+        "Current implementation branch predates later shared-main workflow/progress commits; reviewer must integrate latest main and preserve every other component row."
+      ],
+      "implementationCommit": "fcb0e06f084954f7f1576af7b6967a6dec3fff03",
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08581-d666-7f81-b039-f9caae6c45c2",
+      "reviewClientThreadId": "client-new-thread:cf14d860-c708-42a4-9fb3-7d5afc7fcba9",
+      "reviewBranch": "codex/review-tabs"
     },
     {
       "id": "resizable",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
       "branch": "codex/ui-resizable",
       "dependencies": [],
@@ -1746,8 +1769,8 @@
       "decisions": [
         "See docs/component-library/resizable.md for primary source hashes, measurements, API/constraint and native adaptation decisions. Frozen page hash matches catalogue; Base Nova 1px divider + 4x24 pill, rounded-lg = 1x token radius.",
         "Public group/panel/handle plus typed explicit pixel/percentage sizes and controller; controlled/uncontrolled state, constraints/collapse, disabled panels, dynamic stable IDs, relative/pixel parent sizing. Native 48px coarse targets with in-bounds collapsed-edge semantics.",
-        "App adapters reuse DResizableHandle.standalone; persistence/async races remain outside generic UI. No Form field or unmerged component dependency. Styleguide status remains baseline pending native gate.",
-        "Independent source/check/build work complete; awaiting_slot. Coordinator must complete native/reference comparison before review_ready or merge."
+        "App adapters reuse DResizableHandle.standalone; persistence/async races remain outside generic UI. No Form field or unmerged component dependency. Styleguide status is implemented after independent native acceptance.",
+        "Independent reviewer accepted the unchanged source after official Base UI rendered comparison and native macOS inspection; no source correction or rebuild was required."
       ],
       "migrations": [
         "ResizablePane: sidebar, diagnostics and topic inbox retain PanelWidthController/store behavior and responsive callers.",
@@ -1762,14 +1785,17 @@
         "Final focused tests: d_resizable_test, styleguide/resizable_examples_test, resizable_pane_test, panel_width_controller_headless_test, users_page_test, chat_thread_workspace_test passed (88 tests), including radius-zero, coarse targets, RTL collapsed-edge drag and all migrations.",
         "Final root and full-profile flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed. Four extracted self-contained usage programs passed Dart analysis.",
         "Isolated local-data native fixture built successfully from source 7ba6dd15a5134b195d8b9fb5fda6e457e8005eb0. Copied /tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app has unique name/ID/URL scheme; build app.dill and original/copied kernels share SHA256 564d2ae4fcee4c667fbd4aa80521d3454cef17195e76723758130b1398918b1b. Deep strict signature verification passed. See docs/component-library/resizable-native.md and evidence/resizable logs.",
-        "Integrated pinned main e612ad7b; source 0629571a58e927f480c03de909bdfd4f676cdbd1. 180 focused tests and root/full analysis pass. Unique isolated bundle /tmp/discourse-resizable-integration-0629571a/ResizableIntegration.app; kernel 2ffa27d7519d1edc17b8d8da3f204814298a298c4ae4b3c5cb10b76526f46840. Explicit restricted-free ad-hoc entitlement readback equals signing plist, allow-jit=true; deep strict signature passes. See resizable-native.md and evidence/resizable/integration."
+        "Integrated pinned main e612ad7b; source 0629571a58e927f480c03de909bdfd4f676cdbd1. 180 focused tests and root/full analysis pass. Unique isolated bundle /tmp/discourse-resizable-integration-0629571a/ResizableIntegration.app; kernel 2ffa27d7519d1edc17b8d8da3f204814298a298c4ae4b3c5cb10b76526f46840. Explicit restricted-free ad-hoc entitlement readback equals signing plist, allow-jit=true; deep strict signature passes. See resizable-native.md and evidence/resizable/integration.",
+        "Independent reviewer reran 90 focused component/styleguide/ResizablePane/Users/Chat tests and root/full-profile analysis after integrating current main; all passed.",
+        "Approved browser/native review passed: official 384px Base UI horizontal, vertical, handle, nested and RTL renders were compared with the exact signed macOS fixture. Dark/light documentation canvases, RTL, 200% text, reduced motion and 360px preview remained usable. Keyboard resize, controlled collapse/expand/disabled state, and pointer commits on Users 160 to 228px, Chat 160 to 226px and pane 208 to 267px succeeded; native AX exposed independent named adjustable handles."
       ],
       "limitations": [
-        "awaiting_slot: integration complete; native/reference comparison pending. Mac locked and browser navigation separately denied admin-policy verification. No CUA/browser/native launch or blocker retry attempted. Not review_ready or mergeable."
+        "No iOS/Linux device run or spoken VoiceOver verification was performed.",
+        "Browser Geist and native host-font rasterization differ; the review establishes geometry, styling, interaction and semantics rather than pixel equality."
       ],
       "implementationCommit": "0629571a58e927f480c03de909bdfd4f676cdbd1",
-      "mergeCommit": null,
-      "reviewStatus": "in_progress",
+      "mergeCommit": "eff4770f10b73dd6fb1e5eed17b374d68b68bfed",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
       "reviewBranch": "codex/review-resizable"
     },
@@ -2097,15 +2123,23 @@
     },
     {
       "id": "button-group",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08581-831f-7751-b714-096b5aebf86a",
+      "branch": "codex/ui-button-group",
       "dependencies": [
         "button",
         "separator"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the complete frozen Button Group, Separator and Text API and every orientation, size, nested, split, control composition and RTL example with measured shadcn geometry and behavior.",
+        "Preserve independent control interaction and semantics, joined edges and exterior state rings, live themes, native targets, scaling and nested overlay appearance without leaking broad theme overrides.",
+        "Audit/migrate suitable core/plugin action groups; preserve domain callbacks and distinguish grouped actions from tabs or group selection.",
+        "Verify focused component/consumer regressions and root/full analysis; create an independent reviewer to finish remaining real-owner compositions, rendered/native acceptance and local main merge."
+      ],
+      "decisions": [
+        "Button and Separator dependencies are merged.",
+        "Field, Input Group, Dropdown Menu, Select and Popover compositions must reconcile with their final owners; track outstanding compositions and coordinate directly, without duplicating components or reducing the frozen examples."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -2310,14 +2344,37 @@
       ],
       "decisions": [
         "Button is the implementation dependency and is merged; Card composition is also merged. Frozen sections include Sizes, Spacing, Orientation, Options, API, Events, Plugins and RTL. Reproduce complete documented behavior and native API counterparts, including responsive slide extents/spacing, horizontal/vertical and direction-aware navigation, previous/next enabled states, scrolling/selection events and controller lifecycle, options, and the demonstrated autoplay plugin behavior with correct interaction/reduced-motion/disposal handling. Inspect official Embla-linked behavior to define the actual supported native contract; no inert options or ornamental plugin API. Audit shell/composer_image_gallery.dart, shell/lightbox.dart, other media/page-view owners and plugins for appropriate adoption. Preserve zoom/pan, media lifecycle, keyboard navigation, accessibility and domain state; record retained grids or specialized viewers rather than converting inappropriate surfaces simply to add a usage. Provide real migrated local-data fixtures and all documented Card compositions.",
-        "Implementation uses the direct reviewer workflow; root is not an approval gate."
+        "Implementation uses the direct reviewer workflow; root is not an approval gate.",
+        "Frozen Markdown hash 98fdaa46f982b7ebf29b3c18f5e848f478244a766a0270f9c520f5e2eaf2fd59 was reproduced; base-nova registry response hash is 14737a7cf92048df9de47f9d1a9527d6d3beafba12115f52a3c353134ee2b50b. Exact geometry and behavior mapping is in carousel-reference.md.",
+        "DCarousel exposes only faithful native options: horizontal/vertical orientation, start/center snap alignment, bounded/loop navigation, fractional/responsive extents and spacing. DOM watch/free-drag options are not accepted as inert values.",
+        "Borrowed DCarouselController and plugins are detached but not disposed; internally created controllers and ownedPlugins are disposed by DCarousel. DCarouselAutoplay implements timing, play/stop/reset, interaction stopping, optional hover pause, focus pause and reduced-motion suppression.",
+        "Reference navigation reserves a real 48px outer hit-test inset around the viewport because Flutter children painted outside parent bounds cannot receive pointer input; navigationInsets:false is explicit for composed tracks without reference controls."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "migrations": [
+        "ImageGridCarousel now composes DCarousel for its real production page track, swipe, selection, looping and axis-key handling while preserving ImageGridTile media rendering, gallery callbacks, dot/counter controls and topic-scroll isolation."
+      ],
+      "retainedAlternatives": [
+        "LightboxGallery retains its specialized PageView because every page owns PhotoView zoom/pan/scale controllers, resize bounds, download state, keyboard chrome and media lifecycle; generic carousel composition would compete for gestures and duplicate ownership.",
+        "Composer image-gallery code retains markup editing and its grid/carousel mode selector because it edits post markup rather than rendering a carousel.",
+        "Event calendar paging is retained because it owns unbounded domain-date navigation and post-layout state publication, not finite carousel content; no plugin PageView was an appropriate adoption."
+      ],
+      "verification": [
+        "9 Carousel widget tests passed with randomized seed 940219: controller/API state, bounded and loop navigation, swipe progress/events, responsive extents without state reset, horizontal RTL and vertical keyboard input, slide semantics, autoplay interaction/reduced-motion behavior, and borrowed lifecycle.",
+        "33 ImageGrid production-widget tests passed with randomized seed 940219, including pointer/keyboard/dot navigation, looping, edited-item clamping, outer-topic scroll isolation, accessibility, narrow layout and gallery opening.",
+        "17 styleguide access/page tests passed with randomized seed 940219; Carousel registration preserves frozen catalogue accounting and documentation shell behavior.",
+        "Root flutter analyze --no-pub clean. profiles/full locked dependency resolution and flutter analyze --no-pub clean. Flutter 3.47.2, dependency pins and lockfiles unchanged.",
+        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart succeeded and produced build/macos/Build/Products/Debug/Discourse.app.",
+        "Touched Dart formatting and git diff --check passed. Implementation integrated current main before handoff."
+      ],
+      "limitations": [
+        "Independent reviewer owns official rendered browser comparison and native interaction/accessibility inspection; implementation task claims no CUA run, pixel equality, iOS/Linux device test or spoken VoiceOver.",
+        "Generic loop wrap uses the real finite PageView pages, so a wrap animation can cross intervening slides; reviewer must judge native/reference interaction quality and adjust if rendered review finds it materially different."
+      ],
+      "implementationCommit": "e03cc7f150d14a5bf231ec9d66cc02359b67d588",
+      "mergeCommit": null,
+      "reviewTaskId": "01a08589-3822-72d2-88a1-5fcaea66e089",
+      "reviewBranch": "codex/review-carousel",
+      "reviewStatus": "in_progress"
     },
     {
       "id": "toast",
@@ -2682,7 +2739,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T09:27:53.627959+00:00",
+    "updatedAt": "2026-09-09T09:45:32.206966+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
@@ -2765,15 +2822,6 @@
           "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a"
         },
         {
-          "component": "progress",
-          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
-          "branch": "codex/review-progress",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
-          "headCommit": "1c21a43597a31f55b7bab4a325d879dde8bcf9f4",
-          "status": "independent_review",
-          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8"
-        },
-        {
           "component": "textarea",
           "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
           "branch": "codex/review-textarea",
@@ -2790,15 +2838,6 @@
           "status": "independent_review",
           "headCommit": "09869a6713a9e2e01b3012515cfc5bbeefcee868",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97"
-        },
-        {
-          "component": "resizable",
-          "taskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
-          "branch": "codex/review-resizable",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec10/discourse-native",
-          "status": "independent_review",
-          "headCommit": "a7e26a935574c44595c89bc869a0df4c7144ced7",
-          "implementationTaskId": "01a083e2-4063-7c30-89ea-fa664ff9c943"
         },
         {
           "component": "dialog",
@@ -2858,10 +2897,13 @@
         },
         {
           "component": "tabs",
-          "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
-          "branch": "codex/ui-tabs",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/599c/discourse-native",
-          "status": "implementation"
+          "taskId": "01a08581-d666-7f81-b039-f9caae6c45c2",
+          "branch": "codex/review-tabs",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c5db/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
+          "implementationBranch": "codex/ui-tabs",
+          "headCommit": "fcb0e06f084954f7f1576af7b6967a6dec3fff03"
         },
         {
           "component": "toggle",
@@ -2875,16 +2917,26 @@
         },
         {
           "component": "carousel",
-          "taskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
-          "branch": "codex/ui-carousel",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4e74/discourse-native",
-          "status": "implementation"
+          "taskId": "01a08589-3822-72d2-88a1-5fcaea66e089",
+          "branch": "codex/review-carousel",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f646/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
+          "implementationBranch": "codex/ui-carousel",
+          "headCommit": "ace58e0ff2c7a41ed6c14f92638fa01a0d15ee67"
         },
         {
           "component": "toast",
           "taskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
           "branch": "codex/ui-toast",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5d86/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "button-group",
+          "taskId": "01a08581-831f-7751-b714-096b5aebf86a",
+          "branch": "codex/ui-button-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fd5f/discourse-native",
           "status": "implementation"
         }
       ],
@@ -2925,7 +2977,8 @@
       "resizable": {
         "taskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
         "issue": "Verify pointer midpoint collapse/expand and full opposite-panel capacity; discrete snap distance can exceed requested pointer delta while remaining valid. Also verify transparent coarse-pointer hit targets for group and actual app adapters.",
-        "status": "resolved_awaiting_native_review"
+        "status": "resolved_and_merged",
+        "mergeCommit": "eff4770f10b73dd6fb1e5eed17b374d68b68bfed"
       },
       "scroll-area": {
         "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
@@ -3064,17 +3117,6 @@
           "status": "in_progress"
         },
         {
-          "component": "progress",
-          "title": "Review and merge Progress",
-          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
-          "branch": "codex/review-progress",
-          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
-          "implementationBranch": "codex/ui-progress",
-          "status": "in_progress"
-        },
-        {
           "component": "textarea",
           "title": "Review and merge Textarea",
           "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
@@ -3094,17 +3136,6 @@
           "branch": "codex/review-field",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
           "implementationBranch": "codex/ui-field",
-          "status": "in_progress"
-        },
-        {
-          "component": "resizable",
-          "title": "Review and merge Resizable",
-          "taskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec10/discourse-native",
-          "branch": "codex/review-resizable",
-          "implementationTaskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
-          "implementationBranch": "codex/ui-resizable",
           "status": "in_progress"
         },
         {
@@ -3182,6 +3213,28 @@
           "branch": "codex/review-toggle",
           "implementationTaskId": "01a08567-ac29-7dd0-ba78-1717a5235bd0",
           "implementationBranch": "codex/ui-toggle",
+          "status": "in_progress"
+        },
+        {
+          "component": "tabs",
+          "title": "Review and merge Tabs",
+          "taskId": "01a08581-d666-7f81-b039-f9caae6c45c2",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c5db/discourse-native",
+          "branch": "codex/review-tabs",
+          "implementationTaskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
+          "implementationBranch": "codex/ui-tabs",
+          "status": "in_progress"
+        },
+        {
+          "component": "carousel",
+          "title": "Review and merge Carousel",
+          "taskId": "01a08589-3822-72d2-88a1-5fcaea66e089",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f646/discourse-native",
+          "branch": "codex/review-carousel",
+          "implementationTaskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
+          "implementationBranch": "codex/ui-carousel",
           "status": "in_progress"
         }
       ],
@@ -3402,10 +3455,11 @@
         "nextAction": "Dispatch Dropdown Menu implementation from main after Popover lands; implementer creates its own final reviewer. Required for Item and Table compositions."
       },
       "tabs": {
-        "status": "implementation",
+        "status": "independent_review",
         "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
         "requestedBy": "01a08558-a79c-7911-8f75-53b3528fc08f",
-        "nextAction": "Tabs implementer creates final review/merge task and coordinates the documented Collapsible File Tree composition directly; retain the outstanding composition until verified."
+        "nextAction": "Tabs implementer creates final review/merge task and coordinates the documented Collapsible File Tree composition directly; retain the outstanding composition until verified.",
+        "reviewTaskId": "01a08581-d666-7f81-b039-f9caae6c45c2"
       }
     }
   }
