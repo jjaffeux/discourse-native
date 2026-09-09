@@ -1706,8 +1706,8 @@
       ],
       "implementationCommit": "fcb0e06f084954f7f1576af7b6967a6dec3fff03",
       "mergeCommit": null,
-      "reviewStatus": "creating",
-      "reviewTaskId": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08581-d666-7f81-b039-f9caae6c45c2",
       "reviewClientThreadId": "client-new-thread:cf14d860-c708-42a4-9fb3-7d5afc7fcba9",
       "reviewBranch": "codex/review-tabs"
     },
