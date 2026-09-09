@@ -22,7 +22,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
 | 11 | textarea | planned | — | — | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
-| 13 | radio-group | planned | — | — | label | — |
+| 13 | radio-group | in_progress | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
 | 14 | switch | planned | — | — | label | — |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
@@ -836,6 +836,49 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 
 - Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.
 - Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
+
+### radio-group
+
+Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/ui-radio-group.
+
+**acceptanceCriteria**
+
+- Reproduce base-nova 16px radio and focus/invalid/disabled states with live tokens.
+- Controlled and initial selection, native roving arrows/Space, RTL, item labels/descriptions/cards and Form validation/reset.
+- Migrate real single-choice controls preserving domain callbacks; focused tests and isolated macOS fixture build; native comparison pending slot.
+
+**decisions**
+
+- Label is merged; Field is not an implementation dependency: expose label/description slots, do not implement DField.
+- Button baseline is used for examples; concurrent Checkbox/Input/Button ownership preserved.
+- DRadioGroup uses native RawRadio/RadioGroup focus owners and FormField; controlled rejection/reset preserves the accepted form value.
+- Source metrics, hashes, native hit-target adaptation and API contract documented in docs/component-library/radio-group.md.
+- Poll explicitly opts into toggleable items to preserve withdrawal; normal radio groups do not deselect.
+
+**migrations**
+
+- lib/src/shell/topic_move_posts.dart destination radios
+- lib/src/shell/topic_change_owner.dart user radios
+- lib/src/shell/post_flag_editor.dart reason rows
+- lib/src/plugins/poll/poll_card.dart single-choice/number radios
+- RawRadio focus-owner recognition in shell/keyboard_navigation.dart and plugins/chat/chat_drawer.dart
+
+**retainedAlternatives**
+
+- Poll multiselect belongs to Checkbox; Poll actions to Button; change-owner search fields to Input.
+- Ranked-choice Poll web workflow and menu-item radio semantics remain appropriate domain/menu controls.
+
+**verification**
+
+- 157 focused component, Poll, flag, move/owner ownership, shell keyboard and Chat drawer tests passed with seed 9092026.
+- Local production review fixture search/select check passes for owner and move dialogs.
+- Root and full-profile locked pub get passed without lockfile changes; root and full static analysis clean.
+- Initial macOS debug fixture build passed; final committed-source review bundle provenance pending below.
+
+**limitations**
+
+- Native desktop is locked; no CUA or native/browser inspection performed. All native visual comparison remains awaiting_slot.
+- No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review.
 
 ### skeleton
 

@@ -5,6 +5,7 @@ import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
+import 'examples/radio_group_examples.dart';
 import 'examples/separator_examples.dart';
 import 'examples/sidebar_examples.dart';
 import 'examples/skeleton_examples.dart';
@@ -15,6 +16,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'radio-group': radioGroupExamples,
   'card': cardExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,

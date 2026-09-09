@@ -739,20 +739,48 @@
     },
     {
       "id": "radio-group",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+      "branch": "codex/ui-radio-group",
       "dependencies": [
         "label"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "acceptanceCriteria": [
+        "Reproduce base-nova 16px radio and focus/invalid/disabled states with live tokens.",
+        "Controlled and initial selection, native roving arrows/Space, RTL, item labels/descriptions/cards and Form validation/reset.",
+        "Migrate real single-choice controls preserving domain callbacks; focused tests and isolated macOS fixture build; native comparison pending slot."
+      ],
+      "decisions": [
+        "Label is merged; Field is not an implementation dependency: expose label/description slots, do not implement DField.",
+        "Button baseline is used for examples; concurrent Checkbox/Input/Button ownership preserved.",
+        "DRadioGroup uses native RawRadio/RadioGroup focus owners and FormField; controlled rejection/reset preserves the accepted form value.",
+        "Source metrics, hashes, native hit-target adaptation and API contract documented in docs/component-library/radio-group.md.",
+        "Poll explicitly opts into toggleable items to preserve withdrawal; normal radio groups do not deselect."
+      ],
+      "migrations": [
+        "lib/src/shell/topic_move_posts.dart destination radios",
+        "lib/src/shell/topic_change_owner.dart user radios",
+        "lib/src/shell/post_flag_editor.dart reason rows",
+        "lib/src/plugins/poll/poll_card.dart single-choice/number radios",
+        "RawRadio focus-owner recognition in shell/keyboard_navigation.dart and plugins/chat/chat_drawer.dart"
+      ],
+      "retainedAlternatives": [
+        "Poll multiselect belongs to Checkbox; Poll actions to Button; change-owner search fields to Input.",
+        "Ranked-choice Poll web workflow and menu-item radio semantics remain appropriate domain/menu controls."
+      ],
+      "verification": [
+        "157 focused component, Poll, flag, move/owner ownership, shell keyboard and Chat drawer tests passed with seed 9092026.",
+        "Local production review fixture search/select check passes for owner and move dialogs.",
+        "Root and full-profile locked pub get passed without lockfile changes; root and full static analysis clean.",
+        "Initial macOS debug fixture build passed; final committed-source review bundle provenance pending below."
+      ],
+      "limitations": [
+        "Native desktop is locked; no CUA or native/browser inspection performed. All native visual comparison remains awaiting_slot.",
+        "No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review."
+      ],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "switch",
