@@ -24,13 +24,13 @@ Branch preparation does not mark a component merged or visually verified.
 | drawer | Implementation and checks | — | — |
 | input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
-| combobox | Implementation and checks | — | — |
+| combobox | independent review | 55dcf257 | 01a08628-7889-7dd2-a93c-c854fcdf1e9a |
 | dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
-| menubar | independent review | 58149a8d | 01a08628-7042-7173-a37d-7f1f04eade66 |
+| menubar | independent review | 10b63f75 | 01a08628-7042-7173-a37d-7f1f04eade66 |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
-| pagination | Implementation and checks | — | — |
+| pagination | independent review | 2167c871 | 01a08629-4841-73d0-a5a6-c723f253b4b0 |
 | calendar | Implementation and checks | — | — |
 | date-picker | Implementation and checks | — | — |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
@@ -2382,6 +2382,7 @@ Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/u
 **decisions**
 
 - Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
+- Verified independent reviewer Review and merge Combobox (01a08628-7889-7dd2-a93c-c854fcdf1e9a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### dropdown-menu
 
@@ -2478,6 +2479,7 @@ Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Pagination (01a08629-4841-73d0-a5a6-c723f253b4b0) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### calendar
 

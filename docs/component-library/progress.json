@@ -2546,13 +2546,14 @@
         "Create a new independent reviewer for remaining official rendered/native acceptance, fixes, required compositions and final local main merge."
       ],
       "decisions": [
-        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory."
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.",
+        "Verified independent reviewer Review and merge Combobox (01a08628-7889-7dd2-a93c-c854fcdf1e9a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "51749084ce7c616b40e887b2c78fc977bde85f03",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -2564,7 +2565,19 @@
           "mergeGate": "Satisfied for new preparation from current main. Combobox must integrate accepted Command merge 090d4f54 rather than the earlier source handoff, reconcile any API overlap and rerun its affected composition tests.",
           "acceptedMergeCommit": "090d4f5448c2d8f87183d62092c6a5393ce90bd6"
         }
-      ]
+      ],
+      "reviewTaskId": "01a08628-7889-7dd2-a93c-c854fcdf1e9a",
+      "reviewBranch": "codex/review-combobox",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8b89/discourse-native",
+      "reviewHandoffCommit": "55dcf257cba0c0ef9df75ab246960c4bef5248d2",
+      "reviewStatus": "in_progress",
+      "queueStage": "independent_review",
+      "implementationHandoffVerification": {
+        "focusedTests": "Implementation owner reports34 Combobox/styleguide/Popover checks and24 GroupPage migration tests passing with seed9092026.",
+        "analysis": "Root/full dependency resolution and static analysis clean at source handoff.",
+        "native": "Committed local-data fixture is prepared; macOS build was interrupted by Xcode contention. No native acceptance claimed.",
+        "acceptance": "Reviewer owns lifecycle/focus corrections, accepted Command/Input Group/Item reconciliation, official browser/native acceptance and local main merge. GroupPage Add Group Members migration preserves controller-owned requests, debounce, stale results and save state."
+      }
     },
     {
       "id": "dropdown-menu",
@@ -2722,7 +2735,7 @@
       "reviewTaskId": "01a08628-7042-7173-a37d-7f1f04eade66",
       "reviewBranch": "codex/review-menubar",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native",
-      "reviewHandoffCommit": "58149a8d26f70675a5f5812dfd17290e7891a129",
+      "reviewHandoffCommit": "10b63f75edad20793fd83e5b2c8e15504e602a9a",
       "reviewStatus": "in_progress",
       "implementationHandoffVerification": {
         "focusedTests": "Source record reports14 randomized component/styleguide tests passing with seed1320190751, including six frozen groups, keyboard/RTL, state, live themes, narrow/200% and reduced motion.",
@@ -2869,16 +2882,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Pagination (01a08629-4841-73d0-a5a6-c723f253b4b0) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "cd69ff21400192e6a141a675ffb7ec6a7199526c",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e32a/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement full reference Pagination anatomy and Simple, Icons Only, routing/link and RTL examples, including the final Field/Select page-size composition. Provide explicit controlled/local/controller page/page-count/page-size ownership and accurate first/last/previous/next/ellipsis behavior, empty/single-page and changing total counts, disabled/current native semantics and logical labels/icons. Keep server paging, query parameters, loading and caches in adapters. Audit real core/plugin bounded-page lists; preserve infinite-scrolling surfaces where changing interaction would be inappropriate. Coordinate page-size Select/Field directly with their reviewers, and expose the final API to the separately queued Data Table task. Add meaningful boundary/dynamic-count/keyboard and migrated-consumer regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/pagination",
@@ -2906,7 +2920,17 @@
           "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
           "mergeCommit": null
         }
-      ]
+      ],
+      "reviewTaskId": "01a08629-4841-73d0-a5a6-c723f253b4b0",
+      "reviewBranch": "codex/review-pagination",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/690e/discourse-native",
+      "reviewHandoffCommit": "2167c8715f4866a47b8b3e30045a1346f3a1f6d4",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Implementation owner reports10 direct Pagination tests and71 combined Pagination/Select/Field/styleguide checks passing with seed391447.",
+        "analysis": "Root and profiles/full analysis clean; Field/Select source bytes match their accepted main revisions.",
+        "acceptance": "Independent reviewer owns first actual browser/native acceptance, fixes and final local merge. Data Table has received the tested public API, including outline directionVariant."
+      }
     },
     {
       "id": "calendar",
@@ -3801,7 +3825,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T12:35:46+00:00",
+    "updatedAt": "2026-09-09T12:40:23+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -3937,13 +3961,6 @@
           "status": "implementation"
         },
         {
-          "component": "combobox",
-          "taskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
-          "branch": "codex/ui-combobox",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/1a64/discourse-native",
-          "status": "implementation"
-        },
-        {
           "component": "sheet",
           "taskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
           "branch": "codex/ui-sheet",
@@ -3980,14 +3997,6 @@
           "taskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "branch": "codex/ui-data-table",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/656f/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
-          "component": "pagination",
-          "taskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
-          "branch": "codex/ui-pagination",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e32a/discourse-native",
           "status": "implementation",
           "phase": "reference_and_dependency_preparation"
         },
@@ -4058,6 +4067,26 @@
           "headCommit": "93729c14aef376f9212c1bae009f9c9791369fe8"
         },
         {
+          "component": "pagination",
+          "taskId": "01a08629-4841-73d0-a5a6-c723f253b4b0",
+          "branch": "codex/review-pagination",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/690e/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
+          "implementationBranch": "codex/ui-pagination",
+          "headCommit": "2167c8715f4866a47b8b3e30045a1346f3a1f6d4"
+        },
+        {
+          "component": "combobox",
+          "taskId": "01a08628-7889-7dd2-a93c-c854fcdf1e9a",
+          "branch": "codex/review-combobox",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8b89/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
+          "implementationBranch": "codex/ui-combobox",
+          "headCommit": "55dcf257cba0c0ef9df75ab246960c4bef5248d2"
+        },
+        {
           "component": "menubar",
           "taskId": "01a08628-7042-7173-a37d-7f1f04eade66",
           "branch": "codex/review-menubar",
@@ -4065,7 +4094,7 @@
           "status": "independent_review",
           "implementationTaskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
           "implementationBranch": "codex/ui-menubar",
-          "headCommit": "58149a8d26f70675a5f5812dfd17290e7891a129"
+          "headCommit": "10b63f75edad20793fd83e5b2c8e15504e602a9a"
         }
       ],
       "nativeReadyTasks": []
@@ -4422,6 +4451,30 @@
           "implementationTaskId": "01a08606-ca30-7bc1-8e27-693690217969",
           "implementationBranch": "codex/ui-message",
           "implementationCommit": "1fd4d49aff7fe0b19cb7b6874e5e8610931531c4",
+          "status": "in_progress"
+        },
+        {
+          "component": "pagination",
+          "title": "Review and merge Pagination",
+          "taskId": "01a08629-4841-73d0-a5a6-c723f253b4b0",
+          "hostId": "local",
+          "branch": "codex/review-pagination",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/690e/discourse-native",
+          "implementationTaskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
+          "implementationBranch": "codex/ui-pagination",
+          "implementationCommit": "cd69ff21400192e6a141a675ffb7ec6a7199526c",
+          "status": "in_progress"
+        },
+        {
+          "component": "combobox",
+          "title": "Review and merge Combobox",
+          "taskId": "01a08628-7889-7dd2-a93c-c854fcdf1e9a",
+          "hostId": "local",
+          "branch": "codex/review-combobox",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8b89/discourse-native",
+          "implementationTaskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
+          "implementationBranch": "codex/ui-combobox",
+          "implementationCommit": "51749084ce7c616b40e887b2c78fc977bde85f03",
           "status": "in_progress"
         },
         {
