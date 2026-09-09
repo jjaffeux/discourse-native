@@ -1457,7 +1457,20 @@
           "sha256": "921178487423ff56f4de4aa29b09541733b59359ae746fe63a8b765ae8b153d9"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "in_progress",
+        "reviewStatus": "awaiting_native_review",
+        "sourceCommit": "03d5a976417dc8e0c1f33d97a2290c87ccf45537",
+        "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
+        "verification": [
+          "146 focused Avatar, Direction, Button, Dropdown Menu, Popover, Dialog, styleguide, adoption and downstream menu tests passed with seed 9082026; root and full-profile analysis are clean.",
+          "The generic Avatar and production AvatarImage/ForumIcon sources remain unchanged; final-owner examples and one narrowly coordinated live menu registration-order correction are source-reviewed."
+        ],
+        "nativeReview": {
+          "status": "queued",
+          "sourceCommit": "03d5a976417dc8e0c1f33d97a2290c87ccf45537",
+          "bundle": "/private/tmp/Avatar Compositions Final 47e2 r3.app",
+          "kernelSha256": "cd0479edad24bc77d41a636385863272b37b36747e5d7565589d75262c8b5538"
+        }
       }
     },
     {
@@ -5316,7 +5329,20 @@
           "sha256": "921178487423ff56f4de4aa29b09541733b59359ae746fe63a8b765ae8b153d9"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "in_progress",
+        "reviewStatus": "awaiting_native_review",
+        "sourceCommit": "03d5a976417dc8e0c1f33d97a2290c87ccf45537",
+        "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
+        "verification": [
+          "146 focused Avatar, Direction, Button, Dropdown Menu, Popover, Dialog, styleguide, adoption and downstream menu tests passed with seed 9082026; root and full-profile analysis are clean.",
+          "The generic Avatar and production AvatarImage/ForumIcon sources remain unchanged; final-owner examples and one narrowly coordinated live menu registration-order correction are source-reviewed."
+        ],
+        "nativeReview": {
+          "status": "queued",
+          "sourceCommit": "03d5a976417dc8e0c1f33d97a2290c87ccf45537",
+          "bundle": "/private/tmp/Avatar Compositions Final 47e2 r3.app",
+          "kernelSha256": "cd0479edad24bc77d41a636385863272b37b36747e5d7565589d75262c8b5538"
+        }
       },
       {
         "component": "sidebar",

@@ -71,7 +71,9 @@ void main() {
       direction: direction,
       theme: theme,
     );
-    final trigger = find.widgetWithText(TextButton, 'Open direction menu');
+    final trigger = find.widgetWithText(DButton, 'Open direction menu');
+    expect(find.byType(MenuAnchor), findsNothing);
+    expect(find.byType(DDropdownMenu), findsOneWidget);
     await tester.tap(trigger);
     await tester.pumpAndSettle();
     expect(find.text('Menu direction: LTR'), findsOneWidget);
@@ -88,26 +90,30 @@ void main() {
     );
     expect(DTokens.of(tester.element(menuLabel)).radius, 12);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    // Updating the first row's label must not reorder keyboard navigation.
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('Selected: RTL'), findsOneWidget);
     expect(find.text('Menu direction: RTL'), findsNothing);
-    expect(
-      tester.widget<TextButton>(trigger).focusNode!.hasPrimaryFocus,
-      isTrue,
-    );
+    expect(tester.widget<DButton>(trigger).focusNode!.hasPrimaryFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('Selected: Second action'), findsOneWidget);
+    expect(tester.widget<DButton>(trigger).focusNode!.hasPrimaryFocus, isTrue);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.text('Menu direction: RTL'), findsNothing);
-    expect(
-      tester.widget<TextButton>(trigger).focusNode!.hasPrimaryFocus,
-      isTrue,
-    );
+    expect(tester.widget<DButton>(trigger).focusNode!.hasPrimaryFocus, isTrue);
 
     await tester.tap(trigger);
     await tester.pumpAndSettle();
