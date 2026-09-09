@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
+**35 of 64 components are merged locally.** 17 existing components are in progress; 12 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -83,7 +83,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 44 | dropdown-menu | in_progress | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
 | 45 | context-menu | planned | — | — | dropdown-menu | — |
 | 46 | menubar | planned | — | — | dropdown-menu | — |
-| 47 | navigation-menu | planned | — | — | popover | — |
+| 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
 | 48 | breadcrumb | planned | — | — | button, dropdown-menu | — |
 | 49 | pagination | planned | — | — | button, select | — |
 | 50 | calendar | in_progress | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
@@ -2285,6 +2285,44 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 
 - Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
 - Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
+
+### navigation-menu
+
+Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-navigation-menu.
+
+**acceptanceCriteria**
+
+- Match the frozen shadcn Base Nova Navigation Menu list/item/trigger/link/content/shared viewport/indicator composition, direct Link Component and RTL example with recorded exact-source hashes and measured geometry, color, type and motion mapping.
+- Provide typed controlled, uncontrolled and borrowed-controller APIs; delayed pointer travel, press/touch operation, roving logical keyboard focus, Home/End, popup entry, Escape/outside dismissal and focus restoration; support disabled and dynamically removed entries without stale state.
+- Preserve active/current-page link semantics and controlled routing callbacks, live host palette/font/radius, reduced motion, narrow horizontal scrolling, 200% text, RTL and iOS touch targets while keeping the generic component free of Discourse business logic.
+- Audit core and bundled-plugin navigation and migrate only genuine rich site navigation; retain Sidebar, route tabs, calendar paging, command menus and ordinary buttons under their specialized owners with explicit rationale.
+- Pass focused component/styleguide/Popover regressions, root and full-profile static analysis, and hand the committed implementation to a new independent reviewer for official browser/native acceptance, fixes, latest-main reconciliation and local main merge.
+
+**decisions**
+
+- Verified the frozen Markdown SHA-256 2f4297e419617d26545e1c71dbc5336f6878dd8ab687f71663fe0e2bc2126546. Pinned Base Nova registry SHA-256 1fdd735ea7449af8ebbd932b3e89b34a1efa8a3b193ac979d0d723660526c017 and official Basic example SHA-256 4a2fd068c7b5c3543500d82a37cd115951e2657e4926ade4cdfa5f06ec2c752a.
+- Use one accepted DPopover positioning/dismissal owner around the menu list and extend it with opt-out content autofocus plus configurable transition timing; existing Popover defaults and regressions remain unchanged. Shared viewport anchors to the full list; viewport=false anchors the inline surface to the active trigger.
+- Translate framework Link composition into DNavigationMenuLink callbacks, current-page active semantics and optional closeOnActivate. Flutter owns focus nodes, pointer lifecycle and logical traversal; applications retain route ownership.
+- Map Base Nova 36px triggers, 10px/6px trigger padding, 14px medium text, 12px chevron, 8px link padding, 4px panel padding, 8px side offset, 8px indicator diamond, 10%-foreground ring, shadow and 350ms cubic panel travel to logical pixels and live DTokens/DiscourseTypography.
+
+**retainedAlternatives**
+
+- DSidebar remains the app and styleguide navigation owner because it is persistent/collapsible application chrome, not a horizontal rich navigation popup.
+- Forum/topic/group/preferences DTabList surfaces remain Tabs because they switch route-linked panels and do not expose rich navigation content.
+- Calendar previous/next controls, ordinary route buttons, MenuAnchor/command/search pickers and user menus retain paging, button, menu or command interaction models; converting them would misstate semantics and keyboard behavior.
+- No current core or bundled-plugin surface is a genuine site-wide rich horizontal Navigation Menu, so adoption is intentionally styleguide-only until such a host surface exists.
+
+**verification**
+
+- flutter test --no-pub test/d_navigation_menu_test.dart test/styleguide/navigation_menu_examples_test.dart test/d_popover_test.dart test/styleguide/popover_examples_test.dart: 29 focused interaction/example/shared-owner tests passed.
+- flutter analyze --no-pub passed for the complete repository with no diagnostics after focused file analysis also passed.
+- All registered examples mount under light, dark and Forest custom themes at a 216px logical preview, 200% text, RTL and reduced motion; focused tests verify hover panel travel, routing/close, controlled rejection, disabled/narrow scrolling, logical RTL arrows, content focus and Escape restoration.
+- Read-only current-tree audit covered lib/src/shell, lib/src/plugins and styleguide navigation owners; no suitable production migration was found.
+
+**limitations**
+
+- Official rendered browser comparison and first actual native macOS inspection are intentionally pending for the independent reviewer under the shared desktop lease; widget tests and compilation are not claimed as native inspection.
+- No iOS or Linux device run, spoken VoiceOver pass or full test suite was performed by this implementation task.
 
 ### calendar
 
