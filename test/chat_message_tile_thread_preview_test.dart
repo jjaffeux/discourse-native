@@ -936,10 +936,15 @@ void main() {
       final action = find.byTooltip('Reply');
       expect(action, findsOneWidget);
       expect(tester.getSize(action), HoverActionButton.size);
+      final actionButton = find.ancestor(
+        of: action,
+        matching: find.byType(DButton),
+      );
+      expect(actionButton, findsOneWidget);
       expect(
-        tester.getSemantics(action),
+        tester.getSemantics(actionButton),
         isSemantics(
-          tooltip: 'Reply',
+          label: 'Reply',
           isButton: true,
           hasEnabledState: true,
           isEnabled: true,
