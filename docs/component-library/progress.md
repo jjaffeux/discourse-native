@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**62 of 64 components are merged locally.** 2 existing components are in progress; 0 are planned.
+**63 of 64 components are merged locally.** 1 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -17,7 +17,6 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
-| data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
 
 ## Component implementation
 
@@ -83,7 +82,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 58 | message | merged | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | bf86d92e26feee925739f3d7ee90f26ee05721d7 |
 | 59 | message-scroller | in_progress | 01a08606-ce86-7be2-b92f-59676b40cb40 | codex/ui-message-scroller | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
-| 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
+| 61 | data-table | merged | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | bf616a0639332596f5f436d803d63bb998cc8b67 |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
 | 63 | input-otp | merged | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | 7c5d30c31961c42b8a6aa4d99ea1b144f6551af1 |
 | 64 | questionnaire | merged | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | 4217ffe98a37c61510d464f21cfef87c563e82f1 |
@@ -3356,7 +3355,7 @@ Status: merged. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-cha
 
 ### data-table
 
-Status: in_progress. Task: 01a08606-ca45-73b1-9be1-7486d4e3fe1d. Branch: codex/ui-data-table.
+Status: merged. Task: 01a08606-ca45-73b1-9be1-7486d4e3fe1d. Branch: codex/ui-data-table.
 
 **acceptanceCriteria**
 

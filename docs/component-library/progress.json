@@ -4348,7 +4348,7 @@
     },
     {
       "id": "data-table",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
       "branch": "codex/ui-data-table",
       "dependencies": [
@@ -4392,9 +4392,9 @@
         "Browser/native font rasterization is not pixel-identical. The fixture is offline and does not exercise authenticated server adapters."
       ],
       "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
-      "mergeCommit": null,
+      "mergeCommit": "bf616a0639332596f5f436d803d63bb998cc8b67",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/656f/discourse-native",
-      "queueStage": "ready_for_merge",
+      "queueStage": "merged",
       "implementationBrief": "Implement the complete documented Data Table model/widget/compositions: typed column definitions, cell formatting, row actions, pagination, sorting, filtering, column visibility, stable row selection, reusable column header/pagination/column toggle and RTL. Reuse final Table/Pagination/Checkbox/Input/Dropdown Menu/Button/Badge owners, preserving semantic table reading order and independent action behavior. Keep external/server-controlled data operations, loading/errors and business logic in app adapters; clearly support controlled/local state where exposed, stable row/column IDs and dynamic data/selection updates. Do not force a web TanStack dependency into Flutter or silently collapse the reference to a static table. Pagination is being queued alongside you; agree its API directly and use tested prepared pins only in isolation, waiting for accepted parent main merges before final merge. Audit real core/plugin structured datasets and migrate suitable ones without converting card/infinite feeds gratuitously. Verify actual row-selection/sort/filter/page/visibility interactions and persisted state across live themes/narrow/scaled layouts.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/data-table",
@@ -4457,7 +4457,7 @@
       "reviewBranch": "codex/review-data-table-merge",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f127/discourse-native",
       "reviewHandoffCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "implementationHandoffVerification": {
         "focusedTests": "Source reports 70 Data Table and parent-component checks plus 15 styleguide-page checks passing with seed 278431.",
         "analysis": "Root and full-profile analysis and enforced locked resolution pass without lockfile changes; touched formatting and diff checks pass.",
@@ -4936,16 +4936,6 @@
           "implementationTaskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
           "implementationBranch": "codex/ui-message-scroller",
           "headCommit": "1e49e130e07d1cb820e4d4b828e7470aa8b22ccf"
-        },
-        {
-          "component": "data-table",
-          "taskId": "01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a",
-          "branch": "codex/review-data-table",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f127/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
-          "implementationBranch": "codex/ui-data-table",
-          "headCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b"
         }
       ],
       "nativeReadyTasks": []
@@ -5306,18 +5296,6 @@
           "implementationTaskId": "01a08606-ce86-7be2-b92f-59676b40cb40",
           "implementationBranch": "codex/ui-message-scroller",
           "implementationCommit": "26c0970a1c4580b8f719b33b907d3966f2f02273",
-          "status": "in_progress"
-        },
-        {
-          "component": "data-table",
-          "title": "Review and merge Data Table",
-          "taskId": "01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a",
-          "hostId": "local",
-          "branch": "codex/review-data-table",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f127/discourse-native",
-          "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
-          "implementationBranch": "codex/ui-data-table",
-          "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
           "status": "in_progress"
         }
       ],
