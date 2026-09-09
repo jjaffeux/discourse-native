@@ -2072,13 +2072,56 @@
         "dialog"
       ],
       "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "decisions": [
+        "Frozen Markdown SHA256 fc0e1a7bdc05d81c833e001292419e85e1eb7c16be3942a7468ff2d6c1d2b165 reproduced exactly. The preserved base-nova registry and published @shadcn/react 0.3.1 implementation establish the Provider/Root/Viewport/Content/Item/Button contract, dimensions, motion, anchoring, visibility and reader-intent behavior; hashes and URLs are recorded in docs/component-library/reference/message-scroller/sources.json.",
+        "DMessageScrollerController provides typed start/end/stable-message commands and observable edge, live-follow, current-anchor and visible-id state. The provider owns an omitted controller and borrows a supplied one; queued targets survive an initially empty transcript, while unknown mounted IDs fail immediately.",
+        "The direct-item and builder viewports share one SuperListView implementation. Stable IDs drive keys, target discovery, prepend restoration and variable-height resize correction without rebuilding the transcript on controller-state changes. Reader wheel, pointer/touch and keyboard intent cancels smooth movement or live following.",
+        "Base-nova defaults are preserved: initial end, edge threshold 8, margin 0, previous context 64, content gap 24, contained full-size viewport, accepted DScrollBar chrome and centered secondary edge controls at 16px with 200/400ms transitions. Reduced motion is immediate and logical alignment remains RTL-correct.",
+        "The production Chat adapter deliberately disables generic initial landing, resize correction and stable-key repositioning because its reversed window already owns server target/last-read landing and physical-index offset correction. It still exposes stable row IDs to the generic scroller and keeps all paging/read/selection/domain ownership outside it.",
+        "Catalogue examples use prepared Message pin 04873114 and Bubble pin 78c60d0c from their owner branches so examples exercise real final-owner APIs. These are prepared dependencies, not acceptance: the independent reviewer must wait for accepted Message/Bubble main revisions and reconcile every reviewed correction before merge."
+      ],
+      "migrations": [
+        "ChatMessageStream, shared by channel and thread routes, now composes DMessageScrollerProvider, DMessageScroller and DMessageScrollerViewport.builder around the existing reversed virtualizer. Stable IDs cover message, day, elapsed-time, deleted, unread-divider and loading rows.",
+        "The Chat adapter retains ListBoundaryShortcuts, bidirectional history paging, server target and last-read landing, unread/read dwell, live-window projection, floating day, selection, highlight, nested code-scroll filtering and the application-owned pending-message-count jump control."
+      ],
+      "retainedAlternatives": [
+        "Topic post streams are document timelines rather than conversational live transcripts and retain their sliver, route and post-loading owner.",
+        "Menus, pickers, search and inbox lists retain their focus-sized or result-list scrolling; composer editors and horizontal attachment rails retain editable or axis-specific owners.",
+        "The production pending-window jump remains application-owned because it loads an absent latest window and exposes a domain count; DMessageScrollerButton handles ordinary in-window edge navigation."
+      ],
+      "verification": [
+        "All 92 combined Message Scroller, catalogue, prepared Message/Bubble, channel lifecycle, thread workspace and message-timeline tests passed with randomized seed 1788963.",
+        "Focused catalogue rendering passed for every example at 360px, 200% text, RTL and reduced motion; command interaction reached stable virtualized row command-23. Controller tests cover initial no-flash, all target alignments, unknown/queued IDs, 64px new-turn context, streaming cancellation, variable-height prepend, 1000-row virtualization and keyboard/wheel intent.",
+        "Root flutter analyze --no-pub and profiles/full flutter pub get --enforce-lockfile plus flutter analyze --no-pub completed with no issues and no dependency-pin changes. Touched Dart formatting and git diff --check passed before handoff. lib/message_scroller_review_main.dart is the offline exact-source catalogue fixture for the independent signed-native review."
+      ],
+      "limitations": [
+        "This implementation task did not claim official browser comparison or native macOS acceptance. The independent reviewer owns the first exact-source rendered/browser inspection, isolated signed native fixture, interaction/accessibility review and resulting fixes under the shared desktop lease.",
+        "Message and Bubble are integrated prepared sources only. Their independent reviewers may change API or behavior; Message Scroller cannot merge ahead of their accepted local-main revisions.",
+        "No iOS/Linux device or spoken VoiceOver run is claimed. Widget semantics, keyboard, touch-intent, text-scale, RTL and reduced-motion coverage are not a substitute for those device checks."
+      ],
+      "implementationCommit": "26c0970a1c4580b8f719b33b907d3966f2f02273",
+      "mergeCommit": null,
+      "queueStage": "source_ready",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/0ff5/discourse-native",
+      "preparedDependencies": [
+        {
+          "id": "message",
+          "branch": "codex/ui-message",
+          "commit": "04873114",
+          "reviewTaskId": "01a08627-8995-7b43-9c06-8a219d472681",
+          "reviewBranch": "codex/review-message",
+          "mergeGate": "Wait for Message and its prepared Bubble/Attachment dependencies to be accepted on local main, then replace this pin with the reviewed main-owned source and rerun overlap tests."
+        },
+        {
+          "id": "bubble",
+          "branch": "codex/ui-bubble",
+          "commit": "78c60d0c",
+          "mergeGate": "Prepared solely because DMessage imports DBubble and the catalogue uses real Bubble rows. Wait for Bubble acceptance on local main and reconcile the reviewed implementation before merge."
+        }
+      ],
+      "browserInspectionStatus": "not_started",
+      "nativeInspectionStatus": "not_started",
+      "reviewStatus": "not_started"
     },
     {
       "id": "drawer",
