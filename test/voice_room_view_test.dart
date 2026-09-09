@@ -942,6 +942,7 @@ void main() {
       await transport.sessionStarted.future;
       await tester.pump();
 
+      expect(find.byType(DSheetContent), findsOneWidget);
       expect(find.byType(DSpinner), findsOneWidget);
       transport.sessionGate.complete();
       await tester.pumpAndSettle();
@@ -1006,6 +1007,7 @@ void main() {
       await tester.tap(find.byTooltip('Room chat'));
       await tester.pumpAndSettle();
 
+      expect(find.byType(DSheetContent), findsOneWidget);
       expect(find.text('Sam'), findsOneWidget);
       expect(find.text('Load older messages'), findsOneWidget);
       await tester.tap(find.text('Load older messages'));

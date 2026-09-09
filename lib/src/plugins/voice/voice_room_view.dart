@@ -1777,14 +1777,21 @@ Future<void> _showVoiceChat(
 }) async {
   unawaited(controller.openChat(siteUrl, roomId));
   try {
-    await showModalBottomSheet<void>(
+    await showDSheet<void>(
       context: context,
-      isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 720),
-      builder: (context) => _VoiceChatSheet(
-        controller: controller,
-        siteUrl: siteUrl,
-        roomId: roomId,
+      side: DSheetSide.bottom,
+      builder: (context, _) => DSheetContent(
+        side: DSheetSide.bottom,
+        topBottomMaxHeightFactor: .85,
+        semanticLabel: 'Room chat',
+        children: [
+          const DSheetHeader(children: [DSheetTitle(child: Text('Room chat'))]),
+          _VoiceChatSheet(
+            controller: controller,
+            siteUrl: siteUrl,
+            roomId: roomId,
+          ),
+        ],
       ),
     );
   } finally {
@@ -1817,113 +1824,86 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: 16 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.7,
-        child: Column(
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: DText(
-                    'Room chat',
-                    variant: DTextVariant.h4,
-                    headingLevel: 1,
-                  ),
-                ),
-                DTooltip(
-                  message: 'Close',
-                  labelTrigger: true,
-                  child: IconButton(
-                    tooltip: '',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const DIcon(DIcons.xmark, size: 18),
-                  ),
-                ),
-              ],
-            ),
-            Expanded(
-              child: ListenableBuilder(
-                listenable: widget.controller,
-                builder: (context, _) {
-                  final chat = widget.controller.chat(
-                    widget.siteUrl,
-                    widget.roomId,
-                  );
-                  if (chat == null || chat.loading) {
-                    return const Center(child: DSpinner(size: DSpacing.xl));
-                  }
-                  if (chat.messages.isEmpty) {
-                    return const Center(child: Text('No messages yet.'));
-                  }
-                  return ListView.builder(
-                    itemCount:
-                        chat.messages.length + (chat.canLoadMorePast ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (chat.canLoadMorePast && index == 0) {
-                        return Center(
-                          child: DButton(
-                            onPressed: () => widget.controller.loadOlderChat(
-                              widget.siteUrl,
-                              widget.roomId,
-                            ),
-                            label: const Text('Load older messages'),
-                            variant: DButtonVariant.link,
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    child: SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.7,
+      child: Column(
+        children: [
+          Expanded(
+            child: ListenableBuilder(
+              listenable: widget.controller,
+              builder: (context, _) {
+                final chat = widget.controller.chat(
+                  widget.siteUrl,
+                  widget.roomId,
+                );
+                if (chat == null || chat.loading) {
+                  return const Center(child: DSpinner(size: DSpacing.xl));
+                }
+                if (chat.messages.isEmpty) {
+                  return const Center(child: Text('No messages yet.'));
+                }
+                return ListView.builder(
+                  itemCount:
+                      chat.messages.length + (chat.canLoadMorePast ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (chat.canLoadMorePast && index == 0) {
+                      return Center(
+                        child: DButton(
+                          onPressed: () => widget.controller.loadOlderChat(
+                            widget.siteUrl,
+                            widget.roomId,
                           ),
-                        );
-                      }
-                      final message =
-                          chat.messages[index - (chat.canLoadMorePast ? 1 : 0)];
-                      return ListTile(
-                        title: Text(message.author.displayName),
-                        subtitle: CookedHtml(
-                          html: message.cooked,
-                          siteUrl: widget.siteUrl,
+                          label: const Text('Load older messages'),
+                          variant: DButtonVariant.link,
                         ),
                       );
-                    },
-                  );
-                },
+                    }
+                    final message =
+                        chat.messages[index - (chat.canLoadMorePast ? 1 : 0)];
+                    return ListTile(
+                      title: Text(message.author.displayName),
+                      subtitle: CookedHtml(
+                        html: message.cooked,
+                        siteUrl: widget.siteUrl,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: DTextarea(
+                  controller: _composer,
+                  minLines: 1,
+                  maxLines: 4,
+                  hintText: 'Message the room',
+                ),
               ),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: DTextarea(
-                    controller: _composer,
-                    minLines: 1,
-                    maxLines: 4,
-                    hintText: 'Message the room',
-                  ),
+              DTooltip(
+                message: 'Send message',
+                labelTrigger: true,
+                child: IconButton.filled(
+                  tooltip: '',
+                  onPressed: () async {
+                    final text = _composer.text;
+                    _composer.clear();
+                    await widget.controller.sendChatMessage(
+                      widget.siteUrl,
+                      widget.roomId,
+                      text,
+                    );
+                  },
+                  icon: const DIcon(DIcons.paperPlane, size: 18),
                 ),
-                DTooltip(
-                  message: 'Send message',
-                  labelTrigger: true,
-                  child: IconButton.filled(
-                    tooltip: '',
-                    onPressed: () async {
-                      final text = _composer.text;
-                      _composer.clear();
-                      await widget.controller.sendChatMessage(
-                        widget.siteUrl,
-                        widget.roomId,
-                        text,
-                      );
-                    },
-                    icon: const DIcon(DIcons.paperPlane, size: 18),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     ),
   );
