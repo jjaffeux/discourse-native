@@ -87,6 +87,88 @@ Widget fixture({
 );
 
 void main() {
+  test('configurable sidebar dimensions reject invalid values', () {
+    expect(
+      () => DSidebarProvider(mobileBreakpoint: -1, child: const SizedBox()),
+      throwsAssertionError,
+    );
+    expect(
+      () => DSidebar(width: 0, child: const SizedBox()),
+      throwsAssertionError,
+    );
+    expect(
+      () => DSidebar(mobileWidth: 0, child: const SizedBox()),
+      throwsAssertionError,
+    );
+    expect(
+      () => DSidebar(iconWidth: 0, child: const SizedBox()),
+      throwsAssertionError,
+    );
+    expect(() => DSidebarMenuSkeleton(widthFactor: 1.1), throwsAssertionError);
+  });
+
+  testWidgets('collapsed icon buttons retain the child accessibility name', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.binding.setSurfaceSize(const Size(1100, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DSidebarProvider(
+              defaultOpen: false,
+              child: Row(
+                children: [
+                  DSidebar(
+                    collapsible: DSidebarCollapsible.icon,
+                    child: DSidebarContent(
+                      children: [
+                        DSidebarGroup(
+                          child: DSidebarMenu(
+                            children: [
+                              DSidebarMenuButton(
+                                icon: const Icon(Icons.home),
+                                onPressed: () {},
+                                child: const Text('Home'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Expanded(child: SizedBox()),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.bySemanticsLabel('Home'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('mobile sheet exposes one sidebar semantic container', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(fixture(width: 360));
+      await tester.tap(find.byType(DSidebarTrigger));
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('Sidebar'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets(
     'sidebar input keeps sibling actions outside its editing bounds',
     (tester) async {

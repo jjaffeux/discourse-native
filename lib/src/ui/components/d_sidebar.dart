@@ -48,7 +48,7 @@ class DSidebarProvider extends StatefulWidget {
     this.open,
     this.onOpenChange,
     this.mobileBreakpoint = 768,
-  });
+  }) : assert(mobileBreakpoint >= 0);
   final Widget child;
   final bool defaultOpen;
   final bool? open;
@@ -158,7 +158,9 @@ class DSidebar extends StatefulWidget {
     this.collapsible = DSidebarCollapsible.offcanvas,
     this.backgroundColor,
     this.semanticLabel = 'Sidebar',
-  });
+  }) : assert(width > 0),
+       assert(mobileWidth > 0),
+       assert(iconWidth > 0);
   final Widget child;
   final Widget? header, footer, rail;
   final double width, mobileWidth, iconWidth;
@@ -220,8 +222,8 @@ class _DSidebarState extends State<DSidebar> {
         icon: icon,
         side: widget.side,
         child: Semantics(
-          container: true,
-          label: widget.semanticLabel,
+          container: !mobile,
+          label: mobile ? null : widget.semanticLabel,
           child: Container(
             decoration: BoxDecoration(
               color: widget.backgroundColor ?? t.surface,
@@ -706,6 +708,17 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                               child: widget.icon,
                             ),
                           ),
+                        if (iconOnly &&
+                            widget.icon != null &&
+                            widget.semanticLabel == null &&
+                            widget.tooltip == null)
+                          SizedBox.shrink(
+                            child: Opacity(
+                              opacity: 0,
+                              alwaysIncludeSemantics: true,
+                              child: widget.child,
+                            ),
+                          ),
                         if (!iconOnly) ...[
                           if (widget.icon != null) const SizedBox(width: 8),
                           Flexible(
@@ -915,7 +928,7 @@ class DSidebarMenuSkeleton extends StatelessWidget {
     super.key,
     this.showIcon = false,
     this.widthFactor = .7,
-  });
+  }) : assert(widthFactor > 0 && widthFactor <= 1);
   final bool showIcon;
   final double widthFactor;
   @override
