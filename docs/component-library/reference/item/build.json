@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "e792c5156c87715d2db5549ff5d35928e0e3b46e",
+  "identityOverrides": {
+    "macos/Runner/Configs/AppInfo.xcconfig": "c46b89428386af06019b063fd2215dfdb9af8b82be3f7c5be84d8e83e92c0f30",
+    "macos/Runner/Info.plist": "40d884475180615de75b5511af9df3f17e12464e2af2953f93044e08ab68dfe4",
+    "macos/Runner.xcodeproj/project.pbxproj": "b79712126ad7732585a4d27eb0b98b29902ed7b896450144c1b68fb4e3becef1",
+    "macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme": "ca10cb8696dc07dd2ef05df9fec18fb576324bbfe3eca9b579577d1ede6e17b6"
+  },
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4.app",
+  "bundleName": "ItemReview82f4",
+  "bundleId": "org.discourse.itemreview82f4",
+  "urlScheme": "discourse-item-review-82f4",
+  "kernelSha256": "7f7f633347d1a22adc56397fec4be1298837c0702253676fef1662d46991b596",
+  "kernelCopiesEqual": true,
+  "sourceEquality": true,
+  "pinsEquality": true,
+  "signatureVerification": "codesign --verify --deep --strict --verbose=2: valid on disk; satisfies its Designated Requirement",
+  "nativeInspection": "awaiting_slot; not launched"
+}

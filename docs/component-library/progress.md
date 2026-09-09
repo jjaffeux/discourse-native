@@ -1437,6 +1437,7 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/u
 - Own Item only on main base 402fe578. Proposed migrations: TagsPage row presentation and AssignmentDetailRow; shared tags empty/error regions overlap Empty/Alert and remain untouched. Thread messaging tool absent in this task; handoff via progress/final.
 - One generic owner exports all ten parts; full source hashes, CSS/logical metrics, semantics/layout/keyboard/native adaptations and audit are in docs/component-library/item.md.
 - Thirteen actual-component examples use bundled reference artwork. Button remains baseline; Dropdown uses an explicitly temporary MenuAnchor composition pending its owning branch. No unmerged dependency imported.
+- Source/check/build ready; awaiting_slot. Coordinator must perform actual reference comparison and native styleguide plus production fixture inspection before review_ready/merge.
 
 **migrations**
 
@@ -1456,6 +1457,9 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/u
 - Root and full-profile flutter analyze --no-pub passed.
 - 47 focused tests passed with seed 9092026: d_item, item_examples, item_migration_fixture, tags_page, assignment_sheet and styleguide_page. Includes pixel evidence that focus paints outside and does not tint muted interior; this is not native parity.
 - Touched formatting and git diff --check passed.
+- Final inherited-clamp correction: 34 focused component/styleguide/migration tests passed with seed 9092026; root and full-profile analysis passed again. Earlier 47-test run also covered the unchanged styleguide shell.
+- Isolated ItemReview82f4 macOS debug build succeeded from e792c515; actual Info.plist confirms org.discourse.itemreview82f4 and discourse-item-review-82f4 URL scheme. Local ad-hoc signature passes codesign --verify --deep --strict.
+- Build and copied App.framework kernels both SHA256 7f7f633347d1a22adc56397fec4be1298837c0702253676fef1662d46991b596. Runner files restored; lib/pubspec/macos equality to source commit and all pin/lockfile equality to 402fe578 verified. See item-build.md and reference/item/build.json.
 
 **limitations**
 
