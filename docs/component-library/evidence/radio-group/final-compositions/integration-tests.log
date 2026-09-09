@@ -1,0 +1,55 @@
+Shuffling test order with --test-randomize-ordering-seed=9092026
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: choice card activates once from label or control and keeps one keyboard owner
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: choice card activates once from label or control and keeps one keyboard owner
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: Form error is associated with each radio and clears live
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: Form error is associated with each radio and clears live
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: label focuses the borrowed editor and metadata preserves editing semantics
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: label focuses the borrowed editor and metadata preserves editing semantics
+00:00 +6: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: label focuses the borrowed editor and metadata preserves editing semantics
+00:00 +7: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: read-only controlled Form accepts parent changes reset and required validation
+00:00 +8: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: responsive reflow preserves editor value focus and Form reset ownership
+00:00 +9: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: composition labels activate the radio Form owner exactly once
+00:00 +10: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: choice focus paints only outside and live selected alpha remains multiplicative
+00:00 +11: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: all real examples fit narrow large-text RTL and touch bounds
+00:00 +12: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: all real examples fit narrow large-text RTL and touch bounds
+00:00 +13: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: all real examples fit narrow large-text RTL and touch bounds
+00:00 +14: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: all real examples fit narrow large-text RTL and touch bounds
+00:00 +15: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: all real examples fit narrow large-text RTL and touch bounds
+00:00 +16: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: all real examples fit narrow large-text RTL and touch bounds
+00:00 +17: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: validation error clears after selection and reset notifies owner
+00:00 +18: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: borrowed focus survives replacement and disposal
+00:00 +19: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: final fields preserve three uniquely named radio semantics owners
+00:00 +20: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: all snippets are runnable and match their actual example source
+00:00 +21: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: item overrides inherit live group props without stale access after removal
+00:01 +22: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: label activation updates and reset restores initial selection
+00:01 +23: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: read-only controlled value without callback remains focusable
+00:01 +24: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: desktop rows follow content height and preserve eight-pixel gaps
+00:01 +25: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: mounted reset baseline and synchronous Form values (controlled: true)
+00:01 +26: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: frozen examples use final Label and Field compositions with one radio owner
+00:01 +27: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: card focus paints outer rings without darkening translucent content
+00:01 +28: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: controlled reset preserves accepted value until parent accepts
+00:01 +29: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: read-only preserves focus and blocks pointer keyboard and semantics selection
+00:01 +30: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: radio focus blocks application reading shortcuts and Tab leaves group
+00:01 +31: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: controlled rejection does not change selection or saved value
+00:01 +32: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: mounted reset baseline and synchronous Form values (controlled: false)
+00:01 +33: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: live palette keeps selection and exact radio geometry
+00:01 +34: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: disabled group and item reject taps and expose radio semantics
+00:01 +35: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:02 +36: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:02 +37: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search reveals a collapsed desktop Sidebar without resetting the preview
+00:03 +38: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search finds documented capabilities and reports no matches
+00:03 +39: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Direction examples use the preview provider and retain edits
+00:03 +40: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: mobile Sidebar selection closes navigation and retains search
+00:04 +41: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: the styleguide accounts for every frozen catalogue entry
+00:04 +42: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:04 +43: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:05 +44: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Escape invokes the styleguide close action from keyboard focus
+00:05 +45: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: documentation theme and code disclosure preserve the app preview
+00:05 +46: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Accordion preview reserves its large-text content height
+00:05 +47: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search and navigation fit 320.0px at 200% system text
+00:05 +48: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search accessibility is bounded to the field on desktop and mobile
+00:06 +49: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: resizing across the navigation breakpoint keeps the active sample
+00:06 +50: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: mobile search shortcut opens Sidebar and focuses its search field
+00:06 +51: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search and navigation fit 1200.0px at 200% system text
+00:06 +52: All tests passed!

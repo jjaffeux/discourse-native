@@ -151,7 +151,29 @@ submission. The dialogs inherit their actual overlay theme/scale behavior; the
 The temporary reference tab was closed and its viewport override reset. The
 desktop lease was released to the next queued reviewer. The isolated app's
 quit shortcut was affected by the active AZERTY layout; the next lease holder
-received its exact bundle/process identity for approved-CUA cleanup. This was
-an input/cleanup incident, not a component crash or a production app mutation.
-Final source reconciliation and local main merge are the only pending work.
+received its exact bundle/process identity for approved-CUA cleanup. A later
+read-only process check confirmed the isolated executable had stopped. This
+was an input/cleanup incident, not a component crash or a production app mutation.
 No VoiceOver speech, iOS device, Linux or cross-platform native claim is made.
+
+## Latest-main integration
+
+Candidate `eb8dc183724d8b36857568d03e653afb03ab3791` starts from local main
+`1770316fcc06f665747d6598f43dde1d093f4420` and merges the complete reviewed
+history, including native acceptance commit `24a0f84b`. No main-into-worktree
+merge or history replacement was used. Progress reconciliation preserves all
+64 component records and every unrelated workflow field.
+
+Radio, Field, Label, the Radio examples and generated snippets, the real
+Poll/flag/owner/move adopters, Radio keyboard/Chat ownership, Drawer examples,
+the native fixture and both profiles' package/lock inputs byte-match inspected
+source `3169db09`. New main changes concern Breadcrumb, Toggle Group and Toast
+diagnostic tests, not the inspected Radio behavior. Their exports/registrations
+and production changes are retained.
+
+All 52 Radio/Field/real-fixture/styleguide-navigation tests pass again on this
+candidate, seed `9092026` (`integration-tests.log`); these are a subset of the
+278 distinct affected tests above, not 52 additional tests. Final root/full
+analysis is clean (`integration-analyze-*.log`); generated snippets and diff
+checks pass. No second native run is claimed or needed for unchanged behavior.
+The final local main merge remains pending.
