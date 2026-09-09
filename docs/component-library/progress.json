@@ -2660,7 +2660,7 @@
     },
     {
       "id": "chart",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
       "branch": "codex/ui-chart",
       "dependencies": [
@@ -2676,7 +2676,9 @@
         "Frozen Markdown hash matches catalogue exactly; base-nova registry and complete inline examples saved with URLs/hashes. Full section accounting, CSS geometry, API and adaptation mapping: docs/component-library/chart.md.",
         "One generic owner exports DChartContainer/config, typed DBarChart series and controlled inspection, reusable tooltip/legend content and inline DChartBar. Existing native drawing/focus primitives; no plotting package or unmerged dependency.",
         "Ten actual-component styleguide examples remain baseline pending native/reference gate. Colors resolve live; proportional tooltip radius and multiplicative alpha rules applied.",
-        "Independent source/tests/build complete; awaiting_slot. Keep status in_progress and examples baseline until coordinator grants and completes reference/native review."
+        "Independent source/tests/build complete; awaiting_slot. Keep status in_progress and examples baseline until coordinator grants and completes reference/native review.",
+        "Independent review added DChartColors.series so multiple series remain visually distinct when a site palette collapses primary and tertiary roles; the fallback stays live and palette-relative instead of introducing fixed swatches.",
+        "Independent native review added the actual multiple-choice PollCard Checkbox path and made Tooltip anatomy card widths scale with accessible text. Browser and macOS review passed, so the ten actual-component examples are promoted to implemented."
       ],
       "migrations": [
         "PollCard private result bars replaced with DChartBar; percentage/confidential-count rules, permissions, voting/withdrawal and async accepted-result behavior preserved.",
@@ -2693,15 +2695,18 @@
         "Final focused rerun: 147 passed, seed 24615266; final executable source 3dceccf13e327e931290d4f25d13f94e1fb695f5 (rendered reference and Escape corrections).",
         "Isolated macOS debug build succeeded; unique bundle /tmp/chart-review-eab4-3dceccf1/Chart Review eab4.app, ID org.discourse.chartrevieweab4, scheme discourse-chart-review-eab4. Source equality, three-way kernel SHA256 ddd4ce813f3caf72ae4fa11e2f165e1574b89c1dfdafe7b65d4e7ffacf6458f0 and deep strict ad-hoc signature verification passed. Provenance/inspection checklist: docs/component-library/chart-native.md.",
         "15 existing styleguide-page/Button-adoption integration tests passed, seed 2936222072; /tmp/chart-styleguide-integration.log.",
-        "Pinned main e612ad7b merged at 1edacc28; final component owners/adapters and all non-Chart rows preserved. 193 integration tests pass seed 4024479176; root/full analysis clean. Source-exact isolated bundle /tmp/chart-review-eab4-1edacc28/Chart Review eab4.app; explicit restricted-free debug/JIT signed readback and deep strict signature pass. Evidence: docs/component-library/evidence/chart/integration/build-identity.json. No CUA/browser/native launch; awaiting_slot."
+        "Pinned main e612ad7b merged at 1edacc28; final component owners/adapters and all non-Chart rows preserved. 193 integration tests pass seed 4024479176; root/full analysis clean. Source-exact isolated bundle /tmp/chart-review-eab4-1edacc28/Chart Review eab4.app; explicit restricted-free debug/JIT signed readback and deep strict signature pass. Evidence: docs/component-library/evidence/chart/integration/build-identity.json. No CUA/browser/native launch; awaiting_slot.",
+        "Independent macOS review exercised actual Users ready/loading/empty/error states; Poll radio, checkbox, confidential and closed-zero paths; Chart pointer/keyboard/Escape semantics; light/dark, Forest/Plum, RTL and narrow/large-text states. Palette corrections were rechecked natively.",
+        "Final exact-source bundle /tmp/chart-review-c0d7-6a07c5ea/Chart Review c0d7.app (org.discourse.chartreviewc0d7) passed deep strict signature verification; source/copy kernel SHA256 3f0236a425737cfafc39f2d7577481d26e9e8c15a1d6c511810fe92ade77cae2. Plum + 360px + 200% Tooltip anatomy remained readable, stacked and complete in the native accessibility tree.",
+        "After final latest-main integration, 151 focused Chart/styleguide/Poll/Users tests passed with randomized seed 2389001480; root and full-profile flutter analyze --no-pub were clean."
       ],
       "limitations": [
-        "Browser comparison completed with font-loaded actual examples and production fixtures; evidence in chart-browser-review.md. Browser slot released. Mac locked; remain in_progress awaiting_slot until native review.",
-        "No iOS/Linux device or VoiceOver testing; test image geometry is not pixel-parity evidence."
+        "Browser comparison and macOS native fixture/styleguide inspection are complete; evidence is recorded in chart-browser-review.md and chart-native.md.",
+        "No iOS/Linux device or VoiceOver speech testing was performed; macOS accessibility-tree inspection and test image geometry are not cross-platform or pixel-parity evidence."
       ],
       "implementationCommit": "1edacc2894f33d4002d02dd37b31baee1e0017b2",
-      "mergeCommit": null,
-      "reviewStatus": "in_progress",
+      "mergeCommit": "ff57007163df986741ce422e4674d267012c8093",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee52e8570ff3",
       "reviewBranch": "codex/review-chart"
     },
@@ -2887,15 +2892,6 @@
           "headCommit": "986eb0632633c45a78008372ed49e28eba315098",
           "status": "independent_review",
           "implementationTaskId": "01a083f3-9a01-7c71-9931-3674b85e81b3"
-        },
-        {
-          "component": "chart",
-          "taskId": "01a08558-4ae6-7db2-bdd6-ee52e8570ff3",
-          "branch": "codex/review-chart",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c0d7/discourse-native",
-          "headCommit": "c782a940b95105f1cfc2614fdfc52c5bd1a09b28",
-          "status": "independent_review",
-          "implementationTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383"
         },
         {
           "component": "textarea",
@@ -3167,17 +3163,6 @@
           "branch": "codex/review-native-select",
           "implementationTaskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
           "implementationBranch": "codex/ui-native-select",
-          "status": "in_progress"
-        },
-        {
-          "component": "chart",
-          "title": "Review and merge Chart",
-          "taskId": "01a08558-4ae6-7db2-bdd6-ee52e8570ff3",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c0d7/discourse-native",
-          "branch": "codex/review-chart",
-          "implementationTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
-          "implementationBranch": "codex/ui-chart",
           "status": "in_progress"
         },
         {
