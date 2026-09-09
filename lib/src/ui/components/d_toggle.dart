@@ -14,6 +14,46 @@ enum DToggleSize { small, regular, large }
 /// Icon placement follows the ambient reading direction.
 enum DToggleIconPosition { start, end }
 
+/// Selects which visual edges keep the Toggle's resting border.
+///
+/// Most callers use [all]. Toggle Group uses this to collapse the shared edge
+/// of connected outline items while [DToggle] remains the painting owner.
+@immutable
+class DToggleBorderEdges {
+  const DToggleBorderEdges({
+    this.top = true,
+    this.bottom = true,
+    this.start = true,
+    this.end = true,
+  });
+
+  static const all = DToggleBorderEdges();
+
+  final bool top;
+  final bool bottom;
+  final bool start;
+  final bool end;
+}
+
+/// Narrow visual overrides for documented Toggle compositions.
+///
+/// Interaction, semantics and state remain owned by [DToggle]. Constraints can
+/// reproduce larger custom tiles without changing the compact standard sizes.
+@immutable
+class DToggleVisualStyle {
+  const DToggleVisualStyle({
+    this.constraints,
+    this.padding,
+    this.borderRadius,
+    this.borderEdges = DToggleBorderEdges.all,
+  });
+
+  final BoxConstraints? constraints;
+  final EdgeInsetsGeometry? padding;
+  final BorderRadiusGeometry? borderRadius;
+  final DToggleBorderEdges borderEdges;
+}
+
 /// A shadcn two-state button with native pressed-toggle semantics.
 ///
 /// Supply [pressed] for controlled state, or omit it to own state initialized
@@ -39,6 +79,8 @@ class DToggle extends StatefulWidget {
     this.semanticHint,
     this.focusNode,
     this.autofocus = false,
+    this.onFocusChanged,
+    this.visualStyle,
   }) : _iconOnly = false;
 
   const DToggle.iconOnly({
@@ -56,6 +98,8 @@ class DToggle extends StatefulWidget {
     this.semanticHint,
     this.focusNode,
     this.autofocus = false,
+    this.onFocusChanged,
+    this.visualStyle,
   }) : child = const SizedBox.shrink(),
        iconPosition = DToggleIconPosition.start,
        _iconOnly = true;
@@ -81,6 +125,11 @@ class DToggle extends StatefulWidget {
   /// Borrowed from the caller and never disposed by this widget.
   final FocusNode? focusNode;
   final bool autofocus;
+  final ValueChanged<bool>? onFocusChanged;
+
+  /// Optional measured composition geometry; state artwork is still rendered
+  /// by this Toggle and continues to use live host tokens.
+  final DToggleVisualStyle? visualStyle;
   final bool _iconOnly;
 
   static double visualDimensionFor(DToggleSize size) => switch (size) {
@@ -170,10 +219,27 @@ class _DToggleState extends State<DToggle> {
         : _focusVisible
         ? tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5)
         : Colors.transparent;
-    final radius = BorderRadius.circular(
-      widget.size == DToggleSize.small
-          ? (tokens.radius * .8).clamp(0, 12)
-          : tokens.radius,
+    final direction = Directionality.of(context);
+    final radius =
+        (widget.visualStyle?.borderRadius ??
+                BorderRadius.circular(
+                  widget.size == DToggleSize.small
+                      ? (tokens.radius * .8).clamp(0, 12)
+                      : tokens.radius,
+                ))
+            .resolve(direction);
+    final edges = widget.visualStyle?.borderEdges ?? DToggleBorderEdges.all;
+    final borderSide = BorderSide(color: borderColor);
+    const noBorder = BorderSide.none;
+    final border = Border(
+      top: edges.top ? borderSide : noBorder,
+      bottom: edges.bottom ? borderSide : noBorder,
+      left: (direction == TextDirection.ltr ? edges.start : edges.end)
+          ? borderSide
+          : noBorder,
+      right: (direction == TextDirection.ltr ? edges.end : edges.start)
+          ? borderSide
+          : noBorder,
     );
     final duration = DMotion.duration(
       context,
@@ -229,18 +295,19 @@ class _DToggleState extends State<DToggle> {
     final artwork = AnimatedContainer(
       duration: duration,
       curve: const Cubic(.4, 0, .2, 1),
-      constraints: BoxConstraints(
-        minWidth: visualDimension,
-        minHeight: visualDimension,
-      ),
-      padding: widget._iconOnly
-          ? EdgeInsets.zero
-          : const EdgeInsets.symmetric(horizontal: 10),
+      constraints:
+          widget.visualStyle?.constraints ??
+          BoxConstraints(minWidth: visualDimension, minHeight: visualDimension),
+      padding:
+          widget.visualStyle?.padding ??
+          (widget._iconOnly
+              ? EdgeInsets.zero
+              : const EdgeInsets.symmetric(horizontal: 10)),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: activeSurface ? tokens.muted : Colors.transparent,
         borderRadius: radius,
-        border: Border.all(color: borderColor),
+        border: border,
       ),
       foregroundDecoration: BoxDecoration(
         borderRadius: radius,
@@ -253,11 +320,18 @@ class _DToggleState extends State<DToggle> {
       child: content,
     );
 
+    final styleConstraints = widget.visualStyle?.constraints;
+    final targetConstraints =
+        styleConstraints != null &&
+            styleConstraints.hasTightWidth &&
+            styleConstraints.hasTightHeight
+        ? styleConstraints
+        : BoxConstraints(
+            minWidth: touch ? DSpacing.touchTarget : visualDimension,
+            minHeight: touch ? DSpacing.touchTarget : visualDimension,
+          );
     final target = ConstrainedBox(
-      constraints: BoxConstraints(
-        minWidth: touch ? DSpacing.touchTarget : visualDimension,
-        minHeight: touch ? DSpacing.touchTarget : visualDimension,
-      ),
+      constraints: targetConstraints,
       child: Center(child: artwork),
     );
 
@@ -286,6 +360,7 @@ class _DToggleState extends State<DToggle> {
           onShowFocusHighlight: (value) {
             if (_focusVisible != value) setState(() => _focusVisible = value);
           },
+          onFocusChange: widget.onFocusChanged,
           shortcuts: const {
             SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
             SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),

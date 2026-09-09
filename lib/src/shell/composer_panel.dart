@@ -1332,7 +1332,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   static const _menuGap = 4.0;
   static const _imageMenuPreferredWidth = 310.0;
   static const _imageMenuHeight = 98.0;
-  static const _galleryMenuButtonExtent = 44.0;
+  static const _galleryMenuButtonExtent = DSpacing.touchTarget;
   static const _galleryMenuContentWidth = _galleryMenuButtonExtent * 4;
   static const _galleryMenuHeight = _galleryMenuButtonExtent;
 
@@ -2944,47 +2944,48 @@ class _GalleryComposerMenu extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    DTooltip(
-                      message: 'Grid gallery mode',
-                      labelTrigger: true,
-                      child: IconButton(
-                        isSelected: gallery.mode == ComposerGalleryMode.grid,
-                        onPressed: () => onMode(ComposerGalleryMode.grid),
-                        icon: const Icon(Icons.grid_view_outlined, size: 18),
-                        selectedIcon: const Icon(Icons.grid_view, size: 18),
-                        tooltip: '',
-                        constraints: const BoxConstraints.tightFor(
-                          width: _ComposerEditorState._galleryMenuButtonExtent,
-                          height: _ComposerEditorState._galleryMenuButtonExtent,
+                    DToggleGroup<ComposerGalleryMode>(
+                      values: [gallery.mode],
+                      onChanged: (values) {
+                        if (values case [final mode]) onMode(mode);
+                      },
+                      allowEmptySelection: false,
+                      spacing: 0,
+                      variant: DToggleVariant.standard,
+                      semanticLabel: 'Gallery mode',
+                      scrollable: false,
+                      items: const [
+                        DToggleGroupItem.iconOnly(
+                          value: ComposerGalleryMode.grid,
+                          semanticLabel: 'Grid gallery mode',
+                          tooltip: 'Grid gallery mode',
+                          icon: Icon(Icons.grid_view_outlined, size: 18),
+                          selectedIcon: Icon(Icons.grid_view, size: 18),
+                          visualStyle: DToggleVisualStyle(
+                            constraints: BoxConstraints.tightFor(
+                              width:
+                                  _ComposerEditorState._galleryMenuButtonExtent,
+                              height:
+                                  _ComposerEditorState._galleryMenuButtonExtent,
+                            ),
+                          ),
                         ),
-                        style: const ButtonStyle(
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.standard,
+                        DToggleGroupItem.iconOnly(
+                          value: ComposerGalleryMode.carousel,
+                          semanticLabel: 'Carousel gallery mode',
+                          tooltip: 'Carousel gallery mode',
+                          icon: Icon(Icons.view_carousel_outlined, size: 18),
+                          selectedIcon: Icon(Icons.view_carousel, size: 18),
+                          visualStyle: DToggleVisualStyle(
+                            constraints: BoxConstraints.tightFor(
+                              width:
+                                  _ComposerEditorState._galleryMenuButtonExtent,
+                              height:
+                                  _ComposerEditorState._galleryMenuButtonExtent,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    DTooltip(
-                      message: 'Carousel gallery mode',
-                      labelTrigger: true,
-                      child: IconButton(
-                        isSelected:
-                            gallery.mode == ComposerGalleryMode.carousel,
-                        onPressed: () => onMode(ComposerGalleryMode.carousel),
-                        icon: const Icon(
-                          Icons.view_carousel_outlined,
-                          size: 18,
-                        ),
-                        selectedIcon: const Icon(Icons.view_carousel, size: 18),
-                        tooltip: '',
-                        constraints: const BoxConstraints.tightFor(
-                          width: _ComposerEditorState._galleryMenuButtonExtent,
-                          height: _ComposerEditorState._galleryMenuButtonExtent,
-                        ),
-                        style: const ButtonStyle(
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.standard,
-                        ),
-                      ),
+                      ],
                     ),
                     DTooltip(
                       message: 'Add images to gallery',
