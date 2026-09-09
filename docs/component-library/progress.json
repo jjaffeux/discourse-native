@@ -2455,7 +2455,7 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
+    "nativeInspectionTaskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
     "nativeInspectionQueue": [
       "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
       "01a083ad-3168-7c01-b35a-7271f9fe6326",
@@ -2534,7 +2534,7 @@
           "branch": "codex/ui-badge",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native",
           "headCommit": "57710f4f05a8aad841b68b828f3cdce7cc2a75a7",
-          "status": "native_review"
+          "status": "final_review_handoff"
         },
         {
           "component": "popover",
@@ -2551,6 +2551,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
           "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
           "status": "implementation"
+        },
+        {
+          "component": "input",
+          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+          "branch": "codex/ui-input",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
+          "headCommit": "37573a27482535d39fb146a8c430f127c5cecdbe",
+          "status": "native_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2689,14 +2697,6 @@
           "branch": "codex/ui-textarea",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
           "headCommit": "7cdcf022595f2330940c482e4df4b5d403599090",
-          "status": "awaiting_native_review"
-        },
-        {
-          "component": "input",
-          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
-          "branch": "codex/ui-input",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
-          "headCommit": "37573a27482535d39fb146a8c430f127c5cecdbe",
           "status": "awaiting_native_review"
         }
       ]
