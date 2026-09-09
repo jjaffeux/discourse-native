@@ -101,6 +101,7 @@ class _DInputOTPState extends FormFieldState<String> {
   late final String _resetValue;
   bool _syncing = false;
   String _lastText = '';
+  Offset? _primaryPointerDown;
 
   DInputOTP get input => widget as DInputOTP;
   TextEditingController get _controller =>
@@ -142,7 +143,12 @@ class _DInputOTPState extends FormFieldState<String> {
 
   void _editingChanged() {
     if (_syncing) return;
-    final editingValue = _controller.value;
+    var editingValue = _controller.value;
+    final sanitized = _sanitize(editingValue.text);
+    if (sanitized != editingValue.text) {
+      _replace(sanitized);
+      editingValue = _controller.value;
+    }
     if (editingValue.text == _lastText) {
       if (mounted) setState(() {});
       return;
@@ -171,8 +177,10 @@ class _DInputOTPState extends FormFieldState<String> {
         _ownedController = null;
       }
       _controller.addListener(_editingChanged);
-      _lastText = _controller.text;
-      setValue(_controller.text);
+      final next = _sanitize(_controller.text);
+      if (next != _controller.text) _replace(next);
+      _lastText = next;
+      setValue(next);
     }
     if (oldWidget.focusNode != input.focusNode) {
       (oldWidget.focusNode ?? _ownedFocus!).removeListener(_focusChanged);
@@ -246,6 +254,25 @@ class _DInputOTPState extends FormFieldState<String> {
     });
   }
 
+  void _pointerDown(PointerDownEvent event) {
+    _primaryPointerDown = event.buttons == 1 ? event.position : null;
+  }
+
+  void _pointerMove(PointerMoveEvent event) {
+    final down = _primaryPointerDown;
+    if (down != null && (event.position - down).distance > 4) {
+      _primaryPointerDown = null;
+    }
+  }
+
+  void _pointerUp(PointerUpEvent event, double width, TextDirection direction) {
+    final down = _primaryPointerDown;
+    _primaryPointerDown = null;
+    if (down != null && (event.position - down).distance <= 4) {
+      _selectFromPointer(event, width, direction);
+    }
+  }
+
   Widget _build() {
     final direction = Directionality.of(context);
     final invalid = input.invalid || errorText != null;
@@ -284,16 +311,17 @@ class _DInputOTPState extends FormFieldState<String> {
               : SemanticsValidationResult.none,
           child: Builder(
             builder: (context) => Stack(
+              clipBehavior: Clip.none,
               alignment: Alignment.center,
               children: [
                 Positioned.fill(
                   child: Listener(
                     behavior: HitTestBehavior.opaque,
-                    onPointerUp: (event) => _selectFromPointer(
-                      event,
-                      context.size?.width ?? 0,
-                      direction,
-                    ),
+                    onPointerDown: _pointerDown,
+                    onPointerMove: _pointerMove,
+                    onPointerCancel: (_) => _primaryPointerDown = null,
+                    onPointerUp: (event) =>
+                        _pointerUp(event, context.size?.width ?? 0, direction),
                     child: TextSelectionTheme(
                       data: const TextSelectionThemeData(
                         cursorColor: Colors.transparent,
@@ -444,9 +472,9 @@ class DInputOTPGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invalid = children.any(
-      (child) => child is DInputOTPSlot && child.invalid,
-    );
+    final invalid =
+        _DInputOTPScope.maybeOf(context)?.invalid == true ||
+        children.any((child) => child is DInputOTPSlot && child.invalid);
     final t = DTokens.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final ring = t.destructive.withValues(

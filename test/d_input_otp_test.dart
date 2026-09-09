@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsValidationResult, Tristate;
+import 'dart:ui' show PointerDeviceKind, SemanticsValidationResult, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
@@ -83,6 +83,11 @@ void main() {
     await tester.enterText(find.byType(TextField), 'AB12CD');
     await tester.pump();
     expect(completions, ['AB12CD']);
+
+    await tester.enterText(find.byType(TextField), 'AB12C');
+    await tester.enterText(find.byType(TextField), 'AB12CD');
+    await tester.pump();
+    expect(completions, ['AB12CD', 'AB12CD']);
   });
 
   testWidgets('platform selection and deletion update the shared value', (
@@ -174,6 +179,62 @@ void main() {
       focus.addListener(listener);
       focus.removeListener(listener);
     }, returnsNormally);
+  });
+
+  testWidgets('borrowed controller updates remain filtered and bounded', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: '12');
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      host(
+        DInputOTP(
+          maxLength: 4,
+          controller: controller,
+          pattern: dInputOTPDigits,
+        ),
+      ),
+    );
+
+    controller.text = '1a2b3c4d5';
+    await tester.pump();
+
+    expect(controller.text, '1234');
+    expect(controller.selection, const TextSelection.collapsed(offset: 4));
+    expect(find.text('5'), findsNothing);
+  });
+
+  testWidgets('validation paints the group-level invalid ring', (tester) async {
+    final key = GlobalKey<FormState>();
+    await tester.pumpWidget(
+      host(
+        Form(
+          key: key,
+          child: DInputOTP(maxLength: 4, validator: (_) => 'Invalid code'),
+        ),
+      ),
+    );
+
+    expect(key.currentState!.validate(), isFalse);
+    await tester.pump();
+
+    final ringDecorations = tester
+        .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+        .map((box) => box.decoration.runtimeType.toString());
+    expect(ringDecorations, contains('_OTPRingDecoration'));
+    expect(
+      tester
+          .widget<Stack>(
+            find
+                .descendant(
+                  of: find.byType(DInputOTP),
+                  matching: find.byType(Stack),
+                )
+                .first,
+          )
+          .clipBehavior,
+      Clip.none,
+    );
   });
 
   testWidgets('Form validates saves and resets the mount value', (
@@ -273,6 +334,26 @@ void main() {
     await tester.tapAt(Offset(rtlRect.left + 2, rtlRect.center.dy));
     await tester.pump();
     expect(controller.selection.extentOffset, 5);
+  });
+
+  testWidgets('pointer drag selection is not replaced by slot tap mapping', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: '123456');
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      host(DInputOTP(maxLength: 6, controller: controller)),
+    );
+    final rect = tester.getRect(find.byType(DInputOTP));
+    final gesture = await tester.startGesture(
+      Offset(rect.left + 8, rect.center.dy),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveTo(Offset(rect.right - 8, rect.center.dy));
+    await gesture.up();
+    await tester.pump();
+
+    expect(controller.selection.isCollapsed, isFalse);
   });
 
   testWidgets(
