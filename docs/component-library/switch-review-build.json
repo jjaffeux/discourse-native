@@ -11,5 +11,7 @@
   "signatureVerification": "codesign --verify --deep --strict --verbose=2 passed; ad-hoc signature",
   "entitlementsAdaptation": "Isolated copy omits APS/team/application identifiers; codesign entitlements read-back equals intended debug entitlements. Workspace runner unchanged.",
   "buildLog": "/private/tmp/switch-current-review-build.log",
-  "nativeInspectionStatus": "awaiting_slot"
+  "nativeInspectionStatus": "completed",
+  "nativeEvidence": "docs/component-library/evidence/switch/native-3243a88c/manifest.json",
+  "postInspectionDifference": "Only example status and notes promoted; behavior-neutral, inspected bundle retains baseline badge."
 }

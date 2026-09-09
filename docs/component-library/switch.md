@@ -215,3 +215,13 @@ Merged pinned main `7df72ef294826616e8ba24c31c6129d8e9041fec` into the Switch br
 ## Radio/Checkbox baseline refresh
 
 Integrated pinned main `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7`. Switch artwork is unchanged; final Radio/Checkbox ownership, exports, coordinator fixes and all non-Switch progress rows are preserved. Label demo notes now reflect completed Checkbox and Switch owners. Poll toggle settings retain DSwitchTile and app-specific spacing. 90 focused integration tests passed, seed 782314; root/full analysis clean. No reference comparisons/exports repeated and no CUA/browser/native access attempted. Unique exact-source bundle verified with explicit debug/JIT entitlements and restricted APS/team/application identifiers absent. Runner configuration, pins and locks unchanged. Native review remains pending a new grant and available desktop.
+
+
+## Final native acceptance
+
+Native review completed on source3243a88c and its recorded kernel. See
+[evidence and exact scope](evidence/switch/native-3243a88c/README.md).
+All registered examples and representative production fixtures passed; Poll
+actions scroll into view and a valid local poll applied. No functional changes.
+Only example status/notes promoted after review, a behavior-neutral difference
+from the inspected bundle. App quit verified and exclusive slot RELEASED.

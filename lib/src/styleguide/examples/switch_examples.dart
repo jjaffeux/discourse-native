@@ -5,9 +5,9 @@ import '../styleguide_example.dart';
 
 final switchExamples = ComponentExamples(
   description: 'A control that toggles a setting on or off.',
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   notes:
-      'Source implementation complete; native comparison pending. '
+      'Source and native review complete. '
       'DSwitch accepts controlled value/onChanged or uncontrolled initialValue. '
       'DSwitchTile associates wrapping title/subtitle with a single row action. '
       'DSwitchFormField supports validation/save/reset. Read-only retains focus; '
