@@ -1400,49 +1400,31 @@ void _registerShellNavigationTests() {
     );
   });
 
-  testWidgets('places the add control after forums with a hand cursor', (
-    tester,
-  ) async {
+  testWidgets('places the UI Kit add control after forums', (tester) async {
     final semantics = tester.ensureSemantics();
     try {
       await pumpShell(tester, desktop);
 
       final add = find.byKey(const ValueKey('add-instance-rail-button'));
-      final outline = find.byKey(const ValueKey('add-instance-rail-outline'));
       final firstForum = find.byKey(ValueKey(twoSites.first.url));
       final lastForum = find.byKey(ValueKey(twoSites.last.url));
-      final rail = find.byType(InstanceRail);
-      final theme = Theme.of(tester.element(rail));
 
-      expect(tester.getSize(add), const Size.square(44));
-      expect(tester.widget<InkWell>(add).mouseCursor, SystemMouseCursors.click);
-      expect(tester.getSize(outline), const Size.square(34));
+      final button = tester.widget<DButton>(add);
+      expect(button.variant, DButtonVariant.outline);
+      expect(button.insetSurface, isTrue);
+      expect(button.size, DButtonSize.small);
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);
       expect(
         tester.getCenter(lastForum).dy - tester.getCenter(firstForum).dy,
         44,
       );
       expect(tester.getCenter(add).dy - tester.getCenter(lastForum).dy, 44);
-      expect(
-        outline,
-        paints
-          ..path(
-            color: theme.shell.marker.withValues(alpha: 0.35),
-            strokeWidth: 1.5,
-            style: PaintingStyle.stroke,
-          )
-          ..path(
-            color: theme.shell.marker.withValues(alpha: 0.35),
-            strokeWidth: 1.5,
-            style: PaintingStyle.stroke,
-          ),
-      );
 
       final plus = tester.widget<DIcon>(
         find.descendant(of: add, matching: find.dIcon(DIcons.plus)),
       );
       expect(plus.size, 16);
-      expect(plus.color, theme.shell.marker);
+      expect(plus.color, isNull);
       final data = tester.getSemantics(add).getSemanticsData();
       expect(data.label, 'Add a Discourse site');
       expect(data.flagsCollection.isButton, isTrue);
