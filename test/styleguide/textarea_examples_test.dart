@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/textarea_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('all frozen Textarea examples are registered', () {
     expect(componentExamples['textarea'], same(textareaExamples));
+    expect(textareaExamples.status, ComponentStatus.implemented);
     expect(textareaExamples.examples.map((example) => example.title), [
       'Default',
       'Field',

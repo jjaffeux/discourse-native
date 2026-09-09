@@ -5,10 +5,10 @@ import '../styleguide_chrome.dart';
 import '../styleguide_example.dart';
 
 final textareaExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'A multiline field that grows with its content.',
   notes:
-      'Source implementation is complete; rendered/native review is pending. '
+      'Source, rendered reference, and native macOS review are complete. '
       'Base-nova uses a 64px minimum, 10px horizontal/8px vertical padding plus '
       '1px border, rounded-lg (host radius), 14/20px desktop and 16/24px touch '
       'text. Focus and invalid rings extend 3px outside. Native TextField owns '
