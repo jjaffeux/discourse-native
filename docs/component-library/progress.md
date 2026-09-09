@@ -2211,7 +2211,8 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 - Frozen Markdown was downloaded and reproduced the required SHA256 exactly; official page, registry source and Base UI behavior API were inspected and mapped.
 - flutter test --no-pub test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_table_test.dart --test-randomize-ordering-seed=826145 passed 23 tests before the sibling non-overlap addition; the component suite then passed 14 tests with the same seed.
 - Focused coverage proves pointer/Return/Space open and first enabled focus, arrow/Home/End traversal, repeating typeahead, controlled checkbox/radio retention, deepest Escape, RTL submenu arrows, sibling submenu non-overlap, outside focus behavior, controlled open requests, live theme/text scale, desktop/iOS geometry, semantics and Table focus/action regression.
-- flutter analyze --no-pub passed for the repository at the prepared source checkpoint; focused post-fix analysis and git diff --check passed. Current-main integration checks are rerun before reviewer dispatch.
+- After integrating current main 6b8ec8f8, 42 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145; root and profiles/full flutter analyze --no-pub and git diff --check passed.
+- flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed after current-main integration; compiled kernel SHA256 is 5b8111208021b3a52ba1237e83017feeca049c96905d9809239dad0da18143d9. This is build/kernel evidence only, not a native launch claim.
 
 **limitations**
 

@@ -15,10 +15,10 @@ Implementation branch:
 `codex/ui-dropdown-menu`
 
 Implementation source commit:
-`a3db090342e88f584995e64b68ae19e324296c01`
+`a78b3615`
 
-Handoff/progress commit:
-`8055d825`
+This commit integrates current local main `6b8ec8f8` in the isolated worktree;
+the subsequent evidence-only commit records the reviewer task ID.
 
 Important dependency gate:
 
@@ -73,8 +73,9 @@ Reviewer must preserve these downstream coordination requirements:
 Implementation verification already performed:
 
 - `dart format lib/src/ui/components/d_dropdown_menu.dart lib/src/styleguide/examples/dropdown_menu_examples.dart lib/src/styleguide/examples/table_examples.dart lib/src/styleguide/component_examples.dart test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart`
-- `flutter test --no-pub test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_table_test.dart`: 23 tests passed.
-- `flutter analyze --no-pub`: passed for the repository.
+- `flutter test --no-pub test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_table_test.dart test/d_popover_test.dart test/styleguide/popover_examples_test.dart --test-randomize-ordering-seed=826145`: 42 tests passed after current-main integration.
+- Root and `profiles/full` `flutter analyze --no-pub`: passed.
+- `flutter build macos --debug --no-pub -t lib/styleguide_main.dart`: passed; kernel SHA256 `5b8111208021b3a52ba1237e83017feeca049c96905d9809239dad0da18143d9`.
 - `git diff --check`: passed.
 
 Remaining reviewer checks:
@@ -90,11 +91,7 @@ Remaining reviewer checks:
 
 Dropdown Menu source/API is committed on `codex/ui-dropdown-menu`.
 
-Source commit:
-`a3db090342e88f584995e64b68ae19e324296c01`
-
-Handoff/progress commit:
-`8055d825`
+Current-main-integrated source commit: `a78b3615`.
 
 Public API:
 
