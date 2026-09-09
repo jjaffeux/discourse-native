@@ -86,10 +86,9 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                 helperText: 'Required',
               ),
             ),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               controller: _description,
-              decoration: const InputDecoration(labelText: 'Description'),
+              labelText: 'Description',
               minLines: 2,
               maxLines: 5,
             ),

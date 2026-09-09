@@ -1,0 +1,46 @@
+{
+  "sourceCommit": "1efab06cb3b99177278ed941db63ec37f07ce849",
+  "integratedMain": "e612ad7b47413fa890b35ae3b55a6f6d37b08cf7",
+  "sourceEquality": "No lib/tool/runner/pin/lock changes from source commit; all existing component owners match pinned main byte-for-byte.",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app",
+  "bundleId": "org.discourse.alertintegration38df",
+  "bundleName": "Alert Integration Review 38df",
+  "urlSchemes": [
+    {
+      "CFBundleURLName": "org.discourse.alertintegration38df",
+      "CFBundleURLSchemes": [
+        "discourse-alert-integration-38df"
+      ]
+    }
+  ],
+  "kernelHashes": {
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/.dart_tool/flutter_build/35fdf180de2d11018ae90516c2a3b90b/app.dill": "43527a2e8cdda4ec7f3e8ed7079ac9ecab5bef98560d03cd866bbbbfcff2ddb8",
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "43527a2e8cdda4ec7f3e8ed7079ac9ecab5bef98560d03cd866bbbbfcff2ddb8",
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "43527a2e8cdda4ec7f3e8ed7079ac9ecab5bef98560d03cd866bbbbfcff2ddb8"
+  },
+  "signedEntitlementReadbacks": {
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app": {
+      "com.apple.security.cs.allow-jit": true,
+      "com.apple.security.cs.allow-unsigned-executable-memory": true,
+      "com.apple.security.network.client": true,
+      "com.apple.security.network.server": true,
+      "get-task-allow": true
+    },
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/MacOS/__preview.dylib": {},
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/MacOS/Alert Integration Review 38df": {
+      "com.apple.security.cs.allow-jit": true,
+      "com.apple.security.cs.allow-unsigned-executable-memory": true,
+      "com.apple.security.network.client": true,
+      "com.apple.security.network.server": true,
+      "get-task-allow": true
+    },
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/MacOS/Alert Integration Review 38df.debug.dylib": {},
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/objective_c.framework": {},
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/FlutterMacOS.framework": {},
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/WebRTC.framework": {},
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/App.framework": {}
+  },
+  "signatureVerification": "--prepared:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/MacOS/__preview.dylib\n--validated:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/MacOS/__preview.dylib\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/App.framework/Versions/Current/.\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--validated:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/MacOS/Alert Integration Review 38df.debug.dylib\n--validated:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/MacOS/Alert Integration Review 38df.debug.dylib\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--validated:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app/Contents/Frameworks/App.framework/Versions/Current/.\n/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app: valid on disk\n/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Integration Review 38df.app: satisfies its Designated Requirement",
+  "provisioningProfile": "absent",
+  "nativeInspection": "awaiting_slot: Mac locked; browser separately denied admin policy. No launch or policy retry."
+}

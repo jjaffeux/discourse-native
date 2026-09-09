@@ -10,39 +10,27 @@ class EmptyState extends StatelessWidget {
   const EmptyState({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return ColoredBox(
-      color: theme.shell.content,
-      child: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 340),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) => ColoredBox(
+    color: Theme.of(context).shell.content,
+    child: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          child: DEmpty(
+            children: [
+              const DEmptyHeader(
                 children: [
-                  DIcon(
-                    DIcons.comments,
-                    size: 56,
-                    color: theme.colorScheme.primary,
+                  DEmptyMedia(
+                    variant: DEmptyMediaVariant.icon,
+                    child: DIcon(DIcons.comments),
                   ),
-                  const SizedBox(height: 16),
-                  const DText(
-                    'No sites yet',
-                    textAlign: TextAlign.center,
-                    variant: DTextVariant.h3,
-                    headingLevel: 1,
-                  ),
-                  const SizedBox(height: 8),
-                  const DText(
+                  DEmptyTitle('No sites yet', headingLevel: 1),
+                  DEmptyDescription(
                     'Connect a Discourse forum to get started.',
-                    textAlign: TextAlign.center,
-                    variant: DTextVariant.muted,
                   ),
-                  const SizedBox(height: 24),
+                ],
+              ),
+              DEmptyContent(
+                children: [
                   DButton(
                     label: const Text('Add a site'),
                     onPressed: () => showAddInstanceSheet(context),
@@ -51,10 +39,10 @@ class EmptyState extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
