@@ -75,7 +75,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 35 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
-| 36 | drawer | in_progress | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | — |
+| 36 | drawer | implemented | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | — |
 | 37 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
 | 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
 | 39 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
@@ -2130,7 +2130,7 @@ Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/u
 
 ### drawer
 
-Status: in_progress. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/ui-drawer.
+Status: implemented. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/ui-drawer.
 
 **acceptanceCriteria**
 
@@ -2143,6 +2143,36 @@ Status: in_progress. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Drawer (01a08643-3074-72e1-8b18-a2266dd724e6) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- The frozen Markdown, base-nova registry and current Base UI API were pinned at SHA-256 e3fca4a3433436c5eb043a1075f04d064f97add28e4d89872a9a01fe493cc63a, fc81c0adadef868df72172c9cf83237b8ab791a4f0f3e300540883be56c26982 and 06e18a642563ba92e71fe756dbadfc3fc8789c9458a37bba6b7b359f3ae8fbcd respectively.
+- Base-nova geometry maps to 450ms cubic motion, 10% black/4px-blur overlay, exposed-edge border and xl radius, content-sized vertical panels capped 96px from the viewport, 75% side width capped at 384px, 16px section padding, 96x4 handle and 48px overshoot bleed. Native theme tokens, safe areas, text scaling and Flutter focus/semantics remain integration owners.
+- Drawer owns swipe, snap and nested gesture behavior. Concurrent Sheet owns showShellSheet adoption and non-gesture sheet conveniences; DOverlayRoute is the shared route/focus/live-environment foundation reused by Dialog and Drawer.
+- Touch, stylus and trackpad can drag the whole surface; mouse dragging is restricted to the visible handle so body text remains selectable. Logical start/end resolve from live Directionality, and reduced motion completes immediately.
+- Independent review checked the exact Base UI v1.8.0 implementation and corrected fraction snap resolution, one-pixel snap deduplication, low-speed closest-snap selection, fast-swipe projection, one-detent sequential movement, no-snap dismissal thresholds and square-root open overshoot damping.
+- Nested depth and live swipe progress now propagate through every mounted ancestor, matching Silk's below-stack aggregation. Route teardown clears ownership before Navigator removal and the stack handle rejects late notifications after disposal.
+
+**migrations**
+
+- Added Drawer as a public discourse_ui.dart component and registered nine runnable styleguide examples covering delivery-time composition, custom size/style, physical/logical positions, swipe handle, four-level nesting, non-modal interaction, pixel/fraction snap points, responsive Dialog composition and RTL placement.
+- No application surface was migrated. The concurrent Sheet task owns existing showShellSheet callers and its Voice modal-bottom-sheet adoption, avoiding duplicate component ownership.
+
+**retainedAlternatives**
+
+- ChatDrawerOverlay remains the app-specific persistent, collapsible and user-resizable chat workspace because replacing it with a transient route Drawer would remove saved width, collapse/full-page transitions and desktop placement contracts.
+- No Scaffold.drawer or NavigationDrawer usage exists in core, bundled plugins, profiles or packages.
+
+**verification**
+
+- Independent review passed all 62 Drawer/Dialog/styleguide tests with seed 19040911, including viewport-fraction, shallow no-snap rebound, nested swipe reveal and three-level stack-depth regressions.
+- flutter analyze --no-pub passed at the repository root and profiles/full; Dart formatting and git diff --check passed.
+- The source-exact macOS fixture built as isolated Drawer Review fb46.app with bundle ID org.discourse.drawer.review.fb46. Original and copied kernels both hashed f00a9426f82200529a427047b7c156fd4d3179b7f2feca81a7df252deabe89c7; deep strict signature verification passed with only expected debug entitlements.
+- Official rendered browser inspection covered Basic/right, Position/left, Swipe Handle/bottom, Snap Points, Non Modal and three nested levels. Measured side width, inset/radius, handle, overlay, depth transforms and non-modal barrier behavior agreed with the recorded mapping.
+- Interactive native macOS acceptance passed bottom focus/Tab/Escape restoration, LTR right and RTL left logical placement, compact-to-full snap dragging, nested child-only Escape then parent close, non-modal page pass-through, live dark theme while open, 200% text usability and immediate reduced-motion open/close.
+- docs/component-library/reference/drawer.md records the exact source-to-Flutter, Base UI v1.8.0 and Silk mapping. The Sheet reviewer confirmed its shared route extraction is byte-identical and Sheet retains its adoption ownership.
+
+**limitations**
+
+- iOS, Android and Linux devices were not run, and no spoken VoiceOver session was performed.
+- Browser Geist and native host-font rasterization differ; review establishes geometry, styling, interaction and accessibility structure rather than pixel equality.
 
 ### select
 
