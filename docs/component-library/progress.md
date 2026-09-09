@@ -26,7 +26,7 @@ Branch preparation does not mark a component merged or visually verified.
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | combobox | Implementation and checks | — | — |
 | dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
-| context-menu | Implementation and checks | — | — |
+| context-menu | Implementation and checks | — | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | Implementation and checks | — | — |
 | navigation-menu | Implementation and checks | — | — |
 | breadcrumb | Implementation and checks | — | — |
@@ -2406,14 +2406,37 @@ Status: in_progress. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match the frozen Base UI/base-nova Context Menu complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
-- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
-- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
-- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+- Match the frozen Base UI/base-nova Context Menu Composition, Basic, Submenu, Shortcuts, Groups, Icons, Checkboxes, Radio, Destructive, Sides and RTL examples with exact primary-source geometry and behavior mapping.
+- Open at the actual secondary-pointer or long-press position and from Context Menu, Shift+F10 and reader actions; preserve disabled handling, collision, lifecycle cleanup and trigger/reader focus restoration.
+- Reuse the final Dropdown Menu owner for menu content, roving/typeahead navigation, selection, checkbox/radio, submenu sibling ownership and deepest Escape rather than creating a second menu engine.
+- Support live host palette/font/radius, semantics, compact desktop and accessible touch rows, narrow/200% text, RTL and reduced motion; provide every documented interactive styleguide example.
+- Migrate appropriate real core/plugin context actions with domain guards intact, pass focused component/adoption regressions and root/full analysis, then complete independent rendered/native acceptance, dependency reconciliation and final local main merge.
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- A Context Menu-owned 1px DPopoverAnchor tracks the exact invocation point while the prepared Dropdown Menu source remains the sole navigation, selection, submenu and popup-content engine.
+- Keyboard and accessibility invocation anchor at logical bottom-start of the focused trigger; secondary pointer and touch long press use their local event position.
+- The implementation remains baseline/in-progress until its independent reviewer completes official rendered/native acceptance and reconciles the final accepted Dropdown Menu main revision.
+
+**migrations**
+
+- InstanceActions forum-rail secondary/long-press menu now uses DContextMenu and shared item primitives while retaining its touch More Options sheet, custom gesture adapter, semantics action, permissions, destructive confirmation and stale-controller guard.
+
+**retainedAlternatives**
+
+- ChatMessageTile retains its rich adaptive actions sheet and separate visible hover menu because dynamic permission, bookmark, flag, pin/restore/rebake busy state and session-safe async flows require a dedicated shared action adapter before one generic tree can preserve both surfaces.
+- Editable composer and post selection context menus remain Flutter text-selection owners; sidebar secondary callbacks remain direct alternate navigation; Choice/Command/category/tag anchors and toolbar popups are dropdown/adaptor concerns rather than context invocation menus.
+
+**verification**
+
+- Frozen Context Menu Markdown SHA256 reproduced exactly as ec20bd0ef47abb75872c1294d1563f0f279d3da5861177d8f2c588d8eb5f6895; base-nova registry SHA256 recorded as 57bfdd236a7f4cb83625edf4c33265ce009738947666d00311034a88f6868756 on 2026-09-09.
+- Implementation evidence: flutter test --no-pub test/d_context_menu_test.dart --test-randomize-ordering-seed=826145 passed 10 tests for secondary/touch/keyboard invocation, pointer placement, disabled state, focus restoration, typeahead, checkbox/radio, submenu Escape, RTL and collision.
+- Implementation evidence: 53 Dropdown/Popover/styleguide/InstanceActions/modal lifecycle regressions passed with seed 826145; root and profiles/full analysis were clean; styleguide macOS debug build passed with kernel SHA256 6fa392ded08bd8c73b78794d38c04606daee7d42f2ae60acf01e336c32f2b699.
+
+**limitations**
+
+- Official rendered browser comparison and native macOS interaction inspection remain for the independent reviewer; no iOS/Linux device or spoken VoiceOver pass is claimed.
+- Final merge is blocked until Dropdown Menu reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 accepts and merges its parent revision to local main, after which the Context Menu reviewer must reconcile that exact accepted source.
 
 ### menubar
 
