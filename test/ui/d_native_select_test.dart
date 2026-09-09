@@ -284,13 +284,17 @@ void main() {
   );
 
   testWidgets(
-    'palette updates keep the open popup usable with current colors',
+    'palette direction and text scale updates keep the open popup usable',
     (tester) async {
       final light = ThemeData(platform: TargetPlatform.macOS);
       final dark = ThemeData.dark().copyWith(platform: TargetPlatform.macOS);
       Widget build(ThemeData theme) => _app(
         DNativeSelect<String>(entries: _entries, onChanged: (_) {}),
         theme: theme,
+        direction: theme.brightness == Brightness.dark
+            ? TextDirection.rtl
+            : TextDirection.ltr,
+        scale: theme.brightness == Brightness.dark ? 1.5 : 1,
       );
       await tester.pumpWidget(build(light));
       await tester.tap(find.byType(DNativeSelect<String>));
@@ -303,6 +307,22 @@ void main() {
         menu.style!.backgroundColor!.resolve({}),
         dark.colorScheme.surface,
       );
+      final optionContext = tester.element(find.text('Vegetables').last);
+      expect(Directionality.of(optionContext), TextDirection.rtl);
+      expect(MediaQuery.textScalerOf(optionContext).scale(14), 21);
+      expect(
+        tester
+            .widgetList<Material>(
+              find.ancestor(
+                of: find.text('Vegetables'),
+                matching: find.byType(Material),
+              ),
+            )
+            .map((material) => material.color),
+        contains(dark.colorScheme.surface),
+      );
+      await tester.ensureVisible(find.text('Banana').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Banana').last);
       await tester.pumpAndSettle();
       expect(_state(tester).value, 'banana');

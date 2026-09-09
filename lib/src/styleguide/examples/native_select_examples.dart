@@ -108,7 +108,13 @@ final nativeSelectExamples = ComponentExamples(
       description:
           'Both registry sizes, a disabled field and an invalid field. Large text expands both sizes.',
       states: const ['Small', 'Standard', 'Disabled', 'Invalid'],
-      code: '''// Each field uses the Simple example's fruit entries.
+      code: '''const fruit = <DNativeSelectEntry<String>>[
+  DNativeSelectOption(value: 'apple', label: 'Apple'),
+  DNativeSelectOption(value: 'banana', label: 'Banana'),
+  DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+  DNativeSelectOption(value: 'grapes', label: 'Grapes', enabled: false),
+  DNativeSelectOption(value: 'pineapple', label: 'Pineapple'),
+];
 Column(children: [
   DNativeSelect<String>(size: DNativeSelectSize.small,
     entries: fruit, onChanged: (value) {}),
@@ -197,11 +203,36 @@ class _CountryFormState extends State<CountryForm> {
       description:
           'The parent accepts changes. A separate action sets Banana; reset requests Apple.',
       states: const ['Controlled', 'External update', 'Reset'],
-      code: '''// In a State with String? value = 'apple' and a Form key.
-DNativeSelect<String>.controlled(
-  value: value, initialValue: 'apple', entries: fruit,
-  onChanged: (next) => setState(() => value = next),
-)''',
+      code: '''class ControlledSelection extends StatefulWidget {
+  const ControlledSelection({super.key});
+  @override
+  State<ControlledSelection> createState() => _ControlledSelectionState();
+}
+class _ControlledSelectionState extends State<ControlledSelection> {
+  final form = GlobalKey<FormState>();
+  String? value = 'apple';
+  @override
+  Widget build(BuildContext context) => Form(key: form, child: Column(children: [
+    DNativeSelect<String>.controlled(
+      value: value, initialValue: 'apple',
+      entries: const [
+        DNativeSelectOption(value: 'apple', label: 'Apple'),
+        DNativeSelectOption(value: 'banana', label: 'Banana'),
+        DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+        DNativeSelectOption(value: 'grapes', label: 'Grapes', enabled: false),
+        DNativeSelectOption(value: 'pineapple', label: 'Pineapple'),
+      ],
+      onChanged: (next) => setState(() => value = next),
+    ),
+    const SizedBox(height: 16),
+    Wrap(spacing: 8, children: [
+      DButton(label: const Text('Set Banana'),
+        onPressed: () => setState(() => value = 'banana')),
+      DButton(label: const Text('Reset selection'),
+        onPressed: () => form.currentState!.reset()),
+    ]),
+  ]));
+}''',
       builder: (_) => const _Controlled(),
     ),
     StyleguideExample(
