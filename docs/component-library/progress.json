@@ -3051,7 +3051,7 @@
     },
     {
       "id": "pagination",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
       "branch": "codex/ui-pagination",
       "dependencies": [
@@ -3098,10 +3098,11 @@
         "After the Mac auto-locked, the corrected review-harness bundle could not be relaunched. The unchanged Pagination implementation had already completed native inspection; only the harness toggle's corrected MediaQuery simulation remained covered by analyzer/build/signature verification and the sub-640 widget regression."
       ],
       "implementationCommit": "cd69ff21400192e6a141a675ffb7ec6a7199526c",
-      "mergeCommit": null,
+      "mergeCommit": "20f1673402d8b52370efacb5ca61d5f099810582",
       "reviewTaskId": "01a08629-4841-73d0-a5a6-c723f253b4b0",
       "reviewBranch": "codex/review-pagination",
-      "reviewStatus": "accepted",
+      "reviewedBranchHead": "c811612ef6f153c46643f7da45c9546c7ee6ccd0",
+      "reviewStatus": "merged",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/690e/discourse-native",
       "preparedDependencies": [
         {
