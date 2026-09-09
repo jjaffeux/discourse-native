@@ -12,6 +12,7 @@ import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/command_examples.dart';
+import 'examples/data_table_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/drawer_examples.dart';
@@ -80,6 +81,7 @@ final componentExamples = <String, ComponentExamples>{
   'dialog': dialogExamples,
   'dropdown-menu': dropdownMenuExamples,
   'drawer': drawerExamples,
+  'data-table': dataTableExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,

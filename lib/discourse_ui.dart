@@ -17,6 +17,7 @@ export 'src/ui/components/d_chart.dart';
 export 'src/ui/components/d_checkbox.dart';
 export 'src/ui/components/d_collapsible.dart';
 export 'src/ui/components/d_command.dart';
+export 'src/ui/components/d_data_table.dart';
 export 'src/ui/components/d_dialog.dart';
 export 'src/ui/components/d_direction.dart';
 export 'src/ui/components/d_drawer.dart';
