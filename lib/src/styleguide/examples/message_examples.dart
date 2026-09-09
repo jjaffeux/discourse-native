@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final messageExamples = ComponentExamples(
-  status: ComponentStatus.planned,
+  status: ComponentStatus.implemented,
   description:
       'Conversation rows with logical alignment, avatars, rich surfaces, metadata, actions, attachments, and status updates.',
   notes:
@@ -13,7 +13,7 @@ final messageExamples = ComponentExamples(
       'Use matching DMessageAlign and DBubbleAlign values because Bubble owns its own content alignment. '
       'Icon-only actions retain independent labels. DMessageStatus and DMarker live regions are opt-in status announcements. '
       'The app adapter may explicitly keep top-anchored avatars and existing spacing; the default remains the reference bottom anchoring. '
-      'Prepared Bubble and Attachment source is not accepted until their reviewers merge; this page remains planned until independent Message review completes browser/native acceptance.',
+      'All seven compositions use accepted shared owners and passed independent source, official rendered-reference and native macOS review. Exact build provenance and platform limits are recorded in the Message review evidence.',
   examples: [
     StyleguideExample(
       title: 'Overview and composition',
@@ -71,9 +71,9 @@ final messageExamples = ComponentExamples(
       states: const ['Sender', 'Timestamp', 'Read status'],
       code: '''DMessage(
   children: [DMessageContent(children: [
-    DMessageHeader(children: [Text('Olivia'), Text('Yesterday')]),
+    DMessageHeader(children: [Text('Olivia')]),
     DBubble(variant: DBubbleVariant.muted, children: [...]),
-    DMessageFooter(children: [Text('Read yesterday')]),
+    DMessageFooter(children: [Text('Read Yesterday')]),
   ])],
 )''',
       builder: (_) => const _MetadataExample(),

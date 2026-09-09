@@ -86,7 +86,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 55 | attachment | merged | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | 99cea2172e9ddb5da775bff7b81e82c24ad72870 |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
 | 57 | bubble | merged | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | c3d6ae97af486134b32067aecc29f7191b05367d |
-| 58 | message | in_progress | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | — |
+| 58 | message | review_ready | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | in_progress | 01a08606-ce86-7be2-b92f-59676b40cb40 | codex/ui-message-scroller | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
 | 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
@@ -3121,7 +3121,7 @@ Status: merged. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/ui-bub
 
 ### message
 
-Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/ui-message.
+Status: review_ready. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/ui-message.
 
 **acceptanceCriteria**
 
@@ -3158,19 +3158,18 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/u
 
 **verification**
 
-- Flutter dependencies resolved with flutter pub get --enforce-lockfile; Flutter pin 3.47.2 and root/profile lockfiles were unchanged.
-- 81 focused Message, Message examples, complete styleguide-page, prepared Bubble/Attachment and Chat channel lifecycle tests passed with randomized seed 39053. Six direct Message geometry/semantics tests passed seed 39047; four example interaction tests passed in the seed 39051 run; Chat loaded-row/adoption geometry passed separately.
-- ChatMessageTile's 61-test presentation suite completed 60 checks; its one tooltip-field expectation also fails unchanged on current main 77ee9b04 when run alone, so it is recorded as a pre-existing baseline failure rather than a Message regression. All 41 Chat channel lifecycle tests passed seed 39052.
-- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed with no issues after touched formatting; git diff --check passed.
-- flutter build macos --debug --no-pub -t lib/message_review_main.dart passed. Ordinary development Discourse.app kernel SHA256 84369c3aced3f9674b1b05f5ca375b721bf20810cb63ae8d8a87b6c5100f87e5 and deep strict signature verification passed; entitlement readback shows the existing development team/application identity and capabilities, so this is not claimed as the required isolated launch or native inspection.
-- Accepted-parent reconciliation passed 193 combined Message, Bubble, Attachment, styleguide and Chat lifecycle checks with seed 39054. Root and profiles/full flutter analyze --no-pub passed; full-profile locked dependency resolution succeeded; touched formatting and git diff --check passed.
-- The dedicated ChatMessageTile suite completed 55 checks with seed 39055 and retained its sole pre-existing tooltip-field expectation failure at line 939: the semantics node still exposes the independently labeled enabled Reply button, while the legacy test additionally expects a tooltip field. The failing owner/source is unchanged by Message and the same baseline was previously reproduced on main.
+- Accepted-parent reconciliation: 193 Message/Bubble/Attachment/styleguide/Chat checks passed seed39054.
+- Final runtime 5f419da1: all212 affected Message, examples, actual review fixture, ChatMessageTile, Chat lifecycle and reaction accessibility tests passed seed39059. Accepted main correction7b09b62d resolves the historical Reply tooltip-field assertion; no failures remain in this run.
+- Root and profiles/full flutter analyze --no-pub passed on5f419da1; locked dependency resolution, formatting and git diff --check passed.
+- Independent official rendered reference comparison completed for all documented compositions in light/dark. Native seven-example coverage includes normal light/dark and Plum/360px/200%/RTL/reduced motion; local actions and status transitions confirmed.
+- Actual native production thread/jump/reply callbacks, independent AX nodes, hover toolbar, Tab focus, Return menu activation, Escape dismissal/focus return, rich-text selection and offline profile target passed. Exact source/bundle/kernel provenance and cleanup are recorded in review evidence.
 
 **limitations**
 
-- No browser/CUA or native application launch was performed by the implementation task. Official rendered Base UI comparison, uniquely identified restricted-free macOS acceptance, actual production ChatMessageTile inspection, native accessibility inspection and callback verification remain with the new reviewer under the shared desktop lease.
-- No spoken VoiceOver, iOS device or Linux device run is claimed. Widget text-scale/RTL/touch-target coverage is not device testing.
-- Bubble and Attachment are accepted on local main and integrated through direct base b2f425545756bf78798ae2e1635b261f1719b14d. Final Message browser/native evidence, exact-source build provenance and post-reconciliation checks remain required before merge.
+- No spoken VoiceOver, iOS/Linux device or physical-touch run is claimed.
+- The production fixture uses local in-memory records. No real account, successful profile-data fetch, file transfer or delivery endpoint is exercised; mutation/permission/selection/long-press variants additionally rely on the dedicated passing widget suites.
+- An earlier scaled CUA session stopped responding to wheel/keys while AX clicks worked. Fresh exact-path selection after resetting CUA restored plain Tab/Return/Escape in the final pass; no modifier-chord claim is made. Explicit harness scroll controls cover inspection navigation; Message owns no scrolling.
+- The Attachment image example uses deterministic local artwork through the real Attachment owner, not the reference photograph. Host fonts, palette and radius use live Discourse tokens; literal cross-host bitmap identity is not claimed.
 
 ### message-scroller
 

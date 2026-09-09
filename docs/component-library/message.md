@@ -48,7 +48,7 @@ Bubble owns its own maximum width and internal alignment in Flutter. Callers use
 - selection, uploads, edited/pinned/bookmark/delivery state, reactions, thread preview and reply jump;
 - hover/long-press actions, permissions, async mutations and virtualization keys.
 
-This migration intentionally does not force shadcn bubbles onto the established Discourse chat presentation. The generic Message owner supplies row/avatar/content composition; the app adapter preserves product-specific visual and behavioral contracts. `ChatUploads` already composes the prepared Attachment owner for file cards.
+This migration intentionally does not force shadcn bubbles onto the established Discourse chat presentation. The generic Message owner supplies row/avatar/content composition; the app adapter preserves product-specific visual and behavioral contracts. `ChatUploads` composes the accepted Attachment owner for file cards.
 
 `tool/message_native_review_main.dart` mounts these exact production widgets
 against local in-memory Chat records for native acceptance. It covers ordinary
@@ -93,16 +93,32 @@ test-only correction to the legacy Reply semantics assertion. Root and
 full-profile analysis are clean on candidate `5f419da1`.
 
 Exact-source build provenance, completed browser/native observations and
-remaining checks are tracked in
+explicit platform limits are tracked in
 `docs/component-library/evidence/message/native-review.json`. The production
 fixture's visible thread/reply/jump/edit result belongs only to that local
 review harness. Generic Message and the production adapter expose no new
 network or scroll responsibilities.
 
-## Acceptance checklist
+## Acceptance result
 
-- Verify overview, avatar/group, header/footer, actions, Attachment, and accessibility/status examples against the official rendered Base UI page at its 384px content width in light and dark.
-- Inspect native macOS styleguide in light/dark/custom themes, narrow width, 200% text, RTL and reduced motion; verify copy/like/dislike/retry/download controls and status transitions.
-- Inspect the real local-data ChatMessageTile fixture/surface: chained and unchained rows, hover actions, avatar/profile target, reply/thread, reaction, attachment, edited/pinned/bookmarked, pending/failed/deleted and selection paths.
-- Confirm independent native accessibility nodes for author/avatar, rich content, reactions, message actions, file trigger/download, delivery status and retry; do not claim spoken VoiceOver without performing it.
-- Reconcile accepted Bubble and Attachment revisions from current main. An unaccepted parent must not enter main through Message.
+Official rendered Overview, Avatar, Group, Header/Footer, Actions and Attachment
+compositions were compared in light and dark. All seven native examples were
+inspected in normal light/dark and Plum at 360px, 200% text, RTL and reduced
+motion. Copy, like, dislike, retry, download and status changes produced visible
+local results. The corrected footer and scaled production reaction/thread
+metadata passed the final native inspection on source `5f419da1`.
+
+The actual local-data production tiles retained independent profile, upload,
+reaction, thread, jump and action nodes. Thread/jump/reply callbacks, pointer
+hover, visible Tab focus, Return menu activation, Escape dismissal/focus return
+and rich-text selection were exercised. The profile target correctly reached
+the offline fixture's error surface rather than real account data. Broader
+bookmark, mutation, permission and touch/long-press variants are covered by the
+passing widget suites, not claimed as native device runs.
+
+No spoken VoiceOver, iOS/Linux device, physical touch, modifier shortcut, real
+file transfer or delivery-network acceptance is claimed. The image attachment
+uses deterministic local artwork, and host font/palette/radius tokens remain
+live; cross-host bitmap identity is not claimed. The exact isolated app was
+quit, its absence verified, the owned reference tab closed, and the desktop
+lease released before final integration.
