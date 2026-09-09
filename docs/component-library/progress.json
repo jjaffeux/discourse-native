@@ -4860,7 +4860,8 @@
       "Exact source f15c6f67 built as a macOS debug styleguide. The isolated org.discourse.native.component-library-final-audit.f15c6f67 bundle's copied/build kernels both hash 44554591e7f4241107cbc681643ec109cdf78eec25e9d630c629863e24fc0095; deep strict ad-hoc signature verification passed with seven permitted debug entitlements and no push/team/application identifier.",
       "Actual macOS inspection confirmed the shared Sidebar exposes all 64 component destinations. Drawer has no pending banner, opened with bounded radio controls, accepted another delivery time and returned Confirmed: 5:00. Label's DField/DInput composition rendered with shared geometry and editable focus. The isolated app was quit and process disappearance confirmed; the desktop lease was released.",
       "The final current-main candidate is based on 6ddaff9ee748ad6390102307a6b691f22ff2f0ba and preserves the coordinator's final-audit ownership commits. Root and profiles/full flutter analyze --no-pub passed; the complete styleguide plus DCalendar, DDatePicker, EventCalendar and TopicCalendar matrix passed all 415 tests with randomized seed 9092029.",
-      "The repository main checkout merged codex/review-component-library-final-candidate with --no-ff as 2b79f083247b2edd53353e873fde56e354acedf1. No remote push, release, provisioning, account or App Store Connect action was performed."
+      "The repository main checkout merged codex/review-component-library-final-candidate with --no-ff as 2b79f083247b2edd53353e873fde56e354acedf1. No remote push, release, provisioning, account or App Store Connect action was performed.",
+      "Label's displayed form snippet follow-up face7c3e declares, uses and disposes its borrowed FocusNode. Focused analysis passed and all 26 Label/styleguide invariant tests passed with randomized seed 9092030. The repository main checkout accepted it with --no-ff as 7ba28ca1576d2376ecb9ed300783b52512fec71f; unchanged native evidence was reused."
     ],
     "findings": [
       "Reconciled one incorrect planned status, six stale dependency-era styleguide notes and one obsolete Material field composition.",
@@ -4878,6 +4879,13 @@
       "Persian/Hijri/Jalali chronology remains an explicit Kalender engine seam; Gregorian paging is not presented as alternate-calendar support."
     ],
     "mergeCommit": "2b79f083247b2edd53353e873fde56e354acedf1",
+    "followUpMerges": [
+      {
+        "reason": "Complete the displayed Label form snippet's borrowed FocusNode initialization and disposal contract.",
+        "commit": "face7c3e6661cc9bfbafa94755095b4178af89de",
+        "mergeCommit": "7ba28ca1576d2376ecb9ed300783b52512fec71f"
+      }
+    ],
     "finalCompositionReviewGate": "All 64 catalogue components and every required finalCompositionReview must be accepted and merged before the final whole-library audit or goal completion.",
     "worktree": "/Users/joffreyjaffeux/.codex/worktrees/364e/discourse-native",
     "title": "Audit and merge complete component library",
