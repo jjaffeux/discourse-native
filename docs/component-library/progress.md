@@ -1464,6 +1464,7 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/u
 - Source/check/build ready; awaiting_slot. Coordinator must perform actual reference comparison and native styleguide plus production fixture inspection before review_ready/merge.
 - Bounded integration merges pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 via 1462873c; all 17 merged components, coordinator Group/Sidebar/Topic Inbox fixes and every non-Item progress row preserved.
 - Final Button outline/small and accessible round icon-only outline/ghost actions, Badge role composition, controlled Checkbox fixture settings and DInput Form regression replace applicable temporary composition. No radio choices require replacement. Dropdown Menu remains an explicit pending owner.
+- Integration source/check/build ready; awaiting_slot and pending Dropdown Menu composition. No generic Item implementation changes or additional component/task ownership taken.
 
 **migrations**
 
@@ -1486,6 +1487,9 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/u
 - Final inherited-clamp correction: 34 focused component/styleguide/migration tests passed with seed 9092026; root and full-profile analysis passed again. Earlier 47-test run also covered the unchanged styleguide shell.
 - Isolated ItemReview82f4 macOS debug build succeeded from e792c515; actual Info.plist confirms org.discourse.itemreview82f4 and discourse-item-review-82f4 URL scheme. Local ad-hoc signature passes codesign --verify --deep --strict.
 - Build and copied App.framework kernels both SHA256 7f7f633347d1a22adc56397fec4be1298837c0702253676fef1662d46991b596. Runner files restored; lib/pubspec/macos equality to source commit and all pin/lockfile equality to 402fe578 verified. See item-build.md and reference/item/build.json.
+- Pinned-main integration: Item/styleguide examples/TagsPage/AssignmentSheet suites passed; fixture control-width/settled-scroll correction then passed final 11 Item/fixture tests including final Checkbox pointer/Space isolation and final Input Form retention. Root and full-profile analysis pass after final changes.
+- Integrated exact-source macOS build from 68402409 succeeded: ItemReview82f4Integrated.app / org.discourse.itemreview82f4integrated / discourse-item-review-82f4-integrated. Explicit local debug/JIT entitlement signed readback is restricted-free across main app/frameworks/dylibs; strict deep signature passes and no embedded profile remains.
+- Integrated copied/build kernel SHA256 cf0a1efc46876ee29e0fc93fcee132e6b14977e82d0f1dd725c472b55df48122. Source/runner equality to 68402409 and all pins/locks equality to e612ad7b verified; all non-Item progress and coordinator Group/Sidebar/Topic Inbox source preserved. See item-build.md and reference/item/integration-build.json.
 
 **limitations**
 

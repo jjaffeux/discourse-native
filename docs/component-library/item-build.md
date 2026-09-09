@@ -1,76 +1,101 @@
-# Item native review bundle — awaiting_slot
+# Item integrated native review bundle — awaiting_slot
 
-Final source commit: `e792c5156c87715d2db5549ff5d35928e0e3b46e`.
-The later handoff commit changes documentation/progress only.
+Current executable source: `68402409ccc314b6e9b624cf1d86b16531ccdcc4`.
+Pinned main: `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7`, integrated through
+merge `1462873c`. The subsequent handoff commit changes only evidence/progress.
 
 Bundle:
-`/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4.app`
+`/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app`
 
-Verified from its actual Info.plist:
+Verified from actual Info.plist:
 
-- Name/executable: `ItemReview82f4`
-- Bundle identifier: `org.discourse.itemreview82f4`
-- URL scheme: `discourse-item-review-82f4`
+- Name/executable: `ItemReview82f4Integrated`
+- Bundle identifier: `org.discourse.itemreview82f4integrated`
+- URL scheme: `discourse-item-review-82f4-integrated`
 - Entrypoint: `lib/item_review_main.dart`
 
-The fixture mounts real production TagDirectoryRow and AssignmentDetailRow,
-with local data and callbacks. Its Styleguide button opens the actual full
-component styleguide; search for Item. Review both surfaces after receiving the
-coordinator's desktop slot. Nothing was launched in this task.
+The fixture mounts actual production TagDirectoryRow and AssignmentDetailRow
+with local data and callbacks. It uses final controlled Checkbox settings and
+opens the actual styleguide through the final Button. Item examples now use final
+Button outline/small and accessible round icon-only outline/ghost actions, plus
+Badge role composition. The Form regression uses final DInput. There is no
+reference radio choice to replace. Dropdown Menu remains explicitly temporary.
 
-## Build and signature
+## Build, signature and signed entitlement readback
 
 `flutter build macos --debug --no-pub -t lib/item_review_main.dart` succeeded.
-A first attempt failed because the unique identifier had no development profile.
-The successful build temporarily disabled Xcode signing with
-`CODE_SIGNING_ALLOWED = NO`, then used local ad-hoc signing:
+The build temporarily supplied the unique identity and
+`CODE_SIGNING_ALLOWED = NO`, then restored original runner bytes in a finally
+block. No profile lookup retry, account action or provisioning change occurred.
+
+Signed with an explicit local plist instead of the real app's entitlement file:
 
 ```sh
-codesign --force --deep --sign - \
-  --entitlements macos/Runner/DebugProfile.entitlements \
-  build/macos/Build/Products/Debug/ItemReview82f4.app
+codesign --force --deep --sign - --options runtime \
+  --entitlements /tmp/item-integration-82f4-debug.entitlements \
+  build/macos/Build/Products/Debug/ItemReview82f4Integrated.app
+codesign -d --entitlements :- \
+  build/macos/Build/Products/Debug/ItemReview82f4Integrated.app
 codesign --verify --deep --strict --verbose=2 \
-  build/macos/Build/Products/Debug/ItemReview82f4.app
+  build/macos/Build/Products/Debug/ItemReview82f4Integrated.app
 ```
 
-Verification returned **valid on disk** and **satisfies its Designated Requirement**.
-No provisioning profile, signing account, App Store Connect or release change
-was made. The build used only this isolated checkout, never the user's real
-application build directory.
+Signed readback exactly equals these true-valued keys:
 
-The temporary identity substitutions touched AppInfo.xcconfig, Info.plist and
-project.pbxproj (Runner scheme was inspected and unchanged). Original bytes were
-restored in a finally block. Override hashes are saved in
-`reference/item/build.json`. The local build helper and log remain at
-`/tmp/item-review-build-82f4.py` and `/tmp/item-review-82f4-build.log`.
+- `com.apple.security.cs.allow-jit`
+- `com.apple.security.cs.allow-unsigned-executable-memory`
+- `com.apple.security.cs.disable-library-validation`
+- `com.apple.security.get-task-allow`
+- `com.apple.security.network.client`
+- `com.apple.security.network.server`
+
+The main app, contained frameworks and debug dylibs were read back separately:
+no restricted application identifier, team identifier, APNs or developer
+entitlement was present. No embedded provisioning profile exists. Deep strict
+verification returned **valid on disk** and **satisfies its Designated Requirement**.
+The exact signed dictionaries, override hashes, path and verification output
+are in `reference/item/integration-build.json`; the explicit plist is
+`reference/item/integration-debug.entitlements`.
+
+The build helper/log remain at `/tmp/item-integration-build-82f4.py` and
+`/tmp/item-integration-82f4-build.log`. Only this worktree's build directory was
+used. No app was launched, and no CUA/browser access or policy retry was attempted.
 
 ## Kernel and source equality
 
-Both the source build App.framework and the copied bundle App.framework contain
-identical `Versions/A/Resources/flutter_assets/kernel_blob.bin` bytes:
+Build and copied App.framework
+`Versions/A/Resources/flutter_assets/kernel_blob.bin` match exactly:
 
-`7f7f633347d1a22adc56397fec4be1298837c0702253676fef1662d46991b596`
+`cf0a1efc46876ee29e0fc93fcee132e6b14977e82d0f1dd725c472b55df48122`
 
-Verified after signature creation:
+After signing and runner restoration:
 
-- `git diff e792c515 -- lib pubspec.yaml macos` is empty.
-- Flutter pin and root/full/voice lockfiles are identical to base `402fe578`.
-- Working tree was clean before this documentation-only handoff update.
+- `git diff 68402409 -- lib pubspec.yaml macos` is empty.
+- Flutter pin and root/full/voice lockfiles equal pinned main `e612ad7b`.
+- All non-Item progress rows equal pinned main, preserving all 17 merged rows.
+- Group, Sidebar, styleguide shell, Topic Inbox and keyboard-navigation files
+  equal pinned main. Shared exports/registrations preserve every merged owner.
 
-## Checks and remaining gate
+## Integration checks and remaining gate
 
-- Flutter 3.47.2; root/full enforced-lockfile resolution passed.
-- Root/full static analysis passed after the final correction.
-- Original 47-test focused run covered Item, examples, fixture, TagsPage,
-  AssignmentSheet and the styleguide shell. Final correction passed 34 tests
-  across Item, examples, fixture and both app migration suites (seed 9092026).
-- The correction proves large text and explicit unlimited notes override an
-  inherited menu clamp. Existing checks prove focus painting stays exterior,
-  child action isolation, form-state retention, token changes, RTL, geometry,
-  native list roles and local production callbacks.
+Root and full-profile `flutter analyze --no-pub` pass after final source changes.
+The initial integration run passed the Item, styleguide-example, TagsPage and
+AssignmentSheet suites; only the fixture test failed when full-width Checkbox
+settings pushed its tap target off-screen. Controls were bounded and the test
+now settles scrolling before tapping. The final Item/fixture run passed 11 tests,
+including the new nested final Checkbox pointer/Space isolation check. No
+unrelated full suite was run; no generic Item or merged-owner implementation was
+changed during this bounded integration.
 
-**in_progress / awaiting_slot**: no browser/native slot, app launch, actual
-reference-rendered comparison, VoiceOver or device test has occurred. Passing
-widget tests and strict signature validation do not establish visual parity.
-Button/Dropdown dependent example visuals and additional Events row candidates
-remain explicit coordinator reconciliation items in `item.md`.
+Formatting and `git diff --check` pass. Existing tag navigation/request/lazy-list
+and assignment permission/accessibility tests remain green. Final Button nested
+activation and final Input Form retention through large-text RTL reflow pass.
+
+**in_progress / awaiting_slot**: actual reference rendering and native fixture
+plus styleguide review are still required. Mac remains locked; browser access is
+separately denied by admin-policy verification. No CUA/browser/native launch,
+policy retry/workaround, VoiceOver or device test was performed. Dropdown Menu
+composition and retained Events row candidates still need coordinator review.
+
+Historical pre-integration source/kernel evidence remains in
+`reference/item/build.json`; use the integrated bundle above for future review.
