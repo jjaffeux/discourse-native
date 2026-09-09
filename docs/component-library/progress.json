@@ -2428,7 +2428,7 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+    "nativeInspectionTaskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
     "nativeInspectionQueue": [
       "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "01a083ac-5fd5-78b1-9263-7e3218a878b6",
@@ -2753,7 +2753,7 @@
         "input"
       ],
       "purpose": "Temporary combined source/testing checkout to prepare file-input Button API reconciliation. This is not a catalogue/main merge, does not satisfy native acceptance, and does not make unmerged dependencies available for new task dispatch.",
-      "combinedCommit": "a84d4955",
+      "combinedCommit": "c26f6ac8",
       "componentHeads": {
         "button": "f32de5cc356a561c3a3d26c75aeb855e0ad28307",
         "input": "a7550c39004087bc8509efdbdb8f0b2a82ca779b"
@@ -2869,7 +2869,8 @@
       "mergeCommit": null,
       "reviewBranch": "codex/component-fidelity-follow-up",
       "reviewBuildSource": "a872962fe3b02c7bd7d596fcb517707d36c13619",
-      "nativeEvidence": "/Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/native-fidelity-a872962f/manifest.json"
+      "nativeEvidence": "/Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/native-fidelity-a872962f/manifest.json",
+      "nativeAccessibilityFollowUp": "5775a7d3793f830c9bf2700dc03f949a58d7fc7f; documentation/Sidebar navigation boundaries verified in native desktop and mobile layouts."
     },
     "sidebarFloatingRadius": {
       "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
@@ -2892,7 +2893,8 @@
       "nativeEvidence": "/Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/native-fidelity-a872962f/manifest.json",
       "limitations": [
         "No spoken VoiceOver or iOS/Linux device claim. Shared styleguide native accessibility finding is tracked separately before the coordinator branch merges."
-      ]
+      ],
+      "nativeAccessibilityFollowUp": "5775a7d3793f830c9bf2700dc03f949a58d7fc7f; documentation/Sidebar navigation boundaries verified in native desktop and mobile layouts."
     },
     "diagnosticsLogTextScale": {
       "status": "native_verified_pending_merge",
@@ -2915,7 +2917,8 @@
       "mergeCommit": null,
       "limitations": [
         "No spoken VoiceOver or iOS/Linux device claim. Shared styleguide native accessibility finding is tracked separately before the coordinator branch merges."
-      ]
+      ],
+      "nativeAccessibilityFollowUp": "5775a7d3793f830c9bf2700dc03f949a58d7fc7f; documentation/Sidebar navigation boundaries verified in native desktop and mobile layouts."
     },
     "currentNativeReviewBundle": {
       "sourceCommit": "f0a74785453a6cfb73d2e877e16d0e415ec66a31",
