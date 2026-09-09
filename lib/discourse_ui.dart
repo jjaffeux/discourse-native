@@ -27,6 +27,7 @@ export 'src/ui/components/d_marker.dart';
 export 'src/ui/components/d_native_select.dart';
 export 'src/ui/components/d_popover.dart';
 export 'src/ui/components/d_progress.dart';
+export 'src/ui/components/d_questionnaire.dart';
 export 'src/ui/components/d_radio_group.dart';
 export 'src/ui/components/d_resizable.dart';
 export 'src/ui/components/d_scroll_area.dart';

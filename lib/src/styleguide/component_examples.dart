@@ -23,6 +23,7 @@ import 'examples/marker_examples.dart';
 import 'examples/native_select_examples.dart';
 import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
+import 'examples/questionnaire_examples.dart';
 import 'examples/radio_group_examples.dart';
 import 'examples/resizable_examples.dart';
 import 'examples/scroll_area_examples.dart';
@@ -73,6 +74,7 @@ final componentExamples = <String, ComponentExamples>{
   'native-select': nativeSelectExamples,
   'field': fieldExamples,
   'progress': progressExamples,
+  'questionnaire': questionnaireExamples,
   'marker': markerExamples,
   'popover': popoverExamples,
   'skeleton': skeletonExamples,

@@ -38,7 +38,7 @@ Branch preparation does not mark a component merged or visually verified.
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
 | input-otp | Implementation and checks | — | — |
-| questionnaire | independent review | 8ae17012 | 01a08633-c9ed-7062-86c4-16b0835eb303 |
+| questionnaire | accepted | b7fcd56e | 01a08633-c9ed-7062-86c4-16b0835eb303 |
 
 ## Component implementation
 
@@ -107,7 +107,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
 | 63 | input-otp | in_progress | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | — |
-| 64 | questionnaire | in_progress | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | — |
+| 64 | questionnaire | implemented | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | — |
 
 ## Decisions and evidence
 
@@ -2936,7 +2936,7 @@ Status: in_progress. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/u
 
 ### questionnaire
 
-Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-questionnaire.
+Status: implemented. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-questionnaire.
 
 **acceptanceCriteria**
 
@@ -2944,13 +2944,47 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 - Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
 - Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
 - Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+- Export a typed, serializable and resumable Questionnaire controller plus styled composition matching the frozen base-nova root, progress, item, title, description, choices, input, error and action geometry.
+- Support single, multiple, freeform and explicit skipped answers; stable item identity; conditional visibility; visited/navigation/progress state; controlled active-item acceptance; reset; shortcuts; external and cancellation-safe asynchronous validation.
+- Preserve focus restoration and failed-validation focus, keyboard/touch activation, IME editing, announcements, disabled/inert inactive items, narrow/200% text/RTL reflow, reduced motion and live host palette/font/radius changes.
+- Demonstrate reference basic, multiple, freeform, skip, shortcuts, validation, controlled, resume, conditional, custom progress, animated, Card, Dialog and headless/unstyled compositions with final shared component owners.
+- Audit core and bundled plugins for surveys, onboarding and stepped forms; migrate only a suitable flow without changing domain validation, permission, persistence or transport ownership, and document retained alternatives.
+- Pass meaningful controller/state-transition, async cancellation, resume/conditional/backtracking, widget/accessibility/styleguide and real-consumer regressions plus root/full-profile analysis; require official browser and native macOS acceptance in the independent reviewer.
 
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Questionnaire (01a08633-c9ed-7062-86c4-16b0835eb303) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Pinned the frozen official Markdown at SHA256 174687e701dfa6b70a0583de3bfee8dd2885b4c8fd51a899adfaffd689a9dc7c and the 2026-09-09 base-nova registry payload at SHA256 7eac8ca2fb479be1a18c97cced020b93c22cec1926dea72c8be324cdb3b62fa9.
+- Use an immutable heterogeneous typed item model and a ChangeNotifier controller as the headless/unstyled behavior owner; styled widgets remain free of persistence, networking and Discourse branching.
+- The official unstyled API Markdown (SHA256 b6b1f21e3b12dcae85fa89a1582b29ec0e8aede97b02ad33bcbd8db748b06d58), @shadcn/react 0.3.1 tarball (SHA256 0c40a06316d9bac27029f1d81874d894d77ef43a74cad0d12aaab620907563d8), registry TypeScript payload (SHA256 fb5db703937410dee230586678a859b7add61114d7fbf6d6bbfb7101cdfc86ff) and official repository main at 3ba91b1cc83e1bbee4ab35a422ff2a694849c5048 were inspected to resolve navigation, skip, validation and reset semantics.
+- Compose accepted Field 5cd7f3694498e4e09e3c114639baca834b56705e, Button eb6d8ea0d9417f0edc830c5ce715b52436f12c94, Progress 15da313eb259c51c6bbed5974895b6616c32c84c, Card a73f465ac86105fdda35f5b56f8b491da4b3936d, Dialog 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 and Native Select 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 owners; Questionnaire only owns its state machine, choice surface and composition.
+- Optional unanswered and explicitly skipped are distinct; Skip remains available after answering and skips/submits the final optional item, matching the inspected package behavior. Hidden conditional items retain drafts but leave navigation, progress, validation and submission.
+
+**retainedAlternatives**
+
+- No production multi-step questionnaire exists after searching core and bundled plugins for Stepper, PageView, currentStep, stepIndex, wizard, onboarding, survey, questionnaire, intake, clarification, Form, dialog and sheet compositions, so no production migration is truthful.
+- PollCard remains a server-owned single poll with voting permissions, deadlines, result modes and network mutation behavior; PollComposerSheet remains an atomic poll definition editor.
+- Bookmark, invite, account, Preferences and Voice editor forms keep interdependent fields visible and save atomically; media/date PageViews remain navigation rather than questions.
+
+**verification**
+
+- 21 Questionnaire controller/widget/styleguide tests passed after final Field composition, covering typed single/multiple/freeform/skipped answers, optional/required behavior, disabled answers, conditional draft retention, backtracking, controlled acceptance/rejection, JSON resume/reset, initial values, stale async-validation cancellation, external errors, shortcuts, Enter submission, focus, narrow 200% RTL reduced motion and real Dialog lifecycle.
+- 127 affected owner regressions passed together for Field, Input rendering/state, Button reference/adoption, Progress, Card, Dialog and Native Select.
+- Root and profiles/full flutter pub get --enforce-lockfile passed without lockfile or SDK-pin changes; flutter analyze --no-pub passed in both profiles with no diagnostics.
+- Touched Dart formatting and git diff --check passed. flutter build macos --debug -t tool/questionnaire_review_main.dart --no-pub produced build/macos/Build/Products/Debug/Discourse.app.
+- The source-exact local-data macOS fixture mounts all nine public examples and exposes light/dark/forest/plum, RTL, 100/200% text, reduced-motion and 216px/wide controls.
+- Independent review re-downloaded every frozen official source and reproduced the recorded SHA-256 hashes. The rendered Base UI reference was measured at 1024px and 375px in light/dark states; root, progress, type, choice, input and action geometry matched the Flutter mapping.
+- Independent review added direct regressions and corrections for editable-field shortcut suppression with active-IME guarding, focus transfer after shortcut selection while disabled choices consume no slot, freeform Enter navigation, and logical RTL slide direction. Final focused Questionnaire coverage passed 23 tests; 139 composed Field/Input/Button/Progress/Card/Dialog/Native Select owner regressions passed.
+- The exact-source uniquely identified macOS fixture was built, ad-hoc signed and deep/strict verified. Native inspection exercised the three-step flow, empty validation, radio and checkbox keyboard behavior, disabled shortcut mapping, ordinary freeform editing, progress/action changes and the public example geometry. The final kernel SHA-256 was 77e51f8523b54537b4ad78eddd62f7d4a49b95b5c611d001ee4642329245261c.
+- Independent-review root and profiles/full flutter analyze --no-pub were clean; locked pub resolution, touched formatting and git diff --check passed. Accepted source commit after latest-main reconciliation: b7fcd56ecb661ce320e305e6263373f090741d4f.
+- After reconciliation onto local main 28723e4fe98560a35b897be1e2b70b38c67c1a4a, 129 combined Questionnaire and composed-owner tests passed with randomized seed 847291; root and profiles/full analysis remained clean.
+
+**limitations**
+
+- Official browser comparison and native macOS inspection are complete. Native IME composition itself was not synthesized; active-composition behavior is covered by a direct widget regression.
+- No iOS/Linux device, spoken VoiceOver session or production consumer claim is made. Native accessibility-tree inspection is not a spoken-reader or cross-platform claim.
 
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
-
