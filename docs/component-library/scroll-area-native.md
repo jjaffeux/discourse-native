@@ -6,7 +6,7 @@ scroll-area-render-review.md. This record establishes native build readiness onl
 
 ## Final build provenance
 
-Source commit: `1514d822c89c30e32cc5d46419682c6541d7e3ad`. After temporary runner files were restored, the worktree was exactly clean.
+Source commit: `ad0647a4d46b756b87d5b9c5c0ca526e26cb2e17`. After temporary runner files were restored, the worktree was exactly clean.
 Production Dart, fixture, assets, macOS runner and dependency inputs equal that
 commit. This later provenance update changes only documentation.
 
@@ -24,7 +24,7 @@ with org.discourse.native.dev; the final built Info.plist identifier was correct
 to the unique review ID before signing. The main checkout build was untouched.
 
 Build App.framework and copied bundle App.framework kernel_blob.bin bytes are
-equal. SHA256 for both: `42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192`.
+equal. SHA256 for both: `cb549143dbb2b4307b93a606c34e0090c8d9026ab36684d07c2b710c01ac6579`.
 
 `codesign --force --deep --sign - --timestamp=none` completed locally, followed by
 `codesign --verify --deep --strict --verbose=2`: valid on disk and satisfies its
@@ -76,3 +76,29 @@ known pre-existing Diagnostics large-text row errors; coordinator owns their
 separate fix. The native bundle was rebuilt, its effective unique identifier
 verified after correction, copied kernel compared, and deep strict signature
 verification repeated successfully. Browser slot is RELEASED; native awaiting_slot.
+
+## Pinned-main final native preparation
+
+Merged main00f82d280a602c4ec86be3a24664f4052e6c1477. Preserved current Button,
+Badge, Input, Radio Group, Diagnostics row sizing and Sidebar/styleguide semantics
+owners and every other component progress row. Conflicts were imports, exports,
+registrations and generated progress. The source commit above is the merge.
+109 affected tests pass (seed1438380230), root/full-profile analysis clean.
+No unchanged reference/export review repeated. Historical Diagnostics overflow
+artifacts remain evidence of the prior version; main's row fix is now included.
+
+Rebuilt the same uniquely named/id/scheme isolated bundle from the exact clean
+merge source. Corrected effective built Info.plist identity before ad-hoc signing.
+Deep strict signature verification passes. Read-back via
+`codesign -d --entitlements :-` exactly equals the review entitlement file:
+
+- com.apple.security.app-sandbox = true
+- com.apple.security.cs.allow-jit = true
+- com.apple.security.network.client = true
+- com.apple.security.network.server = true
+
+No APS, team identifier, application identifier, camera or microphone entitlement
+is present. Nested code was deep ad-hoc signed; the top-level app was then signed
+with the explicit minimal review entitlements. Evidence logs:
+/tmp/scroll-area-sign-verify.log, /tmp/scroll-area-entitlements-readback.plist.
+No CUA/browser/native use during this preparation. Ready and parked awaiting_slot.

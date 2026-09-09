@@ -1581,6 +1581,7 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 - Rendered follow-up:106 focused tests passed (seed1519015133), including RGBA focus interior/exterior/alpha regression; root/full-profile analysis clean. Export runner captured registered examples and migrated widgets with loaded SFNS/SFArabic/MaterialIcons/JetBrains Mono; fixture errors explicitly recorded, not treated as native acceptance.
 - Rendered-review final executable source 1514d822c89c30e32cc5d46419682c6541d7e3ad: clean source equality after runner restoration; isolated macOS debug build succeeded; unique ID verified; build/copied kernel SHA256 42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192; deep strict signature passed. No native launch.
 - Backlog preparation: merged pinned main00f82d280a602c4ec86be3a24664f4052e6c1477; preserved all non-Scroll-Area progress rows and current shared owners.109 affected component/Sidebar/styleguide/production tests passed seed1438380230; root/full analysis clean. No unchanged browser/export review repeated.
+- Final pinned-main native preparation source ad0647a4d46b756b87d5b9c5c0ca526e26cb2e17: isolated build passed; clean source equality and build/copied kernel SHA256 cb549143dbb2b4307b93a606c34e0090c8d9026ab36684d07c2b710c01ac6579 verified. Deep strict signature and exact read-back of sandbox/JIT/network client+server entitlements passed; no APS/team/application IDs. Native remains awaiting_slot.
 
 **limitations**
 
