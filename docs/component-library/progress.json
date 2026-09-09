@@ -1318,15 +1318,49 @@
       "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
       "branch": "codex/ui-empty",
       "dependencies": [
-        "typography"
+        "typography",
+        "avatar",
+        "kbd"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "acceptanceCriteria": [
+        "Expose DEmpty, DEmptyHeader, DEmptyMedia (plain/icon), DEmptyTitle, DEmptyDescription and DEmptyContent with arbitrary-child composition and one generic rendering owner; no app dependencies or inert props.",
+        "Match frozen base-nova 24px padding, 16/8/10px gaps, 384px slots, 32px icon media with 16px artwork and 8px bottom margin, proportional xl/lg radii, 14/20 medium tight title and 14/22.75 muted description; record source hashes and native wrapping adaptations.",
+        "Provide actual-component basic, dashed outline, muted background, 48px avatar/group, local native search composition and RTL examples; preserve action/editing/keyboard/focus/Form ownership. Record later Input Group reconciliation without claiming its implementation.",
+        "Audit core and bundled plugins; migrate appropriate page empty/error/no-results owners preserving retry/login/add/navigation/refresh callbacks and async/permission/loading behavior; retain compact inline statuses with reasons.",
+        "Verify geometry, live palette/font/radius, narrow 200% RTL, semantics and actual callbacks through focused widget/downstream tests, touched formatting and root/full-profile analysis without changing pins/locks.",
+        "Commit independent source/check work; build uniquely identified isolated macOS fixture/styleguide, record source equality, kernel hash and deep strict signature; remain in_progress awaiting_slot until explicit reference/native review."
+      ],
+      "decisions": [
+        "Frozen MD hash matches assignment; complete embedded example sources and base-nova registry captured under reference/empty with URL/SHA256 manifest and Tabler artwork/license. See empty-reference.md for measured geometry, semantic roles and adaptations.",
+        "Single DEmpty owner exports all six slots plus plain/icon media; arbitrary child composition leaves input/Form/focus/semantics/controller lifetime to native children. 24/16/8/10px spacing, 384px slots, 32/16px media, 14/20 medium tight title and 14/22.75 muted description; proportional xl/lg radii and multiplied alpha.",
+        "Seven self-contained actual-widget examples including outline, background, avatar/group, RTL and working native search Form. StyleguideAction is sanctioned while full Button is pending; Input Group example reconciliation explicitly deferred to its owner. Avatar fallback samples are local data.",
+        "Component examples remain baseline and progress remains in_progress until reference-rendered comparison and native fixture inspection pass. No desktop access used.",
+        "Independent implementation/check/build work is committed and parked awaiting_slot. Coordinator must perform serialized reference-rendered/native styleguide and production comparison before review_ready; no merge or remote writes performed."
+      ],
+      "migrations": [
+        "Core page owners: no-sites (preserved h1/add-site callback), aggregate, categories, tags, drafts, user activity/pull-to-refresh, topic feed/retry key, groups directory/shared group state, users directory/progress, badge catalogue, signed-out private messages/connecting/error.",
+        "Plugins: Chat channel/thread/browse/search/thread-list empty/error/retry, Assign no matching assignments, Voice empty room with cooked HTML/raw description preservation. Domain callbacks, permissions, requests and state/controller ownership remain in the original callers."
+      ],
+      "retainedAlternatives": [
+        "Compact forum-search/picker/channel-info status rows; stale-content/pagination errors; user-summary/awards subsections; latest-reply text; Voice chat messages; event period feedback; diagnostics; unsupported embedded media. These remain inline in dense usable surfaces, not oversized page cards.",
+        "All loading skeleton/spinner owners and controller/network/business code remain outside Empty. Full audit details and plugin accounting in empty-reference.md."
+      ],
+      "verification": [
+        "flutter pub get --enforce-lockfile and full-profile enforced resolution passed; Flutter 3.47.2 and pins/lockfiles unchanged.",
+        "Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed with no diagnostics before final fixture additions; final commands recorded with build evidence.",
+        "Focused downstream command in /tmp/empty-downstream.log: 244 tests passed covering examples, categories, tags, drafts, aggregate, groups, topics lifecycle, Chat browse/thread/search, Assign, Voice, users, badges, account accessibility and Button adoption.",
+        "flutter test --no-pub test/empty_native_fixture_test.dart test/styleguide/empty_examples_test.dart test/ui/d_empty_test.dart --test-randomize-ordering-seed=random: 7 passed, seed 2421918493. Geometry/text metrics, live palette/radius plus borrowed editing/focus, Form validation/save/reset/keyboard, large RTL semantics, all examples at 320px/200% and wide dark, local search/support and actual production fixture retry.",
+        "Additional changed-owner regression: 142 tests passed, seed 3270558952, covering group page/host, activity section lifecycle/totals, connection/session (including private messages), native fixture and final component API. Log /tmp/empty-extra-tests.log.",
+        "Final root flutter analyze --no-pub passed with no diagnostics in 3.3s; all 30 touched Dart files formatted, git diff --check passed; no pubspec, lockfile or pin changes. Downstream 244-test seed was 2113997266.",
+        "Final fixed-height centering/arbitrary-title and viewport-preserving offline fixture checks: 6 tests passed; /tmp/empty-tight-fixture-tests.log. Final root analysis clean in 3.0s, full-profile final analysis clean in 3.1s.",
+        "macOS debug offline fixture/styleguide built successfully from clean source b5730d9ff6b6d58b19b392270459723e891a7361 (tree f689d8b50a0854148913fcc29ee268d057e1c079). Isolated review bundle /private/tmp/DiscourseEmptyReview-01a0843e.app; ID org.discourse.native.empty.01a0843e; scheme discourse-empty-review-01a0843e. Source/copied kernel SHA256 d87ca41a3c701fb7ea7fbcf7369d7c6fc487deaeaaec9894a390027c3cc458a4. Deep strict signature verification passed. Evidence: evidence/empty/native-preparation.json. No launch performed; user main-checkout build untouched."
+      ],
+      "limitations": [
+        "awaiting_slot: reference browser-rendered comparison and native styleguide/production inspection pending; no CUA/app/browser launch permitted or attempted.",
+        "Native search composition must reconcile with Input Group after that separate component merges; it is not claimed as an Input Group implementation. Button remains baseline. Dash rendering and text wrapping await matched reference comparison.",
+        "No iOS/Linux device, VoiceOver speech or pixel parity claim. Native fixture covers the named representative production owners; other migrations have widget regression evidence only."
+      ],
+      "implementationCommit": "b5730d9ff6b6d58b19b392270459723e891a7361",
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:330d4db7-b0df-4b68-9fdc-9a7b94c9c4b0",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native"
@@ -1350,9 +1384,9 @@
     },
     {
       "id": "table",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
+      "branch": "codex/ui-table",
       "dependencies": [
         "typography"
       ],
@@ -1363,7 +1397,9 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:0d60fd76-4af6-49d1-860d-71a07204285e",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native"
     },
     {
       "id": "scroll-area",
@@ -2268,7 +2304,8 @@
       "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
       "01a08437-208f-7332-b373-192eaada5844",
       "01a0843e-76da-7911-ac98-49bd6dba8384",
-      "01a08445-7647-7a83-a366-e06252405043"
+      "01a08445-7647-7a83-a366-e06252405043",
+      "01a0844a-0669-7780-92e8-33cc4314f64a"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -2332,20 +2369,27 @@
           "status": "browser_and_source_review"
         },
         {
-          "component": "empty",
-          "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
-          "branch": "codex/ui-empty",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native",
-          "baseCommit": "926da948",
-          "status": "implementation"
-        },
-        {
           "component": "collapsible",
           "taskId": "01a08445-7647-7a83-a366-e06252405043",
           "branch": "codex/ui-collapsible",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native",
           "baseCommit": "6cc49d3a",
           "status": "implementation"
+        },
+        {
+          "component": "table",
+          "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
+          "branch": "codex/ui-table",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native",
+          "baseCommit": "dbb3391ed0803a20f5becb2ca40fde6cf81bd5e2",
+          "status": "implementation"
+        },
+        {
+          "component": "input",
+          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+          "branch": "codex/ui-input",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
+          "status": "browser_and_renderer_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2415,14 +2459,6 @@
           "status": "awaiting_native_review"
         },
         {
-          "component": "input",
-          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
-          "branch": "codex/ui-input",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
-          "headCommit": "43437c9a271e8352d71684a634654e11f3028d15",
-          "status": "awaiting_browser_native_and_button_reconciliation"
-        },
-        {
           "component": "marker",
           "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
           "branch": "codex/ui-marker",
@@ -2453,6 +2489,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
           "headCommit": "5c845d1732f792ce6178a5667233c01188e30ee1",
           "status": "awaiting_browser_and_native_review"
+        },
+        {
+          "component": "empty",
+          "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
+          "branch": "codex/ui-empty",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native",
+          "headCommit": "403d88880e977dda279b9180445a5f6b7d74f9aa",
+          "status": "awaiting_browser_native_and_input_group_reconciliation"
         }
       ]
     },
@@ -2472,7 +2516,7 @@
     },
     "pendingCoordinatorNativeReview": "Use Component Fidelity B104 at a872962f after unlock: title Escape/save failure, final styleguide preview scrollbar, floating Sidebar radius, Diagnostics rows at100%/200% and detail navigation.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
+    "browserInspectionTaskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
@@ -2526,6 +2570,16 @@
         "status": "in_progress",
         "issue": "Coordinator scratch regression /private/tmp/chart_coordinator_escape_test.dart fails: first Escape dismisses selected chart inspection, but second Escape still gets consumed with no selection and cannot reach the containing dialog. Return ignored when no chart state is active; verify during browser comparison."
       }
+    },
+    "integrationPreparation": {
+      "status": "preparing",
+      "branch": "codex/component-library-integration-review",
+      "worktree": "/private/tmp/discourse-component-integration-b104",
+      "components": [
+        "button",
+        "input"
+      ],
+      "purpose": "Temporary combined source/testing checkout to prepare file-input Button API reconciliation. This is not a catalogue/main merge, does not satisfy native acceptance, and does not make unmerged dependencies available for new task dispatch."
     }
   },
   "visualFidelity": {

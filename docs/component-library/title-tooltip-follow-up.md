@@ -5,14 +5,14 @@ Status: source verified; native review pending. This correction is committed on
 It has not been merged into main.
 
 The current review bundle is
-`/private/tmp/DiscourseComponentFidelityB104-6a99b2d2.app`, built at
-`6a99b2d29cf15f404db598894557fbd7e75649fc` on
+`/private/tmp/DiscourseComponentFidelityB104-a872962f.app`, built at
+`a872962fe3b02c7bd7d596fcb517707d36c13619` on
 `codex/component-fidelity-follow-up`. It includes this unchanged title fix and
 the floating Sidebar `rounded-lg` correction. Inspect title editing, the final
-styleguide preview scrollbar, and the floating Sidebar in this one fixture.
-Its unique identifier is `org.discourse.native.component-fidelity.b104`, scheme
-`discourse-component-fidelity-b104`, and kernel SHA256
-`db4f29d8e34dbf63f7862f17b96bd959c948dd208a67d0e7d8db99de053ce7e1`.
+styleguide preview scrollbar, the floating Sidebar, and the new Diagnostics rows route in this one fixture.
+Its unique identifier is `org.discourse.native.component-fidelity.b104.a872962f`, scheme
+`discourse-component-fidelity-b104-a872962f`, and kernel SHA256
+`58be24947baedb42ee067e049ec9253d5fbb6b23cdf03f55378a74f04e539fe5`.
 Tracked source equality, original/copied kernel equality and deep strict
 signature verification pass. Provenance is
 `/private/tmp/component-fidelity-native-provenance.json`. The following original

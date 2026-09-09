@@ -32,9 +32,9 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
 | 22 | card | merged | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | a73f465ac86105fdda35f5b56f8b491da4b3936d |
-| 23 | empty | in_progress | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography | — |
+| 23 | empty | in_progress | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | — |
 | 24 | item | planned | — | — | separator | — |
-| 25 | table | planned | — | — | typography | — |
+| 25 | table | in_progress | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | — |
 | 26 | scroll-area | in_progress | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | — |
 | 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
@@ -1373,6 +1373,54 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 ### empty
 
 Status: in_progress. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/ui-empty.
+
+**acceptanceCriteria**
+
+- Expose DEmpty, DEmptyHeader, DEmptyMedia (plain/icon), DEmptyTitle, DEmptyDescription and DEmptyContent with arbitrary-child composition and one generic rendering owner; no app dependencies or inert props.
+- Match frozen base-nova 24px padding, 16/8/10px gaps, 384px slots, 32px icon media with 16px artwork and 8px bottom margin, proportional xl/lg radii, 14/20 medium tight title and 14/22.75 muted description; record source hashes and native wrapping adaptations.
+- Provide actual-component basic, dashed outline, muted background, 48px avatar/group, local native search composition and RTL examples; preserve action/editing/keyboard/focus/Form ownership. Record later Input Group reconciliation without claiming its implementation.
+- Audit core and bundled plugins; migrate appropriate page empty/error/no-results owners preserving retry/login/add/navigation/refresh callbacks and async/permission/loading behavior; retain compact inline statuses with reasons.
+- Verify geometry, live palette/font/radius, narrow 200% RTL, semantics and actual callbacks through focused widget/downstream tests, touched formatting and root/full-profile analysis without changing pins/locks.
+- Commit independent source/check work; build uniquely identified isolated macOS fixture/styleguide, record source equality, kernel hash and deep strict signature; remain in_progress awaiting_slot until explicit reference/native review.
+
+**decisions**
+
+- Frozen MD hash matches assignment; complete embedded example sources and base-nova registry captured under reference/empty with URL/SHA256 manifest and Tabler artwork/license. See empty-reference.md for measured geometry, semantic roles and adaptations.
+- Single DEmpty owner exports all six slots plus plain/icon media; arbitrary child composition leaves input/Form/focus/semantics/controller lifetime to native children. 24/16/8/10px spacing, 384px slots, 32/16px media, 14/20 medium tight title and 14/22.75 muted description; proportional xl/lg radii and multiplied alpha.
+- Seven self-contained actual-widget examples including outline, background, avatar/group, RTL and working native search Form. StyleguideAction is sanctioned while full Button is pending; Input Group example reconciliation explicitly deferred to its owner. Avatar fallback samples are local data.
+- Component examples remain baseline and progress remains in_progress until reference-rendered comparison and native fixture inspection pass. No desktop access used.
+- Independent implementation/check/build work is committed and parked awaiting_slot. Coordinator must perform serialized reference-rendered/native styleguide and production comparison before review_ready; no merge or remote writes performed.
+
+**migrations**
+
+- Core page owners: no-sites (preserved h1/add-site callback), aggregate, categories, tags, drafts, user activity/pull-to-refresh, topic feed/retry key, groups directory/shared group state, users directory/progress, badge catalogue, signed-out private messages/connecting/error.
+- Plugins: Chat channel/thread/browse/search/thread-list empty/error/retry, Assign no matching assignments, Voice empty room with cooked HTML/raw description preservation. Domain callbacks, permissions, requests and state/controller ownership remain in the original callers.
+
+**retainedAlternatives**
+
+- Compact forum-search/picker/channel-info status rows; stale-content/pagination errors; user-summary/awards subsections; latest-reply text; Voice chat messages; event period feedback; diagnostics; unsupported embedded media. These remain inline in dense usable surfaces, not oversized page cards.
+- All loading skeleton/spinner owners and controller/network/business code remain outside Empty. Full audit details and plugin accounting in empty-reference.md.
+
+**verification**
+
+- flutter pub get --enforce-lockfile and full-profile enforced resolution passed; Flutter 3.47.2 and pins/lockfiles unchanged.
+- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed with no diagnostics before final fixture additions; final commands recorded with build evidence.
+- Focused downstream command in /tmp/empty-downstream.log: 244 tests passed covering examples, categories, tags, drafts, aggregate, groups, topics lifecycle, Chat browse/thread/search, Assign, Voice, users, badges, account accessibility and Button adoption.
+- flutter test --no-pub test/empty_native_fixture_test.dart test/styleguide/empty_examples_test.dart test/ui/d_empty_test.dart --test-randomize-ordering-seed=random: 7 passed, seed 2421918493. Geometry/text metrics, live palette/radius plus borrowed editing/focus, Form validation/save/reset/keyboard, large RTL semantics, all examples at 320px/200% and wide dark, local search/support and actual production fixture retry.
+- Additional changed-owner regression: 142 tests passed, seed 3270558952, covering group page/host, activity section lifecycle/totals, connection/session (including private messages), native fixture and final component API. Log /tmp/empty-extra-tests.log.
+- Final root flutter analyze --no-pub passed with no diagnostics in 3.3s; all 30 touched Dart files formatted, git diff --check passed; no pubspec, lockfile or pin changes. Downstream 244-test seed was 2113997266.
+- Final fixed-height centering/arbitrary-title and viewport-preserving offline fixture checks: 6 tests passed; /tmp/empty-tight-fixture-tests.log. Final root analysis clean in 3.0s, full-profile final analysis clean in 3.1s.
+- macOS debug offline fixture/styleguide built successfully from clean source b5730d9ff6b6d58b19b392270459723e891a7361 (tree f689d8b50a0854148913fcc29ee268d057e1c079). Isolated review bundle /private/tmp/DiscourseEmptyReview-01a0843e.app; ID org.discourse.native.empty.01a0843e; scheme discourse-empty-review-01a0843e. Source/copied kernel SHA256 d87ca41a3c701fb7ea7fbcf7369d7c6fc487deaeaaec9894a390027c3cc458a4. Deep strict signature verification passed. Evidence: evidence/empty/native-preparation.json. No launch performed; user main-checkout build untouched.
+
+**limitations**
+
+- awaiting_slot: reference browser-rendered comparison and native styleguide/production inspection pending; no CUA/app/browser launch permitted or attempted.
+- Native search composition must reconcile with Input Group after that separate component merges; it is not claimed as an Input Group implementation. Button remains baseline. Dash rendering and text wrapping await matched reference comparison.
+- No iOS/Linux device, VoiceOver speech or pixel parity claim. Native fixture covers the named representative production owners; other migrations have widget regression evidence only.
+
+### table
+
+Status: in_progress. Task: 01a0844a-0669-7780-92e8-33cc4314f64a. Branch: codex/ui-table.
 
 ### scroll-area
 
