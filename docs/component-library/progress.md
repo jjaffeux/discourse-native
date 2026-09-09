@@ -75,7 +75,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 25 | table | merged | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | 082fcc55ab85d3bd4012c6bd24c647c1febd7d2a |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
-| 28 | accordion | in_progress | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | — |
+| 28 | accordion | review_ready | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | — |
 | 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
 | 31 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
@@ -1799,7 +1799,7 @@ Status: merged. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-col
 
 ### accordion
 
-Status: in_progress. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/ui-accordion.
+Status: review_ready. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/ui-accordion.
 
 **acceptanceCriteria**
 
@@ -1817,6 +1817,8 @@ Status: in_progress. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/u
 - DAccordion<T>, DAccordionItem<T>, DAccordionHeader, DAccordionTrigger, DAccordionContent and DAccordionController<T> expose typed single/multiple composition with controlled, internally owned or explicitly borrowed state.
 - Items key their root wrappers so reorder preserves expansion and descendant identity; local/controller state prunes removed values after the frame while controlled values remain caller-owned.
 - Accordion composes DCollapsible for activation, expanded semantics, focus restoration, panel lifecycle and reduced motion. A narrow optional Collapsible focus-painter extension supplies the base-nova rounded one-pixel border and outside-only three-pixel 50% ring without changing existing defaults.
+- Independent review corrected borrowed-to-local controller transitions, duplicate null wrapper keys and reused-child root-state propagation; it also preserved non-uniform focus geometry outside outlined clipping and removed an undocumented pressed fade.
+- The styleguide reserves an 800px Accordion preview so the 360px/200% RTL sample remains visible, and its controlled dynamic-item action prunes a removed open value before an item can be re-added.
 
 **retainedAlternatives**
 
@@ -1830,10 +1832,15 @@ Status: in_progress. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/u
 - After integrating Empty through main b1720522, 46 Accordion, Collapsible, Accordion styleguide and styleguide-page tests passed again with random seed 417203; root and profiles/full analysis remained clean.
 - Root and profiles/full flutter analyze --no-pub pass with no issues after latest-main integration; Dart formatting and git diff --check pass and dependency pins/lockfiles are unchanged.
 - flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed from integrated source. The compiled kernel SHA256 is d79bdf1ebd81dd8fe4a3cce15e8791ae86a01036738ac4ba4a386d0343ae8fed.
+- The latest-main candidate based on 15e65e76 passed 88 focused Accordion, Collapsible, styleguide and retained-consumer tests with random seed 417203 after the Toast production migration; root and profiles/full flutter analyze --no-pub, Dart formatting and git diff --check passed.
+- Approved official-browser inspection covered every registered reference variant, light/dark rendering, pointer and keyboard behavior, disabled state and exact focus geometry. Computed 14/20 medium text, 10px vertical padding, 16px chevron, 50% disabled opacity and one-plus-three-pixel focus bands matched the source mapping.
+- The uniquely identified macOS styleguide bundle passed dark/light/Forest, pointer, Tab/Return/Space, single/multiple/disabled, Borders/Card/RTL, 360px/200%, reduced-motion, semantics and controlled lifecycle inspection. Its final embedded/build kernel SHA256 is 4aa2785f5a67437389be0bb82516afa130e549e09a7584e1fc182dd4ccd81a2d and its strict deep ad-hoc signature passed; full evidence is docs/component-library/evidence/accordion/native-review.md.
+- A final native follow-up on source 8f24147b7870eebb55debd28d304eccb0cff0f07 confirmed removing an open controlled Security item changed live state from profile, security to profile, and re-adding it left the panel closed.
 
 **limitations**
 
-- Implementation task did not launch or inspect the macOS bundle and makes no native render, browser comparison, VoiceOver, iOS or Linux device claim. The independent reviewer owns official rendered/native comparison and any resulting fixes under the shared desktop lease.
+- Native device inspection was macOS only. No iOS or Linux device was run and no spoken VoiceOver claim is made; macOS Accessibility API roles/actions were inspected directly and have widget regressions.
+- Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette/state mapping, direction, interaction and semantic ownership were compared directly.
 - Browser hidden-until-found has no native equivalent; hosts reveal search matches using controlled values or DAccordionController.
 
 ### tabs

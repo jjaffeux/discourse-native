@@ -1737,7 +1737,7 @@
     },
     {
       "id": "accordion",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
       "branch": "codex/ui-accordion",
       "dependencies": [
@@ -1756,7 +1756,9 @@
         "Frozen Markdown hash, current registry hash, exact measurements, API mapping and acceptance are recorded in docs/component-library/accordion-reference.md.",
         "DAccordion<T>, DAccordionItem<T>, DAccordionHeader, DAccordionTrigger, DAccordionContent and DAccordionController<T> expose typed single/multiple composition with controlled, internally owned or explicitly borrowed state.",
         "Items key their root wrappers so reorder preserves expansion and descendant identity; local/controller state prunes removed values after the frame while controlled values remain caller-owned.",
-        "Accordion composes DCollapsible for activation, expanded semantics, focus restoration, panel lifecycle and reduced motion. A narrow optional Collapsible focus-painter extension supplies the base-nova rounded one-pixel border and outside-only three-pixel 50% ring without changing existing defaults."
+        "Accordion composes DCollapsible for activation, expanded semantics, focus restoration, panel lifecycle and reduced motion. A narrow optional Collapsible focus-painter extension supplies the base-nova rounded one-pixel border and outside-only three-pixel 50% ring without changing existing defaults.",
+        "Independent review corrected borrowed-to-local controller transitions, duplicate null wrapper keys and reused-child root-state propagation; it also preserved non-uniform focus geometry outside outlined clipping and removed an undocumented pressed fade.",
+        "The styleguide reserves an 800px Accordion preview so the 360px/200% RTL sample remains visible, and its controlled dynamic-item action prunes a removed open value before an item can be re-added."
       ],
       "migrations": [],
       "retainedAlternatives": [
@@ -1768,17 +1770,25 @@
         "50 Accordion, Collapsible, styleguide, Alert-overlap and styleguide-shell tests passed with random seed 417203 after integration, covering single/multiple/controlled/controller state, dynamic reorder/removal, pointer, Enter/Space, Tab, disabled state, bounded heading/expanded semantics, independent fields, focus restoration, retention, geometry, touch, RTL, 200% text, live tokens and reduced motion.",
         "After integrating Empty through main b1720522, 46 Accordion, Collapsible, Accordion styleguide and styleguide-page tests passed again with random seed 417203; root and profiles/full analysis remained clean.",
         "Root and profiles/full flutter analyze --no-pub pass with no issues after latest-main integration; Dart formatting and git diff --check pass and dependency pins/lockfiles are unchanged.",
-        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed from integrated source. The compiled kernel SHA256 is d79bdf1ebd81dd8fe4a3cce15e8791ae86a01036738ac4ba4a386d0343ae8fed."
+        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed from integrated source. The compiled kernel SHA256 is d79bdf1ebd81dd8fe4a3cce15e8791ae86a01036738ac4ba4a386d0343ae8fed.",
+        "The latest-main candidate based on 15e65e76 passed 88 focused Accordion, Collapsible, styleguide and retained-consumer tests with random seed 417203 after the Toast production migration; root and profiles/full flutter analyze --no-pub, Dart formatting and git diff --check passed.",
+        "Approved official-browser inspection covered every registered reference variant, light/dark rendering, pointer and keyboard behavior, disabled state and exact focus geometry. Computed 14/20 medium text, 10px vertical padding, 16px chevron, 50% disabled opacity and one-plus-three-pixel focus bands matched the source mapping.",
+        "The uniquely identified macOS styleguide bundle passed dark/light/Forest, pointer, Tab/Return/Space, single/multiple/disabled, Borders/Card/RTL, 360px/200%, reduced-motion, semantics and controlled lifecycle inspection. Its final embedded/build kernel SHA256 is 4aa2785f5a67437389be0bb82516afa130e549e09a7584e1fc182dd4ccd81a2d and its strict deep ad-hoc signature passed; full evidence is docs/component-library/evidence/accordion/native-review.md.",
+        "A final native follow-up on source 8f24147b7870eebb55debd28d304eccb0cff0f07 confirmed removing an open controlled Security item changed live state from profile, security to profile, and re-adding it left the panel closed."
       ],
       "limitations": [
-        "Implementation task did not launch or inspect the macOS bundle and makes no native render, browser comparison, VoiceOver, iOS or Linux device claim. The independent reviewer owns official rendered/native comparison and any resulting fixes under the shared desktop lease.",
+        "Native device inspection was macOS only. No iOS or Linux device was run and no spoken VoiceOver claim is made; macOS Accessibility API roles/actions were inspected directly and have widget regressions.",
+        "Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette/state mapping, direction, interaction and semantic ownership were compared directly.",
         "Browser hidden-until-found has no native equivalent; hosts reveal search matches using controlled values or DAccordionController."
       ],
       "implementationCommit": "60d01f5fc11b73d1ceb0ab12fee84c805a2d22c3",
       "mergeCommit": null,
-      "reviewStatus": "in_progress",
+      "nativeReviewStatus": "completed",
+      "reviewStatus": "accepted",
       "reviewTaskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
-      "reviewBranch": "codex/review-accordion"
+      "reviewBranch": "codex/review-accordion",
+      "browserInspectionStatus": "completed",
+      "nativeInspectionStatus": "completed"
     },
     {
       "id": "tabs",
