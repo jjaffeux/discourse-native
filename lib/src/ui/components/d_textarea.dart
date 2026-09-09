@@ -21,8 +21,8 @@ import 'd_label.dart';
 /// [labelText] is a static focus-activating DLabel. [helperText], [errorText]
 /// and [showCounter] compose below the field. Validation remains caller-owned.
 /// Native selection, clipboard, undo, keyboard and IME are owned by TextField.
-/// The box is editable edge to edge: its padding takes the text cursor and a
-/// press there focuses the editor. There is no browser resize grip; content
+/// The box is editable edge to edge: its padding takes the text cursor, focuses
+/// the editor and invokes [onTap]. There is no browser resize grip; content
 /// growth and optional line bounds keep native layouts usable without adding
 /// an independent resize interaction.
 class DTextarea extends FormField<String> {
@@ -146,6 +146,11 @@ class _DTextareaState extends FormFieldState<String> {
 
   void _focusChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _tapSurface() {
+    _focus.requestFocus();
+    input.onTap?.call();
   }
 
   @override
@@ -306,10 +311,7 @@ class _DTextareaState extends FormFieldState<String> {
       ),
     );
     if (group != null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: editor,
-      );
+      return Padding(padding: group.inputPadding, child: editor);
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -336,7 +338,7 @@ class _DTextareaState extends FormFieldState<String> {
           enabled: input.enabled,
           invalid: isInvalid,
           focused: _focus.hasFocus,
-          onTap: _focus.requestFocus,
+          onTap: _tapSurface,
           child: editor,
         ),
         if (input.showCounter && input.maxLength != null) ...[

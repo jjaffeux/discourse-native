@@ -370,12 +370,18 @@ void main() {
   });
 
   testWidgets(
-    'the box takes the text cursor and a press in its padding focuses the editor',
+    'the box takes the text cursor and padding taps focus and notify once',
     (tester) async {
       final focus = FocusNode();
+      var taps = 0;
       addTearDown(focus.dispose);
       Widget build(bool enabled) => host(
-        DTextarea(focusNode: focus, hintText: 'Message', enabled: enabled),
+        DTextarea(
+          focusNode: focus,
+          hintText: 'Message',
+          enabled: enabled,
+          onTap: () => taps++,
+        ),
       );
       await tester.pumpWidget(build(true));
       final surface = find.byType(AnimatedContainer);
@@ -395,6 +401,10 @@ void main() {
       await tester.tapAt(padding);
       await tester.pump();
       expect(focus.hasFocus, isTrue);
+      expect(taps, 1);
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      expect(taps, 2);
       await tester.pumpWidget(build(false));
       await tester.pump();
       expect(focus.hasFocus, isFalse);
@@ -405,8 +415,48 @@ void main() {
       await tester.tapAt(padding);
       await tester.pump();
       expect(focus.hasFocus, isFalse);
+      expect(taps, 2);
     },
   );
+
+  testWidgets('input-group composition uses its directional textarea insets', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        Directionality(
+          textDirection: TextDirection.rtl,
+          child: DInputGroup(
+            children: [
+              DInputGroupTextarea(hintText: 'Message'),
+              const DInputGroupAddon(
+                alignment: DInputGroupAddonAlignment.inlineStart,
+                child: Text('Start'),
+              ),
+              const DInputGroupAddon(
+                alignment: DInputGroupAddonAlignment.blockEnd,
+                child: Text('Footer'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.ancestor(
+        of: find.byType(EditableText),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Padding &&
+              widget.padding ==
+                  const EdgeInsets.only(left: 10, top: 12, right: 6, bottom: 5),
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'border color eases over 150 milliseconds while the ring paints at once',
