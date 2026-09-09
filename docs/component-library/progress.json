@@ -2200,14 +2200,37 @@
       ],
       "decisions": [
         "Button and Separator dependencies are merged.",
-        "Field, Input Group, Dropdown Menu, Select and Popover compositions must reconcile with their final owners; track outstanding compositions and coordinate directly, without duplicating components or reducing the frozen examples."
+        "Field, Input Group, Dropdown Menu, Select and Popover compositions must reconcile with their final owners; track outstanding compositions and coordinate directly, without duplicating components or reducing the frozen examples.",
+        "DButtonGroup is a passive semantic/layout boundary for independent controls. It owns no selection, roving focus or toolbar shortcuts; each child retains its callback, state, focus and native role.",
+        "A narrowly scoped DJoinedControlScope is installed per direct child. DButton and DInput consume only joined-edge geometry; nested groups replace the scope and overlays receive no broad Theme or radius override.",
+        "DButtonGroupExpanded is the explicit finite-width Flutter flex adaptation for the reference input:flex-1 selector. The styleguide remains baseline until the reviewer replaces four dependency-aware fixtures with final owning components."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "migrations": [
+        "ContentNavigationControls now uses a labeled DButtonGroup for Back, Forward and Refresh while preserving keys, shortcuts, enabled guards, refresh lifecycle and shell callbacks."
+      ],
+      "retainedAlternatives": [
+        "Forum/preferences/topic tab rows remain navigation or selection controls, not independent Button Groups.",
+        "Radio, checkbox, switch and toggle rows retain their selection owners; Button Group does not absorb Toggle Group semantics.",
+        "Dialog/sheet action rows retain spaced or wrapping presentation because joining cancel and destructive confirmation changes narrow modal behavior.",
+        "Inline-video alternative link actions remain wrapping links, and composer controls remain overflow-aware toolbars pending their dedicated component owners."
+      ],
+      "verification": [
+        "Frozen Markdown downloaded and SHA-256 verified exactly as 9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda. Base registry source and all twelve linked Base examples were inspected; source mapping and concrete acceptance criteria are recorded in docs/component-library/button-group-reference.md.",
+        "Before current-main integration, 109 randomized focused Button Group, Button, Input, Separator, styleguide and production navigation tests passed (seed 3806760654); after merging main 27ddc513, 33 direct component/styleguide/consumer tests passed (random seed recorded in /private/tmp/button-group-post-main-tests.log).",
+        "Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed before and after current-main integration with no issues. dart format covered lib/test and git diff --check passed.",
+        "flutter build macos --debug --no-pub succeeded at build/macos/Build/Products/Debug/Discourse.app. This is build/kernel evidence only; the app was not launched and no browser/native/VoiceOver inspection is claimed.",
+        "Created the persisted reviewer task `Review and merge Button Group` (`01a0859e-170c-7821-b0fd-9ff24a9bfaac`) in isolated worktree `/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native` on `codex/review-button-group`; it owns dependency reconciliation, remaining rendered/native review, fixes, verification and the final local-main merge."
+      ],
+      "limitations": [
+        "The styleguide has complete accounted sections, but Input Group, library Dropdown Menu, rich Select and Popover use explicitly labeled local handoff fixtures because those final owners are still pending or in review. Native Select is not substituted. The new Button Group reviewer owns coordinating their final replacements.",
+        "No shared desktop lease was available during source implementation. Official rendered-page comparison, native macOS interaction/visual inspection, VoiceOver, iOS and Linux device checks remain for the new reviewer.",
+        "DInput joined-edge painting was source- and widget-tested after replacing its uniform BoxDecoration with an equivalent animated custom decoration, but requires rendered pixel comparison in final review."
+      ],
+      "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
+      "reviewBranch": "codex/review-button-group"
     },
     {
       "id": "command",
@@ -2249,22 +2272,40 @@
     },
     {
       "id": "dropdown-menu",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
+      "branch": "codex/ui-dropdown-menu",
       "dependencies": [
         "popover",
         "checkbox",
         "radio-group"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Dropdown Menu API and Composition, Basic, Submenu, Shortcuts, Icons, Checkbox/Radio variants, Destructive, Avatar, Complex and RTL examples with recorded primary-source visual/behavior mapping.",
+        "Preserve full native menu focus entry, roving/typeahead/Home/End navigation, selection and nested submenu behavior, deepest Escape, trigger restoration, outside pointer dismissal, positioning/scrolling and overlay lifecycle through the final shared owners.",
+        "Support live host palette/font/radius, disabled/destructive/checked states, keyboard/touch semantics, narrow/scaled/RTL layouts and reduced motion; provide every documented interactive example.",
+        "Audit and migrate appropriate core/plugin popup actions and temporary Table/Item/Button Group/Input Group compositions, preserving callbacks, permissions, async ownership and accepted keyboard regression behavior.",
+        "Pass focused component/consumer tests and root/full-profile analysis; create a new reviewer for all remaining official browser/native acceptance, dependency composition and final local main merge. The accepted Popover main revision is a required final merge gate."
+      ],
+      "decisions": [
+        "Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "popover",
+          "branch": "codex/review-popover",
+          "commit": "d99562f0f6973c9dc3f566eea02d9b00c6de4f7b",
+          "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
+          "evidence": "Parent reviewer verified the exact prepared pin contains implementation b410f9da and lifecycle correction 8281dda2 with unchanged public API. 100 focused tests (seed 826145) and root/full analysis passed before its latest accepted-main integration. Final fixture repair and browser/native acceptance remain pending.",
+          "mergeGate": "Source preparation only in this isolated worktree. Dropdown Menu reviewer must wait for and integrate the accepted Popover local main revision, reconcile overlap and verify affected behavior before any final merge."
+        }
+      ]
     },
     {
       "id": "context-menu",
@@ -2990,13 +3031,6 @@
           "headCommit": "329c3e1182709d0e7577123e29dc9769741e08fa"
         },
         {
-          "component": "button-group",
-          "taskId": "01a08581-831f-7751-b714-096b5aebf86a",
-          "branch": "codex/ui-button-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fd5f/discourse-native",
-          "status": "implementation"
-        },
-        {
           "component": "accordion",
           "taskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
           "branch": "codex/ui-accordion",
@@ -3009,6 +3043,23 @@
           "branch": "codex/ui-input-group",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6a88/discourse-native",
           "status": "implementation"
+        },
+        {
+          "component": "dropdown-menu",
+          "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
+          "branch": "codex/ui-dropdown-menu",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/bb70/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "button-group",
+          "taskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
+          "branch": "codex/review-button-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
+          "implementationBranch": "codex/ui-button-group",
+          "headCommit": "a0cca310458ad1d5f7096d75d4116b04718dbf09"
         }
       ],
       "nativeReadyTasks": []
@@ -3274,6 +3325,18 @@
           "implementationTaskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
           "implementationBranch": "codex/ui-toast",
           "status": "in_progress"
+        },
+        {
+          "component": "button-group",
+          "title": "Review and merge Button Group",
+          "taskId": "01a0859e-170c-7821-b0fd-9ff24a9bfaac",
+          "hostId": "local",
+          "branch": "codex/review-button-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native",
+          "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
+          "implementationBranch": "codex/ui-button-group",
+          "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
+          "status": "in_progress"
         }
       ],
       "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks.",
@@ -3489,9 +3552,10 @@
         "taskId": "01a085af-d606-7281-ac25-34c83adc855e"
       },
       "dropdown-menu": {
-        "status": "waiting_for_popover_merge",
+        "status": "implementation",
         "requestedBy": "01a08558-aec4-7591-ac85-682a1eae4290",
-        "nextAction": "Dispatch Dropdown Menu implementation from main after Popover lands; implementer creates its own final reviewer. Required for Item and Table compositions."
+        "nextAction": "Dropdown Menu prepares against the recorded tested Popover review pin; its new reviewer must integrate accepted Popover main before final merge and own final Table Actions and Item/Button Group/Input Group compositions directly.",
+        "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4"
       },
       "tabs": {
         "status": "independent_review",
