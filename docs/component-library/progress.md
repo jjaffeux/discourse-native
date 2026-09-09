@@ -28,7 +28,7 @@ Branch preparation does not mark a component merged or visually verified.
 | dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
 | context-menu | Implementation and checks | — | — |
 | menubar | Implementation and checks | — | — |
-| navigation-menu | Implementation and checks | — | — |
+| navigation-menu | Implementation and checks | — | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | Implementation and checks | — | — |
 | pagination | Implementation and checks | — | — |
 | calendar | Implementation and checks | — | — |
@@ -2443,7 +2443,30 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified the frozen Markdown SHA-256 2f4297e419617d26545e1c71dbc5336f6878dd8ab687f71663fe0e2bc2126546, pinned Base Nova registry SHA-256 1fdd735ea7449af8ebbd932b3e89b34a1efa8a3b193ac979d0d723660526c017 and official Basic example SHA-256 4a2fd068c7b5c3543500d82a37cd115951e2657e4926ade4cdfa5f06ec2c752a.
+- Use one accepted DPopover positioning/dismissal owner around the menu list and extend it with opt-out content autofocus plus configurable transition timing; existing Popover defaults and regressions remain unchanged. Shared viewport anchors to the full list; viewport=false anchors the inline surface to the active trigger.
+- Translate framework Link composition into DNavigationMenuLink callbacks, current-page active semantics and optional closeOnActivate. Flutter owns focus nodes, pointer lifecycle and logical traversal; applications retain route ownership.
+- Map Base Nova 36px triggers, 10px/6px trigger padding, 14px medium text, 12px chevron, 8px link padding, 4px panel padding, 8px side offset, 8px indicator diamond, 10%-foreground ring, shadow and 350ms cubic panel travel to logical pixels and live DTokens/DiscourseTypography.
+- Independent reviewer 01a08621-0e86-7a62-82b9-6a8eca71227f fixed true single-stop roving traversal, disabled direct-link skipping, focus-departure dismissal without focus theft, controlled removed/disabled reconciliation, controlled Escape rejection and disposed borrowed-controller safety at ca405f0ea0af334ff68cbbace953d669ee89ee55.
+
+**retainedAlternatives**
+
+- DSidebar remains the app and styleguide navigation owner because it is persistent/collapsible application chrome, not a horizontal rich navigation popup.
+- Forum/topic/group/preferences DTabList surfaces remain Tabs because they switch route-linked panels and do not expose rich navigation content.
+- Calendar previous/next controls, ordinary route buttons, MenuAnchor/command/search pickers and user menus retain paging, button, menu or command interaction models; converting them would misstate semantics and keyboard behavior.
+- No current core or bundled-plugin surface is a genuine site-wide rich horizontal Navigation Menu, so adoption is intentionally styleguide-only until such a host surface exists.
+
+**verification**
+
+- flutter test --no-pub test/d_navigation_menu_test.dart test/styleguide/navigation_menu_examples_test.dart test/d_popover_test.dart test/styleguide/popover_examples_test.dart --test-randomize-ordering-seed=860606: 37 focused component/example/shared-owner tests passed after reviewer fixes.
+- Root and profiles/full flutter analyze --no-pub passed with no diagnostics after enforced locked resolution; no lockfile or Flutter pin changed.
+- Exact-source isolated macOS styleguide build succeeded at /tmp/discourse-navigation-review.SF87jt/source/build/macos/Build/Products/Debug/Navigation Menu Review 43ef3bca.app with bundle ID org.discourse.navigationmenureview.r43ef3bca. Navigation Menu, Popover and example sources match review commit ca405f0e; ad-hoc permitted-debug re-sign and deep strict verification passed; kernel SHA-256 cd6886d74ae2d7e2ee582e25e961a8f3c4eee05ad1c19443c047d2d5ac905fe1.
+- Read-only core and bundled-plugin navigation audit found no suitable production migration; retained specialized owners are recorded explicitly.
+
+**limitations**
+
+- Official rendered browser comparison and first actual native macOS inspection remain incomplete. After acquiring the FIFO desktop lease, the approved CUA surface reported that the Mac was locked and automatic unlock failed; the reviewer released the lease immediately and did not claim browser/native acceptance.
+- No iOS or Linux device run or spoken VoiceOver pass was performed. Widget tests, analysis and build/signature evidence are not native inspection.
 
 ### breadcrumb
 
