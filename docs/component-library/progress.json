@@ -3686,10 +3686,18 @@
         "Match the frozen Base UI/base-nova Questionnaire complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
         "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
         "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
-        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.",
+        "Export a typed, serializable and resumable Questionnaire controller plus styled composition matching the frozen base-nova root, progress, item, title, description, choices, input, error and action geometry.",
+        "Support single, multiple, freeform and explicit skipped answers; stable item identity; conditional visibility; visited/navigation/progress state; controlled active-item acceptance; reset; shortcuts; external and cancellation-safe asynchronous validation.",
+        "Preserve focus restoration and failed-validation focus, keyboard/touch activation, IME editing, announcements, disabled/inert inactive items, narrow/200% text/RTL reflow, reduced motion and live host palette/font/radius changes.",
+        "Demonstrate reference basic, multiple, freeform, skip, shortcuts, validation, controlled, resume, conditional, custom progress, animated, Card, Dialog and headless/unstyled compositions with final shared component owners.",
+        "Audit core and bundled plugins for surveys, onboarding and stepped forms; migrate only a suitable flow without changing domain validation, permission, persistence or transport ownership, and document retained alternatives.",
+        "Pass meaningful controller/state-transition, async cancellation, resume/conditional/backtracking, widget/accessibility/styleguide and real-consumer regressions plus root/full-profile analysis; require official browser and native macOS acceptance in the independent reviewer."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Pinned the frozen official Markdown at SHA256 174687e701dfa6b70a0583de3bfee8dd2885b4c8fd51a899adfaffd689a9dc7c and the 2026-09-09 base-nova registry payload at SHA256 7eac8ca2fb479be1a18c97cced020b93c22cec1926dea72c8be324cdb3b62fa9.",
+        "Use an immutable heterogeneous typed item model and a ChangeNotifier controller as the headless/unstyled behavior owner; styled widgets remain free of persistence, networking and Discourse branching."
       ],
       "migrations": [],
       "retainedAlternatives": [],
