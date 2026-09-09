@@ -169,6 +169,10 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
 
   @override
   void didUpdateWidget(DToggleGroup<T> oldWidget) {
+    final previousRovingValue =
+        _rovingIndex >= 0 && _rovingIndex < oldWidget.items.length
+        ? oldWidget.items[_rovingIndex].value
+        : null;
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?.removeListener(_controllerChanged);
@@ -182,7 +186,12 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       _localValues = List.unmodifiable(oldWidget.values!);
     }
     _reconcileFocusNodes();
-    if (!_isFocusableIndex(_rovingIndex)) {
+    final previousRovingIndex = widget.items.indexWhere(
+      (item) => item.value == previousRovingValue,
+    );
+    if (_isFocusableIndex(previousRovingIndex)) {
+      _rovingIndex = previousRovingIndex;
+    } else {
       _rovingIndex = _preferredRovingIndex();
     }
   }

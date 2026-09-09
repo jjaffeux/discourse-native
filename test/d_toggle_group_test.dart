@@ -251,6 +251,60 @@ void main() {
   });
 
   testWidgets(
+    'dynamic items preserve the logical roving item and borrowed focus state',
+    (tester) async {
+      final alpha = FocusNode(skipTraversal: true);
+      final beta = FocusNode();
+      final gamma = FocusNode(skipTraversal: true);
+      addTearDown(alpha.dispose);
+      addTearDown(beta.dispose);
+      addTearDown(gamma.dispose);
+      late StateSetter rebuild;
+      var values = const ['a', 'b', 'c'];
+
+      await mount(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            final nodes = {'a': alpha, 'b': beta, 'c': gamma};
+            return DToggleGroup<String>(
+              items: [
+                for (final value in values)
+                  DToggleGroupItem(
+                    value: value,
+                    semanticLabel: value,
+                    focusNode: nodes[value],
+                    child: Text(value),
+                  ),
+              ],
+            );
+          },
+        ),
+      );
+
+      beta.requestFocus();
+      await tester.pump();
+      expect(beta.skipTraversal, isFalse);
+
+      rebuild(() => values = const ['c', 'b']);
+      await tester.pump();
+      expect(beta.hasFocus, isTrue);
+      expect(beta.skipTraversal, isFalse);
+      expect(gamma.skipTraversal, isTrue);
+      expect(alpha.skipTraversal, isTrue);
+
+      rebuild(() => values = const ['c']);
+      await tester.pump();
+      expect(beta.skipTraversal, isFalse);
+      expect(gamma.skipTraversal, isFalse);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(gamma.skipTraversal, isTrue);
+    },
+  );
+
+  testWidgets(
     'connected outline geometry keeps outer logical radii and one shared seam',
     (tester) async {
       await mount(
