@@ -2751,8 +2751,39 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
-- Verified independent reviewer Review and merge Navigation Menu (01a08621-0e86-7a62-82b9-6a8eca71227f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Verified the frozen Markdown SHA-256 2f4297e419617d26545e1c71dbc5336f6878dd8ab687f71663fe0e2bc2126546, pinned Base Nova registry SHA-256 1fdd735ea7449af8ebbd932b3e89b34a1efa8a3b193ac979d0d723660526c017 and official Basic example SHA-256 4a2fd068c7b5c3543500d82a37cd115951e2657e4926ade4cdfa5f06ec2c752a.
+- Use one accepted DPopover positioning/dismissal owner around the menu list and extend it with opt-out content autofocus plus configurable transition timing; existing Popover defaults and regressions remain unchanged. Shared viewport anchors to the full list; viewport=false anchors the inline surface to the active trigger.
+- Translate framework Link composition into DNavigationMenuLink callbacks, current-page active semantics and optional closeOnActivate. Flutter owns focus nodes, pointer lifecycle and logical traversal; applications retain route ownership.
+- Map Base Nova 36px triggers, 10px/6px trigger padding, 14px medium text, 12px chevron, 8px link padding, 4px panel padding, 8px side offset, 8px indicator diamond, 10%-foreground ring, shadow and 350ms cubic panel travel to logical pixels and live DTokens/DiscourseTypography.
+- Independent reviewer 01a08621-0e86-7a62-82b9-6a8eca71227f fixed true single-stop roving traversal, disabled direct-link skipping, focus-departure dismissal without focus theft, controlled removed/disabled reconciliation, controlled Escape rejection and disposed borrowed-controller safety at ca405f0ea0af334ff68cbbace953d669ee89ee55.
+- Reconciled accepted main 32770671 with the review history at f13d014b, sharing the accepted Combobox focusContentOnOpen option. A regression reproduced off-screen focused items and missing direct-link Home/End behavior; c1614d26 reveals focused items and shares arrow/Home/End navigation between triggers and direct links in LTR and RTL.
+
+**retainedAlternatives**
+
+- DSidebar remains the app and styleguide navigation owner because it is persistent/collapsible application chrome, not a horizontal rich navigation popup.
+- Forum/topic/group/preferences DTabList surfaces remain Tabs because they switch route-linked panels and do not expose rich navigation content.
+- Calendar previous/next controls, ordinary route buttons, MenuAnchor/command/search pickers and user menus retain paging, button, menu or command interaction models; converting them would misstate semantics and keyboard behavior.
+- No current core or bundled-plugin surface is a genuine site-wide rich horizontal Navigation Menu, so adoption is intentionally styleguide-only until such a host surface exists.
+
+**verification**
+
+- flutter test --no-pub test/d_navigation_menu_test.dart test/styleguide/navigation_menu_examples_test.dart test/d_popover_test.dart test/styleguide/popover_examples_test.dart --test-randomize-ordering-seed=860606: 37 focused component/example/shared-owner tests passed after reviewer fixes.
+- Root and profiles/full flutter analyze --no-pub passed with no diagnostics after enforced locked resolution; no lockfile or Flutter pin changed.
+- Exact-source isolated macOS styleguide build succeeded at /tmp/discourse-navigation-review.SF87jt/source/build/macos/Build/Products/Debug/Navigation Menu Review 43ef3bca.app with bundle ID org.discourse.navigationmenureview.r43ef3bca. Navigation Menu, Popover and example sources match review commit ca405f0e; ad-hoc permitted-debug re-sign and deep strict verification passed; kernel SHA-256 cd6886d74ae2d7e2ee582e25e961a8f3c4eee05ad1c19443c047d2d5ac905fe1.
+- Read-only core and bundled-plugin navigation audit found no suitable production migration; retained specialized owners are recorded explicitly.
+- A second FIFO desktop lease was acquired at 2026-09-09T14:38:56Z after the coordinator reported fresh native access. The first approved CUA getState call again reported that the Mac was locked and automatic unlock failed; lease 83a9d71be9a44428acd3cbf4821aa9ab was released immediately without touching the shared desktop.
+- After current-main Popover reconciliation and the c1614d26 focus fixes, all 63 Navigation Menu, Popover and Combobox component/styleguide tests passed with seed 860606. Root and full-profile analysis passed; locked resolution preserved dependency pins. The new narrow 200% LTR/RTL keyboard visibility regression failed before the fix and passed afterward.
+- Rebuilt and deep-strict verified the isolated macOS fixture after c1614d26. Navigation Menu and example sources are byte-identical to the reviewed branch; Popover differs only in its focus-option documentation. Updated kernel SHA-256: 1dc4b912bf86c1c4af20ac4923465c7f20c3aed20c9e2a43728ca8efb543bc66.
+- Actual approved macOS Basic inspection and official rendered light/dark Getting started, Components and With Icon comparison completed on 2026-09-09. The native pass exposed stale trigger state and content alignment; dc3d55d4 fixes inherited selected-value notifications, expanded semantics/chevrons, indicator clipping/geometry and full-width links. The regression failed before and passed after the fix. Details and exact limits: docs/component-library/navigation-menu-review.md.
+- After latest-main integration 2141e109 onto 4d79219d, all 64 Navigation Menu/Popover/Combobox focused tests passed with seed 860606 and root/full-profile analysis passed. Rebuilt/signed/deep-strict verified fixture kernel a2a5548031becc4fd815fa106a2e9b00ee37e3c2a85e327454f92040b3610312 has byte-identical Navigation Menu/example sources. Desktop released during rebuild, then rejoined FIFO for corrected native acceptance.
+- 1bbdb00a completes vertical/live orientation and functional RTL routing. An RTL route-close regression exposed inactive custom-anchor layout; retaining the inline exit anchor and unregistering DPopoverAnchor on deactivate fixes it. Permanent removal and GlobalKey reparenting regressions pass, coordinated with Popover reviewer. All 69 focused tests pass seed 860606, root/full-profile analysis clean. Latest exact-source build/signature verification passed; kernel 2c7d7c9417233550384fe7c99ddfb2ac504a221a278f131df2997957cb199d98.
+- Integration 3c11feff onto main 2b9797fe preserves accepted Button Group popup-boundary behavior and every other progress row/workflow exactly. All 98 affected Navigation Menu/Popover/Combobox/Button Group tests pass seed 860606; root/full-profile analysis clean. Updated fixture built/signed/deep-strict verified, kernel ca1ab6d1d9dfe4e36f3c8551e2bd82931821ef5c0f3d9d5fb6007c65b9c32464. Navigation Menu/example/joined-control source is byte-identical; Popover differs only in documentation.
+- Button Group reviewer confirmed native-menu cleanup of the old isolated Navigation Menu app. Before the corrected pass reached its FIFO turn, Avatar reviewer reported approved CUA Mac-locked/automatic-unlock-failed and released desktop. Navigation Menu cancelled its own waiting request; manual unlock is required before corrected native acceptance.
+
+**limitations**
+
+- Official rendered comparison and initial native inspection succeeded after the earlier locked-Mac attempts. Corrected native acceptance remains pending after real visual/lifecycle fixes. The preceding Avatar reviewer reported that the Mac locked again and approved automatic unlock failed; Navigation Menu withdrew its FIFO request. Manual unlock is required. No corrected native acceptance or merge is claimed yet.
+- No iOS or Linux device run or spoken VoiceOver pass was performed. Widget tests, analysis and build/signature evidence are not native inspection.
 
 ### breadcrumb
 
