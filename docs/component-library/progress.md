@@ -1166,6 +1166,30 @@ Status: review_ready. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/
 
 - Started from accepted current main after Toggle merge a492253d and Carousel merge 3ec0c089. Two completed reviewer tasks freed capacity for a fifth independent source implementation; the implementer creates its own new review/merge task.
 - Independent reviewer 01a085e6-4bb7-7e13-9e2a-98992292b4b3 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 7f4de6a88f41983a20ec757dd606153bca067500 is source evidence, not acceptance.
+- Independent review preserved DToggle as the visual, activation and pressed-semantic owner while DToggleGroup owns selection and roving coordination. Dynamic reconciliation now keeps focus on the surviving logical item, joined icon padding matches the frozen source, and focused joined items paint above sibling seams.
+- The documented Custom composition now uses accepted DField, DFieldLabel and DFieldDescription without DFieldControl because the group contains multiple independent controls. The production Composer retains gallery markup, selection identity, callbacks and editor focus around a controlled DToggleGroup<ComposerGalleryMode>.
+
+**migrations**
+
+- Composer gallery Grid/Carousel mode selection now uses a required controlled DToggleGroup<ComposerGalleryMode> with connected spacing and 48px targets; ComposerMediaEditingCoordinator and ComposerController retain domain state and markup mutation.
+
+**retainedAlternatives**
+
+- Rich-editor formatting commands remain momentary transformations; tabs remain navigation; radio, checkbox and switch settings retain their native semantic owners; app-specific full-width segmented selectors retain their layout and domain ownership.
+
+**verification**
+
+- Independent review fixes added regressions for dynamic roving focus, joined icon padding, focus-ring sibling layering, accepted Field composition and local fixture ownership. Seventy-two Toggle, Toggle Group, fixture and Composer tests passed with randomized seed 9052045; root and profiles/full locked resolution and flutter analyze --no-pub passed.
+- Frozen documentation, registry and Base UI behavior hashes reproduced exactly: a24be2fab3d5a4bc103d27c39f046530191c526ff6c970e19919aebcf2cd1702, 9f103af4a048ec392cb09b886985ec733a360a0033cc7138349f1775851a89d4 and 4a19b1f1ed82381e3ca03ef4745875e2bfe59f6e84de52e20376f777c9cecf31.
+- Official browser comparison covered all documented examples in light and dark, including multiple and clearable single selection, spacing, disabled, Custom Field composition and RTL.
+- Exact-source macOS bundle /private/tmp/toggle-group-review-9a0d7a34.6q7VMA/ready/Toggle Group Review 9A0D7A34.app used identifier org.discourse.togglegroup.review9a0d7a34. Copied App.framework SHA256 f4f665946edda732d0c2fb8138a6b27a3acf576eba5a860c95b2a19dbeb2d273 matched the source build and deep strict ad-hoc verification passed with no push entitlement.
+- Native acceptance exercised all nine examples, pointer selection, horizontal arrows and Home/End, dynamic controller updates, disabled blocking, joined focus layering, light/dark/Forest/Plum, RTL, reduced motion, 200% text and narrow layout. The real production Composer changed live markup between [grid] and [grid mode=carousel].
+
+**limitations**
+
+- No physical iOS or Linux device run and no spoken VoiceOver verification was performed.
+- Vertical and RTL arrow behavior is covered by widget tests and the layouts were inspected natively, but no physical-keyboard device session was claimed for every variant.
+- Browser and native font rasterizers differ; acceptance establishes mapped geometry, semantic palette relationships and behavior rather than pixel equality.
 
 ### slider
 
