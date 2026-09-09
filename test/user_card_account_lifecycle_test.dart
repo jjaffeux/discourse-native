@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,6 +22,51 @@ const _connectedCard = UserCard(username: 'author', name: 'Connected profile');
 Finder get _cardSurface => find.byKey(const ValueKey('user-card-surface'));
 
 void main() {
+  testWidgets('account replacement safely dismisses an open hover preview', (
+    tester,
+  ) async {
+    final api = _CardApi();
+    final auth = _GatedAuthenticator();
+    await pumpShell(
+      tester,
+      desktop,
+      api: api,
+      authenticator: auth,
+      instances: [instance('meta.example')],
+    );
+    await tester.tap(find.text('Public topic'));
+    await tester.pumpAndSettle();
+    final controller = ShellScope.read(
+      tester.element(find.byType(UserMenuButton)),
+    );
+    await tester.tap(find.byKey(UserMenuButton.signInKey));
+    await tester.pump();
+    expect(controller.connecting, isTrue);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(
+      tester.getCenter(find.widgetWithText(UserCardTarget, 'author')),
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    expect(api.requests, hasLength(1));
+    api.requests.single.response.complete(_publicCard);
+    await tester.pump();
+    expect(find.text('Public profile'), findsOneWidget);
+
+    auth.gate.complete();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(controller.currentInstance?.isConnected, isTrue);
+    expect(controller.userCard('author', siteUrl: _siteUrl), isNull);
+    expect(find.text('Public profile'), findsNothing);
+    expect(find.byType(UserCardTarget), findsNothing);
+    expect(api.requests.map((request) => request.apiKey), [null]);
+  });
+
   testWidgets('a loaded card reloads when pending sign-in completes', (
     tester,
   ) async {
