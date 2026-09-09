@@ -68,6 +68,12 @@
     "verification": "All 36 Dropdown Menu, Message production fixture and styleguide-page checks passed with seed 39061; root/full analysis and diff check passed.",
     "sourceEquivalence": "The intervening accepted Dropdown Menu follow-up changes only its owner and tests. Message production actions use MenuAnchor, not DDropdownMenu; the inspected Message runtime is unchanged. All non-Message progress data matches this latest main base."
   },
+  "menubarReconciliation": {
+    "candidateCommit": "c3386e969d853997f8e8fadaaa8666c179f5838a",
+    "mainBase": "ec8bfabe561f7bf5d5ddc5e8a684ca1b3ed29a55",
+    "verification": "All 25 Message/Menubar examples and styleguide-page checks passed with seed 39062; root/full analysis and diff check passed.",
+    "sourceEquivalence": "Menubar is an independent new owner. Adjacent export/registration conflicts were resolved by retaining both owners; all unrelated progress is identical to latest main. Message component, production adapters and native fixture remain unchanged from the inspected source."
+  },
   "limitations": [
     "No spoken VoiceOver, iOS/Linux device or physical-touch run is claimed.",
     "The production fixture uses local in-memory records. No real account, successful profile-data fetch, file transfer or delivery endpoint is exercised; mutation/permission/selection/long-press variants additionally rely on the dedicated passing widget suites.",
