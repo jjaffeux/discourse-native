@@ -1770,25 +1770,26 @@
         "avatar",
         "card"
       ],
-      "status": "paused_for_user_review",
+      "status": "resumed_by_user",
       "remainingComponents": [],
       "reviewDocument": "docs/component-library/review-checkpoint.md",
       "pausedAt": "2026-09-09T00:34:32+02:00",
       "buildSourceCommit": "ea58497479e75efce7a86ebe95c784cd3c974846",
       "completedComponentCount": 11,
-      "catalogueComponentCount": 64
+      "catalogueComponentCount": 64,
+      "resumedAt": "2026-09-09T02:57:25+02:00"
     },
     "styleguideFidelityFollowUp": {
       "requestedAt": "2026-09-09",
       "instruction": "Follow the shadcn documentation design much more closely. Implement the Sidebar library component before adopting it in the redesigned styleguide.",
-      "status": "paused_for_user_review",
+      "status": "completed",
       "coordinatorBranch": "codex/styleguide-shadcn-layout",
       "sidebarTaskId": "01a08352-7665-7f90-a637-75478a83ea53",
       "sidebarBranch": "codex/ui-sidebar",
       "authorizedComponents": [
         "sidebar"
       ],
-      "remainingQueue": "paused_for_user_review",
+      "remainingQueue": "resumed_by_user",
       "reviewDocument": "docs/component-library/review-checkpoint.md",
       "sidebarMergeCommit": "93bfcf65f64868c92340f9aec8236d77585c3cd8",
       "documentationMergeCommit": "0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5",
@@ -1799,6 +1800,25 @@
       "catalogueComponentCount": 64,
       "remainingComponentCount": 52,
       "pausedAt": "2026-09-09T02:52:52+02:00"
+    },
+    "status": "in_progress",
+    "resume": {
+      "requestedAt": "2026-09-09T02:57:25+02:00",
+      "instruction": "Once the current correction is done, resume the goal and continue the other components. Commit and merge only locally; do not push anything to GitHub or change anything on App Store Connect.",
+      "status": "in_progress",
+      "startingMainCommit": "8ea22c643829a10a5031019e2aef4e83956c7a8f",
+      "nextComponents": [
+        "button",
+        "badge",
+        "input",
+        "checkbox"
+      ]
+    },
+    "externalWritePolicy": {
+      "localCommitsAndMerges": true,
+      "pushes": false,
+      "githubWrites": false,
+      "appStoreConnectChanges": false
     }
   },
   "visualFidelity": {

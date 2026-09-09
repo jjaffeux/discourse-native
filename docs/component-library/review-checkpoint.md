@@ -3,11 +3,13 @@
 Sidebar and the shadcn documentation correction are merged into local `main` in
 `/Users/joffreyjaffeux/Code/discourse-native`. The frozen catalogue is now
 **12 of 64 components complete**. Affected tests, static analysis and the real
-macOS app build pass. **Work is paused for the user's review and directions.**
-The remaining 52 catalogue components and final audit are unfinished.
+macOS app build pass. **The user resumed the remaining components on 2026-09-09.**
+The remaining 52 catalogue components and final audit are unfinished. The next
+independent batch is Button, Badge, Input and Checkbox.
 
-No further component or final audit task will be dispatched before the user
-gives further directions.
+Commits and coordinator merges remain local. GitHub pushes or other writes and
+App Store Connect changes are prohibited. The progress record tracks the active
+queue; the evidence below preserves the reviewed Sidebar checkpoint.
 
 ## Sidebar and documentation correction
 

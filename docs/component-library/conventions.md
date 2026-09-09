@@ -87,8 +87,9 @@ scrolling, removal during callbacks, and async completion ownership.
   their own StatefulWidgets rather than crowding a registration expression.
 - Theme, viewport width, text scale, direction, and reduced-motion controls
   operate on a preview Navigator without changing the real app's settings.
-  The viewport is clipped, bounded to available width, and scrollable. The
-  reset control intentionally reconstructs example state; other controls must
+  The article is bounded; explicit viewport presets keep their requested width
+  and scroll horizontally inside the clipped preview. The reset control
+  intentionally reconstructs example state; other controls must
   preserve it. A component may extend preview geometry when its behavior needs
   more space, provided the new API works for existing examples.
 - `component_catalogue.dart` is generated from the frozen JSON via
@@ -96,6 +97,12 @@ scrolling, removal during callbacks, and async completion ownership.
   silently resnapshot upstream to expand or reduce scope.
 
 ## Verification and workflow
+
+The user resumed the remaining catalogue on 2026-09-09 after the Sidebar and
+styleguide review. Work is local only: commits and coordinator merges into local
+main are authorized. Do not push or perform other GitHub writes. Do not change
+anything in App Store Connect or perform release/submission work. Public source
+and documentation reads remain available.
 
 The user's explicit focused-verification policy overrides CLAUDE.md's blanket
 full-suite gate for this project. Format touched code, run static analysis and
