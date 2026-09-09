@@ -123,6 +123,46 @@ void main() {
     },
   );
 
+  testWidgets('horizontal actions reserve only their rendered button width', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        Center(
+          child: DAttachment(
+            width: 320,
+            children: [
+              const DAttachmentMedia(child: Icon(Icons.description_outlined)),
+              const DAttachmentContent(
+                key: ValueKey('content'),
+                children: [DAttachmentTitle(child: Text('report.pdf'))],
+              ),
+              const DAttachmentActions(
+                children: [
+                  DAttachmentAction(
+                    icon: Icon(Icons.copy),
+                    tooltip: 'Copy report.pdf',
+                    onPressed: _noop,
+                  ),
+                  DAttachmentAction(
+                    icon: Icon(Icons.close),
+                    tooltip: 'Remove report.pdf',
+                    onPressed: _noop,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final actions = tester.getRect(find.byType(DAttachmentActions));
+    final content = tester.getRect(find.byKey(const ValueKey('content')));
+    expect(actions.width, 44);
+    expect(actions.left - content.right, greaterThanOrEqualTo(8));
+  });
+
   testWidgets('disabled action and trigger announce disabled and stay inert', (
     tester,
   ) async {
