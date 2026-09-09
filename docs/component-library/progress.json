@@ -3456,7 +3456,7 @@
     },
     {
       "id": "attachment",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
       "branch": "codex/ui-attachment",
       "dependencies": [
@@ -3503,7 +3503,7 @@
         "No spoken VoiceOver, iOS, Linux, physical touch-device or pixel-equality claim is made."
       ],
       "implementationCommit": "17f2d88f31adaf3748341745e423d37810f88419",
-      "mergeCommit": null,
+      "mergeCommit": "99cea2172e9ddb5da775bff7b81e82c24ad72870",
       "preparedDependencies": [
         {
           "id": "dialog",
@@ -3517,7 +3517,7 @@
       ],
       "reviewTaskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
       "reviewBranch": "codex/review-attachment",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/a5fc/discourse-native",
       "reviewHandoffCommit": "7c465bd106296dd9a102af5e08aefbb04e09f265"
     },
@@ -4299,16 +4299,6 @@
           "headCommit": "97554adac80cf4a702408966add2702f3bc313e0"
         },
         {
-          "component": "attachment",
-          "taskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
-          "branch": "codex/review-attachment",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a5fc/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
-          "implementationBranch": "codex/ui-attachment",
-          "headCommit": "7c465bd106296dd9a102af5e08aefbb04e09f265"
-        },
-        {
           "component": "hover-card",
           "taskId": "01a08619-dc41-7213-a887-5afb891b99da",
           "branch": "codex/review-hover-card",
@@ -4730,18 +4720,6 @@
           "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
           "implementationBranch": "codex/ui-button-group",
           "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
-          "status": "in_progress"
-        },
-        {
-          "component": "attachment",
-          "title": "Review and merge Attachment",
-          "taskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a5fc/discourse-native",
-          "branch": "codex/review-attachment",
-          "implementationTaskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
-          "implementationBranch": "codex/ui-attachment",
-          "implementationCommit": "17f2d88f31adaf3748341745e423d37810f88419",
           "status": "in_progress"
         },
         {
