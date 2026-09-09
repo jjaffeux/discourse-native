@@ -1035,7 +1035,7 @@
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
+      "implementationCommit": null,
       "mergeCommit": null
     },
     {
@@ -2042,7 +2042,7 @@
         "Official rendered browser comparison and native macOS/iOS/Linux acceptance are not yet claimed; the new reviewer owns required reference/native completion under the desktop lease.",
         "Popover pin is not accepted or eligible for main through this branch; final Select merge is strictly blocked until accepted Popover is present on current local main."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
       "mergeCommit": null
     },
     {
