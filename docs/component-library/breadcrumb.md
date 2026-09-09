@@ -137,9 +137,20 @@ Return and Space callbacks; visible Tab focus; route state; RTL; 240px width;
 exposed one labelled Breadcrumb container with independent links/current page,
 while decorative separators and ellipses stayed absent. The Dropdown and
 Collapsed compositions exercised first focus, arrows, End, typeahead,
-selection, Escape/trigger restoration and outside dismissal. A timed theme
-control remains in the fixture so the final accepted Dropdown source can be
-rechecked while its overlay is open.
+selection, Escape/trigger restoration and outside dismissal.
+
+The final native pass used the accepted Dropdown source in
+`/private/tmp/breadcrumb-final.7BTZ0L/Breadcrumb Final ebcec.app` (bundle ID
+`org.discourse.breadcrumbfinalebcec`, kernel SHA256
+`60dfdb795ece4294d03de84c3d49eb29c3029862848677e19cf1cae05ff4795b`).
+The fixture's timed control changed Light to Dark while Dropdown remained
+open, and Dark to Light while Collapsed remained open. Both overlays repainted
+with the host palette and retained their menu items. Dropdown arrow navigation
+still worked, and Escape restored the trigger's visible focus ring. End and
+Return selected GitHub in Collapsed, updated its local result, and restored
+focus to More pages. The isolated app was quit through its native menu, its
+absence was confirmed in the global app inventory, and the desktop lease was
+released immediately.
 
 A second offline fixture, `tool/breadcrumb_topic_row_review_main.dart`, mounts
 the real `DiscourseApp`, `TopicListView`, topic row and category adapter against
@@ -154,6 +165,14 @@ Dropdown Menu was accepted on local main at merge
 and its component, example and focused-test paths are byte-equal to the
 accepted revision. After current-main reconciliation, all 48 affected
 Breadcrumb/Dropdown/styleguide tests and both topic-row regressions passed
-again with seed `826145`; root and full-profile analysis are clean. The final
-native open-overlay check uses the rebuilt accepted-source bundle recorded in
-the progress row.
+again with seed `826145`; root and full-profile analysis are clean. A later
+current-main integration passed 47 of the same 48 checks; the sole failure was
+the unrelated Combobox progress-row dependency order. Its reviewer corrected
+that ledger in `892e1a97`, and the catalogue check passed on reconciled
+Breadcrumb candidate `12b4b531`. Both topic-row regressions and root/full
+analysis also passed during this integration.
+
+Breadcrumb, Dropdown, their examples and the native fixture are unchanged
+from the inspected source. Newer main added Popover's opt-in
+`focusContentOnOpen` switch; Breadcrumb retains its unchanged `true` default.
+The affected keyboard regressions verify that its focus behavior is preserved.

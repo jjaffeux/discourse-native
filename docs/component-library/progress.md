@@ -76,7 +76,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 45 | context-menu | in_progress | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | — |
 | 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
-| 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
+| 48 | breadcrumb | review_ready | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
 | 49 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
 | 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
 | 51 | date-picker | merged | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | 593bcc83a943ceafdf5d73804b4c8171fabaace9 |
@@ -2686,7 +2686,7 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 
 ### breadcrumb
 
-Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/ui-breadcrumb.
+Status: review_ready. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/ui-breadcrumb.
 
 **acceptanceCriteria**
 
@@ -2702,6 +2702,7 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 - Reviewer preserved the finalized cd9c542d implementation history, added a source-exact local-data TopicListView fixture, and completed Breadcrumb's first official browser and native macOS comparison.
 - Dropdown Menu is accepted on main at 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787. Breadcrumb's prepared pin is its ancestor and all Dropdown component/example/focused-test paths are byte-equal to the accepted revision.
 - Candidate 12b4b531 reconciles the reviewed implementation onto current main 892e1a97, including the Combobox owner's corrected catalogue dependency order, while preserving all other component rows. Current Popover adds an opt-in focusContentOnOpen switch; Breadcrumb retains its unchanged true default, verified by the affected keyboard tests.
+- Independent source, application adoption, official browser and native macOS acceptance are complete. The final native interaction required no production component correction.
 
 **migrations**
 
@@ -2720,10 +2721,10 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 - 48 Breadcrumb/Dropdown/styleguide tests passed with seed826145; both focused topic-row regressions passed; root and profiles/full analysis are clean.
 - After accepted Dropdown reconciliation, the same 48 affected tests and both production topic-row regressions passed with seed826145; root and profiles/full analysis remained clean. Final accepted-source macOS bundle /private/tmp/breadcrumb-final.7BTZ0L/Breadcrumb Final ebcec.app built and passed deep/strict ad-hoc signing with restricted developer entitlements omitted; kernel SHA256 60dfdb795ece4294d03de84c3d49eb29c3029862848677e19cf1cae05ff4795b.
 - After current-main integration, 47 of 48 combined Breadcrumb/Dropdown/styleguide checks passed; the sole failure was current main's Combobox row ordering. Its owner corrected that ledger in 892e1a97, and the exact catalogue check passed on reconciled Breadcrumb candidate 12b4b531. Both production topic-row regressions and root/full-profile analysis also passed; relevant Breadcrumb/Dropdown/Popover/topic-row source did not change during the ledger reconciliation.
+- Final native pass on 2026-09-09 at 16:37–16:39 UTC used the recorded accepted-source bundle. Dropdown remained open and repainted from Light to Dark, retained arrow navigation, and restored the visible trigger focus ring on Escape. Collapsed remained open and repainted from Dark to Light; End/Return selected GitHub, updated the local result and restored More pages focus. The app was quit through its native menu, absent from global CUA inventory, and the desktop lease was released.
 
 **limitations**
 
-- The initial official browser and native macOS pass remains valid for unchanged component behavior. One additional native check of the reviewer fixture's timed live-theme change while a menu is open is queued under the shared desktop FIFO.
 - No physical iOS or Linux device run or spoken VoiceOver verification was performed. Browser and native font rasterizers differ; comparison establishes mapped geometry, palette relationships and behavior rather than identical pixels.
 
 ### pagination
