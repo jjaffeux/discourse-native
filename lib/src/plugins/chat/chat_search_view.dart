@@ -376,14 +376,15 @@ class _SearchMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    child: SingleChildScrollView(
+      child: DEmpty(
         children: [
-          DIcon(icon, size: 28),
-          const SizedBox(height: 12),
-          Text(text, textAlign: TextAlign.center),
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+              DEmptyTitle(text),
+            ],
+          ),
         ],
       ),
     ),
@@ -398,13 +399,17 @@ class _SearchFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(message),
-        const SizedBox(height: 12),
-        DButton(label: const Text('Try again'), onPressed: onRetry),
-      ],
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(children: [DEmptyTitle(message)]),
+          DEmptyContent(
+            children: [
+              DButton(label: const Text('Try again'), onPressed: onRetry),
+            ],
+          ),
+        ],
+      ),
     ),
   );
 }

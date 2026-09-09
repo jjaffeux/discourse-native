@@ -245,7 +245,16 @@ seed 1478152398 and both analyzers remained clean. Fresh source `35a7959e` built
 its embedded kernel SHA256 is
 `c12e0e3007dc8baaeb0ff917bbd9fef78258a87d1eb49e64523b26ffb59e988f` and
 deep strict ad-hoc signature verification passes. The final serialized native
-launch is reserved to confirm the corrected styleguide status before merge.
+relaunch was intentionally omitted: a direct diff confirms `DTextarea`,
+foundations, Invite/Event production owners and the review fixture are unchanged
+from native-reviewed `d286e118`; only styleguide acceptance metadata and its
+test changed. The coordinator explicitly waived that redundant desktop pass.
+Final integration of main `7d29f531` preserved accepted Table, Alert, Empty and
+Chart owners; all 163 affected tests passed again with seed 1934955355, and
+root/full analysis plus `git diff --check` remained clean.
+
+Reviewed branch head `280c0ad19f779bd6773372960723de682a86e36f` merged into
+local `main` as `6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3`.
 
 No iOS/Linux device or spoken VoiceOver verification is claimed. Browser Geist
 and native host font rasterization differ, so the review compares geometry,
