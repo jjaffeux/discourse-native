@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
@@ -638,6 +639,33 @@ class _DToastCardState extends State<_DToastCard> {
   bool _focused = false;
 
   @override
+  void initState() {
+    super.initState();
+    _announceHighPriorityToast();
+  }
+
+  void _announceHighPriorityToast() {
+    if (widget.entry.options.priority != DToastPriority.high) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !MediaQuery.supportsAnnounceOf(context)) return;
+      final options = widget.entry.options;
+      final message = [
+        if (options.title != null) options.title,
+        if (options.description != null) options.description,
+      ].whereType<String>().join('. ');
+      if (message.isEmpty) return;
+      unawaited(
+        SemanticsService.sendAnnouncement(
+          View.of(context),
+          message,
+          Directionality.of(context),
+          assertiveness: Assertiveness.assertive,
+        ),
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final options = widget.entry.options;
@@ -759,7 +787,9 @@ class _DToastCardState extends State<_DToastCard> {
             ),
     );
     return Semantics(
-      liveRegion: true,
+      // High-priority messages use an explicit assertive announcement above.
+      // Keeping this live region polite avoids announcing those messages twice.
+      liveRegion: options.priority == DToastPriority.normal,
       container: true,
       label: [
         if (options.title != null) options.title,

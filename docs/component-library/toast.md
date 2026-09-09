@@ -23,8 +23,9 @@ The catalogue row includes the Sonner-backed status treatment; the supporting
 | stacked limit, pause on interaction, swipe dismissal and 500ms easing | controller limit and close reasons, hover/focus/app-lifecycle timeout pause, direction-aware horizontal native drag, shared reduced-motion duration |
 
 The native adaptation uses Flutter focus/actions, drag recognition, safe areas,
-screen-reader live regions, and `F6`/Escape shortcuts rather than DOM landmarks,
-ARIA attributes, or CSS custom properties. Text wraps and the card grows at
+screen-reader live regions, assertive announcements for high-priority messages,
+and `F6`/Escape shortcuts rather than DOM landmarks, ARIA attributes, or CSS
+custom properties. Text wraps and the card grows at
 large accessibility scales instead of clipping to the browser's measured
 height. Start/end positions mirror in RTL. A bounded scroll viewport preserves
 all limited stack entries when narrow, large-text layouts are taller than the
