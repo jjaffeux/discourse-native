@@ -8,6 +8,48 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('trigger state follows opening, switching and closing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(_menu(onRoute: (_) {})));
+    void expectTurns(List<double> turns) {
+      expect(
+        tester
+            .widgetList<AnimatedRotation>(find.byType(AnimatedRotation))
+            .map((widget) => widget.turns),
+        turns,
+      );
+      expect(
+        tester
+            .widgetList<Semantics>(find.byType(Semantics))
+            .where((widget) => widget.properties.expanded != null)
+            .map((widget) => widget.properties.expanded),
+        turns.map((turn) => turn != 0),
+      );
+    }
+
+    expectTurns([0, 0]);
+    await tester.tap(find.text('Getting started'));
+    await tester.pumpAndSettle();
+    expectTurns([.5, 0]);
+    final indicator = find.byWidgetPredicate(
+      (widget) => widget is OverflowBox && widget.maxWidth == 8,
+    );
+    expect(
+      tester.getSize(
+        find.descendant(of: indicator.first, matching: find.byType(Container)),
+      ),
+      const Size(8, 8),
+    );
+    await tester.tap(find.text('Components'));
+    await tester.pumpAndSettle();
+    expectTurns([0, .5]);
+    await tester.tap(find.text('Components'));
+    await tester.pumpAndSettle();
+    expectTurns([0, 0]);
+    expect(find.text('Alert Dialog'), findsNothing);
+  });
+
   testWidgets('trigger opens shared viewport and routed link closes it', (
     tester,
   ) async {

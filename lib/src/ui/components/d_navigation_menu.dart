@@ -514,12 +514,14 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
 }
 
 class _DNavigationMenuScope<T> extends InheritedWidget {
-  const _DNavigationMenuScope({required this.state, required super.child});
+  _DNavigationMenuScope({required this.state, required super.child})
+    : value = state.value;
   final _DNavigationMenuState<T> state;
+  final T? value;
 
   @override
   bool updateShouldNotify(_DNavigationMenuScope<T> oldWidget) =>
-      state.value != oldWidget.state.value;
+      value != oldWidget.value;
 }
 
 class _DNavigationMenuLinkScope extends InheritedWidget {
@@ -549,13 +551,27 @@ class DNavigationMenuList<T> extends StatelessWidget {
       children: [for (final item in children) item],
     );
     return root.widget.orientation == Axis.horizontal
-        ? SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            primary: false,
-            child: row,
+        ? ClipRect(
+            clipper: const _NavigationListClipper(),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              primary: false,
+              clipBehavior: Clip.none,
+              child: row,
+            ),
           )
         : row;
   }
+}
+
+class _NavigationListClipper extends CustomClipper<Rect> {
+  const _NavigationListClipper();
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(0, -4, size.width, size.height + 6);
+
+  @override
+  bool shouldReclip(_NavigationListClipper oldClipper) => false;
 }
 
 class DNavigationMenuItem<T> extends StatelessWidget {
@@ -676,23 +692,30 @@ class DNavigationMenuTrigger extends StatelessWidget {
                 const Duration(milliseconds: 150),
               ),
               child: ClipRect(
-                child: Transform.translate(
-                  offset: const Offset(0, 4.8),
-                  child: Transform.rotate(
-                    angle: .785398,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: DTokens.of(context).border,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(
-                            DTokens.of(context).radius * .6,
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  minWidth: 8,
+                  maxWidth: 8,
+                  minHeight: 8,
+                  maxHeight: 8,
+                  child: Transform.translate(
+                    offset: const Offset(0, 4.8),
+                    child: Transform.rotate(
+                      angle: .785398,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: DTokens.of(context).border,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(
+                              DTokens.of(context).radius * .6,
+                            ),
                           ),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x1A000000), blurRadius: 6),
+                          ],
                         ),
-                        boxShadow: const [
-                          BoxShadow(color: Color(0x1A000000), blurRadius: 6),
-                        ],
                       ),
                     ),
                   ),

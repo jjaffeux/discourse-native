@@ -116,6 +116,7 @@ class _ReferenceMenuState extends State<_ReferenceMenu> {
                 width: 384,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _link(
                       'Introduction',
@@ -160,14 +161,19 @@ class _ReferenceMenuState extends State<_ReferenceMenu> {
                 width: 200,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final label in const ['Backlog', 'To Do', 'Done'])
+                    for (final (label, icon) in const [
+                      ('Backlog', Icons.error_outline),
+                      ('To Do', Icons.circle_outlined),
+                      ('Done', Icons.check_circle_outline),
+                    ])
                       DNavigationMenuLink(
                         closeOnActivate: true,
                         onPressed: () => _go(label),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline),
+                            Icon(icon),
                             const SizedBox(width: 8),
                             Text(label),
                           ],
@@ -239,6 +245,7 @@ class _RoutingMenuState extends State<_RoutingMenu> {
                 width: 240,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (final route in const ['/docs', '/examples'])
                       DNavigationMenuLink(
