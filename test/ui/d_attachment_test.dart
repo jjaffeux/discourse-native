@@ -128,16 +128,16 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _app(
-        Center(
+        const Center(
           child: DAttachment(
             width: 320,
             children: [
-              const DAttachmentMedia(child: Icon(Icons.description_outlined)),
-              const DAttachmentContent(
+              DAttachmentMedia(child: Icon(Icons.description_outlined)),
+              DAttachmentContent(
                 key: ValueKey('content'),
                 children: [DAttachmentTitle(child: Text('report.pdf'))],
               ),
-              const DAttachmentActions(
+              DAttachmentActions(
                 children: [
                   DAttachmentAction(
                     icon: Icon(Icons.copy),
