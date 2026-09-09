@@ -52,7 +52,8 @@ metrics; they are not represented as completed native measurements.
 
 The app's configured palette, font and radius remain authoritative. Native touch
 platforms expand invisible interaction targets to 48px. Legacy flat/inset shell
-icons retain their existing 40/48/56px hit dimensions and 4px visual inset.
+icons retain their existing 40/48/56px desktop hit dimensions and 4px visual inset.
+Touch targets are clamped to at least 48px independently of the painted surface.
 Large text can grow text surfaces; explicitly wrapping rich content retains its
 own `Text.softWrap`/`maxLines`. The app keeps pointer cursors as permitted by the
 reference's Cursor section.
@@ -147,3 +148,20 @@ Final build log: `/private/tmp/button-review-final-build.log`.
 All seven examples also pass the 260px/200%/RTL/reduced-motion layout check
 in Light, Dark, Forest and Plum. Async/navigation examples pass separately
 (`/private/tmp/button-custom-tests.log`). Native inspection remains pending.
+
+### Coordinator touch-target correction
+
+The coordinator identified that small legacy inset icons used negative Material
+visual density on touch platforms. A new test reproduced a 40px target where
+48px was required. The target density now clamps to at least 48px on iOS and
+Android independently of the fixed 32px small inset surface. Desktop keeps its
+40px target. The regression covers flat, flatClose and explicit inset outline
+variants on all three platform profiles, semantic bounds and activation at a
+point outside the painted surface. The previous inset geometry test now names
+its macOS platform explicitly.
+
+All 27 focused Button, Chat-header and topic-creation tests pass after the fix.
+Root and full-profile analysis are clean. Logs:
+`/private/tmp/button-inset-final-tests.log`,
+`/private/tmp/button-inset-analysis.log`, and
+`/private/tmp/button-inset-full-analysis.log`.

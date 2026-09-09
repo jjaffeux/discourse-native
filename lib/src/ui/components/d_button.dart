@@ -523,6 +523,9 @@ class DButton extends StatelessWidget {
         theme.platform == TargetPlatform.iOS ||
         theme.platform == TargetPlatform.android;
     final iconOnlyDimension = iconOnlyDimensionFor(size);
+    final iconTargetDimension = touch
+        ? iconOnlyDimension.clamp(DSpacing.touchTarget, double.infinity)
+        : iconOnlyDimension;
     final insetIconSurface =
         _iconOnly &&
         (insetSurface ||
@@ -658,9 +661,10 @@ class DButton extends StatelessWidget {
       ),
       visualDensity: insetIconSurface
           ? VisualDensity(
-              // Material density changes padded targets in four-pixel steps.
-              horizontal: (iconOnlyDimension - kMinInteractiveDimension) / 4,
-              vertical: (iconOnlyDimension - kMinInteractiveDimension) / 4,
+              // Density changes only the padded target, not the fixed surface.
+              // Legacy compact desktop targets must not shrink touch bounds.
+              horizontal: (iconTargetDimension - kMinInteractiveDimension) / 4,
+              vertical: (iconTargetDimension - kMinInteractiveDimension) / 4,
             )
           : VisualDensity.standard,
       tapTargetSize: insetIconSurface || touch

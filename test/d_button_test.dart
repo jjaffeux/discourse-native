@@ -48,7 +48,7 @@ void main() {
       (13.0, DButtonSize.regular),
       (0.0, DButtonSize.large),
     ]) {
-      final base = AppTheme.light;
+      final base = AppTheme.light.copyWith(platform: TargetPlatform.macOS);
       final buttons = base.discourseButtons.copyWith(borderRadius: radius);
       final theme = base.copyWith(
         extensions: [base.shell, base.code, base.discourse, buttons],

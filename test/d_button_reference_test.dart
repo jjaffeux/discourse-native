@@ -24,6 +24,65 @@ void main() {
   );
 
   testWidgets(
+    'small inset app icons keep touch targets outside their painted surface',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      for (final platform in [
+        TargetPlatform.macOS,
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      ]) {
+        for (final variant in [
+          DButtonVariant.flat,
+          DButtonVariant.flatClose,
+          DButtonVariant.outline,
+        ]) {
+          var presses = 0;
+          await pump(
+            tester,
+            DButton.iconOnly(
+              icon: const Icon(Icons.close),
+              tooltip: 'Close',
+              semanticLabel: 'Close',
+              size: DButtonSize.small,
+              variant: variant,
+              insetSurface: variant == DButtonVariant.outline,
+              onPressed: () => presses++,
+            ),
+            theme: AppTheme.light.copyWith(platform: platform),
+          );
+          await tester.pumpAndSettle();
+          final target = tester.getRect(find.byType(FilledButton));
+          final surface = tester.getRect(
+            find.descendant(
+              of: find.byType(FilledButton),
+              matching: find.byType(Material),
+            ),
+          );
+          expect(surface.size, const Size.square(32));
+          expect(
+            target.size,
+            Size.square(platform == TargetPlatform.macOS ? 40 : 48),
+          );
+          expect(
+            tester.getSemantics(find.byType(DButton)).rect.size,
+            target.size,
+          );
+          final edge = target.topLeft + const Offset(2, 2);
+          expect(surface.contains(edge), isFalse);
+          await tester.tapAt(edge);
+          expect(
+            presses,
+            1,
+            reason: '${platform.name} ${variant.name} inset edge',
+          );
+        }
+      }
+      semantics.dispose();
+    },
+  );
+
+  testWidgets(
     'all icon sizes have reference visual dimensions and iOS touch bounds',
     (tester) async {
       for (final size in DButtonSize.values) {
