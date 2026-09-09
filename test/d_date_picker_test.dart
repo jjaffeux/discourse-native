@@ -394,6 +394,53 @@ void main() {
     expect(find.byType(DCalendar), findsNothing);
   });
 
+  testWidgets('editable picker preserves and never disposes borrowed editors', (
+    tester,
+  ) async {
+    final first = TextEditingController(text: '2026-09-09');
+    final second = TextEditingController(text: '2026-09-10');
+    final focus = FocusNode();
+    addTearDown(() {
+      first.dispose();
+      second.dispose();
+      focus.dispose();
+    });
+    const key = ValueKey('editable-date');
+
+    await pump(
+      tester,
+      DDatePickerInput(key: key, controller: first, focusNode: focus),
+    );
+    await pump(tester, const DDatePickerInput(key: key));
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '2026-09-09',
+    );
+    expect(() => first.text = 'still owned by caller', returnsNormally);
+
+    await pump(tester, DDatePickerInput(key: key, controller: second));
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller,
+      same(second),
+    );
+    await pump(tester, const SizedBox());
+    expect(() => second.text = 'still alive', returnsNormally);
+    expect(() => focus.requestFocus(), returnsNormally);
+  });
+
+  testWidgets('editable calendar action retains a touch-sized target', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      const DDatePickerInput(width: 192),
+      size: const Size(320, 640),
+    );
+    final action = find.bySemanticsLabel('Select date');
+    expect(tester.getSize(action).width, greaterThanOrEqualTo(48));
+    expect(tester.getSize(action).height, greaterThanOrEqualTo(48));
+  }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
+
   testWidgets('time input reports only strict typed wall-clock values', (
     tester,
   ) async {
