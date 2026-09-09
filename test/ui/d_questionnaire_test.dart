@@ -260,6 +260,27 @@ void main() {
     expect(controller.currentItemId, 'two');
   });
 
+  testWidgets('Enter advances from a filled freeform answer', (tester) async {
+    final controller = DQuestionnaireController(
+      items: [
+        item(
+          'one',
+          input: const DQuestionnaireInputConfiguration(label: 'Answer'),
+        ),
+        item('two'),
+      ],
+    );
+    await tester.pumpWidget(
+      app(DQuestionnaire(items: controller.items, controller: controller)),
+    );
+
+    await tester.enterText(find.byType(TextField), 'A specific answer');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(controller.currentItemId, 'two');
+  });
+
   testWidgets('skipping the last optional item submits its explicit status', (
     tester,
   ) async {

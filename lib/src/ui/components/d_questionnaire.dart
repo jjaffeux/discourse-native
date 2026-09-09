@@ -631,6 +631,14 @@ class DQuestionnaireItemView extends StatelessWidget {
                         textInputAction: TextInputAction.done,
                         onChanged: (value) =>
                             controller.setFreeform(item.id, value),
+                        onSubmitted: (_) {
+                          final scope = _DQuestionnaireScope.of(context);
+                          unawaited(
+                            scope.notifier!.canGoNext
+                                ? scope.next()
+                                : scope.submit(),
+                          );
+                        },
                       ),
                     ),
                   ],
