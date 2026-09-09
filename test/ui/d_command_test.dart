@@ -1,4 +1,4 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui' show CheckedState;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
@@ -454,7 +454,7 @@ void main() {
     );
     expect(checkedSemantics, findsOneWidget);
     final data = tester.getSemantics(checkedSemantics).getSemanticsData();
-    expect(data.flagsCollection.isChecked, Tristate.isTrue);
+    expect(data.flagsCollection.isChecked, CheckedState.isTrue);
     final touchRows = find.byWidgetPredicate(
       (widget) => widget is SizedBox && widget.height == DSpacing.touchTarget,
     );
