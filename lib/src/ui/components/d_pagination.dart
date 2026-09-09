@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
 
@@ -119,6 +120,7 @@ class DPagination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
+    role: SemanticsRole.navigation,
     container: true,
     explicitChildNodes: true,
     label: semanticLabel,
@@ -144,25 +146,31 @@ class DPaginationContent extends StatelessWidget {
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      for (var index = 0; index < children.length; index++) ...[
-        if (index > 0) const SizedBox(width: 2),
-        children[index],
+  Widget build(BuildContext context) => Semantics(
+    role: SemanticsRole.list,
+    container: true,
+    explicitChildNodes: true,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var index = 0; index < children.length; index++) ...[
+          if (index > 0) const SizedBox(width: 2),
+          children[index],
+        ],
       ],
-    ],
+    ),
   );
 }
 
-/// A semantic grouping hook matching the reference list-item anatomy.
+/// A semantic list item matching the reference composition anatomy.
 class DPaginationItem extends StatelessWidget {
   const DPaginationItem({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => child;
+  Widget build(BuildContext context) =>
+      Semantics(role: SemanticsRole.listItem, container: true, child: child);
 }
 
 /// A page link. Routing remains application-owned through [onPressed].
