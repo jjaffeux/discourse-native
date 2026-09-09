@@ -2085,6 +2085,9 @@
       "status": "in_progress",
       "taskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
       "branch": "codex/ui-sheet",
+      "reviewTaskId": "01a0862f-b27f-76d2-a441-8a77594aedc8",
+      "reviewBranch": "codex/review-sheet",
+      "reviewStatus": "queued",
       "dependencies": [
         "dialog"
       ],

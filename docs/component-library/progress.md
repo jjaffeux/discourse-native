@@ -20,7 +20,7 @@ Branch preparation does not mark a component merged or visually verified.
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | hover-card | independent review | 4d0a7058 | 01a08619-dc41-7213-a887-5afb891b99da |
 | alert-dialog | Implementation and checks | — | — |
-| sheet | Implementation and checks | — | — |
+| sheet | Implementation and checks | — | 01a0862f-b27f-76d2-a441-8a77594aedc8 |
 | drawer | Implementation and checks | — | — |
 | input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
