@@ -97,6 +97,7 @@ final class FakeChatConversation extends ChangeNotifier
   ChatConversationSnapshot get value => _value;
 
   void setSnapshot(ChatConversationSnapshot snapshot) {
+    if (_closed) return;
     _value = snapshot;
     notifyListeners();
   }

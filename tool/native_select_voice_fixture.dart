@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugins/chat/chat_conversation_contract.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
@@ -43,9 +45,12 @@ class NativeSelectVoiceFixture extends StatefulWidget {
 
 class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
   late final VoiceController controller;
+  late final _ReviewChatCapability chatConversations;
+
   @override
   void initState() {
     super.initState();
+    chatConversations = _ReviewChatCapability();
     controller = VoiceController(
       api: VoiceApi(
         RecordingPluginTransport(
@@ -88,7 +93,7 @@ class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
           },
         ),
       ),
-      chatConversations: FakeChatConversationCapability(),
+      chatConversations: chatConversations,
       requests: PluginTestRequestHost(apiKeys: const {_siteUrl: 'fixture'}),
       trackerFor: (_) => null,
       userIdFor: (_) => 1,
@@ -102,6 +107,7 @@ class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
 
   @override
   void dispose() {
+    chatConversations.dispose();
     controller.dispose();
     super.dispose();
   }
@@ -136,6 +142,78 @@ class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
     ],
   );
 }
+
+final class _ReviewChatCapability implements ChatConversationCapability {
+  _ReviewChatCapability() {
+    _conversation = _delegate.seed(
+      siteUrl: _siteUrl,
+      channelId: 42,
+      threadId: 99,
+      snapshot: const ChatConversationSnapshot(loading: true),
+      snapshotAfterLoadOlder: ChatConversationSnapshot(
+        messages: [_message(5, 'Lee'), _message(10, 'Sam')],
+      ),
+      snapshotAfterSend: ChatConversationSnapshot(
+        messages: [
+          _message(5, 'Lee'),
+          _message(10, 'Sam'),
+          _message(11, 'Fixture', cooked: '<p>Sent from the fixture</p>'),
+        ],
+      ),
+    );
+  }
+
+  final FakeChatConversationCapability _delegate =
+      FakeChatConversationCapability();
+  late final FakeChatConversation _conversation;
+  bool _scheduled = false;
+  final List<Timer> _timers = [];
+
+  @override
+  ChatConversation openThread({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+  }) {
+    if (!_scheduled) {
+      _scheduled = true;
+      _timers
+        ..add(
+          Timer(const Duration(seconds: 3), () {
+            _conversation.setSnapshot(const ChatConversationSnapshot());
+          }),
+        )
+        ..add(
+          Timer(const Duration(seconds: 6), () {
+            _conversation.setSnapshot(
+              ChatConversationSnapshot(
+                messages: [_message(10, 'Sam')],
+                canLoadMorePast: true,
+              ),
+            );
+          }),
+        );
+    }
+    return _delegate.openThread(
+      siteUrl: siteUrl,
+      channelId: channelId,
+      threadId: threadId,
+    );
+  }
+
+  void dispose() {
+    for (final timer in _timers) {
+      timer.cancel();
+    }
+  }
+}
+
+ChatMessage _message(int id, String name, {String? cooked}) => ChatMessage(
+  id: id,
+  channelId: 42,
+  cooked: cooked ?? '<p>Local message $id</p>',
+  author: ChatMessageAuthor(id: id, username: name.toLowerCase(), name: name),
+);
 
 final class _MediaFactory implements VoiceMediaFactory {
   _MediaFactory(this.speakingIds);
