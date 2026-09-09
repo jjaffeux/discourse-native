@@ -3214,6 +3214,31 @@ Status: in_progress. Task: 01a08606-ca45-73b1-9be1-7486d4e3fe1d. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Data Table (01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Independent reviewer integrated the preserved implementation history into current-main candidate 4f702a45f0f9ab993a7cbced2406dc8d416a1c96 based on 9834f36a9c4c44f1792e9970bf0a9abfcbedd47d. Accepted Pagination, Select, Field and Dropdown Menu sources are unchanged by the Data Table diff.
+- Native 360px/200% inspection found the fixed-width page-size Select hiding its value. Reviewer fix 58aa1c03 measures the widest scaled option while retaining the 70px reference minimum; LTR and RTL truncation regressions failed before the fix and passed afterward.
+
+**migrations**
+
+- Added four searchable, runnable styleguide examples using the final shared Table, Checkbox, Input, Dropdown Menu, Pagination, Select, Button and Badge owners.
+
+**retainedAlternatives**
+
+- Users directory retains its pinned identity pane, synchronized virtualized viewports, persisted resizable metric columns and server-side infinite loading; an eager Data Table would remove capabilities.
+- Alert Tables retain passive document DTable structure; Topic, Chat, SuperList and badges retain their card/timeline/infinite-feed presentations. No bounded homogeneous production grid was found for a suitable migration.
+
+**verification**
+
+- Source review and adoption audit recorded in docs/component-library/data-table.md; exact frozen reference/Tasks source mappings remain intact.
+- Initial independent candidate passed 72 focused Data Table/example/Pagination/Select/Dropdown Menu/Table checks, seed 9092026, with clean root/full analysis and a successful exact-widget macOS build.
+- Approved browser inspection exercised the official payment table's Email ascending/descending sort, Carmella filtering, repeated Amount visibility changes, selection and row actions.
+- Actual macOS inspection of candidate 31912939 covered Light/Dark/Forest/Plum, filter entry/clear, ascending/descending sort, repeated visibility toggles, none/mixed/all selection, all four page controls, page size 10 to 20, stable-ID selection through reverse/remove/reset, row-menu Down/Return activation and visible restored focus, Arabic RTL and 360px/200%/reduced-motion layouts.
+- Corrected candidate 4f702a45 passed 74 focused component/composition/dependency checks, seed 9092026, and root/full flutter analyze --no-pub without diagnostics. The corrected exact-widget macOS fixture builds and passes deep strict signature verification; copied/build kernel hashes match 67fa17530f6572f94536b8f92a7e5b9de376e2f82dc6058b12d093cf870cc307.
+- Corrected footer native confirmation and rendered reusable Tasks controls comparison remain queued; source-specific prior evidence is retained for unchanged behavior.
+
+**limitations**
+
+- No iOS or Linux device run and no spoken VoiceOver claim. Widget semantics and native macOS keyboard behavior were checked.
+- Browser/native font rasterization is not pixel-identical. The fixture is offline and does not exercise authenticated server adapters.
 
 ### sidebar
 
@@ -3355,3 +3380,4 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+

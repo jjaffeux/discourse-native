@@ -51,9 +51,10 @@ headless composition guide, not another registry renderer.
   Dropdown Menu cells, so opening or activating one never turns the row into a
   competing control.
 - `DDataTableSelectionSummary` uses 14/20 muted text. The advanced
-  `DDataTablePagination` composes the prepared real Pagination and Select owners:
-  a 70px page-size Select, 100px page count, 32px outline first/previous/next/
-  last controls and responsive wrapping. No temporary renderer is shipped.
+  `DDataTablePagination` composes the accepted Pagination and Select owners:
+  a 70px minimum page-size Select, 100px page count, 32px outline
+  first/previous/next/last controls and responsive wrapping. The Select grows
+  to fit the widest scaled page-size value plus its border, padding and icon.
 - All padding and alignment are directional. DTable provides natural-width
   horizontal scrolling at narrow widths and enlarged intrinsic row heights at
   200% text. Colors, fonts, radii and reduced-motion behavior resolve live from
@@ -76,26 +77,83 @@ No plugin currently owns a bounded homogeneous grid suitable for migration.
 The searchable styleguide therefore supplies the first real Data Table adoption
 with self-contained immutable payments.
 
-## Remaining review gate
+## Independent review
 
-The implementation branch may use prepared Dropdown Menu source
-`codex/review-dropdown-menu-candidate@d273c27e788bb3991c773c7432e0b8c927715651`
-for isolated work only. Dropdown Menu still requires its own acceptance and main
-merge. Pagination is pinned from task
-`01a08606-c9d5-7741-bfe0-e4ff531ff9b7` at
-`codex/ui-pagination@cd69ff21400192e6a141a675ffb7ec6a7199526c` after 10
-focused and 71 combined dependency/styleguide tests plus clean root/full
-analysis. It includes prepared Select/Field ancestry. Require accepted
-Pagination, Select, Field and Dropdown Menu revisions from current main before
-Data Table can merge.
+Reviewer task `01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a` owns
+`codex/review-data-table-final`. The implementation history is preserved from
+`codex/ui-data-table`; see `data-table-review-handoff.md` for the source handoff.
 
-The independent Data Table reviewer must compare the exact official rendered
-payment table and reusable Tasks controls against an exact-source macOS fixture
-in light/dark/custom palettes, 360px, 200% text and RTL. It must exercise actual
-filter input, sort Asc/Desc, repeated visibility toggles, page size/page buttons,
-mixed/all/none selection, row menu keyboard focus/restoration and dynamic data.
-Do not claim iOS/Linux or spoken VoiceOver without actual checks.
+All prepared-parent gates are satisfied by accepted local-main merges:
 
-That review is owned by task `01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a` on
-`codex/review-data-table`; see `data-table-review-handoff.md` for exact commits
-and the current-main dependency gate.
+| Parent | Accepted merge |
+| --- | --- |
+| Pagination | `20f1673402d8b52370efacb5ca61d5f099810582` |
+| Select | `57bbeb94368649a4665483180e4f5c84b5f33856` |
+| Field | `5cd7f3694498e4e09e3c114639baca834b56705e` |
+| Dropdown Menu | `5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787` |
+
+Candidate `4f702a45f0f9ab993a7cbced2406dc8d416a1c96` starts from main
+`9834f36a9c4c44f1792e9970bf0a9abfcbedd47d`. Its changes are confined to
+Data Table source, examples, tests, fixture, public registration and evidence;
+the accepted parent implementations are unchanged. Date Picker import/export
+conflicts were resolved by retaining both components.
+
+### Completed rendered and native checks
+
+The official rendered Base UI Data Table payment example was inspected through
+the approved browser surface on 2026-09-09. Actual interactions covered Email
+ascending/descending sorting, filtering to Carmella, repeated Amount visibility
+changes, filtered-row selection and the payment action menu. The native fixture
+was compared for control hierarchy, typography, alignment, borders, row states
+and menu behavior; browser/native font rasterization is not pixel-identical.
+
+The exact-source macOS fixture at `31912939` was inspected in Light, Dark,
+Forest and Plum. Actual native interactions covered:
+
+- Filter entry and clearing; Email ascending and descending row order.
+- Repeated Amount column toggles with the menu staying open.
+- None, mixed and all-current-page selection, with matching selected counts.
+- Next, previous, last and first page actions; page size 10 to 20, exposing all
+  12 payments and updating the page count.
+- Reverse, remove-first and reset of dynamic rows while Abe's selection stayed
+  attached to its stable ID.
+- Row-menu Down/Return activation, the `Opened m5gr84i9` result, visible restored
+  trigger focus and Return/Escape reopening/dismissal.
+- Arabic RTL content and mirrored controls; combined 360px, 200% text, RTL and
+  reduced-motion layout, including wrapped toolbar and pagination.
+
+The large-text native pass exposed an unreadable selected page-size value in
+the fixed 70px trigger. Reviewer fix `58aa1c03` measures the widest option using
+the active font and text scaler. New LTR/RTL tests first reproduced truncation,
+then passed for both the ordinary value and a selected custom value of 1000.
+The earlier pass remains valid for unchanged table and action behavior.
+
+The inspection session briefly produced a partially blank capture after a
+sequence containing an unsupported key name. Reopening only the isolated
+fixture restored rendering; the keyboard interaction was repeated successfully
+with supported Down/Return/Escape input. This is not evidence of a diagnosed
+component crash.
+
+### Automated verification and exact-source rebuild
+
+On candidate `4f702a45`, 74 focused Data Table/example/Pagination/Select/Dropdown
+Menu/Table checks passed with seed `9092026`. Root and `profiles/full`
+`flutter analyze --no-pub` passed without diagnostics. The fixture built with
+`flutter build macos --debug --no-pub -t tool/data_table_review.dart`.
+
+The corrected isolated bundle is
+`/private/tmp/data-table-review-4f70.9Joknh/Data Table Review 4f70.app`, identifier
+`org.discourse.native.datatable.4f70`. Its kernel matches the original build:
+`67fa17530f6572f94536b8f92a7e5b9de376e2f82dc6058b12d093cf870cc307`.
+Deep strict signature verification passed. Only the copied bundle's name,
+identifier, URL registration and ad-hoc signing metadata changed; repository
+runner, provisioning, release settings, pubspecs and lockfiles were untouched.
+
+The initial bundle was
+`/private/tmp/data-table-review-3191.Xaw99t/Data Table Review 3191.app`, identifier
+`org.discourse.native.datatable.3191`, kernel
+`c27c5234d8c29d43445523b3b711b5ce817457330ae299f36df6809caf9d4fca`.
+
+Final acceptance is pending the corrected footer's brief native check and the
+rendered reusable Tasks controls comparison. No iOS/Linux device or spoken
+VoiceOver pass is claimed. All examples use local immutable fixture data.
