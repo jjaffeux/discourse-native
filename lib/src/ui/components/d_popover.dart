@@ -138,6 +138,11 @@ class DPopover extends StatefulWidget {
     this.onOpenChange,
     this.onOpenChangeComplete,
     this.restoreFocus = true,
+    this.focusContentOnOpen = true,
+    this.transitionDuration = const Duration(milliseconds: 100),
+    this.reverseTransitionDuration = const Duration(milliseconds: 100),
+    this.transitionCurve = Curves.easeOut,
+    this.reverseTransitionCurve = Curves.easeIn,
   });
 
   final Widget child;
@@ -148,6 +153,16 @@ class DPopover extends StatefulWidget {
   final DPopoverOpenChange? onOpenChange;
   final ValueChanged<bool>? onOpenChangeComplete;
   final bool restoreFocus;
+
+  /// Whether opening moves focus into the surface.
+  ///
+  /// Rich navigation surfaces can keep focus on their roving trigger and move
+  /// it into content only in response to an explicit keyboard command.
+  final bool focusContentOnOpen;
+  final Duration transitionDuration;
+  final Duration reverseTransitionDuration;
+  final Curve transitionCurve;
+  final Curve reverseTransitionCurve;
 
   @override
   State<DPopover> createState() => _DPopoverState();
@@ -176,13 +191,13 @@ class _DPopoverState extends State<DPopover>
   late final _ownedController = DPopoverController();
   late final _animation = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 100),
-    reverseDuration: const Duration(milliseconds: 100),
+    duration: widget.transitionDuration,
+    reverseDuration: widget.reverseTransitionDuration,
   )..addStatusListener(_animationStatus);
   late final _curve = CurvedAnimation(
     parent: _animation,
-    curve: Curves.easeOut,
-    reverseCurve: Curves.easeIn,
+    curve: widget.transitionCurve,
+    reverseCurve: widget.reverseTransitionCurve,
   );
   BuildContext? _triggerContext;
   BuildContext? _anchorContext;
@@ -219,6 +234,12 @@ class _DPopoverState extends State<DPopover>
       (oldWidget.controller ?? _ownedController)._detach(this);
       _controller._attach(this);
     }
+    _animation
+      ..duration = widget.transitionDuration
+      ..reverseDuration = widget.reverseTransitionDuration;
+    _curve
+      ..curve = widget.transitionCurve
+      ..reverseCurve = widget.reverseTransitionCurve;
     _scheduleSync();
   }
 
@@ -275,7 +296,7 @@ class _DPopoverState extends State<DPopover>
         _animation.forward();
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_open) return;
+        if (!mounted || !_open || !widget.focusContentOnOpen) return;
         if (_interaction == DPopoverInteraction.touch) {
           _surfaceFocus.requestFocus();
         } else {
