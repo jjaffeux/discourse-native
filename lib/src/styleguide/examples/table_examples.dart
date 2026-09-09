@@ -8,11 +8,12 @@ final tableExamples = ComponentExamples(
   description:
       'A responsive presentation table with shared columns and composable cells.',
   notes:
-      'Base-nova Table geometry; native visual review pending. Header/body/footer/row '
+      'Base-nova Table geometry verified against the official rendered reference. '
+      'Header/body/footer/row '
       'are immutable composition values, cells and caption are widgets. Import '
       'package:discourse_native/discourse_ui.dart. Tables do not add sorting, '
       'pagination or selection controls: those belong to Data Table and callers. '
-      'Actions compose DButton and native MenuAnchor pending '
+      'Actions compose DButton and a focus-restoring native MenuAnchor pending '
       'Dropdown Menu. All examples use local data. Natural-width content '
       'scrolls horizontally; explicit columns can opt into wrapping. Child controls '
       'own keyboard focus, Form state, touch targets and menu restoration.',
