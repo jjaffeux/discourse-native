@@ -51,7 +51,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 11 | textarea | in_progress | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
 | 12 | checkbox | merged | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | 13466a062d19c247905ccc65adc615c8d0d6273d |
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
-| 14 | switch | in_progress | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | — |
+| 14 | switch | review_ready | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | — |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | in_progress | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | — |
@@ -1016,7 +1016,7 @@ Status: merged. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/ui-rad
 
 ### switch
 
-Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-switch.
+Status: review_ready. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-switch.
 
 **acceptanceCriteria**
 
@@ -1087,13 +1087,14 @@ Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/u
 - Exterior correction root/full analysis clean; exact-source macOS debug build passed. Isolated bundle /private/tmp/discourse-switch-review-41ac9023/Discourse Switch Review 41ac9023.app; unique identifier org.discourse.switch-review-41ac9023 and scheme discourse-switch-review-41ac9023. Deep strict ad-hoc signature and source/copy kernel equality passed: f38fcf8e1c62d6f708ae2fae2d5e8af18ecbe869964cb49beed17931d2fde589. Trace docs/component-library/switch-review-build.json. No launch; native awaiting_slot.
 - Pinned-main 7df72ef2 integrated preserving final Button/Input and all non-Switch rows. 267 focused integration tests passed seed782313; root/full analysis clean. Exact-source isolated signed bundle /private/tmp/discourse-switch-review-c637efb3/Discourse Switch Review c637efb3.app; kernel d4dfbbf790b2cbabee6780474a496f94dcb6ea3f938a4c103bbb5c741bb21fe5. Signature and entitlement read-back verified with restricted APS/team/application identifiers absent. No desktop access; awaiting_slot.
 - Integrated pinned Radio/Checkbox main e612ad7b preserving all final owners and non-Switch rows. 90 focused integration tests passed seed 782314; root/full analysis clean. Unique exact-source bundle /private/tmp/discourse-switch-review-3243a88c/Discourse Switch Review 3243a88c.app; kernel 9af57c435d269a4f97355921a29131f3f232007988984017e3db2f2413655917. Explicit restricted-free debug/JIT entitlements read back exactly; strict deep signature verified. Runner identities/pins/locks unchanged. No UI access; native review pending.
+- Native acceptance completed on exact source3243a88c/kernel9af57c435d269a4f97355921a29131f3f232007988984017e3db2f2413655917. All nine registered examples and actual Settings/Preferences/Chat/Poll/LocalDate/Group/Voice fixtures inspected; valid Poll applied after ordinary scroll revealed actions. Evidence/limits in evidence/switch/native-3243a88c. App quit verified; slot RELEASED. Only behavior-neutral example status/notes promoted afterward.
 
 **limitations**
 
 - No iOS/Linux device run or spoken VoiceOver claim. Native text wrapping adapts CSS text balancing.
 - Review launcher covers representative migrated production surfaces. Voice room/editor and AI composer are covered by actual-widget regressions; additional native fixture coverage can be completed during review.
-- Browser comparison complete; native Mac remains locked. No native app launch/inspection, nativeInspectionStatus awaiting_slot; not review_ready or mergeable.
 - Browser Geist/Noto Arabic and native SF/SF Arabic shaping/canvas pixels differ; no pixel-equality claim. Shared DTokens.focusRing aliases host primary while reference neutral uses independent gray. Desktop rows are intrinsic; touch platforms retain 48px targets.
+- Native rejected/deferred controlled Form reset remains widget-test coverage; native fixture verified external controlled update and ordinary Form reset. Voice confirmation dismissed without recording. Inspected bundle retains baseline badge; status-only promotion does not alter controls.
 
 ### slider
 

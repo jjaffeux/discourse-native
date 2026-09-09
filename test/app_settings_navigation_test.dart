@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -323,7 +324,7 @@ void main() {
       expect(find.text('175%'), findsOneWidget);
       expect(
         tester
-            .widget<SwitchListTile>(
+            .widget<DSwitchTile>(
               find.byKey(const ValueKey('disable-gif-animations-switch')),
             )
             .value,
