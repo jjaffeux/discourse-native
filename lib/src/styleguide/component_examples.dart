@@ -7,6 +7,7 @@ import 'examples/card_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/empty_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
@@ -35,6 +36,7 @@ final componentExamples = <String, ComponentExamples>{
   'input': inputExamples,
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
+  'empty': emptyExamples,
   'card': cardExamples,
   'resizable': resizableExamples,
   'foundations': foundationExamples,
