@@ -111,25 +111,17 @@ Future<bool> confirmPublishedPollRemoval(
       ? 'This poll may already have votes.'
       : 'This poll has $voterCount '
             '${voterCount == 1 ? 'voter' : 'voters'}.';
-  return await showDiscourseDialog<bool>(
+  return await showDiscourseAlertDialog<bool>(
         context: context,
-        builder: (context) => DiscourseAlertDialog(
-          title: const Text('Remove published poll?'),
-          content: Text(
-            '$detail Removing it will remove the poll from the post.',
-          ),
-          actions: [
-            AdaptiveDialogAction(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            AdaptiveDialogAction(
-              onPressed: () => Navigator.of(context).pop(true),
-              kind: AdaptiveDialogActionKind.destructive,
-              child: const Text('Remove poll'),
-            ),
-          ],
+        title: const Text('Remove published poll?'),
+        description: Text(
+          '$detail Removing it will remove the poll from the post.',
         ),
+        cancelLabel: const Text('Cancel'),
+        actionLabel: const Text('Remove poll'),
+        cancelResult: false,
+        actionResult: true,
+        actionVariant: DButtonVariant.destructive,
       ) ??
       false;
 }

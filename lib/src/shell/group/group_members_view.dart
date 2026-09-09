@@ -731,25 +731,17 @@ class _MemberActions extends StatelessWidget {
 
   Future<void> _run(BuildContext context, GroupMemberAction action) async {
     if (action == GroupMemberAction.remove) {
-      final confirmed = await showDialog<bool>(
+      final confirmed = await showDiscourseAlertDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Remove @${member.username}?'),
-          content: Text(
-            'This member will lose access granted by ${group.label}.',
-          ),
-          actions: [
-            DButton(
-              label: const Text('Cancel'),
-              onPressed: () => Navigator.pop(context, false),
-            ),
-            DButton(
-              label: const Text('Remove member'),
-              variant: DButtonVariant.danger,
-              onPressed: () => Navigator.pop(context, true),
-            ),
-          ],
+        title: Text('Remove @${member.username}?'),
+        description: Text(
+          'This member will lose access granted by ${group.label}.',
         ),
+        cancelLabel: const Text('Cancel'),
+        actionLabel: const Text('Remove member'),
+        cancelResult: false,
+        actionResult: true,
+        actionVariant: DButtonVariant.destructive,
       );
       if (confirmed != true || !context.mounted) return;
     }

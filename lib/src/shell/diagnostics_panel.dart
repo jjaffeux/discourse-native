@@ -353,26 +353,18 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
 
   Future<void> _confirmClear() async {
     final controller = widget.controller;
-    final confirmed = await showDiscourseDialog<bool>(
+    final confirmed = await showDiscourseAlertDialog<bool>(
       context: context,
-      builder: (dialogContext) => DiscourseAlertDialog(
-        title: const Text('Clear diagnostics history?'),
-        content: const Text(
-          'This removes the recorded requests and errors from this device. '
-          'Requests already in progress will not be restored afterward.',
-        ),
-        actions: [
-          AdaptiveDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          AdaptiveDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            kind: AdaptiveDialogActionKind.destructive,
-            child: const Text('Clear history'),
-          ),
-        ],
+      title: const Text('Clear diagnostics history?'),
+      description: const Text(
+        'This removes the recorded requests and errors from this device. '
+        'Requests already in progress will not be restored afterward.',
       ),
+      cancelLabel: const Text('Cancel'),
+      actionLabel: const Text('Clear history'),
+      cancelResult: false,
+      actionResult: true,
+      actionVariant: DButtonVariant.destructive,
     );
     // The app can replace its diagnostics owner while this dialog is open.
     // A confirmation describing the old history must never clear the new
