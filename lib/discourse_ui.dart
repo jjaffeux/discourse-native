@@ -3,14 +3,18 @@ library;
 
 // Baseline exports move into src/ui/components in their catalogue tasks.
 export 'src/shell/select.dart';
-export 'src/theme/d_button.dart';
 export 'src/ui/components/d_aspect_ratio.dart';
 export 'src/ui/components/d_avatar.dart';
+export 'src/ui/components/d_badge.dart';
+export 'src/ui/components/d_button.dart';
 export 'src/ui/components/d_card.dart';
+export 'src/ui/components/d_checkbox.dart';
 export 'src/ui/components/d_direction.dart';
+export 'src/ui/components/d_input.dart';
 export 'src/ui/components/d_kbd.dart';
 export 'src/ui/components/d_label.dart';
 export 'src/ui/components/d_native_select.dart';
+export 'src/ui/components/d_radio_group.dart';
 export 'src/ui/components/d_separator.dart';
 export 'src/ui/components/d_sidebar.dart';
 export 'src/ui/components/d_skeleton.dart';

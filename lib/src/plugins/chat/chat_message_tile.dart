@@ -128,8 +128,9 @@ class ChatMessageTile extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 52,
-                  child: Checkbox(
+                  child: DCheckbox(
                     key: ValueKey('chat-message-selector-${message.id}'),
+                    semanticLabel: 'Select message ${message.id}',
                     value: selected,
                     onChanged: onSelectedChanged == null
                         ? null

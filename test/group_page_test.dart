@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_ui.dart' show DSeparator;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/found_user.dart';
@@ -12,7 +12,6 @@ import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/group_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -174,7 +173,10 @@ void main() {
           expect(tester.takeException(), isNull);
         }
       },
-      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      variant: TargetPlatformVariant({
+        TargetPlatform.macOS,
+        if (width <= 700) TargetPlatform.iOS,
+      }),
     );
   }
 

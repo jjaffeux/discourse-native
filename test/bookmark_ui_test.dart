@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/bookmark_reminder_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
@@ -14,7 +15,6 @@ import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -694,7 +694,8 @@ Widget _postActionsHost(
   platform,
   SizedBox(
     width: 240,
-    height: 100,
+    // Accommodate the final Button touch targets in both action rows.
+    height: 120,
     child: PostActions(
       siteUrl: _site,
       post: post,

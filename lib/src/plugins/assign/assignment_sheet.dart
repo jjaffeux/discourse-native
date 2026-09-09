@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-
 import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';

@@ -80,7 +80,9 @@ void main() {
   }
 
   Finder field(String label) => find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.labelText == label,
+    (widget) =>
+        (widget is DInput && widget.labelText == label) ||
+        (widget is TextField && widget.decoration?.labelText == label),
   );
 
   test('the invite tab follows the current user permission', () {

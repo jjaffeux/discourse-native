@@ -1,0 +1,370 @@
+import 'dart:ui' show Tristate;
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets(
+    'static badges have compact geometry and no activation or tab stop',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await _pump(tester, const DBadge(child: Text('Badge')));
+        expect(tester.getSize(find.byType(DBadge)).height, 20);
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text('Badge'),
+        );
+        final style = (paragraph.text as TextSpan).style!;
+        expect(style.fontSize, 12);
+        expect(style.height, 16 / 12);
+        expect(style.fontWeight, FontWeight.w500);
+        final node = tester.getSemantics(find.text('Badge'));
+        expect(node.flagsCollection.isButton, isFalse);
+        expect(node.flagsCollection.isLink, isFalse);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        expect(
+          FocusManager.instance.primaryFocus?.context?.widget,
+          isNot(isA<DBadge>()),
+        );
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'action keyboard activation, disabling and borrowed focus lifecycle',
+    (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      var count = 0;
+      Widget badge(bool enabled) => DBadge.action(
+        focusNode: focus,
+        onPressed: enabled ? () => count++ : null,
+        child: const Text('Count'),
+      );
+      await _pump(tester, badge(true));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(focus.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.tap(find.text('Count'));
+      expect(count, 3);
+      await _pump(tester, badge(false));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.tap(find.text('Count'));
+      expect(count, 3);
+      await _pump(tester, const SizedBox());
+      await _pump(tester, badge(true));
+      focus.requestFocus();
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'pointer activation transfers keyboard ownership to the clicked badge',
+    (tester) async {
+      final first = FocusNode();
+      final second = FocusNode();
+      var firstCount = 0;
+      var secondCount = 0;
+      try {
+        await _pump(
+          tester,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DBadge.action(
+                focusNode: first,
+                onPressed: () => firstCount++,
+                child: const Text('First'),
+              ),
+              DBadge.action(
+                focusNode: second,
+                onPressed: () => secondCount++,
+                child: const Text('Second'),
+              ),
+            ],
+          ),
+        );
+        first.requestFocus();
+        await tester.pump();
+        await tester.tap(find.text('Second'));
+        await tester.pump();
+        expect(second.hasFocus, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        expect(firstCount, 0);
+        expect(secondCount, 3);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        first.dispose();
+        second.dispose();
+      }
+    },
+  );
+
+  testWidgets('link semantics expose destination and only Enter activates', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      var count = 0;
+      final uri = Uri.parse('https://example.invalid/details');
+      await _pump(
+        tester,
+        DBadge.link(
+          url: uri,
+          semanticLabel: 'Details',
+          onPressed: () => count++,
+          child: const Text('Open'),
+        ),
+      );
+      final node = tester.getSemantics(find.bySemanticsLabel('Details'));
+      expect(node.flagsCollection.isLink, isTrue);
+      expect(node.flagsCollection.isButton, isFalse);
+      expect(node.getSemanticsData().linkUrl, uri);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      expect(count, 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(count, 1);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('disabled and invalid statuses retain a single accessible name', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pump(
+        tester,
+        const DBadge.action(
+          onPressed: null,
+          invalid: true,
+          semanticLabel: 'Cannot publish',
+          semanticValue: 'Invalid status',
+          leading: Icon(Icons.error, semanticLabel: 'Decoration'),
+          child: Text('Publish'),
+        ),
+      );
+      final node = tester.getSemantics(find.bySemanticsLabel('Cannot publish'));
+      expect(node.flagsCollection.isEnabled != Tristate.none, isTrue);
+      expect(node.flagsCollection.isEnabled == Tristate.isTrue, isFalse);
+      expect(node.getSemanticsData().value, 'Invalid status');
+      expect(
+        node.getSemanticsData().validationResult,
+        SemanticsValidationResult.invalid,
+      );
+      expect(find.bySemanticsLabel('Decoration'), findsNothing);
+      expect(
+        _decoration(tester).border!.top.color,
+        AppTheme.light.colorScheme.error,
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets(
+    'hover changes actionable outline and clears after pointer exits',
+    (tester) async {
+      await _pump(
+        tester,
+        DBadge.link(
+          variant: DBadgeVariant.outline,
+          onPressed: () {},
+          child: const Text('Open'),
+        ),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.text('Open')));
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(DBadge));
+      expect(_decoration(tester).color, DTokens.of(context).muted);
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(_decoration(tester).color, Colors.transparent);
+    },
+  );
+
+  for (final variant in DBadgeVariant.values) {
+    testWidgets(
+      '${variant.name} follows four live palettes without remounting',
+      (tester) async {
+        State? original;
+        for (final theme in [
+          AppTheme.light,
+          AppTheme.dark,
+          StyleguideTheme.forest.resolve(AppTheme.light),
+          StyleguideTheme.plum.resolve(AppTheme.light),
+        ]) {
+          await _pump(
+            tester,
+            DBadge(variant: variant, child: const Text('Status')),
+            theme: theme,
+          );
+          final state = tester.state(find.byType(DBadge));
+          original ??= state;
+          expect(state, same(original));
+          final t = DTokens.of(tester.element(find.byType(DBadge)));
+          final expected = switch (variant) {
+            DBadgeVariant.primary => t.primary,
+            DBadgeVariant.secondary => t.muted,
+            DBadgeVariant.destructive => t.destructive.withValues(
+              alpha: theme.brightness == Brightness.dark ? .2 : .1,
+            ),
+            _ => Colors.transparent,
+          };
+          expect(_decoration(tester).color, expected);
+        }
+      },
+    );
+  }
+
+  testWidgets(
+    'configured radii and extreme text keep reference curvature without clipping',
+    (tester) async {
+      for (final radius in [0.0, 1.0, 4.0, 12.0]) {
+        final theme = AppTheme.light.copyWith(
+          extensions: [
+            AppTheme.light.extension<DTokens>()!.copyWith(radius: radius),
+          ],
+        );
+        await _pump(
+          tester,
+          const DBadge(child: Text('A label that grows across several lines')),
+          theme: theme,
+          width: 140,
+          scale: 3,
+        );
+        expect(
+          _decoration(tester).borderRadius,
+          BorderRadius.circular(radius * 2.6),
+        );
+        expect(
+          tester
+              .renderObject<RenderParagraph>(find.byType(Text))
+              .didExceedMaxLines,
+          isFalse,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets('touch target grows invisibly while badge stays 20px', (
+    tester,
+  ) async {
+    var activated = false;
+    await _pump(
+      tester,
+      DBadge.action(onPressed: () => activated = true, child: const Text('Go')),
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+    );
+    final bounds = tester.getRect(find.byType(DBadge));
+    expect(bounds.height, 48);
+    expect(bounds.width, greaterThanOrEqualTo(48));
+    expect(tester.getSize(find.byType(AnimatedContainer)).height, 20);
+    await tester.tapAt(bounds.topCenter + const Offset(0, 2));
+    expect(activated, isTrue);
+  });
+
+  testWidgets(
+    'large RTL label wraps with fixed decorative slots and loading value',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await _pump(
+          tester,
+          const DBadge(
+            leading: DSpinner(semanticLabel: null),
+            trailing: Icon(Icons.check, size: 80),
+            semanticValue: 'Loading',
+            liveRegion: true,
+            child: Text('تم التحقق من حالة الحساب وجميع المعلومات المطلوبة'),
+          ),
+          width: 200,
+          scale: 2,
+          rtl: true,
+        );
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(DBadge)).height, greaterThan(20));
+        expect(
+          tester
+              .renderObject<RenderParagraph>(find.byType(Text))
+              .didExceedMaxLines,
+          isFalse,
+        );
+        expect(
+          tester.getCenter(find.byType(DSpinner)).dx,
+          greaterThan(tester.getCenter(find.byType(Text)).dx),
+        );
+        final slot = find
+            .ancestor(
+              of: find.byType(DSpinner),
+              matching: find.byType(SizedBox),
+            )
+            .first;
+        expect(tester.getSize(slot), const Size(12, 12));
+        expect(
+          tester.getSemantics(find.byType(Text)).getSemanticsData().value,
+          'Loading',
+        );
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+}
+
+BoxDecoration _decoration(WidgetTester tester) =>
+    tester.widget<AnimatedContainer>(find.byType(AnimatedContainer)).decoration!
+        as BoxDecoration;
+Future<void> _pump(
+  WidgetTester tester,
+  Widget child, {
+  ThemeData? theme,
+  double width = 400,
+  double scale = 1,
+  bool rtl = false,
+}) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      themeAnimationDuration: Duration.zero,
+      theme: theme ?? AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: width,
+            child: MediaQuery(
+              data: MediaQueryData(
+                textScaler: TextScaler.linear(scale),
+                disableAnimations: true,
+              ),
+              child: Directionality(
+                textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+                child: Align(child: child),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump(const Duration(milliseconds: 200));
+}
