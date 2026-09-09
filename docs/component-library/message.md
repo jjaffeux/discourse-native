@@ -137,3 +137,10 @@ follow-up main `d6474006`. All 36 targeted Dropdown Menu, Message fixture and
 styleguide-page checks passed with seed 39061; root/full analysis passed again.
 Message's production action menu uses `MenuAnchor`, not `DDropdownMenu`, so the
 inspected Message behavior remains unchanged. Other progress data is preserved.
+
+Accepted local main merge: `bf86d92e26feee925739f3d7ee90f26ee05721d7`.
+The final candidate also preserves accepted Menubar main `ec8bfabe`; all 25
+Message/Menubar examples and styleguide-page checks passed with seed 39062,
+along with root/full analysis. Only adjacent registrations/exports required
+reconciliation, retaining both owners. No Message runtime behavior changed.
+No push was performed.

@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**59 of 64 components are merged locally.** 5 existing components are in progress; 0 are planned.
+**60 of 64 components are merged locally.** 4 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -18,7 +18,6 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
-| message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
 
@@ -83,7 +82,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 55 | attachment | merged | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | 99cea2172e9ddb5da775bff7b81e82c24ad72870 |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
 | 57 | bubble | merged | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | c3d6ae97af486134b32067aecc29f7191b05367d |
-| 58 | message | review_ready | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | — |
+| 58 | message | merged | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | bf86d92e26feee925739f3d7ee90f26ee05721d7 |
 | 59 | message-scroller | in_progress | 01a08606-ce86-7be2-b92f-59676b40cb40 | codex/ui-message-scroller | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
 | 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
@@ -3176,7 +3175,7 @@ Status: merged. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/ui-bub
 
 ### message
 
-Status: review_ready. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/ui-message.
+Status: merged. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/ui-message.
 
 **acceptanceCriteria**
 
@@ -3199,6 +3198,7 @@ Status: review_ready. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/
 - Ordinary Message rows add no semantic boundary, preserving arbitrary rich content and independent descendant actions. Whole-row labels/live regions are explicit; DMessageStatus provides caller-controlled localizable pending, delivered, read, failed and deleted states without owning delivery or retry work.
 - Message Scroller owner 01a08606-ce86-7be2-b92f-59676b40cb40 agreed that it owns stable DMessageScrollerItem IDs, anchors, builder/viewport and scrolling externally. DMessage remains keyed presentational content and exposes no scroll or identity contract.
 - Accepted Bubble merge c3d6ae97af486134b32067aecc29f7191b05367d and accepted Attachment merge 99cea2172e9ddb5da775bff7b81e82c24ad72870 are both present on this candidate's direct local-main base b2f425545756bf78798ae2e1635b261f1719b14d. Their stable Message-facing APIs are unchanged; accepted parent source wins over every prepared snapshot.
+- Independent review accepted and merged locally from the main checkout as bf86d92e26feee925739f3d7ee90f26ee05721d7. Native/source equivalence and final integration checks are recorded; no push.
 
 **migrations**
 

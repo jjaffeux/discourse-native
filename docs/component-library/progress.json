@@ -3994,7 +3994,7 @@
     },
     {
       "id": "message",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08606-ca30-7bc1-8e27-693690217969",
       "branch": "codex/ui-message",
       "dependencies": [
@@ -4021,7 +4021,8 @@
         "Implementation began from local main 77ee9b047528d43fcbcd4a31d464182f9640b835. One public presentational composition exports DMessage, DMessageGroup, DMessageAvatar, DMessageContent, DMessageHeader, DMessageFooter and DMessageStatus; docs/component-library/message.md records exact source mapping and adapter extensions.",
         "Ordinary Message rows add no semantic boundary, preserving arbitrary rich content and independent descendant actions. Whole-row labels/live regions are explicit; DMessageStatus provides caller-controlled localizable pending, delivered, read, failed and deleted states without owning delivery or retry work.",
         "Message Scroller owner 01a08606-ce86-7be2-b92f-59676b40cb40 agreed that it owns stable DMessageScrollerItem IDs, anchors, builder/viewport and scrolling externally. DMessage remains keyed presentational content and exposes no scroll or identity contract.",
-        "Accepted Bubble merge c3d6ae97af486134b32067aecc29f7191b05367d and accepted Attachment merge 99cea2172e9ddb5da775bff7b81e82c24ad72870 are both present on this candidate's direct local-main base b2f425545756bf78798ae2e1635b261f1719b14d. Their stable Message-facing APIs are unchanged; accepted parent source wins over every prepared snapshot."
+        "Accepted Bubble merge c3d6ae97af486134b32067aecc29f7191b05367d and accepted Attachment merge 99cea2172e9ddb5da775bff7b81e82c24ad72870 are both present on this candidate's direct local-main base b2f425545756bf78798ae2e1635b261f1719b14d. Their stable Message-facing APIs are unchanged; accepted parent source wins over every prepared snapshot.",
+        "Independent review accepted and merged locally from the main checkout as bf86d92e26feee925739f3d7ee90f26ee05721d7. Native/source equivalence and final integration checks are recorded; no push."
       ],
       "migrations": [
         "ChatMessageTile production presentation now composes DMessage, DMessageAvatar and DMessageContent. Its app adapter explicitly retains the existing 42px gutter, top-anchored 28px authenticated avatar, zero internal gap, chaining, exact row padding/minimum heights, CookedHtml/preview, selection, uploads, reactions, thread/reply, delivery, pin/bookmark and hover/long-press action behavior.",
@@ -4049,9 +4050,9 @@
         "The Attachment image example uses deterministic local artwork through the real Attachment owner, not the reference photograph. Host fonts, palette and radius use live Discourse tokens; literal cross-host bitmap identity is not claimed."
       ],
       "implementationCommit": "1fd4d49aff7fe0b19cb7b6874e5e8610931531c4",
-      "mergeCommit": null,
+      "mergeCommit": "bf86d92e26feee925739f3d7ee90f26ee05721d7",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/dee9/discourse-native",
-      "queueStage": "final_local_merge",
+      "queueStage": "merged",
       "implementationBrief": "Implement full Message, Group, Avatar, Content, Header and Footer API with Avatar, Group, Header/Footer, Actions, Attachment and accessibility/status-update examples. Compose final Attachment, Avatar, Bubble, Marker and Button components rather than duplicating their rendering/logic. Keep arbitrary rich content, timestamps, sender/status metadata and actions generic, preserving independent native action labels and appropriate live-status announcements. Handle grouping/alignment/spacing, avatar stacking/availability, deleted/failed/pending/retry or other documented states, keyboard/touch, RTL/narrow/large text and live themes. Audit core/plugin chat/message presentation and migrate suitable actual widgets while leaving delivery/fetching/permissions/network/model transformations with app adapters. Coordinate Attachment reviewer 01a085f6-d243-7d73-8a4a-c1a1225d3a8f and Bubble implementer 01a085d9-7909-7fd0-b1b8-30a76c6ab2af; agree the Message API with the separately queued Message Scroller owner. Do independent planning/audit while waiting for a tested Bubble pin; no placeholder-owned final compositions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/message",
@@ -4104,7 +4105,7 @@
       "reviewBranch": "codex/review-message",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8953/discourse-native",
       "reviewHandoffCommit": "93729c14aef376f9212c1bae009f9c9791369fe8",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "implementationHandoffVerification": {
         "focusedTests": "Implementation owner reports81 combined focused checks passing, including Message examples and ChatMessageTile adoption.",
         "analysis": "Root and profiles/full analysis pass at handoff.",
@@ -4141,7 +4142,9 @@
         "The actual production fixture exposed 360px/200% reaction-pill and thread-header overflows. Existing adapters now reflow their metadata without changing identity, permission, selection, delivery or scroll ownership."
       ],
       "integratedMainCommit": "ec8bfabe561f7bf5d5ddc5e8a684ca1b3ed29a55",
-      "integrationCandidateCommit": "c3386e969d853997f8e8fadaaa8666c179f5838a"
+      "integrationCandidateCommit": "c3386e969d853997f8e8fadaaa8666c179f5838a",
+      "reviewedBranchHead": "b6fc6f31",
+      "mergedAt": "2026-09-09"
     },
     {
       "id": "message-scroller",
@@ -4803,16 +4806,6 @@
           "headCommit": "57ee83934cd11d941b816bb1c59260e7515427b8"
         },
         {
-          "component": "message",
-          "taskId": "01a08627-8995-7b43-9c06-8a219d472681",
-          "branch": "codex/review-message",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8953/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-ca30-7bc1-8e27-693690217969",
-          "implementationBranch": "codex/ui-message",
-          "headCommit": "93729c14aef376f9212c1bae009f9c9791369fe8"
-        },
-        {
           "component": "pagination",
           "taskId": "01a08629-4841-73d0-a5a6-c723f253b4b0",
           "branch": "codex/review-pagination",
@@ -5180,18 +5173,6 @@
           "implementationTaskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
           "implementationBranch": "codex/ui-navigation-menu",
           "implementationCommit": "43ef3bca0725ed27f452ed141a6eda4bf120072e",
-          "status": "in_progress"
-        },
-        {
-          "component": "message",
-          "title": "Review and merge Message",
-          "taskId": "01a08627-8995-7b43-9c06-8a219d472681",
-          "hostId": "local",
-          "branch": "codex/review-message",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8953/discourse-native",
-          "implementationTaskId": "01a08606-ca30-7bc1-8e27-693690217969",
-          "implementationBranch": "codex/ui-message",
-          "implementationCommit": "1fd4d49aff7fe0b19cb7b6874e5e8610931531c4",
           "status": "in_progress"
         },
         {
