@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/button_surface.dart';
+
 void main() {
   testWidgets('reference text sizes retain compact surfaces', (tester) async {
     for (final (size, height, font) in [
@@ -92,10 +94,13 @@ void main() {
         (shape! as RoundedRectangleBorder).borderRadius,
         BorderRadius.circular(size == DButtonSize.small ? 3.2 : 4),
       );
-      expect(
-        style.backgroundColor!.resolve({WidgetState.hovered}),
-        theme.shell.hover,
-      );
+      expect(buttonSurface(tester).color, Colors.transparent);
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      await pointer.moveTo(tester.getCenter(surface));
+      await tester.pump();
+      expect(buttonSurface(tester).color, theme.shell.hover);
+      await pointer.removePointer();
     }
   });
 
@@ -128,7 +133,7 @@ void main() {
     final theme = Theme.of(tester.element(rendered));
 
     expect(surfaceRect.contains(paddedPoint), isFalse);
-    expect(tester.widget<Material>(surface).color, Colors.transparent);
+    expect(buttonSurface(tester).color, Colors.transparent);
 
     final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(pointer.removePointer);
@@ -136,7 +141,7 @@ void main() {
     await pointer.moveTo(paddedPoint);
     await tester.pump();
 
-    expect(tester.widget<Material>(surface).color, theme.shell.hover);
+    expect(buttonSurface(tester).color, theme.shell.hover);
 
     await tester.tapAt(paddedPoint);
     await tester.pump();
@@ -200,30 +205,72 @@ void main() {
   });
 
   testWidgets('interactive background can stay transparent', (tester) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: const Scaffold(
+        home: Scaffold(
           body: Center(
             child: DButton.iconOnly(
               tooltip: 'Action',
               onPressed: _noop,
               variant: DButtonVariant.flat,
               interactiveBackgroundColor: Colors.transparent,
-              icon: Icon(Icons.add),
+              focusNode: focus,
+              icon: const Icon(Icons.add),
             ),
           ),
         ),
       ),
     );
 
-    final style = tester.widget<FilledButton>(find.byType(FilledButton)).style!;
-    for (final state in const [
-      WidgetState.hovered,
-      WidgetState.pressed,
-      WidgetState.focused,
-    ]) {
-      expect(style.backgroundColor!.resolve({state}), Colors.transparent);
+    final center = tester.getCenter(find.byType(FilledButton));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(center);
+    await tester.pump();
+    expect(buttonSurface(tester).color, Colors.transparent, reason: 'hover');
+    await mouse.down(center);
+    await tester.pump();
+    expect(buttonSurface(tester).color, Colors.transparent, reason: 'press');
+    await mouse.up();
+    await mouse.moveTo(Offset.zero);
+    focus.requestFocus();
+    await tester.pump();
+    expect(buttonSurface(tester).color, Colors.transparent, reason: 'focus');
+  });
+
+  testWidgets('the loading spinner keeps the reference 16px in every size', (
+    tester,
+  ) async {
+    for (final size in DButtonSize.values) {
+      for (final iconOnly in [false, true]) {
+        await _pumpButton(
+          tester,
+          iconOnly
+              ? DButton.iconOnly(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'Add',
+                  size: size,
+                  loading: true,
+                  onPressed: _noop,
+                )
+              : DButton(
+                  label: const Text('Save'),
+                  loadingLabel: const Text('Saving'),
+                  size: size,
+                  loading: true,
+                  onPressed: _noop,
+                ),
+        );
+        expect(
+          tester.getSize(find.byType(DSpinner)),
+          const Size.square(16),
+          reason: '${size.name} ${iconOnly ? 'icon' : 'text'}',
+        );
+      }
     }
   });
 

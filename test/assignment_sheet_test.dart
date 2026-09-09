@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -99,13 +100,9 @@ void main() {
       expect(note.hintText, 'Note (optional)');
 
       final unassignFinder = find.byKey(const Key('assignment-unassign'));
-      final unassign = _materialButton(
-        tester,
-        const Key('assignment-unassign'),
-      );
       final theme = Theme.of(tester.element(unassignFinder));
       expect(
-        unassign.style?.backgroundColor?.resolve(<WidgetState>{}),
+        buttonSurface(tester, of: unassignFinder).color,
         theme.colorScheme.error,
       );
       expect(

@@ -53,6 +53,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
@@ -88,7 +89,10 @@ void main() {
       );
       expect(find.text('New topic'), findsOneWidget);
       expect(
-        button.style?.backgroundColor?.resolve(<WidgetState>{}),
+        buttonSurface(
+          tester,
+          of: find.byKey(TopicCreateButton.buttonKey),
+        ).color,
         theme.colorScheme.primary,
       );
       expect(

@@ -1,9 +1,14 @@
+import 'dart:ui' show ImageByteFormat, SemanticsValidationResult;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/button_surface.dart';
 
 void main() {
   Future<void> pump(
@@ -22,6 +27,18 @@ void main() {
       ),
     ),
   );
+
+  Future<TestGesture> hover(WidgetTester tester, Finder target) async {
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(target));
+    await tester.pump();
+    return mouse;
+  }
+
+  DTokens tokensOf(WidgetTester tester) =>
+      DTokens.of(tester.element(find.byType(FilledButton)));
 
   testWidgets(
     'disabled opacity follows the scoped theme without enabling activation',
@@ -117,6 +134,7 @@ void main() {
           final radius = shape.borderRadius.resolve(TextDirection.ltr);
           expect(radius.topLeft.x, closeTo(expected, .000001));
           expect(radius, BorderRadius.circular(radius.topLeft.x));
+          expect(buttonSurface(tester).borderRadius, radius);
         }
       }
     }
@@ -185,13 +203,338 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final style = tester.widget<FilledButton>(find.byType(FilledButton)).style!;
-    expect(style.backgroundColor!.resolve({})!.a, closeTo(input.a * .3, .0001));
-    expect(
-      style.backgroundColor!.resolve({WidgetState.hovered})!.a,
-      closeTo(input.a * .5, .0001),
+    expect(buttonSurface(tester).color.a, closeTo(input.a * .3, .0001));
+    expect(buttonSurface(tester).borderColor, input);
+    await hover(tester, find.byType(FilledButton));
+    expect(buttonSurface(tester).color.a, closeTo(input.a * .5, .0001));
+  });
+
+  testWidgets(
+    'the ring paints outside the bounds and the fill stops at the border',
+    (tester) async {
+      final highlightStrategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(
+        () => FocusManager.instance.highlightStrategy = highlightStrategy,
+      );
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      final boundary = GlobalKey();
+      await pump(
+        tester,
+        RepaintBoundary(
+          key: boundary,
+          child: ColoredBox(
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: SizedBox(
+                width: 120,
+                child: DButton(
+                  focusNode: focus,
+                  label: const Text('Save'),
+                  onPressed: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final bounds = tester
+          .getRect(find.byType(FilledButton))
+          .shift(-tester.getTopLeft(find.byKey(boundary)));
+      expect(bounds, const Rect.fromLTWH(8, 8, 120, 32));
+      Future<Color> pixel(double x, double y) async {
+        final color = await tester.runAsync(() async {
+          final box =
+              boundary.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          final image = await box.toImage();
+          final bytes = (await image.toByteData(
+            format: ImageByteFormat.rawRgba,
+          ))!;
+          final index = (y.floor() * image.width + x.floor()) * 4;
+          image.dispose();
+          return Color.fromARGB(
+            bytes.getUint8(index + 3),
+            bytes.getUint8(index),
+            bytes.getUint8(index + 1),
+            bytes.getUint8(index + 2),
+          );
+        });
+        return color!;
+      }
+
+      final middle = bounds.center.dy;
+      final primary = tokensOf(tester).primary;
+      // The transparent 1px border leaves the backdrop visible inside the
+      // bounds, like bg-clip-padding; the fill starts one pixel in.
+      expect(await pixel(bounds.right - 1, middle), Colors.white);
+      expect(await pixel(bounds.right - 2, middle), primary);
+      expect(await pixel(bounds.center.dx, bounds.top), Colors.white);
+      expect(await pixel(bounds.center.dx, bounds.top + 1), primary);
+      expect(await pixel(bounds.right + 1, middle), Colors.white);
+
+      focus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(buttonSurface(tester).ringWidth, 3);
+      expect(await pixel(bounds.right + 1, middle), isNot(Colors.white));
+      expect(await pixel(bounds.right + 3, middle), Colors.white);
+    },
+  );
+
+  testWidgets(
+    'expanded triggers keep the reference surface per variant and brightness',
+    (tester) async {
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        final dark = theme.brightness == Brightness.dark;
+        for (final variant in [
+          DButtonVariant.outline,
+          DButtonVariant.secondary,
+          DButtonVariant.ghost,
+          DButtonVariant.primary,
+        ]) {
+          await pump(
+            tester,
+            DButton(
+              label: const Text('Options'),
+              variant: variant,
+              hasPopup: true,
+              expanded: true,
+              onPressed: () {},
+            ),
+            theme: theme,
+          );
+          await tester.pumpAndSettle();
+          final tokens = tokensOf(tester);
+          final input = tokens.colors.outlineVariant;
+          // A dark outline trigger keeps its resting input fill because
+          // dark:bg-input/30 outranks aria-expanded:bg-muted.
+          final expected = switch (variant) {
+            DButtonVariant.outline when dark => input.withValues(
+              alpha: input.a * .3,
+            ),
+            DButtonVariant.outline ||
+            DButtonVariant.secondary ||
+            DButtonVariant.ghost => tokens.muted,
+            _ => tokens.primary,
+          };
+          expect(
+            buttonSurface(tester).color,
+            expected,
+            reason: '${theme.brightness.name} ${variant.name}',
+          );
+        }
+      }
+      // aria-expanded:bg-secondary outranks the secondary hover mix.
+      await pump(
+        tester,
+        DButton(
+          label: const Text('Options'),
+          variant: DButtonVariant.secondary,
+          hasPopup: true,
+          expanded: true,
+          onPressed: () {},
+        ),
+      );
+      await hover(tester, find.byType(FilledButton));
+      expect(buttonSurface(tester).color, tokensOf(tester).muted);
+    },
+  );
+
+  testWidgets('a focused dark outline keeps its input border under the ring', (
+    tester,
+  ) async {
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      final dark = theme.brightness == Brightness.dark;
+      final focus = FocusNode();
+      await pump(
+        tester,
+        DButton(
+          focusNode: focus,
+          label: const Text('Outline'),
+          variant: DButtonVariant.outline,
+          onPressed: () {},
+        ),
+        theme: theme,
+      );
+      focus.requestFocus();
+      await tester.pumpAndSettle();
+      final tokens = tokensOf(tester);
+      final surface = buttonSurface(tester);
+      expect(surface.ringWidth, 3, reason: theme.brightness.name);
+      expect(
+        surface.ringColor,
+        tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5),
+      );
+      expect(
+        surface.borderColor,
+        dark ? tokens.colors.outlineVariant : tokens.focusRing,
+        reason: theme.brightness.name,
+      );
+      await tester.pumpWidget(const SizedBox());
+      focus.dispose();
+    }
+  });
+
+  testWidgets(
+    'a touch press keeps the reference fill while compatibility variants fill',
+    (tester) async {
+      for (final (variant, pressedFill) in [
+        (DButtonVariant.primary, false),
+        (DButtonVariant.standard, true),
+      ]) {
+        await pump(
+          tester,
+          DButton(
+            label: const Text('Press'),
+            variant: variant,
+            onPressed: () {},
+          ),
+        );
+        final rest = buttonSurface(tester).color;
+        final origin = tester.getTopLeft(find.text('Press'));
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.text('Press')),
+        );
+        await tester.pumpAndSettle();
+        final theme = Theme.of(tester.element(find.byType(FilledButton)));
+        expect(
+          buttonSurface(tester).color,
+          pressedFill ? theme.shell.hover : rest,
+          reason: variant.name,
+        );
+        expect(tester.getTopLeft(find.text('Press')).dy, origin.dy + 1);
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(buttonSurface(tester).color, rest);
+        expect(tester.getTopLeft(find.text('Press')).dy, origin.dy);
+      }
+    },
+  );
+
+  testWidgets('surface changes transition over 150ms unless motion is off', (
+    tester,
+  ) async {
+    AnimatedContainer container() => tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byType(FilledButton),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is AnimatedContainer &&
+              widget.decoration is DButtonDecoration,
+        ),
+      ),
     );
-    expect(style.side!.resolve({})!.color, input);
+    DButtonDecoration painted() =>
+        tester
+                .widget<DecoratedBox>(
+                  find.descendant(
+                    of: find.byType(FilledButton),
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is DecoratedBox &&
+                          widget.decoration is DButtonDecoration,
+                    ),
+                  ),
+                )
+                .decoration
+            as DButtonDecoration;
+
+    await pump(tester, DButton(label: const Text('Save'), onPressed: () {}));
+    expect(container().duration, const Duration(milliseconds: 150));
+    expect(container().curve, Curves.ease);
+    final primary = tokensOf(tester).primary;
+    await hover(tester, find.byType(FilledButton));
+    await tester.pump(const Duration(milliseconds: 75));
+    final midway = painted().color.a;
+    expect(midway, greaterThan(primary.a * .8));
+    expect(midway, lessThan(primary.a));
+    await tester.pumpAndSettle();
+    expect(painted().color, primary.withValues(alpha: primary.a * .8));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: Scaffold(
+            body: Center(
+              child: DButton(label: const Text('Save'), onPressed: () {}),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(container().duration, Duration.zero);
+  });
+
+  testWidgets('popup and invalid triggers expose expanded and validity', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    try {
+      for (final expanded in [false, true]) {
+        await pump(
+          tester,
+          DButton(
+            label: const Text('Options'),
+            hasPopup: true,
+            expanded: expanded,
+            onPressed: () {},
+          ),
+        );
+        expect(
+          tester.getSemantics(find.byType(DButton)),
+          isSemantics(
+            label: 'Options',
+            isButton: true,
+            hasExpandedState: true,
+            isExpanded: expanded,
+            validationResult: SemanticsValidationResult.none,
+          ),
+        );
+      }
+      await pump(
+        tester,
+        DButton(
+          label: const Text('Selected'),
+          expanded: true,
+          onPressed: () {},
+        ),
+      );
+      expect(
+        tester.getSemantics(find.byType(DButton)),
+        isSemantics(label: 'Selected', hasExpandedState: false),
+      );
+      await pump(
+        tester,
+        DButton(
+          label: const Text('Required choice'),
+          invalid: true,
+          variant: DButtonVariant.outline,
+          onPressed: () {},
+        ),
+      );
+      expect(
+        tester.getSemantics(find.byType(DButton)),
+        isSemantics(
+          label: 'Required choice',
+          validationResult: SemanticsValidationResult.invalid,
+        ),
+      );
+      final tokens = tokensOf(tester);
+      final surface = buttonSurface(tester);
+      expect(surface.ringWidth, 3);
+      expect(
+        surface.ringColor,
+        tokens.destructive.withValues(alpha: tokens.destructive.a * .2),
+      );
+      expect(surface.borderColor, tokens.destructive);
+    } finally {
+      handle.dispose();
+    }
   });
 
   testWidgets(
@@ -386,11 +729,8 @@ void main() {
           theme: theme,
         );
         await tester.pumpAndSettle();
-        final style = tester
-            .widget<FilledButton>(find.byType(FilledButton))
-            .style!;
         expect(
-          style.backgroundColor!.resolve({}),
+          buttonSurface(tester).color,
           theme.colorScheme.error.withValues(
             alpha: theme.brightness == Brightness.dark ? .2 : .1,
           ),
@@ -410,16 +750,13 @@ void main() {
         onPressed: () {},
       ),
     );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(tester.getCenter(find.text('Link')));
+    await hover(tester, find.text('Link'));
     await tester.pumpAndSettle();
     final style = tester.widget<FilledButton>(find.byType(FilledButton)).style!;
     expect(
       style.textStyle!.resolve({WidgetState.hovered})!.decoration,
       TextDecoration.underline,
     );
-    await mouse.removePointer();
     for (final popup in [false, true]) {
       await pump(
         tester,

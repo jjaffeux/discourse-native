@@ -33,5 +33,50 @@
     "name": "plus",
     "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/plus.svg",
     "sha256": "7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17"
+  },
+  {
+    "name": "arrowLeft",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/arrow-left.svg",
+    "sha256": "c5f4b88076108eb1a0d95336e1aa7e7bb1419a3a92af96f6247d88cd3456f933"
+  },
+  {
+    "name": "ellipsis",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/ellipsis.svg",
+    "sha256": "4f495cc72013ffdfec677f03b33a150f7b4dd741979283fd6853a09024bca112"
+  },
+  {
+    "name": "mailCheck",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/mail-check.svg",
+    "sha256": "188aeb81e4d52250f5661b87c095ac940f7f50d49bb1b4e91f320b61c805764e"
+  },
+  {
+    "name": "archive",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/archive.svg",
+    "sha256": "78c732e34e232db63af06a2330b4448045cfdf49b48b59f2d31922df54c7bb17"
+  },
+  {
+    "name": "clock",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/clock.svg",
+    "sha256": "e9d3e3acf4d1c280fcf8092293439dc0a4756a908ceb859de144b12451cd1cb9"
+  },
+  {
+    "name": "calendarPlus",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/calendar-plus.svg",
+    "sha256": "17fbed80fa9da0085530ca5a1dcb415b27bdb7fb26f8a1a4662aab7ea71d6448"
+  },
+  {
+    "name": "listFilter",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/list-filter.svg",
+    "sha256": "36b94082bd7f161244c06a27cdeea647cb99ee5b805183cbeaf7ac3155a7103b"
+  },
+  {
+    "name": "tag",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/tag.svg",
+    "sha256": "85e11c07b29f5b67410e0f14c84799d9406320cd4575b7c8322f31910e0582cc"
+  },
+  {
+    "name": "trash2",
+    "url": "https://unpkg.com/lucide-static@1.43.0/icons/trash-2.svg",
+    "sha256": "b498c2ce6adc1b4955d0e835d723b0d380f7c4a7fa0636a72ab5542d8cab8e9b"
   }
 ]

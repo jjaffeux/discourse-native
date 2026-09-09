@@ -27,7 +27,9 @@ Retrieved 2026-09-09 with read-only HTTPS requests:
 ## Source-to-Flutter mapping
 
 CSS px map to logical pixels with a 16px root rem. These are registry-derived
-metrics; they are not represented as completed native measurements.
+metrics; they are not represented as completed native measurements. The
+2026-09-09 [audit](audit/button.md) corrected the rows marked below against
+the live stylesheet.
 
 | Registry | Flutter |
 | --- | --- |
@@ -38,6 +40,8 @@ metrics; they are not represented as completed native measurements.
 | px-2.5 or xs px-2, transparent 1px border | 10px / 8px padding plus 1px border-box inset |
 | Inline icon reduces adjacent padding | 8px default/lg, 6px xs/sm plus border inset, mirrored in RTL |
 | Default 16px SVG, xs12px, sm14px; icon-sm16px | Inherited IconTheme; explicit caller artwork can override |
+| Spinner keeps its own size-4 | Loading spinner stays 16px in every size (audit) |
+| `border border-transparent bg-clip-padding` | The fill stops at the 1px border, leaving the frame transparent (audit) |
 | rounded-lg; xs/sm min(radius-md,10/12px) | Host radius; xs/sm use radius × .8, capped at 10/12px |
 | Default primary, hover primary/80 | Live primary/primaryForeground tokens and .8 alpha hover |
 | Outline background/border, muted hover; dark input/30 → /50 | Background/border tokens; dark input token alpha multiplied by .3 → .5 |
@@ -45,12 +49,13 @@ metrics; they are not represented as completed native measurements.
 | Ghost transparent → muted; dark muted/50 | Matching token/alpha mapping |
 | Destructive .1 → .2, dark .2 → .3 | Tinted destructive surface and destructive text, rather than legacy solid danger |
 | Link primary, hover underline | Primary text, transparent surface and hover underline; native underline placement follows Flutter font shaping |
-| focus-visible 1px ring border + 3px ring/50 | Native focus state plus 1px border and externally painted 3px ring, no Material splash |
-| destructive focus and invalid ring variants | Matching destructive opacity mappings, `invalid` trigger property |
-| active translate-y-px except haspopup | 1px pressed visual translation; `hasPopup` suppresses it |
-| aria-expanded surfaces | `expanded` outline/secondary/ghost style |
+| focus-visible 1px ring border + 3px ring/50 | Native focus state plus 1px border and a 3px exterior ring painted by `DButtonDecoration` outside the unclipped Material; a dark outline keeps its input border (audit) |
+| destructive focus and invalid ring variants | Matching destructive opacity mappings; `invalid` also sets the semantic validation result (audit) |
+| active translate-y-px except haspopup | Fill, border, ring and content translate 1px together; `hasPopup` suppresses it (audit) |
+| hover behind `(hover: hover)` | Reference variants fill only on pointer hover; a touch press just translates. Compatibility variants keep their pressed fill (audit) |
+| aria-expanded surfaces | `expanded`: light outline/ghost → muted, secondary keeps its surface even while hovered, dark outline unchanged; exposed to semantics with `hasPopup` (audit) |
 | disabled opacity .5 | Whole-surface .5 default opacity; scoped disabledOpacity override; no activation |
-| transition-all | 150ms state style transition; zero when reduced motion is requested |
+| transition-all | Fill, border, ring and translation animate together over 150ms with `Curves.ease`; zero when reduced motion is requested (audit) |
 
 The app's configured palette, font and radius remain authoritative. Native touch
 platforms expand invisible interaction targets to 48px. Legacy flat/inset shell
@@ -78,11 +83,12 @@ No widget-owned Future can finish after disposal. The example owns its Future,
 guards repeated activation and checks `mounted` after completion. Focus nodes
 are borrowed. Tooltip and shortcut presentation use the completed shared owners.
 
-The eight examples account for all frozen Button sections: variants, all sizes,
-Icon/With Icon, Rounded, Spinner, navigation/link semantics, RTL, shortcut hints,
-rich content and compatibility states. Joined buttons illustrate explicit radius
-composition. Button Group and Dropdown Menu are separately pending catalogue
-owners; their complete nested menu demo is reserved for those tasks.
+The nine examples account for all frozen Button sections: variants, all sizes,
+Icon/With Icon, Rounded, Spinner, the documented Button Group composition
+(nested `DButtonGroup`s with a `DDropdownMenu` trigger, Label As… radio
+submenu and destructive Trash item, using the exact Lucide artwork),
+navigation/link semantics, RTL, shortcut hints, rich content and compatibility
+states.
 
 ## Adoption
 

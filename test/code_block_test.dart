@@ -237,8 +237,9 @@ void main() {
           )
           .singleWhere(
             (container) =>
-                (container.decoration as BoxDecoration?)?.color ==
-                CodeColors.light.blockBackground,
+                container.decoration is BoxDecoration &&
+                (container.decoration! as BoxDecoration).color ==
+                    CodeColors.light.blockBackground,
           );
       final decoration = block.decoration! as BoxDecoration;
 

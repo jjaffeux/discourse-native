@@ -11,11 +11,12 @@ final buttonExamples = ComponentExamples(
   notes:
       'The base-nova surfaces use 24, 28, 32 and 36px sizes. Touch targets '
       'expand invisibly to 48px. The app supplies colors, font and radius. '
+      'The fill stops at the 1px border like bg-clip-padding, and hover, '
+      'expanded, focus, invalid and pressed changes transition over 150ms. '
       'Loading and asynchronous ownership remain controlled by the caller. '
       'Navigation uses isLink and an application-owned callback. Pointer cursors '
-      'retain the app convention. Rich labels may explicitly wrap. Button Group '
-      'and Dropdown Menu remain separate catalogue owners; the joined example '
-      'shows Button composition without claiming those components are complete. '
+      'retain the app convention. Rich labels may explicitly wrap. The Button '
+      'Group composition uses the public DButtonGroup and DDropdownMenu owners. '
       'Reference and native visual verification are recorded in the library documentation.',
   examples: [
     StyleguideExample(
@@ -61,10 +62,40 @@ final buttonExamples = ComponentExamples(
       builder: (_) => const _ButtonLoading(),
     ),
     StyleguideExample(
-      title: 'Links, shortcuts and joined actions',
+      title: 'Button Group',
       description:
-          'Login opens a local sample route. Hover Reply for its shortcut hint.',
-      states: const ['As link', 'Tooltip', 'Shortcut', 'Joined composition'],
+          'The documented nested groups with a Dropdown Menu trigger. Go Back '
+          'appears from 640px; Label As… keeps a local radio selection.',
+      states: const [
+        'Nested groups',
+        'Icon trigger',
+        'Dropdown Menu',
+        'Submenu radio',
+        'Destructive item',
+      ],
+      code: '''DButtonGroup(children: [
+  DButtonGroup(children: [
+    DButton(variant: DButtonVariant.outline, label: Text('Archive'), onPressed: archive),
+    DButton(variant: DButtonVariant.outline, label: Text('Report'), onPressed: report),
+  ]),
+  DButtonGroup(children: [
+    DButton(variant: DButtonVariant.outline, label: Text('Snooze'), onPressed: snooze),
+    DDropdownMenu(
+      content: DDropdownMenuContent(align: DPopoverAlign.end, children: items),
+      child: DDropdownMenuTrigger(builder: (_, state) => DButton.iconOnly(
+        variant: DButtonVariant.outline, hasPopup: true, expanded: state.open,
+        focusNode: state.focusNode, tooltip: 'More Options',
+        icon: Icon(Icons.more_horiz), onPressed: state.toggle)),
+    ),
+  ]),
+])''',
+      builder: (_) => const _ButtonGroupComposition(),
+    ),
+    StyleguideExample(
+      title: 'As link and shortcuts',
+      description:
+          'Login opens a local sample route with link semantics. Hover Reply for its shortcut hint.',
+      states: const ['As link', 'Tooltip', 'Shortcut'],
       code:
           "DButton(label: const Text('Login'), isLink: true, size: DButtonSize.small, variant: DButtonVariant.secondary, onPressed: openLogin)",
       builder: (_) => const _ButtonLinks(),
@@ -303,6 +334,150 @@ class _ButtonLoadingState extends State<_ButtonLoading> {
   );
 }
 
+/// The documented Button Group section: nested groups whose last control is
+/// a Dropdown Menu trigger with groups, a radio submenu and a destructive item.
+class _ButtonGroupComposition extends StatefulWidget {
+  const _ButtonGroupComposition();
+  @override
+  State<_ButtonGroupComposition> createState() =>
+      _ButtonGroupCompositionState();
+}
+
+class _ButtonGroupCompositionState extends State<_ButtonGroupComposition> {
+  String label = 'personal';
+  String result = 'No action yet';
+
+  void _activate(String action) => setState(() => result = '$action activated');
+
+  DDropdownMenuItem _item(
+    String title,
+    String svg, {
+    DDropdownMenuItemVariant variant = DDropdownMenuItemVariant.standard,
+  }) => DDropdownMenuItem(
+    leading: ButtonReferenceIcon(svg),
+    variant: variant,
+    onPressed: () => _activate(title),
+    child: Text(title),
+  );
+
+  DButton _action(String title) => DButton(
+    variant: DButtonVariant.outline,
+    label: Text(title),
+    onPressed: () => _activate(title),
+  );
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DButtonGroup(
+          children: [
+            // The reference hides Go Back below its 640px `sm` breakpoint.
+            if (MediaQuery.sizeOf(context).width >= 640)
+              DButtonGroup(
+                children: [
+                  DButton.iconOnly(
+                    variant: DButtonVariant.outline,
+                    icon: const ButtonReferenceIcon(
+                      ButtonReferenceIcon.arrowLeft,
+                    ),
+                    tooltip: 'Go Back',
+                    onPressed: () => _activate('Go Back'),
+                  ),
+                ],
+              ),
+            DButtonGroup(children: [_action('Archive'), _action('Report')]),
+            DButtonGroup(
+              children: [
+                _action('Snooze'),
+                DDropdownMenu(
+                  content: DDropdownMenuContent(
+                    semanticLabel: 'More options',
+                    align: DPopoverAlign.end,
+                    children: [
+                      DDropdownMenuGroup(
+                        children: [
+                          _item('Mark as Read', ButtonReferenceIcon.mailCheck),
+                          _item('Archive', ButtonReferenceIcon.archive),
+                        ],
+                      ),
+                      const DDropdownMenuSeparator(),
+                      DDropdownMenuGroup(
+                        children: [
+                          _item('Snooze', ButtonReferenceIcon.clock),
+                          _item(
+                            'Add to Calendar',
+                            ButtonReferenceIcon.calendarPlus,
+                          ),
+                          _item('Add to List', ButtonReferenceIcon.listFilter),
+                          DDropdownMenuSub(
+                            leading: const ButtonReferenceIcon(
+                              ButtonReferenceIcon.tag,
+                            ),
+                            trigger: const Text('Label As...'),
+                            children: [
+                              DDropdownMenuRadioGroup<String>(
+                                value: label,
+                                onChanged: (value) =>
+                                    setState(() => label = value),
+                                children: const [
+                                  DDropdownMenuRadioItem(
+                                    value: 'personal',
+                                    child: Text('Personal'),
+                                  ),
+                                  DDropdownMenuRadioItem(
+                                    value: 'work',
+                                    child: Text('Work'),
+                                  ),
+                                  DDropdownMenuRadioItem(
+                                    value: 'other',
+                                    child: Text('Other'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const DDropdownMenuSeparator(),
+                      DDropdownMenuGroup(
+                        children: [
+                          _item(
+                            'Trash',
+                            ButtonReferenceIcon.trash2,
+                            variant: DDropdownMenuItemVariant.destructive,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  child: DDropdownMenuTrigger(
+                    builder: (context, state) => DButton.iconOnly(
+                      variant: DButtonVariant.outline,
+                      hasPopup: true,
+                      expanded: state.open,
+                      focusNode: state.focusNode,
+                      tooltip: 'More Options',
+                      icon: const ButtonReferenceIcon(
+                        ButtonReferenceIcon.ellipsis,
+                      ),
+                      onPressed: state.toggle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+      Text('$result · Label: $label'),
+    ],
+  );
+}
+
 class _ButtonLinks extends StatelessWidget {
   const _ButtonLinks();
   @override
@@ -336,26 +511,6 @@ class _ButtonLinks extends StatelessWidget {
         ),
         variant: DButtonVariant.outline,
         onPressed: () => _buttonFeedback(context),
-      ),
-      Wrap(
-        children: [
-          DButton(
-            label: const Text('Archive'),
-            variant: DButtonVariant.outline,
-            borderRadius: const BorderRadiusDirectional.horizontal(
-              start: Radius.circular(4),
-            ),
-            onPressed: () => _buttonFeedback(context),
-          ),
-          DButton(
-            label: const Text('Report'),
-            variant: DButtonVariant.outline,
-            borderRadius: const BorderRadiusDirectional.horizontal(
-              end: Radius.circular(4),
-            ),
-            onPressed: () => _buttonFeedback(context),
-          ),
-        ],
       ),
     ],
   );

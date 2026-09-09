@@ -154,22 +154,30 @@ void main() {
             '42',
           ]) {
             final paragraph = _paragraph(tester, label);
+            // base-nova's small button is text-[0.8rem] with 22.4px leading.
+            final (fontSize, lineHeight) = label == 'Native small'
+                ? (12.8, 22.4)
+                : (14.0, 20.0);
             expect(
               paragraph.text.style!.fontSize,
-              14,
+              fontSize,
               reason: '$label at $zoom',
             );
             expect(
               paragraph.text.style!.height,
-              closeTo(20 / 14, 0.001),
+              closeTo(lineHeight / fontSize, 0.001),
               reason: label,
             );
             expect(
-              paragraph.textScaler.scale(14),
-              closeTo(14 * settings.textScaleFactor, 0.001),
+              paragraph.textScaler.scale(fontSize),
+              closeTo(fontSize * settings.textScaleFactor, 0.001),
               reason: label,
             );
-            expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+            expect(
+              paragraph.didExceedMaxLines,
+              isFalse,
+              reason: '$label at $zoom',
+            );
           }
           expect(
             _paragraph(tester, 'Reading a discussion.').text.style!.fontSize,
