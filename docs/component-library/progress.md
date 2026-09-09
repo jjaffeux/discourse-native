@@ -79,7 +79,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 32 | hover-card | in_progress | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | — |
 | 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
-| 35 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
+| 35 | sheet | review_ready | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
 | 36 | drawer | in_progress | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | — |
 | 37 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
 | 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
@@ -2074,19 +2074,57 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 
 ### sheet
 
-Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/ui-sheet.
+Status: review_ready. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/ui-sheet.
 
 **acceptanceCriteria**
 
-- Match the frozen Base UI/base-nova Sheet complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
-- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
-- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
-- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+- Provide one public generic Sheet owner exported from discourse_ui.dart with typed DSheetController<T>, DSheet/DSheetTrigger/DSheetContent/DSheetHeader/DSheetTitle/DSheetDescription/DSheetFooter/DSheetClose composition and a showDSheet<T> helper using the nearest Navigator by default.
+- Reuse the accepted Dialog route/session/focus/dismissal ownership rather than creating an independent modal state machine: preserve controlled and local open state, borrowed controller lifecycle, typed results, coalesced async submission, nested overlays, route removal, outside/Escape/back policies, initial focus, closed-loop traversal and focus restoration.
+- Match frozen base-nova source at 100% scale: black/10 blurred backdrop, popover surface and foreground, text-sm body, 16px content gaps, large shadow, 200ms ease-in-out opacity plus 40px edge travel, one-pixel edge border, side panels at 75% width capped at 384px from 640px, auto-height top/bottom panels, 16px header/footer padding, 2px header title/description gap, auto-pushed column footer with 8px gaps, 16px medium heading and 14px muted description, and a 28px ghost close button at physical top/right 12px.
+- Implement physical top/right/bottom/left sides plus logical start/end resolution, with RTL examples that intentionally select the opposite physical side while keeping the reference's physical top/right close placement; support custom or omitted corner close buttons and footer close composition.
+- Keep sheet content usable with safe areas, keyboard view insets, independently scrollable long bodies, narrow widths and 200% text without clipping fixed headers/footers; respect reduced motion and update live caller-scoped theme, font, radius, direction and media settings while open.
+- Expose modal route and title semantics plus independent fields and controls, visible focus, keyboard/touch/pointer activation, barrier labeling, and at least 48px invisible touch affordances where the compact reference visuals require them.
+- Reproduce the documented default edit-profile, all sides, No Close Button and Arabic RTL compositions in the searchable styleguide with actual library components and self-contained state; do not substitute temporary Field/Button/Input owners when accepted owners exist.
+- Audit core and bundled-plugin side and bottom panels; migrate suitable non-gesture showShellSheet usages while retaining business state and typed results, and coordinate exact caller ownership with Drawer so drag/snap/handle interactions keep the separately owned Drawer primitive.
+- Format touched Dart, run focused Sheet/Dialog/styleguide/adoption regressions plus root and profiles/full static analysis, and prepare source-exact native fixtures for the reviewer to complete official-browser and macOS acceptance in light/dark/custom, narrow/large-text/RTL/reduced-motion states.
 
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Sheet (01a0862f-b27f-76d2-a441-8a77594aedc8) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Frozen official Sheet Markdown was verified byte-for-byte at SHA-256 d5b0e4ef28a6fa9de830479fab61e6c8d6b8b05698dc6c109b710c4a0112d9d3. The captured base-nova registry source is SHA-256 72b36d92af7fcbc9bd2d1d4ef0cbc65f4fc8178f7bb2bedaf657460f15011cf4 and identifies Sheet as a styled Base UI Dialog rather than a gesture/detent owner.
+- The mandatory Silk D-Sheet source was consulted. Its scroll-container, detent-marker, swipeable-backdrop and travel state machine belongs to the separately queued Drawer component; Sheet deliberately maps the frozen shadcn Dialog-backed fixed-edge popup and does not claim Silk drag/snap behavior.
+- Implementation starts from accepted Dialog merge 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 on current local main 77ee9b047528d43fcbcd4a31d464182f9640b835 and coordinates shared route presentation plus app-adoption boundaries directly with Drawer task 01a08606-5dd1-75a2-9dbb-a652188d7bd5.
+- The accepted Field owner became available on main at 5cd7f3694498e4e09e3c114639baca834b56705e and its progress follow-up 1001ed005ade4aec0d5f5346473054fb976d2260; Sheet rebased its initial metadata onto queued-all main be63d141 and the frozen form examples use final DField, DInput and DButton owners.
+- Drawer task 01a08606-5dd1-75a2-9dbb-a652188d7bd5 prepared the shared overlay source at d2f2eaae3965aebd4ba53aa79abe22ec4b6c30da. Sheet integrated it as e853934d after 23 Dialog tests and focused analysis passed. DDialog now owns the live environment, authorized pop, typed close, focus scope and alternative presentation hook; DSheet supplies only edge layout and 200ms motion.
+- DSheetSide preserves the documented physical top/right/bottom/left values and adds start/end conveniences resolved from live Directionality. The registry close uses physical right-3, so Flutter keeps it physically right in RTL. At more than 150% text, a constrained sheet scrolls as one region when fixed header/footer geometry cannot coexist; this keeps every control reachable without changing ordinary-scale fixed composition.
+
+**migrations**
+
+- Voice room chat now uses typed showDSheet<void> and the real DSheetContent/DSheetHeader/DSheetTitle surface from the bottom edge. It preserves the pre-open chat session request, finally-owned closeChat cleanup, loading/empty/message/load-older states, composer controller, send behavior, keyboard inset and explicit close semantics.
+
+**retainedAlternatives**
+
+- showShellSheet remains the application adapter for 40 drag-enabled touch callers; its Material route preserves existing swipe/handle behavior until the Drawer owner can migrate gestures without semantic loss. The sole enableDrag:false fast editor also remains because its child PopScope dynamically blocks dismissal during writes, while DSheet currently exposes route-level dismissal policy.
+- Persistent ChatDrawerOverlay remains a resizable, collapsible, session-navigation workspace rather than a transient Sheet. Alert Dialog/destructive confirmations, anchored pickers/popovers, full-screen/media routes and native system dialogs retain their distinct owners.
+
+**verification**
+
+- Frozen Markdown hash d5b0e4ef28a6fa9de830479fab61e6c8d6b8b05698dc6c109b710c4a0112d9d3 matched exactly; captured base-nova registry SHA-256 is 72b36d92af7fcbc9bd2d1d4ef0cbc65f4fc8178f7bb2bedaf657460f15011cf4. Exact geometry/API/adoption mapping is recorded in sheet.md.
+- Randomized final Sheet/Dialog/styleguide run passed all 35 tests with seed 3270835119, including 12 Sheet/styleguide checks. Coverage includes all physical and logical sides, 75%/384px sizing, physical RTL close placement, controlled and typed results, barrier/Escape reasons, controller submission ownership, disabled dismissal, live palette/direction, narrow 320px at 200% text, reduced motion and every registered example opening without overflow.
+- The accepted shared route extraction passed all 23 focused Dialog checks and analysis before integration; the final combined regression above confirms default Dialog presentation remained unchanged after Sheet consumption.
+- Actual Voice room chat focused regressions pass: loading-to-empty with component-owner assertion (1 test), and load-older/send/close lifecycle with component-owner assertion (1 test).
+- Root flutter analyze --no-pub passes with no diagnostics in 15.1s; profiles/full flutter analyze --no-pub passes with no diagnostics in 4.4s. Touched Dart is formatted and focused analysis is clean.
+- tool/sheet_review_main.dart is a local-data macOS fixture entrypoint mounting the registered Sheet styleguide and actual VoiceRoomContent through the reusable in-memory Voice fixture. It exposes light/dark, LTR/RTL, 100%/200% and reduced-motion controls without account/network/device acquisition.
+- Exact implementation source b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a built successfully with Flutter 3.47.2 using flutter build macos --debug --no-pub -t tool/sheet_review_main.dart after enforced-lockfile resolution. The isolated copy /private/tmp/discourse-sheet-b007d3bd.MCV4UM/Sheet Review b007d3bd.app has identifier org.discourse.native.sheet.b007d3bd, kernel SHA-256 2ea2272baa4dff5ae698b137e163c82dd74ffdf0a11d8d4ab09e387e40dcf479, deep strict ad-hoc signature verification and exactly the seven permitted debug entitlements with no APS/application/team identifiers. It was not launched or natively inspected.
+- Independent review compared the actual current ui.shadcn.com Base Sheet in Chrome at 1024x768 and 320x640 in light, dark and RTL. It confirmed all four physical sides, 75%/384px side sizing, half-height top/bottom panels, 16px padding, 16/24px medium title, 14/20px description, 28px close at a 12px corner inset, one-pixel edge borders, black/10 backdrop, shadow, and 200ms edge travel. Current live RTL places the close at logical end, while this frozen contract intentionally retains physical right as required by the recorded acceptance criteria.
+- Independent review corrections a186d44e, 2f3377fe and ca13c40b keep capped top/bottom sheets reachable above a keyboard, expose the complete Voice loading/empty/ready/load-older/send lifecycle, align title geometry and documented examples with the actual rendered reference, and remove the footer action from No Close Button. A randomized combined Sheet/Dialog/styleguide/Voice run passed all 36 tests with seed 42969643; root and profiles/full analysis passed without diagnostics.
+- Exact reviewed source ca13c40b built as /private/tmp/discourse-sheet-review-ca13c40b/Sheet Review ca13c40b.app with identifier org.discourse.native.sheet.ca13c40b, kernel SHA-256 28b9a4b4113d641673fea889d7644f6c6a1a884681740816d084afe5f5f51b20, a strict deep ad-hoc signature, and exactly the seven permitted debug entitlements. Native macOS inspection confirmed the default typed edit/save result, all four sides, independent fields, fixed corner and footer controls, no-close composition, outside-click and Escape dismissal, physical-left Arabic panel with the required physical-right close, and accessible labels/actions.
+
+**limitations**
+
+- Native device inspection was macOS only; iOS, Linux and spoken VoiceOver output were not exercised. macOS Accessibility API roles/actions were inspected, while safe-area, keyboard inset, closed-loop focus, narrow 320px at 200% text, live palette/direction and reduced-motion behavior are covered by deterministic widget regressions.
+- The current live reference moves its RTL close button to logical end, differing from the frozen explicit Sheet contract that requires physical top/right. Drag/snap/detent behavior intentionally remains outside Sheet and with Drawer.
 
 ### drawer
 

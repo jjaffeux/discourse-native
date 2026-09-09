@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
-import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/d_overlay_route.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
@@ -129,6 +129,43 @@ class DDialogController<T> extends ChangeNotifier {
 typedef DDialogTriggerBuilder =
     Widget Function(BuildContext context, VoidCallback open);
 
+typedef DDialogPresentationBuilder =
+    Widget Function(BuildContext context, DDialogPresentation presentation);
+
+/// Route-owned pieces available to an alternative Dialog presentation.
+///
+/// Dialog remains the owner of controller state, focus, typed close,
+/// Escape/back handling, inherited values and route removal.
+@immutable
+class DDialogPresentation {
+  const DDialogPresentation({
+    required this.content,
+    required this.animation,
+    required this.barrierLabel,
+    required this.dismissOnBarrier,
+    required this.onBarrierDismiss,
+  });
+
+  final Widget content;
+  final Animation<double> animation;
+  final String barrierLabel;
+  final bool dismissOnBarrier;
+  final VoidCallback onBarrierDismiss;
+
+  Widget buildBackdrop({
+    Color color = const Color(0x1A000000),
+    double blurSigma = 4,
+  }) => BackdropFilter(
+    filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+    child: ModalBarrier(
+      color: color,
+      dismissible: dismissOnBarrier,
+      onDismiss: onBarrierDismiss,
+      semanticsLabel: barrierLabel,
+    ),
+  );
+}
+
 /// Composes any trigger widget with the root dialog state.
 class DDialogTrigger extends StatelessWidget {
   const DDialogTrigger({super.key, required this.builder});
@@ -159,6 +196,9 @@ class DDialog<T> extends StatefulWidget {
     this.routeSettings,
     this.initialFocusNode,
     this.finalFocusNode,
+    this.presentationBuilder,
+    this.transitionDuration,
+    this.reverseTransitionDuration,
   }) : assert(open == null || !initiallyOpen);
 
   final DDialogTrigger trigger;
@@ -176,6 +216,9 @@ class DDialog<T> extends StatefulWidget {
   final RouteSettings? routeSettings;
   final FocusNode? initialFocusNode;
   final FocusNode? finalFocusNode;
+  final DDialogPresentationBuilder? presentationBuilder;
+  final Duration? transitionDuration;
+  final Duration? reverseTransitionDuration;
 
   @override
   State<DDialog<T>> createState() => _DDialogState<T>();
@@ -185,7 +228,7 @@ class _DDialogState<T> extends State<DDialog<T>> {
   late DDialogController<T> _controller;
   late bool _internalOpen;
   final Object _attachment = Object();
-  final ValueNotifier<_DDialogEnvironment?> _environment = ValueNotifier(null);
+  final ValueNotifier<DOverlayEnvironment?> _environment = ValueNotifier(null);
   final ValueNotifier<_DDialogConfiguration<T>?> _configuration = ValueNotifier(
     null,
   );
@@ -290,8 +333,14 @@ class _DDialogState<T> extends State<DDialog<T>> {
       onDismissRequested: (reason) => _requestClose(null, reason),
       onCloseRequested: (result) =>
           _requestClose(result, DDialogChangeReason.close),
-      transitionDuration: DMotion.duration(context, DMotion.open),
-      reverseTransitionDuration: DMotion.duration(context, DMotion.close),
+      transitionDuration: DMotion.duration(
+        context,
+        widget.transitionDuration ?? DMotion.open,
+      ),
+      reverseTransitionDuration: DMotion.duration(
+        context,
+        widget.reverseTransitionDuration ?? DMotion.close,
+      ),
     );
     _route = route;
     unawaited(
@@ -331,11 +380,12 @@ class _DDialogState<T> extends State<DDialog<T>> {
       dismissOnBarrier: widget.dismissOnBarrier,
       dismissOnEscape: widget.dismissOnEscape,
       initialFocusNode: widget.initialFocusNode,
+      presentationBuilder: widget.presentationBuilder,
     );
     if (_configuration.value != nextConfiguration) {
       _updateRouteValue(_configuration, nextConfiguration);
     }
-    final nextEnvironment = _DDialogEnvironment.capture(context);
+    final nextEnvironment = DOverlayEnvironment.capture(context);
     if (_environment.value != nextEnvironment) {
       _updateRouteValue(_environment, nextEnvironment);
     }
@@ -376,43 +426,6 @@ class _DDialogRootScope extends InheritedWidget {
       open != oldWidget.open;
 }
 
-class _DDialogEnvironment {
-  const _DDialogEnvironment({
-    required this.theme,
-    required this.mediaQuery,
-    required this.directionality,
-  });
-
-  factory _DDialogEnvironment.capture(BuildContext context) =>
-      _DDialogEnvironment(
-        theme: Theme.of(context),
-        mediaQuery: MediaQuery.of(context),
-        directionality: Directionality.of(context),
-      );
-
-  final ThemeData theme;
-  final MediaQueryData mediaQuery;
-  final TextDirection directionality;
-
-  Widget wrap(Widget child) => Theme(
-    data: theme,
-    child: MediaQuery(
-      data: mediaQuery,
-      child: Directionality(textDirection: directionality, child: child),
-    ),
-  );
-
-  @override
-  bool operator ==(Object other) =>
-      other is _DDialogEnvironment &&
-      other.theme == theme &&
-      other.mediaQuery == mediaQuery &&
-      other.directionality == directionality;
-
-  @override
-  int get hashCode => Object.hash(theme, mediaQuery, directionality);
-}
-
 class _DDialogConfiguration<T> {
   const _DDialogConfiguration({
     required this.content,
@@ -420,6 +433,7 @@ class _DDialogConfiguration<T> {
     required this.dismissOnBarrier,
     required this.dismissOnEscape,
     required this.initialFocusNode,
+    required this.presentationBuilder,
   });
 
   final Widget content;
@@ -427,6 +441,7 @@ class _DDialogConfiguration<T> {
   final bool dismissOnBarrier;
   final bool dismissOnEscape;
   final FocusNode? initialFocusNode;
+  final DDialogPresentationBuilder? presentationBuilder;
 
   @override
   bool operator ==(Object other) =>
@@ -435,7 +450,8 @@ class _DDialogConfiguration<T> {
       other.barrierLabel == barrierLabel &&
       other.dismissOnBarrier == dismissOnBarrier &&
       other.dismissOnEscape == dismissOnEscape &&
-      identical(other.initialFocusNode, initialFocusNode);
+      identical(other.initialFocusNode, initialFocusNode) &&
+      identical(other.presentationBuilder, presentationBuilder);
 
   @override
   int get hashCode => Object.hash(
@@ -444,110 +460,41 @@ class _DDialogConfiguration<T> {
     dismissOnBarrier,
     dismissOnEscape,
     identityHashCode(initialFocusNode),
+    identityHashCode(presentationBuilder),
   );
 }
 
-class _DDialogRoute<T> extends PopupRoute<T> {
+class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
   _DDialogRoute({
+    required super.environment,
+    required super.configuration,
+    required ValueChanged<DDialogChangeReason> onDismissRequested,
+    required ValueChanged<T?> onCloseRequested,
+    required super.transitionDuration,
+    required super.reverseTransitionDuration,
     super.settings,
-    super.requestFocus = true,
-    super.traversalEdgeBehavior = TraversalEdgeBehavior.closedLoop,
-    super.directionalTraversalEdgeBehavior = TraversalEdgeBehavior.closedLoop,
-    required this.environment,
-    required this.configuration,
-    required this.onDismissRequested,
-    required this.onCloseRequested,
-    required this.transitionDuration,
-    required this.reverseTransitionDuration,
-  });
-
-  final ValueListenable<_DDialogEnvironment?> environment;
-  final ValueListenable<_DDialogConfiguration<T>?> configuration;
-  final ValueChanged<DDialogChangeReason> onDismissRequested;
-  final ValueChanged<T?> onCloseRequested;
-  @override
-  final Duration transitionDuration;
-  @override
-  final Duration reverseTransitionDuration;
-  bool _authorized = false;
-  bool _wasCurrentWhenAuthorized = false;
-  final GlobalKey<_DDialogRoutePageState<T>> _pageKey = GlobalKey();
-
-  _DDialogConfiguration<T> get _currentConfiguration => configuration.value!;
-
-  bool get wasCurrentWhenAuthorized => _wasCurrentWhenAuthorized;
-
-  @override
-  String get barrierLabel => _currentConfiguration.barrierLabel;
-
-  @override
-  Color? get barrierColor => Colors.transparent;
-
-  @override
-  bool get barrierDismissible => false;
-
-  @override
-  RoutePopDisposition get popDisposition =>
-      _authorized ? RoutePopDisposition.pop : RoutePopDisposition.doNotPop;
-
-  void authorizePop(T? result) {
-    if (_authorized || !isActive) return;
-    _authorized = true;
-    _wasCurrentWhenAuthorized = isCurrent;
-    if (isCurrent) {
-      navigator?.pop<T>(result);
-    } else {
-      navigator?.removeRoute(this, result);
-    }
-  }
-
-  @override
-  void onPopInvokedWithResult(bool didPop, T? result) {
-    super.onPopInvokedWithResult(didPop, result);
-    if (!didPop && _currentConfiguration.dismissOnEscape) {
-      onDismissRequested(DDialogChangeReason.escape);
-    }
-  }
-
-  @override
-  Widget buildPage(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-  ) => ValueListenableBuilder<_DDialogConfiguration<T>?>(
-    valueListenable: configuration,
-    builder: (context, config, _) =>
-        ValueListenableBuilder<_DDialogEnvironment?>(
-          valueListenable: environment,
-          builder: (context, value, _) =>
-              (value ?? _DDialogEnvironment.capture(context)).wrap(
-                _DDialogRoutePage<T>(
-                  key: _pageKey,
-                  content: config!.content,
-                  barrierLabel: config.barrierLabel,
-                  dismissOnBarrier: config.dismissOnBarrier,
-                  dismissOnEscape: config.dismissOnEscape,
-                  initialFocusNode: config.initialFocusNode,
-                  onBarrierDismiss: () =>
-                      onDismissRequested(DDialogChangeReason.barrier),
-                  onEscapeDismiss: () =>
-                      onDismissRequested(DDialogChangeReason.escape),
-                  onClose: onCloseRequested,
-                  animation: animation,
-                ),
-              ),
-        ),
-  );
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return child;
-  }
+  }) : super(
+         barrierLabelOf: (config) => config.barrierLabel,
+         onPopBlocked: () {
+           if (configuration.value?.dismissOnEscape ?? false) {
+             onDismissRequested(DDialogChangeReason.escape);
+           }
+         },
+         pageBuilder: (context, config, animation) => _DDialogRoutePage<T>(
+           content: config.content,
+           barrierLabel: config.barrierLabel,
+           dismissOnBarrier: config.dismissOnBarrier,
+           dismissOnEscape: config.dismissOnEscape,
+           initialFocusNode: config.initialFocusNode,
+           presentationBuilder: config.presentationBuilder,
+           onBarrierDismiss: () =>
+               onDismissRequested(DDialogChangeReason.barrier),
+           onEscapeDismiss: () =>
+               onDismissRequested(DDialogChangeReason.escape),
+           onClose: onCloseRequested,
+           animation: animation,
+         ),
+       );
 }
 
 class _DDialogRoutePage<T> extends StatefulWidget {
@@ -562,6 +509,7 @@ class _DDialogRoutePage<T> extends StatefulWidget {
     required this.onEscapeDismiss,
     required this.onClose,
     required this.animation,
+    required this.presentationBuilder,
   });
 
   final Widget content;
@@ -573,6 +521,7 @@ class _DDialogRoutePage<T> extends StatefulWidget {
   final VoidCallback onEscapeDismiss;
   final ValueChanged<T?> onClose;
   final Animation<double> animation;
+  final DDialogPresentationBuilder? presentationBuilder;
 
   @override
   State<_DDialogRoutePage<T>> createState() => _DDialogRoutePageState<T>();
@@ -612,52 +561,56 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
       reverseCurve: Curves.easeInCubic,
     );
     final animate = !media.disableAnimations;
-    Widget backdrop = BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-      child: ModalBarrier(
-        color: Colors.black.withValues(alpha: .1),
-        dismissible: widget.dismissOnBarrier,
-        onDismiss: widget.onBarrierDismiss,
-        semanticsLabel: widget.barrierLabel,
-      ),
+    final focusedContent = FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: FocusScope(node: _focusScope, child: widget.content),
     );
-    Widget popup = SafeArea(
-      child: Padding(
-        padding: EdgeInsetsDirectional.fromSTEB(
-          DSpacing.lg,
-          DSpacing.lg + insets.top,
-          DSpacing.lg,
-          DSpacing.lg + insets.bottom,
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            primary: false,
-            child: FocusTraversalGroup(
-              policy: ReadingOrderTraversalPolicy(),
-              child: FocusScope(node: _focusScope, child: widget.content),
-            ),
+    final presentation = DDialogPresentation(
+      content: focusedContent,
+      animation: widget.animation,
+      barrierLabel: widget.barrierLabel,
+      dismissOnBarrier: widget.dismissOnBarrier,
+      onBarrierDismiss: widget.onBarrierDismiss,
+    );
+    final customBuilder = widget.presentationBuilder;
+    Widget presented;
+    if (customBuilder != null) {
+      presented = customBuilder(context, presentation);
+    } else {
+      Widget backdrop = presentation.buildBackdrop();
+      Widget popup = SafeArea(
+        child: Padding(
+          padding: EdgeInsetsDirectional.fromSTEB(
+            DSpacing.lg,
+            DSpacing.lg + insets.top,
+            DSpacing.lg,
+            DSpacing.lg + insets.bottom,
+          ),
+          child: Center(
+            child: SingleChildScrollView(primary: false, child: focusedContent),
           ),
         ),
-      ),
-    );
-    if (animate) {
-      backdrop = FadeTransition(opacity: curved, child: backdrop);
-      popup = FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: .95, end: 1).animate(curved),
-          child: popup,
-        ),
       );
-    }
-    Widget page = _DDialogContentScope(
-      close: (result) => widget.onClose(result as T?),
-      child: Stack(
+      if (animate) {
+        backdrop = FadeTransition(opacity: curved, child: backdrop);
+        popup = FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: .95, end: 1).animate(curved),
+            child: popup,
+          ),
+        );
+      }
+      presented = Stack(
         children: [
           Positioned.fill(child: backdrop),
           Positioned.fill(child: popup),
         ],
-      ),
+      );
+    }
+    Widget page = _DDialogContentScope(
+      close: (result) => widget.onClose(result as T?),
+      child: presented,
     );
     if (widget.dismissOnEscape) {
       page = CallbackShortcuts(
@@ -999,10 +952,13 @@ Future<T?> showDDialog<T>({
   RouteSettings? routeSettings,
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
+  DDialogPresentationBuilder? presentationBuilder,
+  Duration? transitionDuration,
+  Duration? reverseTransitionDuration,
 }) async {
   final controller = DDialogController<T>(initiallyOpen: true);
-  final environment = ValueNotifier<_DDialogEnvironment?>(
-    _DDialogEnvironment.capture(context),
+  final environment = ValueNotifier<DOverlayEnvironment?>(
+    DOverlayEnvironment.capture(context),
   );
   final configuration = ValueNotifier<_DDialogConfiguration<T>?>(
     _DDialogConfiguration<T>(
@@ -1013,6 +969,7 @@ Future<T?> showDDialog<T>({
       dismissOnBarrier: dismissOnBarrier,
       dismissOnEscape: dismissOnEscape,
       initialFocusNode: initialFocusNode,
+      presentationBuilder: presentationBuilder,
     ),
   );
   final previousFocus = FocusManager.instance.primaryFocus;
@@ -1020,7 +977,7 @@ Future<T?> showDDialog<T>({
   void watchEnvironment() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!watchingEnvironment || !context.mounted) return;
-      final next = _DDialogEnvironment.capture(context);
+      final next = DOverlayEnvironment.capture(context);
       if (environment.value != next) environment.value = next;
       watchEnvironment();
     });
@@ -1034,8 +991,14 @@ Future<T?> showDDialog<T>({
     configuration: configuration,
     onDismissRequested: (_) => route.authorizePop(null),
     onCloseRequested: (result) => route.authorizePop(result),
-    transitionDuration: DMotion.duration(context, DMotion.open),
-    reverseTransitionDuration: DMotion.duration(context, DMotion.close),
+    transitionDuration: DMotion.duration(
+      context,
+      transitionDuration ?? DMotion.open,
+    ),
+    reverseTransitionDuration: DMotion.duration(
+      context,
+      reverseTransitionDuration ?? DMotion.close,
+    ),
   );
   controller._attach(route, () {}, (result, _) => route.authorizePop(result));
   try {
