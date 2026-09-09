@@ -34,11 +34,11 @@ fixture is byte-identical to the captured Lucide loader-circle source.
 | `animate-spin`: 1s linear infinite, 360° clockwise | `DMotion.spin` and a linear `RotationTransition`, unchanged by RTL. |
 | Size example: 24px gaps | `Wrap(spacing: DSpacing.xl)` preserves 24px gaps and wraps when needed. |
 | Customization: eight radial strokes | The exact LoaderIcon SVG is supplied as the example's custom child. Other arbitrary artwork is also supported and fitted to the requested box. |
-| Button example: default/outline/secondary, disabled, small size | Three disabled reference compositions use the actual DButton with local sample theming: 28px visual height at 100% text, 12.8px/20px text, 16px spinner, 4px gap, 6px start inset and 10px end inset, 50% disabled opacity. Separate action controls demonstrate the existing app DButton's async ownership. Its loading slot now uses the 16px Spinner default. |
-| Badge: 20px height, pill, 12px text and icon, 4px gap | Local badges use a 32px pill radius, theme primary/secondary/outline roles, 12px/16px label text, 12px DSpinner, 4px gap and 6px/8px directional insets. Height grows with text scaling. |
-| Input Group: 448px maximum width, 16px gaps; 32px single line; 16px inline/block icons | Local bordered groups use a borderless native TextField for editing, 14px text, reference padding and muted status color. The textarea footer holds the 16px Spinner, 8px gap and send action. Initial examples show disabled validation; accepting/rejecting restores editing. |
-| Empty: 24px outer padding; 32px muted media box with 16px spinner; 14px title/description | Local composition uses those dimensions, 16px media-to-title and content gaps, 8px title-to-description gap, relaxed muted description and a small Cancel action. Completion/cancellation/error controls preserve the same example state owner. |
-| Item overview/RTL: max-width 320px, muted/50, 12px horizontal and 10px vertical padding, 10px gaps | Payment example uses these values, a 16px leading Spinner and tabular amount at its intrinsic width, capped at half the row for large text; direction selects English or Arabic and logical positioning. |
+| Button example: default/outline/secondary, disabled, small size | Three disabled `DButton(size: small, icon: DSpinner(semanticLabel: null))` compositions in the primary, outline and secondary variants: 28px height, 16px spinner (the reference's own `size-4` class survives the button's icon sizing), 4px gap, 6px start inset inside the 1px border, 50% disabled opacity. Separate action controls demonstrate DButton's async ownership. |
+| Badge: 20px height, pill, 12px text and icon (`[&>svg]:size-3!`), 4px gap | `DBadge` primary/secondary/outline with a 12px DSpinner in `leading`/`trailing`, 4px gap and 6px/8px directional insets. Height grows with text scaling. |
+| Input Group: 448px maximum width, 16px gaps; 32px single line; 16px muted inline/block icons | `DInputGroup` with `DInputGroupInput`/`DInputGroupTextarea` and `DInputGroupAddon` at inline-end and block-end; the addon's IconTheme tints the 16px spinner muted-foreground without an explicit color. The block-end row holds the spinner, 8px gap, status text and the Lucide ArrowUp send action. Initial examples show disabled validation; accepting/rejecting restores editing. |
+| Empty: 24px outer padding; 32px muted `rounded-lg` media box with 16px spinner; 14px title/description; small outline Cancel | `DEmpty` with `DEmptyMedia(variant: icon, child: DSpinner())`, `DEmptyTitle`, `DEmptyDescription` and a `DButton(variant: outline, size: small)` Cancel in `DEmptyContent`. Completion/cancellation/error controls preserve the same example state owner. |
+| Item overview/RTL: max-width 320px, muted/50, 1px transparent border, 12px horizontal and 10px vertical padding, 10px gaps, one-line title, tabular amount | `DItem(variant: muted)` with `DItemMedia(child: DSpinner())`, a `DItemTitle` in the first `DItemContent` and a tabular-figure amount in a second, non-flexible `DItemContent`. The RTL example's language selector switches English, Arabic and Hebrew through `DDirection`. |
 | `role=status`, loading label | One native loading-spinner semantic role with a localizable live label; decorative child artwork is excluded. A containing control can own the status through `semanticLabel: null`. |
 
 The companion dimensions were checked against the official
@@ -47,15 +47,17 @@ The companion dimensions were checked against the official
 [Input Group](https://ui.shadcn.com/r/styles/base-nova/input-group.json),
 [Empty](https://ui.shadcn.com/r/styles/base-nova/empty.json), and
 [Item](https://ui.shadcn.com/r/styles/base-nova/item.json) registry sources.
-These private sample compositions do not introduce additional public component
-APIs; their catalogue tasks retain ownership of those components.
+The examples compose the accepted public Button, Badge, Input Group, Empty and
+Item components; the 2026-09-09 [audit](audit/spinner.md) replaced the earlier
+private stand-ins.
 
 The concrete adaptations retain the original app requirements: semantic colors
 come from the active site palette, rounded rectangular surfaces use its radius,
 and text keeps the host font family. Large text can increase badge/input/button
 height and wrap the payment title instead of clipping essential status text.
-Reduced motion, disabled ticker subtrees and inactive apps pause rotation while
-keeping the busy state. Native editing, keyboard focus and loading-button
+Reduced motion and disabled ticker subtrees pause rotation while keeping the
+busy state; an unfocused desktop window keeps turning, as the reference does,
+and the scheduler stops frames for hidden or paused apps. Native editing, keyboard focus and loading-button
 semantics remain owned by Flutter and DButton.
 
 The independent SVG fixture in `test/fixtures/spinner/loader-circle.svg` is
