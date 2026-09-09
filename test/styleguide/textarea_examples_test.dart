@@ -7,6 +7,22 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+StyleguideExample _example(String title) =>
+    textareaExamples.examples.firstWhere((e) => e.title == title);
+
+Widget _host(StyleguideExample example, {double width = 640}) => MaterialApp(
+  theme: ThemeData(platform: TargetPlatform.macOS),
+  home: Scaffold(
+    body: Align(
+      alignment: Alignment.topLeft,
+      child: SizedBox(
+        width: width,
+        child: Builder(builder: example.builder),
+      ),
+    ),
+  ),
+);
+
 void main() {
   test('all frozen Textarea examples are registered', () {
     expect(componentExamples['textarea'], same(textareaExamples));
@@ -16,11 +32,13 @@ void main() {
       'Field',
       'Disabled',
       'Invalid',
-      'Button and native Form',
+      'Button',
       'RTL',
+      'Form',
       'Bounded editing and read-only',
     ]);
   });
+
   testWidgets('actual examples support 216px 200 percent RTL and live themes', (
     tester,
   ) async {
@@ -63,17 +81,75 @@ void main() {
       }
     }
   });
-  testWidgets('form example validates saves and resets local state', (
+
+  testWidgets(
+    'Field example names and describes the editor and focuses it from the label',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_host(_example('Field')));
+      final node = tester.getSemantics(find.byType(EditableText));
+      expect(node.label, 'Message');
+      expect(node.hint, 'Enter your message below.');
+      expect(node.getSemanticsData().flagsCollection.isTextField, isTrue);
+      final label = tester.getRect(find.text('Message'));
+      final description = tester.getRect(
+        find.text('Enter your message below.'),
+      );
+      final field = tester.getRect(find.byType(DTextarea));
+      expect(description.top - label.bottom, 4);
+      expect(field.top - description.bottom, 8);
+      await tester.tap(find.text('Message'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+      semantics.dispose();
+    },
+  );
+
+  testWidgets(
+    'Button example stretches Send message under the field and sends its text',
+    (tester) async {
+      await tester.pumpWidget(_host(_example('Button')));
+      final field = tester.getRect(find.byType(DTextarea));
+      final button = tester.getRect(find.byType(DButton));
+      expect(field.width, 640);
+      expect(button.left, field.left);
+      expect(button.right, field.right);
+      expect(button.top - field.bottom, 8);
+      await tester.enterText(find.byType(TextField), 'Hello there');
+      await tester.tap(find.text('Send message'));
+      await tester.pump();
+      expect(find.text('Sent: Hello there'), findsOneWidget);
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+        isEmpty,
+      );
+    },
+  );
+
+  testWidgets('RTL example keeps the 64px minimum inside the 320px maximum', (
     tester,
   ) async {
-    final example = textareaExamples.examples.firstWhere(
-      (e) => e.title == 'Button and native Form',
+    await tester.pumpWidget(_host(_example('RTL')));
+    expect(tester.getSize(find.byType(DTextarea)).width, 320);
+    expect(tester.getSize(find.byType(AnimatedContainer)).height, 64);
+    expect(
+      Directionality.of(tester.element(find.byType(TextField))),
+      TextDirection.rtl,
     );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: Builder(builder: example.builder)),
-      ),
-    );
+    expect(find.text('التعليقات'), findsOneWidget);
+    expect(find.text('شاركنا أفكارك حول خدمتنا.'), findsOneWidget);
+  });
+
+  testWidgets('Form example validates saves and resets local state', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(_example('Form')));
     await tester.tap(find.text('Send message'));
     await tester.pump();
     expect(find.text('Enter a message.'), findsOneWidget);

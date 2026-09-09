@@ -1,24 +1,27 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../styleguide_chrome.dart';
 import '../styleguide_example.dart';
 
 final textareaExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'A multiline field that grows with its content.',
   notes:
-      'Source, rendered reference, and native macOS review are complete. '
-      'Base-nova uses a 64px minimum, 10px horizontal/8px vertical padding plus '
-      '1px border, rounded-lg (host radius), 14/20px desktop and 16/24px touch '
-      'text. Focus and invalid rings extend 3px outside. Native TextField owns '
-      'selection, IME, scrolling and keyboard behavior. Content grows by default; '
-      'minLines/maxLines reserve and bound lines. Native layouts omit the browser '
-      'resize grip. Controller/value/initialValue are exclusive. Form reset '
-      'restores the mount snapshot and emits onChanged; equal parent strings '
-      'preserve composition. Borrowed editing/focus/scroll/undo owners are never '
-      'disposed. DLabel, DField and native Form supply field composition; the '
-      'accepted DButton supplies submit/reset actions.',
+      'Source, rendered reference, native macOS review and a 2026-09-09 '
+      'reference audit are complete. Base-nova uses a 64px minimum, 10px '
+      'horizontal/8px vertical padding plus 1px border, rounded-lg (host '
+      'radius), 14/20px desktop and 16/24px touch text. Focus and invalid rings '
+      'extend 3px outside and appear at once; border and fill colors ease over '
+      '150ms. The box is editable edge to edge. Native TextField owns '
+      'selection, IME, scrolling and keyboard behavior. Content grows by '
+      'default; the reference rows attribute is inert under field-sizing: '
+      'content, so minLines/maxLines are native extensions that reserve and '
+      'bound lines. Native layouts omit the browser resize grip. '
+      'Controller/value/initialValue are exclusive. Form reset restores the '
+      'mount snapshot and emits onChanged; equal parent strings preserve '
+      'composition. Borrowed editing/focus/scroll/undo owners are never '
+      'disposed. Field composes DField, DFieldLabel, DFieldDescription and '
+      'DFieldControl; DButton supplies the Button composition.',
   examples: [
     StyleguideExample(
       title: 'Default',
@@ -32,17 +35,16 @@ final textareaExamples = ComponentExamples(
     StyleguideExample(
       title: 'Field',
       description:
-          'The reference label and description sit above the field. '
-          'Tap Message to focus. This uses DLabel and native composition.',
+          'The reference Field places the label and description above the '
+          'textarea with the Field gaps. Tap Message to focus; the editor '
+          'announces the label and description as one control.',
       states: const ['Label', 'Description', 'Focus association'],
       code: '''// State owns and disposes final focus = FocusNode().
-Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-  GestureDetector(onTap: focus.requestFocus,
-    child: const ExcludeSemantics(child: DLabel(style: TextStyle(height: 1.375), child: Text('Message')))),
-  const SizedBox(height: 8),
-  const Text('Enter your message below.'),
-  const SizedBox(height: 8),
-  Semantics(label: 'Message', hint: 'Enter your message below.',
+DField(children: [
+  DFieldLabel(focusNode: focus, excludeSemantics: true,
+    child: const Text('Message')),
+  const DFieldDescription(child: Text('Enter your message below.')),
+  DFieldControl(label: 'Message', description: 'Enter your message below.',
     child: DTextarea(focusNode: focus, hintText: 'Type your message here.')),
 ])''',
       builder: (_) => const _FieldExample(),
@@ -77,19 +79,65 @@ Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       ),
     ),
     StyleguideExample(
-      title: 'Button and native Form',
+      title: 'Button',
+      description:
+          'The reference grid stretches Send message under the field with '
+          'an 8px gap. Sending shows the text locally and clears the field.',
+      states: const ['Composition', 'Send'],
+      code: '''// State owns/disposes controller; String? sent.
+Column(crossAxisAlignment: CrossAxisAlignment.stretch, spacing: 8, children: [
+  DTextarea(controller: controller, hintText: 'Type your message here.'),
+  DButton(label: const Text('Send message'),
+    onPressed: () => setState(() {
+      sent = controller.text;
+      controller.clear();
+    })),
+  if (sent case final sent?) Text('Sent: \$sent'),
+])''',
+      builder: (_) => const _ButtonExample(),
+    ),
+    StyleguideExample(
+      title: 'RTL',
+      description:
+          'Arabic feedback with a label and description inside the '
+          'reference 320px maximum. The reference rows attribute is inert under '
+          'field-sizing: content, so the field keeps the 64px minimum. Native '
+          'directional text editing follows the inherited direction.',
+      states: const ['RTL', 'Description', 'Max width'],
+      code: '''Align(alignment: AlignmentDirectional.centerStart,
+  child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 320),
+    child: Directionality(textDirection: TextDirection.rtl,
+      child: DTextarea(labelText: 'التعليقات',
+        hintText: 'تعليقاتك تساعدنا على التحسين...',
+        helperText: 'شاركنا أفكارك حول خدمتنا.'))))''',
+      builder: (_) => Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: DTextarea(
+              labelText: 'التعليقات',
+              hintText: 'تعليقاتك تساعدنا على التحسين...',
+              helperText: 'شاركنا أفكارك حول خدمتنا.',
+            ),
+          ),
+        ),
+      ),
+    ),
+    StyleguideExample(
+      title: 'Form',
       description:
           'Send an empty message to validate, then enter a message and '
           'send again to save locally. Reset restores the original empty text. '
-          'DButton supplies the submit action.',
+          'Native Form owns validation, save and reset.',
       states: const ['Submit', 'Validation', 'Save', 'Reset'],
       code: '''// State owns form = GlobalKey<FormState>() and String? saved.
 Form(key: form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
-  children: [
+  spacing: 8, children: [
     DTextarea(hintText: 'Type your message here.', isRequired: true,
       validator: (text) => text!.trim().isEmpty ? 'Enter a message.' : null,
       onSaved: (text) => saved = text),
-    const SizedBox(height: 8),
     DButton(label: const Text('Send message'), onPressed: () {
       if (form.currentState!.validate()) {
         form.currentState!.save();
@@ -103,26 +151,6 @@ Form(key: form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
     if (saved != null) Text('Saved: \$saved'),
   ]))''',
       builder: (_) => const _FormExample(),
-    ),
-    StyleguideExample(
-      title: 'RTL',
-      description:
-          'Arabic feedback, four reserved lines and a description. '
-          'Native directional text editing follows the inherited direction.',
-      states: const ['RTL', 'Rows', 'Description'],
-      code: '''Directionality(textDirection: TextDirection.rtl,
-  child: DTextarea(labelText: 'التعليقات',
-    hintText: 'تعليقاتك تساعدنا على التحسين...', minLines: 4,
-    helperText: 'شاركنا أفكارك حول خدمتنا.'))''',
-      builder: (_) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: DTextarea(
-          labelText: 'التعليقات',
-          hintText: 'تعليقاتك تساعدنا على التحسين...',
-          minLines: 4,
-          helperText: 'شاركنا أفكارك حول خدمتنا.',
-        ),
-      ),
     ),
     StyleguideExample(
       title: 'Bounded editing and read-only',
@@ -159,32 +187,55 @@ class _FieldExampleState extends State<_FieldExample> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => DField(
     children: [
-      GestureDetector(
-        onTap: _focus.requestFocus,
-        child: const ExcludeSemantics(
-          child: DLabel(
-            style: TextStyle(height: 1.375),
-            child: Text('Message'),
-          ),
-        ),
+      DFieldLabel(
+        focusNode: _focus,
+        excludeSemantics: true,
+        child: const Text('Message'),
       ),
-      const SizedBox(height: 8),
-      Text(
-        'Enter your message below.',
-        style: styleguideText(context, height: 21, muted: true),
-      ),
-      const SizedBox(height: 8),
-      Semantics(
+      const DFieldDescription(child: Text('Enter your message below.')),
+      DFieldControl(
         label: 'Message',
-        hint: 'Enter your message below.',
+        description: 'Enter your message below.',
         child: DTextarea(
           focusNode: _focus,
           hintText: 'Type your message here.',
         ),
       ),
+    ],
+  );
+}
+
+class _ButtonExample extends StatefulWidget {
+  const _ButtonExample();
+  @override
+  State<_ButtonExample> createState() => _ButtonExampleState();
+}
+
+class _ButtonExampleState extends State<_ButtonExample> {
+  final _controller = TextEditingController();
+  String? _sent;
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: 8,
+    children: [
+      DTextarea(controller: _controller, hintText: 'Type your message here.'),
+      DButton(
+        label: const Text('Send message'),
+        onPressed: () => setState(() {
+          _sent = _controller.text;
+          _controller.clear();
+        }),
+      ),
+      if (_sent case final sent?) Text('Sent: $sent'),
     ],
   );
 }
@@ -203,6 +254,7 @@ class _FormExampleState extends State<_FormExample> {
     key: _form,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 8,
       children: [
         DTextarea(
           hintText: 'Type your message here.',
@@ -210,7 +262,6 @@ class _FormExampleState extends State<_FormExample> {
           validator: (text) => text!.trim().isEmpty ? 'Enter a message.' : null,
           onSaved: (text) => _saved = text,
         ),
-        const SizedBox(height: 8),
         DButton(
           label: const Text('Send message'),
           onPressed: () {
