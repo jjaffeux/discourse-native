@@ -8,6 +8,7 @@ import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -17,6 +18,7 @@ import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'open_link.dart';
+import 'platform.dart';
 import 'relative_time.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -1203,50 +1205,16 @@ class _TopicHeaderProperties extends StatelessWidget {
       if (sections.isEmpty) return const SizedBox.shrink();
       final children = <Widget>[
         for (final section in sections)
-          Builder(
-            builder: (anchorContext) {
-              void showDetails() => unawaited(
-                showAnchoredPicker<void>(
-                  context: context,
-                  anchorContext: anchorContext,
-                  title: section.label,
-                  barrierLabel: 'Dismiss ${section.label}',
-                  popoverHeight: null,
-                  popoverKey: ValueKey((
-                    'topic-header-property',
-                    section.label,
-                  )),
-                  builder: (_) => _TopicPropertyDetails(
-                    siteUrl: siteUrl,
-                    topicId: topic.id,
-                    label: section.label,
-                    registry: registry,
-                    navigationRevision: ShellScope.read(
-                      context,
-                    ).topicNavigationRevision,
-                  ),
-                ),
-              );
-              if (compact) {
-                return section.compactHeader?.call(
-                      anchorContext,
-                      showDetails,
-                    ) ??
-                    DButton.iconOnly(
-                      icon: const DIcon(DIcons.ellipsis, size: 16),
-                      tooltip: section.label,
-                      size: DButtonSize.small,
-                      variant: DButtonVariant.flat,
-                      onPressed: showDetails,
-                    );
-              }
-              return section.header?.call(anchorContext, showDetails) ??
-                  DButton(
-                    label: Text(section.label),
-                    size: DButtonSize.small,
-                    onPressed: showDetails,
-                  );
-            },
+          _TopicPropertyPopover(
+            key: ValueKey(('topic-header-property', section.label)),
+            siteUrl: siteUrl,
+            topicId: topic.id,
+            section: section,
+            registry: registry,
+            compact: compact,
+            navigationRevision: ShellScope.read(
+              context,
+            ).topicNavigationRevision,
           ),
       ];
       return compact
@@ -1273,6 +1241,123 @@ class _TopicHeaderProperties extends StatelessWidget {
   }
 }
 
+class _TopicPropertyPopover extends StatefulWidget {
+  const _TopicPropertyPopover({
+    super.key,
+    required this.siteUrl,
+    required this.topicId,
+    required this.section,
+    required this.registry,
+    required this.compact,
+    required this.navigationRevision,
+  });
+
+  final String siteUrl;
+  final int topicId;
+  final TopicPropertySection section;
+  final PluginRegistry registry;
+  final bool compact;
+  final int navigationRevision;
+
+  @override
+  State<_TopicPropertyPopover> createState() => _TopicPropertyPopoverState();
+}
+
+class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
+  final _controller = DPopoverController();
+
+  Widget _trigger(
+    BuildContext context,
+    VoidCallback showDetails, {
+    FocusNode? focusNode,
+    bool expanded = false,
+  }) {
+    final section = widget.section;
+    if (widget.compact) {
+      return section.compactHeader?.call(context, showDetails) ??
+          DButton.iconOnly(
+            icon: const DIcon(DIcons.ellipsis, size: 16),
+            tooltip: section.label,
+            size: DButtonSize.small,
+            variant: DButtonVariant.flat,
+            hasPopup: true,
+            expanded: expanded,
+            focusNode: focusNode,
+            onPressed: showDetails,
+          );
+    }
+    return section.header?.call(context, showDetails) ??
+        DButton(
+          label: Text(section.label),
+          size: DButtonSize.small,
+          hasPopup: true,
+          expanded: expanded,
+          focusNode: focusNode,
+          onPressed: showDetails,
+        );
+  }
+
+  void _showTouch(BuildContext anchorContext) => unawaited(
+    showAnchoredPicker<void>(
+      context: context,
+      anchorContext: anchorContext,
+      title: widget.section.label,
+      barrierLabel: 'Dismiss ${widget.section.label}',
+      popoverHeight: null,
+      popoverKey: ValueKey(('topic-header-property', widget.section.label)),
+      builder: (pickerContext) => _TopicPropertyDetails(
+        siteUrl: widget.siteUrl,
+        topicId: widget.topicId,
+        label: widget.section.label,
+        registry: widget.registry,
+        navigationRevision: widget.navigationRevision,
+        onDismiss: () => Navigator.of(pickerContext).pop(),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    if (context.isTouch) {
+      return Builder(
+        builder: (anchorContext) =>
+            _trigger(anchorContext, () => _showTouch(anchorContext)),
+      );
+    }
+    return DPopover(
+      controller: _controller,
+      content: DPopoverContent(
+        width: 252,
+        padding: EdgeInsets.zero,
+        semanticLabel: widget.section.label,
+        align: DPopoverAlign.end,
+        child: _TopicPropertyDetails(
+          siteUrl: widget.siteUrl,
+          topicId: widget.topicId,
+          label: widget.section.label,
+          registry: widget.registry,
+          navigationRevision: widget.navigationRevision,
+          onDismiss: _controller.close,
+        ),
+      ),
+      child: DPopoverTrigger(
+        builder: (context, trigger) => _trigger(
+          context,
+          trigger.toggle,
+          focusNode: trigger.focusNode,
+          expanded: trigger.open,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+
 class _TopicPropertyDetails extends StatelessWidget {
   const _TopicPropertyDetails({
     required this.siteUrl,
@@ -1280,12 +1365,14 @@ class _TopicPropertyDetails extends StatelessWidget {
     required this.label,
     required this.registry,
     required this.navigationRevision,
+    required this.onDismiss,
   });
   final String siteUrl;
   final int topicId;
   final String label;
   final PluginRegistry registry;
   final int navigationRevision;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) => ShellSelector<(String?, int?, int)>(
@@ -1297,9 +1384,7 @@ class _TopicPropertyDetails extends StatelessWidget {
     builder: (context, navigation, _) {
       if (navigation != (siteUrl, topicId, navigationRevision)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted && ModalRoute.of(context)?.isCurrent == true) {
-            Navigator.of(context).pop();
-          }
+          if (context.mounted) onDismiss();
         });
       }
       return ValueListenableBuilder<TopicDetail?>(
