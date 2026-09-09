@@ -28,7 +28,8 @@
     "cleanup": "Closed only the created reference tab; quit the isolated review app through its own menu and verified it absent from running apps. Released desktop token 724fbe0045394cb08d2b20dde0ee6673 before implementation work."
   },
   "postFix": {
-    "status": "pending_native_recheck",
+    "status": "waiting_for_shared_desktop_recovery",
+    "desktopBlocker": "The coordinator reported the Mac locked again during the next reviewers' CUA passes and is coordinating one unlock request. Scroller did not acquire another lease or attempt a workaround; its own waiting request was cancelled before pausing. Resume with the prepared exact-source bundle after ordinary CUA recovery.",
     "sourceCommit": "378611767d74cef68f2ef4d94fbe00bd9d015ffb",
     "libTree": "c68d0122d717ed9012268a5914a89cdcd1df1c7b",
     "bundlePath": "/tmp/message-scroller-recheck-a0b4.zpmGT5/MessageScrollerReview-a0b4.app",

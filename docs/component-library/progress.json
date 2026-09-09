@@ -4249,7 +4249,7 @@
         "acceptance": "Reviewer owns all remaining source corrections, official browser and first native acceptance, accepted Message/Bubble/Attachment reconciliation and final local main merge. Source evidence is not acceptance."
       },
       "browserInspectionStatus": "complete",
-      "nativeInspectionStatus": "post_fix_recheck_pending",
+      "nativeInspectionStatus": "waiting_for_desktop_unlock",
       "preparedDependencies": [
         {
           "id": "message",
