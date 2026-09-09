@@ -11,11 +11,15 @@ Future<void> showChatChannelDetailsEditor({
   required ChatController chat,
   required String siteUrl,
   required ChatChannel channel,
-}) => showDialog<void>(
+}) => showDDialog<void>(
   context: context,
-  barrierDismissible: false,
-  builder: (context) =>
-      _ChannelDetailsDialog(chat: chat, siteUrl: siteUrl, channel: channel),
+  dismissOnBarrier: false,
+  builder: (context, dialog) => _ChannelDetailsDialog(
+    chat: chat,
+    siteUrl: siteUrl,
+    channel: channel,
+    dialog: dialog,
+  ),
 );
 
 class _ChannelDetailsDialog extends StatefulWidget {
@@ -23,11 +27,13 @@ class _ChannelDetailsDialog extends StatefulWidget {
     required this.chat,
     required this.siteUrl,
     required this.channel,
+    required this.dialog,
   });
 
   final ChatController chat;
   final String siteUrl;
   final ChatChannel channel;
+  final DDialogController<void> dialog;
 
   @override
   State<_ChannelDetailsDialog> createState() => _ChannelDetailsDialogState();
@@ -88,16 +94,21 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
       });
       return;
     }
-    Navigator.of(context).pop();
+    widget.dialog.close();
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => DDialogContent(
     key: const ValueKey('chat-channel-details-dialog'),
-    title: const Text('Edit channel details'),
-    content: SizedBox(
-      width: 480,
-      child: SingleChildScrollView(
+    showCloseButton: false,
+    maxWidth: 512,
+    semanticLabel: 'Edit channel details',
+    children: [
+      const DDialogHeader(
+        children: [DDialogTitle(child: Text('Edit channel details'))],
+      ),
+      DDialogScrollArea(
+        maxHeightFactor: .65,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -145,18 +156,23 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
           ],
         ),
       ),
-    ),
-    actions: [
-      DButton(
-        label: const Text('Cancel'),
-        onPressed: _saving ? null : () => Navigator.of(context).pop(),
-      ),
-      DButton(
-        key: const ValueKey('chat-channel-details-save'),
-        label: const Text('Save'),
-        onPressed: _canSave ? () => unawaited(_save()) : null,
-        variant: DButtonVariant.primary,
-        loading: _saving,
+      DDialogFooter(
+        children: [
+          DDialogClose<void>(
+            builder: (context, close) => DButton(
+              label: const Text('Cancel'),
+              onPressed: _saving ? null : close,
+              variant: DButtonVariant.outline,
+            ),
+          ),
+          DButton(
+            key: const ValueKey('chat-channel-details-save'),
+            label: const Text('Save'),
+            onPressed: _canSave ? () => unawaited(_save()) : null,
+            variant: DButtonVariant.primary,
+            loading: _saving,
+          ),
+        ],
       ),
     ],
   );

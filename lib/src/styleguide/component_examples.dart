@@ -8,6 +8,7 @@ import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
+import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/foundation_examples.dart';
@@ -46,12 +47,14 @@ final componentExamples = <String, ComponentExamples>{
   'card': cardExamples,
   'carousel': carouselExamples,
   'chart': chartExamples,
+  'dialog': dialogExamples,
   'resizable': resizableExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,
   'badge': badgeExamples,
   'direction': directionExamples,
+  'dialog': dialogExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
