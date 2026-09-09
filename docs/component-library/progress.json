@@ -1936,9 +1936,9 @@
     },
     {
       "id": "marker",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
+      "branch": "codex/ui-marker",
       "dependencies": [
         "spinner"
       ],
@@ -1949,7 +1949,9 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:30c945fe-66ff-4d13-a4ed-120a945e4aa3",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native"
     },
     {
       "id": "bubble",
@@ -2191,7 +2193,8 @@
       "01a083ce-313a-7362-ada6-57dc14221509",
       "01a083e2-4063-7c30-89ea-fa664ff9c943",
       "01a08400-ced8-7f22-a1aa-4955c7d28383",
-      "01a083f3-9a01-7c71-9931-3674b85e81b3"
+      "01a083f3-9a01-7c71-9931-3674b85e81b3",
+      "01a0842f-af4f-7341-95c2-06a97f4ff0c4"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -2267,6 +2270,14 @@
           "branch": "codex/ui-scroll-area",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
           "status": "browser_and_renderer_review"
+        },
+        {
+          "component": "marker",
+          "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
+          "branch": "codex/ui-marker",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
+          "baseCommit": "cd1de63a04b60c5cdaa11f18e585a78d5f9eb1f9",
+          "status": "implementation"
         }
       ],
       "nativeReadyTasks": [
@@ -2356,12 +2367,12 @@
       "observedAt": "2026-09-09T03:04:54+02:00",
       "userUnlockRequested": true,
       "unaffectedWork": "Source, tests, builds and serialized browser-only reference comparisons with Flutter test exports can continue. Native application interaction still needs Mac unlock.",
-      "lastRecheckedAt": "2026-09-09T05:18:00+02:00",
-      "latestResult": "Mac remains locked; automatic unlock failed. Existing unlock request remains pending; no repeated prompt."
+      "latestResult": "Mac remains locked; automatic unlock failed. Existing unlock request remains pending; no repeated prompt.",
+      "latestCheckRecordedAt": "2026-09-09T05:20:55+02:00"
     },
     "pendingCoordinatorNativeReview": "Use Component Fidelity B104 at 6a99b2d2 after unlock to inspect title Escape/save failure, final styleguide preview scrollbar and corrected floating Sidebar radius.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
+    "browserInspectionTaskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
@@ -2409,7 +2420,8 @@
         "status": "resolved_awaiting_native_review",
         "issue": "Live open-menu theme updates now implemented with MenuAnchor. Finish plain-option type-ahead and complete audit/migration of appropriate remaining simple selectors; do not defer only because custom Select is pending."
       }
-    }
+    },
+    "browserInspectionPurpose": "Coordinator Native Select character navigation reference check; Scroll Area released its browser slot."
   },
   "visualFidelity": {
     "status": "merged",

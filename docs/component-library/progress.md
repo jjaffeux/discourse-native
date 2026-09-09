@@ -65,7 +65,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 53 | toast | planned | — | — | button | — |
 | 54 | alert | planned | — | — | typography | — |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
-| 56 | marker | planned | — | — | spinner | — |
+| 56 | marker | in_progress | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | — |
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
@@ -1448,6 +1448,10 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 
 - awaiting_slot: Mac locked; reference-rendered and native visual inspection remains required before review_ready or merge.
 - No CUA/app launch; widget platform overrides and native fixture tests are not device/VoiceOver/pixel-parity evidence.
+
+### marker
+
+Status: in_progress. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-marker.
 
 ### chart
 
