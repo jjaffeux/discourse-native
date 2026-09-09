@@ -84,6 +84,17 @@ void main() {
         ),
       );
 
+      final recovery = find.ancestor(
+        of: find.text('Forgot your password?'),
+        matching: find.byType(DButton),
+      );
+      expect(tester.getSize(recovery).height, 20);
+      final recoveryStyle = DefaultTextStyle.of(
+        tester.element(find.text('Forgot your password?')),
+      ).style;
+      expect(recoveryStyle.fontWeight, FontWeight.w400);
+      expect(recoveryStyle.height, 20 / 14);
+
       await tester.tap(find.text('Email'));
       await tester.pump();
       expect(
@@ -237,12 +248,16 @@ void main() {
       ),
     );
 
-    final email = tester
-        .getSemantics(find.byType(DFieldControl).first)
-        .getSemanticsData();
+    final emailNode = tester.getSemantics(find.byType(DFieldControl).first);
+    final email = emailNode.getSemanticsData();
     expect(email.label, startsWith('Email'));
     expect(email.flagsCollection.isTextField, true);
     expect(email.flagsCollection.isRequired, Tristate.isTrue);
+    expect(emailNode.rect.size, tester.getSize(find.byType(DInput).first));
+    expect(
+      emailNode.rect.height,
+      lessThan(tester.getSize(find.byType(DCard)).height),
+    );
 
     final selectedSpacing = tester
         .getSemantics(find.bySemanticsLabel('16 pixel spacing'))

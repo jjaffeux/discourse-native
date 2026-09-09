@@ -156,8 +156,8 @@ const _loginCode = """DCard(spacing: spacing, children: [
         DFieldLabel(focusNode: passwordFocus, excludeSemantics: true,
           style: TextStyle(height: 1),
           child: Text('Password')),
-        DButton(onPressed: recover, isLink: true,
-          variant: DButtonVariant.link, label: Text('Forgot your password?')),
+        // Inline text bounds, no padding; DButton retains native activation.
+        recoveryLink,
       ]),
       DFieldControl(label: 'Password', required: true, child: DInput(
         focusNode: passwordFocus, obscureText: true, isRequired: true,
@@ -204,13 +204,11 @@ Widget _button(
   String text,
   VoidCallback? callback, {
   DButtonVariant variant = DButtonVariant.primary,
-  bool isLink = false,
   DButtonSize size = DButtonSize.regular,
 }) => DButton(
   onPressed: callback,
   size: size,
   variant: variant,
-  isLink: isLink,
   label: Builder(
     builder: (context) => DefaultTextStyle(
       style: DefaultTextStyle.of(context).style,
@@ -367,13 +365,12 @@ class _LoginState extends State<_Login> {
                                 style: const TextStyle(height: 1),
                                 child: Text(ar ? 'كلمة المرور' : 'Password'),
                               ),
-                              _button(
-                                ar
+                              _RecoveryLink(
+                                label: ar
                                     ? 'نسيت كلمة المرور؟'
                                     : 'Forgot your password?',
-                                () => _notice('Password recovery selected'),
-                                variant: DButtonVariant.link,
-                                isLink: true,
+                                onPressed: () =>
+                                    _notice('Password recovery selected'),
                               ),
                             ],
                           ),
@@ -410,6 +407,51 @@ class _LoginState extends State<_Login> {
       ),
     );
   }
+}
+
+// The reference uses an inline anchor here, not a padded Button. Only its
+// layout/text are adapted; the accepted DButton owns focus and activation.
+class _RecoveryLink extends StatelessWidget {
+  const _RecoveryLink({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final style = DefaultTextStyle.of(context).style.copyWith(
+        fontSize: 14,
+        height: 20 / 14,
+        fontWeight: FontWeight.w400,
+        color: DTokens.of(context).foreground,
+      );
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: constraints.maxWidth);
+      final size = painter.size;
+      painter.dispose();
+      return SizedBox.fromSize(
+        size: size,
+        child: DButton(
+          onPressed: onPressed,
+          isLink: true,
+          variant: DButtonVariant.link,
+          padding: EdgeInsets.zero,
+          label: Builder(
+            builder: (context) => DefaultTextStyle(
+              style: style.copyWith(
+                decoration: DefaultTextStyle.of(context).style.decoration,
+              ),
+              child: Text(label),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _Reports extends StatefulWidget {

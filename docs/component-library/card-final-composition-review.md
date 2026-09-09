@@ -28,7 +28,10 @@ Field's leading to preserve the frozen Label's 14px line height. The report
 list retains the original Lucide/Feather chevron path and 2px top inset (source:
 https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevron-right.svg;
 license: `reference/empty/LICENSE.lucide`). No production account or networking
-surface was added.
+surface was added. The recovery anchor has measured inline text bounds rather
+than a 32px padded Button row. Its 14px/20px normal-weight foreground label
+wraps using the inherited scaler and available width, while the accepted
+`DButton` retains native focus, hover underline, link semantics and activation.
 
 ## Source and automated verification
 

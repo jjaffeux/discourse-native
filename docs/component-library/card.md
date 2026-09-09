@@ -64,6 +64,10 @@ password editor's Done/Return action, rather than an HTML button `type`.
 The email editor's Next action focuses the password editor. Associated labels
 retain the frozen Label's 14px line height, and the report list uses the
 Lucide/Feather chevron's original stroke path and 2px top inset.
+The password recovery anchor keeps its 14px/20px normal-weight foreground text
+and unpadded inline bounds. A local layout adapter measures inherited scaled
+text and constrains the accepted `DButton` link owner; wrapping may increase
+height, without creating a separate interaction or focus owner.
 Validation, drafts, editing selection, focus and spacing selection remain
 local and survive theme, direction, text-scale and width reflow. The image uses
 the already bundled package asset, grayscale and reference 60%/40% brightness
