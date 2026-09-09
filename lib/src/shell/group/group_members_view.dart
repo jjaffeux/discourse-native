@@ -813,66 +813,151 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
     if (await controller.save() && mounted) Navigator.pop(context);
   }
 
+  List<_GroupMemberChoice> _selectedChoices() => [
+    for (final username in controller.selectedUsernames)
+      _GroupMemberChoice.user(
+        controller.results
+                .where((user) => user.username == username)
+                .firstOrNull ??
+            FoundUser(username: username, avatarUrl: ''),
+      ),
+    for (final email in controller.selectedEmails)
+      _GroupMemberChoice.email(email),
+  ];
+
+  void _selectionChanged(List<_GroupMemberChoice> choices) {
+    final usernames = choices
+        .where((choice) => choice.username != null)
+        .map((choice) => choice.username!)
+        .toSet();
+    final emails = choices
+        .where((choice) => choice.email != null)
+        .map((choice) => choice.email!)
+        .toSet();
+    for (final username in {...controller.selectedUsernames, ...usernames}) {
+      controller.toggleUsername(
+        username,
+        selected: usernames.contains(username),
+      );
+    }
+    for (final email in {...controller.selectedEmails, ...emails}) {
+      controller.toggleEmail(email, selected: emails.contains(email));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
       final email = controller.normalizedEmail;
+      final choices = <_GroupMemberChoice>[
+        if (controller.queryIsEmail) _GroupMemberChoice.email(email),
+        for (final user in controller.results) _GroupMemberChoice.user(user),
+      ];
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            key: const ValueKey('add-members-search'),
-            autofocus: true,
-            onChanged: controller.search,
-            style: Theme.of(context).textTheme.labelLarge,
-            decoration: _groupSearchDecoration('Username or email address'),
+          DCombobox<_GroupMemberChoice>.multipleControlled(
+            value: _selectedChoices(),
+            options: [
+              for (final choice in choices)
+                DComboboxOption(
+                  value: choice,
+                  label: choice.label,
+                  searchText: choice.searchText,
+                  itemKey: ValueKey(
+                    choice.email == null
+                        ? 'add-user-${choice.username}'
+                        : 'add-email-${choice.email}',
+                  ),
+                ),
+            ],
+            equals: (left, right) => left.id == right.id,
+            itemToStringLabel: (choice) => choice.label,
+            filterLocally: false,
+            enabled: !controller.saving,
+            onQueryChanged: (query, _) => controller.search(query),
+            onValuesChanged: (values, _) => _selectionChanged(values),
+            anchor: const DComboboxChips<_GroupMemberChoice>(
+              input: DComboboxChipsInput<_GroupMemberChoice>(
+                key: ValueKey('add-members-search'),
+                placeholder: 'Username or email address',
+                autofocus: true,
+              ),
+            ),
+            content: DComboboxContent(
+              semanticLabel: 'Matching users and email address',
+              children: [
+                DComboboxEmpty<_GroupMemberChoice>(
+                  child: Text(
+                    controller.searching
+                        ? 'Searching…'
+                        : controller.query.trim().length < 2
+                        ? 'Type at least two characters.'
+                        : 'No matching users.',
+                  ),
+                ),
+                DComboboxList<_GroupMemberChoice>(
+                  itemBuilder: (context, option) {
+                    final choice = option.value;
+                    if (choice.email case final email?) {
+                      return Row(
+                        children: [
+                          const Icon(Icons.mail_outline, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(email),
+                                Text(
+                                  'Add by email address',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    final user = choice.user!;
+                    return Row(
+                      children: [
+                        DAvatar.frame(
+                          child: AvatarImage(
+                            url: user.avatarUrl,
+                            size: 28,
+                            fallback: DAvatarFallback(
+                              child: Text(
+                                user.username.characters.firstOrNull
+                                        ?.toUpperCase() ??
+                                    '?',
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(user.name ?? user.username),
+                              Text(
+                                '@${user.username}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 10),
-          if (controller.queryIsEmail)
-            DCheckbox(
-              key: ValueKey('add-email-$email'),
-              contentPadding: EdgeInsets.zero,
-              value: controller.selectedEmails.contains(email),
-              title: Text(email),
-              subtitle: const Text('Add by email address'),
-              onChanged: (selected) =>
-                  controller.toggleEmail(email, selected: selected == true),
-            ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 280),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: controller.results.length,
-              itemBuilder: (context, index) {
-                final user = controller.results[index];
-                return DCheckbox(
-                  key: ValueKey('add-user-${user.username}'),
-                  contentPadding: EdgeInsets.zero,
-                  value: controller.selectedUsernames.contains(user.username),
-                  secondary: DAvatar.frame(
-                    child: AvatarImage(
-                      url: user.avatarUrl,
-                      size: 36,
-                      fallback: DAvatarFallback(
-                        child: Text(
-                          user.username.characters.firstOrNull?.toUpperCase() ??
-                              '?',
-                        ),
-                      ),
-                    ),
-                  ),
-                  title: Text(user.name ?? user.username),
-                  subtitle: Text('@${user.username}'),
-                  onChanged: (selected) => controller.toggleUsername(
-                    user.username,
-                    selected: selected == true,
-                  ),
-                );
-              },
-            ),
-          ),
           if (controller.error case final error?) ...[
             const SizedBox(height: 8),
             Text(
@@ -894,6 +979,20 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
       );
     },
   );
+}
+
+@immutable
+class _GroupMemberChoice {
+  const _GroupMemberChoice.user(this.user) : email = null;
+  const _GroupMemberChoice.email(this.email) : user = null;
+
+  final FoundUser? user;
+  final String? email;
+
+  String get id => email == null ? 'user:${user!.username}' : 'email:$email';
+  String get label => email ?? user!.name ?? '@${user!.username}';
+  String get searchText => email ?? '${user!.name ?? ''} ${user!.username}';
+  String? get username => user?.username;
 }
 
 class _InviteGroupSheet extends StatefulWidget {
