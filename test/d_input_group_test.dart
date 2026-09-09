@@ -154,6 +154,73 @@ void main() {
     expect(tester.getSize(find.byType(EditableText)).height, 20);
   });
 
+  testWidgets('editor focus repaints the shared group ring', (tester) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    await tester.pumpWidget(
+      host(
+        DInputGroup(
+          children: [
+            DInputGroupInput(focusNode: focus, semanticLabel: 'Query'),
+            const DInputGroupAddon(child: Icon(Icons.search)),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    AnimatedContainer surface() => tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byType(DInputGroup),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+
+    final unfocusedDecoration = surface().foregroundDecoration;
+    focus.requestFocus();
+    await tester.pump();
+    await tester.pump();
+
+    expect(focus.hasFocus, isTrue);
+    expect(surface().foregroundDecoration, isNot(same(unfocusedDecoration)));
+  });
+
+  testWidgets('group-level disabled state disables and dims its editor', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    await tester.pumpWidget(
+      host(
+        DInputGroup(
+          enabled: false,
+          children: [
+            DInputGroupInput(focusNode: focus, semanticLabel: 'Query'),
+            const DInputGroupAddon(child: Icon(Icons.search)),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
+    expect(
+      tester
+          .widgetList<Opacity>(
+            find.descendant(
+              of: find.byType(DInputGroup),
+              matching: find.byType(Opacity),
+            ),
+          )
+          .single
+          .opacity,
+      .5,
+    );
+    focus.requestFocus();
+    await tester.pump();
+    expect(focus.hasFocus, isFalse);
+  });
+
   testWidgets(
     'joined input action preserves independent semantics and actions',
     (tester) async {
