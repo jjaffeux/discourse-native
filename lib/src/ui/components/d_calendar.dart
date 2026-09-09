@@ -417,6 +417,7 @@ class DCalendar extends StatefulWidget {
     this.dateSemanticLabelBuilder,
     this.today,
     this.bordered = false,
+    this.padding = const EdgeInsets.all(8),
     this.semanticLabel,
   }) : assert(
          selection == null ||
@@ -489,6 +490,7 @@ class DCalendar extends StatefulWidget {
   final DCalendarDateStringBuilder? dateSemanticLabelBuilder;
   final DCalendarDate? today;
   final bool bordered;
+  final EdgeInsetsGeometry padding;
   final String? semanticLabel;
 
   @override
@@ -928,7 +930,7 @@ class _DCalendarState extends State<DCalendar> {
                       : null,
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: widget.padding,
                   child: Stack(
                     children: [
                       content,
@@ -1405,6 +1407,15 @@ class _DCalendarDayButtonState extends State<DCalendarDayButton> {
   bool _pressed = false;
 
   @override
+  void didUpdateWidget(DCalendarDayButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onPressed == null && oldWidget.onPressed != null) {
+      _hovered = false;
+      _pressed = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final details = widget.details;
@@ -1471,8 +1482,12 @@ class _DCalendarDayButtonState extends State<DCalendarDayButton> {
           cursor: widget.onPressed == null
               ? SystemMouseCursors.basic
               : SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
+          onEnter: widget.onPressed == null
+              ? null
+              : (_) => setState(() => _hovered = true),
+          onExit: widget.onPressed == null
+              ? null
+              : (_) => setState(() => _hovered = false),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: widget.onPressed == null

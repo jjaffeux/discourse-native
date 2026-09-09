@@ -14,17 +14,22 @@ final calendarExamples = ComponentExamples(
       'Jalali chronology needs a kalender engine implementation, matching the '
       'official example’s calendar-engine substitution boundary.',
   examples: [
-    _example('Basic', 'A controlled single-date calendar.', const [
-      'Single',
-      'Controlled',
-      'Today',
-    ], (_) => const _BasicCalendar()),
     _example(
-      'Range',
-      'A two-month range with connected endpoints and disabled dates.',
-      const ['Range', 'Two months', 'Disabled'],
-      (_) => const _RangeCalendar(),
+      'Basic',
+      'A controlled single-date calendar.',
+      const ['Single', 'Controlled', 'Today'],
+      (_) => _frame(
+        DCalendar(
+          initialDisplayedMonth: DCalendarDate(2026, 9, 1),
+          bordered: true,
+        ),
+        width: 320,
+      ),
     ),
+    _example('Range', 'A two-month range with connected endpoints.', const [
+      'Range',
+      'Two months',
+    ], (_) => const _RangeCalendar()),
     _example(
       'Month and Year Selector',
       'Compact Select controls change the visible month without changing selection.',
@@ -103,29 +108,6 @@ Widget _frame(Widget child, {double width = 640}) => Align(
   ),
 );
 
-class _BasicCalendar extends StatefulWidget {
-  const _BasicCalendar();
-  @override
-  State<_BasicCalendar> createState() => _BasicCalendarState();
-}
-
-class _BasicCalendarState extends State<_BasicCalendar> {
-  DCalendarSelection _selection = DCalendarSingleSelection(
-    DCalendarDate(2026, 9, 9),
-  );
-
-  @override
-  Widget build(BuildContext context) => _frame(
-    DCalendar(
-      displayedMonth: DCalendarDate(2026, 9, 1),
-      today: DCalendarDate(2026, 9, 9),
-      selection: _selection,
-      onSelectionChanged: (value, _) => setState(() => _selection = value),
-    ),
-    width: 320,
-  );
-}
-
 class _RangeCalendar extends StatefulWidget {
   const _RangeCalendar();
   @override
@@ -135,8 +117,8 @@ class _RangeCalendar extends StatefulWidget {
 class _RangeCalendarState extends State<_RangeCalendar> {
   DCalendarSelection _selection = DCalendarRangeSelection(
     DCalendarRange(
-      from: DCalendarDate(2026, 9, 8),
-      to: DCalendarDate(2026, 9, 14),
+      from: DCalendarDate(2026, 9, 12),
+      to: DCalendarDate(2026, 10, 12),
     ),
   );
 
@@ -147,8 +129,7 @@ class _RangeCalendarState extends State<_RangeCalendar> {
       displayedMonth: DCalendarDate(2026, 9, 1),
       numberOfMonths: 2,
       selection: _selection,
-      disabled: (date) => date.weekday == DateTime.sunday,
-      excludeDisabledInRange: true,
+      bordered: true,
       onSelectionChanged: (value, _) => setState(() => _selection = value),
     ),
   );
@@ -170,6 +151,7 @@ class _DropdownCalendarState extends State<_DropdownCalendar> {
       captionLayout: DCalendarCaptionLayout.dropdown,
       startMonth: DCalendarDate(2020, 1, 1),
       endMonth: DCalendarDate(2030, 12, 1),
+      bordered: true,
     ),
     width: 340,
   );
@@ -185,16 +167,14 @@ class _PresetCalendarState extends State<_PresetCalendar> {
   final _controller = DCalendarController(
     displayedMonth: DCalendarDate(2026, 9, 1),
   );
-  DCalendarSelection _selection = const DCalendarRangeSelection(null);
+  DCalendarSelection _selection = DCalendarSingleSelection(
+    DCalendarDate(2026, 9, 9),
+  );
 
   void _choose(int days) {
-    final from = DCalendarDate(2026, 9, 9);
-    setState(
-      () => _selection = DCalendarRangeSelection(
-        DCalendarRange(from: from, to: from.addDays(days - 1)),
-      ),
-    );
-    _controller.showMonth(from);
+    final date = DCalendarDate(2026, 9, 9).addDays(days);
+    setState(() => _selection = DCalendarSingleSelection(date));
+    _controller.showMonth(date);
   }
 
   @override
@@ -207,41 +187,43 @@ class _PresetCalendarState extends State<_PresetCalendar> {
   Widget build(BuildContext context) => _frame(
     DCard(
       size: DCardSize.small,
-      children: [
-        DCardContent(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
+      footer: DCardFooter(
+        muted: false,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final preset in const [
+              ('Today', 0),
+              ('Tomorrow', 1),
+              ('In 3 days', 3),
+              ('In a week', 7),
+              ('In 2 weeks', 14),
+            ])
               DButton(
-                label: const Text('This week'),
-                onPressed: () => _choose(7),
-                size: DButtonSize.small,
-              ),
-              DButton(
-                label: const Text('Next 14 days'),
-                onPressed: () => _choose(14),
+                label: Text(preset.$1),
+                onPressed: () => _choose(preset.$2),
                 size: DButtonSize.small,
                 variant: DButtonVariant.outline,
               ),
-            ],
-          ),
+          ],
         ),
+      ),
+      children: [
         DCardContent(
-          edgeToEdge: true,
           child: DCalendar(
-            mode: DCalendarSelectionMode.range,
             controller: _controller,
             selection: _selection,
             fixedWeeks: true,
             cellSize: 38,
+            padding: EdgeInsets.zero,
             onSelectionChanged: (value, _) =>
                 setState(() => _selection = value),
           ),
         ),
       ],
     ),
-    width: 390,
+    width: 300,
   );
 }
 
@@ -259,34 +241,43 @@ class _DateTimeCalendarState extends State<_DateTimeCalendar> {
   Widget build(BuildContext context) => _frame(
     DCard(
       size: DCardSize.small,
-      children: [
-        DCardContent(
-          edgeToEdge: true,
-          child: DCalendar(
-            displayedMonth: DCalendarDate(2026, 9, 1),
-            selection: _selection,
-            onSelectionChanged: (value, _) =>
-                setState(() => _selection = value),
-          ),
-        ),
-        DCardContent(
-          child: DField(
-            children: [
-              const DFieldLabel(child: Text('Time')),
-              DInputGroup(
-                semanticLabel: 'Appointment time',
+      footer: DCardFooter(
+        muted: false,
+        child: DFieldGroup(
+          children: [
+            for (final field in const [
+              ('Start Time', '10:30:00'),
+              ('End Time', '12:30:00'),
+            ])
+              DField(
                 children: [
-                  DInputGroupInput(
-                    initialValue: '09:30',
-                    keyboardType: TextInputType.datetime,
-                  ),
-                  const DInputGroupAddon(
-                    alignment: DInputGroupAddonAlignment.inlineEnd,
-                    child: DInputGroupText(Text('local')),
+                  DFieldLabel(child: Text(field.$1)),
+                  DInputGroup(
+                    semanticLabel: field.$1,
+                    children: [
+                      DInputGroupInput(
+                        initialValue: field.$2,
+                        keyboardType: TextInputType.datetime,
+                      ),
+                      const DInputGroupAddon(
+                        alignment: DInputGroupAddonAlignment.inlineEnd,
+                        child: Icon(Icons.access_time, size: 16),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+          ],
+        ),
+      ),
+      children: [
+        DCardContent(
+          child: DCalendar(
+            displayedMonth: DCalendarDate(2026, 9, 1),
+            selection: _selection,
+            padding: EdgeInsets.zero,
+            onSelectionChanged: (value, _) =>
+                setState(() => _selection = value),
           ),
         ),
       ],
@@ -302,59 +293,118 @@ class _BookedCalendar extends StatefulWidget {
 }
 
 class _BookedCalendarState extends State<_BookedCalendar> {
-  DCalendarSelection _selection = const DCalendarSingleSelection(null);
+  DCalendarSelection _selection = DCalendarSingleSelection(
+    DCalendarDate(2026, 9, 6),
+  );
   @override
   Widget build(BuildContext context) => _frame(
-    DCalendar(
-      displayedMonth: DCalendarDate(2026, 9, 1),
-      selection: _selection,
-      booked: (date) => date.day == 11 || date.day == 12 || date.day == 18,
-      disabled: (date) => date.day == 11 || date.day == 12 || date.day == 18,
-      onSelectionChanged: (value, _) => setState(() => _selection = value),
+    DCard(
+      size: DCardSize.small,
+      spacing: 0,
+      children: [
+        DCardContent(
+          edgeToEdge: true,
+          child: DCalendar(
+            displayedMonth: DCalendarDate(2026, 9, 1),
+            selection: _selection,
+            booked: (date) => date.day >= 12 && date.day <= 26,
+            disabled: (date) => date.day >= 12 && date.day <= 26,
+            onSelectionChanged: (value, _) =>
+                setState(() => _selection = value),
+          ),
+        ),
+      ],
     ),
     width: 320,
   );
 }
 
-class _PricedCalendar extends StatelessWidget {
+class _PricedCalendar extends StatefulWidget {
   const _PricedCalendar();
   @override
+  State<_PricedCalendar> createState() => _PricedCalendarState();
+}
+
+class _PricedCalendarState extends State<_PricedCalendar> {
+  DCalendarSelection _selection = DCalendarRangeSelection(
+    DCalendarRange(
+      from: DCalendarDate(2026, 9, 8),
+      to: DCalendarDate(2026, 9, 18),
+    ),
+  );
+
+  @override
   Widget build(BuildContext context) => _frame(
-    DCalendar(
-      displayedMonth: DCalendarDate(2026, 9, 1),
-      cellSize: 40,
-      responsiveCellSize: (width) => width < 360 ? 40 : 48,
-      dateSemanticLabelBuilder: (_, date) =>
-          '${date.day} September ${date.year}, \$${90 + date.day}',
-      dayBuilder: (context, details, child) => FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            child,
-            MediaQuery.withNoTextScaling(
-              child: Text(
-                '\$${90 + details.date.day}',
-                style: const TextStyle(fontSize: 9),
+    DCard(
+      size: DCardSize.small,
+      spacing: 0,
+      children: [
+        DCardContent(
+          edgeToEdge: true,
+          child: DCalendar(
+            mode: DCalendarSelectionMode.range,
+            displayedMonth: DCalendarDate(2026, 9, 1),
+            selection: _selection,
+            onSelectionChanged: (value, _) =>
+                setState(() => _selection = value),
+            captionLayout: DCalendarCaptionLayout.dropdown,
+            cellSize: 40,
+            responsiveCellSize: (width) => width < 360 ? 40 : 48,
+            dateSemanticLabelBuilder: (_, date) =>
+                '${date.day} September ${date.year}, \$${date.weekday >= 6 ? 120 : 100}',
+            dayBuilder: (context, details, child) => FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  child,
+                  MediaQuery.withNoTextScaling(
+                    child: Text(
+                      details.date.weekday >= 6 ? r'$120' : r'$100',
+                      style: const TextStyle(fontSize: 9),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     ),
     width: 420,
   );
 }
 
-class _WeekNumberCalendar extends StatelessWidget {
+class _WeekNumberCalendar extends StatefulWidget {
   const _WeekNumberCalendar();
   @override
+  State<_WeekNumberCalendar> createState() => _WeekNumberCalendarState();
+}
+
+class _WeekNumberCalendarState extends State<_WeekNumberCalendar> {
+  DCalendarSelection _selection = DCalendarSingleSelection(
+    DCalendarDate(2026, 9, 12),
+  );
+
+  @override
   Widget build(BuildContext context) => _frame(
-    DCalendar(
-      displayedMonth: DCalendarDate(2026, 9, 1),
-      showWeekNumbers: true,
-      firstWeekday: DateTime.monday,
+    DCard(
+      size: DCardSize.small,
+      spacing: 0,
+      children: [
+        DCardContent(
+          edgeToEdge: true,
+          child: DCalendar(
+            displayedMonth: DCalendarDate(2026, 9, 1),
+            selection: _selection,
+            onSelectionChanged: (value, _) =>
+                setState(() => _selection = value),
+            showWeekNumbers: true,
+            firstWeekday: DateTime.monday,
+          ),
+        ),
+      ],
     ),
     width: 350,
   );
@@ -363,6 +413,20 @@ class _WeekNumberCalendar extends StatelessWidget {
 class _RtlCalendar extends StatelessWidget {
   const _RtlCalendar();
   static const _digits = '٠١٢٣٤٥٦٧٨٩';
+  static const _months = [
+    'يناير',
+    'فبراير',
+    'مارس',
+    'أبريل',
+    'مايو',
+    'يونيو',
+    'يوليو',
+    'أغسطس',
+    'سبتمبر',
+    'أكتوبر',
+    'نوفمبر',
+    'ديسمبر',
+  ];
   String _number(int value) =>
       '$value'.split('').map((v) => _digits[int.parse(v)]).join();
 
@@ -370,15 +434,21 @@ class _RtlCalendar extends StatelessWidget {
   Widget build(BuildContext context) => _frame(
     DCalendar(
       displayedMonth: DCalendarDate(2026, 9, 1),
+      locale: const Locale('ar', 'SA'),
+      captionLayout: DCalendarCaptionLayout.dropdown,
+      cellSize: 36,
+      bordered: true,
       labels: const DCalendarLabels(
         calendar: 'التقويم',
         previousMonth: 'الشهر السابق',
         nextMonth: 'الشهر التالي',
+        chooseMonth: 'اختر الشهر',
+        chooseYear: 'اختر السنة',
         week: 'أسبوع',
         booked: 'محجوز',
       ),
       monthLabelBuilder: (_, month, short) =>
-          short ? 'سبت' : 'سبتمبر ${_number(month.year)}',
+          '${_months[month.month - 1]}${short ? '' : ' ${_number(month.year)}'}',
       yearLabelBuilder: (_, date) => _number(date.year),
       dayNumberBuilder: (_, date) => _number(date.day),
       weekdayLabelBuilder: (_, date) =>

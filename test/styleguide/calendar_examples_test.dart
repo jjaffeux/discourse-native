@@ -69,10 +69,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: Builder(builder: preset.builder)),
+        home: Scaffold(
+          body: SingleChildScrollView(child: Builder(builder: preset.builder)),
+        ),
       ),
     );
-    await tester.tap(find.text('This week'));
+    await tester.ensureVisible(find.text('In a week'));
+    await tester.tap(find.text('In a week'));
     await tester.pump();
     expect(find.byType(DCard), findsOneWidget);
 
@@ -82,11 +85,15 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: Builder(builder: dateTime.builder)),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Builder(builder: dateTime.builder),
+          ),
+        ),
       ),
     );
-    expect(find.byType(DField), findsOneWidget);
-    expect(find.byType(DInputGroup), findsOneWidget);
-    expect(find.byType(DInputGroupInput), findsOneWidget);
+    expect(find.byType(DField), findsNWidgets(2));
+    expect(find.byType(DInputGroup), findsNWidgets(2));
+    expect(find.byType(DInputGroupInput), findsNWidgets(2));
   });
 }
