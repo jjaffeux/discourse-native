@@ -12,12 +12,10 @@
 - Primitive API: <https://base-ui.com/react/components/menubar#api-reference>
   (read on 2026-09-09). The root documents `loopFocus: true`,
   `disabled: false`, `orientation: horizontal` and `modal: true`.
-- Prepared Dropdown Menu source pin:
-  `d273c27e788bb3991c773c7432e0b8c927715651` on
-  `codex/review-dropdown-menu-candidate`, reviewer task
-  `01a085cf-f401-7813-80da-7c687de8a5d5`. This is tested preparation,
-  not accepted parent evidence; final Menubar review is gated on the accepted
-  Dropdown Menu merge in local main.
+- Accepted Dropdown Menu merge:
+  `5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787` on local `main`, reviewer task
+  `01a085cf-f401-7813-80da-7c687de8a5d5`. Menubar's integration candidate
+  preserves the accepted Dropdown Menu implementation byte-for-byte.
 
 ## Reference-to-Flutter mapping
 
@@ -41,7 +39,8 @@ from an open popup or pointer hover, one-open-menu ownership and final trigger
 focus restoration. Individual popup typeahead, item roving focus, disabled
 skipping and nested submenu boundaries remain with Dropdown Menu. The horizontal
 root becomes internally scrollable when large text or a narrow viewport cannot
-fit all persistent triggers; it does not shrink or clip command labels.
+fit all persistent triggers; keyboard focus scrolls the newly focused trigger
+fully into view instead of leaving an off-screen command selected.
 
 The Base UI `modal` browser prop is not exposed as a decorative boolean. The
 accepted Flutter Dropdown Menu lifecycle owns outside-pointer dismissal, Escape,
@@ -61,7 +60,8 @@ nested and selected behavior.
 Focused acceptance criteria:
 
 1. Root and trigger geometry remain source-exact at 100% text while growing or
-   scrolling without overflow at 200% text and 216–260px preview widths.
+   scrolling without overflow at 200% text and 216–360px preview widths;
+   focused triggers are revealed automatically within the scroll viewport.
 2. Arrow navigation follows logical direction in LTR/RTL; Home/End and disabled
    skipping preserve roving focus, and an open popup switches as a unit.
 3. Checkbox/radio selection updates native semantics without closing by default;

@@ -1,14 +1,14 @@
 {
   "component": "menubar",
-  "sourceCommit": "6a0da1e58bea257c89451f74e88759cf474fb7b2",
-  "branch": "codex/review-menubar",
+  "sourceCommit": "479b850fda4f35df3eea6caad20e087b51b9b6d2",
+  "branch": "codex/review-menubar-candidate",
   "flutter": "3.47.2",
   "target": "lib/styleguide_main.dart",
   "buildCommand": "flutter build macos --debug -t lib/styleguide_main.dart --no-pub",
   "buildResult": "passed",
-  "fixturePath": "/private/tmp/discourse-menubar-review-6a0d.9a6Kmo/Discourse Menubar Review 6a0d.app",
-  "bundleIdentifier": "org.discourse.menubarreview.6a0d",
-  "kernelSha256": "5d1c409d3317f7ffc9f6aea4a53a311c2168b10cc07486e369c62c591f8afd17",
+  "fixturePath": "/private/tmp/discourse-menubar-review-479b-styleguide.ExSAPL/Discourse Menubar Review 479b.app",
+  "bundleIdentifier": "org.discourse.menubarreview.479b",
+  "kernelSha256": "8e4a1cd44f357439868143c3c35b6e5ebfdfe7bcc8d7e002574fdb25312ea57a",
   "signature": {
     "kind": "ad-hoc",
     "deepStrictVerification": "passed",
@@ -28,8 +28,8 @@
   "sourceScope": "The fixture mounts the production styleguide and registered real DMenubar examples from the exact source commit. The copied bundle only changes its Info.plist identity and ad-hoc signature; repository runner identities and entitlements are unchanged.",
   "inspection": {
     "launched": false,
-    "officialBrowserCompared": false,
+    "officialBrowserCompared": true,
     "nativeMacosInspected": false,
-    "note": "Build, kernel and signature evidence only. The independent reviewer owns the first actual official-browser and native macOS inspection under the shared desktop lease."
+    "note": "The independent reviewer compared the official rendered light reference and inspected the preceding exact-source native bundle across interaction, light/dark/Plum, RTL, 360px, 200% text and reduced motion. That pass found an off-screen focused-trigger issue, fixed in this source commit. This rebuilt exact bundle is queued for the required post-fix native confirmation before acceptance."
   }
 }
