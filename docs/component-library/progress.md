@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**36 of 64 components are merged locally.** 28 existing components are in progress; 0 are planned.
+**37 of 64 components are merged locally.** 27 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -36,7 +36,6 @@ Branch preparation does not mark a component merged or visually verified.
 | pagination | Implementation and checks | — | — |
 | calendar | Implementation and checks | — | — |
 | date-picker | Implementation and checks | — | — |
-| toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
 | bubble | Implementation and checks | — | — |
 | message | Implementation and checks | — | — |
@@ -101,7 +100,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 50 | calendar | in_progress | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
 | 51 | date-picker | in_progress | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
-| 53 | toast | accepted | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
+| 53 | toast | merged | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | d454c8f62fb4ab8718b3a32b2743556f2f78609d |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
 | 55 | attachment | in_progress | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
@@ -2485,7 +2484,7 @@ Status: merged. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/ui-car
 
 ### toast
 
-Status: accepted. Task: 01a0857a-fcd6-7880-90c0-501e72f034df. Branch: codex/ui-toast.
+Status: merged. Task: 01a0857a-fcd6-7880-90c0-501e72f034df. Branch: codex/ui-toast.
 
 **acceptanceCriteria**
 

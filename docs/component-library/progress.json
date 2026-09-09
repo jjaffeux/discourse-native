@@ -2953,7 +2953,7 @@
     },
     {
       "id": "toast",
-      "status": "accepted",
+      "status": "merged",
       "taskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
       "branch": "codex/ui-toast",
       "dependencies": [
@@ -2997,8 +2997,8 @@
         "The host treated F6 as a system function-key path during CUA, so focus entry and Escape dismissal are accepted from deterministic widget tests rather than a visible native key sequence. Browser/native font rasterization differs, so no pixel-equality claim is made."
       ],
       "implementationCommit": "2c4bed89bc49e1df3dfd5f23315f97cb5c3b30fd",
-      "mergeCommit": null,
-      "reviewStatus": "accepted",
+      "mergeCommit": "d454c8f62fb4ab8718b3a32b2743556f2f78609d",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
       "reviewClientThreadId": "client-new-thread:bc9d1205-04e1-4739-b614-dba4df508721",
       "reviewBranch": "codex/review-toast",
@@ -3728,16 +3728,6 @@
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
         },
         {
-          "component": "toast",
-          "taskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
-          "branch": "codex/review-toast",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a758/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
-          "implementationBranch": "codex/ui-toast",
-          "headCommit": "329c3e1182709d0e7577123e29dc9769741e08fa"
-        },
-        {
           "component": "accordion",
           "taskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
           "branch": "codex/review-accordion",
@@ -4169,17 +4159,6 @@
           "implementationBranch": "codex/ui-carousel",
           "status": "merged",
           "mergeCommit": "3ec0c089d273029ff901d9155eba93e17c4d3a23"
-        },
-        {
-          "component": "toast",
-          "title": "Review and merge Toast",
-          "taskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a758/discourse-native",
-          "branch": "codex/review-toast",
-          "implementationTaskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
-          "implementationBranch": "codex/ui-toast",
-          "status": "in_progress"
         },
         {
           "component": "accordion",
