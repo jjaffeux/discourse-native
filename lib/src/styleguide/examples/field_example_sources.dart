@@ -167,39 +167,24 @@ class _Selection extends StatefulWidget {
 }
 
 class _SelectionState extends State<_Selection> {
-  final _focus = FocusNode();
   String? _value;
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      DFieldControl(
+      DNativeSelect<String>.controlled(
+        value: _value,
+        initialValue: null,
+        isExpanded: true,
+        placeholder: 'Choose',
         label: widget.label,
         description: widget.description,
-        child: DropdownButtonFormField<String>(
-          focusNode: _focus,
-          initialValue: _value,
-          isExpanded: true,
-          hint: const Text('Choose'),
-          items: [
-            for (final item in widget.items)
-              DropdownMenuItem(value: item, child: Text(item)),
-          ],
-          onChanged: (value) => setState(() => _value = value),
-        ),
+        entries: [
+          for (final item in widget.items)
+            DNativeSelectOption(value: item, label: item),
+        ],
+        onChanged: (value) => setState(() => _value = value),
       ),
-      if (widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
     ],
   );
 }
@@ -535,39 +520,24 @@ class _Selection extends StatefulWidget {
 }
 
 class _SelectionState extends State<_Selection> {
-  final _focus = FocusNode();
   String? _value;
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      DFieldControl(
+      DNativeSelect<String>.controlled(
+        value: _value,
+        initialValue: null,
+        isExpanded: true,
+        placeholder: 'Choose',
         label: widget.label,
         description: widget.description,
-        child: DropdownButtonFormField<String>(
-          focusNode: _focus,
-          initialValue: _value,
-          isExpanded: true,
-          hint: const Text('Choose'),
-          items: [
-            for (final item in widget.items)
-              DropdownMenuItem(value: item, child: Text(item)),
-          ],
-          onChanged: (value) => setState(() => _value = value),
-        ),
+        entries: [
+          for (final item in widget.items)
+            DNativeSelectOption(value: item, label: item),
+        ],
+        onChanged: (value) => setState(() => _value = value),
       ),
-      if (widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
     ],
   );
 }
@@ -806,39 +776,24 @@ class _Selection extends StatefulWidget {
 }
 
 class _SelectionState extends State<_Selection> {
-  final _focus = FocusNode();
   String? _value;
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      DFieldControl(
+      DNativeSelect<String>.controlled(
+        value: _value,
+        initialValue: null,
+        isExpanded: true,
+        placeholder: 'Choose',
         label: widget.label,
         description: widget.description,
-        child: DropdownButtonFormField<String>(
-          focusNode: _focus,
-          initialValue: _value,
-          isExpanded: true,
-          hint: const Text('Choose'),
-          items: [
-            for (final item in widget.items)
-              DropdownMenuItem(value: item, child: Text(item)),
-          ],
-          onChanged: (value) => setState(() => _value = value),
-        ),
+        entries: [
+          for (final item in widget.items)
+            DNativeSelectOption(value: item, label: item),
+        ],
+        onChanged: (value) => setState(() => _value = value),
       ),
-      if (widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
     ],
   );
 }
@@ -1065,39 +1020,24 @@ class _Selection extends StatefulWidget {
 }
 
 class _SelectionState extends State<_Selection> {
-  final _focus = FocusNode();
   String? _value;
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      DFieldControl(
+      DNativeSelect<String>.controlled(
+        value: _value,
+        initialValue: null,
+        isExpanded: true,
+        placeholder: 'Choose',
         label: widget.label,
         description: widget.description,
-        child: DropdownButtonFormField<String>(
-          focusNode: _focus,
-          initialValue: _value,
-          isExpanded: true,
-          hint: const Text('Choose'),
-          items: [
-            for (final item in widget.items)
-              DropdownMenuItem(value: item, child: Text(item)),
-          ],
-          onChanged: (value) => setState(() => _value = value),
-        ),
+        entries: [
+          for (final item in widget.items)
+            DNativeSelectOption(value: item, label: item),
+        ],
+        onChanged: (value) => setState(() => _value = value),
       ),
-      if (widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
     ],
   );
 }
@@ -1319,39 +1259,24 @@ class _Selection extends StatefulWidget {
 }
 
 class _SelectionState extends State<_Selection> {
-  final _focus = FocusNode();
   String? _value;
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      DFieldControl(
+      DNativeSelect<String>.controlled(
+        value: _value,
+        initialValue: null,
+        isExpanded: true,
+        placeholder: 'Choose',
         label: widget.label,
         description: widget.description,
-        child: DropdownButtonFormField<String>(
-          focusNode: _focus,
-          initialValue: _value,
-          isExpanded: true,
-          hint: const Text('Choose'),
-          items: [
-            for (final item in widget.items)
-              DropdownMenuItem(value: item, child: Text(item)),
-          ],
-          onChanged: (value) => setState(() => _value = value),
-        ),
+        entries: [
+          for (final item in widget.items)
+            DNativeSelectOption(value: item, label: item),
+        ],
+        onChanged: (value) => setState(() => _value = value),
       ),
-      if (widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
     ],
   );
 }
@@ -1585,39 +1510,24 @@ class _Selection extends StatefulWidget {
 }
 
 class _SelectionState extends State<_Selection> {
-  final _focus = FocusNode();
   String? _value;
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      DFieldControl(
+      DNativeSelect<String>.controlled(
+        value: _value,
+        initialValue: null,
+        isExpanded: true,
+        placeholder: 'Choose',
         label: widget.label,
         description: widget.description,
-        child: DropdownButtonFormField<String>(
-          focusNode: _focus,
-          initialValue: _value,
-          isExpanded: true,
-          hint: const Text('Choose'),
-          items: [
-            for (final item in widget.items)
-              DropdownMenuItem(value: item, child: Text(item)),
-          ],
-          onChanged: (value) => setState(() => _value = value),
-        ),
+        entries: [
+          for (final item in widget.items)
+            DNativeSelectOption(value: item, label: item),
+        ],
+        onChanged: (value) => setState(() => _value = value),
       ),
-      if (widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
     ],
   );
 }
@@ -1953,39 +1863,24 @@ class _Selection extends StatefulWidget {
 }
 
 class _SelectionState extends State<_Selection> {
-  final _focus = FocusNode();
   String? _value;
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      DFieldControl(
+      DNativeSelect<String>.controlled(
+        value: _value,
+        initialValue: null,
+        isExpanded: true,
+        placeholder: 'Choose',
         label: widget.label,
         description: widget.description,
-        child: DropdownButtonFormField<String>(
-          focusNode: _focus,
-          initialValue: _value,
-          isExpanded: true,
-          hint: const Text('Choose'),
-          items: [
-            for (final item in widget.items)
-              DropdownMenuItem(value: item, child: Text(item)),
-          ],
-          onChanged: (value) => setState(() => _value = value),
-        ),
+        entries: [
+          for (final item in widget.items)
+            DNativeSelectOption(value: item, label: item),
+        ],
+        onChanged: (value) => setState(() => _value = value),
       ),
-      if (widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
     ],
   );
 }
@@ -2238,39 +2133,24 @@ class _Selection extends StatefulWidget {
 }
 
 class _SelectionState extends State<_Selection> {
-  final _focus = FocusNode();
   String? _value;
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      DFieldControl(
+      DNativeSelect<String>.controlled(
+        value: _value,
+        initialValue: null,
+        isExpanded: true,
+        placeholder: 'Choose',
         label: widget.label,
         description: widget.description,
-        child: DropdownButtonFormField<String>(
-          focusNode: _focus,
-          initialValue: _value,
-          isExpanded: true,
-          hint: const Text('Choose'),
-          items: [
-            for (final item in widget.items)
-              DropdownMenuItem(value: item, child: Text(item)),
-          ],
-          onChanged: (value) => setState(() => _value = value),
-        ),
+        entries: [
+          for (final item in widget.items)
+            DNativeSelectOption(value: item, label: item),
+        ],
+        onChanged: (value) => setState(() => _value = value),
       ),
-      if (widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
     ],
   );
 }
@@ -2591,39 +2471,24 @@ class _Selection extends StatefulWidget {
 }
 
 class _SelectionState extends State<_Selection> {
-  final _focus = FocusNode();
   String? _value;
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      DFieldControl(
+      DNativeSelect<String>.controlled(
+        value: _value,
+        initialValue: null,
+        isExpanded: true,
+        placeholder: 'Choose',
         label: widget.label,
         description: widget.description,
-        child: DropdownButtonFormField<String>(
-          focusNode: _focus,
-          initialValue: _value,
-          isExpanded: true,
-          hint: const Text('Choose'),
-          items: [
-            for (final item in widget.items)
-              DropdownMenuItem(value: item, child: Text(item)),
-          ],
-          onChanged: (value) => setState(() => _value = value),
-        ),
+        entries: [
+          for (final item in widget.items)
+            DNativeSelectOption(value: item, label: item),
+        ],
+        onChanged: (value) => setState(() => _value = value),
       ),
-      if (widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
     ],
   );
 }

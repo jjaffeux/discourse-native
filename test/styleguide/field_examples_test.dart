@@ -151,6 +151,27 @@ void main() {
     expect(find.byType(RangeSlider), findsNothing);
   });
 
+  testWidgets('merged Native Select keeps selection and metadata ownership', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(const FieldEditorsExample()));
+    final select = find.byType(DNativeSelect<String>);
+    expect(select, findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    var widget = tester.widget<DNativeSelect<String>>(select);
+    expect(widget.label, 'Department');
+    expect(widget.description, 'Select your department or area of work.');
+    expect(widget.value, isNull);
+
+    await tester.tap(select);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Marketing').last);
+    await tester.pumpAndSettle();
+
+    widget = tester.widget<DNativeSelect<String>>(select);
+    expect(widget.value, 'Marketing');
+  });
+
   testWidgets(
     'merged Radio choice label focuses its item and arrows preserve group ownership',
     (tester) async {
