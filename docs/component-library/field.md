@@ -191,7 +191,7 @@ credentials, real network transport or voice session are required. The fixture
 provides light/dark, RTL and 100/200% controls. It has not been launched while the
 Mac is locked; no device or VoiceOver outcome is inferred from widget tests.
 
-## Final source verification
+## Original branch verification (before pinned integration)
 
 Source commit: `5aa4e377b7399a22dca17263ec62dae20c290090`.
 
@@ -210,3 +210,22 @@ Source commit: `5aa4e377b7399a22dca17263ec62dae20c290090`.
 Exact temporary build identity, source equality, original/copied kernel SHA256
 and deep strict signature evidence are recorded in [field-build.json](field-build.json).
 The fixture was never launched. Native/reference review remains **awaiting_slot**.
+
+## Integration fixture readiness
+
+Source `e298291e7c85ce47d24049004504c84208d3d07f`; merge of pinned main `6c31531c`.
+Root/full analysis and touched formatting pass. The 21 Field/example tests
+(seed `2279137221`), 22 Preferences tests and two affected Voice editor tests
+pass. Exact commands and logs are in the Field progress row.
+
+Current artifact: `/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-integration-ready-e298-vo08i7cv/Field Integration E298.app`.
+Bundle `org.discourse.field.e298`; scheme `discourse-field-e298`.
+2,869 tracked source entries match the source Git blobs; four temporary runner
+files supply the unique identity and ad-hoc debug signing. All pins unchanged.
+Original/copied kernel SHA256 `82cce279152dbbe67c9cbef442a44e91801c42676bd71e1108d19d8d5d62fd09`.
+Deep strict signature verification passes. Explicit entitlement read-back equals
+the seven-key whitelist in field-build.json; no restricted APS/developer/team/
+application identifiers or embedded profile remain. Production signing is unchanged.
+
+This artifact supersedes the original fixture record. Status stays
+`in_progress / awaiting_slot`; no browser or native access was attempted.

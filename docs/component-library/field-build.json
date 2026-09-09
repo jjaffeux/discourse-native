@@ -1,36 +1,50 @@
 {
-  "sourceCommit": "5aa4e377b7399a22dca17263ec62dae20c290090",
-  "buildCheckout": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/discourse-field-review-pwz3brs9",
-  "originalBundle": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/discourse-field-review-pwz3brs9/build/macos/Build/Products/Debug/Field Review.app",
-  "copiedBundle": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-ready-5aa4e377-7yhdcp9f/Field Review.app",
-  "bundleIdentifier": "org.discourse.field.review",
+  "sourceCommit": "e298291e7c85ce47d24049004504c84208d3d07f",
+  "pinnedMain": "e612ad7b47413fa890b35ae3b55a6f6d37b08cf7",
+  "integrationMerge": "6c31531c",
+  "buildCheckout": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-integration-e298-jlnkpbjq",
+  "originalBundle": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-integration-e298-jlnkpbjq/build/macos/Build/Products/Debug/Field Integration E298.app",
+  "copiedBundle": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-integration-ready-e298-vo08i7cv/Field Integration E298.app",
+  "bundleIdentifier": "org.discourse.field.e298",
   "urlSchemes": [
-    "discourse-field-review"
+    "discourse-field-e298"
   ],
-  "executable": "Field Review",
+  "executable": "Field Integration E298",
   "buildCommand": "flutter build macos --debug --no-pub -t tool/field_review_main.dart",
-  "buildLog": "/tmp/field-native-final-build.log",
+  "buildLog": "/tmp/field-integration-native-build.log",
   "sourceEquality": {
-    "matchingTrackedFiles": 2367,
-    "comparedTrackedFiles": 2371,
+    "matchingTrackedFiles": 2869,
+    "comparedTrackedFiles": 2873,
     "exceptions": [
       "macos/Runner.xcodeproj/project.pbxproj",
       "macos/Runner/Configs/AppInfo.xcconfig",
-      "macos/Runner/Info.plist",
-      "macos/Runner/DebugProfile.entitlements"
+      "macos/Runner/DebugProfile.entitlements",
+      "macos/Runner/Info.plist"
     ],
-    "exceptionReason": "Temporary native runner app name, bundle ID/Debug override, URL scheme, local ad-hoc signing and removal of unused push entitlement only; all Dart/native dependencies and pins otherwise byte-equal to the source commit Git blobs. Symlink targets also compared."
+    "exceptionReason": "Only temporary runner identity and ad-hoc signing configuration/entitlements differ from exact source Git blobs; all other tracked source and symlink targets match.",
+    "dartManifestSHA256": "7f608fa2a941a9e5d29ade1ddb36962fbc34100d59debc077a3485e516114c37"
   },
   "kernelRelativePath": "Contents/Frameworks/App.framework/Resources/flutter_assets/kernel_blob.bin",
-  "originalKernelSHA256": "d6ef9893a7290ce61a299edf769a5ddb11dca5de802b631aebb590e0a7e419c7",
-  "copiedKernelSHA256": "d6ef9893a7290ce61a299edf769a5ddb11dca5de802b631aebb590e0a7e419c7",
-  "signatureVerification": "codesign --verify --deep --strict --verbose=2: passed; valid on disk; satisfies its Designated Requirement. /tmp/field-signature-final.log",
-  "signingAdaptation": "Initial copied root signature reported modified Contents/Resources/Credits.rtf (build-generated About stamp). Nested frameworks verified. Final build uses unique Debug bundle ID and ad-hoc signing, without Apple provisioning. The temporary Debug entitlement omits unused APS capability; production entitlements are untouched. Re-signed only copied root ad hoc preserving entitlements, flags and runtime; kernel unchanged. /tmp/field-signature-before.log",
+  "originalKernelSHA256": "82cce279152dbbe67c9cbef442a44e91801c42676bd71e1108d19d8d5d62fd09",
+  "copiedKernelSHA256": "82cce279152dbbe67c9cbef442a44e91801c42676bd71e1108d19d8d5d62fd09",
+  "signatureVerification": "codesign --verify --deep --strict --verbose=2 passed; /tmp/field-integration-signature.log",
+  "signingIdentity": "Signature=adhoc; TeamIdentifier=not set; no embedded provisioning profile; /tmp/field-integration-signing-identity.log",
+  "signedEntitlements": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.device.audio-input": true,
+    "com.apple.security.device.camera": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "entitlementReadback": "codesign -d --entitlements :- read-back exactly equals explicit review plist; no APS, com.apple.developer.*, team/application identifiers. /tmp/field-integration-entitlements.plist",
+  "signingAdaptation": "Temporary runner uses manual ad-hoc signing with explicit unrestricted entitlement whitelist. Copied root explicitly re-signed after build-generated Credits.rtf. Production signing/entitlements/provisioning unchanged.",
   "pins": {
     ".fvmrc": "e786cee62ee9a4ba93d72741ae82e7e5ba6df4099c1b524118f594431ce9f90e",
     "pubspec.lock": "0578c0af15fb2492ebfa24bddd7e17b3e51b11a8f81a398ca51d478672815ea2",
     "packages/discourse_voice/pubspec.lock": "a453128993e78a192954bd5fa48dc4a02731b87612b9562f836353349b20b4b9",
     "profiles/full/pubspec.lock": "c1b711d05ed2d13c2da85b0962fe872a5a172866a1adcd7ee8805eb98fd779f0"
   },
-  "inspectionStatus": "awaiting_slot; not launched; reference-rendered comparison/native inspection pending"
+  "inspectionStatus": "awaiting_slot; no CUA/browser/native access. Mac locked and coordinator-reported browser admin-policy blocker were not retried or bypassed."
 }
