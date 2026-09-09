@@ -5,6 +5,7 @@ import 'examples/aspect_ratio_examples.dart';
 import 'examples/attachment_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
+import 'examples/breadcrumb_examples.dart';
 import 'examples/bubble_examples.dart';
 import 'examples/button_examples.dart';
 import 'examples/calendar_examples.dart';
@@ -87,6 +88,7 @@ final componentExamples = <String, ComponentExamples>{
   'avatar': avatarExamples,
   'badge': badgeExamples,
   'bubble': bubbleExamples,
+  'breadcrumb': breadcrumbExamples,
   'direction': directionExamples,
   'dialog': dialogExamples,
   'dropdown-menu': dropdownMenuExamples,
