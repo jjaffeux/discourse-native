@@ -1772,6 +1772,28 @@ Status: in_progress. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/u
 
 - Collapsible is accepted and merged as 985b4efd; its corrected native trigger semantics boundary must be preserved. Card and other shared foundations are also merged.
 - Existing Events/Local Dates standalone disclosures retain the merged Collapsible owner unless a real grouped accordion use case justifies migration.
+- Frozen Markdown hash, current registry hash, exact measurements, API mapping and acceptance are recorded in docs/component-library/accordion-reference.md.
+- DAccordion<T>, DAccordionItem<T>, DAccordionHeader, DAccordionTrigger, DAccordionContent and DAccordionController<T> expose typed single/multiple composition with controlled, internally owned or explicitly borrowed state.
+- Items key their root wrappers so reorder preserves expansion and descendant identity; local/controller state prunes removed values after the frame while controlled values remain caller-owned.
+- Accordion composes DCollapsible for activation, expanded semantics, focus restoration, panel lifecycle and reduced motion. A narrow optional Collapsible focus-painter extension supplies the base-nova rounded one-pixel border and outside-only three-pixel 50% ring without changing existing defaults.
+
+**retainedAlternatives**
+
+- Event Composer and Local Dates advanced options remain independent accepted DCollapsible disclosures; coordinating them as Accordion items would invent group semantics.
+- Prometheus raw payload remains one independent DCollapsible disclosure. Browser tabs, topic/user filters, settings navigation and nested routes retain their navigation/domain owners because Accordion would change routing, persistence or disclosure behavior.
+
+**verification**
+
+- Frozen shadcn Markdown SHA256 reproduced exactly as ccd53e3cb2e6d1cd1cc72588b853fdc8aefe08aab3d5cb515d28dfe09dcf149f; current base-nova registry inspected as 01509cb2a91779ee74c2d4a1f75842c0a258bed1758be4f2567af9daabdc39ac and current Base UI behavior API inspected.
+- 50 Accordion, Collapsible, styleguide, Alert-overlap and styleguide-shell tests passed with random seed 417203 after integration, covering single/multiple/controlled/controller state, dynamic reorder/removal, pointer, Enter/Space, Tab, disabled state, bounded heading/expanded semantics, independent fields, focus restoration, retention, geometry, touch, RTL, 200% text, live tokens and reduced motion.
+- After integrating Empty through main b1720522, 46 Accordion, Collapsible, Accordion styleguide and styleguide-page tests passed again with random seed 417203; root and profiles/full analysis remained clean.
+- Root and profiles/full flutter analyze --no-pub pass with no issues after latest-main integration; Dart formatting and git diff --check pass and dependency pins/lockfiles are unchanged.
+- flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed from integrated source. The compiled kernel SHA256 is d79bdf1ebd81dd8fe4a3cce15e8791ae86a01036738ac4ba4a386d0343ae8fed.
+
+**limitations**
+
+- Implementation task did not launch or inspect the macOS bundle and makes no native render, browser comparison, VoiceOver, iOS or Linux device claim. The independent reviewer owns official rendered/native comparison and any resulting fixes under the shared desktop lease.
+- Browser hidden-until-found has no native equivalent; hosts reveal search matches using controlled values or DAccordionController.
 
 ### tabs
 
