@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**56 of 64 components are merged locally.** 8 existing components are in progress; 0 are planned.
+**57 of 64 components are merged locally.** 7 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -20,7 +20,6 @@ Branch preparation does not mark a component merged or visually verified.
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | independent review | 10b63f75 | 01a08628-7042-7173-a37d-7f1f04eade66 |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
-| breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
@@ -76,7 +75,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 45 | context-menu | in_progress | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | — |
 | 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
-| 48 | breadcrumb | review_ready | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
+| 48 | breadcrumb | merged | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | a1e23695ccd80b2a48e74fd8a92c3823fb528dac |
 | 49 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
 | 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
 | 51 | date-picker | merged | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | 593bcc83a943ceafdf5d73804b4c8171fabaace9 |
@@ -2689,7 +2688,7 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 
 ### breadcrumb
 
-Status: review_ready. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/ui-breadcrumb.
+Status: merged. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/ui-breadcrumb.
 
 **acceptanceCriteria**
 
@@ -2725,6 +2724,7 @@ Status: review_ready. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/
 - After accepted Dropdown reconciliation, the same 48 affected tests and both production topic-row regressions passed with seed826145; root and profiles/full analysis remained clean. Final accepted-source macOS bundle /private/tmp/breadcrumb-final.7BTZ0L/Breadcrumb Final ebcec.app built and passed deep/strict ad-hoc signing with restricted developer entitlements omitted; kernel SHA256 60dfdb795ece4294d03de84c3d49eb29c3029862848677e19cf1cae05ff4795b.
 - After current-main integration, 47 of 48 combined Breadcrumb/Dropdown/styleguide checks passed; the sole failure was current main's Combobox row ordering. Its owner corrected that ledger in 892e1a97, and the exact catalogue check passed on reconciled Breadcrumb candidate 12b4b531. Both production topic-row regressions and root/full-profile analysis also passed; relevant Breadcrumb/Dropdown/Popover/topic-row source did not change during the ledger reconciliation.
 - Final native pass on 2026-09-09 at 16:37–16:39 UTC used the recorded accepted-source bundle. Dropdown remained open and repainted from Light to Dark, retained arrow navigation, and restored the visible trigger focus ring on Escape. Collapsed remained open and repainted from Dark to Light; End/Return selected GitHub, updated the local result and restored More pages focus. The app was quit through its native menu, absent from global CUA inventory, and the desktop lease was released.
+- Final candidate 2aa226bd starts from main b4e69861 and preserves every other component/progress field. Relevant Breadcrumb, Dropdown, Popover, Button, theme, fixture and topic-row source is unchanged from tested candidate 12b4b531; the full catalogue-order check passed again. The repository's main checkout accepted the branch with --no-ff as a1e23695ccd80b2a48e74fd8a92c3823fb528dac under the main lease.
 
 **limitations**
 
