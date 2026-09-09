@@ -2415,7 +2415,7 @@
     },
     {
       "id": "input-group",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a085af-d606-7281-ac25-34c83adc855e",
       "branch": "codex/ui-input-group",
       "dependencies": [
@@ -2462,7 +2462,7 @@
         "No automated pixel-diff baseline was produced; geometry and state comparisons were inspected against the frozen official browser reference."
       ],
       "implementationCommit": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
-      "mergeCommit": null,
+      "mergeCommit": "d1de717b1e2d1eeaf06d86dafe1452662d05e368",
       "preparedDependencies": [
         {
           "id": "textarea",
@@ -2476,9 +2476,10 @@
       ],
       "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
       "reviewBranch": "codex/review-input-group",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/478c/discourse-native",
       "reviewHandoffCommit": "bc39e7f4ffab614dad82b13f6b5ad749869fc6fa",
+      "reviewedBranchHead": "1be0f0c50ed93127b04b46170ee3edf03bdb30fb",
       "nativeInspectionStatus": "passed",
       "dependencyCoordination": [
         "Button Group reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 owns replacing only its labeled local Input Group handoff fixture with public DInputGroup after this merge, preserving its complete example surface.",
