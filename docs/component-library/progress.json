@@ -756,14 +756,16 @@
       "acceptanceCriteria": [
         "Reproduce base-nova 16px radio and focus/invalid/disabled states with live tokens.",
         "Controlled and initial selection, native roving arrows/Space, RTL, item labels/descriptions/cards and Form validation/reset.",
-        "Migrate real single-choice controls preserving domain callbacks; focused tests and isolated macOS fixture build; native comparison pending slot."
+        "Migrate real single-choice controls preserving domain callbacks; focused tests and isolated macOS fixture build; native comparison pending slot.",
+        "ReadOnly group/item inheritance and overrides preserve focus/navigation while blocking all selection channels; required semantics pair with caller Form validation."
       ],
       "decisions": [
         "Label is merged; Field is not an implementation dependency: expose label/description slots, do not implement DField.",
         "Button baseline is used for examples; concurrent Checkbox/Input/Button ownership preserved.",
         "DRadioGroup uses native RawRadio/RadioGroup focus owners and FormField; controlled rejection/reset preserves the accepted form value.",
         "Source metrics, hashes, native hit-target adaptation and API contract documented in docs/component-library/radio-group.md.",
-        "Poll explicitly opts into toggleable items to preserve withdrawal; normal radio groups do not deselect."
+        "Poll explicitly opts into toggleable items to preserve withdrawal; normal radio groups do not deselect.",
+        "Current Base UI Radio API captured; readOnly guards native selection callbacks, required flags announce semantics while caller Form validator enforces requirements and localization."
       ],
       "migrations": [
         "lib/src/shell/topic_move_posts.dart destination radios",
@@ -781,13 +783,15 @@
         "Local production review fixture search/select check passes for owner and move dialogs.",
         "Root and full-profile locked pub get passed without lockfile changes; root and full static analysis clean.",
         "Final committed-source macOS fixture build passed at 767e3d49b9d0c2807b42a28a19bafc9f2483d5b8; isolated bundle /private/tmp/discourse-radio-review-35591zqt/Radio Group Review.app; kernel SHA256 623a8ae4684b35c11408691b1c4d3eb88858123527091811845a267ef0bf6cda; source equality (725 files), matching kernels and deep strict ad-hoc signature verified. See docs/component-library/radio-group.md.",
-        "Final Poll semantics-wrapper refinement and production fixture passed 35 tests with seed 9092026; final root/full static analysis clean. No native app launched."
+        "Final Poll semantics-wrapper refinement and production fixture passed 35 tests with seed 9092026; final root/full static analysis clean. No native app launched.",
+        "ReadOnly/required follow-up: 162 focused component, migration, ownership, keyboard, Chat and fixture tests pass seed 9092026. Final 15 component tests also pass after semantic-action binding cleanup and extra keyboard override coverage. Root/full analyses clean.",
+        "ReadOnly replacement bundle /private/tmp/discourse-radio-readonly-review-l6gbqvk1/Radio Group Readonly Review.app built from 88400eed4c5d4c2215b2df534e7b419c0258b9b1; kernel c8399e45e0d59311d1bcebfc6fbef08400b7d3e29fab55ad1d36f95ef5416af9, 725 source files equal commit, matching copied kernel and deep strict ad-hoc signature verified. No native launch; awaiting_slot."
       ],
       "limitations": [
         "Native desktop is locked; no CUA or native/browser inspection performed. All native visual comparison remains awaiting_slot.",
         "No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review."
       ],
-      "implementationCommit": "767e3d49b9d0c2807b42a28a19bafc9f2483d5b8",
+      "implementationCommit": "88400eed4c5d4c2215b2df534e7b419c0258b9b1",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },
@@ -2153,14 +2157,6 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native"
         },
         {
-          "component": "radio-group",
-          "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
-          "branch": "codex/ui-radio-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5b3e/discourse-native",
-          "headCommit": "796d303d4586ef1e36ea1b9aa1a30a151c9e4548",
-          "status": "source_api_review"
-        },
-        {
           "component": "badge",
           "taskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
           "branch": "codex/ui-badge",
@@ -2174,6 +2170,14 @@
           "branch": "codex/ui-native-select",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/89bf/discourse-native",
           "baseCommit": "f979ad1e1b0e659cf40d3e5d9d44ded92556e392"
+        },
+        {
+          "component": "scroll-area",
+          "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
+          "branch": "codex/ui-scroll-area",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
+          "headCommit": "0372b16053c4ff09b1189f298b82da268aecde6a",
+          "status": "keyboard_focus_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2210,14 +2214,6 @@
           "status": "awaiting_native_review"
         },
         {
-          "component": "scroll-area",
-          "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
-          "branch": "codex/ui-scroll-area",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
-          "headCommit": "0372b16053c4ff09b1189f298b82da268aecde6a",
-          "status": "awaiting_native_review"
-        },
-        {
           "component": "button",
           "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
           "branch": "codex/ui-button",
@@ -2232,6 +2228,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native",
           "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f",
           "headCommit": "a6b58ac8d0ea176e4e225449e14713c6761002d3",
+          "status": "awaiting_native_review"
+        },
+        {
+          "component": "radio-group",
+          "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+          "branch": "codex/ui-radio-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5b3e/discourse-native",
+          "headCommit": "6ed00d067dd074946f7f03c069aff6363fc42479",
           "status": "awaiting_native_review"
         }
       ]
@@ -2257,7 +2261,7 @@
       "radio-group": {
         "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
         "issue": "Implement referenced Base UI readOnly on group/items, preserving focus and preventing pointer/keyboard/semantic changes; add required semantics if appropriate. RadioGroup API is at https://base-ui.com/react/components/radio (old radio-group URL now fails).",
-        "status": "in_progress"
+        "status": "resolved_awaiting_native_review"
       },
       "slider": {
         "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
@@ -2272,6 +2276,11 @@
       "scroll-area": {
         "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
         "issue": "The captured Base UI viewport excludes a non-overflowing area from Tab order (tabIndex -1 when hiddenState.x && hiddenState.y); DScrollArea always creates an enabled focus stop. Match conditional root focus while preserving descendant controls and focus/scroll behavior as overflow changes. Also audit Shift+Space paging and unrelated modified-key handling.",
+        "status": "in_progress"
+      },
+      "button": {
+        "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+        "issue": "Small/extra-small rounded-md uses radius\u00d7.8, not radius-minus-2; verify exact registry classes and preserve host custom-radius scale. Live proportional theme mapping independently confirmed during Badge browser review.",
         "status": "queued_for_free_execution_slot"
       }
     }
@@ -2374,6 +2383,14 @@
         "Native title editing, save failure/cancellation and final styleguide scrollbar still await Mac unlock."
       ],
       "reviewDocument": "docs/component-library/title-tooltip-follow-up.md",
+      "mergeCommit": null
+    },
+    "sidebarFloatingRadius": {
+      "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+      "branch": "codex/component-fidelity-follow-up",
+      "status": "in_progress",
+      "reason": "The captured Sidebar floating class is rounded-lg, which maps to the base radius; the prior implementation used \u00d71.2. Correct paint and border to the actual theme scale.",
+      "implementationCommit": null,
       "mergeCommit": null
     }
   }

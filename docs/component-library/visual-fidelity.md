@@ -34,6 +34,13 @@ and explicit component leading/weights/tracking. A generic Material text role
 must not silently change the specified metrics. The inherited native text
 scaler remains the sole owner of accessibility/app zoom.
 
+The official [theme radius scale](https://ui.shadcn.com/docs/theming#radius-scale)
+is proportional to the host's base radius: `sm` ×0.6, `md` ×0.8, `lg` ×1,
+`xl` ×1.4, `2xl` ×1.8, `3xl` ×2.2 and `4xl` ×2.6. Match the registry's
+actual rounded class. A fixed Tailwind fallback or additive offset can agree
+at the reference's 10px base and still be wrong for an app palette. The Badge
+browser review confirmed these factors in the live stylesheet on 2026-09-09.
+
 Use proven Flutter focus, semantics, keyboard, scrolling, selection and overlay
 owners. Style their visuals to match shadcn. Platform-specific spinner artwork,
 Material field outlines, or native switch shapes are not automatic substitutes
