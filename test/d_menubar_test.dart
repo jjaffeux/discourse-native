@@ -1,6 +1,7 @@
 import 'dart:ui' show CheckedState, PointerDeviceKind, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +27,19 @@ void main() {
           .isExpanded,
       Tristate.isTrue,
     );
+  });
+
+  testWidgets('retains accessible touch trigger bounds on iOS', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      await tester.pumpWidget(const _TestApp(child: _BasicMenubar()));
+
+      final triggerSize = tester.getSize(find.byType(DMenubarTrigger).first);
+      expect(triggerSize.width, greaterThanOrEqualTo(DSpacing.touchTarget));
+      expect(triggerSize.height, greaterThanOrEqualTo(DSpacing.touchTarget));
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets('arrows rove triggers and switch an open menu', (tester) async {

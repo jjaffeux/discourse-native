@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -448,6 +449,7 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
       builder: (context, trigger) {
         final active =
             enabled && (_hovered || _pressed || _focused || trigger.open);
+        final mobile = defaultTargetPlatform == TargetPlatform.iOS;
         final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
           color: tokens.foreground,
           fontSize: DiscourseTypography.sm,
@@ -502,7 +504,10 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                       : null,
                   child: AnimatedContainer(
                     duration: DMotion.duration(context, DMotion.exit),
-                    constraints: const BoxConstraints(minHeight: 24),
+                    constraints: BoxConstraints(
+                      minWidth: mobile ? DSpacing.touchTarget : 0,
+                      minHeight: mobile ? DSpacing.touchTarget : 24,
+                    ),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
                       vertical: 2,
