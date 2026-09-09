@@ -697,7 +697,6 @@ class DResizableHandle extends StatefulWidget {
     super.key,
     this.withHandle = false,
     this.disabled = false,
-    this.hitExtent = 24,
     this.semanticLabel = 'Resize panel',
     this.focusNode,
     this.orientation = Axis.horizontal,
@@ -721,7 +720,7 @@ class DResizableHandle extends StatefulWidget {
     this.gestureKey,
     this.dividerKey,
     this.valueFormatter,
-  }) : assert(hitExtent > 0),
+  }) : hitExtent = 24,
        assert(keyboardStep > 0),
        assert(min <= max);
   final bool withHandle, disabled, reverse, disableDoubleClick;
