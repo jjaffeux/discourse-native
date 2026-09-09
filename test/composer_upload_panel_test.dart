@@ -487,7 +487,7 @@ void main() {
 
       expect(find.text('Write a reply…'), findsNothing);
       expect(find.text('photo.png'), findsOneWidget);
-      expect(find.text('37%'), findsOneWidget);
+      expect(find.text('Uploading · 37%'), findsOneWidget);
       expect(find.byTooltip('Cancel upload'), findsOneWidget);
       calls.single.result.completeError(
         const ComposerUploadException('The image is too large.'),
@@ -501,7 +501,7 @@ void main() {
       await tester.tap(find.byTooltip('Retry upload'));
       await tester.pump();
       expect(calls, hasLength(2));
-      expect(find.text('0%'), findsOneWidget);
+      expect(find.text('Retrying · 0%'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Cancel upload'));
       await tester.pump();

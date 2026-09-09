@@ -3464,18 +3464,44 @@
         "spinner"
       ],
       "acceptanceCriteria": [
-        "Reproduce the frozen Attachment, Media, Content, Title, Description, Actions, Action, Trigger and Group APIs and full Image, States, Sizes, Group and Trigger examples with recorded primary-source mapping.",
-        "Support actual interaction, keyboard focus, native semantics, grouped scrolling, narrow/scaled/RTL layouts, reduced motion and live host theme/font/radius while keeping upload/network/domain ownership in app adapters.",
-        "Audit and adopt throughout appropriate core/plugin file/upload/image previews including composers and Chat; preserve existing media state, async lifecycle and callbacks and record retained alternatives.",
-        "Run meaningful focused component/consumer checks and root/full analysis, prepare exact-source fixtures and create a new reviewer for remaining rendered/native acceptance, final compositions, fixes and local main merge."
+        "Match frozen base-nova Attachment anatomy, five lifecycle states, icon/image media, default/sm/xs geometry, horizontal/vertical orientation, live host palette/font/radius and documented compositions.",
+        "Keep full-card trigger and icon actions independently pointer/keyboard accessible with labeled semantics, visible outside focus, disabled/loading treatment, compact desktop artwork and 48px touch targets.",
+        "Provide owned/borrowed scroll and focus lifecycle, pointer/touch/trackpad drag, item snapping, edge fade, focused-child visibility and labeled presentational keyboard scrolling; support RTL, reduced motion, large text and narrow constraints.",
+        "Migrate suitable composer upload lifecycle rows and chat file attachments without moving domain/network/async ownership; retain specialized image, video, gallery, editor and picker owners with specific reasons.",
+        "Provide exhaustive interactive styleguide examples and exact-source local-data production fixture; pass focused component/consumer/styleguide tests plus root and profiles/full analysis before independent reviewer handoff."
       ],
       "decisions": [
-        "Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory."
+        "Frozen Markdown hash and complete base-nova registry source verified; exact geometry, tokens, states, API mapping and native adaptations are recorded in docs/component-library/attachment.md.",
+        "One public D-prefixed composition with caller-owned file/network state. DMarkerContent supplies the accepted shared shimmer; DButton and DScrollArea supply actions and scrolling.",
+        "Dialog is accepted on local main at merge 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3; the latest-main candidate reconciles that source and passes the affected trigger/dialog checks.",
+        "Independent review preserves the chat file link's 44px keyboard target, derives multi-action reserve from rendered button targets, and gives the full-card trigger explicit owned/borrowed focus lifecycle and semantics."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "migrations": [
+        "ComposerUploadQueue now composes DAttachment lifecycle rows while preserving controller progress/retry/cancel/remove/submission and thumbnail ownership.",
+        "ChatUploads non-media file cards now compose DAttachment with an independently labeled link trigger while preserving URL resolution and navigation ownership.",
+        "Seven interactive styleguide groups cover composition, images, states, sizes, groups, Dialog trigger and RTL/large-text/narrow behavior."
+      ],
+      "retainedAlternatives": [
+        "Chat authenticated images/lightbox and inline video retain specialized media owners for gallery, aspect ratio, playback, download and error behavior.",
+        "Composer projected images/galleries/editing controls, picker/drop triggers, Markdown document models and upload networking retain their selection, editing, transport and lifecycle owners; they are not compact attachment cards.",
+        "No other suitable core or bundled-plugin attachment card was found in the lib/src and packages audit."
+      ],
+      "verification": [
+        "Frozen 22,086-byte Markdown SHA256 47350990437e1b9c623684cbee001101962dcd7fb9328b162ef07adb03774175 verified; base-nova attachment registry SHA256 f6c6d376067d2734375a607256d59ce6c3ea4e486deda510b31844102033d353 inspected completely.",
+        "Flutter 3.47.2 dependencies resolved with flutter pub get --enforce-lockfile and no dependency/lockfile edits.",
+        "8 component interaction/lifecycle/responsive tests passed with seed 904733; 64 component/composer/chat migration tests passed with seed 904736; 2 exhaustive example tests passed with seed 904737.",
+        "After integrating accepted Native Select/current main 5a26e571, all 111 Attachment, production fixture, styleguide, Scroll Area, prepared Dialog and consumer regression tests passed with seed 904741; root and profiles/full flutter analyze --no-pub passed with no issues.",
+        "Exact source 259f038d macOS fixture build passed. Unlaunched unique copy /private/tmp/DiscourseAttachmentReview39d9-259f038d.app uses org.discourse.native.attachmentreview39d9.r259f038d and discourse-attachment-review-39d9; built/copied kernels SHA256 19235b03ef7b1892cbfd15e69e3816538c3689fca5d736c269b48231916c747a. Ad-hoc entitlement readback contains only JIT/unsigned-executable-memory/library-validation allowances and deep strict signature verification passed; evidence/attachment/build.json.",
+        "Independent review: all 104 Attachment, fixture, styleguide, Scroll Area, accepted Dialog, composer and chat regression tests passed with seed 904748; root and profiles/full flutter analyze --no-pub passed with no issues.",
+        "After current main adopted Dialog's shared overlay route, all 105 affected tests passed again with seed 904748 and both analysis targets remained clean. Candidate 4112df91 rebuilt with matching kernels SHA256 758b369c9ca18ff0eb3f6c7a865d7ee7a96827b4a1fb52ef58ade9041c9c5c6d; Attachment component, fixture and adoption behavior were unchanged, so the completed native pass remains valid under the review protocol.",
+        "Final macOS candidate c4806e82 built and launched as /private/tmp/DiscourseAttachmentFinalReviewa5fc-c4806e82.app with unique bundle ID org.discourse.native.attachmentfinalreviewa5fc.rc4806e82. Built/copied kernels agree at SHA256 ce11a5206bc72ea07de42da753b86839b79d4cfbd3fe30f916d990cfb734f299; restricted ad-hoc entitlement readback and deep strict verification passed.",
+        "Official rendered light/dark overview, image, lifecycle, size, group, trigger and accessibility sections were compared. Native macOS AX inspection exercised production lifecycle adapters, chat-link semantics, independent triggers/actions, theme/RTL/200%/reduced-motion/narrow modes, group pointer/trackpad/keyboard scrolling, focused-child visibility and Tab+Return activation; evidence/attachment/final-review-build.json."
+      ],
+      "limitations": [
+        "CUA screenshots displayed the macOS launch artwork instead of Flutter's live Metal layer while the AX tree and callbacks updated, so no native pixel-fidelity claim is made.",
+        "Space activation passed the focused Flutter widget test; native CUA AX activation did not establish keyboard focus, so no separate native Space claim is made.",
+        "No spoken VoiceOver, iOS, Linux, physical touch-device or pixel-equality claim is made."
+      ],
       "implementationCommit": "17f2d88f31adaf3748341745e423d37810f88419",
       "mergeCommit": null,
       "preparedDependencies": [
@@ -3491,7 +3517,7 @@
       ],
       "reviewTaskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
       "reviewBranch": "codex/review-attachment",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "accepted",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/a5fc/discourse-native",
       "reviewHandoffCommit": "7c465bd106296dd9a102af5e08aefbb04e09f265"
     },
