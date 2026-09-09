@@ -22,12 +22,12 @@ Upstream license is preserved in `reference/LICENSE.shadcn.md`.
 | `px-2.5 py-1`, one-pixel border | 10px horizontal padding inside the border; centered 20px desktop line with 5px vertical inner space at the 32px border-box height |
 | `rounded-lg` | host `DTokens.radius`, the library's mapped lg radius |
 | `text-base md:text-sm` | 14/20px on desktop, 16/24px on touch platforms; host font, weight 400, zero tracking |
-| `border-input bg-transparent` | token border, transparent light background |
-| `dark:bg-input/30` | token border at 30% opacity |
+| `border-input bg-transparent` | `DTokens.colors.outlineVariant`, transparent light background |
+| `dark:bg-input/30` | input token alpha multiplied by 0.3 |
 | `placeholder:text-muted-foreground` | live mutedForeground, same metrics as entered text |
 | `focus-visible:border-ring ring-3 ring-ring/50` | token focus border and 3px outward 50% ring; text fields show focus for pointer and keyboard entry |
-| disabled pointer blocking, `bg-input/50 opacity-50` | disabled native editing plus pointer exclusion, border-token fill at 50%, whole input opacity 50% |
-| dark disabled `bg-input/80` | 80% fill before outer disabled opacity |
+| disabled pointer blocking, `bg-input/50 opacity-50` | disabled native editing plus pointer exclusion, input-token alpha multiplied by 0.5, whole input opacity 50% |
+| dark disabled `bg-input/80` | input-token alpha multiplied by 0.8 before outer disabled opacity |
 | invalid destructive border, `ring-3 ring-destructive/20` | destructive border and persistent 3px/20% ring, error text and invalid semantics |
 | dark invalid border `/50`, ring `/40` | corresponding 50% border and 40% ring |
 | `transition-colors` | 150ms color decoration transition, zero when reduced motion is requested |
@@ -210,3 +210,67 @@ was refreshed after the refinements. Both source and isolated kernels now have
 SHA256 `400b22d515a8be38b71865ddbf53b4c56da175574bbc96ef0d4473b83e959506`.
 The unique identity/scheme and deep strict signature are verified again.
 This supersedes the earlier unlaunched bundle; it has still not been launched.
+
+
+## Source/render correction — input role, alpha and exterior rings
+
+Read the coordinator's latest main `visual-fidelity.md` for this bounded
+correction. Re-fetched the primary base-nova Input registry; its SHA256 remains
+`bbad1bba130ac9750a61844eeb8f043e8a710846e07689fa85398b80a46c2741`.
+The public source is unchanged; these corrections fix the Flutter mapping.
+
+- `border-input` and `bg-input` now use `DTokens.colors.outlineVariant`, which
+  can differ from `DTokens.border`. Every source opacity modifier multiplies
+  the token's existing alpha, including focus and destructive colors. A neutral
+  dark input token with alpha .15 becomes .045 for its enabled background.
+- A custom interpolating foreground decoration paints the 3px exterior annulus
+  with `Canvas.drawDRRect`. It does not paint behind the transparent/translucent
+  field interior. The existing 150ms/reduced-motion color transition is retained.
+- DFileInput has one 50% opacity owner around the surface and content. Its
+  background renderer does not add a second fade. The real DButton keeps a
+  null callback and disabled semantics; its existing theme `disabledOpacity`
+  override is set to 1 locally because the file field already owns fading.
+  Trigger and filename therefore receive the same effective half-opacity.
+- Mount-time TextFormField reset semantics are unchanged.
+
+### Flutter export and pixel evidence
+
+`test/d_input_render_test.dart` explicitly loads the repository's JetBrains Mono
+font with FontLoader; the exports are not Ahem-font fixtures. Eight exports in
+`evidence/input/correction/` show dark default/focused/invalid/disabled, light
+invalid, a custom translucent-blue input role distinct from the purple border
+role, and enabled/disabled file fields. They are 340×72 physical pixels at 1×,
+including 20px margins around the real 300×32 desktop component. The custom
+palette deliberately makes input, border, focus and destructive roles distinct.
+The font and image hashes are in `manifest.json` in that directory.
+
+The automated pixel checks establish, within 2 RGB levels of alpha compositing:
+
+- neutral dark fill equals white at `.15 × .3` over `#101010` (about `#1b1b1b`);
+- that interior color is unchanged in focused and invalid states;
+- focus and invalid color is present 2px outside the field and absent 4px out;
+- disabled dark fill includes `.15 × .8 × .5`;
+- custom input alpha and transparent light interiors remain correct;
+- opaque file-trigger and filename glyph cores both become approximately
+  RGB 136 over RGB 16 when disabled (tolerance 3), rather than compounding the
+  Button's prior additional fade. The trigger also retains disabled semantics
+  and cannot invoke the picker.
+
+Inspected the exported focused, custom-invalid and enabled/disabled file images
+locally. This is font-loaded Flutter rendering plus analytic source-color
+comparison, not a browser comparison or native desktop interaction. No CUA,
+browser/app launch, unlock workaround or real-app action was used.
+
+All 363 focused component, example and migrated-app tests pass with seed
+`928374611` after the correction. Root/full-profile analysis, formatting and
+`git diff --check` pass; the exact-source isolated macOS fixture rebuild passes.
+Logs: `/tmp/input-correction-focused.log`,
+`/tmp/input-correction-final-analysis.log`,
+`/tmp/input-correction-full-analysis.log`, `/tmp/input-correction-native-build.log`.
+
+Button's final merge still owns file-trigger enum/import reconciliation: this
+branch uses the actual baseline `DButtonSize.small` with zero padding and the
+explicit 14/20 medium label. The completed 24px API must be selected and its
+inherited-disabled-style override rechecked after that dependency merges.
+No other worktree's Button source or unmerged API was imported. Native inspection
+remains `awaiting_slot`; Input stays `in_progress`.

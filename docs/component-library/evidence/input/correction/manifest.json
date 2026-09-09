@@ -1,0 +1,23 @@
+{
+  "kind": "font-loaded Flutter widget exports; not native screenshots",
+  "referenceUrl": "https://ui.shadcn.com/r/styles/base-nova/input.json",
+  "referenceSha256": "bbad1bba130ac9750a61844eeb8f043e8a710846e07689fa85398b80a46c2741",
+  "font": "assets/fonts/JetBrainsMono-Regular.ttf",
+  "fontSha256": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f",
+  "inputSourceSha256": "4ac3bfb12598266c74eefa6fbfe736b28a2e90d22b87cd5f1fd630c99766168a",
+  "dimensions": [
+    340,
+    72
+  ],
+  "pixelRatio": 1,
+  "images": {
+    "custom-dark-invalid.png": "4e65db398310bad8fe5cc6549ad0d08cb4e641a789cf74dce6319dbd1f935048",
+    "dark-default.png": "e8a031980c3b84f9b206771849bf23c200cc423256ed5ace55fa8d8f504da9ea",
+    "dark-disabled.png": "2c1108d5d9f1704e771ff1c8e9550cb08034885d5ef6f3f021614e78dc81a440",
+    "dark-focused.png": "233f17e415ad78b4d473f086c6f03251b8b617a145bec06f95103f0690edcf0c",
+    "dark-invalid.png": "66cbafbc5d4737ae38581039507601d3bf312f8608a09bf8a6c7d94877a20519",
+    "file-disabled.png": "b980409ce4b3a583453520489a416738ad05f9c4315fb18d14c79bc714020b55",
+    "file-enabled.png": "191baf1e7f344c1587b77f42296b0ac14892ec5fbb0ae93aa745632456a0ad36",
+    "light-invalid.png": "05e758f72a004496b6cbda8209706cf81d56a1f63640d87db661c69f77ffe56c"
+  }
+}

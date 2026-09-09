@@ -361,24 +361,26 @@ class _InputSurface extends StatelessWidget {
     required this.invalid,
     required this.focused,
     this.verticalPadding = 5,
+    this.fadeDisabled = true,
   });
   final Widget child;
   final bool enabled, invalid, focused;
   final double verticalPadding;
+  final bool fadeDisabled;
   @override
   Widget build(BuildContext context) {
     final t = DTokens.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final border = invalid
-        ? t.destructive.withValues(alpha: dark ? .5 : 1)
+        ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .5 : 1))
         : focused
         ? t.focusRing
-        : t.border;
+        : t.colors.outlineVariant;
     final ring = invalid
-        ? t.destructive.withValues(alpha: dark ? .4 : .2)
-        : t.focusRing.withValues(alpha: .5);
+        ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .4 : .2))
+        : t.focusRing.withValues(alpha: t.focusRing.a * .5);
     return Opacity(
-      opacity: enabled ? 1 : .5,
+      opacity: enabled || !fadeDisabled ? 1 : .5,
       child: IgnorePointer(
         ignoring: !enabled,
         child: AnimatedContainer(
@@ -393,15 +395,20 @@ class _InputSurface extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: dark
-                ? t.border.withValues(alpha: enabled ? .3 : .8)
+                ? t.colors.outlineVariant.withValues(
+                    alpha: t.colors.outlineVariant.a * (enabled ? .3 : .8),
+                  )
                 : enabled
                 ? Colors.transparent
-                : t.border.withValues(alpha: .5),
+                : t.colors.outlineVariant.withValues(
+                    alpha: t.colors.outlineVariant.a * .5,
+                  ),
             borderRadius: BorderRadius.circular(t.radius),
             border: Border.all(color: border),
-            boxShadow: invalid || focused
-                ? [BoxShadow(color: ring, spreadRadius: 3)]
-                : null,
+          ),
+          foregroundDecoration: _InputRingDecoration(
+            color: invalid || focused ? ring : ring.withValues(alpha: 0),
+            radius: t.radius,
           ),
           child: IconTheme.merge(
             data: IconThemeData(size: 16, color: t.mutedForeground),
@@ -409,6 +416,49 @@ class _InputSurface extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Paint only the exterior annulus: a spread shadow would also tint the
+/// translucent input fill. Keeping a Decoration preserves color interpolation.
+class _InputRingDecoration extends Decoration {
+  const _InputRingDecoration({required this.color, required this.radius});
+  final Color color;
+  final double radius;
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _InputRingPainter(this);
+  @override
+  Decoration? lerpFrom(Decoration? a, double t) => a is _InputRingDecoration
+      ? _InputRingDecoration(
+          color: Color.lerp(a.color, color, t)!,
+          radius: a.radius + (radius - a.radius) * t,
+        )
+      : super.lerpFrom(a, t);
+  @override
+  Decoration? lerpTo(Decoration? b, double t) => b is _InputRingDecoration
+      ? _InputRingDecoration(
+          color: Color.lerp(color, b.color, t)!,
+          radius: radius + (b.radius - radius) * t,
+        )
+      : super.lerpTo(b, t);
+}
+
+class _InputRingPainter extends BoxPainter {
+  _InputRingPainter(this.decoration);
+  final _InputRingDecoration decoration;
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final rect = offset & configuration.size!;
+    final inner = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(decoration.radius),
+    );
+    canvas.drawDRRect(
+      inner.inflate(3),
+      inner,
+      Paint()..color = decoration.color,
     );
   }
 }
@@ -511,20 +561,21 @@ class _DFileInputState extends FormFieldState<List<String>> {
           skipTraversal: true,
           includeSemantics: false,
           onFocusChange: (focused) => setState(() => _focused = focused),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              _InputSurface(
-                enabled: input.enabled,
-                invalid: hasError || _pickerError != null,
-                focused: _focused,
-                verticalPadding: 3,
-                child: SizedBox(width: double.infinity, height: lineHeight),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 11),
-                child: Opacity(
-                  opacity: input.enabled ? 1 : .5,
+          child: Opacity(
+            opacity: input.enabled ? 1 : .5,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _InputSurface(
+                  enabled: input.enabled,
+                  fadeDisabled: false,
+                  invalid: hasError || _pickerError != null,
+                  focused: _focused,
+                  verticalPadding: 3,
+                  child: SizedBox(width: double.infinity, height: lineHeight),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 11),
                   child: Row(
                     children: [
                       Flexible(
@@ -532,16 +583,30 @@ class _DFileInputState extends FormFieldState<List<String>> {
                           constraints: BoxConstraints(
                             minHeight: touch ? DSpacing.touchTarget : 24,
                           ),
-                          child: DButton(
-                            onPressed: input.enabled && !_busy ? _pick : null,
-                            variant: DButtonVariant.transparent,
-                            size: DButtonSize.small,
-                            padding: EdgeInsets.zero,
-                            label: Text(
-                              _busy ? 'Choosing…' : input.label,
-                              maxLines: 1,
-                              style: style.copyWith(
-                                fontWeight: FontWeight.w500,
+                          // The field owns disabled opacity. Keep the actual
+                          // Button disabled, but neutralize its additional fade.
+                          child: Theme(
+                            data: Theme.of(context).copyWith(
+                              extensions: [
+                                ...Theme.of(context).extensions.values.where(
+                                  (value) => value is! DiscourseButtonTheme,
+                                ),
+                                Theme.of(
+                                  context,
+                                ).discourseButtons.copyWith(disabledOpacity: 1),
+                              ],
+                            ),
+                            child: DButton(
+                              onPressed: input.enabled && !_busy ? _pick : null,
+                              variant: DButtonVariant.transparent,
+                              size: DButtonSize.small,
+                              padding: EdgeInsets.zero,
+                              label: Text(
+                                _busy ? 'Choosing…' : input.label,
+                                maxLines: 1,
+                                style: style.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ),
@@ -561,8 +626,8 @@ class _DFileInputState extends FormFieldState<List<String>> {
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         if (errorText != null || _pickerError != null) ...[
