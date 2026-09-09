@@ -26,7 +26,7 @@ hover, press, focus, disabled and touch-target behavior.
 | `pl-*` plus matching negative track margin | logical/end or bottom `spacing`; default `16px`, with no trailing visual bleed outside the clipped viewport |
 | horizontal / vertical axis | `orientation: Axis.horizontal/vertical`, matching pointer paging and axis arrow keys |
 | `align: start` and centered snaps | `DCarouselAlignment.start/center`; unsupported Embla options are not exposed as inert values |
-| `loop` | real bounded pages with wraparound previous/next selection; controller enabled states stay true when more than one item exists |
+| `loop` | adjacent virtual snaps in both directions with logical public indices; controller enabled states stay true when more than one item exists |
 | `setApi`, select and scroll events | borrowed `DCarouselController`, `onSelected`, `onScrollStart`, `onScrollEnd`, and observable index/count/enabled/progress state |
 | autoplay plugin | `DCarouselAutoplay` with delay, play-on-init, stop-on-interaction, mouse-enter and focus behavior plus `play`, `stop`, and `reset` |
 | RTL direction option and flipped arrows | inherited `Directionality` controls page direction, logical control placement, key direction and chevron artwork |
@@ -38,7 +38,11 @@ by a caller is borrowed. `plugins` are borrowed and detached; `ownedPlugins`
 are detached and disposed by the carousel. Internally created controllers are
 owned and disposed by the carousel. Theme, text scale and size changes rebuild
 geometry without replacing selected logical state. Reduced motion converts
-animated selection to a jump and suppresses autoplay.
+animated selection to a jump and suppresses autoplay. Looping is backed by a
+high, item-count-aligned virtual page so previous, next, drag and autoplay cross
+either logical boundary by one physical snap rather than traversing intervening
+slides. The public controller continues to report finite logical indices and
+progress.
 
 The Flutter hit-test tree cannot activate a child painted beyond its parent's
 bounds. `navigationInsets` therefore reserves the same `48px` offset in the

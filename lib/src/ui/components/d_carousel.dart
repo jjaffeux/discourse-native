@@ -41,7 +41,12 @@ class DCarouselController extends ChangeNotifier {
   void _attach(_DCarouselContentState client, int count, bool loop) {
     assert(_client == null || identical(_client, client));
     _client = client;
-    _update(count: count, loop: loop, index: client._logicalIndex);
+    _update(
+      count: count,
+      loop: loop,
+      index: client._logicalIndex,
+      progress: client._progressFor(client._logicalIndex),
+    );
   }
 
   void _detach(_DCarouselContentState client) {
@@ -444,16 +449,29 @@ class DCarouselContent extends StatefulWidget {
 }
 
 class _DCarouselContentState extends State<DCarouselContent> {
+  static const _loopCyclesBeforeStart = 10000;
+
   PageController? _pageController;
   DCarouselController? _api;
   int _logicalIndex = 0;
+  int _pageIndex = 0;
+  bool _loopRequested = false;
   double? _fraction;
   bool _scrolling = false;
   bool _initialized = false;
 
   int get _count => widget.children.length;
-  int _realPage(int logical) => logical;
+  bool get _loops => _loopRequested && _count > 1;
+  int _initialPage(int logical) =>
+      _loops ? _count * _loopCyclesBeforeStart + logical : logical;
   int _logicalPage(int page) => _count == 0 ? 0 : page % _count;
+  double _progressFor(int logical) => _count < 2 ? 0 : logical / (_count - 1);
+  double _progressForPage(double page) {
+    if (_count < 2) return 0;
+    final logicalPage = page % _count;
+    return (logicalPage / (_count - 1)).clamp(0, 1);
+  }
+
   _DCarouselScope get _scope => _DCarouselScope.of(context);
 
   @override
@@ -465,8 +483,14 @@ class _DCarouselContentState extends State<DCarouselContent> {
       _api = scope.controller;
     }
     if (!_initialized) {
+      _loopRequested = scope.loop;
       _logicalIndex = _count == 0 ? 0 : scope.initialIndex.clamp(0, _count - 1);
+      _pageIndex = _initialPage(_logicalIndex);
       _initialized = true;
+    } else if (_loopRequested != scope.loop) {
+      _loopRequested = scope.loop;
+      _pageIndex = _initialPage(_logicalIndex);
+      _fraction = null;
     }
     _api!._attach(this, _count, scope.loop);
   }
@@ -474,12 +498,24 @@ class _DCarouselContentState extends State<DCarouselContent> {
   @override
   void didUpdateWidget(DCarouselContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final countChanged = oldWidget.children.length != _count;
     if (_count == 0) {
       _logicalIndex = 0;
     } else if (_logicalIndex >= _count) {
       _logicalIndex = _count - 1;
     }
-    _api?._update(count: _count, loop: _scope.loop, index: _logicalIndex);
+    if (countChanged) {
+      // A virtual loop page is a multiple of the item count. Re-anchor after a
+      // collection edit so modulo mapping cannot point at a different item.
+      _pageIndex = _initialPage(_logicalIndex);
+      _fraction = null;
+    }
+    _api?._update(
+      count: _count,
+      loop: _scope.loop,
+      index: _logicalIndex,
+      progress: _progressFor(_logicalIndex),
+    );
   }
 
   void _ensurePageController(double fraction) {
@@ -487,7 +523,7 @@ class _DCarouselContentState extends State<DCarouselContent> {
     final old = _pageController;
     _fraction = fraction;
     _pageController = PageController(
-      initialPage: _realPage(_logicalIndex),
+      initialPage: _pageIndex,
       viewportFraction: fraction,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) => old?.dispose());
@@ -495,26 +531,35 @@ class _DCarouselContentState extends State<DCarouselContent> {
 
   Future<void> _step(int delta, {required bool animated}) {
     if (_count < 2) return Future.value();
-    var target = _logicalIndex + delta;
-    if (_scope.loop) {
-      target %= _count;
-    } else {
-      target = target.clamp(0, _count - 1);
-    }
-    return _select(target, animated: animated);
+    if (_loops) return _selectPage(_pageIndex + delta, animated: animated);
+    final target = (_logicalIndex + delta).clamp(0, _count - 1);
+    return _selectPage(target, animated: animated);
   }
 
   Future<void> _select(int index, {required bool animated}) {
     if (_count == 0 || index < 0 || index >= _count) return Future.value();
+    if (!_loops) return _selectPage(index, animated: animated);
+
+    // Select the nearest occurrence of this logical item. Previous/next use
+    // [_step] so their direction remains explicit even in an even-sized loop.
+    var delta = index - _logicalIndex;
+    if (delta > _count / 2) {
+      delta -= _count;
+    } else if (delta < -_count / 2) {
+      delta += _count;
+    }
+    return _selectPage(_pageIndex + delta, animated: animated);
+  }
+
+  Future<void> _selectPage(int page, {required bool animated}) {
     final controller = _pageController;
     if (controller == null || !controller.hasClients) return Future.value();
-    final target = index;
     if (!animated || MediaQuery.disableAnimationsOf(context)) {
-      controller.jumpToPage(target);
+      controller.jumpToPage(page);
       return Future.value();
     }
     return controller.animateToPage(
-      target,
+      page,
       duration: DMotion.change,
       curve: Curves.easeOutCubic,
     );
@@ -527,8 +572,12 @@ class _DCarouselContentState extends State<DCarouselContent> {
       _scope.onScrollStart?.call();
     } else if (notification is ScrollUpdateNotification) {
       final position = notification.metrics;
-      final max = position.maxScrollExtent;
-      _api?._update(progress: max <= 0 ? 0 : position.pixels / max);
+      final progress = _loops && position is PageMetrics
+          ? _progressForPage(position.page ?? _pageIndex.toDouble())
+          : position.maxScrollExtent <= 0
+          ? 0.0
+          : position.pixels / position.maxScrollExtent;
+      _api?._update(progress: progress);
     } else if (notification is ScrollEndNotification && _scrolling) {
       _scrolling = false;
       _scope.onScrollEnd?.call();
@@ -537,10 +586,11 @@ class _DCarouselContentState extends State<DCarouselContent> {
   }
 
   void _changed(int page) {
+    _pageIndex = page;
     final logical = _logicalPage(page);
     if (logical == _logicalIndex) return;
     setState(() => _logicalIndex = logical);
-    _api?._update(index: logical);
+    _api?._update(index: logical, progress: _progressFor(logical));
     _scope.onSelected?.call(logical);
   }
 
@@ -571,7 +621,7 @@ class _DCarouselContentState extends State<DCarouselContent> {
             scrollDirection: _scope.orientation,
             physics: widget.physics,
             padEnds: widget.alignment == DCarouselAlignment.center,
-            itemCount: _count,
+            itemCount: _loops ? null : _count,
             onPageChanged: _changed,
             itemBuilder: (context, page) {
               final index = _logicalPage(page);

@@ -191,19 +191,30 @@ void main() {
     expect(vertical.selectedIndex, 1);
   });
 
-  testWidgets('loop wraps and keeps both navigation controls enabled', (
+  testWidgets('loop wraps through adjacent pages in both directions', (
     tester,
   ) async {
     final controller = DCarouselController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(host(carousel(controller: controller, loop: true)));
     expect(controller.canScrollPrevious, isTrue);
+    final pageController = tester
+        .widget<PageView>(find.byType(PageView))
+        .controller!;
+    double physicalPage() => (pageController.position as PageMetrics).page!;
+    final initialPage = physicalPage();
+
     await controller.previous(animated: false);
     await tester.pump();
     expect(controller.selectedIndex, 2);
+    expect(physicalPage(), initialPage - 1);
+    expect(controller.scrollProgress, 1);
+
     await controller.next(animated: false);
     await tester.pump();
     expect(controller.selectedIndex, 0);
+    expect(physicalPage(), initialPage);
+    expect(controller.scrollProgress, 0);
   });
 
   testWidgets('responsive extent recomputes without resetting selection', (
@@ -256,9 +267,17 @@ void main() {
       await tester.pumpWidget(
         host(carousel(controller: controller, loop: true, plugins: [autoplay])),
       );
+      await controller.select(2, animated: false);
+      await tester.pump();
+      final pageController = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+      double physicalPage() => (pageController.position as PageMetrics).page!;
+      final lastPage = physicalPage();
       await tester.pump(const Duration(milliseconds: 501));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(controller.selectedIndex, 1);
+      expect(controller.selectedIndex, 0);
+      expect(physicalPage(), lastPage + 1);
       autoplay.onInteraction();
       final stoppedAt = controller.selectedIndex;
       await tester.pump(const Duration(milliseconds: 700));
