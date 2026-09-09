@@ -2551,7 +2551,7 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": null,
+    "nativeInspectionTaskId": "01a083ce-319b-7bc3-a5c9-371087710718",
     "nativeInspectionQueue": [
       "01a083ce-319b-7bc3-a5c9-371087710718",
       "01a083e1-420b-7711-b8e8-f268576dcc3b",
@@ -2627,6 +2627,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native",
           "headCommit": "c74fea70b254abbdbef8d3704abee8452dd5adc1",
           "status": "main_integration_preparation"
+        },
+        {
+          "component": "switch",
+          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
+          "branch": "codex/ui-switch",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
+          "headCommit": "b851adbbf69778fd437b296b66492bfee7973125",
+          "status": "native_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2746,14 +2754,6 @@
           "status": "awaiting_browser_native_and_input_group_reconciliation"
         },
         {
-          "component": "switch",
-          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-          "branch": "codex/ui-switch",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
-          "headCommit": "b851adbbf69778fd437b296b66492bfee7973125",
-          "status": "awaiting_native_unlock"
-        },
-        {
           "component": "scroll-area",
           "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
           "branch": "codex/ui-scroll-area",
@@ -2772,10 +2772,11 @@
     "nativeInspectionBlocker": {
       "reason": "mac_locked",
       "observedAt": "2026-09-09T07:44:57.141232+00:00",
-      "status": "active",
+      "status": "user_reported_resolved",
       "userUnlockRequested": true,
       "latestResult": "Switch CUA app selection twice reported: The Mac is locked and automatic unlock could not unlock it. Native review not performed; Switch explicitly released its slot in switch-native-handoff.md.",
-      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds continue; browser reference navigation is separately blocked."
+      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds continue; browser reference navigation is separately blocked.",
+      "resolution": "User reported unlock in Switch task, recorded in2af89494 at2026-09-09T10:11:15+02:00. Coordinator discovered committed handoff and granted Switch current native review; fresh access will verify resolution."
     },
     "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",

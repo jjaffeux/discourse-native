@@ -10,8 +10,6 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 **17 of 64 components are merged locally.** 17 existing components are in progress; 30 are planned.
 
-Native review is waiting for the Mac to be unlocked.
-
 Reference browsing is blocked because the browser could not verify its admin-enforced security policy.
 
 Branch preparation does not mark a component merged or visually verified.
@@ -19,7 +17,7 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head |
 | --- | --- | --- |
 | textarea | Reference and native review | 058bb044 |
-| switch | Native review; Mac locked | b851adbb |
+| switch | native review | b851adbb |
 | slider | Reference and native review | bbd35fec |
 | progress | Reference and native review | 1c21a435 |
 | empty | Input Group composition, reference and native review | 9d4ebc9e |
