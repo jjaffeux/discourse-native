@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**26 of 64 components are merged locally.** 15 existing components are in progress; 23 are planned.
+**26 of 64 components are merged locally.** 16 existing components are in progress; 22 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -79,7 +79,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | planned | — | — | input, dialog, scroll-area | — |
 | 43 | combobox | planned | — | — | input, popover, command | — |
-| 44 | dropdown-menu | planned | — | — | popover, checkbox, radio-group | — |
+| 44 | dropdown-menu | review_ready | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
 | 45 | context-menu | planned | — | — | dropdown-menu | — |
 | 46 | menubar | planned | — | — | dropdown-menu | — |
 | 47 | navigation-menu | planned | — | — | popover | — |
@@ -2083,6 +2083,51 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 
 - Button and Separator dependencies are merged.
 - Field, Input Group, Dropdown Menu, Select and Popover compositions must reconcile with their final owners; track outstanding compositions and coordinate directly, without duplicating components or reducing the frozen examples.
+
+### dropdown-menu
+
+Status: review_ready. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dropdown-menu.
+
+**acceptanceCriteria**
+
+- Port the frozen Base UI/base-nova Dropdown Menu composition: trigger, content, group, label, separator, item, shortcut, checkbox item, radio group/item and nested submenu.
+- Match base-nova menu geometry and state styling: 160px menu width, 128px minimum, 4px side offset, 4px padding, lg radius, popover surface, foreground/10 ring, shadow-md, 28px desktop rows, 6px horizontal item padding, 6px icon gap, 14/20 item text, 12/16 label and shortcut text, disabled opacity and destructive focus tint.
+- Support keyboard and pointer interaction: Enter/Space activation, ArrowUp/ArrowDown/Home/End traversal, typeahead, directional submenu open/close, deepest Escape closes first, outside press dismissal, trigger focus restoration and tab-out behavior.
+- Support caller-owned checkbox and radio state, disabled actions, leading/trailing icon slots, shortcuts, destructive actions, RTL mirroring, large text and touch-platform target growth.
+- Add searchable styleguide coverage for documented examples and migrate Table actions from the temporary native MenuAnchor composition without dropping accepted behavior.
+
+**decisions**
+
+- Implemented DDropdownMenu on the prepared DPopover review API so menu overlays share Popover's placement, collision, lifecycle, outside dismissal, reduced-motion and trigger-focus behavior instead of using Flutter MenuAnchor as the generic owner.
+- Recorded official Dropdown Menu reference hashes in docs/component-library/dropdown-menu.md: markdown SHA256 3a8ab9398fa074c3cdf023e31bc9368a3b6bafb0b0f146a326eb2c76808ba7fa and base-nova registry SHA256 335c59dba30145f434a9cc9ccb0438a3c5e2afe857fc11b029de1ecb415224d7.
+- Prepared against unaccepted Popover review commit d99562f0f6973c9dc3f566eea02d9b00c6de4f7b, replayed on this branch as 746846022ad26d219cb8afc2a0176bdc4bb27167. Reviewer must integrate accepted Popover from current main before final Dropdown Menu merge.
+- Checkbox and radio items default to closeOnSelect false for repeated local editing; ordinary actions default to closing the full menu chain.
+- Submenus compose nested DDropdownMenu instances with shared close-all scope, inline-end placement, RTL mirrored chevron/directional keys and submenu-local Escape handling.
+
+**migrations**
+
+- Added public export in package:discourse_native/discourse_ui.dart.
+- Registered Dropdown Menu styleguide examples for composition, basic, submenu, shortcuts, icons, checkboxes, checkbox icons, radio group, radio icons, destructive, avatar, complex and RTL.
+- Migrated TableActionsExample from temporary DButton + native MenuAnchor/MenuItemButton to DButton + DDropdownMenu, preserving local edit/duplicate/delete behavior, expanded row highlighting and trigger focus restoration.
+
+**retainedAlternatives**
+
+- Flutter Icon widgets are caller-supplied in examples as local equivalents of the reference icon slots; exact iconography remains caller-owned except for the component's internal check indicator.
+- No production app menus were migrated beyond the accepted Table styleguide composition during source preparation; reviewer should complete any remaining app adoption audit after accepted Popover is on main.
+
+**verification**
+
+- dart format lib/src/ui/components/d_dropdown_menu.dart lib/src/styleguide/examples/dropdown_menu_examples.dart lib/src/styleguide/examples/table_examples.dart lib/src/styleguide/component_examples.dart test/d_dropdown_menu_test.dart
+- flutter analyze --no-pub lib/discourse_ui.dart lib/src/ui/components/d_dropdown_menu.dart lib/src/styleguide/component_examples.dart lib/src/styleguide/examples/dropdown_menu_examples.dart lib/src/styleguide/examples/table_examples.dart test/d_dropdown_menu_test.dart test/d_table_test.dart: passed.
+- flutter analyze --no-pub: passed for the repository.
+- git diff --check: passed.
+- flutter test --no-pub test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_table_test.dart: passed 23 tests, covering pointer and keyboard open/focus/select/restore, arrow/Home/End traversal, typeahead wrap, checkbox/radio state retention, submenu directional open/Escape close, RTL mirrored directional open, outside dismissal focus behavior, controlled open requests, live theme/text-scale retention, desktop and iOS row geometry, semantics, all frozen styleguide example registration/mounting and Table action migration/first-item focus.
+
+**limitations**
+
+- Native macOS/iOS/Linux runtime inspection and official rendered reference comparison remain for the new Dropdown Menu reviewer.
+- Final merge is blocked on Popover being accepted and merged to main; unaccepted Popover source must not reach main through Dropdown Menu.
+- Thread creation and direct reviewer notifications were unavailable from this active tool set, so reviewTaskId/reviewStatus are not filled yet.
 
 ### carousel
 
