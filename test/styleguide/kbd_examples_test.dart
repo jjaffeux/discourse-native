@@ -57,24 +57,39 @@ void main() {
   }
 
   testWidgets(
-    'the outline button carries the Enter keycap at its inline end and activates by pointer and keyboard',
+    'small outline buttons carry keycaps at their inline ends and activate by pointer and keyboard',
     (tester) async {
       final theme = ValueNotifier(AppTheme.light);
       addTearDown(theme.dispose);
       final semantics = tester.ensureSemantics();
       try {
         await _pumpLive(tester, theme, const KbdActionSample());
-        final button = tester.widget<DButton>(find.byType(DButton));
-        expect(button.variant, DButtonVariant.outline);
-        expect(button.iconPosition, DButtonIconPosition.end);
-        final keycap = find.descendant(
-          of: find.byType(DButton),
+        final buttons = tester
+            .widgetList<DButton>(find.byType(DButton))
+            .toList();
+        expect(buttons, hasLength(2));
+        for (final button in buttons) {
+          expect(button.variant, DButtonVariant.outline);
+          expect(button.size, DButtonSize.small);
+          expect(button.iconPosition, DButtonIconPosition.end);
+        }
+        final accept = find.widgetWithText(DButton, 'Accept');
+        final enter = find.descendant(
+          of: accept,
           matching: find.widgetWithText(DKbd, '⏎'),
         );
-        expect(keycap, findsOneWidget);
+        final cancel = find.widgetWithText(DButton, 'Cancel');
+        final escape = find.descendant(
+          of: cancel,
+          matching: find.widgetWithText(DKbd, 'Esc'),
+        );
+        expect(enter, findsOneWidget);
+        expect(escape, findsOneWidget);
         final label = tester.getRect(find.text('Accept'));
-        final cap = tester.getRect(keycap);
-        final surface = tester.getRect(find.byType(FilledButton));
+        final cap = tester.getRect(enter);
+        final surface = tester.getRect(
+          find.descendant(of: accept, matching: find.byType(FilledButton)),
+        );
         expect(cap.left, greaterThan(label.right));
         expect(cap.right, lessThan(surface.right));
         expect(cap.height, 20);
@@ -82,14 +97,20 @@ void main() {
           tester.getSemantics(find.bySemanticsLabel('Accept, Enter')),
           isSemantics(label: 'Accept, Enter', isButton: true),
         );
-        await tester.tap(find.byType(DButton));
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Cancel, Escape')),
+          isSemantics(label: 'Cancel, Escape', isButton: true),
+        );
+        await tester.tap(accept);
         await tester.pump();
-        expect(find.text('Accepted: 1'), findsOneWidget);
+        expect(find.text('Accepted.'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pump();
-        expect(find.text('Accepted: 2'), findsOneWidget);
+        expect(find.text('Cancelled.'), findsOneWidget);
       } finally {
         semantics.dispose();
       }
