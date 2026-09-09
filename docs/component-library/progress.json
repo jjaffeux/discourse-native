@@ -2525,7 +2525,7 @@
         "Official rendered browser comparison and native macOS interaction inspection remain for the independent reviewer; no iOS/Linux device or spoken VoiceOver pass is claimed.",
         "Final merge is blocked until Dropdown Menu reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 accepts and merges its parent revision to local main, after which the Context Menu reviewer must reconcile that exact accepted source."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "d1c954fefb5d461be217d443f5bf51330b7f24e7",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -2536,7 +2536,11 @@
           "evidence": "Parent reviewer reported 47 focused Dropdown/Popover/Table/styleguide tests passing with seed 826145 and clean root plus profiles/full analysis for the reviewed/current-main candidate. Native/browser acceptance and final local main merge remain pending.",
           "mergeGate": "Wait for the accepted Dropdown Menu local-main merge, replace/reconcile this prepared source with the accepted revision, verify affected Context Menu behavior and prevent any unaccepted parent source from reaching main."
         }
-      ]
+      ],
+      "reviewTaskId": "01a0861f-38ca-7122-b18f-5f286ab90ccb",
+      "reviewBranch": "codex/review-context-menu",
+      "reviewStatus": "in_progress",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8c70/discourse-native"
     },
     {
       "id": "menubar",
