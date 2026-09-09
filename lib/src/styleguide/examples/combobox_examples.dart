@@ -99,8 +99,14 @@ final comboboxExamples = ComponentExamples(
     StyleguideExample(
       title: 'With chips',
       description:
-          'Multiple values render as removable chips around the editable input.',
-      states: const ['Multiple', 'Remove', 'Backspace', 'Wrap'],
+          'Multiple values render as removable, arrow-navigable chips around the editable input.',
+      states: const [
+        'Multiple',
+        'Remove',
+        'Backspace',
+        'Arrow navigation',
+        'Wrap',
+      ],
       code: _multipleCode,
       builder: (_) => const _MultipleCombobox(),
     ),

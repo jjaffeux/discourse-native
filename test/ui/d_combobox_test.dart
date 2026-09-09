@@ -182,6 +182,68 @@ void main() {
     expect(values, isEmpty);
   });
 
+  testWidgets('multiple input arrows into chips in reading order', (
+    tester,
+  ) async {
+    for (final textDirection in TextDirection.values) {
+      var values = ['next', 'svelte'];
+      final changes = <List<String>>[];
+      final controller = DComboboxController<String>();
+      await tester.pumpWidget(
+        _app(
+          Directionality(
+            textDirection: textDirection,
+            child: DCombobox<String>.multiple(
+              key: ValueKey(textDirection),
+              controller: controller,
+              initialValue: values,
+              options: _options,
+              onValuesChanged: (next, _) {
+                values = next;
+                changes.add(next);
+              },
+              anchor: const DComboboxChips<String>(
+                input: DComboboxChipsInput<String>(),
+              ),
+              content: const DComboboxContent(
+                children: [DComboboxList<String>()],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(controller.values, ['next', 'svelte']);
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      expect(controller.values, ['next', 'svelte'], reason: '$changes');
+      final editor = tester.widget<TextField>(find.byType(TextField));
+      expect(editor.focusNode?.hasFocus, isTrue);
+      expect(editor.controller?.selection.extentOffset, lessThanOrEqualTo(0));
+      final towardChips = textDirection == TextDirection.ltr
+          ? LogicalKeyboardKey.arrowLeft
+          : LogicalKeyboardKey.arrowRight;
+      await tester.enterText(find.byType(TextField), 'x');
+      await tester.sendKeyEvent(towardChips);
+      await tester.pump();
+      expect(editor.focusNode?.hasFocus, isTrue);
+      await tester.enterText(find.byType(TextField), '');
+      await tester.sendKeyEvent(towardChips);
+      await tester.pump();
+      expect(controller.values, ['next', 'svelte']);
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'DCombobox chip',
+        reason: '$textDirection',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pump();
+
+      expect(values, ['next'], reason: '$textDirection $changes');
+      controller.dispose();
+    }
+  });
+
   testWidgets('multiple selection closes by default and can remain open', (
     tester,
   ) async {
@@ -542,6 +604,47 @@ void main() {
       lessThanOrEqualTo(48),
     );
     expect(tester.getRect(find.byType(DComboboxItem<String>).first).height, 48);
+  });
+
+  testWidgets('touch items grow past their minimum target for scaled text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.android),
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Center(
+              child: SizedBox(
+                width: 160,
+                child: DCombobox<String>(
+                  options: const [
+                    DComboboxOption(
+                      value: 'long',
+                      label: 'A framework name that wraps onto several lines',
+                    ),
+                  ],
+                  anchor: const DComboboxInput<String>(),
+                  content: const DComboboxContent(
+                    children: [DComboboxList<String>()],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.byType(DComboboxItem<String>)).height,
+      greaterThan(DSpacing.touchTarget),
+    );
   });
 
   testWidgets('open popup reads live theme tokens', (tester) async {

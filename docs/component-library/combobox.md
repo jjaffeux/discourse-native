@@ -67,8 +67,10 @@ value, focus, Form and IME owner.
   Pointer hover can own highlight without moving editor focus.
 - Multiple selection toggles values, clears the filter and closes by default;
   `closeOnSelect: false` preserves an open rapid-entry workflow. Remove actions and
-  Backspace on an empty query remove chips. Chip text can truncate visually at
-  extreme scale while its full label and remove action remain semantic.
+  Backspace on an empty query remove chips. From an empty editor, the
+  direction-appropriate arrow key moves focus into the selected chips. Chip text
+  can truncate visually at extreme scale while its full label and remove action
+  remain semantic.
 - Clear changes selection and query through their distinct callbacks. Form reset
   reports the mount-time initial selection/query and closes the popup.
 - The accepted Popover adds an opt-out from content autofocus. Its default remains
