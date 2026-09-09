@@ -18,6 +18,7 @@ import 'examples/collapsible_examples.dart';
 import 'examples/combobox_examples.dart';
 import 'examples/command_examples.dart';
 import 'examples/context_menu_examples.dart';
+import 'examples/data_table_examples.dart';
 import 'examples/date_picker_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
@@ -99,6 +100,7 @@ final componentExamples = <String, ComponentExamples>{
   'dialog': dialogExamples,
   'dropdown-menu': dropdownMenuExamples,
   'drawer': drawerExamples,
+  'data-table': dataTableExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,

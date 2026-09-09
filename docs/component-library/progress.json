@@ -4366,16 +4366,35 @@
       ],
       "decisions": [
         "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
-        "Verified independent reviewer Review and merge Data Table (01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
+        "Verified independent reviewer Review and merge Data Table (01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.",
+        "Independent reviewer integrated the preserved implementation history into current-main candidate 4f702a45f0f9ab993a7cbced2406dc8d416a1c96 based on 9834f36a9c4c44f1792e9970bf0a9abfcbedd47d. Accepted Pagination, Select, Field and Dropdown Menu sources are unchanged by the Data Table diff.",
+        "Native 360px/200% inspection found the fixed-width page-size Select hiding its value. Reviewer fix 58aa1c03 measures the widest scaled option while retaining the 70px reference minimum; LTR and RTL truncation regressions failed before the fix and passed afterward."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "migrations": [
+        "Added four searchable, runnable styleguide examples using the final shared Table, Checkbox, Input, Dropdown Menu, Pagination, Select, Button and Badge owners."
+      ],
+      "retainedAlternatives": [
+        "Users directory retains its pinned identity pane, synchronized virtualized viewports, persisted resizable metric columns and server-side infinite loading; an eager Data Table would remove capabilities.",
+        "Alert Tables retain passive document DTable structure; Topic, Chat, SuperList and badges retain their card/timeline/infinite-feed presentations. No bounded homogeneous production grid was found for a suitable migration."
+      ],
+      "verification": [
+        "Source review and adoption audit recorded in docs/component-library/data-table.md; exact frozen reference/Tasks source mappings remain intact.",
+        "Initial independent candidate passed 72 focused Data Table/example/Pagination/Select/Dropdown Menu/Table checks, seed 9092026, with clean root/full analysis and a successful exact-widget macOS build.",
+        "Approved browser inspection exercised the official payment table's Email ascending/descending sort, Carmella filtering, repeated Amount visibility changes, selection and row actions.",
+        "Actual macOS inspection of candidate 31912939 covered Light/Dark/Forest/Plum, filter entry/clear, ascending/descending sort, repeated visibility toggles, none/mixed/all selection, all four page controls, page size 10 to 20, stable-ID selection through reverse/remove/reset, row-menu Down/Return activation and visible restored focus, Arabic RTL and 360px/200%/reduced-motion layouts.",
+        "Corrected candidate 4f702a45 passed 74 focused component/composition/dependency checks, seed 9092026, and root/full flutter analyze --no-pub without diagnostics. The corrected exact-widget macOS fixture builds and passes deep strict signature verification; copied/build kernel hashes match 67fa17530f6572f94536b8f92a7e5b9de376e2f82dc6058b12d093cf870cc307.",
+        "Current-main candidate 1f6e1cc9 passed 34 Data Table/example/styleguide checks, seed 9092026, and root/full analysis. A CUA getApp -10005 timeout initially blocked final native confirmation; desktop was released. The subsequent leased Button Group reviewer confirmed normal-control recovery and quit the exact old Data Table instance through its native menu. Data Table rejoined FIFO for its final native checks and rendered Tasks comparison; cleanup does not establish visual acceptance and no merge is claimed.",
+        "Accepted menu-followup candidate228f838c passed91 focused Data Table/example/Dropdown Menu/Select/Popover/styleguide checks, seed9092026, with clean root/full analysis and successful exact-source macOS build. Kernel cfe9534d81da826c7ec00558ab73bfe82bfd743ac99518948dbbae11447cb4dc; deep strict signing passed.",
+        "Final actual native228f pass at19:03UTC verified empty visual Actions heading, repeated Amount toggles, row-menu Down/Return activation and visible restored focus plus Return/Escape; readable page sizes10/20 at360px/200%/reduced motion in Light LTR and Plum RTL with correct page counts. Official rendered Tasks comparison verified sortable header, Priority visibility, page size25to10 and all four page controls. Own surfaces closed and desktop released. Earlier unchanged composition evidence retained; no iOS/Linux/spoken VoiceOver claim."
+      ],
+      "limitations": [
+        "No iOS or Linux device run and no spoken VoiceOver claim. Widget semantics and native macOS keyboard behavior were checked.",
+        "Browser/native font rasterization is not pixel-identical. The fixture is offline and does not exercise authenticated server adapters."
+      ],
       "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/656f/discourse-native",
-      "queueStage": "independent_review",
+      "queueStage": "ready_for_merge",
       "implementationBrief": "Implement the complete documented Data Table model/widget/compositions: typed column definitions, cell formatting, row actions, pagination, sorting, filtering, column visibility, stable row selection, reusable column header/pagination/column toggle and RTL. Reuse final Table/Pagination/Checkbox/Input/Dropdown Menu/Button/Badge owners, preserving semantic table reading order and independent action behavior. Keep external/server-controlled data operations, loading/errors and business logic in app adapters; clearly support controlled/local state where exposed, stable row/column IDs and dynamic data/selection updates. Do not force a web TanStack dependency into Flutter or silently collapse the reference to a static table. Pagination is being queued alongside you; agree its API directly and use tested prepared pins only in isolation, waiting for accepted parent main merges before final merge. Audit real core/plugin structured datasets and migrate suitable ones without converting card/infinite feeds gratuitously. Verify actual row-selection/sort/filter/page/visibility interactions and persisted state across live themes/narrow/scaled layouts.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/data-table",
@@ -4395,13 +4414,13 @@
         },
         {
           "id": "pagination",
-          "status": "in_progress",
+          "status": "merged",
           "taskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
           "branch": "codex/ui-pagination",
-          "reviewTaskId": null,
-          "reviewBranch": null,
-          "implementationCommit": null,
-          "mergeCommit": null
+          "reviewTaskId": "01a08629-4841-73d0-a5a6-c723f253b4b0",
+          "reviewBranch": "codex/review-pagination",
+          "implementationCommit": "cd69ff21400192e6a141a675ffb7ec6a7199526c",
+          "mergeCommit": "20f1673402d8b52370efacb5ca61d5f099810582"
         },
         {
           "id": "checkbox",
@@ -4425,26 +4444,38 @@
         },
         {
           "id": "dropdown-menu",
-          "status": "in_progress",
+          "status": "merged",
           "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
           "branch": "codex/ui-dropdown-menu",
           "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
-          "reviewBranch": "codex/review-dropdown-menu",
+          "reviewBranch": "codex/review-dropdown-menu-accepted",
           "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
-          "mergeCommit": null
+          "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
         }
       ],
       "reviewTaskId": "01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a",
-      "reviewBranch": "codex/review-data-table",
+      "reviewBranch": "codex/review-data-table-merge",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f127/discourse-native",
       "reviewHandoffCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "accepted",
       "implementationHandoffVerification": {
         "focusedTests": "Source reports 70 Data Table and parent-component checks plus 15 styleguide-page checks passing with seed 278431.",
         "analysis": "Root and full-profile analysis and enforced locked resolution pass without lockfile changes; touched formatting and diff checks pass.",
         "native": "The exact-widget macOS fixture builds; no official rendered browser comparison or actual native acceptance was claimed.",
         "acceptance": "Reviewer owns remaining source, fixture and adoption-audit corrections, official/native acceptance, reconciliation with accepted Pagination/Select/Field/Dropdown Menu and the final local main merge."
-      }
+      },
+      "acceptedDependencyMerges": {
+        "pagination": "20f1673402d8b52370efacb5ca61d5f099810582",
+        "select": "57bbeb94368649a4665483180e4f5c84b5f33856",
+        "field": "5cd7f3694498e4e09e3c114639baca834b56705e",
+        "dropdown-menu": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787",
+        "dropdown-menu-followup": "85f9265bf2593a7edc0693582b7eadf1c6645b8d"
+      },
+      "nativeInspectionStatus": "completed",
+      "browserInspectionStatus": "completed",
+      "reviewBuildSource": "228f838c8b476850f15029b37c9856b9f1da789e",
+      "reviewedBranchHead": "06f95bbdc42633c7c02cb0da79f1a2da9a323da8",
+      "finalIntegrationVerification": "Candidate06f95bbd from main57c30455 passes93 Data Table/example/Dropdown Menu/Select/Popover/styleguide checks seed9092026, clean root/full analysis and diff checks. Context Menu and Data Table registrations preserved; all other progress rows/workflow unchanged. Native-inspected Data Table bodies unchanged except acceptance status/notes; newer Popover parameters retain equivalent defaults and explicit anchors are unused here."
     },
     {
       "id": "sidebar",
