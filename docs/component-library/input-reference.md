@@ -379,3 +379,36 @@ Logs: `/tmp/input-integration-focused.log`, `/tmp/input-integration-analysis.log
 `/tmp/input-integration-renders.log`, `/tmp/input-integration-native-build.log`.
 Native follow-up must check independent Clear search, fields/sibling controls,
 actual Add Site/Poll editing, full styleguide and final Button file example.
+
+## Completed native inspection, 2026-09-09
+
+Exclusive desktop slot used only for the exact prepared Input bundle, integrated
+source `3201d96b51f86abbb638218eee8d0178ef168938`, kernel
+`ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f`.
+The empty-entitlement ad-hoc bundle launched successfully; no signature workaround
+was needed. Native evidence is saved in `evidence/input/native/` with hashes.
+
+Verified pointer editing and Tab traversal, visible retained text across light/dark
+switches, Plum 200% RTL at 320px specimen width, and narrow styleguide form layout.
+Real Add Site accepted local review address text; closed without connecting. Real
+Poll title and two options retained edits through adding/removing a third option;
+closed without posting. Form Submit exposed validation descriptions; valid local
+name/email produced the saved summary and Reset cleared them. Secure example
+revealed edited sample text and its independent Replace value action updated the
+controlled field. Long fields scroll rather than overflow at 200% RTL.
+
+Native AX now exposes the styleguide search, independent Clear search button,
+component navigation and preview controls together. In both desktop and resized
+mobile navigation, typed Input, activated Clear search and saw the empty search
+and restored navigation. Component selection closes the mobile sheet. Final file
+Button opens the actual macOS chooser; Cancel restores No file chosen. No file was
+read/uploaded and no application-network action was submitted. AX snapshots may
+report abbreviated stale text values during focus changes, while screenshots and
+saved form summaries confirm full retained strings; no spoken VoiceOver claim.
+
+Quit the unique review app using its menu; subsequent inventory confirmed its
+identifier absent. Explicitly RELEASED native/browser slot immediately afterwards.
+No browser was opened or modified during this pass. No behavioral defect found.
+Marked the example catalogue implemented after this gate; this status-only change
+removes the stale implementation-pending banner without changing Input behavior.
+Native device coverage is macOS only; no physical iOS/Linux or spoken VoiceOver run.

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final inputExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'A text input for forms and everyday data entry.',
   notes:
       'DInput is single-line. Use a controller for selection and IME state, '
