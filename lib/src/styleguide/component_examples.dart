@@ -13,6 +13,7 @@ import 'examples/collapsible_examples.dart';
 import 'examples/command_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/dropdown_menu_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
@@ -68,6 +69,7 @@ final componentExamples = <String, ComponentExamples>{
   'bubble': bubbleExamples,
   'direction': directionExamples,
   'dialog': dialogExamples,
+  'dropdown-menu': dropdownMenuExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
