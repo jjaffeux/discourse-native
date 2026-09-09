@@ -69,7 +69,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
-| 60 | chart | planned | — | — | tooltip | — |
+| 60 | chart | in_progress | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | — |
 | 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
 | 63 | input-otp | planned | — | — | input, field | — |
@@ -1364,6 +1364,44 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 - Self-contained actual-component styleguide covers reference simple/groups/disabled/invalid/RTL plus form and state; audit core/plugins and migrate suitable simple selectors preserving callbacks and permission/busy guards.
 - Pass focused interaction/migration tests, touched format and root/full-profile analysis with unchanged pins/lockfiles; build isolated identifiable macOS local-data fixture with source/kernel/signature evidence.
 - Remain in_progress awaiting_slot until coordinator grants desktop and reference/native production-fixture review passes.
+
+### chart
+
+Status: in_progress. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-chart.
+
+**acceptanceCriteria**
+
+- Port frozen base-nova chart container/config, grouped bar composition, grid/axes, themed colors, tooltip dot/line/dashed indicators, label/value formatters and custom tooltip/legend content; account for every frozen documentation section.
+- Keep data adapters outside the generic chart owner; audit core and every plugin, migrate suitable existing poll result presentation while preserving confidential results, voting callbacks and async ownership.
+- Provide controlled and initial chart selection with mouse/touch/keyboard focus, Escape dismissal, semantic values, responsive/large-text/RTL/live-theme support and explicit lifecycle; chart inspection is not a Form value.
+- Supply self-contained actual-component examples and offline production fixtures, meaningful component/adoption tests, root/full analysis and isolated uniquely identified macOS build with source/kernel/signature evidence; remain in_progress awaiting native/reference slot.
+
+**decisions**
+
+- Frozen Markdown hash matches catalogue exactly; base-nova registry and complete inline examples saved with URLs/hashes. Full section accounting, CSS geometry, API and adaptation mapping: docs/component-library/chart.md.
+- One generic owner exports DChartContainer/config, typed DBarChart series and controlled inspection, reusable tooltip/legend content and inline DChartBar. Existing native drawing/focus primitives; no plotting package or unmerged dependency.
+- Ten actual-component styleguide examples remain baseline pending native/reference gate. Colors resolve live; proportional tooltip radius and multiplicative alpha rules applied.
+
+**migrations**
+
+- PollCard private result bars replaced with DChartBar; percentage/confidential-count rules, permissions, voting/withdrawal and async accepted-result behavior preserved.
+- UsersPage metric cells use DChartBar while retaining maxima, minimum-width/intensity/value overlay, synchronized scrolling, sorting and persistence. Actual PollCard/UsersPage local-data fixture: lib/chart_review_main.dart.
+
+**retainedAlternatives**
+
+- Core/plugin loading indicators, topic reading progress, skeleton fractions and text statistics keep their appropriate owners.
+- Ranked-choice and pie-markup native accessible option tallies remain Poll domain composition; no speculative chart-family expansion. Prometheus tables and Voice diagnostic text remain unchanged.
+
+**verification**
+
+- Root/full flutter pub get --enforce-lockfile passed; Flutter 3.47.2 and pins/lockfiles unchanged.
+- Root/full flutter analyze --no-pub clean; touched formatting and git diff --check passed.
+- 146 focused Chart/example/offline-fixture/PollCard/UsersPage/Poll integration/controller tests passed with randomized ordering; final log /tmp/chart-final-focused.log. Covers native semantic current/next/previous values, keyboard/RTL pointer mapping, borrowed lifetimes, live theme/alpha, image paint, confidential values, maxima/width/scroll persistence and account/accepted-result regressions.
+
+**limitations**
+
+- Mac locked; no CUA/browser/native inspection performed. Remain in_progress awaiting_slot, not review_ready, until actual reference and native styleguide/production-fixture comparison.
+- No iOS/Linux device or VoiceOver testing; test image geometry is not pixel-parity evidence.
 
 ### sidebar
 

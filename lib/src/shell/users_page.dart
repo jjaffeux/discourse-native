@@ -2183,17 +2183,13 @@ class _MetricCell extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (intensity > 0)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: math.max(.06, intensity),
-                heightFactor: .64,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: palette.accent.withValues(
-                      alpha: .12 + intensity * .18,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
+            LayoutBuilder(
+              builder: (context, constraints) => Center(
+                child: DChartBar(
+                  fraction: math.max(.06, intensity),
+                  height: constraints.maxHeight * .64,
+                  color: palette.accent.withValues(
+                    alpha: palette.accent.a * (.12 + intensity * .18),
                   ),
                 ),
               ),
