@@ -35,7 +35,7 @@ Branch preparation does not mark a component merged or visually verified.
 | breadcrumb | Implementation and checks | — | — |
 | pagination | Implementation and checks | — | — |
 | calendar | Implementation and checks | — | — |
-| date-picker | Implementation and checks | — | — |
+| date-picker | Implementation and checks | — | 01a086a1-dd61-77d1-ae4f-a09fa87ff595 |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
 | bubble | Implementation and checks | — | — |
 | message | Implementation and checks | — | — |
@@ -2079,34 +2079,7 @@ Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/u
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner coordinates directly with parent owners; no coordinator admission gate and no substitute final primitives.
-- DDatePicker and DDateRangePicker compose DButton, DPopover, DField and the Kalender 0.29.1-backed DCalendar. DDatePickerInput additionally composes final DInputGroup/DInputGroupInput/addon/button owners; no overlay, form control or calendar engine is duplicated.
-- DCalendarDate is a civil date rather than an instant. DTimeValue is a strict HH:mm[:ss] wall-clock value. Generic picker code never invents timezone or DST policy; application adapters retain that responsibility.
-- Editable input retains invalid non-empty text and the last valid selection, moves Calendar only after a valid in-bounds enabled date, opens on Arrow Down, normalizes Calendar selections through the supplied locale codec and closes with focus restoration.
-- The deterministic English natural-language adapter uses an explicit reference clock and a strict date fallback. Other languages require an injected parser rather than silently applying English grammar.
-
-**migrations**
-
-- Local Date composer start/end civil-date fields now use DDatePickerInput with the existing ISO controllers, 1900-2200 bounds and existing LocalDateComposerDraft validation, recurrence, preview and timezone ownership preserved.
-
-**retainedAlternatives**
-
-- Discourse Events keeps its combined date-time text adapter and Material two-stage dialog until a Date Picker adapter can preserve all-day parsing, recurrence-until, end-after-start and site-timezone behavior without splitting its existing string ownership.
-- Bookmark reminder keeps its account-zone dialog because it explicitly rejects nonexistent DST wall times and coordinates async persistence/session currency.
-- User status custom expiry keeps its guarded async date/time flow and future-time validation; fixed relative expiry actions are domain actions, not Date Picker presets.
-- Event/topic Kalender views are full domain calendars rather than date-entry controls and remain with their owners.
-
-**verification**
-
-- Focused Date Picker, Calendar and Local Date regression set passed with randomized seed 9082026: 36 tests covering strict locale/ISO/leap parsing, deterministic natural phrases, strict seconds time, controlled/uncontrolled/Form reset-save behavior, range completion, bounds/disabled dates, close/focus restoration, invalid text retention, Calendar paging, Arrow Down, narrow 200% RTL, all eight frozen examples and migrated app behavior.
-- Local Date migration analysis and lifecycle/component tests passed; inline Calendar teardown, invalid-date application validation and existing composer behavior remain covered.
-- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed. Exact-source macOS debug fixture built successfully from tool/date_picker_review_main.dart. git diff --check passed.
-
-**limitations**
-
-- Official reference browser comparison and native macOS inspection remain reviewer-owned acceptance gates.
-- Calendar and Input Group were integrated from committed reviewed source but are not accepted dependencies until their independent reviewers merge them to main.
-- No iOS/Linux device or spoken VoiceOver verification was performed.
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 
 ### drawer
 
@@ -2462,7 +2435,34 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/u
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner coordinates directly with parent owners; no coordinator admission gate and no substitute final primitives.
+- DDatePicker and DDateRangePicker compose DButton, DPopover, DField and the Kalender 0.29.1-backed DCalendar. DDatePickerInput additionally composes DInputGroup/DInputGroupInput/addon/button owners; no overlay, form control or calendar engine is duplicated.
+- DCalendarDate is a civil date rather than an instant. DTimeValue is a strict HH:mm[:ss] wall-clock value. Generic picker code never invents timezone or DST policy; application adapters retain that responsibility.
+- Editable input retains invalid non-empty text and the last valid selection, moves Calendar only after a valid in-bounds enabled date, opens on Arrow Down, normalizes Calendar selections through the supplied locale codec and closes with focus restoration.
+- The deterministic English natural-language adapter uses an explicit reference clock and a strict date fallback. Other languages require an injected parser rather than silently applying English grammar.
+
+**migrations**
+
+- Local Date composer start/end civil-date fields now use DDatePickerInput with the existing ISO controllers, 1900-2200 bounds and existing LocalDateComposerDraft validation, recurrence, preview and timezone ownership preserved.
+
+**retainedAlternatives**
+
+- Discourse Events keeps its combined date-time text adapter and Material two-stage dialog until a Date Picker adapter can preserve all-day parsing, recurrence-until, end-after-start and site-timezone behavior without splitting its existing string ownership.
+- Bookmark reminder keeps its account-zone dialog because it explicitly rejects nonexistent DST wall times and coordinates async persistence/session currency.
+- User status custom expiry keeps its guarded async date/time flow and future-time validation; fixed relative expiry actions are domain actions, not Date Picker presets.
+- Event/topic Kalender views are full domain calendars rather than date-entry controls and remain with their owners.
+
+**verification**
+
+- Focused Date Picker, Calendar and Local Date regression set passed with randomized seed 9082026: 36 tests covering strict locale/ISO/leap parsing, deterministic natural phrases, strict seconds time, controlled/uncontrolled/Form reset-save behavior, range completion, bounds/disabled dates, close/focus restoration, invalid text retention, Calendar paging, Arrow Down, narrow 200% RTL, all eight frozen examples and migrated app behavior.
+- Local Date migration analysis and lifecycle/component tests passed; inline Calendar teardown, invalid-date application validation and existing composer behavior remain covered.
+- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed. Exact-source macOS debug fixture built successfully from tool/date_picker_review_main.dart. git diff --check passed.
+
+**limitations**
+
+- Official reference browser comparison and native macOS inspection remain reviewer-owned acceptance gates.
+- Calendar source was integrated before acceptance and must be reconciled from its final main merge. Input Group is accepted on main at d1de717b1e2d1eeaf06d86dafe1452662d05e368.
+- No iOS/Linux device or spoken VoiceOver verification was performed.
 
 ### carousel
 

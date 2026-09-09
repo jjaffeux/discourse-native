@@ -1,5 +1,9 @@
 # Create task: Review and merge Date Picker
 
+Created as task `01a086a1-dd61-77d1-ae4f-a09fa87ff595` on branch
+`codex/review-date-picker` in worktree
+`/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native`.
+
 Create exactly one new Codex task titled **Review and merge Date Picker** from
 latest local main in an isolated worktree and use this prompt verbatim:
 
