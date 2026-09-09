@@ -1,7 +1,8 @@
 # Switch implementation and review record
 
-Status: implementation in progress; browser comparison completed; native inspection awaits the
-coordinator's desktop slot. No native visual parity is claimed.
+Status: independently reviewed and accepted. Browser comparison and native
+macOS inspection are complete; precise device and fidelity limitations are
+recorded below.
 
 ## Preserved official sources
 
@@ -102,10 +103,10 @@ never starts real microphone, networking or diagnostics capture. Group saves
 report their local submitted payload; export previews stay in the fixture.
 The fixture does not start the real application or inspect real accounts.
 
-Browser comparison of Switch examples is recorded below. Native inspection of
-Switch and representative migrated surfaces remains pending. Additional Voice room/editor and AI composer native fixture
-coverage may be extended during the review slot; their actual-widget regression
-suites run now. No iOS/Linux device or spoken VoiceOver verification is claimed.
+Browser comparison and native inspection of Switch examples and representative
+migrated surfaces are recorded below. Voice room/editor and AI composer remain
+covered by their actual-widget regressions rather than this native fixture. No
+iOS/Linux device or spoken VoiceOver verification is claimed.
 
 ## Isolated macOS bundle
 
@@ -120,8 +121,9 @@ The copy has bundle ID `org.discourse.switch-review-3243a88c` and URL scheme
 passed after ad-hoc signing. Only the isolated copy removes the APS entitlement.
 Workspace runner configuration and the user's main-checkout app were preserved.
 The full trace, source equality and source hash are recorded in
-[switch-review-build.json](switch-review-build.json). This bundle has **not been
-launched or natively inspected**; it is queued for the serialized desktop slot.
+[switch-review-build.json](switch-review-build.json). This exact-source bundle
+was launched and inspected during final native acceptance; the evidence and
+interaction scope are recorded under `evidence/switch/native-3243a88c/`.
 
 ## Source fidelity correction — 2026-09-09
 
