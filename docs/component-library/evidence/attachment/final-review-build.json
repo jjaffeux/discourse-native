@@ -1,0 +1,48 @@
+{
+  "component": "attachment",
+  "reviewTaskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
+  "reviewBranch": "codex/review-attachment",
+  "reviewedCandidateCommit": "c4806e82",
+  "implementationCommit": "17f2d88f31adaf3748341745e423d37810f88419",
+  "acceptedDialogMergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3",
+  "buildCommand": "flutter build macos --debug --no-pub -t lib/attachment_review_main.dart",
+  "bundle": "/private/tmp/DiscourseAttachmentFinalReviewa5fc-c4806e82.app",
+  "bundleIdentifier": "org.discourse.native.attachmentfinalreviewa5fc.rc4806e82",
+  "bundleName": "Attachment Final Review a5fc",
+  "urlScheme": "discourse-attachment-final-review-a5fc",
+  "kernelSha256": "ce11a5206bc72ea07de42da753b86839b79d4cfbd3fe30f916d990cfb734f299",
+  "kernelAgreement": true,
+  "signature": "codesign --verify --deep --strict passed after isolated ad-hoc signing",
+  "entitlements": {
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.cs.allow-unsigned-executable-memory": true,
+    "com.apple.security.cs.disable-library-validation": true
+  },
+  "officialReference": {
+    "url": "https://ui.shadcn.com/docs/components/base/attachment",
+    "renderedComparisonPerformed": true,
+    "themes": ["light", "dark"],
+    "sections": ["overview", "image", "states", "sizes", "group", "trigger", "accessibility"]
+  },
+  "nativeMacOS": {
+    "launchPerformed": true,
+    "accessibilityTreeInspected": true,
+    "checks": [
+      "production upload progress, failure, retry, cancellation, removal and completion adapters",
+      "chat file attachment exposes an independently labelled link",
+      "five lifecycle states retain descriptive text beyond color",
+      "regular, small and extra-small semantics are present",
+      "vertical image triggers and remove actions operate independently",
+      "card trigger opens the accepted Dialog while Copy and Remove remain independent",
+      "light, dark, custom palette/radius, RTL, 200% text, reduced-motion and 420px narrow modes remain operable",
+      "group horizontal scroll, reverse scroll, pointer drag and Right/Home/End commands complete without error",
+      "Tab traversal scrolls focused off-screen group descendants into view",
+      "Tab plus Return activates the production failure action"
+    ]
+  },
+  "limitations": [
+    "CUA screenshots displayed the macOS launch artwork instead of Flutter's Metal layer even though the live Flutter accessibility tree and callbacks updated; no native pixel-fidelity claim is made.",
+    "Space activation was verified by the focused Flutter widget test. Native CUA AX activation does not establish keyboard focus, so a separate native Space claim is not made.",
+    "No spoken VoiceOver, iOS, Linux, physical touch-device or pixel-equality claim is made."
+  ]
+}

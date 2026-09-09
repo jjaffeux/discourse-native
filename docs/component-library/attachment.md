@@ -9,7 +9,7 @@
 - Registry: `https://ui.shadcn.com/r/styles/base-nova/attachment.json`
 - Registry SHA256 observed on 2026-09-09: `f6c6d376067d2734375a607256d59ce6c3ea4e486deda510b31844102033d353`.
 
-Source preparation inspected the complete Markdown, the rendered documentation text, and the complete base-nova registry source. No rendered browser comparison or native device pass is claimed here; those remain with the independent reviewer under the shared desktop lease.
+Source preparation inspected the complete Markdown, rendered documentation text, and complete base-nova registry source. The independent review subsequently compared the official rendered light/dark overview, image, lifecycle, size, group, trigger, and accessibility sections and exercised the exact-source macOS fixture under the shared desktop lease.
 
 ## Acceptance and source mapping
 
@@ -41,10 +41,16 @@ The public anatomy is `DAttachment`, `DAttachmentMedia`, `DAttachmentContent`, `
 
 `attachment_examples.dart` provides the documented composition, image/vertical group, all five states, all three sizes, mixed scroll group, dialog trigger with independent actions, and RTL/large-text/narrow cases. Examples use public components and local state only. The bundled Discourse image keeps image examples deterministic and offline.
 
-`attachment_review_main.dart` mounts both the component examples and real `ComposerUploadQueue`/`ChatUploads` production widgets with local-only data and callbacks. The independent reviewer owns building and inspecting its uniquely identified macOS bundle after integrating the accepted Dialog parent/current main.
+`attachment_review_main.dart` mounts both the component examples and real `ComposerUploadQueue`/`ChatUploads` production widgets with local-only data and callbacks. Its toolbar exposes light/dark, a custom purple host palette with a 14px radius, LTR/RTL, 100%/200% text, standard/reduced motion, and wide/420px narrow review conditions.
 
-Source `259f038d4f5b4acc27ba29f5dc46c2b6544efb0b` built successfully. The copied, unlaunched review artifact is `/private/tmp/DiscourseAttachmentReview39d9-259f038d.app`, bundle ID `org.discourse.native.attachmentreview39d9.r259f038d`, URL scheme `discourse-attachment-review-39d9`. The build and copied kernel agree at SHA256 `19235b03ef7b1892cbfd15e69e3816538c3689fca5d736c269b48231916c747a`. Ad-hoc signed readback contains only JIT, unsigned-executable-memory, and library-validation debug allowances; deep strict verification passed. Exact evidence is `evidence/attachment/build.json`. This proves source/build correspondence, not launch, rendered fidelity, or accessibility behavior.
+The final reviewer candidate `c4806e82` built successfully as `/private/tmp/DiscourseAttachmentFinalReviewa5fc-c4806e82.app`, bundle ID `org.discourse.native.attachmentfinalreviewa5fc.rc4806e82`, URL scheme `discourse-attachment-final-review-a5fc`. The build and copied kernel agree at SHA256 `ce11a5206bc72ea07de42da753b86839b79d4cfbd3fe30f916d990cfb734f299`; restricted ad-hoc entitlement readback and deep strict verification passed. Exact final evidence is `evidence/attachment/final-review-build.json`.
 
-## Prepared dependency gate
+## Independent acceptance
 
-Source preparation merged exact Dialog review pin `8a80078316381a60f70b4e11adbc919814ca9fbc` from `codex/review-dialog`; parent reviewer task `01a08558-7ac2-79a3-bd49-1be6148f540c`. This is tested prepared source, not accepted main. Attachment's reviewer must wait for Dialog's accepted local-main merge, integrate current main, reconcile the accepted parent, verify overlapping trigger/dialog behavior, and ensure no unaccepted parent revision reaches main through Attachment.
+Dialog was accepted on local main at merge `6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3`. The final Attachment candidate was rebuilt from accepted-parent/current-main source; its Dialog files matched the accepted source, and the card trigger/dialog overlap passed the focused regression set and native AX interaction.
+
+Independent source review found and fixed three acceptance issues: the migrated chat file link was shorter than its existing 44px keyboard target, horizontal multi-action cards reserved widths that did not match rendered `DButton` geometry, and the full-card trigger did not own/borrow focus robustly or fill the card's minimum interior. The accepted implementation keeps the 44px chat link contract, derives action reserve from actual targets, and gives `DAttachmentTrigger` explicit focus lifecycle and semantics without merging trigger and action nodes.
+
+The accepted-parent regression run passed all 104 Attachment, fixture, styleguide, Scroll Area, Dialog, composer, and chat tests with randomized seed `904748`; root and `profiles/full` analysis passed. Native macOS AX inspection exercised production progress/failure/retry/cancel/remove/complete behavior, chat-link semantics, image trigger/remove separation, lifecycle text, sizes, Dialog trigger/actions, theme/direction/text/motion/narrow modes, group pointer/trackpad/keyboard scrolling, focused-child visibility, and Tab+Return activation.
+
+The native screenshot API continued to display the launch artwork instead of Flutter's live Metal layer even while AX content and callbacks updated, so no native pixel-fidelity claim is made. Space activation is covered by the focused Flutter widget test, not claimed through native CUA focus. No spoken VoiceOver, iOS, Linux, physical touch-device, or pixel-equality claim is made.
