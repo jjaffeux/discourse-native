@@ -78,10 +78,17 @@ domain-specific keyboard behavior beyond a plain action dropdown. Directly
 replacing them during this component source task would erase those behaviors;
 their renderers are recorded for a later adapter-by-adapter migration review.
 
-Straightforward plugin `PopupMenuButton` call sites in Events, Voice, composer,
-bookmarks and emoji skin tone selection also remain until the reviewer can run
-their domain fixtures. They are not hidden or declared migrated. Third-party
-package example applications are outside the product component-library owner.
+Independent review searched current core and bundled-plugin sources and
+inspected the available diagnostics, bookmarks, emoji, Events, Voice and
+composer fixtures. Those `PopupMenuButton` call sites are not plain action-menu
+substitutions: they preserve multi-select filter state, per-row async/busy
+identity, rich emoji previews, recurring-event callback snapshots, participant
+permissions and platform-owned editor/gallery behavior. Replacing their trigger
+geometry and dismissal model without a dedicated native pass would expand this
+review beyond the fixture-backed Table migration, so they remain explicit
+adapter follow-ups rather than being hidden or declared migrated. Third-party
+package example applications remain outside the product component-library
+owner.
 
 The accepted Table styleguide's simple action menu is migrated here because it
 has a complete local-data regression fixture. Avatar's pending menu example is
