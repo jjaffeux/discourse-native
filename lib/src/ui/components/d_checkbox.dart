@@ -308,7 +308,10 @@ class _CheckboxMark extends CustomPainter {
 /// Native FormField integration. Reset restores [initialValue] and notifies
 /// [onChanged]; validation errors are announced and clear through normal Form
 /// autovalidation. [DCheckboxFormField.controlled] also follows external value
-/// updates, without treating those updates as user interaction.
+/// updates, without treating those updates as user interaction. In controlled
+/// fields, the constructor's initialValue is a reset proposal: the native field
+/// retains the current controlled value until a parent rebuild accepts it,
+/// including during synchronous save/validate calls inside change callbacks.
 class DCheckboxFormField extends FormField<bool> {
   factory DCheckboxFormField.controlled({
     Key? key,
@@ -345,6 +348,42 @@ class DCheckboxFormField extends FormField<bool> {
   );
 
   DCheckboxFormField({
+    Key? key,
+    bool? initialValue = false,
+    bool enabled = true,
+    FormFieldSetter<bool>? onSaved,
+    FormFieldValidator<bool>? validator,
+    AutovalidateMode? autovalidateMode,
+    String? restorationId,
+    bool tristate = false,
+    bool readOnly = false,
+    Widget? title,
+    Widget? subtitle,
+    String? semanticLabel,
+    FocusNode? focusNode,
+    bool autofocus = false,
+    ValueChanged<bool?>? onChanged,
+  }) : this._(
+         key: key,
+         initialValue: initialValue,
+         resetValue: initialValue,
+         enabled: enabled,
+         onSaved: onSaved,
+         validator: validator,
+         autovalidateMode: autovalidateMode,
+         restorationId: restorationId,
+         tristate: tristate,
+         readOnly: readOnly,
+         title: title,
+         subtitle: subtitle,
+         semanticLabel: semanticLabel,
+         focusNode: focusNode,
+         autofocus: autofocus,
+         onChanged: onChanged,
+       );
+
+  DCheckboxFormField._({
+    required bool? resetValue,
     super.key,
     super.initialValue = false,
     super.enabled = true,
@@ -361,8 +400,9 @@ class DCheckboxFormField extends FormField<bool> {
     bool autofocus = false,
     ValueChanged<bool?>? onChanged,
   }) : assert(tristate || initialValue != null),
+       assert(tristate || resetValue != null),
        super(
-         onReset: () => onChanged?.call(initialValue),
+         onReset: () => onChanged?.call(resetValue),
          builder: (field) => Column(
            mainAxisSize: MainAxisSize.min,
            crossAxisAlignment: CrossAxisAlignment.start,
@@ -410,7 +450,7 @@ class _ControlledCheckboxFormField extends DCheckboxFormField {
     super.key,
     required this.value,
     required super.onChanged,
-    super.initialValue,
+    bool? initialValue = false,
     super.enabled,
     super.tristate,
     super.readOnly,
@@ -422,7 +462,7 @@ class _ControlledCheckboxFormField extends DCheckboxFormField {
     super.onSaved,
     super.validator,
     super.autovalidateMode,
-  });
+  }) : super._(initialValue: value, resetValue: initialValue);
   final bool? value;
   @override
   FormFieldState<bool> createState() => _ControlledCheckboxFormFieldState();
@@ -430,18 +470,15 @@ class _ControlledCheckboxFormField extends DCheckboxFormField {
 
 class _ControlledCheckboxFormFieldState extends FormFieldState<bool> {
   @override
-  void initState() {
-    super.initState();
-    setValue((widget as _ControlledCheckboxFormField).value);
+  void didChange(bool? value) {
+    // Mark the interaction and notify Form, without publishing an unaccepted
+    // proposal to synchronous validators, save callbacks or Form listeners.
+    super.didChange((widget as _ControlledCheckboxFormField).value);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // A caller may decline a change. Form interaction still occurred, but the
-    // displayed and validated value must follow the controlled prop.
-    setValue((widget as _ControlledCheckboxFormField).value);
-    return super.build(context);
-  }
+  // Native reset uses this widget's effective initialValue (the controlled
+  // prop). Its onReset callback separately proposes the requested reset value,
+  // after clearing interaction/error state and before notifying Form.
 
   @override
   void didUpdateWidget(covariant _ControlledCheckboxFormField oldWidget) {

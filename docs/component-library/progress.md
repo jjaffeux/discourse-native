@@ -669,6 +669,7 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 - DCheckbox controlled/default constructors and DCheckboxFormField controlled/default integration cover save/reset, validation and external-value ownership. DLabel composes titles with 8px gap; secondary interactive content retains independent focus/semantics.
 - Fixed 16px paint, 14px Lucide Check, 4px radius, token colors and explicit rings. Mixed uses a documented Minus extension pending visual review; pointer/touch targets reserve 40x32/48x48 native space.
 - Six actual-component styleguide examples cover basic, states, group, table, form recovery and RTL/long labels; Label examples migrated. Shared Sidebar shell remains unchanged.
+- Controlled-form follow-up: mutation paths retain the current prop synchronously. Native effective reset baseline is the controlled prop; separately captured reset proposal preserves onChanged and Form notification ordering, while errors and interaction flags clear normally. Parent acceptance syncs in didUpdateWidget without artificial interaction.
 
 **migrations**
 
@@ -688,12 +689,13 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 - Final macOS debug build passed from clean source commit 0df1b03ca000166c1901825b001dbad750b04ce6. Copied unique bundle /private/tmp/DiscourseCheckbox132a-0df1b03c.app (org.discourse.native.checkbox.132a, discourse-checkbox-132a scheme) has matching source/copied kernel SHA256 50658162f62e4a78954bfc3470df11c70cf72e04f308efa777562b3646d9894b; deep strict ad-hoc signature verification passes. No CUA or app launch performed.
 - Additional Topic Inbox run: 98 passed, one compact-title Escape failure. Exact failing case reproduced on pristine base 2e894b5e in a temporary detached worktree; logs /tmp/checkbox-baseline-topic.log and /tmp/checkbox-topic-retry.log. Baseline worktree removed.
 - Final root/full-profile flutter analyze --no-pub passed after all source changes. Source, tree and native bundle provenance are recorded in checkbox-native-provenance.json.
+- Controlled follow-up: all 36 Checkbox/Label component and example tests pass (seed 927315), covering synchronous save/validate in caller/Form callbacks during declined toggles/resets, native reset error/interaction clearing, and later acceptance. Formatting/diff checks pass.
 
 **limitations**
 
 - Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.
 - Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
-- Known base tests pending coordinator: two Users Avatar ClipRRect casts and compact-title Escape restoration. No changes to those unrelated production owners.
+- Coordinator reports base Avatar assertions corrected on main adc25e7b and Tooltip/compact-title Escape fixed separately at c5d37bd1 pending native review; no changes to these owners in this follow-up.
 
 ### skeleton
 

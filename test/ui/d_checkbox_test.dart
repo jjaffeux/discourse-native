@@ -28,32 +28,108 @@ Widget host(
 );
 
 void main() {
-  testWidgets('controlled form does not retain a value the caller declined', (
-    tester,
-  ) async {
-    final form = GlobalKey<FormState>();
-    bool? proposed;
-    bool? saved;
-    await tester.pumpWidget(
-      host(
-        Form(
-          key: form,
-          child: DCheckboxFormField.controlled(
-            value: false,
-            onChanged: (v) => proposed = v,
-            title: const Text('Declined'),
-            onSaved: (v) => saved = v,
-          ),
-        ),
+  test('binary controlled forms reject a mixed reset proposal', () {
+    expect(
+      () => DCheckboxFormField.controlled(
+        value: true,
+        initialValue: null,
+        onChanged: (_) {},
       ),
+      throwsAssertionError,
     );
-    await tester.tap(find.text('Declined'));
-    await tester.pump();
-    expect(proposed, true);
-    expect(tester.widget<DCheckbox>(find.byType(DCheckbox)).value, false);
-    form.currentState!.save();
-    expect(saved, false);
   });
+
+  for (final reset in [false, true]) {
+    testWidgets(
+      'declined controlled ${reset ? 'reset' : 'toggle'} is synchronously consistent before parent acceptance',
+      (tester) async {
+        final form = GlobalKey<FormState>();
+        final field = GlobalKey<FormFieldState<bool>>();
+        final parentValue = ValueNotifier<bool?>(reset);
+        final proposals = <bool?>[];
+        final saved = <bool?>[];
+        final validated = <bool?>[];
+        final notifications = <String>[];
+        bool armed = false;
+        bool forceError = false;
+        void inspect(String source) {
+          if (!armed) return;
+          notifications.add(source);
+          expect(field.currentState!.value, parentValue.value);
+          expect(field.currentState!.hasInteractedByUser, !reset);
+          if (reset) expect(field.currentState!.hasError, false);
+          form.currentState!.save();
+          expect(saved.last, parentValue.value);
+          expect(form.currentState!.validate(), true);
+          expect(validated.last, parentValue.value);
+        }
+
+        await tester.pumpWidget(
+          host(
+            ValueListenableBuilder<bool?>(
+              valueListenable: parentValue,
+              builder: (_, current, _) => Form(
+                key: form,
+                onChanged: () => inspect('form'),
+                child: DCheckboxFormField.controlled(
+                  key: field,
+                  value: current,
+                  initialValue: !reset,
+                  title: const Text('Controlled choice'),
+                  onChanged: (proposal) {
+                    proposals.add(proposal);
+                    inspect('proposal');
+                  },
+                  onSaved: saved.add,
+                  validator: (value) {
+                    validated.add(value);
+                    if (forceError) return 'Previous error';
+                    return value == parentValue.value
+                        ? null
+                        : 'Unaccepted value';
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        armed = true;
+        if (reset) {
+          // Exercise native reset clearing prior interaction, as well as its
+          // reset-proposal callback and both Form.onChanged notifications.
+          armed = false;
+          field.currentState!.didChange(!reset);
+          forceError = true;
+          expect(field.currentState!.validate(), false);
+          expect(field.currentState!.hasError, true);
+          forceError = false;
+          armed = true;
+          notifications.clear();
+          form.currentState!.reset();
+        } else {
+          await tester.tap(find.text('Controlled choice'));
+        }
+        // No pump: callbacks, native field state and explicit save/validate
+        // must already agree with the still-unmodified controlled prop.
+        inspect('after');
+        expect(proposals, [!reset]);
+        expect(notifications.first, reset ? 'proposal' : 'form');
+        expect(field.currentState!.value, reset);
+        armed = false;
+        parentValue.value = proposals.single;
+        await tester.pump();
+        expect(field.currentState!.value, !reset);
+        form.currentState!.save();
+        expect(saved.last, !reset);
+        expect(form.currentState!.validate(), true);
+        expect(validated.last, !reset);
+        expect(proposals, [!reset]);
+        expect(field.currentState!.hasInteractedByUser, !reset);
+        await tester.pumpWidget(const SizedBox());
+        parentValue.dispose();
+      },
+    );
+  }
 
   testWidgets(
     'readOnly retains focus without pointer, Space or semantic mutation',

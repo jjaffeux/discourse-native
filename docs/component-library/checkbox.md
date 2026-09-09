@@ -133,3 +133,28 @@ uses were searched under core and every bundled plugin.
   coordinator's desktop slot. No iOS/Linux device or VoiceOver claim is made.
 
 Additional Topic Inbox verification passed 98 tests and failed compact-title Escape restoration. The exact failure reproduced on pristine base `2e894b5e` in a temporary detached worktree, which was removed afterward. Logs: `/tmp/checkbox-baseline-topic.log` and `/tmp/checkbox-topic-retry.log`. This base failure is assigned to the coordinator.
+
+
+## Controlled form consistency follow-up
+
+Controlled toggles call native `didChange` with the current controlled prop,
+marking interaction and notifying Form without publishing an unaccepted value.
+The controlled widget gives the native FormField its current prop as the
+effective initial value; the constructor's requested reset value is captured
+separately for `onChanged`. Native reset therefore clears errors/interaction,
+proposes the requested reset, and notifies Form in the original order while
+save/validate always see the controlled prop. Later parent rebuilds synchronize
+accepted values without adding interaction or change notifications. Build-time
+reconciliation is no longer needed.
+
+36 focused Checkbox/Label component and example tests pass (seed 927315),
+including synchronous save/validate in both proposal and Form.onChanged callbacks,
+immediately after declined reset/toggle without a pump, prior error/interaction
+clearing on reset, and later parent acceptance. Logs:
+`/tmp/checkbox-sync-focused-tests.log`, `/tmp/checkbox-sync-analysis.log`,
+`/tmp/checkbox-sync-full-analysis.log`. Formatting and diff checks pass.
+
+The coordinator reports Avatar assertion fixes on main (`adc25e7b`) and the
+separate Tooltip/compact-title Escape fix at `c5d37bd1`, pending its native
+review. This branch leaves those owners untouched. Native Checkbox inspection
+remains `awaiting_slot`; the desktop is locked and no CUA/launch was attempted.
