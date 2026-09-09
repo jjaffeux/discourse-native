@@ -1677,15 +1677,12 @@ class _ParticipantFlagDialogState extends State<_ParticipantFlagDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text('Notify moderators about @${widget.username}'),
-    content: TextField(
-      style: Theme.of(context).textTheme.bodyMedium,
+    content: DTextarea(
       controller: _message,
       autofocus: true,
       minLines: 3,
       maxLines: 6,
-      decoration: const InputDecoration(
-        labelText: 'What should moderators know?',
-      ),
+      labelText: 'What should moderators know?',
     ),
     actions: [
       DButton(
@@ -1885,14 +1882,11 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    style: Theme.of(context).textTheme.bodyLarge,
+                  child: DTextarea(
                     controller: _composer,
                     minLines: 1,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: 'Message the room',
-                    ),
+                    hintText: 'Message the room',
                   ),
                 ),
                 DTooltip(

@@ -122,19 +122,16 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
               helperText: 'Used in the channel URL',
             ),
             const SizedBox(height: 12),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               key: const ValueKey('chat-channel-description-input'),
               controller: _description,
               enabled: !_saving,
               minLines: 3,
               maxLines: 6,
               maxLength: 280,
+              showCounter: true,
               onChanged: (_) => setState(() => _error = null),
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                alignLabelWithHint: true,
-              ),
+              labelText: 'Description',
             ),
             if (_error case final error?)
               Align(

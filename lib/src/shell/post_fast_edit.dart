@@ -128,8 +128,7 @@ class _PostFastEditorState extends State<_PostFastEditor> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            style: Theme.of(context).textTheme.bodyLarge,
+          DTextarea(
             key: const ValueKey('fast-edit-input'),
             controller: _text,
             autofocus: true,
@@ -139,11 +138,7 @@ class _PostFastEditorState extends State<_PostFastEditor> {
             keyboardType: TextInputType.multiline,
             textCapitalization: TextCapitalization.sentences,
             onChanged: (_) => setState(() => _error = null),
-            decoration: const InputDecoration(
-              labelText: 'Selected text',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
-            ),
+            labelText: 'Selected text',
           ),
           if (_error case final error?) ...[
             const SizedBox(height: 8),
