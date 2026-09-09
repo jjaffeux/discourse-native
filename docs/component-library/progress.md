@@ -1184,6 +1184,7 @@ Status: review_ready. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/
 - Official browser comparison covered all documented examples in light and dark, including multiple and clearable single selection, spacing, disabled, Custom Field composition and RTL.
 - Exact-source macOS bundle /private/tmp/toggle-group-review-9a0d7a34.6q7VMA/ready/Toggle Group Review 9A0D7A34.app used identifier org.discourse.togglegroup.review9a0d7a34. Copied App.framework SHA256 f4f665946edda732d0c2fb8138a6b27a3acf576eba5a860c95b2a19dbeb2d273 matched the source build and deep strict ad-hoc verification passed with no push entitlement.
 - Native acceptance exercised all nine examples, pointer selection, horizontal arrows and Home/End, dynamic controller updates, disabled blocking, joined focus layering, light/dark/Forest/Plum, RTL, reduced motion, 200% text and narrow layout. The real production Composer changed live markup between [grid] and [grid mode=carousel].
+- Final candidate f7c3fec516639bedf0e52137d8bc5c5e98d143a9 reconciled the accepted history onto main b2f425545756bf78798ae2e1635b261f1719b14d without relevant source overlap. The same 72 focused checks passed with seed 9052046; root and profiles/full flutter analyze --no-pub and locked resolution remained clean.
 
 **limitations**
 
