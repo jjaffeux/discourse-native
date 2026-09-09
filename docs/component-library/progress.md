@@ -3554,4 +3554,12 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 
 ### Final audit
 
-Status: planned. Task: —. Branch: —.
+Status: in_progress. Task: 01a0879a-c563-7fa0-a5df-49654971f6da. Branch: codex/review-component-library-final.
+
+**decisions**
+
+- The independent final audit task owns integrated-library and app-adoption review, substantiated shared/API/theme/accessibility/styleguide fixes, affected verification and the final local main merge. Existing accepted component and composition evidence remains valid for unchanged behavior; the coordinator is not a routine approval gate.
+
+**verification**
+
+- Prerequisite audit gate verified by the coordinator: all 64 unique catalogue components and all four required final-composition reviews are accepted, with their merge commits in local main ancestry. This is dispatch evidence, not completion of the final audit.
