@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
+**35 of 64 components are merged locally.** 17 existing components are in progress; 12 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -94,7 +94,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 55 | attachment | in_progress | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
 | 57 | bubble | in_progress | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | — |
-| 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
+| 58 | message | in_progress | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
 | 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
@@ -2504,6 +2504,23 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/u
 **decisions**
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
+
+### message
+
+Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/ui-message.
+
+**acceptanceCriteria**
+
+- Reproduce the frozen base-nova Message, MessageGroup, MessageAvatar, MessageContent, MessageHeader and MessageFooter composition, start/end alignment, footer-aware avatar anchoring, exact 8px/10px/12px geometry and 14px row plus 12px metadata typography.
+- Provide complete Avatar, Group, Header/Footer, Actions, Attachment and accessibility/status-update examples by composing the final Avatar, Bubble, Button, Attachment and Marker owners without duplicated rendering or placeholder primitives.
+- Keep arbitrary rich content and sender/timestamp/status/action metadata generic; support independently labeled actions, appropriate live status announcements, keyboard/touch interaction, narrow and 200% text layouts, RTL, reduced motion and live host theme/font/radius changes.
+- Audit core and bundled plugins, migrate suitable real chat/message presentation while retaining delivery, fetching, permissions, virtualization, selection and model transformations in app adapters; coordinate the stable public contract with Message Scroller.
+- Pass focused component/styleguide/adoption regressions, formatting and root/full-profile analysis; prepare exact-source isolated browser/native evidence and create a new independent reviewer to complete acceptance, reconcile every parent against current main and merge locally.
+
+**decisions**
+
+- Frozen Markdown SHA256 39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782 verified on 2026-09-09; official base-nova registry SHA256 6a484395f7ed32d3b254619cc542aeed6ce77a5628d1e9a04d4b5baaf7de0c.
+- Implementation began from local main 77ee9b047528d43fcbcd4a31d464182f9640b835; Attachment review, Bubble implementation and Message Scroller owners are being coordinated directly. Prepared dependencies remain source-only until accepted on current main.
 
 ### chart
 
