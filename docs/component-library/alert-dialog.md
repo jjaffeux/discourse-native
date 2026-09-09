@@ -127,12 +127,14 @@ only fixture-local outcomes and performed no account or server mutation.
 
 The final randomized component/Dialog/Drawer matrix passed 56 checks with seed
 `1113783763`. Focused affected consumer groups passed 92 checks. Root and
-`profiles/full` analysis passed. The exact component, examples and harness hashes
-still match the prepared bundle, whose copied kernel SHA-256 is
+`profiles/full` analysis passed. At native inspection the component, examples
+and harness hashes matched the prepared bundle, whose copied kernel SHA-256 is
 `a2724f22c8a502674b303547455467b94ba6df30da6cfec4ac365037cf86248d`;
 deep strict ad-hoc signature verification passed. A wider parallel batch was not
 used as acceptance evidence because it reproduced the documented diagnostics
 resize-handle flake and unrelated stale toast expectations before interruption.
+The subsequent example change only promotes its catalogue status to implemented;
+the inspected component, example behavior and application adapter are unchanged.
 
 No physical iOS/Linux device or spoken VoiceOver/TalkBack session was run.
 Browser and native rasterization were compared for composition, geometry,
