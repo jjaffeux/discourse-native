@@ -352,6 +352,48 @@ void main() {
   );
 
   testWidgets(
+    'large text and explicit unlimited notes clear an inherited menu clamp',
+    (tester) async {
+      const content = DefaultTextStyle(
+        style: TextStyle(),
+        maxLines: 1,
+        child: DItem(
+          children: [
+            DItemContent(
+              children: [
+                DItemTitle(child: Text('Long title')),
+                DItemDescription(maxLines: null, child: Text('Complete note')),
+              ],
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host(content, scale: 2));
+      expect(
+        tester.renderObject<RenderParagraph>(find.text('Long title')).maxLines,
+        isNull,
+      );
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text('Complete note'))
+            .maxLines,
+        isNull,
+      );
+      await tester.pumpWidget(host(content));
+      expect(
+        tester.renderObject<RenderParagraph>(find.text('Long title')).maxLines,
+        1,
+      );
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text('Complete note'))
+            .maxLines,
+        isNull,
+      );
+    },
+  );
+
+  testWidgets(
     'RTL reverses media and content without mirroring child artwork',
     (tester) async {
       await tester.pumpWidget(

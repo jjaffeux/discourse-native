@@ -494,12 +494,14 @@ class DItemTitle extends StatelessWidget {
   final Widget child;
   final int? maxLines;
   @override
-  Widget build(BuildContext context) => DefaultTextStyle.merge(
-    style: const TextStyle(
-      fontSize: DiscourseTypography.sm,
-      height: 1.375,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0,
+  Widget build(BuildContext context) => DefaultTextStyle(
+    style: DefaultTextStyle.of(context).style.merge(
+      const TextStyle(
+        fontSize: DiscourseTypography.sm,
+        height: 1.375,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+      ),
     ),
     maxLines: MediaQuery.textScalerOf(context).scale(14) > 21 ? null : maxLines,
     overflow: TextOverflow.ellipsis,
@@ -518,15 +520,17 @@ class DItemDescription extends StatelessWidget {
   final int? maxLines;
   final double height;
   @override
-  Widget build(BuildContext context) => DefaultTextStyle.merge(
-    style: TextStyle(
-      fontSize: _ItemScope.sizeOf(context) == DItemSize.xs
-          ? DiscourseTypography.xs
-          : DiscourseTypography.sm,
-      height: height,
-      fontWeight: FontWeight.w400,
-      color: DTokens.of(context).mutedForeground,
-      letterSpacing: 0,
+  Widget build(BuildContext context) => DefaultTextStyle(
+    style: DefaultTextStyle.of(context).style.merge(
+      TextStyle(
+        fontSize: _ItemScope.sizeOf(context) == DItemSize.xs
+            ? DiscourseTypography.xs
+            : DiscourseTypography.sm,
+        height: height,
+        fontWeight: FontWeight.w400,
+        color: DTokens.of(context).mutedForeground,
+        letterSpacing: 0,
+      ),
     ),
     textAlign: TextAlign.start,
     maxLines: MediaQuery.textScalerOf(context).scale(14) > 21 ? null : maxLines,
