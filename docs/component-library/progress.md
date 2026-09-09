@@ -20,7 +20,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | in_progress | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | — |
 | 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
-| 11 | textarea | planned | — | — | label | — |
+| 11 | textarea | in_progress | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
 | 13 | radio-group | in_progress | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
 | 14 | switch | in_progress | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | — |
@@ -808,6 +808,10 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 
 - Native reference comparison and editing inspection await the coordinator desktop slot; the Mac was reported locked. No CUA or real app interaction has occurred.
 - No iOS/Linux device or spoken VoiceOver inspection; target-platform widget checks are not device verification.
+
+### textarea
+
+Status: in_progress. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/ui-textarea.
 
 ### checkbox
 
