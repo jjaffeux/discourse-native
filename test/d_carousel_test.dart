@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -310,6 +312,58 @@ void main() {
       expect(controller.selectedIndex, stoppedAt);
     },
   );
+
+  testWidgets('autoplay pauses for focus and optional pointer hover', (
+    tester,
+  ) async {
+    final controller = DCarouselController();
+    final focusNode = FocusNode();
+    final autoplay = DCarouselAutoplay(
+      delay: const Duration(milliseconds: 300),
+      stopOnInteraction: false,
+      stopOnMouseEnter: true,
+    );
+    addTearDown(controller.dispose);
+    addTearDown(focusNode.dispose);
+    addTearDown(autoplay.dispose);
+    await tester.pumpWidget(
+      host(
+        carousel(
+          controller: controller,
+          loop: true,
+          plugins: [autoplay],
+          focusNode: focusNode,
+        ),
+      ),
+    );
+
+    focusNode.requestFocus();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(controller.selectedIndex, 0);
+
+    focusNode.unfocus();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 301));
+    await tester.pump(DMotion.change);
+    expect(controller.selectedIndex, 1);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(
+      tester.getCenter(find.byKey(const ValueKey('d-carousel-viewport'))),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(controller.selectedIndex, 1);
+
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 301));
+    await tester.pump(DMotion.change);
+    expect(controller.selectedIndex, 2);
+    await mouse.removePointer();
+  });
 
   testWidgets('borrowed controller and plugin remain usable after removal', (
     tester,
