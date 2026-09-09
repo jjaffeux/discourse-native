@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 
 enum DPopoverSide { top, bottom, left, right, inlineStart, inlineEnd }
@@ -449,34 +450,36 @@ class _DPopoverState extends State<DPopover>
       return const SizedBox.shrink();
     }
     return Positioned.fill(
-      child: _PopoverScope(
-        close: () => _request(
-          false,
-          DPopoverChangeReason.closePress,
-          DPopoverInteraction.keyboard,
-        ),
-        child: _PopoverPositioner(
-          target: target,
-          boundary: boundary,
-          content: widget.content,
-          direction: Directionality.of(context),
-          animation: _curve,
-          child: Actions(
-            actions: {
-              DismissIntent: CallbackAction<DismissIntent>(
-                onInvoke: (intent) {
-                  _request(
-                    false,
-                    DPopoverChangeReason.escape,
-                    DPopoverInteraction.keyboard,
-                  );
-                  return null;
-                },
+      child: DJoinedControlScope.boundary(
+        child: _PopoverScope(
+          close: () => _request(
+            false,
+            DPopoverChangeReason.closePress,
+            DPopoverInteraction.keyboard,
+          ),
+          child: _PopoverPositioner(
+            target: target,
+            boundary: boundary,
+            content: widget.content,
+            direction: Directionality.of(context),
+            animation: _curve,
+            child: Actions(
+              actions: {
+                DismissIntent: CallbackAction<DismissIntent>(
+                  onInvoke: (intent) {
+                    _request(
+                      false,
+                      DPopoverChangeReason.escape,
+                      DPopoverInteraction.keyboard,
+                    );
+                    return null;
+                  },
+                ),
+              },
+              child: FocusScope(
+                node: _surfaceFocus,
+                child: KeyedSubtree(key: _surfaceKey, child: widget.content),
               ),
-            },
-            child: FocusScope(
-              node: _surfaceFocus,
-              child: KeyedSubtree(key: _surfaceKey, child: widget.content),
             ),
           ),
         ),
