@@ -7,6 +7,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/button_surface.dart';
+
 void main() {
   testWidgets('focused control paints its ring above the adjacent surface', (
     tester,
@@ -58,15 +60,14 @@ void main() {
     focus.requestFocus();
     await tester.pumpAndSettle();
     expect(focus.hasFocus, isTrue);
-    final ring = find.byWidgetPredicate(
-      (widget) =>
-          widget is DecoratedBox &&
-          widget.decoration is BoxDecoration &&
-          (widget.decoration as BoxDecoration).border is Border &&
-          ((widget.decoration as BoxDecoration).border! as Border).top.width ==
-              3,
+    expect(
+      buttonSurface(tester, of: find.byType(FilledButton).first).ringWidth,
+      3,
     );
-    expect(ring, findsOneWidget);
+    expect(
+      buttonSurface(tester, of: find.byType(FilledButton).last).ringWidth,
+      0,
+    );
     expect(await tester.runAsync(seamPixel), isNot(idle));
   });
 

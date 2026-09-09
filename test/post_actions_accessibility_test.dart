@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';
@@ -19,7 +20,8 @@ void main() {
   testWidgets('hovered post actions use exact toolbar geometry and styling', (
     tester,
   ) async {
-    final action = (await _pumpHoveredPostAction(tester)).action;
+    final (:action, :api, :pointer) = await _pumpHoveredPostAction(tester);
+    expect(api.liked, isEmpty);
 
     expect(tester.getSize(action), HoverActionButton.size);
     final menu = find
@@ -50,10 +52,9 @@ void main() {
       (hoverShape! as RoundedRectangleBorder).borderRadius,
       BorderRadius.circular(theme.discourseButtons.borderRadius),
     );
-    expect(
-      filledButton.style!.backgroundColor!.resolve({WidgetState.hovered}),
-      theme.shell.hover,
-    );
+    await pointer.moveTo(tester.getCenter(action));
+    await tester.pump();
+    expect(buttonSurface(tester, of: button).color, theme.shell.hover);
     expect(
       filledButton.style!.fixedSize!.resolve({}),
       const Size.square(
@@ -110,7 +111,7 @@ void main() {
 
   testWidgets('focused post actions activate with Enter', (tester) async {
     await _withSemantics(tester, () async {
-      final (:action, :api) = await _pumpHoveredPostAction(tester);
+      final (:action, :api, pointer: _) = await _pumpHoveredPostAction(tester);
       final focus = _buttonFocus(tester, action)..requestFocus();
       await tester.pumpAndSettle();
 
@@ -264,7 +265,8 @@ Future<void> _withSemantics(
   }
 }
 
-Future<({Finder action, FakeDiscourseApi api})> _pumpHoveredPostAction(
+Future<({Finder action, FakeDiscourseApi api, TestGesture pointer})>
+_pumpHoveredPostAction(
   WidgetTester tester, {
   ValueNotifier<Matrix4>? transform,
 }) async {
@@ -334,7 +336,7 @@ Future<({Finder action, FakeDiscourseApi api})> _pumpHoveredPostAction(
 
   final action = find.byTooltip('Like this post');
   expect(action, findsOneWidget);
-  return (action: action, api: api);
+  return (action: action, api: api, pointer: pointer);
 }
 
 Future<void> _pumpFocusedPostActions(WidgetTester tester) async {
