@@ -9,16 +9,34 @@ final directionExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   notes:
       'Import discourse_ui.dart; no additional dependency is needed. '
-      'DDirection uses Flutter Directionality for both native controls and '
-      'DDirection.of(context), the useDirection equivalent. A null textDirection '
-      'inherits the host locale; an explicit value overrides only its subtree. '
-      'of requires an ancestor; maybeOf returns null without one. '
-      'Direction changes preserve state and focus. Themes, text scale and motion '
-      'remain owned by the host. Use directional padding/alignment; text is not '
-      'translated and physical geometry or arbitrary icons are not mirrored. '
-      'Put the scope above a Navigator for its routes, or use an OverlayPortal '
-      'consumer such as DDropdownMenu for a local live overlay.',
+      'DDirection wraps Flutter Directionality, so one provider drives native '
+      'layout, text, semantics and DDirection.of(context), the useDirection '
+      'equivalent. The reference wraps the whole app: pass '
+      'MaterialApp.builder a DDirection above the Navigator, or scope a '
+      'subtree. A null textDirection inherits the host locale instead of the '
+      'reference LTR default; of requires an ancestor and maybeOf returns '
+      'null without one. Direction changes preserve state and focus. Themes, '
+      'text scale and motion remain owned by the host. Use directional '
+      'padding/alignment; text is not translated and physical geometry or '
+      'arbitrary icons are not mirrored. An OverlayPortal consumer such as '
+      'DSelect or DDropdownMenu keeps its popup in the originating scope.',
   examples: [
+    StyleguideExample(
+      title: 'Card RTL',
+      description:
+          'The documented preview. Choose English, Arabic or Hebrew: the login '
+          'card takes that language\'s direction while the selector stays LTR. '
+          'Drafts, validation and focus survive the switch.',
+      states: const [
+        'Arabic default',
+        'Hebrew',
+        'English',
+        'Fixed LTR selector',
+        'Retained edits',
+      ],
+      code: _cardRtlCode,
+      builder: (_) => const _CardRtl(),
+    ),
     StyleguideExample(
       title: 'Live direction and editing',
       description:
@@ -27,19 +45,25 @@ final directionExamples = ComponentExamples(
           'Enter or Space to activate them. The draft, saved value and native '
           'focus survive direction and theme changes.',
       states: const ['Inherited', 'LTR', 'RTL', 'Keyboard', 'Live changes'],
-      code: '''// In a State: TextDirection? direction; null means inherit.
+      code:
+          '''// App-wide, like <DirectionProvider direction="rtl"> around the app:
+// MaterialApp(builder: (context, child) =>
+//   DDirection(textDirection: TextDirection.rtl, child: child!))
+
+// In a State: TextDirection? direction; null means inherit.
 Column(
   children: [
-    Wrap(
-      spacing: DSpacing.sm,
-      children: [
-        for (final value in [null, TextDirection.ltr, TextDirection.rtl])
-          ChoiceChip(
-            label: Text(value?.name.toUpperCase() ?? 'Inherit'),
-            selected: direction == value,
-            onSelected: (_) => setState(() => direction = value),
-          ),
+    DToggleGroup<String>(
+      values: [scope],
+      allowEmptySelection: false,
+      variant: DToggleVariant.outline,
+      size: DToggleSize.small,
+      items: const [
+        DToggleGroupItem(value: 'inherit', child: Text('Inherit')),
+        DToggleGroupItem(value: 'ltr', child: Text('LTR')),
+        DToggleGroupItem(value: 'rtl', child: Text('RTL')),
       ],
+      onChanged: (values) => setState(() => scope = values.single),
     ),
     // Keep the editor mounted when the selected direction changes.
     DDirection(
@@ -48,7 +72,7 @@ Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Current direction: \${DDirection.of(context).name.toUpperCase()}'),
-          const TextField(decoration: InputDecoration(labelText: 'Display name')),
+          DInput(controller: name, labelText: 'Display name'),
         ],
       )),
     ),
@@ -118,6 +142,430 @@ DDirection(
   ],
 );
 
+const _cardRtlCode =
+    '''// In a State: var language = 'ar'; translations map a language
+// to its direction and strings, like the reference useTranslation.
+final t = translations[language]!;
+Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+  // The selector keeps dir="ltr" on its trigger and popup.
+  Align(alignment: AlignmentDirectional.centerEnd, child: DDirection(
+    textDirection: TextDirection.ltr,
+    child: DSelect<String>(
+      value: language,
+      size: DSelectSize.small,
+      width: 144,
+      semanticLabel: 'Language',
+      entries: const [
+        DSelectOption(value: 'en', label: 'English', child: Text('English')),
+        DSelectOption(value: 'ar', label: 'Arabic (العربية)',
+          child: Text('Arabic (العربية)')),
+        DSelectOption(value: 'he', label: 'Hebrew (עברית)',
+          child: Text('Hebrew (עברית)')),
+      ],
+      onChanged: (value) => setState(() => language = value!),
+    ),
+  )),
+  const SizedBox(height: 16),
+  DDirection(textDirection: t.dir, child: DCard(children: [
+    DCardHeader(
+      title: DCardTitle(child: Text(t.title)),
+      description: DCardDescription(child: Text(t.description)),
+      action: DCardAction(child: DButton(onPressed: signUp,
+        variant: DButtonVariant.link, label: Text(t.signUp))),
+    ),
+    DCardContent(child: Form(key: formKey, child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      DField(children: [
+        DFieldLabel(focusNode: emailFocus, excludeSemantics: true,
+          style: TextStyle(height: 1), child: Text(t.email)),
+        DFieldControl(label: t.email, required: true, child: DInput(
+          focusNode: emailFocus, keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => passwordFocus.requestFocus(),
+          hintText: t.emailPlaceholder, isRequired: true,
+          validator: validateEmail)),
+      ]),
+      SizedBox(height: 24),
+      DField(children: [
+        Wrap(alignment: WrapAlignment.spaceBetween, children: [
+          DFieldLabel(focusNode: passwordFocus, excludeSemantics: true,
+            style: TextStyle(height: 1), child: Text(t.password)),
+          // Inline text bounds, no padding; DButton retains native activation.
+          forgotPasswordLink,
+        ]),
+        DFieldControl(label: t.password, required: true, child: DInput(
+          focusNode: passwordFocus, obscureText: true, isRequired: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => submit(), validator: validatePassword)),
+      ]),
+    ]))),
+  ], footer: DCardFooter(child: Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    DButton(onPressed: submit, variant: DButtonVariant.primary,
+      label: Text(t.login)),
+    SizedBox(height: 8),
+    DButton(onPressed: google, variant: DButtonVariant.outline,
+      label: Text(t.loginWithGoogle)),
+  ])))),
+])''';
+
+/// One language of the reference `Translations` record: its direction and
+/// the login card strings.
+class _Translation {
+  const _Translation({
+    required this.dir,
+    required this.title,
+    required this.description,
+    required this.signUp,
+    required this.email,
+    required this.emailPlaceholder,
+    required this.password,
+    required this.forgotPassword,
+    required this.login,
+    required this.loginWithGoogle,
+  });
+
+  final TextDirection dir;
+  final String title;
+  final String description;
+  final String signUp;
+  final String email;
+  final String emailPlaceholder;
+  final String password;
+  final String forgotPassword;
+  final String login;
+  final String loginWithGoogle;
+}
+
+const _translations = <String, _Translation>{
+  'en': _Translation(
+    dir: TextDirection.ltr,
+    title: 'Login to your account',
+    description: 'Enter your email below to login to your account',
+    signUp: 'Sign Up',
+    email: 'Email',
+    emailPlaceholder: 'm@example.com',
+    password: 'Password',
+    forgotPassword: 'Forgot your password?',
+    login: 'Login',
+    loginWithGoogle: 'Login with Google',
+  ),
+  'ar': _Translation(
+    dir: TextDirection.rtl,
+    title: 'تسجيل الدخول إلى حسابك',
+    description: 'أدخل بريدك الإلكتروني أدناه لتسجيل الدخول إلى حسابك',
+    signUp: 'إنشاء حساب',
+    email: 'البريد الإلكتروني',
+    emailPlaceholder: 'm@example.com',
+    password: 'كلمة المرور',
+    forgotPassword: 'نسيت كلمة المرور؟',
+    login: 'تسجيل الدخول',
+    loginWithGoogle: 'تسجيل الدخول باستخدام Google',
+  ),
+  'he': _Translation(
+    dir: TextDirection.rtl,
+    title: 'התחבר לחשבון שלך',
+    description: 'הזן את האימייל שלך למטה כדי להתחבר לחשבון שלך',
+    signUp: 'הירשם',
+    email: 'אימייל',
+    emailPlaceholder: 'm@example.com',
+    password: 'סיסמה',
+    forgotPassword: 'שכחת את הסיסמה?',
+    login: 'התחבר',
+    loginWithGoogle: 'התחבר עם Google',
+  ),
+};
+
+/// The reference language selector options, in its declaration order.
+const _languageOptions = [
+  ('en', 'English'),
+  ('ar', 'Arabic (العربية)'),
+  ('he', 'Hebrew (עברית)'),
+];
+
+class _CardRtl extends StatefulWidget {
+  const _CardRtl();
+
+  @override
+  State<_CardRtl> createState() => _CardRtlState();
+}
+
+class _CardRtlState extends State<_CardRtl> {
+  String _language = 'ar';
+  String _status = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final translation = _translations[_language]!;
+    return Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 384),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              // The reference selector sets dir="ltr" on its trigger and
+              // popup; DSelect's OverlayPortal keeps the popup in this scope.
+              child: DDirection(
+                textDirection: TextDirection.ltr,
+                child: DSelect<String>(
+                  value: _language,
+                  size: DSelectSize.small,
+                  width: 144,
+                  semanticLabel: 'Language',
+                  entries: [
+                    for (final (value, label) in _languageOptions)
+                      DSelectOption(
+                        value: value,
+                        label: label,
+                        child: Text(label),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _language = value);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: DSpacing.lg),
+            DDirection(
+              textDirection: translation.dir,
+              child: _LoginCard(
+                strings: translation,
+                onNotice: (value) => setState(() => _status = value),
+              ),
+            ),
+            if (_status.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: DSpacing.sm),
+                child: Semantics(liveRegion: true, child: Text(_status)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The reference CardRtl composition. Strings change with the language while
+/// the form, controllers and focus nodes stay mounted.
+class _LoginCard extends StatefulWidget {
+  const _LoginCard({required this.strings, required this.onNotice});
+
+  final _Translation strings;
+  final ValueChanged<String> onNotice;
+
+  @override
+  State<_LoginCard> createState() => _LoginCardState();
+}
+
+class _LoginCardState extends State<_LoginCard> {
+  final _form = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _emailFocus = FocusNode(debugLabel: 'Login email');
+  final _passwordFocus = FocusNode(debugLabel: 'Login password');
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    super.dispose();
+  }
+
+  void _submit() => widget.onNotice(
+    _form.currentState!.validate() ? 'Signed in locally' : '',
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.strings;
+    return DCard(
+      footer: DCardFooter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _wrappingButton(t.login, _submit),
+            const SizedBox(height: DSpacing.sm),
+            _wrappingButton(
+              t.loginWithGoogle,
+              () => widget.onNotice('Google login selected'),
+              variant: DButtonVariant.outline,
+            ),
+          ],
+        ),
+      ),
+      children: [
+        DCardHeader(
+          title: DCardTitle(child: Text(t.title)),
+          description: DCardDescription(child: Text(t.description)),
+          action: DCardAction(
+            child: _wrappingButton(
+              t.signUp,
+              () => widget.onNotice('Sign up selected'),
+              variant: DButtonVariant.link,
+            ),
+          ),
+        ),
+        DCardContent(
+          child: Form(
+            key: _form,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DField(
+                  children: [
+                    DFieldLabel(
+                      focusNode: _emailFocus,
+                      excludeSemantics: true,
+                      style: const TextStyle(height: 1),
+                      child: Text(t.email),
+                    ),
+                    DFieldControl(
+                      label: t.email,
+                      required: true,
+                      child: DInput(
+                        controller: _email,
+                        focusNode: _emailFocus,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        onSubmitted: (_) => _passwordFocus.requestFocus(),
+                        hintText: t.emailPlaceholder,
+                        isRequired: true,
+                        validator: (value) =>
+                            value != null && value.contains('@')
+                            ? null
+                            : 'Enter an email address',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: DSpacing.xl),
+                DField(
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        DFieldLabel(
+                          focusNode: _passwordFocus,
+                          excludeSemantics: true,
+                          style: const TextStyle(height: 1),
+                          child: Text(t.password),
+                        ),
+                        _InlineLink(
+                          label: t.forgotPassword,
+                          onPressed: () =>
+                              widget.onNotice('Password recovery selected'),
+                        ),
+                      ],
+                    ),
+                    DFieldControl(
+                      label: t.password,
+                      required: true,
+                      child: DInput(
+                        controller: _password,
+                        focusNode: _passwordFocus,
+                        obscureText: true,
+                        isRequired: true,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _submit(),
+                        validator: (value) => value != null && value.isNotEmpty
+                            ? null
+                            : 'Enter a password',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// DButton labels default to one line; translated labels must wrap at narrow
+// widths and large text instead of overflowing the stretched footer.
+Widget _wrappingButton(
+  String text,
+  VoidCallback onPressed, {
+  DButtonVariant variant = DButtonVariant.primary,
+}) => DButton(
+  onPressed: onPressed,
+  variant: variant,
+  label: Builder(
+    builder: (context) => DefaultTextStyle(
+      style: DefaultTextStyle.of(context).style,
+      child: Text(text),
+    ),
+  ),
+);
+
+// The reference uses an inline anchor here, not a padded Button. Only its
+// layout/text are adapted; the accepted DButton owns focus and activation.
+class _InlineLink extends StatelessWidget {
+  const _InlineLink({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final style = DefaultTextStyle.of(context).style.copyWith(
+        fontSize: 14,
+        height: 20 / 14,
+        fontWeight: FontWeight.w400,
+        color: DTokens.of(context).foreground,
+      );
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: DDirection.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: constraints.maxWidth);
+      final size = painter.size;
+      painter.dispose();
+      return SizedBox.fromSize(
+        size: size,
+        child: DButton(
+          onPressed: onPressed,
+          isLink: true,
+          variant: DButtonVariant.link,
+          padding: EdgeInsets.zero,
+          label: Builder(
+            builder: (context) => DefaultTextStyle(
+              style: style.copyWith(
+                decoration: DefaultTextStyle.of(context).style.decoration,
+              ),
+              child: Text(label),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+enum _Scope {
+  inherit('Inherit', null),
+  ltr('LTR', TextDirection.ltr),
+  rtl('RTL', TextDirection.rtl);
+
+  const _Scope(this.label, this.direction);
+
+  final String label;
+
+  /// Null inherits the preview provider.
+  final TextDirection? direction;
+}
+
 class _LiveDirectionPreview extends StatefulWidget {
   const _LiveDirectionPreview();
 
@@ -126,26 +574,31 @@ class _LiveDirectionPreview extends StatefulWidget {
 }
 
 class _LiveDirectionPreviewState extends State<_LiveDirectionPreview> {
-  TextDirection? _direction;
+  _Scope _scope = _Scope.inherit;
 
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Wrap(
-        spacing: DSpacing.sm,
-        runSpacing: DSpacing.xs,
-        children: [
-          for (final direction in [null, TextDirection.ltr, TextDirection.rtl])
-            ChoiceChip(
-              label: Text(direction?.name.toUpperCase() ?? 'Inherit'),
-              selected: _direction == direction,
-              onSelected: (_) => setState(() => _direction = direction),
-            ),
+      DToggleGroup<_Scope>(
+        values: [_scope],
+        allowEmptySelection: false,
+        variant: DToggleVariant.outline,
+        size: DToggleSize.small,
+        semanticLabel: 'Direction',
+        items: [
+          for (final scope in _Scope.values)
+            DToggleGroupItem(value: scope, child: Text(scope.label)),
         ],
+        onChanged: (values) {
+          if (values.isNotEmpty) setState(() => _scope = values.single);
+        },
       ),
       const SizedBox(height: DSpacing.md),
-      DDirection(textDirection: _direction, child: const _DirectionEditor()),
+      DDirection(
+        textDirection: _scope.direction,
+        child: const _DirectionEditor(),
+      ),
     ],
   );
 }
@@ -174,13 +627,7 @@ class _DirectionEditorState extends State<_DirectionEditor> {
       children: [
         const _DirectionReadout(label: 'Current direction'),
         const SizedBox(height: DSpacing.md),
-        TextField(
-          controller: _name,
-          decoration: const InputDecoration(
-            labelText: 'Display name',
-            border: OutlineInputBorder(),
-          ),
-        ),
+        DInput(controller: _name, labelText: 'Display name'),
         const SizedBox(height: DSpacing.md),
         Wrap(
           spacing: DSpacing.sm,
@@ -193,6 +640,7 @@ class _DirectionEditorState extends State<_DirectionEditor> {
             ),
             DButton(
               label: const Text('Clear'),
+              variant: DButtonVariant.outline,
               onPressed: () => setState(() {
                 _name.clear();
                 _saved = null;
@@ -319,6 +767,7 @@ class _DirectionReadout extends StatelessWidget {
     liveRegion: true,
     child: Row(
       children: [
+        // A matchTextDirection glyph: it points along the reading direction.
         const Icon(Icons.arrow_forward),
         const SizedBox(width: DSpacing.sm),
         Expanded(

@@ -7,13 +7,101 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+const _arabicTitle = 'تسجيل الدخول إلى حسابك';
+const _hebrewTitle = 'התחבר לחשבון שלך';
+const _englishTitle = 'Login to your account';
+
 void main() {
+  testWidgets(
+    'Card RTL follows the chosen language while its selector stays LTR',
+    (tester) async {
+      final direction = ValueNotifier(TextDirection.ltr);
+      addTearDown(direction.dispose);
+      await _pump(tester, _example('Card RTL'), direction: direction);
+      expect(find.text(_arabicTitle), findsOneWidget);
+      expect(_directionOf(tester, _arabicTitle), TextDirection.rtl);
+      expect(find.text('Arabic (العربية)'), findsOneWidget);
+      expect(_directionOf(tester, 'Arabic (العربية)'), TextDirection.ltr);
+      final emailFocus = tester
+          .widget<DInput>(find.byType(DInput).first)
+          .focusNode;
+      await tester.enterText(find.byType(TextField).first, 'm@example.com');
+
+      await tester.tap(find.text('Arabic (العربية)'));
+      await tester.pumpAndSettle();
+      expect(find.text('English'), findsOneWidget);
+      expect(find.text('Hebrew (עברית)'), findsOneWidget);
+      expect(_directionOf(tester, 'English'), TextDirection.ltr);
+      await tester.tap(find.text('English'));
+      await tester.pumpAndSettle();
+      expect(find.text(_arabicTitle), findsNothing);
+      expect(find.text(_englishTitle), findsOneWidget);
+      expect(find.text('Forgot your password?'), findsOneWidget);
+      expect(_directionOf(tester, _englishTitle), TextDirection.ltr);
+      expect(
+        tester.widget<DInput>(find.byType(DInput).first).focusNode,
+        same(emailFocus),
+      );
+      expect(_editorText(tester), 'm@example.com');
+
+      // The preview direction reaches neither the fixed selector nor the
+      // language-owned card.
+      direction.value = TextDirection.rtl;
+      await tester.pump();
+      expect(_directionOf(tester, 'English'), TextDirection.ltr);
+      expect(_directionOf(tester, _englishTitle), TextDirection.ltr);
+      await tester.tap(find.text('English'));
+      await tester.pumpAndSettle();
+      expect(_directionOf(tester, 'Hebrew (עברית)'), TextDirection.ltr);
+      await tester.tap(find.text('Hebrew (עברית)'));
+      await tester.pumpAndSettle();
+      expect(find.text(_hebrewTitle), findsOneWidget);
+      expect(find.text('שכחת את הסיסמה?'), findsOneWidget);
+      expect(_directionOf(tester, _hebrewTitle), TextDirection.rtl);
+      expect(find.text('Hebrew (עברית)'), findsOneWidget);
+      expect(_editorText(tester), 'm@example.com');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('Card RTL validates locally and reports its actions', (
+    tester,
+  ) async {
+    await _pump(tester, _example('Card RTL'));
+    await tester.tap(find.text('تسجيل الدخول'));
+    await tester.pump();
+    expect(find.text('Enter an email address'), findsOneWidget);
+    expect(find.text('Enter a password'), findsOneWidget);
+    expect(find.text('Signed in locally'), findsNothing);
+
+    await tester.enterText(find.byType(TextField).first, 'm@example.com');
+    await tester.enterText(find.byType(TextField).last, 'local-only');
+    await tester.tap(find.text('تسجيل الدخول'));
+    await tester.pump();
+    expect(find.text('Enter an email address'), findsNothing);
+    expect(find.text('Signed in locally'), findsOneWidget);
+
+    await tester.tap(find.text('إنشاء حساب'));
+    await tester.pump();
+    expect(find.text('Sign up selected'), findsOneWidget);
+    await tester.tap(find.text('نسيت كلمة المرور؟'));
+    await tester.pump();
+    expect(find.text('Password recovery selected'), findsOneWidget);
+    await tester.tap(find.text('تسجيل الدخول باستخدام Google'));
+    await tester.pump();
+    expect(find.text('Google login selected'), findsOneWidget);
+  });
+
   testWidgets('live editor inherits and overrides without losing saved state', (
     tester,
   ) async {
     final direction = ValueNotifier(TextDirection.ltr);
     addTearDown(direction.dispose);
-    await _pump(tester, directionExamples.examples[0], direction: direction);
+    await _pump(
+      tester,
+      _example('Live direction and editing'),
+      direction: direction,
+    );
     await tester.enterText(find.byType(TextField), 'ليلى');
     await tester.tap(find.widgetWithText(DButton, 'Save locally'));
     await tester.pump();
@@ -23,30 +111,24 @@ void main() {
     direction.value = TextDirection.rtl;
     await tester.pump();
     expect(find.text('Current direction: RTL'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ChoiceChip, 'LTR'));
+    await tester.tap(find.widgetWithText(DToggle, 'LTR'));
     await tester.pump();
     expect(find.text('Current direction: LTR'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Inherit'));
+    await tester.tap(find.widgetWithText(DToggle, 'Inherit'));
     await tester.pump();
     expect(find.text('Current direction: RTL'), findsOneWidget);
     expect(find.text('Saved: ليلى'), findsOneWidget);
-    expect(
-      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
-      'ليلى',
-    );
+    expect(_editorText(tester), 'ليلى');
     await tester.tap(find.widgetWithText(DButton, 'Clear'));
     await tester.pump();
     expect(find.text('No saved name'), findsOneWidget);
-    expect(
-      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
-      isEmpty,
-    );
+    expect(_editorText(tester), isEmpty);
   });
 
   testWidgets(
     'nested example keeps URL direction and resumes the outer scope',
     (tester) async {
-      await _pump(tester, directionExamples.examples[1]);
+      await _pump(tester, _example('Nested overrides and fixed content'));
       expect(find.text('Outer section: RTL'), findsOneWidget);
       expect(find.text('URL island: LTR'), findsOneWidget);
       expect(find.text('Inherited island: LTR'), findsOneWidget);
@@ -67,7 +149,7 @@ void main() {
     addTearDown(theme.dispose);
     await _pump(
       tester,
-      directionExamples.examples[2],
+      _example('Inherited direction in a dropdown menu'),
       direction: direction,
       theme: theme,
     );
@@ -157,20 +239,38 @@ void main() {
           expect(MediaQuery.disableAnimationsOf(context), isTrue);
           expect(MediaQuery.textScalerOf(context).scale(14), 14 * scale);
           expect(Theme.of(context).colorScheme, themeValue.value.colorScheme);
-          if (example == directionExamples.examples[2]) {
-            await tester.tap(find.text('Open direction menu'));
-            await tester.pumpAndSettle();
-            expect(
-              find.text('Menu direction: ${direction.name.toUpperCase()}'),
-              findsOneWidget,
-            );
-            expect(tester.takeException(), isNull);
+          switch (example.title) {
+            case 'Card RTL':
+              await tester.tap(find.text('Arabic (العربية)'));
+              await tester.pumpAndSettle();
+              expect(find.text('Hebrew (עברית)'), findsOneWidget);
+              expect(_directionOf(tester, 'Hebrew (עברית)'), TextDirection.ltr);
+              expect(tester.takeException(), isNull);
+            case 'Inherited direction in a dropdown menu':
+              await tester.tap(find.text('Open direction menu'));
+              await tester.pumpAndSettle();
+              expect(
+                find.text('Menu direction: ${direction.name.toUpperCase()}'),
+                findsOneWidget,
+              );
+              expect(tester.takeException(), isNull);
           }
         },
       );
     }
   }
 }
+
+StyleguideExample _example(String title) =>
+    directionExamples.examples.singleWhere((entry) => entry.title == title);
+
+TextDirection _directionOf(WidgetTester tester, String text) =>
+    DDirection.of(tester.element(find.text(text)));
+
+String _editorText(WidgetTester tester) => tester
+    .widget<EditableText>(find.byType(EditableText).first)
+    .controller
+    .text;
 
 Future<void> _pump(
   WidgetTester tester,

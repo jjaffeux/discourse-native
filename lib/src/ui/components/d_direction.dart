@@ -1,10 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 /// Sets the reading direction of a subtree using Flutter's [Directionality].
 ///
-/// Omit [textDirection] to inherit the nearest direction, including the locale
-/// direction supplied by a [WidgetsApp]. An explicit value overrides only this
-/// subtree; nested [DDirection] or [Directionality] widgets take precedence.
+/// This is the native form of the reference `DirectionProvider`. Omit
+/// [textDirection] to inherit the nearest direction, including the locale
+/// direction supplied by a [WidgetsApp]; the reference instead defaults an
+/// unset provider to LTR because the DOM cannot be read back. An explicit
+/// value overrides only this subtree; nested [DDirection] or [Directionality]
+/// widgets take precedence.
 ///
 /// [of] and [maybeOf] read the nearest native provider and rebuild dependents
 /// when its direction changes. Changing [textDirection], including switching
@@ -35,7 +39,9 @@ class DDirection extends StatelessWidget {
   /// Reads the nearest direction and subscribes [context] to live changes.
   ///
   /// This is the native equivalent of the reference's `useDirection` hook.
-  /// Requires a [Directionality] ancestor, whether native or created here.
+  /// Requires a [Directionality] ancestor, whether native or created here;
+  /// the reference answers LTR without a provider, but here a subtree without
+  /// one cannot lay out either, so the lookup fails the same way.
   static TextDirection of(BuildContext context) => Directionality.of(context);
 
   /// Reads and subscribes to the nearest direction, or returns null if absent.
@@ -45,4 +51,17 @@ class DDirection extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Directionality(textDirection: textDirection ?? of(context), child: child);
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(
+      DiagnosticsProperty<TextDirection?>(
+        'textDirection',
+        textDirection,
+        description: textDirection?.name,
+        ifNull: 'inherited',
+      ),
+    );
+  }
 }
