@@ -536,6 +536,8 @@ class _DDrawerState<T> extends State<DDrawer<T>> {
     if (widget.controller == null) _controller.dispose();
     final route = _route;
     final navigator = _navigator;
+    _route = null;
+    _navigator = null;
     if (route != null && navigator != null) navigator.removeRoute(route);
     _parentStack?.pop();
     _provider?.pop();
@@ -699,9 +701,7 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
   late final AnimationController _travel = AnimationController.unbounded(
     vsync: this,
   )..addListener(_travelChanged);
-  late final _DDrawerStackHandle _stack = _DDrawerStackHandle(
-    () => mounted ? setState(() {}) : null,
-  );
+  late final _DDrawerStackHandle _stack;
   double _extent = 1;
   double? _dismissOrigin;
   bool _initialized = false;
@@ -709,6 +709,8 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
   bool _overscrollDragging = false;
   bool _openCompletionSent = false;
   bool _hadFocus = false;
+  bool _settlingAfterDrag = false;
+  double _dragOrigin = 0;
 
   DDrawerSwipeDirection get _direction => _resolveDirection(
     widget.configuration.swipeDirection,
@@ -722,6 +724,10 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
   @override
   void initState() {
     super.initState();
+    _stack = _DDrawerStackHandle(
+      () => mounted ? setState(() {}) : null,
+      parent: widget.parentStack,
+    );
     widget.animation.addListener(_routeAnimationChanged);
     widget.animation.addStatusListener(_routeStatusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -769,6 +775,20 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
         _dismissOrigin == null) {
       _dismissOrigin = _travel.value;
     }
+    if (widget.animation.status == AnimationStatus.reverse &&
+        widget.parentStack != null) {
+      final routeProgress = const Cubic(
+        .22,
+        1,
+        .36,
+        1,
+      ).transform(widget.animation.value);
+      final origin = _dismissOrigin ?? _travel.value;
+      final position = origin + (_extent - origin) * (1 - routeProgress);
+      widget.parentStack!.swipeProgress = (position / math.max(_extent, 1))
+          .clamp(0, 1)
+          .toDouble();
+    }
     if (mounted) setState(() {});
   }
 
@@ -786,6 +806,12 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
   }
 
   void _travelChanged() {
+    if ((_dragging || _overscrollDragging || _settlingAfterDrag) &&
+        widget.parentStack != null) {
+      final distance = math.max(_extent - _dragOrigin, 1);
+      widget.parentStack!.swipeProgress =
+          ((_travel.value - _dragOrigin) / distance).clamp(0, 1).toDouble();
+    }
     if (mounted) setState(() {});
   }
 
@@ -808,19 +834,35 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     if (!_vertical || widget.configuration.snapPoints.isEmpty) return 0;
     final point =
         widget.configuration.snapPoint ?? widget.configuration.snapPoints.first;
-    return math.max(0, actualExtent - point.resolve(actualExtent));
+    final resolvedHeight = point.resolve(MediaQuery.sizeOf(context).height);
+    return math.max(0, actualExtent - math.min(actualExtent, resolvedHeight));
   }
 
   List<_ResolvedSnapPoint> _resolvedSnapPoints() {
     if (!_vertical || widget.configuration.snapPoints.isEmpty) return const [];
-    return widget.configuration.snapPoints
+    final viewportExtent = MediaQuery.sizeOf(context).height;
+    final resolved = widget.configuration.snapPoints
         .map(
           (point) => _ResolvedSnapPoint(
             point,
-            math.max(0, _extent - point.resolve(_extent)),
+            math.max(
+              0,
+              _extent - math.min(_extent, point.resolve(viewportExtent)),
+            ),
           ),
         )
-        .toList()
+        .toList();
+    final deduped = <_ResolvedSnapPoint>[];
+    for (var index = resolved.length - 1; index >= 0; index--) {
+      final candidate = resolved[index];
+      if (deduped.any(
+        (point) => (point.offset - candidate.offset).abs() <= 1,
+      )) {
+        continue;
+      }
+      deduped.add(candidate);
+    }
+    return deduped.reversed.toList()
       ..sort((a, b) => a.offset.compareTo(b.offset));
   }
 
@@ -839,7 +881,8 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     _travel.stop();
     _dragging = true;
     _overscrollDragging = false;
-    _stack.swiping = true;
+    _settlingAfterDrag = false;
+    _dragOrigin = _travel.value;
     widget.parentStack?.swiping = true;
     setState(() {});
   }
@@ -854,7 +897,11 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
   void _updateDrag(double delta) {
     var next = _travel.value + delta;
     final minimum = _resolvedSnapPoints().firstOrNull?.offset ?? 0;
-    if (next < minimum) next = minimum + (next - minimum) * .2;
+    if (next < minimum && widget.configuration.snapPoints.isNotEmpty) {
+      next = minimum - math.sqrt(minimum - next);
+    } else if (next < minimum) {
+      next = minimum + (next - minimum) * .2;
+    }
     if (next > _extent) next = _extent + (next - _extent) * .2;
     _travel.value = next;
   }
@@ -869,31 +916,78 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     if (!_dragging && !_overscrollDragging) return;
     _dragging = false;
     _overscrollDragging = false;
-    _stack.swiping = false;
     widget.parentStack?.swiping = false;
-    final candidates = <_ResolvedSnapPoint>[
-      ..._resolvedSnapPoints(),
-      const _ResolvedSnapPoint(null, double.infinity),
-    ];
-    candidates[candidates.length - 1] = _ResolvedSnapPoint(null, _extent);
     final current = _travel.value.clamp(0, _extent).toDouble();
-    _ResolvedSnapPoint target;
-    if (widget.configuration.snapToSequentialPoints) {
-      target = _sequentialTarget(candidates, current, velocity);
-    } else {
-      final projected = (current + velocity * .18).clamp(0, _extent);
-      target = candidates.reduce(
-        (a, b) => (a.offset - projected).abs() <= (b.offset - projected).abs()
-            ? a
-            : b,
-      );
+    final snapPoints = _resolvedSnapPoints();
+    if (snapPoints.isEmpty) {
+      final shouldDismiss =
+          velocity >= 500 || current > math.max(_extent * .5, 10);
+      if (shouldDismiss) {
+        final accepted = widget.onDismissRequested(DDrawerChangeReason.swipe);
+        if (accepted) {
+          _dismissOrigin = current;
+          return;
+        }
+      }
+      _settlingAfterDrag = true;
+      _settleTo(0, velocity);
+      return;
     }
-    if (target.point == null) {
+
+    _ResolvedSnapPoint target;
+    var shouldDismiss = false;
+    if (widget.configuration.snapToSequentialPoints) {
+      final activeOffset = _activeSnapOffset();
+      final currentIndex = _closestSnapPointIndex(snapPoints, activeOffset);
+      var targetIndex = _closestSnapPointIndex(snapPoints, current);
+      var effectiveTarget = current;
+      final dragDirection = (current - activeOffset).sign;
+      final velocityDirection = velocity.sign;
+      final shouldAdvance =
+          dragDirection != 0 &&
+          velocityDirection == dragDirection &&
+          velocity.abs() >= 500;
+      if (shouldAdvance) {
+        final adjacentIndex = (currentIndex + dragDirection.toInt()).clamp(
+          0,
+          snapPoints.length - 1,
+        );
+        if (adjacentIndex != currentIndex) {
+          final adjacent = snapPoints[adjacentIndex];
+          final shouldForceAdjacent = dragDirection > 0
+              ? current < adjacent.offset
+              : current > adjacent.offset;
+          if (shouldForceAdjacent) {
+            targetIndex = adjacentIndex;
+            effectiveTarget = adjacent.offset;
+          }
+        } else if (dragDirection > 0) {
+          shouldDismiss = true;
+        }
+      }
+      target = snapPoints[targetIndex];
+      if (!shouldDismiss) {
+        shouldDismiss =
+            (effectiveTarget - _extent).abs() <
+            (effectiveTarget - target.offset).abs();
+      }
+    } else {
+      final velocityOffset = velocity.abs() >= 500
+          ? velocity.clamp(-4000, 4000) * .3
+          : 0.0;
+      final projected = (current + velocityOffset).clamp(0, _extent).toDouble();
+      target = snapPoints[_closestSnapPointIndex(snapPoints, projected)];
+      shouldDismiss =
+          (projected - _extent).abs() < (projected - target.offset).abs();
+    }
+
+    if (shouldDismiss) {
       final accepted = widget.onDismissRequested(DDrawerChangeReason.swipe);
       if (accepted) {
         _dismissOrigin = current;
         return;
       }
+      _settlingAfterDrag = true;
       _settleTo(_activeSnapOffset(), velocity);
       return;
     }
@@ -901,36 +995,30 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
       target.point,
       DDrawerSnapChangeReason.swipe,
     );
+    _settlingAfterDrag = true;
     _settleTo(accepted ? target.offset : _activeSnapOffset(), velocity);
   }
 
-  _ResolvedSnapPoint _sequentialTarget(
-    List<_ResolvedSnapPoint> candidates,
-    double current,
-    double velocity,
+  int _closestSnapPointIndex(
+    List<_ResolvedSnapPoint> snapPoints,
+    double target,
   ) {
-    final activeOffset = _activeSnapOffset();
-    var activeIndex = 0;
-    for (var index = 1; index < candidates.length; index++) {
-      if ((candidates[index].offset - activeOffset).abs() <
-          (candidates[activeIndex].offset - activeOffset).abs()) {
-        activeIndex = index;
+    var closestIndex = 0;
+    var closestDistance = double.infinity;
+    for (var index = 0; index < snapPoints.length; index++) {
+      final distance = (snapPoints[index].offset - target).abs();
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
       }
     }
-    final moved = current - activeOffset;
-    final threshold = math.max(24, _extent * .08);
-    if (moved > threshold || velocity > 700) {
-      return candidates[math.min(activeIndex + 1, candidates.length - 1)];
-    }
-    if (moved < -threshold || velocity < -700) {
-      return candidates[math.max(activeIndex - 1, 0)];
-    }
-    return candidates[activeIndex];
+    return closestIndex;
   }
 
   void _settleTo(double target, double velocity) {
     if (MediaQuery.disableAnimationsOf(context)) {
       _travel.value = target;
+      _finishNestedSettle();
       return;
     }
     final simulation = SpringSimulation(
@@ -940,7 +1028,15 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
       velocity / 1000,
       tolerance: const Tolerance(distance: .1, velocity: .1),
     );
-    unawaited(_travel.animateWith(simulation));
+    unawaited(
+      _travel.animateWith(simulation).whenComplete(_finishNestedSettle),
+    );
+  }
+
+  void _finishNestedSettle() {
+    if (!_settlingAfterDrag) return;
+    _settlingAfterDrag = false;
+    widget.parentStack?.swipeProgress = 0;
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
@@ -991,7 +1087,8 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     if (_overscrollDragging) return;
     _travel.stop();
     _overscrollDragging = true;
-    _stack.swiping = true;
+    _settlingAfterDrag = false;
+    _dragOrigin = _travel.value;
     widget.parentStack?.swiping = true;
   }
 
@@ -1013,8 +1110,13 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
               (_extent - (_dismissOrigin ?? _travel.value)) *
                   (1 - routeProgress)
         : _extent + (_travel.value - _extent) * routeProgress;
-    final stackScale = (1 - math.min(_stack.depth * .05, .25)).toDouble();
-    final stackPeek = math.min(_stack.depth * 16.0, 64.0).toDouble();
+    final stackScaleBase = 1 - math.min(_stack.depth * .05, .25);
+    final stackScale = math
+        .min(1.0, stackScaleBase + .05 * _stack.swipeProgress)
+        .toDouble();
+    final stackPeek = math
+        .min(math.max(0, _stack.depth - _stack.swipeProgress) * 16.0, 64.0)
+        .toDouble();
     final stackOffset = switch (direction) {
       DDrawerSwipeDirection.down => Offset(0, -stackPeek),
       DDrawerSwipeDirection.up => Offset(0, stackPeek),
@@ -1049,7 +1151,7 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
           hasSnapPoints: config.snapPoints.isNotEmpty,
           direction: direction,
           nestedDepth: _stack.depth,
-          swiping: _dragging || _overscrollDragging,
+          swiping: _dragging || _overscrollDragging || _stack.swiping,
           child: NotificationListener<ScrollNotification>(
             onNotification: _handleScrollNotification,
             child: FocusTraversalGroup(
@@ -1177,6 +1279,10 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
 
   @override
   void dispose() {
+    _settlingAfterDrag = false;
+    widget.parentStack
+      ?..swiping = false
+      ..swipeProgress = 0;
     widget.animation
       ..removeListener(_routeAnimationChanged)
       ..removeStatusListener(_routeStatusChanged);
@@ -1198,29 +1304,57 @@ class _ResolvedSnapPoint {
 }
 
 class _DDrawerStackHandle extends ChangeNotifier {
-  _DDrawerStackHandle(this.onChanged);
+  _DDrawerStackHandle(this.onChanged, {this.parent});
   final VoidCallback onChanged;
+  final _DDrawerStackHandle? parent;
   int depth = 0;
   bool _swiping = false;
+  double _swipeProgress = 0;
+  bool _disposed = false;
 
   bool get swiping => _swiping;
   set swiping(bool value) {
+    if (_disposed) return;
     if (_swiping == value) return;
     _swiping = value;
+    parent?.swiping = value;
+    onChanged();
+    notifyListeners();
+  }
+
+  double get swipeProgress => _swipeProgress;
+  set swipeProgress(double value) {
+    if (_disposed) return;
+    if ((_swipeProgress - value).abs() < .0001) return;
+    _swipeProgress = value;
+    parent?.swipeProgress = value;
     onChanged();
     notifyListeners();
   }
 
   void push() {
+    if (_disposed) return;
     depth++;
+    parent?.push();
     onChanged();
     notifyListeners();
   }
 
   void pop() {
+    if (_disposed) return;
+    if (depth == 0) return;
     depth = math.max(0, depth - 1);
+    _swiping = false;
+    _swipeProgress = 0;
+    parent?.pop();
     onChanged();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }
 

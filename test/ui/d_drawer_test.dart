@@ -185,6 +185,31 @@ void main() {
     expect(close?.reason, DDrawerChangeReason.swipe);
   });
 
+  testWidgets('a shallow slow swipe rebounds instead of dismissing', (
+    tester,
+  ) async {
+    DDrawerChangeDetails<void>? close;
+    await tester.pumpWidget(
+      _host(
+        _drawer<void>(
+          open: true,
+          onOpenChanged: (details) {
+            if (!details.open) close = details;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.timedDrag(
+      find.byType(DDrawerSwipeHandle),
+      const Offset(0, 24),
+      const Duration(milliseconds: 400),
+    );
+    await tester.pumpAndSettle();
+    expect(close, isNull);
+    expect(find.text('Example drawer'), findsOneWidget);
+  });
+
   testWidgets('snap points settle sequentially and remain controllable', (
     tester,
   ) async {
@@ -221,11 +246,33 @@ void main() {
     await tester.pumpAndSettle();
     final compactTop = tester.getTopLeft(find.byType(DDrawerContent)).dy;
     expect(compactTop, closeTo(360, 2));
-    await tester.drag(find.byType(DDrawerSwipeHandle), const Offset(0, -160));
+    await tester.drag(find.byType(DDrawerSwipeHandle), const Offset(0, -220));
     await tester.pumpAndSettle();
     expect(controller.snapPoint, expanded);
     expect(changes.last.reason, DDrawerSnapChangeReason.swipe);
     expect(tester.getTopLeft(find.byType(DDrawerContent)).dy, closeTo(0, 2));
+  });
+
+  testWidgets('fraction snap points resolve from the viewport with an inset', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        DDrawer<void>(
+          initiallyOpen: true,
+          snapPoints: const [DDrawerSnapPoint.fraction(.5)],
+          trigger: DDrawerTrigger(
+            builder: (_, open) => const SizedBox.shrink(),
+          ),
+          content: const DDrawerContent(
+            inset: 20,
+            children: [DDrawerTitle(child: Text('Inset snap drawer'))],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byType(DDrawerContent)).dy, closeTo(300, 2));
   });
 
   testWidgets('canceled controlled close rebounds without unmounting', (
@@ -668,5 +715,110 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Example drawer'), findsNothing);
     expect(find.text('Parent drawer'), findsOneWidget);
+  });
+
+  testWidgets('nested swipe reveals the mounted parent content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        DDrawer<void>(
+          initiallyOpen: true,
+          trigger: DDrawerTrigger(
+            builder: (_, open) => TextButton(
+              onPressed: open,
+              child: const Text('Parent trigger'),
+            ),
+          ),
+          content: DDrawerContent(
+            children: [
+              const DDrawerTitle(child: Text('Parent drawer')),
+              _drawer<void>(body: const Text('Nested body')),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open drawer'));
+    await tester.pumpAndSettle();
+
+    AnimatedOpacity parentOpacity() => tester.widget<AnimatedOpacity>(
+      find
+          .ancestor(
+            of: find.text('Parent drawer'),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
+    );
+
+    expect(parentOpacity().opacity, 0);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(DDrawerSwipeHandle).last),
+    );
+    await gesture.moveBy(const Offset(0, 24));
+    await tester.pump();
+    expect(parentOpacity().opacity, 1);
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(parentOpacity().opacity, 0);
+    expect(find.text('Example drawer'), findsOneWidget);
+  });
+
+  testWidgets('nested stack depth propagates through every mounted parent', (
+    tester,
+  ) async {
+    Widget nestedDrawer(String title, String trigger, {Widget? child}) =>
+        DDrawer<void>(
+          trigger: DDrawerTrigger(
+            builder: (_, open) =>
+                TextButton(onPressed: open, child: Text(trigger)),
+          ),
+          content: DDrawerContent(
+            children: [
+              DDrawerTitle(child: Text(title)),
+              ?child,
+            ],
+          ),
+        );
+
+    await tester.pumpWidget(
+      _host(
+        DDrawer<void>(
+          initiallyOpen: true,
+          trigger: DDrawerTrigger(
+            builder: (_, open) => const SizedBox.shrink(),
+          ),
+          content: DDrawerContent(
+            children: [
+              const DDrawerTitle(child: Text('Root drawer')),
+              nestedDrawer(
+                'Child drawer',
+                'Open child',
+                child: nestedDrawer('Grandchild drawer', 'Open grandchild'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open child'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open grandchild'));
+    await tester.pumpAndSettle();
+
+    final rootScales = tester
+        .widgetList<Transform>(
+          find.ancestor(
+            of: find.text('Root drawer'),
+            matching: find.byType(Transform),
+          ),
+        )
+        .map((widget) => widget.transform.storage[0])
+        .where((scale) => scale < .999)
+        .toList();
+    expect(rootScales, contains(closeTo(.9, .001)));
   });
 }
