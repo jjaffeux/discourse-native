@@ -982,6 +982,28 @@ class DDataTablePagination extends StatelessWidget {
     final choices = pageSizeOptions.contains(state.pageSize)
         ? pageSizeOptions
         : ([...pageSizeOptions, state.pageSize]..sort());
+    final textScaler = MediaQuery.textScalerOf(context);
+    final valueStyle = DefaultTextStyle.of(context).style.copyWith(
+      fontSize: 14,
+      height: 20 / 14,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0,
+    );
+    final widestValue = choices.fold<double>(
+      0,
+      (width, size) => math.max(
+        width,
+        TextPainter.computeMaxIntrinsicWidth(
+          text: TextSpan(text: '$size', style: valueStyle),
+          textDirection: Directionality.of(context),
+          textScaler: textScaler,
+          locale: Localizations.maybeLocaleOf(context),
+        ),
+      ),
+    );
+    // Keep the reference minimum while allowing the Select value, padding,
+    // border, gap and chevron to fit with large text or custom page sizes.
+    final pageSizeWidth = math.max(70.0, widestValue.ceilToDouble() + 42);
     final scale = MediaQuery.textScalerOf(context).scale(1);
     final directionHeight = switch (Theme.of(context).platform) {
       TargetPlatform.iOS || TargetPlatform.android => 48.0,
@@ -1006,7 +1028,7 @@ class DDataTablePagination extends StatelessWidget {
           ),
         ),
         SizedBox(
-          width: 70,
+          width: pageSizeWidth,
           height: pageSizeHeight,
           child: DSelect<int>.controlled(
             value: state.pageSize,
@@ -1025,7 +1047,7 @@ class DDataTablePagination extends StatelessWidget {
             ],
             semanticLabel: rowsPerPageLabel,
             size: DSelectSize.small,
-            width: 70,
+            width: pageSizeWidth,
             side: DPopoverSide.top,
           ),
         ),

@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -400,6 +401,61 @@ void main() {
     expect(find.text('Sort ascending'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('page size stays readable at 200 percent in $direction', (
+      tester,
+    ) async {
+      var pageSize = 10;
+      await _pump(
+        tester,
+        Directionality(
+          textDirection: direction,
+          child: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: StatefulBuilder(
+              builder: (context, setState) => DDataTablePagination(
+                metrics: DDataTableMetrics(
+                  state: DDataTableState(pageSize: pageSize),
+                  pageCount: 1,
+                  filteredRowCount: 10,
+                  selectedFilteredRowCount: 0,
+                ),
+                pageSizeOptions: const [10, 1000],
+                onPageChanged: (_) {},
+                onPageSizeChanged: (value) => setState(() => pageSize = value),
+              ),
+            ),
+          ),
+        ),
+        width: 240,
+      );
+
+      void expectReadableValue(String value) {
+        final label = find.descendant(
+          of: find.byType(DSelect<int>),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is RichText && widget.text.toPlainText() == value,
+          ),
+        );
+        expect(label, findsOneWidget);
+        expect(
+          tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
+          isFalse,
+        );
+      }
+
+      expectReadableValue('10');
+      await tester.tap(find.byType(DSelect<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('1000'));
+      await tester.pumpAndSettle();
+      expect(pageSize, 1000);
+      expectReadableValue('1000');
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 Future<void> _pump(WidgetTester tester, Widget child, {double width = 700}) =>
