@@ -330,7 +330,6 @@ class _WeightTile extends StatelessWidget {
         'Aa',
         style: TextStyle(fontSize: 24, height: 1, fontWeight: _fontWeight),
       ),
-      const SizedBox(height: 4),
       Text(
         '${weight[0].toUpperCase()}${weight.substring(1)}',
         style: TextStyle(
