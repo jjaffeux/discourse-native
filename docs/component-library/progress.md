@@ -16,8 +16,8 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
+| alert-dialog | independent review | c8c6f049 | 01a086a4-4ba7-7a63-9af8-23f4a345f270 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
-| combobox | independent review | 55dcf257 | 01a08628-7889-7dd2-a93c-c854fcdf1e9a |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | independent review | 10b63f75 | 01a08628-7042-7173-a37d-7f1f04eade66 |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
@@ -63,7 +63,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 30 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
 | 31 | hover-card | merged | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | de39686f2a5d75651ef37268edb44adb6376cd7c |
 | 32 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
-| 33 | alert-dialog | merged | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
+| 33 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 34 | sheet | merged | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | b67f0068104b922ec0e80170643eddced6e27c37 |
 | 35 | drawer | merged | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | 3e75cd97e91d04e2719c8adda5e669ed5dc9e3c1 |
 | 36 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
@@ -71,7 +71,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 38 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
 | 39 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 40 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
-| 41 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
+| 41 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
 | 42 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
 | 43 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
 | 44 | input-group | merged | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner, field, dropdown-menu, popover | d1de717b1e2d1eeaf06d86dafe1452662d05e368 |
@@ -2059,7 +2059,7 @@ Status: merged. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/ui-dia
 
 ### alert-dialog
 
-Status: merged. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/ui-alert-dialog.
+Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/ui-alert-dialog.
 
 **acceptanceCriteria**
 
@@ -2425,7 +2425,7 @@ Status: merged. Task: 01a085bc-5eda-7712-9863-190bf6846bcc. Branch: codex/ui-com
 
 ### combobox
 
-Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/ui-combobox.
+Status: merged. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/ui-combobox.
 
 **acceptanceCriteria**
 

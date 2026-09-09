@@ -2146,7 +2146,7 @@
     },
     {
       "id": "alert-dialog",
-      "status": "merged",
+      "status": "in_progress",
       "taskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
       "branch": "codex/ui-alert-dialog",
       "dependencies": [
@@ -2693,7 +2693,7 @@
     },
     {
       "id": "combobox",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
       "branch": "codex/ui-combobox",
       "dependencies": [
