@@ -2548,7 +2548,35 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/u
 **decisions**
 
 - Frozen Markdown SHA256 39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782 verified on 2026-09-09; official base-nova registry SHA256 6a484395f7ed32d3b254619cc542aeed6ce77a5628d1e9a04d4b5baaf7de0c.
-- Implementation began from local main 77ee9b047528d43fcbcd4a31d464182f9640b835; Attachment review, Bubble implementation and Message Scroller owners are being coordinated directly. Prepared dependencies remain source-only until accepted on current main.
+- Implementation began from local main 77ee9b047528d43fcbcd4a31d464182f9640b835. One public presentational composition exports DMessage, DMessageGroup, DMessageAvatar, DMessageContent, DMessageHeader, DMessageFooter and DMessageStatus; docs/component-library/message.md records exact source mapping and adapter extensions.
+- Ordinary Message rows add no semantic boundary, preserving arbitrary rich content and independent descendant actions. Whole-row labels/live regions are explicit; DMessageStatus provides caller-controlled localizable pending, delivered, read, failed and deleted states without owning delivery or retry work.
+- Message Scroller owner 01a08606-ce86-7be2-b92f-59676b40cb40 agreed that it owns stable DMessageScrollerItem IDs, anchors, builder/viewport and scrolling externally. DMessage remains keyed presentational content and exposes no scroll or identity contract.
+- Prepared Bubble HEAD f486021ed643332c951968a008b9e3051233957a was merged for source composition; its stable API was confirmed by owner 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Prepared Attachment source 48f552a1 plus reviewer fixes 9e859788 and df7cab1f were integrated. Neither parent acceptance is implied.
+
+**migrations**
+
+- ChatMessageTile production presentation now composes DMessage, DMessageAvatar and DMessageContent. Its app adapter explicitly retains the existing 42px gutter, top-anchored 28px authenticated avatar, zero internal gap, chaining, exact row padding/minimum heights, CookedHtml/preview, selection, uploads, reactions, thread/reply, delivery, pin/bookmark and hover/long-press action behavior.
+- Six actual-component styleguide groups reproduce Overview/Composition, Avatar, Group, Header/Footer, Actions, Attachment and Accessibility/Status examples with local state and final shared Avatar/Bubble/Button/Attachment/Marker composition. lib/message_review_main.dart is the offline source fixture.
+
+**retainedAlternatives**
+
+- Chat transcript QuotePanel/CookedHtml with source/channel links remains a quoted transcript rather than a live conversation row; private-message inbox/topic rows remain topic summaries.
+- Voice room list rows, notification/user-menu messages, post streams, empty/error notices and composer previews retain their domain-specific ListTile, DAlert, DEmpty, SnackBar or editor owners. Full core/plugin audit and reasons are recorded in docs/component-library/message.md.
+- Message Scroller retains all viewport, virtualization, pagination, anchor and read-state ownership; Message intentionally does not inspect or wrap its stable item IDs.
+
+**verification**
+
+- Flutter dependencies resolved with flutter pub get --enforce-lockfile; Flutter pin 3.47.2 and root/profile lockfiles were unchanged.
+- 81 focused Message, Message examples, complete styleguide-page, prepared Bubble/Attachment and Chat channel lifecycle tests passed with randomized seed 39053. Six direct Message geometry/semantics tests passed seed 39047; four example interaction tests passed in the seed 39051 run; Chat loaded-row/adoption geometry passed separately.
+- ChatMessageTile's 61-test presentation suite completed 60 checks; its one tooltip-field expectation also fails unchanged on current main 77ee9b04 when run alone, so it is recorded as a pre-existing baseline failure rather than a Message regression. All 41 Chat channel lifecycle tests passed seed 39052.
+- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed with no issues after touched formatting; git diff --check passed.
+- flutter build macos --debug --no-pub -t lib/message_review_main.dart passed. Ordinary development Discourse.app kernel SHA256 84369c3aced3f9674b1b05f5ca375b721bf20810cb63ae8d8a87b6c5100f87e5 and deep strict signature verification passed; entitlement readback shows the existing development team/application identity and capabilities, so this is not claimed as the required isolated launch or native inspection.
+
+**limitations**
+
+- No browser/CUA or native application launch was performed by the implementation task. Official rendered Base UI comparison, uniquely identified restricted-free macOS acceptance, actual production ChatMessageTile inspection, native accessibility inspection and callback verification remain with the new reviewer under the shared desktop lease.
+- No spoken VoiceOver, iOS device or Linux device run is claimed. Widget text-scale/RTL/touch-target coverage is not device testing.
+- Bubble and Attachment remain unaccepted. The Message reviewer must wait for both accepted local-main merges, integrate their final reviewed revisions/current main, resolve overlap and rerun affected checks so no unaccepted parent reaches main through Message.
 
 ### chart
 
