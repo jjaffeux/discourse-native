@@ -2138,7 +2138,7 @@
     },
     {
       "id": "drawer",
-      "status": "in_progress",
+      "status": "implemented",
       "taskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
       "branch": "codex/ui-drawer",
       "dependencies": [
@@ -2157,7 +2157,9 @@
         "Base-nova geometry maps exactly to 450ms cubic motion, 10% black/4px-blur overlay, exposed-edge border and xl radius, content-sized vertical panels capped 96px from the viewport, 75% side width capped at 384px, 16px section padding, 96x4 handle and 48px overshoot bleed. Native theme tokens, safe areas, text scaling and Flutter focus/semantics remain integration owners.",
         "Drawer owns swipe, snap and nested gesture behavior. Concurrent Sheet task 01a08606-5dcc-7381-bbbb-719367c8f574 owns showShellSheet adoption and non-gesture sheet conveniences; shared Dialog route changes are coordinated directly to avoid competing lifecycle owners.",
         "DOverlayRoute is the shared route/focus/live-environment foundation used by Dialog and Drawer. Drawer adds its own interruptible travel controller, velocity projection, sequential snap selection, overshoot resistance, scroll-edge handoff, frontmost nested-stack ownership and modal/non-modal pointer policy.",
-        "Touch, stylus and trackpad can drag the whole surface; mouse dragging is intentionally restricted to the visible handle so body text remains selectable. Logical start/end resolve from the live Directionality scope. Reduced motion completes route and spring state immediately, including completion callbacks."
+        "Touch, stylus and trackpad can drag the whole surface; mouse dragging is intentionally restricted to the visible handle so body text remains selectable. Logical start/end resolve from the live Directionality scope. Reduced motion completes route and spring state immediately, including completion callbacks.",
+        "Independent review checked the exact Base UI v1.8.0 implementation and corrected fraction snap resolution, one-pixel snap deduplication, low-speed closest-snap selection, fast-swipe projection, one-detent sequential movement, no-snap dismissal thresholds and square-root open overshoot damping.",
+        "Nested depth and live swipe progress now propagate through every mounted ancestor, matching Silk's below-stack aggregation. Route teardown also clears ownership before Navigator removal and the stack handle rejects late notifications after disposal."
       ],
       "migrations": [
         "Added Drawer as a public discourse_ui.dart component and registered nine runnable styleguide examples: delivery-time composition, custom size/style, physical/logical positions, swipe handle, four-level nesting, non-modal interaction, pixel/fraction snap points, responsive Dialog composition and RTL placement.",
@@ -2169,16 +2171,18 @@
       ],
       "verification": [
         "Flutter 3.47.2 / Dart 3.13.2 dependencies were resolved with flutter pub get --enforce-lockfile and no pubspec.lock changes.",
-        "Implementation handoff reports flutter test --no-pub test/ui/d_drawer_test.dart test/ui/d_dialog_test.dart test/styleguide/drawer_examples_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=19040911 passed all 57 tests after the reduced-motion completion regression was added.",
+        "Independent review reran flutter test --no-pub test/ui/d_drawer_test.dart test/ui/d_dialog_test.dart test/styleguide/drawer_examples_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=19040911 and passed all 62 tests, including viewport-fraction, shallow no-snap rebound, nested swipe reveal and three-level stack-depth regressions.",
         "Focused implementation tests cover typed results, controlled cancellation, open/close completion, focus restoration and closed-loop trapping, modal and true non-modal pointer behavior, outside/focus/Escape dismissal, live theme/direction, bottom/side/RTL geometry, swipe dismissal, sequential controlled snaps, scroll-edge handoff, attached swipe-area opening, provider indent and frontmost nested Escape ownership.",
         "Implementation reports every Drawer styleguide example opens without overflow at 320x640, 200% text and RTL; the complete styleguide search/accounting/regression suite passed in the same randomized run.",
-        "Implementation reports flutter analyze --no-pub passed at the repository root and profiles/full; dart format and git diff --check passed.",
-        "Implementation built flutter build macos --debug --no-pub -t tool/drawer_review_main.dart at build/macos/Build/Products/Debug/Discourse.app. The fixture uses only local component data and exposes light/dark, LTR/RTL, 100/200%, reduced motion, bottom/logical-side/snap/non-modal cases and a page pass-through action.",
-        "The d-sheet and Silk guidance was consulted; docs/component-library/reference/drawer.md records the exact source-to-Flutter and Silk behavior mapping."
+        "Independent review passed flutter analyze --no-pub at the repository root and profiles/full, dart format and git diff --check.",
+        "The source-exact macOS fixture built with flutter build macos --debug --no-pub -t tool/drawer_review_main.dart. The isolated Drawer Review fb46.app used bundle ID org.discourse.drawer.review.fb46; its original and copied kernels both hashed f00a9426f82200529a427047b7c156fd4d3179b7f2feca81a7df252deabe89c7, and deep strict code-signature verification passed with only the expected debug JIT/library-validation entitlements.",
+        "Official rendered browser inspection covered Basic/right, Position/left, Swipe Handle/bottom, Snap Points, Non Modal and three nested levels. Measured side width, inset/radius, handle, overlay, depth transforms and non-modal barrier behavior agreed with the recorded mapping.",
+        "Interactive native macOS acceptance passed bottom focus/Tab/Escape restoration, LTR right and RTL left logical placement, compact-to-full snap dragging, nested child-only Escape then parent close, non-modal page pass-through, live dark theme while open, 200% text usability and immediate reduced-motion open/close.",
+        "The d-sheet and Silk guidance was consulted; docs/component-library/reference/drawer.md records the exact source-to-Flutter, Base UI v1.8.0 and Silk behavior mapping. The Sheet reviewer confirmed its shared route extraction is byte-identical and that Sheet retains showShellSheet and Voice adoption ownership."
       ],
       "limitations": [
-        "The implementation task did not claim interactive native or official-page acceptance. Independent review task 01a08643-3074-72e1-8b18-a2266dd724e6 owns that final browser/native comparison and any fixes before merge.",
-        "iOS, Android and Linux devices were not run. Widget tests exercise Flutter pointer, keyboard, focus, direction, scaling and reduced-motion behavior, and the macOS fixture was compiled but not yet interactively accepted."
+        "iOS, Android and Linux devices were not run, and no spoken VoiceOver session was performed.",
+        "Browser Geist and native host-font rasterization differ; review establishes geometry, styling, interaction and accessibility structure rather than pixel equality."
       ],
       "implementationCommit": "7b230a06c5a0f9f86aae1456146c6aca908991bd",
       "mergeCommit": null,
@@ -2206,7 +2210,9 @@
       "reviewBranch": "codex/review-drawer",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/2244/discourse-native",
       "reviewHandoffCommit": "7b230a06c5a0f9f86aae1456146c6aca908991bd",
-      "reviewStatus": "in_progress",
+      "browserInspectionStatus": "completed",
+      "nativeInspectionStatus": "completed",
+      "reviewStatus": "accepted",
       "implementationHandoffVerification": {
         "focusedTests": "57 randomized focused Drawer/Dialog/styleguide tests passed with seed 19040911.",
         "analysis": "Root and profiles/full flutter analyze --no-pub passed; formatting and git diff --check passed.",

@@ -35,6 +35,17 @@ its dismiss-facing edge, applies resisted overshoot, and settles with an
 interruptible spring. Reduced motion settles immediately. Safe-area and IME
 insets replace browser dynamic-viewport and virtual-keyboard CSS variables.
 
+Independent review also checked the pinned Base UI `v1.8.0` implementation,
+not only its public API prose. Fraction snap points therefore resolve against
+the viewport height before being clamped to the popup extent. Low-velocity
+drags choose the closest snap point without projection; projection begins at
+0.5 logical pixels per millisecond, and sequential mode advances at most one
+detent. A drawer without snap points dismisses only after crossing half its
+extent (with a 10px minimum) or reaching that same fast-swipe threshold. Open
+snap overshoot uses Base UI's square-root damping. Nested swipe progress and
+depth propagate through every mounted ancestor, matching Silk's below-stack
+aggregation rather than updating only the immediate parent.
+
 ## Silk cross-check
 
 The required `d-sheet` guidance was consulted before implementation. Its exact

@@ -54,6 +54,7 @@ class _DrawerReviewAppState extends State<_DrawerReviewApp> {
                   _basicDrawer(),
                   _sideDrawer(),
                   _snapDrawer(),
+                  _nestedDrawer(),
                   _nonModalDrawer(),
                   DButton(
                     onPressed: () => setState(() => _pagePresses++),
@@ -132,6 +133,42 @@ class _DrawerReviewAppState extends State<_DrawerReviewApp> {
       ),
     ),
     content: _content('Non modal drawer', fill: true),
+  );
+
+  Widget _nestedDrawer() => DDrawer<void>(
+    showSwipeHandle: true,
+    trigger: DDrawerTrigger(
+      builder: (_, open) => DButton(
+        onPressed: open,
+        variant: DButtonVariant.outline,
+        label: const Text('Nested drawers'),
+      ),
+    ),
+    content: DDrawerContent(
+      children: [
+        const DDrawerHeader(
+          children: [
+            DDrawerTitle(child: Text('Parent drawer')),
+            DDrawerDescription(
+              child: Text('Open the child, then drag it toward dismissal.'),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: DDrawer<void>(
+            showSwipeHandle: true,
+            trigger: DDrawerTrigger(
+              builder: (_, open) => DButton(
+                onPressed: open,
+                label: const Text('Open child drawer'),
+              ),
+            ),
+            content: _content('Child drawer'),
+          ),
+        ),
+      ],
+    ),
   );
 
   DDrawerContent _content(String title, {bool fill = false}) => DDrawerContent(
