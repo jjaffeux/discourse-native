@@ -4,6 +4,7 @@ import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
 import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
+import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
@@ -42,6 +43,7 @@ final componentExamples = <String, ComponentExamples>{
   'checkbox': checkboxExamples,
   'empty': emptyExamples,
   'card': cardExamples,
+  'carousel': carouselExamples,
   'chart': chartExamples,
   'resizable': resizableExamples,
   'foundations': foundationExamples,

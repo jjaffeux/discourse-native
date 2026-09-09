@@ -1730,14 +1730,33 @@
       ],
       "decisions": [
         "Collapsible is accepted and merged as 985b4efd; its corrected native trigger semantics boundary must be preserved. Card and other shared foundations are also merged.",
-        "Existing Events/Local Dates standalone disclosures retain the merged Collapsible owner unless a real grouped accordion use case justifies migration."
+        "Existing Events/Local Dates standalone disclosures retain the merged Collapsible owner unless a real grouped accordion use case justifies migration.",
+        "Frozen Markdown hash, current registry hash, exact measurements, API mapping and acceptance are recorded in docs/component-library/accordion-reference.md.",
+        "DAccordion<T>, DAccordionItem<T>, DAccordionHeader, DAccordionTrigger, DAccordionContent and DAccordionController<T> expose typed single/multiple composition with controlled, internally owned or explicitly borrowed state.",
+        "Items key their root wrappers so reorder preserves expansion and descendant identity; local/controller state prunes removed values after the frame while controlled values remain caller-owned.",
+        "Accordion composes DCollapsible for activation, expanded semantics, focus restoration, panel lifecycle and reduced motion. A narrow optional Collapsible focus-painter extension supplies the base-nova rounded one-pixel border and outside-only three-pixel 50% ring without changing existing defaults."
       ],
       "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "retainedAlternatives": [
+        "Event Composer and Local Dates advanced options remain independent accepted DCollapsible disclosures; coordinating them as Accordion items would invent group semantics.",
+        "Prometheus raw payload remains one independent DCollapsible disclosure. Browser tabs, topic/user filters, settings navigation and nested routes retain their navigation/domain owners because Accordion would change routing, persistence or disclosure behavior."
+      ],
+      "verification": [
+        "Frozen shadcn Markdown SHA256 reproduced exactly as ccd53e3cb2e6d1cd1cc72588b853fdc8aefe08aab3d5cb515d28dfe09dcf149f; current base-nova registry inspected as 01509cb2a91779ee74c2d4a1f75842c0a258bed1758be4f2567af9daabdc39ac and current Base UI behavior API inspected.",
+        "50 Accordion, Collapsible, styleguide, Alert-overlap and styleguide-shell tests passed with random seed 417203 after integration, covering single/multiple/controlled/controller state, dynamic reorder/removal, pointer, Enter/Space, Tab, disabled state, bounded heading/expanded semantics, independent fields, focus restoration, retention, geometry, touch, RTL, 200% text, live tokens and reduced motion.",
+        "After integrating Empty through main b1720522, 46 Accordion, Collapsible, Accordion styleguide and styleguide-page tests passed again with random seed 417203; root and profiles/full analysis remained clean.",
+        "Root and profiles/full flutter analyze --no-pub pass with no issues after latest-main integration; Dart formatting and git diff --check pass and dependency pins/lockfiles are unchanged.",
+        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed from integrated source. The compiled kernel SHA256 is d79bdf1ebd81dd8fe4a3cce15e8791ae86a01036738ac4ba4a386d0343ae8fed."
+      ],
+      "limitations": [
+        "Implementation task did not launch or inspect the macOS bundle and makes no native render, browser comparison, VoiceOver, iOS or Linux device claim. The independent reviewer owns official rendered/native comparison and any resulting fixes under the shared desktop lease.",
+        "Browser hidden-until-found has no native equivalent; hosts reveal search matches using controlled values or DAccordionController."
+      ],
+      "implementationCommit": "60d01f5fc11b73d1ceb0ab12fee84c805a2d22c3",
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
+      "reviewBranch": "codex/review-accordion"
     },
     {
       "id": "tabs",
@@ -2010,21 +2029,38 @@
     },
     {
       "id": "select",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085bb-1d11-7f52-a7bd-667348469087",
+      "branch": "codex/ui-select",
       "dependencies": [
         "popover",
         "scroll-area"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova rich Select API and Composition, Align Item With Trigger, Groups, Scrollable, Disabled, Invalid and RTL examples with measured source mapping.",
+        "Replace the appropriate generic rich selector and compose final shared popup, scrolling and control owners; preserve native option semantics, selected-item alignment/collision fallback, keyboard/typeahead/focus restoration, Form/controller lifecycle and live overlay theming.",
+        "Audit core/plugin selectors and migrate appropriate usages, coordinating final Field and Button Group compositions while retaining specifically justified native/simple selector alternatives.",
+        "Verify complete examples, narrow/scaled/RTL/touch/reduced-motion behavior, meaningful focused component/consumer tests and root/full analysis; create a new reviewer for remaining rendered/native acceptance and local merge after the accepted Popover main revision."
+      ],
+      "decisions": [
+        "Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "popover",
+          "branch": "codex/review-popover",
+          "commit": "d99562f0f6973c9dc3f566eea02d9b00c6de4f7b",
+          "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
+          "evidence": "Parent reviewer verified the exact Popover source pin contains b410f9da plus lifecycle correction 8281dda2; 100 focused tests (seed 826145) and root/full analysis passed before later main integration. Final native/reference acceptance remains with the parent reviewer.",
+          "mergeGate": "Use the accepted parent in current main if available; otherwise prepare only in this isolated worktree. The dependent reviewer must integrate the accepted parent main revision, reconcile overlap and verify affected behavior before final merge. Prepared source does not establish acceptance."
+        }
+      ]
     },
     {
       "id": "native-select",
@@ -2225,22 +2261,39 @@
     },
     {
       "id": "command",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
+      "branch": "codex/ui-command",
       "dependencies": [
         "input",
         "dialog",
         "scroll-area"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Command/cmdk wrapper API and embedded/Dialog Composition, Basic, Shortcuts, Groups, Scrollable and RTL examples with primary-source visual and behavioral mapping.",
+        "Compose final DInput, DScrollArea, DKbd and Dialog owners with explicit query/filter/selection/focus ownership, native IME and accessible keyboard navigation, dynamic results, disabled/group/empty/loading behavior and no networking/business logic in the generic component.",
+        "Audit and migrate appropriate core/plugin command/search/action pickers while preserving app adapters, permissions, async lifecycle and result actions; record specific retained alternatives and prepare the API for later Combobox composition.",
+        "Verify complete examples, live overlay themes, focus entry/restoration/Escape, narrow/scaled/RTL/touch/reduced-motion behavior, meaningful focused tests and root/full analysis; create a new reviewer for actual rendered/native acceptance and final local merge after accepted Dialog main."
+      ],
+      "decisions": [
+        "Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "dialog",
+          "branch": "codex/review-dialog",
+          "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
+          "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+          "evidence": "Parent reviewer verified the Dialog source pin and unchanged public API, corrected 28px corner-close geometry and unique dismiss semantics. 23 focused tests (seed 2145466268), root/full analysis and 2+2 real Chat/Voice migration tests passed; official browser comparison is complete. Final native launch/interaction remains queued.",
+          "mergeGate": "Use the accepted parent in current main if available; otherwise prepare only in this isolated worktree. The dependent reviewer must integrate the accepted parent main revision, reconcile overlap and verify affected behavior before final merge. Prepared source does not establish acceptance."
+        }
+      ]
     },
     {
       "id": "combobox",
@@ -2424,7 +2477,7 @@
     },
     {
       "id": "carousel",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
       "branch": "codex/ui-carousel",
       "dependencies": [
@@ -2453,22 +2506,28 @@
         "Event calendar paging is retained because it owns unbounded domain-date navigation and post-layout state publication, not finite carousel content; no plugin PageView was an appropriate adoption."
       ],
       "verification": [
-        "9 Carousel widget tests passed with randomized seed 940219: controller/API state, bounded and loop navigation, swipe progress/events, responsive extents without state reset, horizontal RTL and vertical keyboard input, slide semantics, autoplay interaction/reduced-motion behavior, and borrowed lifecycle.",
+        "10 Carousel widget tests passed with randomized seed 940219: controller/API state, bounded and adjacent loop navigation, touch and mouse drag progress/events, responsive extents without state reset, horizontal RTL and vertical keyboard input, slide semantics, serialized autoplay interaction/reduced-motion behavior, and borrowed lifecycle.",
         "33 ImageGrid production-widget tests passed with randomized seed 940219, including pointer/keyboard/dot navigation, looping, edited-item clamping, outer-topic scroll isolation, accessibility, narrow layout and gallery opening.",
         "17 styleguide access/page tests passed with randomized seed 940219; Carousel registration preserves frozen catalogue accounting and documentation shell behavior.",
         "Root flutter analyze --no-pub clean. profiles/full locked dependency resolution and flutter analyze --no-pub clean. Flutter 3.47.2, dependency pins and lockfiles unchanged.",
         "flutter build macos --debug --no-pub -t lib/styleguide_main.dart succeeded and produced build/macos/Build/Products/Debug/Discourse.app.",
-        "Touched Dart formatting and git diff --check passed. Implementation integrated current main before handoff."
+        "Touched Dart formatting and git diff --check passed. Implementation integrated current main before handoff.",
+        "Independent browser review reproduced both official hashes and inspected the live dark default: 320px viewport, 336px item including 16px gutter, and 28px circular controls at the documented 48px outside offset.",
+        "Independent native macOS review used the exact-source isolated Carousel Review 2d5354ca app (kernel SHA256 ce5acb89990f8acd5c1b7bec62fdd5062266048ed936f9514d1440198143482f; deep strict signature passed). It covered light/dark/Forest, 360px, 200% text, RTL/reduced-motion settings, horizontal/vertical drag and keys, bounded/loop controls, autoplay play/stop and accessibility semantics; focused widget tests cover controller events, interaction pause and reduced-motion suppression.",
+        "The production ImageGridCarousel fixture mounted three real local ImageGridItem records and passed native next/selection inspection without network or account writes. Full evidence is recorded in carousel-native.md.",
+        "Reviewer fixes are covered by 10 Carousel and 33 ImageGrid tests with seed 940219; 17 styleguide tests and root/profiles-full analysis passed on the integrated review branch."
       ],
       "limitations": [
-        "Independent reviewer owns official rendered browser comparison and native interaction/accessibility inspection; implementation task claims no CUA run, pixel equality, iOS/Linux device test or spoken VoiceOver.",
-        "Generic loop wrap uses the real finite PageView pages, so a wrap animation can cross intervening slides; reviewer must judge native/reference interaction quality and adjust if rendered review finds it materially different."
+        "No physical iOS/Linux device run or spoken VoiceOver session; widget semantics coverage is not a device claim.",
+        "The production native fixture used deterministic local media metadata and did not open an authenticated gallery or network session. Browser/native font rasterization differs, so no pixel-equality claim is made."
       ],
       "implementationCommit": "e03cc7f150d14a5bf231ec9d66cc02359b67d588",
-      "mergeCommit": null,
+      "mergeCommit": "3ec0c089d273029ff901d9155eba93e17c4d3a23",
       "reviewTaskId": "01a08589-3822-72d2-88a1-5fcaea66e089",
       "reviewBranch": "codex/review-carousel",
-      "reviewStatus": "in_progress"
+      "reviewStatus": "merged",
+      "browserInspectionStatus": "completed",
+      "nativeInspectionStatus": "completed"
     },
     {
       "id": "toast",
@@ -2955,15 +3014,6 @@
           "implementationTaskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd"
         },
         {
-          "component": "alert",
-          "taskId": "01a08558-ae1e-7843-8cff-724c8e877ba5",
-          "branch": "codex/review-alert",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ae77/discourse-native",
-          "status": "independent_review",
-          "headCommit": "38002135f93007ea04bc19873bd8bdf2e379f346",
-          "implementationTaskId": "01a08454-55a6-7681-8da9-bec8b23899a4"
-        },
-        {
           "component": "item",
           "taskId": "01a08558-aec4-7591-ac85-682a1eae4290",
           "branch": "codex/review-item",
@@ -2993,16 +3043,6 @@
           "headCommit": "17e7778e355ee398f8dad71f5839f98b7627cb9f"
         },
         {
-          "component": "carousel",
-          "taskId": "01a08589-3822-72d2-88a1-5fcaea66e089",
-          "branch": "codex/review-carousel",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f646/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
-          "implementationBranch": "codex/ui-carousel",
-          "headCommit": "ace58e0ff2c7a41ed6c14f92638fa01a0d15ee67"
-        },
-        {
           "component": "toast",
           "taskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
           "branch": "codex/review-toast",
@@ -3011,13 +3051,6 @@
           "implementationTaskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
           "implementationBranch": "codex/ui-toast",
           "headCommit": "329c3e1182709d0e7577123e29dc9769741e08fa"
-        },
-        {
-          "component": "accordion",
-          "taskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
-          "branch": "codex/ui-accordion",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/69af/discourse-native",
-          "status": "implementation"
         },
         {
           "component": "input-group",
@@ -3042,6 +3075,30 @@
           "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
           "implementationBranch": "codex/ui-button-group",
           "headCommit": "a0cca310458ad1d5f7096d75d4116b04718dbf09"
+        },
+        {
+          "component": "select",
+          "taskId": "01a085bb-1d11-7f52-a7bd-667348469087",
+          "branch": "codex/ui-select",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e158/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "command",
+          "taskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
+          "branch": "codex/ui-command",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5ebf/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "accordion",
+          "taskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
+          "branch": "codex/review-accordion",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c44f/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
+          "implementationBranch": "codex/ui-accordion",
+          "headCommit": "42e6cc265ba2875c91af2a8cb22dd443cb80786c"
         }
       ],
       "nativeReadyTasks": []
@@ -3240,7 +3297,8 @@
           "branch": "codex/review-alert",
           "implementationTaskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
           "implementationBranch": "codex/ui-alert",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "a07ab617436f24f2e8116762f58b0b28e5d36918"
         },
         {
           "component": "item",
@@ -3284,7 +3342,8 @@
           "branch": "codex/review-carousel",
           "implementationTaskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
           "implementationBranch": "codex/ui-carousel",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "3ec0c089d273029ff901d9155eba93e17c4d3a23"
         },
         {
           "component": "toast",
@@ -3307,6 +3366,17 @@
           "implementationTaskId": "01a08581-831f-7751-b714-096b5aebf86a",
           "implementationBranch": "codex/ui-button-group",
           "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
+          "status": "in_progress"
+        },
+        {
+          "component": "accordion",
+          "title": "Review and merge Accordion",
+          "taskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c44f/discourse-native",
+          "branch": "codex/review-accordion",
+          "implementationTaskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
+          "implementationBranch": "codex/ui-accordion",
           "status": "in_progress"
         }
       ],
