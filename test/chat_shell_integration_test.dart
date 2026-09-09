@@ -5412,6 +5412,8 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(find.text('sam'), findsOneWidget);
+        expect(find.byType(DMessage), findsNWidgets(2));
+        expect(find.byType(DMessageContent), findsNWidgets(2));
 
         expect(ChatMessageTile.gutter, 42);
         expect(
