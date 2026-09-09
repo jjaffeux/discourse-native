@@ -595,32 +595,20 @@ class _MembershipBadge extends StatelessWidget {
 
 class _DirectoryError extends StatelessWidget {
   const _DirectoryError({required this.message, required this.onRetry});
-
   final String message;
   final VoidCallback? onRetry;
-
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(16),
-    child: Material(
-      color: Theme.of(context).colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(
-              Icons.error_outline,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message)),
-            DButton(
-              label: const Text('Try again'),
-              onPressed: onRetry,
-              variant: DButtonVariant.link,
-            ),
-          ],
+    child: DAlert(
+      variant: DAlertVariant.destructive,
+      icon: const Icon(Icons.error_outline),
+      description: DAlertDescription(child: Text(message)),
+      action: DAlertAction(
+        child: DButton(
+          label: const Text('Try again'),
+          onPressed: onRetry,
+          variant: DButtonVariant.link,
         ),
       ),
     ),
@@ -632,14 +620,18 @@ class _EmptyDirectory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Center(
-    child: Padding(
-      padding: EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    child: SingleChildScrollView(
+      child: DEmpty(
         children: [
-          DIcon(DIcons.users, size: 36),
-          SizedBox(height: 12),
-          Text('No groups match these filters.'),
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(
+                variant: DEmptyMediaVariant.icon,
+                child: DIcon(DIcons.users),
+              ),
+              DEmptyTitle('No groups match these filters.'),
+            ],
+          ),
         ],
       ),
     ),

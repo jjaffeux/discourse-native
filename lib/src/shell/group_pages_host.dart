@@ -157,13 +157,12 @@ class _GroupDetailView extends StatelessWidget {
           context: context,
           builder: (context) => AlertDialog(
             title: Text('Request to join ${group.label}'),
-            content: TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            content: DTextarea(
               controller: controller,
               minLines: 3,
               maxLines: 8,
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'Reason'),
+              labelText: 'Reason',
             ),
             actions: [
               DButton(

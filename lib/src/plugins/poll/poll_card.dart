@@ -631,7 +631,10 @@ class _PollOptionRow extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      _ResultBar(percentage: percentage!),
+                      DChartBar(
+                        fraction: (percentage! / 100).clamp(0.0, 1.0),
+                        backgroundColor: DTokens.of(context).muted,
+                      ),
                     ],
                   ),
                 ),
@@ -666,36 +669,13 @@ class _PollOptionRow extends StatelessWidget {
                     style: theme.textTheme.bodyLarge?.copyWith(color: whisper),
                   ),
                   const SizedBox(height: 4),
-                  _ResultBar(percentage: percentage!),
+                  DChartBar(
+                    fraction: (percentage! / 100).clamp(0.0, 1.0),
+                    backgroundColor: DTokens.of(context).muted,
+                  ),
                 ],
               ),
             ),
-    );
-  }
-}
-
-class _ResultBar extends StatelessWidget {
-  const _ResultBar({required this.percentage});
-
-  final int percentage;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final fraction = (percentage / 100).clamp(0.0, 1.0);
-    return Container(
-      height: 7,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      clipBehavior: Clip.antiAlias,
-      alignment: Alignment.centerLeft,
-      child: FractionallySizedBox(
-        widthFactor: fraction,
-        heightFactor: 1,
-        child: ColoredBox(color: theme.colorScheme.primary),
-      ),
     );
   }
 }

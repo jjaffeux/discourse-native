@@ -1,0 +1,17 @@
+[
+  {
+    "family": "Geist",
+    "url": "https://ui.shadcn.com/_next/static/immutable/media/caa3a2e1cccd8315-s.p.0zr6hhvz-h9nw.woff2",
+    "sha256": "9b6f5ff45b278c744b5f379a2c4ecbaf858a842b8eaf82ac8d21b699ca16c608"
+  },
+  {
+    "family": "GeistMono",
+    "url": "https://ui.shadcn.com/_next/static/immutable/media/64c5f24155ea0bd5-s.p.32f10yu79vtgx.woff2",
+    "sha256": "23840067d1dda8749b421a47c3e56205fa78c0d58d40baf3cc4d625fbe667f36"
+  },
+  {
+    "family": "NotoSansArabic",
+    "url": "https://ui.shadcn.com/_next/static/immutable/media/3fd1b3eda9c5392f-s.3ocmk-uw9eanw.woff2",
+    "sha256": "69cdf0bf005fdc9cc13fb5a8581697eb9ba8f761aeaf255fc717d14c62c38891"
+  }
+]

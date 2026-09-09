@@ -16,6 +16,28 @@ when code changes, conflicts, failures or uncovered behavior require them.
 Never label unperformed native/browser checks as completed or silently drop
 required documented compositions to clear the queue.
 
+A completed native pass remains valid for unchanged component/adoption behavior.
+Do not queue another full pass solely to promote a styleguide status label or
+update acceptance notes. Record the inspected source and relevant source
+equivalence, run affected checks after real changes, and preserve the exact
+limits of the evidence. The initial rendered/native inspection remains required.
+
+## Preparing a dependent while its parent finishes review
+
+Create the dependent task from latest local main. If a required parent has
+committed source, a usable public API and passing focused verification, source
+preparation may proceed by integrating that exact prepared parent commit into
+the dependent's isolated worktree. Record the parent branch, commit, reviewer
+and evidence, and coordinate API changes directly. Do not edit the parent
+worktree, claim parent acceptance, or replace its generic control owner.
+
+The dependent's new reviewer must wait for every parent's accepted local main
+merge, integrate the accepted revisions/current main, reconcile overlap and
+verify affected behavior before its own final merge. Prepared source never
+waives native/reference verification, application adoption or documented
+composition requirements. An unaccepted parent must not reach main through
+a dependent branch. Include these obligations in the review handoff.
+
 ## Shared access without coordinator permission
 
 All worktrees use the same Git common directory. The helper below uses atomic
@@ -123,6 +145,12 @@ read its `codex-thread.json` in the Git directory reported by
 read-only lookup, not a reason to create another reviewer. The reviewer
 finishes and merges directly. Do not send an
 implementation back to the coordinator as its required next step.
+
+If the implementation context lacks a callable task-creation API after tool
+discovery, send an exact committed review handoff prompt to a task that has the
+API. This is transport only: create one reviewer, return its real ID, and keep
+all review/fix/acceptance/merge ownership with that reviewer. Avoid using the
+shared desktop queue merely to create a task or launching a duplicate reviewer.
 
 The overall goal remains incomplete until all 64 components and the separate
 final library audit have passed their required verification and merged locally.

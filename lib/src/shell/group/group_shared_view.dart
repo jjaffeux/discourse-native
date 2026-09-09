@@ -228,21 +228,14 @@ class _LoadMoreRow extends StatelessWidget {
 
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message});
-
   final String message;
-
   @override
-  Widget build(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.errorContainer,
-    child: ContentReadingLaneBox(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
-          const SizedBox(width: 8),
-          Expanded(child: Text(message)),
-        ],
-      ),
+  Widget build(BuildContext context) => ContentReadingLaneBox(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+    child: DAlert(
+      variant: DAlertVariant.destructive,
+      icon: const Icon(Icons.error_outline),
+      description: DAlertDescription(child: Text(message)),
     ),
   );
 }
@@ -262,22 +255,32 @@ class _GroupState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: ContentReadingLaneBox(
-      padding: const EdgeInsets.all(30),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DIcon(icon, size: 34),
-          const SizedBox(height: 12),
-          Text(title, textAlign: TextAlign.center),
-          if (actionLabel != null) ...[
-            const SizedBox(height: 14),
-            DButton(
-              label: Text(actionLabel!),
-              onPressed: onAction == null ? null : () => unawaited(onAction!()),
+    child: SingleChildScrollView(
+      child: ContentReadingLaneBox(
+        child: DEmpty(
+          children: [
+            DEmptyHeader(
+              children: [
+                DEmptyMedia(
+                  variant: DEmptyMediaVariant.icon,
+                  child: DIcon(icon),
+                ),
+                DEmptyTitle(title),
+              ],
             ),
+            if (actionLabel != null)
+              DEmptyContent(
+                children: [
+                  DButton(
+                    label: Text(actionLabel!),
+                    onPressed: onAction == null
+                        ? null
+                        : () => unawaited(onAction!()),
+                  ),
+                ],
+              ),
           ],
-        ],
+        ),
       ),
     ),
   );
