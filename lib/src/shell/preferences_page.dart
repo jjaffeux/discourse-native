@@ -569,7 +569,7 @@ class _NotificationsForm extends StatelessWidget {
               : null,
         ),
         const SizedBox(height: 20),
-        SwitchListTile.adaptive(
+        DSwitchTile(
           key: const ValueKey('notify-on-linked-posts'),
           contentPadding: EdgeInsets.zero,
           title: DLabel(

@@ -1,0 +1,47 @@
+{
+  "dpr": 2,
+  "restoredTheme": "dark",
+  "rules": [],
+  "stylesheets": [
+    "https://ui.shadcn.com/_next/static/immutable/chunks/1l1q0o1-hjbn3.css",
+    "https://ui.shadcn.com/_next/static/immutable/chunks/17udeju1vgrir.css",
+    "https://ui.shadcn.com/_next/static/immutable/chunks/25s5of5h9ua6p.css",
+    "https://ui.shadcn.com/_next/static/immutable/chunks/0hahrayuar6ed.css",
+    null
+  ],
+  "tokens": {
+    "--border": "lab(100% 0 0/.1)",
+    "--input": "lab(100% 0 0/.15)",
+    "--primary": "lab(90.952% 0 -.0000119209)",
+    "--radius": ".625rem",
+    "--radius-lg": ".625rem",
+    "--ring": "lab(48.496% 0 0)"
+  },
+  "url": "https://ui.shadcn.com/docs/components/base/switch#choice-card",
+  "viewport": {
+    "height": 962,
+    "width": 1403
+  },
+  "stylesheetSourceHashes": [
+    {
+      "url": "https://ui.shadcn.com/_next/static/immutable/chunks/1l1q0o1-hjbn3.css",
+      "sha256": "e94d00aa6819c30f7d6f83016963c43b6b74d961b32b9dee2dbe10213e5f6106",
+      "bytes": 11599
+    },
+    {
+      "url": "https://ui.shadcn.com/_next/static/immutable/chunks/17udeju1vgrir.css",
+      "sha256": "19dd8fe80f1fb07e156ed3ceaaaacb7a600a3444e97c3baf6483c4363a15668d",
+      "bytes": 600655
+    },
+    {
+      "url": "https://ui.shadcn.com/_next/static/immutable/chunks/25s5of5h9ua6p.css",
+      "sha256": "2a16d418fe263ac69171d949d0226e0c8b848969b18f3384175449891122d230",
+      "bytes": 14497
+    },
+    {
+      "url": "https://ui.shadcn.com/_next/static/immutable/chunks/0hahrayuar6ed.css",
+      "sha256": "a18b94caef3e4604b2b91fef632842d8ca12085bf54838780658a8642a61722c",
+      "bytes": 1650
+    }
+  ]
+}

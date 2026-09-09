@@ -1,0 +1,32 @@
+Window: "Discourse", App: Discourse Switch Review 3243a88c.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Discourse Switch Review 3243a88c
+		2 container (settable)
+			3 container (settable) Settings
+				4 button (settable) Close settings
+				5 container (settable)
+					6 text (settable) Content alignment
+					7 container (settable) Content alignment options
+						8 button (settable) Left
+						9 button (settable) Center
+						10 button (settable) Right
+					11 text (settable) Text size
+					12 text (settable) Applies across every forum. On desktop, use Command or Control with + or −; use the same modifier with 0 to reset.
+					13 button (settable) Decrease text size
+					14 text (settable) Current text size
+					15 button (settable) Increase text size
+					16 button (settable) Reset
+					17 switch (settable, boolean) Value: on, Disable GIF animations
+Pause GIFs by default in posts and chat messages.
+			18 text (settable) Dismiss
+	19 close button
+	20 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	21 minimize button
+22 menu bar
+	23 Discourse Switch Review 3243a88c
+	24 Edit
+	25 View
+	26 Window
+	27 Help
+
+The focused UI element is 1 container Discourse Switch Review 3243a88c

@@ -1,0 +1,29 @@
+Window: "Discourse", App: Discourse Switch Review 3243a88c.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Discourse Switch Review 3243a88c
+		2 container (settable)
+			3 container (settable) Switch review — local data
+			4 container (settable)
+				5 button (settable) Light / Dark
+				6 button (settable) LTR / RTL
+				7 button (settable) 100% / 200%
+				8 button (settable) Open styleguide
+				9 button (settable) Settings — memory persistence
+				10 button (settable) Preferences — fake account
+				11 button (settable) Chat settings — fake account
+				12 button (settable) Poll — local draft
+				13 button (settable) Local date — local draft
+				14 button (settable) Group management — local updates
+				15 button (settable) Voice diagnostics — fake capture
+			16 text (settable) Local poll: apply
+	17 close button
+	18 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	19 minimize button
+20 menu bar
+	21 Discourse Switch Review 3243a88c
+	22 Edit
+	23 View
+	24 Window
+	25 Help
+
+The focused UI element is 1 container Discourse Switch Review 3243a88c

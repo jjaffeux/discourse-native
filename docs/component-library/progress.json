@@ -882,7 +882,7 @@
     },
     {
       "id": "switch",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
       "branch": "codex/ui-switch",
       "dependencies": [
@@ -951,21 +951,24 @@
         "Exterior ring and desktop geometry regressions passed in 221 affected tests seed 782312; final Size/Poll/Group changes passed 59 component/fixture/export/consumer checks. Inspected refreshed 20 component and 14 app-fixture font-loaded exports against committed primary references. No CUA/browser/native launch. Logs /private/tmp/switch-exterior-final-tests.log and /private/tmp/switch-exterior-adapter-tests.log.",
         "Exterior correction root/full analysis clean; exact-source macOS debug build passed. Isolated bundle /private/tmp/discourse-switch-review-41ac9023/Discourse Switch Review 41ac9023.app; unique identifier org.discourse.switch-review-41ac9023 and scheme discourse-switch-review-41ac9023. Deep strict ad-hoc signature and source/copy kernel equality passed: f38fcf8e1c62d6f708ae2fae2d5e8af18ecbe869964cb49beed17931d2fde589. Trace docs/component-library/switch-review-build.json. No launch; native awaiting_slot.",
         "Pinned-main 7df72ef2 integrated preserving final Button/Input and all non-Switch rows. 267 focused integration tests passed seed782313; root/full analysis clean. Exact-source isolated signed bundle /private/tmp/discourse-switch-review-c637efb3/Discourse Switch Review c637efb3.app; kernel d4dfbbf790b2cbabee6780474a496f94dcb6ea3f938a4c103bbb5c741bb21fe5. Signature and entitlement read-back verified with restricted APS/team/application identifiers absent. No desktop access; awaiting_slot.",
-        "Integrated pinned Radio/Checkbox main e612ad7b preserving all final owners and non-Switch rows. 90 focused integration tests passed seed 782314; root/full analysis clean. Unique exact-source bundle /private/tmp/discourse-switch-review-3243a88c/Discourse Switch Review 3243a88c.app; kernel 9af57c435d269a4f97355921a29131f3f232007988984017e3db2f2413655917. Explicit restricted-free debug/JIT entitlements read back exactly; strict deep signature verified. Runner identities/pins/locks unchanged. No UI access; native review pending."
+        "Integrated pinned Radio/Checkbox main e612ad7b preserving all final owners and non-Switch rows. 90 focused integration tests passed seed 782314; root/full analysis clean. Unique exact-source bundle /private/tmp/discourse-switch-review-3243a88c/Discourse Switch Review 3243a88c.app; kernel 9af57c435d269a4f97355921a29131f3f232007988984017e3db2f2413655917. Explicit restricted-free debug/JIT entitlements read back exactly; strict deep signature verified. Runner identities/pins/locks unchanged. No UI access; native review pending.",
+        "Native acceptance completed on exact source3243a88c/kernel9af57c435d269a4f97355921a29131f3f232007988984017e3db2f2413655917. All nine registered examples and actual Settings/Preferences/Chat/Poll/LocalDate/Group/Voice fixtures inspected; valid Poll applied after ordinary scroll revealed actions. Evidence/limits in evidence/switch/native-3243a88c. App quit verified; slot RELEASED. Only behavior-neutral example status/notes promoted afterward.",
+        "Independent reviewer inspected the implementation, official-source mapping, browser/native artifacts and all production migrations; no functional defect found. Reviewer reran 70 focused component, fixture, Settings, Preferences and AI checks with seed 782315 plus the routed Chat threading regression; root and profiles/full flutter analyze --no-pub passed. Full suite and new device runs were not performed."
       ],
       "limitations": [
         "No iOS/Linux device run or spoken VoiceOver claim. Native text wrapping adapts CSS text balancing.",
-        "Review launcher covers representative migrated production surfaces. Voice room/editor and AI composer are covered by actual-widget regressions; additional native fixture coverage can be completed during review.",
-        "Browser comparison complete; native Mac remains locked. No native app launch/inspection, nativeInspectionStatus awaiting_slot; not review_ready or mergeable.",
-        "Browser Geist/Noto Arabic and native SF/SF Arabic shaping/canvas pixels differ; no pixel-equality claim. Shared DTokens.focusRing aliases host primary while reference neutral uses independent gray. Desktop rows are intrinsic; touch platforms retain 48px targets."
+        "Review launcher covers representative migrated production surfaces. Voice room/editor and AI composer are covered by actual-widget regressions rather than the native fixture.",
+        "Browser Geist/Noto Arabic and native SF/SF Arabic shaping/canvas pixels differ; no pixel-equality claim. Shared DTokens.focusRing aliases host primary while reference neutral uses independent gray. Desktop rows are intrinsic; touch platforms retain 48px targets.",
+        "Native rejected/deferred controlled Form reset remains widget-test coverage; native fixture verified external controlled update and ordinary Form reset. Voice confirmation dismissed without recording. Inspected bundle retains baseline badge; status-only promotion does not alter controls."
       ],
       "implementationCommit": "3243a88cf2a9a1cfee96af7877386379089ab6c5",
-      "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_unlock",
+      "mergeCommit": "e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d",
+      "nativeInspectionStatus": "completed",
       "browserInspectionStatus": "completed",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
-      "reviewBranch": "codex/review-switch"
+      "reviewBranch": "codex/review-switch",
+      "reviewedBranchHead": "d3059c1b1d2c1597942f4b8f7325d557bdd3027b"
     },
     {
       "id": "toggle",
@@ -2660,15 +2663,6 @@
       "nextComponents": [],
       "activeTasks": [
         {
-          "component": "switch",
-          "taskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
-          "branch": "codex/review-switch",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/904d/discourse-native",
-          "headCommit": "b851adbbf69778fd437b296b66492bfee7973125",
-          "status": "independent_review",
-          "implementationTaskId": "01a083ce-319b-7bc3-a5c9-371087710718"
-        },
-        {
           "component": "scroll-area",
           "taskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
           "branch": "codex/review-scroll-area",
@@ -2880,7 +2874,8 @@
       },
       "switch": {
         "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-        "status": "resolved_awaiting_native_review",
+        "status": "resolved_and_merged",
+        "mergeCommit": "e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d",
         "issue": "After the completed source/browser corrections, Radio actual exports identified BoxShadow rings tinting translucent interiors. Switch still uses BoxShadow for track and card rings; its dark invalid export shows a red-filled unchecked track. Verify against reference-dark-invalid and replace rings with exterior-only strokes, preserving observed dual ring geometry and actual input fill. Also remove or narrowly adapt the unconditional 48px DSwitchTile content minimum on pointer platforms; its whole label row is clickable and native touch targets do not justify much taller desktop reference examples. Preserve touch48 and necessary app-adapter spacing."
       },
       "native-select": {
@@ -2954,17 +2949,6 @@
       "leaseTool": "tool/component_review_lock.py",
       "futureHandoff": "Each implementation creates a new reviewer Codex task that owns completion and local main merge.",
       "reviewTasks": [
-        {
-          "component": "switch",
-          "title": "Review and merge Switch",
-          "taskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/904d/discourse-native",
-          "branch": "codex/review-switch",
-          "implementationTaskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-          "implementationBranch": "codex/ui-switch",
-          "status": "in_progress"
-        },
         {
           "component": "scroll-area",
           "title": "Review and merge Scroll Area",
