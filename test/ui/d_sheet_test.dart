@@ -184,6 +184,98 @@ void main() {
     expect(tester.getSize(find.byType(DSheetContent)).width, 240);
   });
 
+  testWidgets('explicit side width is clamped only by the viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      _host(
+        DSheet<void>(
+          trigger: DSheetTrigger(
+            builder: (context, open) =>
+                DButton(onPressed: open, label: const Text('Open')),
+          ),
+          content: const DSheetContent(
+            sidePanelWidth: 288,
+            children: [DSheetBody(child: Text('Body'))],
+          ),
+        ),
+        size: const Size(320, 640),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(DSheetContent)).width, 288);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      _host(
+        DSheet<void>(
+          trigger: DSheetTrigger(
+            builder: (context, open) =>
+                DButton(onPressed: open, label: const Text('Open')),
+          ),
+          content: const DSheetContent(
+            sidePanelWidth: 480,
+            children: [DSheetBody(child: Text('Body'))],
+          ),
+        ),
+        size: const Size(320, 640),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(DSheetContent)).width, 320);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(800, 640);
+    await tester.pumpWidget(
+      _host(
+        DSheet<void>(
+          trigger: DSheetTrigger(
+            builder: (context, open) =>
+                DButton(onPressed: open, label: const Text('Open')),
+          ),
+          content: const DSheetContent(
+            sidePanelWidth: 480,
+            children: [DSheetBody(child: Text('Body'))],
+          ),
+        ),
+        size: const Size(800, 640),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(DSheetContent)).width, 384);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      _host(
+        DSheet<void>(
+          trigger: DSheetTrigger(
+            builder: (context, open) =>
+                DButton(onPressed: open, label: const Text('Open')),
+          ),
+          content: const DSheetContent(
+            side: DSheetSide.top,
+            sidePanelWidth: 100,
+            children: [DSheetBody(child: Text('Body'))],
+          ),
+        ),
+        size: const Size(800, 640),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(DSheetContent)).width, 800);
+  });
+
   testWidgets('logical sides resolve with current RTL direction', (
     tester,
   ) async {
@@ -401,6 +493,7 @@ void main() {
                 onPressed: () async {
                   result = await showDSheet<String>(
                     context: context,
+                    sidePanelWidth: 288,
                     builder: (context, controller) => DSheetContent(
                       children: [
                         DSheetClose<String>(
@@ -423,6 +516,7 @@ void main() {
     );
     await tester.tap(find.text('Helper'));
     await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(DSheetContent)).width, 288);
     await tester.tap(find.text('Return'));
     await tester.pumpAndSettle();
     expect(result, 'result');

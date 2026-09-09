@@ -439,8 +439,18 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('Header'), findsOneWidget);
+    expect(find.byType(DSheetContent), findsOneWidget);
+    expect(tester.getSize(find.byType(DSheetContent)).width, 288);
     expect(tester.getTopRight(find.text('Header')).dx, greaterThan(400));
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Header'), findsNothing);
+    expect(focus.hasFocus, true);
+    await tester.tap(find.byType(DSidebarTrigger));
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
     expect(find.text('Header'), findsNothing);
     expect(focus.hasFocus, true);

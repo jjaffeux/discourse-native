@@ -89,6 +89,7 @@ class DSheet<T> extends StatelessWidget {
       presentation,
       content.side,
       content.sidePanelMaxWidth,
+      content.sidePanelWidth,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -112,6 +113,7 @@ Widget _sheetPresentation(
   DDialogPresentation presentation,
   DSheetSide requestedSide,
   double maxWidth,
+  double? width,
 ) {
   final media = MediaQuery.of(context);
   final side = requestedSide.resolve(Directionality.of(context));
@@ -153,9 +155,11 @@ Widget _sheetPresentation(
   }
 
   final availableWidth = media.size.width;
-  final panelWidth = availableWidth < 640
-      ? availableWidth * .75
-      : (availableWidth * .75).clamp(0, maxWidth).toDouble();
+  final panelWidth = width == null
+      ? availableWidth < 640
+            ? availableWidth * .75
+            : (availableWidth * .75).clamp(0, maxWidth).toDouble()
+      : width.clamp(0, maxWidth).clamp(0, availableWidth).toDouble();
   final positioned = switch (side) {
     DSheetSide.top => Positioned(left: 0, top: 0, right: 0, child: popup),
     DSheetSide.right => Positioned(
@@ -194,8 +198,11 @@ class DSheetContent extends StatelessWidget {
     this.closeSemanticLabel = 'Close',
     this.semanticLabel,
     this.sidePanelMaxWidth = 384,
+    this.sidePanelWidth,
+    this.scrollWholeSheet,
     this.topBottomMaxHeightFactor,
   }) : assert(sidePanelMaxWidth > 0),
+       assert(sidePanelWidth == null || sidePanelWidth > 0),
        assert(
          topBottomMaxHeightFactor == null ||
              (topBottomMaxHeightFactor > 0 && topBottomMaxHeightFactor <= 1),
@@ -209,6 +216,17 @@ class DSheetContent extends StatelessWidget {
   final String? semanticLabel;
   final double sidePanelMaxWidth;
 
+  /// An exact side-panel width, clamped to the available viewport.
+  ///
+  /// Null preserves Sheet's responsive 75% width and 384px desktop cap.
+  final double? sidePanelWidth;
+
+  /// Overrides automatic whole-surface scrolling at large text sizes.
+  ///
+  /// Null preserves the default. Set false only when a composed child owns a
+  /// bounded scroll region while its surrounding header and footer stay fixed.
+  final bool? scrollWholeSheet;
+
   /// Optional cap used by long top and bottom compositions.
   final double? topBottomMaxHeightFactor;
 
@@ -221,9 +239,10 @@ class DSheetContent extends StatelessWidget {
     final fillsHeight = resolved.isHorizontal;
     final hasBody = children.any((child) => child is DSheetBody);
     final scrollWholeSheet =
-        (fillsHeight || topBottomMaxHeightFactor != null) &&
-        (MediaQuery.textScalerOf(context).scale(1) > 1.5 ||
-            (topBottomMaxHeightFactor != null && !hasBody));
+        this.scrollWholeSheet ??
+        ((fillsHeight || topBottomMaxHeightFactor != null) &&
+            (MediaQuery.textScalerOf(context).scale(1) > 1.5 ||
+                (topBottomMaxHeightFactor != null && !hasBody)));
     final parts = <Widget>[];
     for (var index = 0; index < children.length; index++) {
       final child = children[index];
@@ -513,6 +532,7 @@ Future<T?> showDSheet<T>({
   required DSheetContentBuilder<T> builder,
   DSheetSide side = DSheetSide.right,
   double sidePanelMaxWidth = 384,
+  double? sidePanelWidth,
   bool useRootNavigator = false,
   bool dismissOnBarrier = true,
   bool dismissOnEscape = true,
@@ -522,6 +542,7 @@ Future<T?> showDSheet<T>({
   FocusNode? finalFocusNode,
 }) {
   assert(sidePanelMaxWidth > 0);
+  assert(sidePanelWidth == null || sidePanelWidth > 0);
   return showDDialog<T>(
     context: context,
     builder: builder,
@@ -532,8 +553,13 @@ Future<T?> showDSheet<T>({
     routeSettings: routeSettings,
     initialFocusNode: initialFocusNode,
     finalFocusNode: finalFocusNode,
-    presentationBuilder: (context, presentation) =>
-        _sheetPresentation(context, presentation, side, sidePanelMaxWidth),
+    presentationBuilder: (context, presentation) => _sheetPresentation(
+      context,
+      presentation,
+      side,
+      sidePanelMaxWidth,
+      sidePanelWidth,
+    ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),
   );
