@@ -80,7 +80,7 @@ with self-contained immutable payments.
 ## Independent review
 
 Reviewer task `01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a` owns
-`codex/review-data-table-final`. The implementation history is preserved from
+`codex/review-data-table-accepted`. The implementation history is preserved from
 `codex/ui-data-table`; see `data-table-review-handoff.md` for the source handoff.
 
 All prepared-parent gates are satisfied by accepted local-main merges:
@@ -97,6 +97,15 @@ Candidate `4f702a45f0f9ab993a7cbced2406dc8d416a1c96` starts from main
 Data Table source, examples, tests, fixture, public registration and evidence;
 the accepted parent implementations are unchanged. Date Picker import/export
 conflicts were resolved by retaining both components.
+
+Follow-up candidate `1f6e1cc9bbecf8b653e912565953e8df3a95a46f` starts from
+main `5e79d2dd99c734df9a3e30e3e7f86a1a42853a1c` and preserves every other
+component's progress and workflow. Its 34 Data Table/example/styleguide-shell
+checks passed with seed `9092026`; root and full-profile analysis remained
+clean. Data Table's component, example bodies and fixture are unchanged from
+the final native bundle. Main's newer Field layout change is not instantiated
+by these Data Table examples; their composed control implementations are
+unchanged.
 
 ### Completed rendered and native checks
 
