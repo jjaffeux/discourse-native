@@ -83,6 +83,14 @@ preferences tabs remain navigation. Radio/checkbox/switch settings retain
 their semantic owners. Image carousel paging remains `DCarousel`; selecting
 grid versus carousel markup is distinct from rendering a carousel.
 
+The remaining Material `SegmentedButton` sites were inspected independently.
+Diagnostics kind and content-alignment controls intentionally fill their field;
+topic-move and update-channel choices select form/settings modes; revision and
+calendar selectors are navigation/view adapters, with the calendar also using
+an app-specific primary selected surface. They retain selected-choice ownership
+and geometry rather than being recast as compact pressed-button groups during
+this migration.
+
 ## Prepared verification boundary
 
 Source implementation: `d6a9be0d00c160dffa7daf67e8f2f4cefa00c336`.
