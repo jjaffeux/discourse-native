@@ -400,16 +400,42 @@
         "Adopt public owner in core/plugins and appropriate native-button exceptions; exercise actual components in interactive examples without changing Sidebar shell.",
         "Verify root/full-profile analysis and focused component/adoption/downstream tests; compare official and isolated native light/dark/custom/RTL/200% states before review_ready."
       ],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [
-        "Implementation task reports 222 impact tests and 35 later focused tests passing, with root/full analysis clean. Native comparison remains pending. Coordinator requested an additional legacy inset-icon touch-target regression before the final bundle."
+      "decisions": [
+        "Sole public renderer moved to ui/components/d_button.dart; keep compatibility theme/variants and native shell inset targets.",
+        "Implement base-nova variants and all four text/icon sizes; directional composition, invalid/expanded/popup states and link-only navigation semantics.",
+        "Preserve caller-owned loading/Futures, rich semantic names, borrowed focus nodes and shared Tooltip/Spinner.",
+        "Reference sources and hashes, native adaptations and pending rendered comparison recorded in docs/component-library/button.md.",
+        "Coordinator touch-target correction: small legacy inset surfaces keep 32px paint/40px desktop targets but clamp iOS/Android targets to 48px independently."
       ],
-      "limitations": [],
-      "implementationCommit": null,
+      "migrations": [
+        "All existing direct Button imports migrated to discourse_ui.dart; obsolete theme/d_button.dart removed.",
+        "PollCard cast-votes, vote-on-web and connect-account buttons adopt DButton; existing ownership/permission/deadline behavior retained.",
+        "StyleguideAction uses actual DButton ghost/outline controls without changing DSidebar shell ownership.",
+        "UserSummary numeric count actions use DButtonVariant.link and retain destination callbacks/names."
+      ],
+      "retainedAlternatives": [
+        "Adoption guard records remaining calendar, selection-strip, composer, option-grid, topic and shell-account controls; their specific geometry/composition belongs to upcoming owners.",
+        "CupertinoDialogAction remains inside native Cupertino alert composition pending Dialog/Alert Dialog.",
+        "Button Group/Dropdown Menu are separate pending catalogue entries; joined Button example demonstrates compatible radius composition only."
+      ],
+      "verification": [
+        "Frozen Button Markdown SHA256 exactly matches catalogue; official base-nova registry and reference SVG artwork captured with hashes.",
+        "Root and full-profile locked pub resolution passed without lockfile or SDK changes.",
+        "222 focused impact tests passed: Button/adoption/PollCard/styleguide/affected creation, Chat, upload, account-menu and post-action accessibility. Log /private/tmp/button-final-impact.log.",
+        "35 final focused Button/reference/examples/UserSummary tests passed. Log /private/tmp/button-last-tests.log.",
+        "Root and full-profile flutter analyze --no-pub passed without diagnostics.",
+        "Final real PollCard review-fixture macOS debug build passed. Bundle /private/tmp/DiscourseButtonReview-3a88.app has unique org.discourse.native.button-review.3a88 identity and URL scheme; deep strict ad-hoc signature passes. Source files byte-verified against pre-build manifest; kernel SHA256 4eb63551ff6daaaf3f3d15c58f2ebb2f5c0f3f4fb01e559a666cdffff4309f4e.",
+        "All seven Button examples also passed the 260px/200%/RTL/reduced-motion layout test in Light, Dark, Forest and Plum. Example async and navigation tests pass.",
+        "Reproduced 40px small inset touch-target defect, then passed 27 Button/Chat-header/topic-creation tests including flat/flatClose/explicit inset semantic bounds and edge activation on macOS/iOS/Android profiles. Root and full-profile analysis clean. Logs /private/tmp/button-inset-*.log.",
+        "Corrected source byte-verified and rebuilt in /private/tmp/DiscourseButtonReview-3a88-v2.app (unique org.discourse.native.button-review.3a88.v2 ID/scheme); deep strict signature passes. Kernel SHA256 b229b90dee48bcda90cefc31e8a9f4ee398673f7400a8da4b9f3566ede5fbc26. V2 supersedes the earlier unlaunched review bundle."
+      ],
+      "limitations": [
+        "Native official-reference comparison and real app fixture inspection pending Mac unlock and explicit coordinator desktop slot. Do not mark review_ready.",
+        "No iOS/Linux native device, spoken VoiceOver or automated cross-renderer pixel-diff claim."
+      ],
+      "implementationCommit": "50442c4e",
       "mergeCommit": null,
-      "nativeInspectionStatus": "waiting_for_unlocked_desktop"
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "separator",
@@ -563,13 +589,39 @@
         "Demonstrate every frozen section using DBadge and DSpinner, audit core and plugins and migrate justified status/counter owners without changing business state.",
         "Pass root/full-profile analysis and focused component/example/migration tests; compare reference and isolated native styleguide plus real migrated fixtures under a coordinator-granted desktop slot before review_ready."
       ],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "decisions": [
+        "Frozen Badge Markdown matches the catalogue hash; captured official base-nova registry, examples and Lucide artwork with exact hashes and source-to-Flutter mapping in docs/component-library/badge.md.",
+        "Public DBadge supports six treatments, static/action/link composition, decorative leading/trailing widgets, custom live colors, disabled callbacks, invalid/name/value/live semantics and owned-or-borrowed focus. Pointer activation transfers keyboard focus; links use Enter and actions use Enter/Space.",
+        "Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 8\u00d7 configured radius (32px at the default 4), not rounded-full.",
+        "Spinner remains the only implementation dependency. Button is baseline only for example controls; Badge imports no unfinished Button code. Six full styleguide sections retain the redesigned documentation shell.",
+        "Native comparison is pending the coordinator slot and unlocked desktop; automated passing checks and successful debug builds are not review_ready."
+      ],
+      "migrations": [
+        "Core: TopicUnreadBadge exact count and tooltip; user-menu capped count with full accessible value; user-card staff/suspension labels and earned badge count; GroupsPage membership and GroupPage member-owner labels.",
+        "Plugin: Chat drawer numeric urgent counts use DBadge with preserved domain calculations and 99+ visual cap/full accessible count. At minimum width with large text, metadata moves below preview to preserve title/lock space.",
+        "Spinner styleguide temporary badge renderer removed in favor of DBadge and DSpinner; sample busy/direction controls retained.",
+        "Self-contained native-review fixtures mount real GroupsPage, TopicUnreadBadge, staff UserCardTarget and ChatDrawerChannelsView backed by in-memory stores/API."
+      ],
+      "retainedAlternatives": [
+        "Anchored avatar/header/rail counters and flair retain overlay geometry and parent-owned semantics; unread dots remain dots.",
+        "Composer Mention/Hashtag/Poll/Local Dates/Link pills retain editing/serialization/baseline behavior; reaction/like/taxonomy controls retain separate interaction owners.",
+        "Voice recording privacy banner, award artwork/tier text, image counter overlays, decorative aggregate artwork, GitHub diff counts and plugin banners remain distinct. Full core/plugin audit is documented in badge.md."
+      ],
+      "verification": [
+        "Flutter 3.47.2 / Dart 3.13.2. Root and full-profile locked pub get passed without SDK/pin/lockfile churn.",
+        "254 focused component/example/real-fixture/core/Chat tests passed with seed 792026; command/output /private/tmp/badge-final-tests.log. Narrow large-text Chat overflow fixed and regression strengthened.",
+        "Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub pass without diagnostics. Touched Dart formatted; git diff --check passes.",
+        "Isolated macOS debug build succeeded; bundle org.discourse.native.badge.bebb9 / Badge Review BEBB9. Deep strict ad-hoc signature verification passes. Complete relevant Dart source matches the checkout; kernel and source-manifest hashes recorded in badge-native.md.",
+        "Native slot requested from coordinator; no CUA or native inspection used while the Mac is locked.",
+        "Exact final test command: flutter test --no-pub test/d_badge_test.dart test/badge_migrations_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart test/groups_page_test.dart test/group_page_test.dart test/user_card_test.dart test/user_card_target_accessibility_test.dart test/user_card_account_lifecycle_test.dart test/user_menu_message_accessibility_test.dart test/plugin_user_menu_widget_test.dart test/chat_drawer_test.dart test/chat_shell_integration_test.dart test/topic_list_view_lifecycle_test.dart --test-randomize-ordering-seed=792026 --reporter expanded. All 254 pass."
+      ],
+      "limitations": [
+        "Actual reference/native rendered comparison is still required before review_ready; Mac is locked and the desktop slot has not been granted.",
+        "No iOS/Linux device or spoken VoiceOver verification. Native font underline offset differs from CSS underline-offset:4; custom Tailwind OKLCH examples use clipped 8-bit sRGB conversions."
+      ],
+      "implementationCommit": "299671abd77fb176781e966e67f12b34e1e52edd",
+      "mergeCommit": null,
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "input",
@@ -588,14 +640,38 @@
         "Format touched source; pass root/full-profile analysis and focused editing, lifecycle, example and migration regressions; inspect isolated exact-source native review build only after coordinator desktop authorization."
       ],
       "decisions": [
-        "The native file input composes DButton, so Button is an operational dependency. Parallel preparation is using the existing baseline API; final integration and merge must follow the completed Button component."
+        "Official Input Markdown matches frozen SHA256; base-nova source and concrete state/geometry mapping are preserved in docs/component-library/input-reference.md.",
+        "One DInput FormField/TextField owner handles native editing and lifecycle. Controller/value/initialValue modes are exclusive; reset preserves the mount snapshot like pinned TextFormField and synchronizes visible text/Form state.",
+        "Desktop uses 14/20px typography; touch uses 16/24px and a transparent 48px target. File selection composes a 24px Button visual in a 32px input and host-owned asynchronous picker callback.",
+        "Simple prefix/suffix slots support app search/status controls; no new shared primitive or full Field/Input Group/Textarea/OTP renderer is introduced.",
+        "File selector foreground and compact surface are laid out separately: desktop field remains 32px, touch Button keeps an unclipped 48px target. Explicit 14/20 medium file label and zero padding survive Button integration; coordinator must select the completed extraSmall enum after Button merges."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "migrations": [
+        "Migrated Add a Site, InviteEditor single-line validators, change-owner/move-post searches and title, link dialog, permanent-delete confirmation and message title.",
+        "Migrated Chat channel name/slug/thread title, GIF query, Poll title/options/range/close, Local Dates format/timezone/date/time, Events single-line attributes, Voice room metadata.",
+        "DSidebarInput now delegates to DInput and its duplicate InputDecoration was removed. The documentation search now uses DInput while preserving the shared Sidebar shell, shortcuts, clear and mobile state."
+      ],
+      "retainedAlternatives": [
+        "Multiline/rich composers and descriptions remain with Textarea/Input Group owners; inline tab/composer titles retain borderless inline geometry.",
+        "Command/Combobox/token/member-picker and schema-driven Field compositions retain their existing renderers pending their complete owner migration. Remaining directory/search and earlier component-example opportunities are listed explicitly in input-reference.md."
+      ],
+      "verification": [
+        "flutter pub get --enforce-lockfile passed at root and profiles/full without lockfile/SDK changes.",
+        "Root and profiles/full flutter analyze --no-pub are clean; touched files are formatted and git diff --check passes.",
+        "Focused impact run (19 suites, seed 928374611): 357 passed, one new semantics assertion needed a frame pump. After the test-only correction, all 12 Input tests plus the Button adoption guard passed (13 total) with the same seed. Logs: /tmp/input-final-focused.log and /tmp/input-final-unit.log.",
+        "Coverage includes all seven actual examples at 320px/200% RTL in Light/Dark/Forest/Plum, editing/IME/controller/reset/form/file regressions, real app async ownership and validation, Sidebar/navigation, Voice and Chat/link editing.",
+        "flutter build macos --debug --no-pub -t tool/input_review_main.dart passed. Fixture mounts real Add a Site and Poll editor against local fake data plus actual Input samples and the full styleguide.",
+        "Isolated native bundle /private/tmp/DiscourseInputReview-01a083ad.app built from implementation source ae4aa4a8. CFBundleIdentifier org.discourse.native.input.01a083ad and unique discourse-input-review-01a083ad scheme; codesign --verify --deep --strict passes. Source-build and isolated-copy kernels both SHA256 f9d9ddb13dba95a076d165d84db1eafcbfd3215232bb161782ad53b17e647089. Bundle is prepared but has not been launched.",
+        "Final file-target and responsive-form refinements: all 20 Input/component-example tests passed with seed 928374611; root/full-profile analysis and isolated macOS rebuild passed. Live grid-to-stack/palette changes preserve field identity, edited text and reset baseline. Logs: /tmp/input-final-refinements.log, /tmp/input-refinements-analysis.log, /tmp/input-refinements-full-analysis.log, /tmp/input-refinements-native-build.log.",
+        "Refreshed isolated bundle from final implementation source 4e1eb3b3fe499868e4ee70f86cb48a987c4040e8. Source/copy kernels both SHA256 400b22d515a8be38b71865ddbf53b4c56da175574bbc96ef0d4473b83e959506; unique identifier/scheme restored and deep strict ad-hoc signature verification passed. It remains unlaunched pending the serialized desktop slot."
+      ],
+      "limitations": [
+        "Native reference comparison and editing inspection await the coordinator desktop slot; the Mac was reported locked. No CUA or real app interaction has occurred.",
+        "No iOS/Linux device or spoken VoiceOver inspection; target-platform widget checks are not device verification."
+      ],
+      "implementationCommit": "4e1eb3b3fe499868e4ee70f86cb48a987c4040e8",
+      "mergeCommit": null,
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "textarea",
@@ -629,16 +705,37 @@
         "Provide actual interactive styleguide variants, group/table/form/error and narrow/200%/RTL/theme examples, preserving Sidebar shell.",
         "Pass formatting, root/full-profile analysis and focused component/form/semantics/migration tests; inspect isolated native fixtures only in coordinator desktop slot before review_ready."
       ],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [
-        "Implementation task reports 392 focused tests passing with seed 734129 and root/full analysis clean; pointer-to-keyboard and mixed-state fixes included. Native comparison and the read-only-state review remain pending."
+      "decisions": [
+        "Frozen Checkbox Markdown hash matches catalogue; base-nova Checkbox/Field and Base UI CheckboxRoot sources captured with hashes in checkbox.md.",
+        "Native FocusableActionDetector/Actions/Shortcuts/Semantics own interaction; pointer activation takes focus, mixed activates to checked without three-step cycling, and readOnly remains focusable without mutation. Borrowed focus nodes are not disposed.",
+        "DCheckbox controlled/default constructors and DCheckboxFormField controlled/default integration cover save/reset, validation and external-value ownership. DLabel composes titles with 8px gap; secondary interactive content retains independent focus/semantics.",
+        "Fixed 16px paint, 14px Lucide Check, 4px radius, token colors and explicit rings. Mixed uses a documented Minus extension pending visual review; pointer/touch targets reserve 40x32/48x48 native space.",
+        "Six actual-component styleguide examples cover basic, states, group, table, form recovery and RTL/long labels; Label examples migrated. Shared Sidebar shell remains unchanged."
       ],
-      "limitations": [],
-      "implementationCommit": null,
+      "migrations": [
+        "Core User Status, Invites, Post Flag, Topic Move, Users column visibility/reorder, Composer gallery, Group member selection, Topic post selection and Aggregate included forums.",
+        "Plugins Local Dates, Events, Voice privacy, Chat message selection and Poll multiple-choice rows. Bare selection controls gain accessible names; native shortcut guards recognize DCheckbox.",
+        "All application Checkbox/ListTile and manual check_box rendering migrated; imports/callbacks/permissions preserved. Poll button regions reserved for concurrent Button task."
+      ],
+      "retainedAlternatives": [
+        "Poll single-choice radio rows, switches/radios/segmented controls, menu checkmarks/status icons/reactions retain their distinct owners. Native Checkbox keyboard guards remain for third-party controls."
+      ],
+      "verification": [
+        "392 focused tests passed with seed 734129, including two temporary stale Avatar-test cast corrections; those Avatar-only corrections were reverted for coordinator ownership, leaving the two known base Users test failures. No checkbox migration failures remain.",
+        "Root and full-profile flutter analyze --no-pub clean; both locked pub get runs succeeded without dependency changes.",
+        "Final Checkbox/Label focused tests: 34 passed (seed 927315), including readOnly, pointer focus transfer, mixed activation and caller-declined controlled-form updates. Bordered notification composition then passed all seven Checkbox example tests.",
+        "Final macOS debug build passed from clean source commit 0df1b03ca000166c1901825b001dbad750b04ce6. Copied unique bundle /private/tmp/DiscourseCheckbox132a-0df1b03c.app (org.discourse.native.checkbox.132a, discourse-checkbox-132a scheme) has matching source/copied kernel SHA256 50658162f62e4a78954bfc3470df11c70cf72e04f308efa777562b3646d9894b; deep strict ad-hoc signature verification passes. No CUA or app launch performed.",
+        "Additional Topic Inbox run: 98 passed, one compact-title Escape failure. Exact failing case reproduced on pristine base 2e894b5e in a temporary detached worktree; logs /tmp/checkbox-baseline-topic.log and /tmp/checkbox-topic-retry.log. Baseline worktree removed.",
+        "Final root/full-profile flutter analyze --no-pub passed after all source changes. Source, tree and native bundle provenance are recorded in checkbox-native-provenance.json.",
+        "Coordinator merged the two stale Avatar assertions into local main in adc25e7b7e6125bae77b32dd247287a53289ddc1. The independently reproduced compact-title Escape failure remains under coordinator triage."
+      ],
+      "limitations": [
+        "Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.",
+        "Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified."
+      ],
+      "implementationCommit": "0df1b03ca000166c1901825b001dbad750b04ce6",
       "mergeCommit": null,
-      "nativeInspectionStatus": "waiting_for_unlocked_desktop"
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "radio-group",
@@ -1793,6 +1890,8 @@
     "nativeInspectionQueue": [
       "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+      "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
+      "01a083ad-3168-7c01-b35a-7271f9fe6326",
       "01a083ad-91cf-7e91-9083-a861d5c4fa28"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
@@ -1843,35 +1942,44 @@
       "status": "in_progress",
       "startingMainCommit": "8ea22c643829a10a5031019e2aef4e83956c7a8f",
       "nextComponents": [
-        "button",
-        "badge",
-        "input",
-        "checkbox"
+        "radio-group",
+        "switch",
+        "slider",
+        "progress"
       ],
-      "activeTasks": [
-        {
-          "component": "checkbox",
-          "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
-          "branch": "codex/ui-checkbox",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/132a/discourse-native"
-        },
+      "activeTasks": [],
+      "nativeReadyTasks": [
         {
           "component": "button",
           "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
           "branch": "codex/ui-button",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native"
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native",
+          "headCommit": "2ed3a9a6bebda93f4d8d56838dc026885fa5377a",
+          "status": "awaiting_native_review"
         },
         {
           "component": "badge",
           "taskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
           "branch": "codex/ui-badge",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native"
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native",
+          "headCommit": "86bae370725c2f7db22bda5a7f999690ef1336bd",
+          "status": "awaiting_native_review"
         },
         {
           "component": "input",
           "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
           "branch": "codex/ui-input",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native"
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
+          "headCommit": "deee847aad1cf55f1f1ad71e6d2469c1ce7c104d",
+          "status": "awaiting_native_review"
+        },
+        {
+          "component": "checkbox",
+          "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
+          "branch": "codex/ui-checkbox",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/132a/discourse-native",
+          "headCommit": "cf63e6f7d2b25510c16961d182ba539a2246c949",
+          "status": "awaiting_native_review"
         }
       ]
     },
@@ -1887,7 +1995,8 @@
       "userUnlockRequested": true,
       "unaffectedWork": "Component implementation, reference source review, fixtures, tests and static analysis continue."
     },
-    "pendingCoordinatorNativeReview": "Final explicit styleguide scrollbar screenshot/drag after Mac unlock."
+    "pendingCoordinatorNativeReview": "Final explicit styleguide scrollbar screenshot/drag after Mac unlock.",
+    "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized."
   },
   "visualFidelity": {
     "status": "merged",

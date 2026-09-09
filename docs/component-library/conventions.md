@@ -120,7 +120,10 @@ the styleguide examples. Report exactly which platforms and interactions
 were run; widget tests with target-platform overrides are not device testing.
 
 The user authorized concurrent component tasks on 2026-09-08. Keep up to four
-independent implementation tasks active. Each component gets a separate Codex
+independent implementation tasks running. Committed tasks waiting only for native
+review end their turns and remain in the recorded review queue, freeing a source
+implementation slot. They remain in_progress until the visual/native gate passes;
+queued work is not mergeable. Each component gets a separate Codex
 task and isolated worktree from latest local main, with its implementation
 dependencies already merged. Implementers commit on `codex/ui-<component>`
 and report to the coordinator; they do not merge. Reviews and merges remain
