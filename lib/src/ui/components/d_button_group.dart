@@ -60,21 +60,19 @@ class DButtonGroup extends StatelessWidget {
     final Widget layout = axis == Axis.horizontal
         ? Row(
             mainAxisSize: mainAxisSize,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: scoped,
           )
         : Column(
             mainAxisSize: mainAxisSize,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: scoped,
           );
     return Semantics(
       container: true,
       explicitChildNodes: true,
       label: semanticLabel,
-      child: axis == Axis.horizontal
-          ? IntrinsicHeight(child: layout)
-          : IntrinsicWidth(child: layout),
+      child: layout,
     );
   }
 }

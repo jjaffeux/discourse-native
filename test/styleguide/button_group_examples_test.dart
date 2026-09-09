@@ -18,7 +18,7 @@ void main() {
       'Input and text',
       'Input Group composition',
       'Dropdown menu',
-      'Rich Select composition handoff',
+      'Select composition',
       'Popover composition',
       'RTL',
     ]);
@@ -75,13 +75,15 @@ void main() {
     await tester.tap(find.byTooltip('More follow actions'));
     await tester.pumpAndSettle();
     expect(find.text('Mute conversation'), findsOneWidget);
-    expect(find.byType(MenuItemButton), findsWidgets);
+    expect(find.byType(DDropdownMenuContent), findsOneWidget);
+    expect(find.byType(DDropdownMenuItem), findsNWidgets(4));
   });
 
   testWidgets('currency fixture updates without resetting amount editing', (
     tester,
   ) async {
     await _pump(tester, 8);
+    expect(find.byType(DSelect<String>), findsOneWidget);
     await tester.enterText(find.byType(TextField), '42.50');
     await tester.tap(find.text(r'$'));
     await tester.pumpAndSettle();
@@ -89,6 +91,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('€'), findsOneWidget);
     expect(find.text('42.50'), findsOneWidget);
+  });
+
+  testWidgets('field labels and describes the grouped search input', (
+    tester,
+  ) async {
+    await _pump(tester, 5);
+    expect(find.byType(DField), findsOneWidget);
+    expect(find.byType(DFieldLabel), findsOneWidget);
+    expect(find.byType(DFieldDescription), findsOneWidget);
+    await tester.tap(find.text('Search topics'));
+    await tester.pump();
+    expect(Focus.of(tester.element(find.byType(TextField))).hasFocus, isTrue);
   });
 
   testWidgets('input group fixture preserves editing and voice action state', (

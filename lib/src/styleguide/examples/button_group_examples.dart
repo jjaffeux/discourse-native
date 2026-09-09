@@ -16,12 +16,9 @@ final buttonGroupExamples = ComponentExamples(
       'callbacks, focus, disabled/invalid state, and screen-reader roles; use '
       'Toggle Group for mutually exclusive or toggled state. '
       'DButtonGroupExpanded is the explicit Flutter flex adaptation for a field '
-      'inside a finite-width group. Menus below use MenuAnchor only as a local, '
-      'request-free behavior fixture. Input Group, library Dropdown Menu, rich '
-      'Select, and Popover examples are composition-ready but remain final review '
-      'follow-ups until their owning components merge; Native Select is not used '
-      'as a substitute. Group scoping applies only to the composed trigger and '
-      'does not theme overlay descendants.',
+      'inside a finite-width group. Field, Input Group, Dropdown Menu, Select, '
+      'and Popover use their public component APIs. Group scoping applies only '
+      'to composed controls and never themes detached overlay descendants.',
   examples: [
     StyleguideExample(
       title: 'Composition and independent actions',
@@ -101,16 +98,18 @@ final buttonGroupExamples = ComponentExamples(
       title: 'Input and text',
       description:
           'The editable field takes the remaining finite width. Rich group text '
-          'is passive, and validation remains owned by DInput.',
-      states: const ['Input', 'Expanded field', 'Rich text', 'Invalid'],
-      code: '''SizedBox(width: 360, child: DButtonGroup(
-  mainAxisSize: MainAxisSize.max,
-  children: [
-    DButtonGroupText(child: Text('Search')),
-    DButtonGroupExpanded(child: DInput(invalid: invalid)),
+          'is passive. DField associates the label and description with the '
+          'editor without wrapping the multi-control group in DFieldControl.',
+      states: const ['Field', 'Expanded input', 'Rich text', 'Invalid'],
+      code: '''DField(children: [
+  DFieldLabel(focusNode: searchFocus, child: Text('Search topics')),
+  DButtonGroup(mainAxisSize: MainAxisSize.max, children: [
+    DButtonGroupText(child: Icon(Icons.manage_search)),
+    DButtonGroupExpanded(child: DInput(focusNode: searchFocus, invalid: invalid)),
     DButton.iconOnly(icon: Icon(Icons.search), tooltip: 'Search', onPressed: search),
-  ],
-))''',
+  ]),
+  DFieldDescription(child: Text('Search titles and post bodies.')),
+])''',
       builder: (_) => const _InputGroup(),
     ),
     StyleguideExample(
@@ -141,33 +140,33 @@ DButtonGroup(children: [
     StyleguideExample(
       title: 'Dropdown menu',
       description:
-          'A keyboard-operable local MenuAnchor validates the split trigger. '
-          'Final review swaps in the library Dropdown Menu without changing '
-          'DButtonGroup.',
+          'The public Dropdown Menu owns keyboard navigation, dismissal and '
+          'focus restoration while its DButton trigger keeps the joined edge.',
       states: const ['Split trigger', 'Keyboard menu', 'Destructive item'],
       code: '''DButtonGroup(children: [
   DButton(label: Text('Follow'), onPressed: follow),
-  MenuAnchor(builder: (_, menu, __) => DButton.iconOnly(
-    hasPopup: true, expanded: menu.isOpen, tooltip: 'More follow actions',
-    icon: Icon(Icons.keyboard_arrow_down), onPressed: menu.open),
-    menuChildren: followActions),
+  DDropdownMenu(
+    content: DDropdownMenuContent(children: followActions),
+    child: DDropdownMenuTrigger(builder: (_, state) => DButton.iconOnly(
+      hasPopup: true, expanded: state.open, focusNode: state.focusNode,
+      tooltip: 'More follow actions', icon: Icon(Icons.keyboard_arrow_down),
+      onPressed: state.toggle)),
+  ),
 ])''',
       builder: (_) => const _MenuFixture(),
     ),
     StyleguideExample(
-      title: 'Rich Select composition handoff',
+      title: 'Select composition',
       description:
-          'The joined currency trigger, amount field and send action are ready '
-          'for the rich Select owner. Native Select is deliberately not used as '
-          'a substitute; the local menu only exercises state and geometry.',
-      states: const [
-        'Pending rich Select owner',
-        'Controlled value',
-        'Numeric input',
-      ],
-      code:
-          '''// Replace currencyMenu with DSelect when the rich Select owner merges.
-DButtonGroup(children: [currencyMenu, amountInput, sendButton])''',
+          'The public Select is the sole joined currency trigger. Its popup '
+          'keeps independent overlay geometry while amount editing is retained.',
+      states: const ['Rich Select', 'Controlled value', 'Numeric input'],
+      code: '''DButtonGroup(children: [
+  DSelect(value: currency, entries: currencies, onChanged: setCurrency),
+  DButtonGroupExpanded(child: DInput(keyboardType: TextInputType.number)),
+  DButton.iconOnly(icon: Icon(Icons.arrow_forward), tooltip: 'Send payment',
+    onPressed: send),
+])''',
       builder: (_) => const _CurrencyFixture(),
     ),
     StyleguideExample(
@@ -385,30 +384,49 @@ class _InputGroup extends StatefulWidget {
 
 class _InputGroupState extends State<_InputGroup> {
   bool _invalid = false;
+
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 360,
-    child: DButtonGroup(
-      mainAxisSize: MainAxisSize.max,
-      semanticLabel: 'Search controls',
+    child: DField(
+      invalid: _invalid,
       children: [
-        const DButtonGroupText(
-          semanticLabel: 'Search query',
-          child: Icon(Icons.manage_search),
+        DFieldLabel(focusNode: _focusNode, child: const Text('Search topics')),
+        DButtonGroup(
+          mainAxisSize: MainAxisSize.max,
+          semanticLabel: 'Search controls',
+          children: [
+            const DButtonGroupText(
+              semanticLabel: 'Search query',
+              child: Icon(Icons.manage_search),
+            ),
+            DButtonGroupExpanded(
+              child: DInput(
+                focusNode: _focusNode,
+                semanticLabel: 'Search topics',
+                hintText: 'Search...',
+                invalid: _invalid,
+                onSubmitted: (value) =>
+                    setState(() => _invalid = value.isEmpty),
+              ),
+            ),
+            DButton.iconOnly(
+              variant: DButtonVariant.outline,
+              icon: const Icon(Icons.search),
+              tooltip: 'Search',
+              onPressed: () => setState(() => _invalid = !_invalid),
+            ),
+          ],
         ),
-        DButtonGroupExpanded(
-          child: DInput(
-            hintText: 'Search...',
-            invalid: _invalid,
-            onSubmitted: (value) => setState(() => _invalid = value.isEmpty),
-          ),
-        ),
-        DButton.iconOnly(
-          variant: DButtonVariant.outline,
-          icon: const Icon(Icons.search),
-          tooltip: 'Search',
-          onPressed: () => setState(() => _invalid = !_invalid),
-        ),
+        const DFieldDescription(child: Text('Search titles and post bodies.')),
       ],
     ),
   );
@@ -474,29 +492,39 @@ class _MenuFixture extends StatelessWidget {
         label: const Text('Follow'),
         onPressed: () {},
       ),
-      MenuAnchor(
-        menuChildren: [
-          MenuItemButton(
-            onPressed: () {},
-            child: const Text('Mute conversation'),
+      DDropdownMenu(
+        content: DDropdownMenuContent(
+          semanticLabel: 'More follow actions',
+          children: [
+            DDropdownMenuItem(
+              onPressed: () {},
+              child: const Text('Mute conversation'),
+            ),
+            DDropdownMenuItem(
+              onPressed: () {},
+              child: const Text('Mark as read'),
+            ),
+            DDropdownMenuItem(
+              onPressed: () {},
+              child: const Text('Report conversation'),
+            ),
+            DDropdownMenuItem(
+              variant: DDropdownMenuItemVariant.destructive,
+              onPressed: () {},
+              child: const Text('Delete conversation'),
+            ),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            variant: DButtonVariant.outline,
+            hasPopup: true,
+            expanded: state.open,
+            focusNode: state.focusNode,
+            icon: const Icon(Icons.keyboard_arrow_down),
+            tooltip: 'More follow actions',
+            onPressed: state.toggle,
           ),
-          MenuItemButton(onPressed: () {}, child: const Text('Mark as read')),
-          MenuItemButton(
-            onPressed: () {},
-            child: const Text('Report conversation'),
-          ),
-          MenuItemButton(
-            onPressed: () {},
-            child: const Text('Delete conversation'),
-          ),
-        ],
-        builder: (context, menu, child) => DButton.iconOnly(
-          variant: DButtonVariant.outline,
-          hasPopup: true,
-          expanded: menu.isOpen,
-          icon: const Icon(Icons.keyboard_arrow_down),
-          tooltip: 'More follow actions',
-          onPressed: menu.isOpen ? menu.close : menu.open,
         ),
       ),
     ],
@@ -510,7 +538,7 @@ class _CurrencyFixture extends StatefulWidget {
 }
 
 class _CurrencyFixtureState extends State<_CurrencyFixture> {
-  String _currency = r'$';
+  String _currency = 'usd';
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 320,
@@ -518,21 +546,18 @@ class _CurrencyFixtureState extends State<_CurrencyFixture> {
       mainAxisSize: MainAxisSize.max,
       semanticLabel: 'Payment',
       children: [
-        MenuAnchor(
-          menuChildren: [
-            for (final currency in const [r'$', '€', '£'])
-              MenuItemButton(
-                onPressed: () => setState(() => _currency = currency),
-                child: Text(currency),
-              ),
+        DSelect<String>(
+          value: _currency,
+          width: 76,
+          semanticLabel: 'Currency',
+          entries: const [
+            DSelectOption(value: 'usd', label: r'$', child: Text(r'$')),
+            DSelectOption(value: 'eur', label: '€', child: Text('€')),
+            DSelectOption(value: 'gbp', label: '£', child: Text('£')),
           ],
-          builder: (context, menu, child) => DButton(
-            variant: DButtonVariant.outline,
-            hasPopup: true,
-            expanded: menu.isOpen,
-            label: Text(_currency),
-            onPressed: menu.isOpen ? menu.close : menu.open,
-          ),
+          onChanged: (currency) {
+            if (currency != null) setState(() => _currency = currency);
+          },
         ),
         DButtonGroupExpanded(
           child: DInput(
