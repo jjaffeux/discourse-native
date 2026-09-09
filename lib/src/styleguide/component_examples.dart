@@ -27,6 +27,7 @@ import 'examples/item_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
+import 'examples/message_examples.dart';
 import 'examples/native_select_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
@@ -78,10 +79,10 @@ final componentExamples = <String, ComponentExamples>{
   'avatar': avatarExamples,
   'badge': badgeExamples,
   'bubble': bubbleExamples,
-  'direction': directionExamples,
   'dialog': dialogExamples,
   'dropdown-menu': dropdownMenuExamples,
   'drawer': drawerExamples,
+  'direction': directionExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
@@ -94,6 +95,7 @@ final componentExamples = <String, ComponentExamples>{
   'progress': progressExamples,
   'questionnaire': questionnaireExamples,
   'marker': markerExamples,
+  'message': messageExamples,
   'popover': popoverExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
