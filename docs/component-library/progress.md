@@ -88,7 +88,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
 | 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
 | 49 | pagination | in_progress | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | — |
-| 50 | calendar | in_progress | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
+| 50 | calendar | review_ready | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
 | 51 | date-picker | in_progress | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | merged | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | d454c8f62fb4ab8718b3a32b2743556f2f78609d |
@@ -2593,7 +2593,7 @@ Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/u
 
 ### calendar
 
-Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-calendar.
+Status: review_ready. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-calendar.
 
 **acceptanceCriteria**
 
@@ -2609,6 +2609,34 @@ Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/u
 - Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
 - Explicit user direction on 2026-09-09 requires kalender and visual consistency with the rest of the styleguide. Calendar owner acknowledged that its uncommitted custom engine will be removed, retaining only shadcn-specific state models, styling/builders and adapters around kalender. The new requirement must be carried into the independent review handoff.
 - Verified independent reviewer Review and merge Calendar (01a08631-7574-70b0-a98f-4e7217e03209) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Independent review retained kalender 0.29.1 as the sole engine and corrected open/backward range behavior, complete-month bounds, clamped multi-month display, timezone-aware today, controller clear/replacement, controlled month synchronization, mode resets, roving keyboard focus, disabled pointer state and week-number semantics.
+- Frozen Basic, Range, selector, Presets, Date and Time, Booked, Custom Cell, Week Numbers and RTL compositions were compared to the exact Markdown and base-nova registry sources and aligned without introducing a competing calendar/date package.
+- EventCalendar and TopicCalendar both adopt DKalenderTheme while retaining their Kalender controllers, server/domain state and geometry. TopicCalendar's pre-existing Tooltip finder was corrected to the accepted DTooltip type; its split-bar geometry remains unchanged.
+
+**migrations**
+
+- EventCalendar uses DKalenderTheme(compactMonthLayout: false) and DCalendarDayButton for shared tokens, day interaction and semantics without changing recurrence, timezone, event lanes, overflow dialogs or domain actions.
+- TopicCalendar now scopes DKalenderTheme(compactMonthLayout: false); existing embedded reply-date paging and multi-week bar geometry remain owned by the plugin.
+
+**retainedAlternatives**
+
+- EventCalendar and TopicCalendar retain their domain-specific Kalender layouts and controllers; DCalendar owns finite inline date selection, not event scheduling or reply navigation.
+- Persian/Hijri/Jalali chronology remains an explicit future Kalender engine/calendar-math seam because pinned kalender 0.29.1 exposes Gregorian DateTime paging; the port does not mislabel Gregorian math.
+
+**verification**
+
+- Exact frozen Markdown SHA256 9268f3aa428b4eb36bfbd957644f9d681beab0d49575f779a2cd2620f81a58b4 and independently fetched base-nova registry SHA256 cc9ff16599d1664cec2d6a91ba82d0927953d8eedd51a7d56bba48a6522c28eb were reproduced and inspected.
+- Final pre-integration randomized focused run passed 38 DCalendar, styleguide, EventCalendar and TopicCalendar tests with seed 20260909, including controlled month/caption synchronization, actual-month custom/RTL semantics, narrow 200% Light/Dark layouts, timezone, recurrence and retained geometry.
+- Root and profiles/full flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed. kalender remains pinned to 0.29.1.
+- Final candidate is based on accepted Input Group merge d1de717b1e2d1eeaf06d86dafe1452662d05e368 and tracking eeb9a9cabc8713d12c2e9c579be7e22934a60b34; all Input Group, Field, Dropdown Menu and Textarea owner files are preserved from main.
+- Official browser comparison covered rendered Basic, Range, selector, Presets, Date and Time, Booked, Custom Cell, Week Numbers and Arabic RTL examples plus timezone and alternate-calendar guidance.
+- Native macOS inspection covered Light, Dark, Forest and Plum; LTR/RTL; 720/360px; 100/200% text; pointer and roving-keyboard selection; selector updates; presets; time fields; booked/disabled dates; priced cells; week-number semantics; and actual EventCalendar Month/Week/Day/Year surfaces.
+- Final source build ff08f52b produced /private/tmp/calendar-review-final-source.Kyozwl/Calendar Review.app with unique org.discourse.native.calendar-review identity; App framework SHA256 8456db108f4ae9af13cec970252ccfd289d5a42be7bdd43894ef08cc87fff314 and deep strict ad-hoc signature verification passed. The final delta after native inspection only corrects the RTL outside-month semantic label and is covered by its focused widget regression.
+
+**limitations**
+
+- No iOS/Linux device or spoken VoiceOver/TalkBack pass; macOS AX inspection and widget semantics tests do not claim cross-platform device parity.
+- Browser and native font rasterization differ, so acceptance compares composition, geometry, state, interaction and semantics rather than pixel equality.
 
 ### date-picker
 
@@ -3057,4 +3085,3 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
-

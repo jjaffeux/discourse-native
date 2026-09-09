@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar.dart';
@@ -217,8 +218,7 @@ void main() {
     await tester.pumpAndSettle();
     final bars = find.byWidgetPredicate(
       (widget) =>
-          widget is Tooltip &&
-          (widget.message?.startsWith('Long weekend,') ?? false),
+          widget is DTooltip && widget.message.startsWith('Long weekend,'),
     );
     expect(bars, findsNWidgets(2));
     final first = tester.getRect(bars.first);
