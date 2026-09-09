@@ -172,3 +172,34 @@ team identifier, keychain group or other restricted entitlement is present.
 Strict deep signature and source/kernel equality passed; native-build.json
 records the final path, source commit and kernel. Production runner identities,
 entitlements, pins and locks are unchanged. Still in_progress/awaiting_slot.
+
+## Independent final review
+
+The official Base UI page was inspected in the approved in-app browser in its
+rendered dark theme. The controlled order disclosure, Basic, Settings Panel,
+File Tree and RTL compositions matched the frozen source geometry and state
+treatment closely. The order trigger exposed the correct collapsed/expanded
+state and revealed the two detail rows without animation.
+
+The first isolated macOS pass covered the light and dark Order examples plus
+Settings. It exposed a native accessibility defect that widget semantics had
+not revealed: the trigger's button role was absorbed by the enclosing DCard
+semantic container, causing the Settings card and fields to appear under one
+large button. The review fix makes DCollapsibleTrigger an explicit semantic
+container and adds a regression proving the enclosing surface remains passive.
+
+The rebuilt native confirmation exposed one bounded `More radius settings`
+button, four independent text fields and a passive Radius card container. It
+also exercised the real Events `More options`, Local Dates `Display options`
+and 32-row AlertTables group fixtures: each trigger remained an independent
+control, hidden descendants appeared only after expansion, and the production
+layouts remained intact. Enter activated the focused Order trigger. iOS and
+Linux devices, VoiceOver and authenticated app sessions were not run.
+
+Latest-main reconciliation preserved the merged DSwitchTile in Local Dates and
+DScrollBar in AlertTables while retaining DCollapsible as the sole disclosure
+owner. Focused overlap tests and root/full analysis passed. Field's reviewer
+confirmed DInput's visible label is the correct current boundary. Tabs is now
+implemented separately and its reviewer (`01a08581-d666-7f81-b039-f9caae6c45c2`)
+owns the explicit follow-up replacing the temporary Explorer/Outline DButtons
+with DTabs.controlled after Collapsible merges.

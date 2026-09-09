@@ -5,7 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../styleguide_example.dart';
 
 final collapsibleExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'A button that expands or collapses a panel.',
   notes:
       'Root, trigger and content are unstyled Base UI parts. Use open and '
@@ -15,7 +15,8 @@ final collapsibleExamples = ComponentExamples(
       'Triggers accept passive children, not nested buttons. Button variants are '
       'example composition, not Collapsible props. Settings uses DInput editing '
       'with Field composition still pending; Explorer/Outline use DButton '
-      'pending Tabs. Native/reference rendered review remains pending.',
+      'pending Tabs adoption; Field intentionally remains owned by DInput until '
+      'its merged follow-up. Official rendered and native review passed.',
   examples: [
     StyleguideExample(
       title: 'Order details',
