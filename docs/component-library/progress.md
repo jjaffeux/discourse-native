@@ -2432,11 +2432,14 @@ Status: in_progress. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/u
 - Frozen Context Menu Markdown SHA256 reproduced exactly as ec20bd0ef47abb75872c1294d1563f0f279d3da5861177d8f2c588d8eb5f6895; base-nova registry SHA256 recorded as 57bfdd236a7f4cb83625edf4c33265ce009738947666d00311034a88f6868756 on 2026-09-09.
 - Implementation evidence: flutter test --no-pub test/d_context_menu_test.dart --test-randomize-ordering-seed=826145 passed 10 tests for secondary/touch/keyboard invocation, pointer placement, disabled state, focus restoration, typeahead, checkbox/radio, submenu Escape, RTL and collision.
 - Implementation evidence: 53 Dropdown/Popover/styleguide/InstanceActions/modal lifecycle regressions passed with seed 826145; root and profiles/full analysis were clean; styleguide macOS debug build passed with kernel SHA256 6fa392ded08bd8c73b78794d38c04606daee7d42f2ae60acf01e336c32f2b699.
+- Independent review rerun: 64 focused Context Menu/Dropdown Menu/Popover/styleguide/InstanceActions/modal lifecycle tests passed with seed 826145; root and profiles/full analysis were clean; the exact-source signed macOS bundle kernel matched its build at SHA256 b26f476a523afa6d28849f22b3049719ea3ba50bc9055d021e1557a02fe05342.
+- Independent partial rendered/native review: official light/dark geometry confirmed 14/20 text, 28px rows, 6px gaps, 4px popup padding, 8px items, 10px popup, ring and shadow. Native macOS confirmed secondary-pointer placement, selection callback, Context Menu key, first focus, End/submenu navigation, deepest Escape, outside dismissal, retained checkbox/radio semantics, Forest tokens and 360px/200%-text/reduced-motion RTL collision behavior.
 
 **limitations**
 
-- Official rendered browser comparison and native macOS interaction inspection remain for the independent reviewer; no iOS/Linux device or spoken VoiceOver pass is claimed.
+- The remaining official rendered browser comparison and native macOS interaction inspection stay with the independent reviewer; no iOS/Linux device or spoken VoiceOver pass is claimed.
 - Final merge is blocked until Dropdown Menu reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 accepts and merges its parent revision to local main, after which the Context Menu reviewer must reconcile that exact accepted source.
+- The Mac locked during the independent Sides sweep. Native Shift+F10 was not established through the available key synthesizer; long-press/reader action, the real forum-rail surface and the complete top/right/bottom/left/inline-end sweep remain pending after manual unlock. No acceptance is claimed.
 
 ### menubar
 

@@ -113,3 +113,37 @@ placement, touch long press, keyboard/reader entry, focus restoration, nested
 direction/Escape, outside dismissal, collision, live themes, 200% text, RTL and
 the real forum-rail surface. No iOS or Linux device run, spoken VoiceOver pass
 or pixel-diff equality is claimed by this implementation task.
+
+## Independent review checkpoint
+
+On 2026-09-09, reviewer `01a0861f-38ca-7122-b18f-5f286ab90ccb`
+integrated the implementation and handoff history into
+`codex/review-context-menu` from then-current main while preserving all other
+component rows, exports and examples. The prepared Dropdown Menu file was
+confirmed source-equivalent to both `d273c27e788bb3991c773c7432e0b8c927715651`
+and the parent's newer `dd0ad309c5a7ecc7d4af2c1f566bd8c5678a3f18`
+candidate except for Dart formatter layout of one typedef.
+
+The reviewer reran 64 focused Context Menu, Dropdown Menu, Popover,
+styleguide, InstanceActions accessibility and modal lifecycle tests with seed
+`826145`; all passed. Root and `profiles/full` analysis were clean. The
+exact-source styleguide macOS build passed, and the built plus isolated signed
+bundle kernels both had SHA256
+`b26f476a523afa6d28849f22b3049719ea3ba50bc9055d021e1557a02fe05342`.
+
+Live official reference inspection in light and dark confirmed the shared
+14/20 text, 28px rows, 6px gaps, 4px popup padding, 8px item radius, 10px
+popup radius, 1px translucent ring and medium shadow. The isolated macOS app
+then demonstrated actual secondary-pointer placement and selection callback,
+Context Menu key entry, first enabled focus, End plus submenu arrow navigation,
+deepest Escape, outside dismissal, checkbox/radio semantics with retained open
+state, live Forest tokens, and a collision-safe 360px/200%-text/reduced-motion
+RTL submenu.
+
+The Mac locked during the remaining Sides sweep. The desktop lease was released
+immediately and the waiting request was cancelled. Native Shift+F10 could not
+be established through the available key synthesizer, long-press/reader action
+and the real forum-rail surface remain to inspect, and the full top/right/
+bottom/left/inline-end sweep remains incomplete. No acceptance or merge is
+claimed. Dropdown Menu also remains unaccepted after its next reviewer attempt
+encountered the same locked host.
