@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
@@ -1225,27 +1226,29 @@ void main() {
         final nameField = find.byType(TextField).first;
         expect(find.text('Chat thread title template'), findsNothing);
         expect(find.text('Required'), findsOneWidget);
-        expect(
-          tester.getSemantics(nameField),
-          isSemantics(
-            label: 'Name',
-            value: 'Lounge',
-            isTextField: true,
-            isRequired: true,
+        final field = tester.getSemantics(
+          find.byWidgetPredicate(
+            (widget) => widget is DFieldControl && widget.label == 'Name',
           ),
         );
+        expect(field.label, 'Name');
+        expect(field.hint, 'Required');
+        final editor = field.getSemanticsData();
+        expect(editor.value, 'Lounge');
+        expect(editor.flagsCollection.isTextField, isTrue);
+        expect(editor.flagsCollection.isRequired, Tristate.isTrue);
 
-        final save = find.widgetWithText(FilledButton, 'Save');
-        expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+        final save = find.widgetWithText(DButton, 'Save');
+        expect(tester.widget<DButton>(save).onPressed, isNotNull);
 
         await tester.enterText(nameField, '   ');
         await tester.pump();
-        expect(tester.widget<FilledButton>(save).onPressed, isNull);
+        expect(tester.widget<DButton>(save).onPressed, isNull);
 
         await tester.showKeyboard(nameField);
         tester.testTextInput.enterText('Renamed lounge');
         await tester.pump();
-        expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+        expect(tester.widget<DButton>(save).onPressed, isNotNull);
 
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
@@ -1292,7 +1295,7 @@ void main() {
 
       current = replacement.controller;
       await tester.enterText(find.byType(TextField).first, 'Replacement save');
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(DButton, 'Save'));
       await tester.pumpAndSettle();
 
       expect(original.transport.writes, isEmpty);

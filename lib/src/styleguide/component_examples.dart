@@ -5,6 +5,7 @@ import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
@@ -33,6 +34,7 @@ final componentExamples = <String, ComponentExamples>{
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'label': labelExamples,
+  'field': fieldExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
   'spinner': spinnerExamples,

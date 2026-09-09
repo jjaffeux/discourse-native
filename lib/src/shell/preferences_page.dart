@@ -725,7 +725,6 @@ class _ProfileForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return _PreferenceCard(
       children: [
         DropdownMenu<String>(
@@ -753,12 +752,11 @@ class _ProfileForm extends StatelessWidget {
               : null,
         ),
         const SizedBox(height: 12),
-        Text(
-          deviceTimezone == null
-              ? 'Device timezone is unavailable.'
-              : 'Device timezone: $deviceTimezone',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        DFieldDescription(
+          child: Text(
+            deviceTimezone == null
+                ? 'Device timezone is unavailable.'
+                : 'Device timezone: $deviceTimezone',
           ),
         ),
         const SizedBox(height: 8),
@@ -856,10 +854,8 @@ class _PreferenceCard extends StatelessWidget {
       spacing: 20,
       children: [
         DCardContent(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
+          // Existing section adapters retain their 8/12/20px local spacing.
+          child: DFieldGroup(spacing: 0, children: children),
         ),
       ],
     );
