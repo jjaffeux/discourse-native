@@ -83,3 +83,19 @@ Button Group's catalogue status to implemented is acceptance metadata only.
 The completed component pass is retained for these source-equivalent changes,
 as required by the review protocol. Any final-main overlap is recorded
 separately with affected verification.
+
+## Nested-spacing correction — 2026-09-10
+
+The live Base UI Nested example was re-inspected after a visual mismatch was
+reported. Its outer group measured 252px wide and applied an 8px gap between
+the 32px attachment group and the 212px composer group. The voice affordance
+was inside the composer's single rounded Input Group surface.
+
+The corrected candidate was then built from
+`tool/button_group_review_main.dart` and inspected through the exact debug-app
+path while holding the desktop lease. Light/LTR/100% at a 440px fixture width
+and dark/RTL/200% at 320px both showed the two complete rounded groups, the 8px
+gap, and the voice action inside the input surface. Native accessibility exposed
+the named outer group, attachment button, composer field, and voice button as
+separate descendants. Spoken VoiceOver and physical mobile devices were not
+exercised in this follow-up.
