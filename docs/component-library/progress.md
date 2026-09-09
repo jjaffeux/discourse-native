@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**19 of 64 components are merged locally.** 16 existing components are in progress; 29 are planned.
+**20 of 64 components are merged locally.** 15 existing components are in progress; 29 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -19,7 +19,6 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
 | textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
-| slider | independent review | bbd35fec | 01a08558-7a1d-7451-8024-e357bd0861e8 |
 | progress | independent review | 1c21a435 | 01a08558-73d7-7d01-9b97-39615e28df0e |
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
@@ -55,7 +54,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
-| 17 | slider | review_ready | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | — |
+| 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | in_progress | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | — |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
@@ -1100,7 +1099,7 @@ Status: merged. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-swi
 
 ### slider
 
-Status: review_ready. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-slider.
+Status: merged. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-slider.
 
 **acceptanceCriteria**
 

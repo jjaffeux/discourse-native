@@ -1006,7 +1006,7 @@
     },
     {
       "id": "slider",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
       "branch": "codex/ui-slider",
       "dependencies": [
@@ -1061,12 +1061,13 @@
         "Browser and native font rasterizers differ; the review establishes measured geometry, styling and behavior rather than pixel equality."
       ],
       "implementationCommit": "6792e34b950b780fbeb93a4aea82c57bd537f2b0",
-      "mergeCommit": null,
+      "mergeCommit": "e646022a0fd5524daab612e3bbfa9fe3de6db7a5",
       "nativeInspectionStatus": "completed",
       "browserInspectionStatus": "completed",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
-      "reviewBranch": "codex/review-slider"
+      "reviewBranch": "codex/review-slider",
+      "reviewedBranchHead": "07e339b4dec418f425d6eae0954a7230f19cf27e"
     },
     {
       "id": "progress",
@@ -2732,16 +2733,6 @@
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97"
         },
         {
-          "component": "slider",
-          "taskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
-          "branch": "codex/review-slider",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d2da/discourse-native",
-          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f",
-          "headCommit": "bbd35fec5d7fbec5e967edf5f7b03567625b25b2",
-          "status": "independent_review",
-          "implementationTaskId": "01a083ce-313a-7362-ada6-57dc14221509"
-        },
-        {
           "component": "resizable",
           "taskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
           "branch": "codex/review-resizable",
@@ -3027,17 +3018,6 @@
           "branch": "codex/review-field",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
           "implementationBranch": "codex/ui-field",
-          "status": "in_progress"
-        },
-        {
-          "component": "slider",
-          "title": "Review and merge Slider",
-          "taskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d2da/discourse-native",
-          "branch": "codex/review-slider",
-          "implementationTaskId": "01a083ce-313a-7362-ada6-57dc14221509",
-          "implementationBranch": "codex/ui-slider",
           "status": "in_progress"
         },
         {
