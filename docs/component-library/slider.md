@@ -171,3 +171,20 @@ no issues. See [verification output](evidence/slider/verification.txt).
 The refreshed bundle is **not launched** and remains queued for native
 inspection. No CUA, reference browser, iOS/Linux device or VoiceOver speech
 inspection was performed.
+
+## Pinned-main integration and reset review
+
+Merged `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7`, preserving final component
+owners, coordinator adapters and all non-Slider progress rows. The reset pass
+freezes the mounted baseline and proposes it to controlled parents; accepted
+values remain authoritative for synchronous save/validation. All 31 focused
+checks and root/full analysis pass.
+
+Current source: `6792e34b950b780fbeb93a4aea82c57bd537f2b0`.
+Current bundle: `/private/tmp/DiscourseSliderReview-6792e34b.app`.
+Kernel SHA256: `b37dbe5b00805e4e9cfb90f15ecf2ed5d59303b365afb296a83617ad847ad8b7`.
+Current identity and exact signed entitlements are in
+[evidence](evidence/slider/native-preparation.json); prior r2 evidence is archived.
+Strict deep ad-hoc signature verification passed with debug/JIT entitlements
+and no restricted developer entitlements. Runner identities, pins and locks
+were unchanged. The bundle is unlaunched and remains awaiting_slot.

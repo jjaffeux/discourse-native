@@ -56,3 +56,23 @@ Building macOS application...
 ✓ Built build/macos/Build/Products/Debug/Discourse.app
 
 No native launch or reference comparison performed.
+
+Pinned-main reset integration:
+
+slider-reset-tests.log
+00:01 +28: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/styleguide/slider_examples_test.dart: all actual slider examples tolerate narrow RTL large-text previews in light and dark
+00:01 +29: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/slider_migrations_test.dart: offline production video and volume retain state, disable and remove cleanly
+00:01 +30: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/slider_migrations_test.dart: offline production video and volume retain state, disable and remove cleanly
+00:01 +31: All tests passed!
+
+slider-integration-analysis.log
+Analyzing discourse-native...
+No issues found! (ran in 7.9s)
+
+slider-integration-full-analysis.log
+Analyzing full...
+No issues found! (ran in 2.5s)
+
+slider-r3-build.log
+Building macOS application...
+✓ Built build/macos/Build/Products/Debug/Discourse.app
