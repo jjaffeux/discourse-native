@@ -14,6 +14,7 @@ import 'examples/empty_examples.dart';
 import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
+import 'examples/input_otp_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
@@ -45,6 +46,7 @@ final componentExamples = <String, ComponentExamples>{
   'textarea': textareaExamples,
   'collapsible': collapsibleExamples,
   'input': inputExamples,
+  'input-otp': inputOTPExamples,
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
   'empty': emptyExamples,

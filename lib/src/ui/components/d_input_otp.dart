@@ -123,6 +123,7 @@ class _DInputOTPState extends FormFieldState<String> {
     } else if (_controller.text != _resetValue) {
       _replace(_resetValue);
     }
+    setValue(_resetValue);
     if (input.focusNode == null) _ownedFocus = FocusNode();
     _controller.addListener(_editingChanged);
     _focus.addListener(_focusChanged);
@@ -182,6 +183,12 @@ class _DInputOTPState extends FormFieldState<String> {
     if (input.value != null && input.value != _controller.text) {
       final next = _sanitize(input.value!);
       _replace(next);
+      setValue(next);
+    } else if (oldWidget.maxLength != input.maxLength ||
+        oldWidget.pattern != input.pattern ||
+        oldWidget.inputTransformer != input.inputTransformer) {
+      final next = _sanitize(_controller.text);
+      if (next != _controller.text) _replace(next);
       setValue(next);
     }
     if (!input.enabled && oldWidget.enabled && _focus.hasFocus) {
@@ -265,67 +272,70 @@ class _DInputOTPState extends FormFieldState<String> {
 
     return Opacity(
       opacity: input.enabled ? 1 : .5,
-      child: Semantics(
-        container: true,
-        label: input.semanticLabel,
-        hint: input.semanticHint,
-        enabled: input.enabled,
-        readOnly: input.readOnly,
-        validationResult: invalid
-            ? SemanticsValidationResult.invalid
-            : SemanticsValidationResult.none,
-        child: Builder(
-          builder: (context) => Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned.fill(
-                child: Listener(
-                  behavior: HitTestBehavior.opaque,
-                  onPointerUp: (event) => _selectFromPointer(
-                    event,
-                    context.size?.width ?? 0,
-                    direction,
-                  ),
-                  child: TextSelectionTheme(
-                    data: const TextSelectionThemeData(
-                      cursorColor: Colors.transparent,
-                      selectionColor: Colors.transparent,
-                      selectionHandleColor: Colors.transparent,
+      child: MergeSemantics(
+        child: Semantics(
+          container: true,
+          label: input.semanticLabel,
+          hint: input.semanticHint,
+          enabled: input.enabled,
+          readOnly: input.readOnly,
+          validationResult: invalid
+              ? SemanticsValidationResult.invalid
+              : SemanticsValidationResult.none,
+          child: Builder(
+            builder: (context) => Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerUp: (event) => _selectFromPointer(
+                      event,
+                      context.size?.width ?? 0,
+                      direction,
                     ),
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focus,
-                      enabled: input.enabled,
-                      readOnly: input.readOnly,
-                      autofocus: input.autofocus,
-                      showCursor: false,
-                      style: const TextStyle(color: Colors.transparent),
-                      cursorColor: Colors.transparent,
-                      keyboardType: input.keyboardType ?? TextInputType.number,
-                      textInputAction: input.textInputAction,
-                      textCapitalization: TextCapitalization.characters,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      enableInteractiveSelection: true,
-                      maxLines: 1,
-                      inputFormatters: [_formatter],
-                      autofillHints: input.autofillHints,
-                      contextMenuBuilder: input.contextMenuBuilder,
-                      onSubmitted: input.onSubmitted,
-                      decoration: const InputDecoration(
-                        isCollapsed: true,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
+                    child: TextSelectionTheme(
+                      data: const TextSelectionThemeData(
+                        cursorColor: Colors.transparent,
+                        selectionColor: Colors.transparent,
+                        selectionHandleColor: Colors.transparent,
+                      ),
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focus,
+                        enabled: input.enabled,
+                        readOnly: input.readOnly,
+                        autofocus: input.autofocus,
+                        showCursor: false,
+                        style: const TextStyle(color: Colors.transparent),
+                        cursorColor: Colors.transparent,
+                        keyboardType:
+                            input.keyboardType ?? TextInputType.number,
+                        textInputAction: input.textInputAction,
+                        textCapitalization: TextCapitalization.characters,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        enableInteractiveSelection: true,
+                        maxLines: 1,
+                        inputFormatters: [_formatter],
+                        autofillHints: input.autofillHints,
+                        contextMenuBuilder: input.contextMenuBuilder,
+                        onSubmitted: input.onSubmitted,
+                        decoration: const InputDecoration(
+                          isCollapsed: true,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              IgnorePointer(child: scope),
-            ],
+                IgnorePointer(child: scope),
+              ],
+            ),
           ),
         ),
       ),
@@ -527,7 +537,9 @@ class DInputOTPSlot extends StatelessWidget {
     final scaler = MediaQuery.textScalerOf(context);
     final lineHeight = scaler.scale(fontSize * (20 / 14));
     final effectiveHeight = math.max(height, lineHeight + 12);
-    final effectiveWidth = math.max(width, scaler.scale(fontSize) + 16);
+    // A Latin OTP glyph is roughly .6em wide. Preserve the 32/44px source
+    // widths until the scaled glyph would actually collide with its inset.
+    final effectiveWidth = math.max(width, scaler.scale(fontSize * .6) + 12);
 
     return AnimatedContainer(
       duration: DMotion.duration(context, const Duration(milliseconds: 150)),
