@@ -9,10 +9,8 @@ import '../../shell/cooked_html.dart';
 import '../../theme/app_theme.dart';
 import 'poll.dart';
 
-typedef PollVoteCallback = FutureOr<void> Function(
-  Poll poll,
-  List<String> optionIds,
-);
+typedef PollVoteCallback =
+    FutureOr<void> Function(Poll poll, List<String> optionIds);
 
 typedef PollVoteRemovalCallback = FutureOr<void> Function(Poll poll);
 
