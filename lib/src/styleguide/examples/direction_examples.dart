@@ -93,12 +93,12 @@ Column(
 DDirection(
   child: DDropdownMenu(
     content: DDropdownMenuContent(children: [
-      DDropdownMenuItem(
+      Builder(builder: (context) => DDropdownMenuItem(
         onPressed: select,
-        child: Builder(builder: (context) => Text(
+        child: Text(
           'Menu direction: \${DDirection.of(context).name.toUpperCase()}',
-        )),
-      ),
+        ),
+      )),
     ]),
     child: DDropdownMenuTrigger(
       focusNode: menuFocus,
