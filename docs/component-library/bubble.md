@@ -48,7 +48,7 @@ Acceptance requires:
 | ghost `max-w-full` | Ghost removes the 80% cap but does not force sparse content wider than it needs. |
 | content `rounded-xl border border-transparent px-3 py-2` | Host radius ×1.4, a 1px transparent/border stroke, 12px horizontal and 8px vertical padding. Ghost removes radius, border and padding. |
 | `text-sm leading-relaxed wrap-break-word` | Host font family, `DiscourseTypography.sm` (14px), 1.625 leading (22.75px) and Flutter wrapping within logical constraints. The inherited `TextScaler` is the sole scaling owner. |
-| primary/secondary/muted/outline/destructive | `DTokens` semantic primary, muted, background, border and destructive roles; opacity multiplies the token's existing alpha. |
+| primary/secondary/muted/outline/destructive | `DTokens` semantic primary, muted, background, border and destructive roles; opacity multiplies the token's existing alpha. Secondary blends 1% foreground into muted so it remains subtly distinct from muted across arbitrary live palettes, matching the reference relationship without freezing a light/dark swatch. |
 | tinted OKLCH primary derivation | Flutter derives a live soft tint by blending the host background and primary. The blend is 12%/18% hover in light and 24%/30% hover in dark. This preserves arbitrary site palettes without hardcoded light/dark swatches; exact CSS OKLCH channel rewriting has no stable Flutter theme primitive. |
 | interactive hover plus `focus-visible:border-ring ring-3 ring-ring/50` | Pointer state updates the variant fill. An outside-only 1px focus border and 3px 50%-alpha ring avoid tinting translucent content. |
 | group `gap-2` | `DBubbleGroup` uses 8px spacing. |

@@ -195,6 +195,61 @@ void main() {
     );
   });
 
+  testWidgets('secondary remains distinct from muted in the live palette', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const Column(
+          children: [
+            DBubble(
+              variant: DBubbleVariant.secondary,
+              children: [
+                DBubbleContent(
+                  key: ValueKey('secondary-surface'),
+                  child: Text('Secondary'),
+                ),
+              ],
+            ),
+            DBubble(
+              variant: DBubbleVariant.muted,
+              children: [
+                DBubbleContent(
+                  key: ValueKey('muted-surface'),
+                  child: Text('Muted'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    Color surfaceColor(String key) {
+      final surface = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byKey(ValueKey(key)),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      return (surface.decoration! as BoxDecoration).color!;
+    }
+
+    const muted = Color(0xffeeeeee);
+    final foreground = DTokens.of(
+      tester.element(find.byKey(const ValueKey('secondary-surface'))),
+    ).foreground;
+    expect(surfaceColor('muted-surface'), muted);
+    expect(
+      surfaceColor('secondary-surface'),
+      Color.lerp(muted, foreground, .01),
+    );
+    expect(
+      surfaceColor('secondary-surface'),
+      isNot(surfaceColor('muted-surface')),
+    );
+  });
+
   testWidgets(
     'borrowed focus survives disposal and reduced motion is immediate',
     (tester) async {

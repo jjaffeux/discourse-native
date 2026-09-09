@@ -246,6 +246,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
     final active = interactive && (_hovered || _pressed);
     Color mix(Color base, Color foreground, double amount) =>
         Color.lerp(base, foreground, amount)!;
+    final secondary = mix(tokens.muted, tokens.foreground, .01);
 
     var style = switch (scope.variant) {
       DBubbleVariant.primary => _ContentStyle(
@@ -256,9 +257,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
         border: Colors.transparent,
       ),
       DBubbleVariant.secondary => _ContentStyle(
-        background: active
-            ? mix(tokens.muted, tokens.foreground, .05)
-            : tokens.muted,
+        background: active ? mix(secondary, tokens.foreground, .05) : secondary,
         foreground: tokens.foreground,
         border: Colors.transparent,
       ),
