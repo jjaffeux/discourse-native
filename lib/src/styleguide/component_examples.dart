@@ -11,6 +11,7 @@ import 'examples/collapsible_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/foundation_examples.dart';
+import 'examples/hover_card_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
@@ -50,6 +51,7 @@ final componentExamples = <String, ComponentExamples>{
   'chart': chartExamples,
   'resizable': resizableExamples,
   'foundations': foundationExamples,
+  'hover-card': hoverCardExamples,
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,
   'badge': badgeExamples,
