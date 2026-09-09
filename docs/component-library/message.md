@@ -4,7 +4,7 @@ Frozen on 2026-09-08 from `https://ui.shadcn.com/docs/components/base/message.md
 
 - Markdown SHA256: `39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782` (verified 2026-09-09).
 - Base-nova registry: `https://ui.shadcn.com/r/styles/base-nova/message.json`.
-- Registry SHA256: `6a484395f7ed32d3b254619cc542aeed6ce77a5628d1e9a04d4b5baaf7de0c`.
+- Registry SHA256: `6a484395f7ed32d3b254619cc542aeed6ce77a5628d1e9a04d4b5baaf7de0c41`.
 - Reference package: `lucide-react`; Flutter actions use the shared Button owner with caller-supplied artwork.
 
 ## Source mapping

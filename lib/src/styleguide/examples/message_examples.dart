@@ -303,7 +303,10 @@ class _MetadataExample extends StatelessWidget {
         children: [
           DMessageContent(
             children: [
-              DMessageHeader(children: [Text('Olivia'), Text('Yesterday')]),
+              DMessageHeader(
+                spacing: 8,
+                children: [Text('Olivia'), Text('Yesterday')],
+              ),
               DBubble(
                 variant: DBubbleVariant.muted,
                 children: [

@@ -173,6 +173,41 @@ void main() {
     expect(tester.getRect(find.byKey(const ValueKey('flush'))).left, 0);
   });
 
+  testWidgets('header default keeps the reference zero child gap', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const DMessage(
+          children: [
+            DMessageContent(
+              children: [
+                DMessageHeader(
+                  children: [
+                    SizedBox(
+                      key: ValueKey('header-first'),
+                      width: 20,
+                      height: 16,
+                    ),
+                    SizedBox(
+                      key: ValueKey('header-second'),
+                      width: 20,
+                      height: 16,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final first = tester.getRect(find.byKey(const ValueKey('header-first')));
+    final second = tester.getRect(find.byKey(const ValueKey('header-second')));
+    expect(second.left, first.right);
+  });
+
   testWidgets('status announcements do not merge independent action labels', (
     tester,
   ) async {

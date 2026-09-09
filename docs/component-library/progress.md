@@ -35,7 +35,7 @@ Branch preparation does not mark a component merged or visually verified.
 | date-picker | Implementation and checks | — | — |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
 | bubble | Implementation and checks | — | — |
-| message | Implementation and checks | — | — |
+| message | Implementation and checks | — | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | Implementation and checks | — | — |
 | data-table | Implementation and checks | — | — |
 | input-otp | Implementation and checks | — | — |
@@ -2760,7 +2760,7 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/u
 
 **decisions**
 
-- Frozen Markdown SHA256 39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782 verified on 2026-09-09; official base-nova registry SHA256 6a484395f7ed32d3b254619cc542aeed6ce77a5628d1e9a04d4b5baaf7de0c.
+- Frozen Markdown SHA256 39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782 verified on 2026-09-09; official base-nova registry SHA256 6a484395f7ed32d3b254619cc542aeed6ce77a5628d1e9a04d4b5baaf7de0c41.
 - Implementation began from local main 77ee9b047528d43fcbcd4a31d464182f9640b835. One public presentational composition exports DMessage, DMessageGroup, DMessageAvatar, DMessageContent, DMessageHeader, DMessageFooter and DMessageStatus; docs/component-library/message.md records exact source mapping and adapter extensions.
 - Ordinary Message rows add no semantic boundary, preserving arbitrary rich content and independent descendant actions. Whole-row labels/live regions are explicit; DMessageStatus provides caller-controlled localizable pending, delivered, read, failed and deleted states without owning delivery or retry work.
 - Message Scroller owner 01a08606-ce86-7be2-b92f-59676b40cb40 agreed that it owns stable DMessageScrollerItem IDs, anchors, builder/viewport and scrolling externally. DMessage remains keyed presentational content and exposes no scroll or identity contract.

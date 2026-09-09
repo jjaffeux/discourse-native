@@ -262,7 +262,7 @@ class DMessageHeader extends StatelessWidget {
   const DMessageHeader({
     super.key,
     required this.children,
-    this.spacing = DSpacing.sm,
+    this.spacing = 0,
     this.runSpacing = DSpacing.xs,
     this.semanticLabel,
   });
