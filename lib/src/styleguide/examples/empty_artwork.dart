@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-Widget emptyReferenceIcon(BuildContext context, String name) =>
-    SvgPicture.string(
-      _artwork[name]!,
-      width: 16,
-      height: 16,
-      colorFilter: ColorFilter.mode(
-        IconTheme.of(context).color!,
-        BlendMode.srcIn,
-      ),
-    );
+Widget emptyReferenceIcon(BuildContext context, String name) {
+  final size = IconTheme.of(context).size ?? 16;
+  return SvgPicture.string(
+    _artwork[name]!,
+    width: size,
+    height: size,
+    colorFilter: ColorFilter.mode(
+      IconTheme.of(context).color!,
+      BlendMode.srcIn,
+    ),
+  );
+}
 
 const _artwork = <String, String>{
   'folder-code': '''<!--

@@ -11,9 +11,10 @@ final emptyExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'A composed empty state with media, explanation and next steps.',
   notes:
-      'Frozen base-nova geometry: 24px padding, 16px outer gap, 384px slots, '
-      '8px header gap, 10px content gap; media adds 8px below its 32px tile. '
-      'Title is 14/20 medium with −0.35px tracking; description is 14/22.75. '
+      'Current new-york geometry: 24px mobile / 48px desktop padding, 24px '
+      'outer gap, 384px slots, 8px header gap and 16px content gap; media adds '
+      '8px below its 40px tile. Title is 18/28 medium with −0.45px tracking; '
+      'description is 14/22.75. '
       'Native line wrapping replaces CSS text-balance. The layout owns no input, '
       'Form, animation, focus or controllers. Compose scrolling in short panes. '
       'Actions use the merged DButton owner. '

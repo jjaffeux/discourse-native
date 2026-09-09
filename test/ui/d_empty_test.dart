@@ -8,11 +8,15 @@ Widget _host(
   ThemeData? theme,
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
+  Size mediaSize = const Size(600, 800),
 }) => MaterialApp(
   theme: theme,
   home: Scaffold(
     body: MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+      data: MediaQueryData(
+        size: mediaSize,
+        textScaler: TextScaler.linear(scale),
+      ),
       child: Directionality(
         textDirection: direction,
         child: Center(child: SizedBox(width: 600, child: child)),
@@ -70,24 +74,45 @@ void main() {
     final title = tester.getRect(find.text('No data'));
     final description = tester.getRect(find.text('A short explanation'));
     final content = tester.getRect(find.byType(DEmptyContent));
-    expect(media.size, const Size(16, 16));
+    expect(media.size, const Size(24, 24));
     expect(
       title.top - media.bottom,
       24,
     ); // 8px tile inset + margin + header gap.
     expect(description.top - title.bottom, 8);
-    expect(content.top - description.bottom, 16);
+    expect(content.top - description.bottom, 24);
     expect(content.width, 384);
     expect(
       tester.getRect(find.byKey(const Key('second'))).top -
           tester.getRect(find.byKey(const Key('action'))).bottom,
-      10,
+      16,
     );
     final style = tester.widget<Text>(find.text('No data')).style!;
-    expect(style.fontSize, 14);
-    expect(style.height, 20 / 14);
-    expect(style.letterSpacing, -.35);
+    expect(style.fontSize, 18);
+    expect(style.height, 28 / 18);
+    expect(style.letterSpacing, -.45);
     expect(style.fontWeight, FontWeight.w500);
+  });
+
+  testWidgets('uses responsive reference padding unless explicitly set', (
+    tester,
+  ) async {
+    Widget sample(double width, {EdgeInsetsGeometry? padding}) => _host(
+      DEmpty(
+        padding: padding,
+        children: const [SizedBox(width: 10, height: 10)],
+      ),
+      mediaSize: Size(width, 800),
+    );
+
+    await tester.pumpWidget(sample(767));
+    expect(tester.getSize(find.byType(DEmpty)).height, 58);
+
+    await tester.pumpWidget(sample(768));
+    expect(tester.getSize(find.byType(DEmpty)).height, 106);
+
+    await tester.pumpWidget(sample(1000, padding: const EdgeInsets.all(7)));
+    expect(tester.getSize(find.byType(DEmpty)).height, 24);
   });
 
   testWidgets(
