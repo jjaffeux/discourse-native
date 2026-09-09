@@ -50,6 +50,12 @@ Bubble owns its own maximum width and internal alignment in Flutter. Callers use
 
 This migration intentionally does not force shadcn bubbles onto the established Discourse chat presentation. The generic Message owner supplies row/avatar/content composition; the app adapter preserves product-specific visual and behavioral contracts. `ChatUploads` already composes the prepared Attachment owner for file cards.
 
+`tool/message_native_review_main.dart` mounts these exact production widgets
+against local in-memory Chat records for native acceptance. It covers ordinary
+and chained rows, CookedHtml, selection ownership, an upload, reactions, a
+thread preview, a direct reply, edited/pinned state, failed delivery and deleted
+presentation without reading or mutating a real account.
+
 Retained alternatives:
 
 - `chat_transcript.dart` remains a quoted-transcript `QuotePanel` with nested CookedHtml and source/channel links, not a live conversation row.
