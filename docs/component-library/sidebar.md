@@ -122,14 +122,14 @@ physical-right modal, Escape/outside dismissal, focus restoration, selected
 semantics,30px geometry,live open-route theme changes, removal,all six examples
 at360px RTL200%,and existing styleguide registration/theme-state behavior.
 
-Exact implementation checkpoint: `226f463af31246120a7449dcddab9f7f9bbf6249`.
-Final component/example rerun passed8 tests after rail/inset refinement; root
-analysis and all6 touched Dart formatting checks pass. Full-profile analysis
-passed before that local refinement. Native comparison awaits the coordinator
-inspection slot; no CUA interaction or visual-parity claim has been made.
-The sample-only macOS bundle has unique identity org.discourse.sidebarreview0cca,
-passes strict deep ad-hoc signature verification and matches the build kernel
-payload byte-for-byte (SHA256
-`eb6055314193b447907b1e4ecc911f9a3f1a9da655da291850a240fe5d2e8965`).
-Runner files are restored and no real-account app has been launched.
-No iOS/Linux device or spoken VoiceOver verification is implied by widget tests.
+Final implementation checkpoint: `47aabf60e65dff047cdf80dd6e29203a93fb8012`.
+Final21 focused tests pass; root/full analysis and formatting are clean.
+[Native comparison, build provenance, cleanup and limitations](sidebar-native.md)
+records the actual macOS inspection and its native-discovered fixes.
+
+Pointer activation requests focus before calling the action. On iOS/Android,
+menu/trigger/action hit areas have48px minimum bounds around compact visuals.
+Leaving the mobile breakpoint clears openMobile, so returning does not reopen
+an obsolete panel. Initial modal focus enters its shortcut subtree, making
+Escape effective immediately. Menu/Content use the registry's gap-0; submenu
+spacing is4px. Floating borders are painted without consuming icon width.

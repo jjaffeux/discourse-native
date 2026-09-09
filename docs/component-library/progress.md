@@ -71,7 +71,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
 | 60 | chart | planned | — | — | tooltip | — |
 | 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
-| 62 | sidebar | in_progress | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | sheet, tooltip, collapsible, input | — |
+| 62 | sidebar | review_ready | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | sheet, tooltip, collapsible, input | — |
 | 63 | input-otp | planned | — | — | input, field | — |
 | 64 | questionnaire | planned | — | — | field, button, progress, card, dialog, native-select | — |
 
@@ -848,7 +848,7 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 
 ### sidebar
 
-Status: in_progress. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sidebar.
+Status: review_ready. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sidebar.
 
 **acceptanceCriteria**
 
@@ -862,6 +862,7 @@ Status: in_progress. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/u
 - Full mapping, API and dependency boundary: docs/component-library/sidebar.md. Official base-nova registry hash 02b1ea430fb246da062048f0161a01d1b34a2c787f6974958c9b20a3142120a6.
 - Provider exposes controlled/uncontrolled desktop and separate mobile state, configurable bounded-width breakpoint and scoped Cmd/Ctrl+B. Native modal route owns focus/dismissal; site colors/fonts/radius update live.
 - Actual Flutter imports are completed Tooltip,Separator,Skeleton. Sheet/Input/Collapsible remain pending catalogue owners; native modal/TextField and local disclosure composition do not claim those tasks complete. Frozen dependency metadata is preserved for coordinator reconciliation.
+- Native review fixed floating icon2px overflow by painting its border outside layout and gave the mobile shortcut subtree initial focus. Pointer actions own keyboard focus; iOS/Android48px hit areas preserve compact visuals; leaving mobile clears obsolete openMobile. Public API remains stable.
 
 **migrations**
 
@@ -873,14 +874,16 @@ Status: in_progress. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/u
 
 **verification**
 
-- Root/full flutter pub get --enforce-lockfile passed with lockfiles unchanged. Root/full flutter analyze --no-pub clean.
-- 16 focused Sidebar, examples and existing styleguide tests passed with seed9092026; final rail/inset refinement rerun passed all8 component/example cases. Exact committed source passes root analysis and touched-file format check.
-- Isolated sample-data macOS Sidebar Review 0cca builds with org.discourse.sidebarreview0cca. Deep strict ad-hoc signature passes; built App.framework kernel bytes match bundled payload (SHA256 eb6055314193b447907b1e4ecc911f9a3f1a9da655da291850a240fe5d2e8965). Runner configuration restored. Native inspection slot requested; no CUA used yet.
+- Root/full locked pub get passed; final root/full analysis clean; touched-file format and git diff --check passed. No lockfile,pin,runner or coordinator-owned shell source changes.
+- Final21 focused Sidebar,example and existing styleguide tests passed with seed9092026, including pointer-to-keyboard,macOS modal Escape,breakpoint reset,iOS/Android hit areas and floating icon geometry regressions.
+- Native comparison and exact evidence/limits: docs/component-library/sidebar-native.md. Final isolated bundle matches build kernel SHA256 b400402635cd61ec213815b387448a848a08bca5fe36f6081f43ee86191488a7; deep strict ad-hoc signature passes.
+- macOS inspected reference dark/light/icon modes; native all six examples,documentation30px,360px RTL200 Forest/Plum live open modal,controlled pointer/Return toggle,immediate Escape,loading/error/retry,submenu selection/disclosure and scrolling. App/tab cleanup verified and slot released.
 
 **limitations**
 
-- Native visual comparison pending coordinator inspection slot; examples remain baseline and component remains in_progress until review gate passes.
-- No iOS/Linux device or spoken VoiceOver verification. Live account navigation adapters retained as documented.
+- Native CUA Cmd/Ctrl+B attempts did not visibly toggle; exact bindings pass widget tests. Return,Tab and Escape visibly verified. No spoken VoiceOver or iOS/Linux device run.
+- Reference/native capture dimensions differ; intrinsic metrics and visual comparison,not pixel-diff equality. Sample labels/caller icons and app font/palette differ.
+- Coordinator owns first docs-shell adoption and its final native check. Live forum/Chat adapters remain retained; pending Sheet/Input/Collapsible/Dropdown Menu owners are not declared complete.
 
 ### Final audit
 
