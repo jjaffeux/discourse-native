@@ -11,9 +11,11 @@ import '../foundation/tokens.dart';
 /// focus, pointer input or semantics.
 ///
 /// The indicator remains visible without motion when [animating] is false,
-/// reduced motion is requested, its ticker subtree is disabled, or the app is
-/// inactive. It never reports a numeric percentage, including when stationary.
-class DSpinner extends StatefulWidget {
+/// reduced motion is requested, or its ticker subtree is disabled. Like the
+/// reference, it keeps turning in a visible window that is not focused; the
+/// scheduler already stops frames while the app is hidden or paused. It never
+/// reports a numeric percentage, including when stationary.
+class DSpinner extends StatelessWidget {
   const DSpinner({
     super.key,
     this.size = DSpacing.lg,
@@ -50,59 +52,26 @@ class DSpinner extends StatefulWidget {
   final Widget? child;
 
   @override
-  State<DSpinner> createState() => _DSpinnerState();
-}
-
-class _DSpinnerState extends State<DSpinner> with WidgetsBindingObserver {
-  late bool _active;
-
-  @override
-  void initState() {
-    super.initState();
-    final binding = WidgetsBinding.instance;
-    _active = _isActive(binding.lifecycleState);
-    binding.addObserver(this);
-  }
-
-  static bool _isActive(AppLifecycleState? state) =>
-      state == null || state == AppLifecycleState.resumed;
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final active = _isActive(state);
-    if (_active != active) setState(() => _active = active);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final color =
-        widget.color ??
+        this.color ??
         IconTheme.of(context).color ??
         DTokens.of(context).foreground;
     final animate =
-        widget.animating &&
-        _active &&
-        TickerMode.valuesOf(context).enabled &&
-        !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+        animating && !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
     // Lucide loader-circle (Loader2Icon), the official shadcn default.
     // Preserve its view box and path verbatim; attribution: licenses/lucide.txt.
     final artwork = _SpinnerArtwork(
       animating: animate,
       child:
-          widget.child ??
+          child ??
           SvgPicture.string(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
-            'fill="none" stroke="currentColor" stroke-width="${widget.strokeWidth}" '
+            'fill="none" stroke="currentColor" stroke-width="$strokeWidth" '
             'stroke-linecap="round" stroke-linejoin="round">'
             '<path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>',
-            width: widget.size,
-            height: widget.size,
+            width: size,
+            height: size,
             theme: SvgTheme(currentColor: color),
           ),
     );
@@ -111,12 +80,12 @@ class _DSpinnerState extends State<DSpinner> with WidgetsBindingObserver {
       child: ExcludeFocus(
         child: IgnorePointer(
           child: SizedBox.square(
-            dimension: widget.size,
+            dimension: size,
             child: FittedBox(
               child: SizedBox.square(
-                dimension: widget.size,
+                dimension: size,
                 child: IconTheme.merge(
-                  data: IconThemeData(color: color, size: widget.size),
+                  data: IconThemeData(color: color, size: size),
                   child: DefaultTextStyle.merge(
                     style: TextStyle(color: color),
                     child: artwork,
@@ -128,11 +97,14 @@ class _DSpinnerState extends State<DSpinner> with WidgetsBindingObserver {
         ),
       ),
     );
-    if (widget.semanticLabel == null) return indicator;
+    if (semanticLabel == null) return indicator;
+    // The reference's role="status" is an announced live region. Flutter
+    // forbids the live-region flag on SemanticsRole.status, and the native
+    // bridges announce from the flag, so the spinner role carries it instead.
     return Semantics(
       container: true,
       role: SemanticsRole.loadingSpinner,
-      label: widget.semanticLabel,
+      label: semanticLabel,
       liveRegion: true,
       child: indicator,
     );
@@ -149,6 +121,8 @@ class _SpinnerArtwork extends StatefulWidget {
   State<_SpinnerArtwork> createState() => _SpinnerArtworkState();
 }
 
+// The ticker mixin mutes the controller under a disabled TickerMode, so only
+// the caller's request and the reduced-motion preference are decided here.
 class _SpinnerArtworkState extends State<_SpinnerArtwork>
     with SingleTickerProviderStateMixin {
   late final _rotation = AnimationController(

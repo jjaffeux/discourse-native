@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
+import 'button_reference_icons.dart';
 
 final spinnerExamples = ComponentExamples(
   description: 'A compact indicator for work in progress.',
@@ -13,74 +14,155 @@ final spinnerExamples = ComponentExamples(
       'a 24-unit view box, round 2-unit stroke, 16px default box and linear '
       'clockwise rotation once per second. A child supplies custom artwork. '
       'Size is in logical pixels; strokeWidth scales with the view box. '
-      'Color inherits IconTheme; explicit colors override it. semanticLabel defaults to '
-      'Loading; localize it, or set null when the surrounding control owns the '
-      'status. Stationary spinners still mean busy. Remove them on completion. '
-      'Motion pauses for Reduce motion, inactive apps and disabled ticker '
-      'subtrees. The spinner takes no input or focus. Host controls own actions, '
-      'errors and async completion. Badges use DBadge; input and empty surfaces are '
-      'local Flutter compositions; their catalogue APIs belong to separate tasks.',
+      'Color inherits IconTheme, so Button, Badge, Item media, Input Group '
+      'addons and Empty media tint it like the reference; explicit colors '
+      'override it. semanticLabel defaults to Loading; localize it, or set null '
+      'when the surrounding control owns the status, as DButton and DBadge do. '
+      'Stationary spinners still mean busy. Remove them on completion. Motion '
+      'pauses for Reduce motion and disabled ticker subtrees, and keeps '
+      'turning in an unfocused window like the reference. The spinner takes '
+      'no input or focus. Host controls own actions, errors and async '
+      'completion. The compositions below use the public DItem, DButton, '
+      'DBadge, DInputGroup and DEmpty components.',
   examples: [
     StyleguideExample(
-      title: 'Size and customization',
+      title: 'Processing payment',
       description:
-          'Compare the four reference sizes, then change the sample artwork, '
-          'size, color and motion. Preview themes update inherited colors live. '
-          'Reduce motion freezes both the default and custom artwork.',
-      states: const ['12', '16', '24', '32', 'Custom icon', 'Stationary'],
-      code: '''const Wrap(
+          'The reference demo: a muted Item with a leading spinner, a '
+          'one-line title and a tabular amount at the inline end. The spinner '
+          'announces Loading; the row inherits the preview direction and '
+          'reflows for large text.',
+      states: const ['Muted item', 'Inherited color', 'Large text'],
+      code: '''ConstrainedBox(
+  constraints: const BoxConstraints(maxWidth: 320),
+  child: DItem(
+    variant: DItemVariant.muted,
+    children: [
+      const DItemMedia(child: DSpinner()),
+      const DItemContent(
+        children: [DItemTitle(child: Text('Processing payment...'))],
+      ),
+      DItemContent(
+        children: [
+          Text(
+            r'\$100.00',
+            style: const TextStyle(
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    ],
+  ),
+)''',
+      builder: (_) => const _SpinnerPayment(title: 'Processing payment...'),
+    ),
+    StyleguideExample(
+      title: 'Size',
+      description:
+          'The four reference sizes with 24px gaps: 12, 16 (default), 24 and '
+          '32 logical pixels. The stroke scales with the view box.',
+      states: const ['12', '16', '24', '32'],
+      code: '''const Row(
+  mainAxisSize: MainAxisSize.min,
   spacing: DSpacing.xl,
   children: [
-    DSpinner(size: 12), DSpinner(),
-    DSpinner(size: 24), DSpinner(size: 32),
+    DSpinner(size: 12),
+    DSpinner(),
+    DSpinner(size: 24),
+    DSpinner(size: 32),
   ],
-)
-// Custom artwork inherits size and color. The caller owns these values.
+)''',
+      builder: (_) => const Wrap(
+        spacing: DSpacing.xl,
+        runSpacing: DSpacing.md,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          DSpinner(size: 12),
+          DSpinner(),
+          DSpinner(size: 24),
+          DSpinner(size: 32),
+        ],
+      ),
+    ),
+    StyleguideExample(
+      title: 'Customization',
+      description:
+          'The reference replaces the arc with Lucide LoaderIcon. Toggle the '
+          'custom artwork, accent color, size and motion; preview themes '
+          'update inherited colors live. Reduce motion freezes both artworks.',
+      states: const ['Loader icon', 'Accent color', 'Stationary'],
+      code:
+          '''// Custom artwork inherits size and color. The caller owns these values.
 DSpinner(
   size: size,
   color: useAccent ? DTokens.of(context).primary : null,
   animating: animate,
   semanticLabel: 'Processing sample',
-  child: customArtwork, // Any child, e.g. a different loader icon.
+  child: custom ? const LoaderIcon() : null, // Any child, e.g. an SVG icon.
 )''',
       builder: (_) => const _SpinnerAppearance(),
     ),
     StyleguideExample(
-      title: 'Button loading and completion',
+      title: 'Button',
       description:
-          'Start any operation. Its button disables while busy and retains its '
-          'accessible name. Complete or fail the operation, then start again. '
-          'The trailing example composes a spinner after its label. Use Tab and '
+          'The reference: three disabled small buttons with an inline-start '
+          'spinner in the default, outline and secondary variants. Below, '
+          'start any operation: its button disables while busy and retains '
+          'its accessible name; complete or fail it, then start again. The '
+          'last button places the spinner at the inline end. Use Tab and '
           'Enter or Space; loading buttons cannot submit twice.',
-      states: const ['Default', 'Outline', 'Secondary', 'Disabled', 'Error'],
-      code: '''DButton(
+      states: const ['Default', 'Outline', 'Secondary', 'Inline end', 'Busy'],
+      code: '''const Column(
+  spacing: DSpacing.lg,
+  children: [
+    DButton(
+      size: DButtonSize.small,
+      icon: DSpinner(semanticLabel: null),
+      label: Text('Loading...'),
+      onPressed: null,
+    ),
+    DButton(
+      variant: DButtonVariant.outline,
+      size: DButtonSize.small,
+      icon: DSpinner(semanticLabel: null),
+      label: Text('Please wait'),
+      onPressed: null,
+    ),
+    DButton(
+      variant: DButtonVariant.secondary,
+      size: DButtonSize.small,
+      icon: DSpinner(semanticLabel: null),
+      label: Text('Processing'),
+      onPressed: null,
+    ),
+  ],
+)
+// DButton owns the busy semantics and composes DSpinner internally.
+DButton(
   label: const Text('Save changes'),
   loadingLabel: const Text('Saving…'),
-  variant: DButtonVariant.primary,
   loading: busy,
   onPressed: startSave,
 )
-// DButton owns the busy semantics and uses DSpinner internally.
-// Ordinary label composition also supports an inline-end spinner:
+// An inline-end spinner uses the icon slot after the label.
 const DButton(
+  icon: DSpinner(semanticLabel: null),
+  iconPosition: DButtonIconPosition.end,
+  label: Text('Processing'),
   onPressed: null,
-  semanticLabel: 'Processing',
-  label: Row(mainAxisSize: MainAxisSize.min, children: [
-    Flexible(child: Text('Processing')),
-    SizedBox(width: DSpacing.sm),
-    DSpinner(semanticLabel: null),
-  ]),
 )''',
       builder: (_) => const _SpinnerButtons(),
     ),
     StyleguideExample(
-      title: 'Badge and inline placement',
+      title: 'Badge',
       description:
           'Toggle activity and inline-end placement. These DBadge '
-          'compositions demonstrate default, secondary and outline surfaces. '
-          'Their text and indicator follow preview direction together; the '
-          'status remains understandable without animation or color.',
-      states: const ['Default surface', 'Secondary surface', 'Outline', 'RTL'],
+          'compositions demonstrate default, secondary and outline surfaces '
+          'with the 12px badge artwork. Their text and indicator follow the '
+          'preview direction together; the status remains understandable '
+          'without animation or color.',
+      states: const ['Default', 'Secondary', 'Outline', 'Inline end', 'RTL'],
       code: """DBadge(
   variant: DBadgeVariant.secondary,
   leading: syncing ? const DSpinner(size: 12, semanticLabel: null) : null,
@@ -90,15 +172,15 @@ const DButton(
       builder: (_) => const _SpinnerBadges(),
     ),
     StyleguideExample(
-      title: 'Input group validation',
+      title: 'Input Group',
       description:
-          'Accept the initial validation, edit both fields and validate again. The disabled single-line '
-          'input shows an inline-end spinner; the textarea uses a block-end '
-          'status and send action. Accept or reject the sample to restore '
-          'editing without losing text. No requests are made.',
+          'The reference: a disabled input with an inline-end spinner, and a '
+          'disabled textarea whose block-end addon shows a spinner, status '
+          'text and a send action. Addons tint the spinner muted. Accept or '
+          'reject the sample to restore editing without losing text, then '
+          'validate again. No requests are made.',
       states: const ['Inline end', 'Block end', 'Disabled', 'Error', 'Success'],
-      code: '''TextField(
-DInputGroup(children: [
+      code: '''DInputGroup(children: [
   DInputGroupInput(enabled: !validating, hintText: 'Send a message...',
     semanticLabel: 'Subject'),
   if (validating) const DInputGroupAddon(
@@ -107,62 +189,158 @@ DInputGroup(children: [
 ])
 DInputGroup(invalid: error != null, children: [
   DInputGroupTextarea(enabled: !validating, minLines: 3, maxLines: 4,
-    semanticLabel: 'Message'),
+    hintText: 'Send a message...', semanticLabel: 'Message'),
   DInputGroupAddon(alignment: DInputGroupAddonAlignment.blockEnd,
     child: Row(children: [
-      if (validating) const DSpinner(semanticLabel: null),
+      if (validating) ...[
+        const DSpinner(semanticLabel: null),
+        const SizedBox(width: DSpacing.sm),
+      ],
       Expanded(child: Text(status)),
-      DInputGroupButton.icon(icon: Icon(Icons.arrow_upward),
-        tooltip: 'Send message', onPressed: validating ? null : send),
+      const SizedBox(width: DSpacing.sm),
+      DInputGroupButton.icon(
+        icon: const ButtonReferenceIcon(ButtonReferenceIcon.arrowUp),
+        tooltip: 'Send', variant: DButtonVariant.primary,
+        onPressed: validating ? null : send),
     ])),
 ])''',
       builder: (_) => const _SpinnerInputs(),
     ),
     StyleguideExample(
-      title: 'Empty state with cancellation',
+      title: 'Empty',
       description:
-          'Cancel, complete or fail the initial request, then start again. Retry after '
-          'failure. The local state owner replaces the spinner with a readable '
-          'result. Longer text wraps at narrow widths and large text scales.',
-      states: const ['Empty', 'Busy', 'Canceled', 'Success', 'Error', 'Retry'],
-      code: '''Column(children: [
-  if (busy) Container(
-    width: 32, height: 32,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(color: DTokens.of(context).muted,
-      borderRadius: DTokens.of(context).borderRadius),
-    child: const DSpinner(semanticLabel: 'Processing your request'),
-  ),
-  const SizedBox(height: DSpacing.md),
-  Text(busy ? 'Processing your request' : status),
-  const Text('Please wait while we process your request. Do not refresh the page.'),
-  const SizedBox(height: DSpacing.md),
-  DButton(
-    label: Text(busy ? 'Cancel request' : 'Start request'),
-    onPressed: busy ? cancel : start,
-  ),
+          'The reference: icon media holding the spinner, a title, a '
+          'description and a small outline Cancel action. Cancel, complete or '
+          'fail the request, then start again; the local state owner replaces '
+          'the spinner with a readable result. Text wraps at narrow widths.',
+      states: const ['Busy', 'Canceled', 'Success', 'Error', 'Retry'],
+      code: '''DEmpty(children: [
+  DEmptyHeader(children: [
+    if (busy) const DEmptyMedia(
+      variant: DEmptyMediaVariant.icon, child: DSpinner()),
+    DEmptyTitle(busy ? 'Processing your request' : status),
+    DEmptyDescription(busy
+        ? 'Please wait while we process your request. Do not refresh the page.'
+        : 'Your sample data is unchanged. Start a request to try again.'),
+  ]),
+  DEmptyContent(children: [
+    DButton(
+      variant: DButtonVariant.outline,
+      size: DButtonSize.small,
+      label: Text(busy ? 'Cancel' : 'Start request'),
+      onPressed: busy ? cancel : start,
+    ),
+  ]),
 ])''',
       builder: (_) => const _SpinnerEmpty(),
     ),
     StyleguideExample(
-      title: 'RTL payment status',
+      title: 'RTL',
       description:
-          'The row inherits the preview direction. Switch Right to left and '
-          '200% text. The leading spinner and amount change logical positions '
-          'and the long label wraps. Rotation remains clockwise in both '
-          'directions, as in the reference.',
-      states: const ['RTL', 'Narrow', 'Large text', 'Inherited color'],
-      code: '''Row(children: [
-  const DSpinner(semanticLabel: null),
-  const SizedBox(width: 10),
-  const Expanded(child: Text('جاري معالجة الدفع...')),
-  const SizedBox(width: 10),
-  Text('١٠٠٫٠٠ دولار', textAlign: TextAlign.end),
-])''',
-      builder: (_) => const _SpinnerPayment(),
+          'The reference language selector switches the payment Item between '
+          'English, Arabic and Hebrew. Direction follows the language: the '
+          'spinner keeps the logical start, the amount the inline end, and '
+          'rotation stays clockwise.',
+      states: const ['Arabic', 'Hebrew', 'English'],
+      code: '''DDirection(
+  textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+  child: DItem(
+    variant: DItemVariant.muted,
+    children: [
+      const DItemMedia(child: DSpinner()),
+      DItemContent(children: [DItemTitle(child: Text(title))]),
+      DItemContent(children: [Text(amount, style: tabular)]),
+    ],
+  ),
+)''',
+      builder: (_) => const _SpinnerRtl(),
     ),
   ],
 );
+
+class _SpinnerPayment extends StatelessWidget {
+  const _SpinnerPayment({required this.title, this.amount = '\$100.00'});
+
+  final String title;
+  final String amount;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 320),
+      child: DItem(
+        variant: DItemVariant.muted,
+        children: [
+          const DItemMedia(child: DSpinner()),
+          DItemContent(children: [DItemTitle(child: Text(title))]),
+          DItemContent(
+            children: [
+              Text(
+                amount,
+                style: const TextStyle(
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _SpinnerRtl extends StatefulWidget {
+  const _SpinnerRtl();
+
+  @override
+  State<_SpinnerRtl> createState() => _SpinnerRtlState();
+}
+
+class _SpinnerRtlState extends State<_SpinnerRtl> {
+  String _language = 'ar';
+
+  @override
+  Widget build(BuildContext context) {
+    final (title, amount) = switch (_language) {
+      'ar' => ('جاري معالجة الدفع...', '١٠٠.٠٠ دولار'),
+      'he' => ('מעבד תשלום...', '\$100.00'),
+      _ => ('Processing payment...', '\$100.00'),
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DSelect<String>.controlled(
+          value: _language,
+          semanticLabel: 'Language',
+          entries: const [
+            DSelectOption(
+              value: 'en',
+              label: 'English',
+              child: Text('English'),
+            ),
+            DSelectOption(
+              value: 'ar',
+              label: 'العربية',
+              child: Text('العربية'),
+            ),
+            DSelectOption(value: 'he', label: 'עברית', child: Text('עברית')),
+          ],
+          onChanged: (value) {
+            if (value != null) setState(() => _language = value);
+          },
+        ),
+        const SizedBox(height: DSpacing.lg),
+        DDirection(
+          textDirection: _language == 'en'
+              ? TextDirection.ltr
+              : TextDirection.rtl,
+          child: _SpinnerPayment(title: title, amount: amount),
+        ),
+      ],
+    );
+  }
+}
 
 class _SpinnerAppearance extends StatefulWidget {
   const _SpinnerAppearance();
@@ -172,8 +350,8 @@ class _SpinnerAppearance extends StatefulWidget {
 }
 
 class _SpinnerAppearanceState extends State<_SpinnerAppearance> {
-  double _size = 24;
-  bool _custom = false;
+  double _size = 16;
+  bool _custom = true;
   bool _accent = false;
   bool _animate = true;
 
@@ -181,40 +359,21 @@ class _SpinnerAppearanceState extends State<_SpinnerAppearance> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Wrap(
-        spacing: DSpacing.xl,
-        runSpacing: DSpacing.md,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      Row(
         children: [
-          for (final size in [12.0, 16.0, 24.0, 32.0])
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DSpinner(size: size, semanticLabel: null),
-                const SizedBox(height: DSpacing.sm),
-                Text('${size.toInt()} px'),
-              ],
-            ),
+          DSpinner(
+            key: const ValueKey('spinner-custom-sample'),
+            size: _size,
+            color: _accent ? DTokens.of(context).primary : null,
+            animating: _animate,
+            semanticLabel: 'Processing sample',
+            child: _custom ? const _ReferenceLoader() : null,
+          ),
+          const SizedBox(width: DSpacing.lg),
+          const Expanded(child: Text('Processing sample')),
         ],
       ),
-      const SizedBox(height: DSpacing.xl),
-      _SpinnerSurface(
-        child: Row(
-          children: [
-            DSpinner(
-              key: const ValueKey('spinner-custom-sample'),
-              size: _size,
-              color: _accent ? DTokens.of(context).primary : null,
-              animating: _animate,
-              semanticLabel: 'Processing sample',
-              child: _custom ? const _ReferenceLoader() : null,
-            ),
-            const SizedBox(width: DSpacing.md),
-            const Expanded(child: Text('Processing sample')),
-          ],
-        ),
-      ),
-      const SizedBox(height: DSpacing.md),
+      const SizedBox(height: DSpacing.lg),
       Wrap(
         spacing: DSpacing.sm,
         runSpacing: DSpacing.xs,
@@ -228,19 +387,16 @@ class _SpinnerAppearanceState extends State<_SpinnerAppearance> {
         ],
       ),
       DSwitchTile(
-        contentPadding: EdgeInsets.zero,
         title: const Text('Custom artwork'),
         value: _custom,
         onChanged: (value) => setState(() => _custom = value),
       ),
       DSwitchTile(
-        contentPadding: EdgeInsets.zero,
         title: const Text('Accent color'),
         value: _accent,
         onChanged: (value) => setState(() => _accent = value),
       ),
       DSwitchTile(
-        contentPadding: EdgeInsets.zero,
         title: const Text('Animate sample'),
         value: _animate,
         onChanged: (value) => setState(() => _animate = value),
@@ -274,33 +430,38 @@ class _SpinnerButtonsState extends State<_SpinnerButtons> {
         child: Column(
           spacing: DSpacing.lg,
           children: [
-            _ReferenceButton(
-              variant: DButtonVariant.primary,
-              inlineIcon: true,
-              child: _SpinnerStatus(label: 'Loading...'),
+            DButton(
+              size: DButtonSize.small,
+              icon: DSpinner(semanticLabel: null),
+              label: Text('Loading...'),
+              onPressed: null,
             ),
-            _ReferenceButton(
-              inlineIcon: true,
-              child: _SpinnerStatus(label: 'Please wait'),
+            DButton(
+              variant: DButtonVariant.outline,
+              size: DButtonSize.small,
+              icon: DSpinner(semanticLabel: null),
+              label: Text('Please wait'),
+              onPressed: null,
             ),
-            _ReferenceButton(
-              variant: DButtonVariant.flat,
-              inlineIcon: true,
-              child: _SpinnerStatus(label: 'Processing'),
+            DButton(
+              variant: DButtonVariant.secondary,
+              size: DButtonSize.small,
+              icon: DSpinner(semanticLabel: null),
+              label: Text('Processing'),
+              onPressed: null,
             ),
           ],
         ),
       ),
       const SizedBox(height: DSpacing.xl),
-
       Wrap(
         spacing: DSpacing.sm,
         runSpacing: DSpacing.sm,
         children: [
           for (final (index, label, variant) in [
             (0, 'Save changes', DButtonVariant.primary),
-            (1, 'Sync locally', DButtonVariant.standard),
-            (2, 'Process sample', DButtonVariant.transparent),
+            (1, 'Sync locally', DButtonVariant.outline),
+            (2, 'Process sample', DButtonVariant.secondary),
           ])
             DButton(
               label: Text(label),
@@ -317,9 +478,10 @@ class _SpinnerButtonsState extends State<_SpinnerButtons> {
                     }),
             ),
           const DButton(
+            icon: DSpinner(semanticLabel: null),
+            iconPosition: DButtonIconPosition.end,
+            label: Text('Processing'),
             onPressed: null,
-            semanticLabel: 'Processing',
-            label: _SpinnerStatus(label: 'Processing', trailing: true),
           ),
         ],
       ),
@@ -360,47 +522,44 @@ class _SpinnerBadgesState extends State<_SpinnerBadges> {
   bool _trailing = false;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: DSpacing.lg,
-          runSpacing: DSpacing.lg,
-          children: [
-            for (final (label, variant) in [
-              (_busy ? 'Syncing' : 'Synced', DBadgeVariant.primary),
-              (_busy ? 'Updating' : 'Updated', DBadgeVariant.secondary),
-              (_busy ? 'Processing' : 'Processed', DBadgeVariant.outline),
-            ])
-              DBadge(
-                variant: variant,
-                liveRegion: true,
-                leading: _busy && !_trailing
-                    ? const DSpinner(size: 12, semanticLabel: null)
-                    : null,
-                trailing: _busy && _trailing
-                    ? const DSpinner(size: 12, semanticLabel: null)
-                    : null,
-                child: Text(label),
-              ),
-          ],
-        ),
-        DSwitchTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Activity in progress'),
-          value: _busy,
-          onChanged: (value) => setState(() => _busy = value),
-        ),
-        DSwitchTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Spinner at inline end'),
-          value: _trailing,
-          onChanged: (value) => setState(() => _trailing = value),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Wrap(
+        spacing: DSpacing.lg,
+        runSpacing: DSpacing.lg,
+        children: [
+          for (final (label, variant) in [
+            (_busy ? 'Syncing' : 'Synced', DBadgeVariant.primary),
+            (_busy ? 'Updating' : 'Updated', DBadgeVariant.secondary),
+            (_busy ? 'Processing' : 'Processed', DBadgeVariant.outline),
+          ])
+            DBadge(
+              variant: variant,
+              liveRegion: true,
+              leading: _busy && !_trailing
+                  ? const DSpinner(size: 12, semanticLabel: null)
+                  : null,
+              trailing: _busy && _trailing
+                  ? const DSpinner(size: 12, semanticLabel: null)
+                  : null,
+              child: Text(label),
+            ),
+        ],
+      ),
+      const SizedBox(height: DSpacing.md),
+      DSwitchTile(
+        title: const Text('Activity in progress'),
+        value: _busy,
+        onChanged: (value) => setState(() => _busy = value),
+      ),
+      DSwitchTile(
+        title: const Text('Spinner at inline end'),
+        value: _trailing,
+        onChanged: (value) => setState(() => _trailing = value),
+      ),
+    ],
+  );
 }
 
 class _SpinnerInputs extends StatefulWidget {
@@ -441,12 +600,9 @@ class _SpinnerInputsState extends State<_SpinnerInputs> {
                   semanticLabel: 'Subject',
                 ),
                 if (_validating)
-                  DInputGroupAddon(
+                  const DInputGroupAddon(
                     alignment: DInputGroupAddonAlignment.inlineEnd,
-                    child: DSpinner(
-                      color: tokens.mutedForeground,
-                      semanticLabel: 'Validating subject',
-                    ),
+                    child: DSpinner(semanticLabel: 'Validating subject'),
                   ),
               ],
             ),
@@ -479,8 +635,13 @@ class _SpinnerInputsState extends State<_SpinnerInputs> {
                       const SizedBox(width: DSpacing.sm),
                       DInputGroupButton.icon(
                         key: const ValueKey('spinner-send'),
-                        icon: const Icon(Icons.arrow_upward, size: 14),
-                        tooltip: 'Send message',
+                        icon: IconTheme.merge(
+                          data: const IconThemeData(size: 14),
+                          child: const ButtonReferenceIcon(
+                            ButtonReferenceIcon.arrowUp,
+                          ),
+                        ),
+                        tooltip: 'Send',
                         variant: DButtonVariant.primary,
                         onPressed: _validating
                             ? null
@@ -554,60 +715,39 @@ class _SpinnerEmptyState extends State<_SpinnerEmpty> {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    final text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.all(DSpacing.xl),
-      child: Column(
+  Widget build(BuildContext context) => DEmpty(
+    children: [
+      DEmptyHeader(
         children: [
-          if (_busy) ...[
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: tokens.muted,
-                borderRadius: tokens.borderRadius,
-              ),
-              alignment: Alignment.center,
-              child: const DSpinner(semanticLabel: null),
+          if (_busy)
+            const DEmptyMedia(
+              variant: DEmptyMediaVariant.icon,
+              child: DSpinner(),
             ),
-            const SizedBox(height: DSpacing.lg),
-          ],
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              _status,
-              textAlign: TextAlign.center,
-              style: text.labelLarge!.copyWith(letterSpacing: -0.35),
-            ),
+          DEmptyTitle.child(
+            child: Semantics(liveRegion: true, child: Text(_status)),
           ),
-          const SizedBox(height: DSpacing.sm),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 384),
-            child: Text(
-              _busy
-                  ? 'Please wait while we process your request. Do not refresh the page.'
-                  : 'Your sample data is unchanged. Start a request to try again.',
-              textAlign: TextAlign.center,
-              style: text.bodySmall!.copyWith(
-                height: 1.625,
-                color: tokens.mutedForeground,
-              ),
-            ),
+          DEmptyDescription(
+            _busy
+                ? 'Please wait while we process your request. Do not refresh the page.'
+                : 'Your sample data is unchanged. Start a request to try again.',
           ),
-          const SizedBox(height: DSpacing.lg),
-          _ReferenceButton(
+        ],
+      ),
+      DEmptyContent(
+        children: [
+          DButton(
+            variant: DButtonVariant.outline,
+            size: DButtonSize.small,
+            label: Text(_busy ? 'Cancel' : 'Start request'),
             onPressed: _busy
                 ? () => _finish('Request canceled')
                 : () => setState(() {
                     _busy = true;
                     _status = 'Processing your request';
                   }),
-            child: Text(_busy ? 'Cancel request' : 'Start request'),
           ),
-          if (_busy) ...[
-            const SizedBox(height: DSpacing.lg),
+          if (_busy)
             Wrap(
               spacing: DSpacing.sm,
               runSpacing: DSpacing.sm,
@@ -624,196 +764,14 @@ class _SpinnerEmptyState extends State<_SpinnerEmpty> {
                 ),
               ],
             ),
-          ],
         ],
       ),
-    );
-  }
-}
-
-class _SpinnerStatus extends StatelessWidget {
-  const _SpinnerStatus({required this.label, this.trailing = false});
-
-  final String label;
-  final bool trailing;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      if (!trailing) ...[
-        const DSpinner(semanticLabel: null),
-        const SizedBox(width: DSpacing.xs),
-      ],
-      Flexible(child: Text(label)),
-      if (trailing) ...[
-        const SizedBox(width: DSpacing.xs),
-        const DSpinner(semanticLabel: null),
-      ],
     ],
   );
 }
 
-class _SpinnerSurface extends StatelessWidget {
-  const _SpinnerSurface({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsetsDirectional.all(DSpacing.lg),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        border: Border.all(color: tokens.border),
-        borderRadius: tokens.borderRadius,
-      ),
-      child: child,
-    );
-  }
-}
-
-// The companion catalogue components are separate tasks. These local
-// compositions use their reference dimensions without introducing public APIs.
-class _ReferenceButton extends StatelessWidget {
-  const _ReferenceButton({
-    required this.child,
-    this.variant = DButtonVariant.standard,
-    this.onPressed,
-    this.inlineIcon = false,
-  });
-
-  final Widget child;
-  final DButtonVariant variant;
-  final VoidCallback? onPressed;
-  final bool inlineIcon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = DTokens.of(context);
-    DButtonStateStyle state(
-      Color background, {
-      BorderSide border = BorderSide.none,
-    }) => DButtonStateStyle(
-      foregroundColor: tokens.foreground,
-      backgroundColor: background,
-      iconColor: tokens.foreground,
-      border: border,
-    );
-    final buttons = theme.discourseButtons.copyWith(
-      disabledOpacity: 0.5,
-      standard: DButtonVariantStyle(
-        enabled: state(
-          tokens.background,
-          border: BorderSide(color: tokens.border),
-        ),
-        interactive: state(
-          tokens.muted,
-          border: BorderSide(color: tokens.border),
-        ),
-      ),
-      flat: DButtonVariantStyle(
-        enabled: state(tokens.muted),
-        interactive: state(tokens.hover),
-      ),
-    );
-    return Theme(
-      data: theme.copyWith(
-        textTheme: theme.textTheme.copyWith(
-          labelLarge: theme.textTheme.labelLarge!.copyWith(
-            fontSize: 12.8,
-            height: 20 / 12.8,
-          ),
-        ),
-        extensions: [
-          for (final extension in theme.extensions.values)
-            if (extension is! DiscourseButtonTheme) extension,
-          buttons,
-        ],
-      ),
-      child: DButton(
-        label: child,
-        variant: variant,
-        size: DButtonSize.small,
-        padding: EdgeInsetsDirectional.fromSTEB(inlineIcon ? 6 : 10, 4, 10, 4),
-        onPressed: onPressed,
-      ),
-    );
-  }
-}
-
-class _SpinnerPayment extends StatelessWidget {
-  const _SpinnerPayment();
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-    final title = rtl ? 'جاري معالجة الدفع...' : 'Processing payment...';
-    final amount = rtl ? '١٠٠.٠٠ دولار' : '\$100.00';
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 320),
-        child: Container(
-          padding: const EdgeInsetsDirectional.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: tokens.muted.withValues(alpha: 0.5),
-            border: Border.all(color: Colors.transparent),
-            borderRadius: tokens.borderRadius,
-          ),
-          child: Semantics(
-            label: '$title, $amount',
-            liveRegion: true,
-            excludeSemantics: true,
-            child: LayoutBuilder(
-              builder: (context, constraints) => Row(
-                children: [
-                  const DSpinner(semanticLabel: null),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: MediaQuery.textScalerOf(context).scale(14) <= 14
-                          ? 1
-                          : null,
-                      overflow: MediaQuery.textScalerOf(context).scale(14) <= 14
-                          ? TextOverflow.ellipsis
-                          : null,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelLarge!.copyWith(height: 1.375),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: constraints.maxWidth / 2,
-                    ),
-                    child: Text(
-                      amount,
-                      textAlign: TextAlign.end,
-                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// Lucide LoaderIcon, the reference customization artwork; attribution in
+/// licenses/lucide.txt. It inherits the spinner's size and color.
 class _ReferenceLoader extends StatelessWidget {
   const _ReferenceLoader();
 
