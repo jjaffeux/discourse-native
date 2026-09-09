@@ -21,7 +21,7 @@ void main() {
       'Invalid and Form',
       'RTL',
       'Multiple and custom value',
-      'Button Group handoff',
+      'Button Group composition',
     ]);
   });
 
@@ -363,13 +363,14 @@ void main() {
     expect(find.byType(Scrollable), findsOneWidget);
   });
 
-  testWidgets('button-group handoff keeps adjacent actions independent', (
+  testWidgets('button-group composition keeps adjacent actions independent', (
     tester,
   ) async {
     final example = selectExamples.examples.firstWhere(
-      (example) => example.title == 'Button Group handoff',
+      (example) => example.title == 'Button Group composition',
     );
     await _mount(tester, Builder(builder: example.builder));
+    expect(find.byType(DButtonGroup), findsOneWidget);
     await tester.tap(find.text('Next'));
     await tester.pump();
     expect(find.text('Actions: 1, mode: week'), findsOneWidget);

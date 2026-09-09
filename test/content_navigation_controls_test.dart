@@ -46,6 +46,12 @@ void main() {
         final shell = _shell(tester);
         final tabId = shell.activeTabId;
 
+        expect(find.byType(DButtonGroup), findsOneWidget);
+        expect(
+          tester.getSemantics(find.byType(DButtonGroup)),
+          matchesSemantics(label: 'Content navigation', hasEnabledState: false),
+        );
+
         expect(
           _button(tester, ContentNavigationControls.backKey).onPressed,
           isNull,

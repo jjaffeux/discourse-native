@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/input_group_scope.dart';
+import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_input.dart';
@@ -109,6 +110,13 @@ class _DInputGroupState extends State<DInputGroup> {
             alpha: tokens.destructive.a * (dark ? .4 : .2),
           )
         : tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5);
+    final joined = DJoinedControlScope.maybeOf(context);
+    final radius =
+        joined?.resolveRadius(
+          BorderRadius.circular(tokens.radius),
+          Directionality.of(context),
+        ) ??
+        BorderRadius.circular(tokens.radius);
 
     final inlineStart = <Widget>[];
     final inlineEnd = <Widget>[];
@@ -184,8 +192,8 @@ class _DInputGroupState extends State<DInputGroup> {
                   const Duration(milliseconds: 150),
                 ),
                 constraints: BoxConstraints(minHeight: multiline ? 64 : 32),
-                decoration: BoxDecoration(
-                  color: dark
+                decoration: _InputGroupSurfaceDecoration(
+                  backgroundColor: dark
                       ? tokens.colors.outlineVariant.withValues(
                           alpha:
                               tokens.colors.outlineVariant.a *
@@ -196,14 +204,16 @@ class _DInputGroupState extends State<DInputGroup> {
                       : tokens.colors.outlineVariant.withValues(
                           alpha: tokens.colors.outlineVariant.a * .5,
                         ),
-                  borderRadius: BorderRadius.circular(tokens.radius),
-                  border: Border.all(color: border),
+                  borderRadius: radius,
+                  borderColor: border,
+                  joinedAxis: joined?.axis,
+                  omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
                 ),
                 foregroundDecoration: _InputGroupRingDecoration(
                   color: invalid || focused ? ring : ring.withValues(alpha: 0),
-                  radius: tokens.radius,
+                  radius: radius,
                 ),
-                child: content,
+                child: DJoinedControlScope.boundary(child: content),
               ),
             ),
           ),
@@ -612,14 +622,116 @@ class _DInputGroupControlState extends State<DInputGroupControl> {
   }
 }
 
+class _InputGroupSurfaceDecoration extends Decoration {
+  const _InputGroupSurfaceDecoration({
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.borderRadius,
+    required this.joinedAxis,
+    required this.omitLeadingBorder,
+  });
+
+  final Color backgroundColor;
+  final Color borderColor;
+  final BorderRadius borderRadius;
+  final Axis? joinedAxis;
+  final bool omitLeadingBorder;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _InputGroupSurfacePainter(this);
+
+  @override
+  Decoration? lerpFrom(Decoration? a, double t) =>
+      a is _InputGroupSurfaceDecoration
+      ? _InputGroupSurfaceDecoration(
+          backgroundColor: Color.lerp(a.backgroundColor, backgroundColor, t)!,
+          borderColor: Color.lerp(a.borderColor, borderColor, t)!,
+          borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
+          joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
+          omitLeadingBorder: t < .5 ? a.omitLeadingBorder : omitLeadingBorder,
+        )
+      : super.lerpFrom(a, t);
+
+  @override
+  Decoration? lerpTo(Decoration? b, double t) =>
+      b is _InputGroupSurfaceDecoration
+      ? b.lerpFrom(this, t)
+      : super.lerpTo(b, t);
+}
+
+class _InputGroupSurfacePainter extends BoxPainter {
+  const _InputGroupSurfacePainter(this.decoration);
+  final _InputGroupSurfaceDecoration decoration;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final rect = offset & configuration.size!;
+    final rrect = decoration.borderRadius.toRRect(rect);
+    canvas.drawRRect(rrect, Paint()..color = decoration.backgroundColor);
+    final outline = rrect.deflate(.5);
+    final borderPaint = Paint()
+      ..color = decoration.borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    if (!decoration.omitLeadingBorder || decoration.joinedAxis == null) {
+      canvas.drawRRect(outline, borderPaint);
+      return;
+    }
+    final direction = configuration.textDirection ?? TextDirection.ltr;
+    final clip = switch (decoration.joinedAxis!) {
+      Axis.vertical => Rect.fromLTRB(
+        rect.left - 1,
+        rect.top + 1.01,
+        rect.right + 1,
+        rect.bottom + 1,
+      ),
+      Axis.horizontal when direction == TextDirection.rtl => Rect.fromLTRB(
+        rect.left - 1,
+        rect.top - 1,
+        rect.right - 1.01,
+        rect.bottom + 1,
+      ),
+      Axis.horizontal => Rect.fromLTRB(
+        rect.left + 1.01,
+        rect.top - 1,
+        rect.right + 1,
+        rect.bottom + 1,
+      ),
+    };
+    canvas
+      ..save()
+      ..clipRect(clip)
+      ..drawRRect(outline, borderPaint)
+      ..restore();
+  }
+}
+
 class _InputGroupRingDecoration extends Decoration {
   const _InputGroupRingDecoration({required this.color, required this.radius});
   final Color color;
-  final double radius;
+  final BorderRadius radius;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
       _InputGroupRingPainter(this);
+
+  @override
+  Decoration? lerpFrom(Decoration? a, double t) =>
+      a is _InputGroupRingDecoration
+      ? _InputGroupRingDecoration(
+          color: Color.lerp(a.color, color, t)!,
+          radius: BorderRadius.lerp(a.radius, radius, t)!,
+        )
+      : super.lerpFrom(a, t);
+
+  @override
+  Decoration? lerpTo(Decoration? b, double t) => b is _InputGroupRingDecoration
+      ? _InputGroupRingDecoration(
+          color: Color.lerp(color, b.color, t)!,
+          radius: BorderRadius.lerp(radius, b.radius, t)!,
+        )
+      : super.lerpTo(b, t);
 }
 
 class _InputGroupRingPainter extends BoxPainter {
@@ -629,10 +741,7 @@ class _InputGroupRingPainter extends BoxPainter {
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     final rect = offset & configuration.size!;
-    final inner = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(decoration.radius),
-    );
+    final inner = decoration.radius.toRRect(rect);
     canvas.drawDRRect(
       inner.inflate(3),
       inner,
