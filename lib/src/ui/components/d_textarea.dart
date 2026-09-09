@@ -255,6 +255,7 @@ class _DTextareaState extends FormFieldState<String> {
           invalid: isInvalid,
           focused: _focus.hasFocus,
           child: Semantics(
+            container: true,
             label: input.labelText,
             isRequired: input.isRequired,
             validationResult: isInvalid

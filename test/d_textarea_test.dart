@@ -1,5 +1,7 @@
 import 'dart:ui' show SemanticsValidationResult;
 
+import 'package:flutter/semantics.dart';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +18,106 @@ Widget host(Widget child, {ThemeData? theme}) => MaterialApp(
 );
 
 void main() {
+  testWidgets('unadorned editor never absorbs page heading or action', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      host(
+        Column(
+          children: [
+            const Text('Surrounding heading'),
+            DTextarea(hintText: 'Message'),
+            TextButton(onPressed: () {}, child: const Text('Send')),
+          ],
+        ),
+      ),
+    );
+    final node = tester.getSemantics(find.byType(EditableText));
+    expect(node.rect.size, tester.getSize(find.byType(TextField)));
+    expect(node.label, isNot(contains('Surrounding heading')));
+    SemanticsNode? ancestor = tester.getSemantics(find.text('Send'));
+    while (ancestor != null) {
+      expect(ancestor.hasFlag(SemanticsFlag.isTextField), isFalse);
+      ancestor = ancestor.parent;
+    }
+    handle.dispose();
+  });
+
+  for (final layout in ['single', 'column', 'row']) {
+    testWidgets(
+      '$layout editors exclude sibling headings and actions from their semantics',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final count = layout == 'single' ? 1 : 2;
+        final fields = List.generate(
+          count,
+          (i) => DTextarea(
+            labelText: 'Message $i',
+            initialValue: 'Draft $i',
+            isRequired: true,
+            errorText: 'Error $i',
+            helperText: 'Help $i',
+          ),
+        );
+        await tester.pumpWidget(
+          host(
+            Column(
+              children: [
+                Semantics(header: true, child: Text('Heading')),
+                if (layout == 'row')
+                  Row(
+                    children: [
+                      for (final field in fields) Expanded(child: field),
+                    ],
+                  )
+                else
+                  ...fields,
+                TextButton(
+                  onPressed: () {},
+                  child: const Text('Independent action'),
+                ),
+              ],
+            ),
+          ),
+        );
+        for (var i = 0; i < count; i++) {
+          final editable = find.byType(EditableText).at(i);
+          final node = tester.getSemantics(editable);
+          expect(node.rect.size, tester.getSize(find.byType(TextField).at(i)));
+          expect(node.label, 'Message $i');
+          expect(node.value, 'Draft $i');
+          expect(node.hasFlag(SemanticsFlag.isTextField), isTrue);
+          expect(node.hasFlag(SemanticsFlag.isRequired), isTrue);
+          expect(
+            node.getSemanticsData().validationResult,
+            SemanticsValidationResult.invalid,
+          );
+          expect(node.label, isNot(contains('Heading')));
+          expect(node.label, isNot(contains('Independent action')));
+        }
+        final action = tester.getSemantics(find.text('Independent action'));
+        expect(action.hasFlag(SemanticsFlag.isButton), isTrue);
+        SemanticsNode? ancestor = action;
+        while (ancestor != null) {
+          expect(ancestor.hasFlag(SemanticsFlag.isTextField), isFalse);
+          ancestor = ancestor.parent;
+        }
+        expect(
+          tester
+              .getSemantics(find.text('Heading'))
+              .hasFlag(SemanticsFlag.isHeader),
+          isTrue,
+        );
+        expect(
+          tester.getSemantics(find.text('Error 0')).label,
+          contains('Error 0'),
+        );
+        handle.dispose();
+      },
+    );
+  }
+
   testWidgets('grows from 64px with content and caps at maxLines', (
     tester,
   ) async {
@@ -222,13 +324,11 @@ void main() {
         hasEnabledState: true,
         isEnabled: true,
         isFocusable: true,
-        label: 'Message\nExplain the issue',
+        label: 'Message',
         value: 'Fixed message',
         textDirection: TextDirection.ltr,
-        hasTapAction: true,
         hasFocusAction: true,
         hasRequiredState: true,
-        isLiveRegion: true,
         validationResult: SemanticsValidationResult.invalid,
         hasDidGainAccessibilityFocusAction: true,
         hasDidLoseAccessibilityFocusAction: true,
