@@ -119,3 +119,35 @@ ellipsis, link callbacks and category hierarchy.
 Official rendered browser comparison and real macOS inspection are deliberately
 left to the required independent reviewer. No browser/native, VoiceOver, iOS or
 Linux inspection is claimed by this implementation task.
+
+## Independent review evidence
+
+Reviewer task `01a08623-9d6e-7393-b3e8-fb4c402b8c71` inspected the live
+official Base UI page in the approved browser. Computed geometry for the main
+and documented examples confirmed 14px/20px normal text, 6px list gaps, 4px
+item gaps, 14px separators, a 20px ellipsis, and a 28px `icon-sm` collapsed
+trigger. Light and dark muted/current colors and the Arabic RTL ordering were
+also compared with the native fixture. The live page was returned to its prior
+state and the reviewer-created tab was closed.
+
+An isolated, ad-hoc-signed macOS debug fixture was launched from the reviewed
+component/examples source. Light, Dark, Forest and Plum palettes; pointer,
+Return and Space callbacks; visible Tab focus; route state; RTL; 240px width;
+200% text; reduced motion; wrapping and scrolling were exercised. Native AX
+exposed one labelled Breadcrumb container with independent links/current page,
+while decorative separators and ellipses stayed absent. The Dropdown and
+Collapsed compositions exercised first focus, arrows, End, typeahead,
+selection, Escape/trigger restoration and outside dismissal. A timed theme
+control remains in the fixture so the final accepted Dropdown source can be
+rechecked while its overlay is open.
+
+A second offline fixture, `tool/breadcrumb_topic_row_review_main.dart`, mounts
+the real `DiscourseApp`, `TopicListView`, topic row and category adapter against
+fixed local API data. Native inspection showed the long parent/child category
+path bounded in the production row, exposed both labelled links in AX, and
+confirmed each callback navigates to the correct local category feed. These
+macOS checks do not establish VoiceOver speech or iOS/Linux device behavior.
+
+The final acceptance record must add the accepted Dropdown merge SHA, confirm
+that the prepared pin is contained or reconcile its changed paths, rerun the
+affected tests, and repeat the open-overlay checks before Breadcrumb merges.
