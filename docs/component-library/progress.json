@@ -2201,7 +2201,7 @@
           "branch": "codex/ui-switch",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
           "headCommit": "fc2e8ca2b8f4c4532289e5e77fb1e23f649dfc2c",
-          "status": "color_and_radius_review"
+          "status": "browser_and_test_renderer_review"
         },
         {
           "component": "chart",
@@ -2294,7 +2294,7 @@
     },
     "pendingCoordinatorNativeReview": "Use Component Fidelity B104 at 6a99b2d2 after unlock to inspect title Escape/save failure, final styleguide preview scrollbar and corrected floating Sidebar radius.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
+    "browserInspectionTaskId": "01a083ce-319b-7bc3-a5c9-371087710718",
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
