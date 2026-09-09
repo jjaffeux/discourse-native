@@ -44,12 +44,23 @@ class ComponentReference {
     required this.name,
     required this.url,
     required this.sections,
+    this.sectionDepths = const [],
   });
 
   final String id;
   final String name;
   final String url;
   final List<String> sections;
+  final List<int> sectionDepths;
+
+  Iterable<ComponentReferenceSection> get outline sync* {
+    for (var index = 0; index < sections.length; index++) {
+      yield ComponentReferenceSection(
+        label: sections[index],
+        depth: index < sectionDepths.length ? sectionDepths[index] : 0,
+      );
+    }
+  }
 
   bool matches(String query) {
     final haystack = '$name $id ${sections.join(' ')}'.toLowerCase();
@@ -59,4 +70,12 @@ class ComponentReference {
         .split(RegExp(r'\s+'))
         .every(haystack.contains);
   }
+}
+
+@immutable
+class ComponentReferenceSection {
+  const ComponentReferenceSection({required this.label, this.depth = 0});
+
+  final String label;
+  final int depth;
 }
