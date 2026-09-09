@@ -2488,20 +2488,55 @@
     },
     {
       "id": "context-menu",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-5dce-7b91-9ee6-7713872f1fa7",
+      "branch": "codex/ui-context-menu",
       "dependencies": [
         "dropdown-menu"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Context Menu Composition, Basic, Submenu, Shortcuts, Groups, Icons, Checkboxes, Radio, Destructive, Sides and RTL examples with exact primary-source geometry and behavior mapping.",
+        "Open at the actual secondary-pointer or long-press position and from Context Menu, Shift+F10 and reader actions; preserve disabled handling, collision, lifecycle cleanup and trigger/reader focus restoration.",
+        "Reuse the final Dropdown Menu owner for menu content, roving/typeahead navigation, selection, checkbox/radio, submenu sibling ownership and deepest Escape rather than creating a second menu engine.",
+        "Support live host palette/font/radius, semantics, compact desktop and accessible touch rows, narrow/200% text, RTL and reduced motion; provide every documented interactive styleguide example.",
+        "Migrate appropriate real core/plugin context actions with domain guards intact, pass focused component/adoption regressions and root/full analysis, then create an independent reviewer for rendered/native acceptance, dependency reconciliation and final local main merge."
+      ],
+      "decisions": [
+        "A Context Menu-owned 1px DPopoverAnchor tracks the exact invocation point while the prepared Dropdown Menu source remains the sole navigation, selection, submenu and popup-content engine.",
+        "Keyboard and accessibility invocation anchor at logical bottom-start of the focused trigger; secondary pointer and touch long press use their local event position.",
+        "The implementation remains baseline/in-progress until its independent reviewer completes official rendered/native acceptance and reconciles the final accepted Dropdown Menu main revision."
+      ],
+      "migrations": [
+        "InstanceActions forum-rail secondary/long-press menu now uses DContextMenu and shared item primitives while retaining its touch More Options sheet, custom gesture adapter, semantics action, permissions, destructive confirmation and stale-controller guard."
+      ],
+      "retainedAlternatives": [
+        "ChatMessageTile retains its rich adaptive actions sheet and separate visible hover menu because dynamic permission, bookmark, flag, pin/restore/rebake busy state and session-safe async flows require a dedicated shared action adapter before one generic tree can preserve both surfaces.",
+        "Editable composer and post selection context menus remain Flutter text-selection owners; sidebar secondary callbacks remain direct alternate navigation; Choice/Command/category/tag anchors and toolbar popups are dropdown/adaptor concerns rather than context invocation menus."
+      ],
+      "verification": [
+        "Frozen Context Menu Markdown SHA256 reproduced exactly as ec20bd0ef47abb75872c1294d1563f0f279d3da5861177d8f2c588d8eb5f6895; base-nova registry SHA256 recorded as 57bfdd236a7f4cb83625edf4c33265ce009738947666d00311034a88f6868756 on 2026-09-09.",
+        "flutter test --no-pub test/d_context_menu_test.dart --test-randomize-ordering-seed=826145: 10 tests passed for secondary/touch/keyboard invocation, pointer placement, disabled state, focus restoration, typeahead, checkbox/radio, submenu Escape, RTL and collision.",
+        "flutter test --no-pub test/d_dropdown_menu_test.dart test/d_popover_test.dart test/styleguide/context_menu_examples_test.dart test/instance_actions_accessibility_test.dart test/modal_controller_lifecycle_test.dart --test-randomize-ordering-seed=826145: 53 dependency, styleguide and adoption regressions passed.",
+        "Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub: clean after final source changes.",
+        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart: built Discourse.app; kernel SHA256 6fa392ded08bd8c73b78794d38c04606daee7d42f2ae60acf01e336c32f2b699.",
+        "dart format on all touched Dart files, JSON parse, progress render and git diff --check: passed; generated progress Markdown trailing blank line normalized."
+      ],
+      "limitations": [
+        "Official rendered browser comparison and native macOS interaction inspection remain for the independent reviewer; no iOS/Linux device or spoken VoiceOver pass is claimed.",
+        "Final merge is blocked until Dropdown Menu reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 accepts and merges its parent revision to local main, after which the Context Menu reviewer must reconcile that exact accepted source."
+      ],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "preparedDependencies": [
+        {
+          "id": "dropdown-menu",
+          "branch": "codex/review-dropdown-menu-candidate",
+          "commit": "d273c27e788bb3991c773c7432e0b8c927715651",
+          "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+          "evidence": "Parent reviewer reported 47 focused Dropdown/Popover/Table/styleguide tests passing with seed 826145 and clean root plus profiles/full analysis for the reviewed/current-main candidate. Native/browser acceptance and final local main merge remain pending.",
+          "mergeGate": "Wait for the accepted Dropdown Menu local-main merge, replace/reconcile this prepared source with the accepted revision, verify affected Context Menu behavior and prevent any unaccepted parent source from reaching main."
+        }
+      ]
     },
     {
       "id": "menubar",
