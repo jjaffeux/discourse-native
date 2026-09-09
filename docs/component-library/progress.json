@@ -2104,14 +2104,19 @@
         "The accepted shared route extraction passed all 23 focused Dialog checks and analysis before integration; the final combined regression above confirms default Dialog presentation remained unchanged after Sheet consumption.",
         "Actual Voice room chat focused regressions pass: loading-to-empty with component-owner assertion (1 test), and load-older/send/close lifecycle with component-owner assertion (1 test).",
         "Root flutter analyze --no-pub passes with no diagnostics in 15.1s; profiles/full flutter analyze --no-pub passes with no diagnostics in 4.4s. Touched Dart is formatted and focused analysis is clean.",
-        "tool/sheet_review_main.dart is a local-data macOS fixture entrypoint mounting the registered Sheet styleguide and actual VoiceRoomContent through the reusable in-memory Voice fixture. It exposes light/dark, LTR/RTL, 100%/200% and reduced-motion controls without account/network/device acquisition. Build/source/kernel/signature/native launch evidence remains reviewer-owned."
+        "tool/sheet_review_main.dart is a local-data macOS fixture entrypoint mounting the registered Sheet styleguide and actual VoiceRoomContent through the reusable in-memory Voice fixture. It exposes light/dark, LTR/RTL, 100%/200% and reduced-motion controls without account/network/device acquisition.",
+        "Exact implementation source b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a built successfully with Flutter 3.47.2 using flutter build macos --debug --no-pub -t tool/sheet_review_main.dart after enforced-lockfile resolution. The isolated copy /private/tmp/discourse-sheet-b007d3bd.MCV4UM/Sheet Review b007d3bd.app has identifier org.discourse.native.sheet.b007d3bd, kernel SHA-256 2ea2272baa4dff5ae698b137e163c82dd74ffdf0a11d8d4ab09e387e40dcf479, deep strict ad-hoc signature verification and exactly the seven permitted debug entitlements with no APS/application/team identifiers. It was not launched or natively inspected."
       ],
       "limitations": [
         "The source task did not perform official-browser or native macOS inspection and makes no iOS, Linux or spoken VoiceOver claim. The required new reviewer owns the first actual rendered comparison, exact-source isolated build and native acceptance before merge.",
         "Styleguide status remains baseline until the reviewer completes actual reference/native acceptance. Drag/snap/detent behavior intentionally remains outside Sheet and with Drawer."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a",
       "mergeCommit": null,
+      "reviewBuildSource": "b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a",
+      "bundle": "/private/tmp/discourse-sheet-b007d3bd.MCV4UM/Sheet Review b007d3bd.app",
+      "kernelSHA256": "2ea2272baa4dff5ae698b137e163c82dd74ffdf0a11d8d4ab09e387e40dcf479",
+      "nativeInspectionStatus": "not_started",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4177/discourse-native",
       "queueStage": "implementation_ready_for_independent_review",
       "implementationBrief": "Implement the complete Sheet anatomy and side/dismissal API, including top/bottom/left/right or logical sides, No Close Button and RTL examples. Reuse accepted Dialog route/session/focus/dismissal ownership and live caller-scoped theme. Match shadcn size, border, close-button, header/footer and motion rather than inheriting a Material bottom-sheet appearance. Preserve controlled/local/controller lifecycle, nested overlays, typed results, outside/Escape/back policies, focus entry/restoration, safe areas, keyboard insets and scroll/narrow/scaled behavior. Audit actual core/plugin side and bottom panels, and coordinate adoption ownership with the separately queued Drawer task so neither overwrites the other's callers. Drawer owns its gesture/snap semantics; Sheet remains its documented component. Add focused route/focus/dismissal/live-theme/adoption regressions.",
@@ -2130,6 +2135,16 @@
           "reviewBranch": "codex/review-dialog",
           "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
           "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
+        }
+      ],
+      "preparedDependencies": [
+        {
+          "id": "drawer-shared-overlay-extraction",
+          "branch": "codex/ui-drawer",
+          "commit": "d2f2eaae3965aebd4ba53aa79abe22ec4b6c30da",
+          "taskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
+          "evidence": "Isolated d_overlay_route.dart and d_dialog.dart presentation/duration extraction; 23 focused Dialog checks and analyzer passed before Sheet integrated it as e853934d.",
+          "mergeGate": "Sheet reviewer must reconcile this shared source with the accepted Drawer/current-main revision and verify all affected Dialog/Sheet behavior. No unaccepted Drawer source may reach main through Sheet."
         }
       ]
     },
