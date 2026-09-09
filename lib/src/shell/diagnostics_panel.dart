@@ -317,7 +317,6 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                   child: ListView.builder(
                     key: const ValueKey('diagnostics-timeline'),
                     controller: _timeline,
-                    itemExtent: 70,
                     itemCount: visible.length,
                     itemBuilder: (context, index) {
                       final event = visible[index];
@@ -831,6 +830,7 @@ class _EventRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
+          constraints: const BoxConstraints(minHeight: 70),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: theme.shell.divider)),
@@ -849,6 +849,7 @@ class _EventRow extends StatelessWidget {
               ),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -874,6 +875,7 @@ class _EventRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Column(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
