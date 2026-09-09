@@ -1714,10 +1714,35 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/u
 
 - Owns Field composition only, based on local main 402fe578; Label and Separator merged. No imports from unmerged component worktrees.
 - Coordinator send_message_to_thread is absent from available tool metadata; report ownership and overlap through this row and final handoff.
+- Primary source hashes and measured geometry/API/semantics/migration mapping recorded in docs/component-library/field.md and reference/field/.
+- Single Field composition owner plus DFieldControl native association; no Form state or borrowed resource ownership. Choice cards use outside-only 3px ring and multiplicative live alpha.
+- Nine actual-component examples with generated complete runnable sources. Baseline status explicitly preserves the pending control reconciliation/native review gate.
 
 **migrations**
 
-- Candidate bounded migration: Preferences _PreferenceCard surrounding form grouping and Voice room editor section grouping. Input/Textarea/Switch/Native Select own inner controls; Alert owns preferences notices. Broad ordinary-editor migrations are explicitly excluded.
+- Preferences _PreferenceCard uses DFieldGroup with spacing:0 to retain adapter-owned gaps; device-timezone help uses DFieldDescription. Saving, restoration, permissions and notice owners unchanged.
+- VoiceRoomEditorDialog uses DFieldGroup (20px); production showVoiceRoomEditor retains latest-controller save behavior, controller lifetimes and draft conversion. Public dialog name permits the actual production form to return local draft data in the isolated fixture.
+
+**retainedAlternatives**
+
+- Full core/plugin audit and exact adjacent-owner overlaps recorded in field.md. Input/Textarea/Checkbox/Radio/Switch/Slider/Native Select/Button are unmerged; native example controls remain visibly temporary and no other worktree is imported.
+- Alert owns inline status/error notices and Empty page-scale states. Domain composite editors and schema-driven Poll/Local Dates/Events forms await serialized owner reconciliation.
+
+**verification**
+
+- Touched 11 Dart files format clean; git diff --check passes. Flutter 3.47.2 and root/Voice/full-profile lockfiles unchanged. Isolated build used flutter pub get --enforce-lockfile.
+- Final flutter analyze --no-pub: root clean (5.3s), profiles/full clean (1.5s). Logs /tmp/field-final-analysis.log and /tmp/field-full-final-analysis.log.
+- Final flutter test --no-pub test/ui/d_field_test.dart test/styleguide/field_examples_test.dart test/preferences_page_test.dart test/voice_room_view_test.dart --test-randomize-ordering-seed=random: 103 passed, seed 1870857252; /tmp/field-final-tests.log. Includes 18 Field/example tests for native control metadata/actions, borrowed focus, Form save/reset/reflow, disabled guards, error deduplication/empty geometry, direct group spacing, 280px/200% RTL examples, and exterior-ring/live-multiplicative-alpha pixel regression.
+- Earlier flutter test --no-pub test/preferences_page_test.dart test/voice_room_view_test.dart test/ui/d_label_test.dart test/ui/d_separator_test.dart test/styleguide/label_examples_test.dart test/plugin_dependency_boundary_test.dart --test-randomize-ordering-seed=random: 132 passed, seed 734624525; /tmp/field-downstream-tests.log.
+- Isolated native build succeeded: flutter build macos --debug --no-pub -t tool/field_review_main.dart. Source commit 5aa4e377b7399a22dca17263ec62dae20c290090. Final bundle /var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-ready-5aa4e377-7yhdcp9f/Field Review.app; ID org.discourse.field.review; URL scheme discourse-field-review. Never launched.
+- Native evidence: 2367 of 2371 tracked source files/symlink targets byte-equal to source commit; four temporary runner-only overrides for unique app identity, local ad-hoc signing and omission of unused APS entitlement. Original/copied kernel SHA256 d6ef9893a7290ce61a299edf769a5ddb11dca5de802b631aebb590e0a7e419c7. codesign --verify --deep --strict --verbose=2 passes after re-signing copied root to account for build-generated Credits.rtf. Full evidence in docs/component-library/field-build.json; production runner/pins unchanged.
+- awaiting_slot: actual reference-rendered comparison, native styleguide/production Preferences/Voice fixture inspection and VoiceOver have not run. Status remains in_progress, never review_ready.
+
+**limitations**
+
+- awaiting_slot: no desktop/browser access was granted. Reference-rendered comparison, actual native styleguide/production inspection and VoiceOver remain unverified. Keep in_progress; not review_ready or mergeable.
+- Source/control reconciliation remains explicit: after pending controls merge, replace temporary example controls, inspect compact indicator heights, and adopt Field in adjacent examples. See field.md.
+- send_message_to_thread is unavailable in the tool inventory; durable progress row and final handoff carry coordination evidence.
 
 ### alert
 
