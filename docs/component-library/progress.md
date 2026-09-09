@@ -2669,14 +2669,42 @@ Status: in_progress. Task: 01a085d4-9afd-7082-8081-f8b1f8f66287. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Reproduce the frozen Attachment, Media, Content, Title, Description, Actions, Action, Trigger and Group APIs and full Image, States, Sizes, Group and Trigger examples with recorded primary-source mapping.
-- Support actual interaction, keyboard focus, native semantics, grouped scrolling, narrow/scaled/RTL layouts, reduced motion and live host theme/font/radius while keeping upload/network/domain ownership in app adapters.
-- Audit and adopt throughout appropriate core/plugin file/upload/image previews including composers and Chat; preserve existing media state, async lifecycle and callbacks and record retained alternatives.
-- Run meaningful focused component/consumer checks and root/full analysis, prepare exact-source fixtures and create a new reviewer for remaining rendered/native acceptance, final compositions, fixes and local main merge.
+- Match frozen base-nova Attachment anatomy, five lifecycle states, icon/image media, default/sm/xs geometry, horizontal/vertical orientation, live host palette/font/radius and documented compositions.
+- Keep full-card trigger and icon actions independently pointer/keyboard accessible with labeled semantics, visible outside focus, disabled/loading treatment, compact desktop artwork and 48px touch targets.
+- Provide owned/borrowed scroll and focus lifecycle, pointer/touch/trackpad drag, item snapping, edge fade, focused-child visibility and labeled presentational keyboard scrolling; support RTL, reduced motion, large text and narrow constraints.
+- Migrate suitable composer upload lifecycle rows and chat file attachments without moving domain/network/async ownership; retain specialized image, video, gallery, editor and picker owners with specific reasons.
+- Provide exhaustive interactive styleguide examples and exact-source local-data production fixture; pass focused component/consumer/styleguide tests plus root and profiles/full analysis before independent reviewer handoff.
 
 **decisions**
 
-- Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
+- Frozen Markdown hash and complete base-nova registry source verified; exact geometry, tokens, states, API mapping and native adaptations are recorded in docs/component-library/attachment.md.
+- One public D-prefixed composition with caller-owned file/network state. DMarkerContent supplies the accepted shared shimmer; DButton and DScrollArea supply actions and scrolling.
+- Source preparation uses exact unaccepted Dialog review pin 8a800783 on codex/review-dialog. Reviewer must wait for accepted Dialog main, integrate current main and verify overlap before Attachment can merge.
+
+**migrations**
+
+- ComposerUploadQueue now composes DAttachment lifecycle rows while preserving controller progress/retry/cancel/remove/submission and thumbnail ownership.
+- ChatUploads non-media file cards now compose DAttachment with an independently labeled link trigger while preserving URL resolution and navigation ownership.
+- Seven interactive styleguide groups cover composition, images, states, sizes, groups, Dialog trigger and RTL/large-text/narrow behavior.
+
+**retainedAlternatives**
+
+- Chat authenticated images/lightbox and inline video retain specialized media owners for gallery, aspect ratio, playback, download and error behavior.
+- Composer projected images/galleries/editing controls, picker/drop triggers, Markdown document models and upload networking retain their selection, editing, transport and lifecycle owners; they are not compact attachment cards.
+- No other suitable core or bundled-plugin attachment card was found in the lib/src and packages audit.
+
+**verification**
+
+- Frozen 22,086-byte Markdown SHA256 47350990437e1b9c623684cbee001101962dcd7fb9328b162ef07adb03774175 verified; base-nova attachment registry SHA256 f6c6d376067d2734375a607256d59ce6c3ea4e486deda510b31844102033d353 inspected completely.
+- Flutter 3.47.2 dependencies resolved with flutter pub get --enforce-lockfile and no dependency/lockfile edits.
+- 8 component interaction/lifecycle/responsive tests passed with seed 904733; 64 component/composer/chat migration tests passed with seed 904736; 2 exhaustive example tests passed with seed 904737.
+- After integrating accepted Native Select/current main 5a26e571, all 111 Attachment, production fixture, styleguide, Scroll Area, prepared Dialog and consumer regression tests passed with seed 904741; root and profiles/full flutter analyze --no-pub passed with no issues.
+- Exact source 259f038d macOS fixture build passed. Unlaunched unique copy /private/tmp/DiscourseAttachmentReview39d9-259f038d.app uses org.discourse.native.attachmentreview39d9.r259f038d and discourse-attachment-review-39d9; built/copied kernels SHA256 19235b03ef7b1892cbfd15e69e3816538c3689fca5d736c269b48231916c747a. Ad-hoc entitlement readback contains only JIT/unsigned-executable-memory/library-validation allowances and deep strict signature verification passed; evidence/attachment/build.json.
+
+**limitations**
+
+- Official rendered light/dark comparison and native macOS fixture interaction/semantics remain for the independent reviewer under the shared desktop lease; no device, spoken VoiceOver or pixel-equality claim is made.
+- Dialog pin 8a800783 is prepared source only and must be replaced/reconciled with the accepted Dialog main merge before Attachment's final merge.
 
 ### marker
 
@@ -2913,3 +2941,4 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+
