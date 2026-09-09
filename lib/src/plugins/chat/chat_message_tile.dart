@@ -935,12 +935,12 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                         size: 16,
                                       ),
                                       style: MenuItemButton.styleFrom(
-                                        foregroundColor: Theme.of(context)
-                                            .colorScheme
-                                            .error,
-                                        iconColor: Theme.of(context)
-                                            .colorScheme
-                                            .error,
+                                        foregroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                        iconColor: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
                                       ),
                                       child: const Text('Delete'),
                                     ),
@@ -1894,8 +1894,9 @@ class _AvatarFallback extends StatelessWidget {
           final name? => name.characters.first.toUpperCase(),
           null => '?',
         },
-        style: Theme.of(context).textTheme.labelSmall
-            ?.copyWith(fontWeight: FontWeight.w700),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
     ),
   );

@@ -106,6 +106,26 @@ void main() {
     expect(tester.getRect(find.byKey(const ValueKey('avatar'))).left, 0);
   });
 
+  testWidgets('preserves direct-child order and intrinsic auxiliary width', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const DMessage(
+          children: [
+            DMessageAvatar(),
+            DMessageContent(children: [SizedBox(height: 20)]),
+            SizedBox(key: ValueKey('auxiliary'), width: 10, height: 10),
+          ],
+        ),
+      ),
+    );
+
+    final auxiliary = tester.getRect(find.byKey(const ValueKey('auxiliary')));
+    expect(auxiliary.width, 10);
+    expect(auxiliary.right, 400);
+  });
+
   testWidgets('groups consecutive rows with the reference 8px gap', (
     tester,
   ) async {
@@ -123,6 +143,54 @@ void main() {
     final first = tester.getRect(find.byKey(const ValueKey('first')));
     final second = tester.getRect(find.byKey(const ValueKey('second')));
     expect(second.top - first.bottom, 8);
+  });
+
+  testWidgets('uses exact type metrics and updates live host font families', (
+    tester,
+  ) async {
+    const content = DMessage(
+      children: [
+        DMessageContent(
+          children: [
+            DMessageHeader(children: [Text('Author')]),
+            Text('Body'),
+          ],
+        ),
+      ],
+    );
+
+    ThemeData themed(String family) => ThemeData(
+      textTheme: TextTheme(
+        bodyMedium: TextStyle(fontFamily: '$family-body'),
+        labelSmall: TextStyle(fontFamily: '$family-metadata'),
+      ),
+    );
+
+    await tester.pumpWidget(host(content, theme: themed('first')));
+    var body = tester.widget<RichText>(
+      find.descendant(of: find.text('Body'), matching: find.byType(RichText)),
+    );
+    var metadata = tester.widget<RichText>(
+      find.descendant(of: find.text('Author'), matching: find.byType(RichText)),
+    );
+    expect(body.text.style?.fontSize, 14);
+    expect(body.text.style?.height, closeTo(20 / 14, .0001));
+    expect(body.text.style?.fontFamily, 'first-body');
+    expect(metadata.text.style?.fontSize, 12);
+    expect(metadata.text.style?.height, closeTo(16 / 12, .0001));
+    expect(metadata.text.style?.fontWeight, FontWeight.w500);
+    expect(metadata.text.style?.fontFamily, 'first-metadata');
+
+    await tester.pumpWidget(host(content, theme: themed('second')));
+    await tester.pumpAndSettle();
+    body = tester.widget<RichText>(
+      find.descendant(of: find.text('Body'), matching: find.byType(RichText)),
+    );
+    metadata = tester.widget<RichText>(
+      find.descendant(of: find.text('Author'), matching: find.byType(RichText)),
+    );
+    expect(body.text.style?.fontFamily, 'second-body');
+    expect(metadata.text.style?.fontFamily, 'second-metadata');
   });
 
   testWidgets('metadata follows message side and ghost removes its inset', (
@@ -173,6 +241,41 @@ void main() {
     expect(tester.getRect(find.byKey(const ValueKey('flush'))).left, 0);
   });
 
+  testWidgets('header default keeps the reference zero child gap', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const DMessage(
+          children: [
+            DMessageContent(
+              children: [
+                DMessageHeader(
+                  children: [
+                    SizedBox(
+                      key: ValueKey('header-first'),
+                      width: 20,
+                      height: 16,
+                    ),
+                    SizedBox(
+                      key: ValueKey('header-second'),
+                      width: 20,
+                      height: 16,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final first = tester.getRect(find.byKey(const ValueKey('header-first')));
+    final second = tester.getRect(find.byKey(const ValueKey('header-second')));
+    expect(second.left, first.right);
+  });
+
   testWidgets('status announcements do not merge independent action labels', (
     tester,
   ) async {
@@ -211,6 +314,13 @@ void main() {
     final status = tester.getSemantics(find.byType(DMessageStatus));
     expect(status.label, 'Failed to send');
     expect(status.flagsCollection.isLiveRegion, isTrue);
+    final statusText = tester.widget<RichText>(
+      find.descendant(
+        of: find.byType(DMessageStatus),
+        matching: find.byType(RichText),
+      ),
+    );
+    expect(statusText.text.style?.fontWeight, FontWeight.w500);
     final retry = find.bySemanticsLabel('Retry');
     expect(retry, findsOneWidget);
     await tester.tap(retry);

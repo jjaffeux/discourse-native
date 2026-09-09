@@ -64,25 +64,12 @@ class DMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatars = children.whereType<DMessageAvatar>().toList();
     final content = children.whereType<DMessageContent>().toList();
-    final remaining = children
-        .where((child) => child is! DMessageAvatar && child is! DMessageContent)
-        .toList();
     final hasFooter = content.any((part) => part.hasFooter);
 
     final rowChildren = <Widget>[
-      ...avatars,
-      if (content.isNotEmpty)
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: DSpacing.sm,
-            children: content,
-          ),
-        ),
-      for (final child in remaining) Expanded(child: child),
+      for (final child in children)
+        if (child is DMessageContent) Expanded(child: child) else child,
     ];
     final laidOutChildren = align == DMessageAlign.end
         ? rowChildren.reversed.toList()
@@ -262,7 +249,7 @@ class DMessageHeader extends StatelessWidget {
   const DMessageHeader({
     super.key,
     required this.children,
-    this.spacing = DSpacing.sm,
+    this.spacing = 0,
     this.runSpacing = DSpacing.xs,
     this.semanticLabel,
   });
@@ -402,8 +389,8 @@ class DMessageStatus extends StatelessWidget {
       child: Text(
         value,
         style: state == DMessageDeliveryState.failed
-            ? TextStyle(color: tokens.destructive, fontWeight: FontWeight.w400)
-            : const TextStyle(fontWeight: FontWeight.w400),
+            ? TextStyle(color: tokens.destructive)
+            : null,
       ),
     );
   }
