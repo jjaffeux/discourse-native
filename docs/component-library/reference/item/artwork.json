@@ -1,0 +1,82 @@
+[
+  {
+    "file": "lib/src/styleguide/assets/item/shadcn.png",
+    "url": "https://github.com/shadcn.png",
+    "sha256": "513d06f542692036ff0bb17938f04b3efd60567ba2cae08049469d21f18e0524"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/maxleiter.png",
+    "url": "https://github.com/maxleiter.png",
+    "sha256": "218688eaf50a9380355622deaa0d087a808e4967bb39bf653ccef7d46193a169"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/evilrabbit.png",
+    "url": "https://github.com/evilrabbit.png",
+    "sha256": "ef407ec862dd072b8624fad7a331df80f56694e98bc1d89b0feb0ea0185e8954"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/inbox.svg",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/inbox.svg",
+    "sha256": "1838482c53d0846badef9be96fdcf7a167064241bd4891efa995c77ebec5f187"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/shield-alert.svg",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-alert.svg",
+    "sha256": "803008bc82bc53984204730f0bfc1ef5b20c8a7c588b9779948c691e03158c5c"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/badge-check.svg",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/badge-check.svg",
+    "sha256": "a83b36e35ed35be896c5e5d39d0a63ba4368735ac22f09a26a31726259467775"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/chevron-right.svg",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevron-right.svg",
+    "sha256": "2758143d7b2434e4aa7307dfd34405c87909ff4052f21b5f3f40d45224b4f19b"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/external-link.svg",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/external-link.svg",
+    "sha256": "3891241b8c3bfc3a8a930078f26ffc5a7e9763da6d0162ace2050b28d4c1d1fe"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/plus.svg",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/plus.svg",
+    "sha256": "7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/chevron-down.svg",
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevron-down.svg",
+    "sha256": "66ea878e72ed3488bb3b464c39dfdccee8d1f78e560dccea40e5e12da0e87e87"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/model-sm.jpg",
+    "url": "https://images.unsplash.com/photo-1650804068570-7fb2e3dbf888?q=80&w=640&auto=format&fit=crop",
+    "sha256": "cb005460d6e9664145e53a736b7b4572879df1948ec4a962ac973a35a4e43f36"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/model-lg.jpg",
+    "url": "https://images.unsplash.com/photo-1610280777472-54133d004c8c?q=80&w=640&auto=format&fit=crop",
+    "sha256": "ae80e35a3520750c7bee8414d11c8d81020a4190d656422732564e088c380b08"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/model-mini.jpg",
+    "url": "https://images.unsplash.com/photo-1602146057681-08560aee8cde?q=80&w=640&auto=format&fit=crop",
+    "sha256": "c1bee59a416f28b9038f529954bec08c646f38937b64dc32d72042ea7a3cfc87"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/song-0.svg",
+    "url": "https://avatar.vercel.sh/Midnight%20City%20Lights",
+    "sha256": "3a9ae66109a7a21663b1a17cd9a8e17119635cb00e52a2ea969a3f3df7cd4ae7"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/song-1.svg",
+    "url": "https://avatar.vercel.sh/Coffee%20Shop%20Conversations",
+    "sha256": "93daca54b984d1baf0dedeb3a6567c338877babf7fd940bb0e53b0b8abc772a3"
+  },
+  {
+    "file": "lib/src/styleguide/assets/item/song-2.svg",
+    "url": "https://avatar.vercel.sh/Digital%20Rain",
+    "sha256": "f57f942ed4e07450b4e82f6664b0571627a5633556730f672590eb6f5bdeaee4"
+  }
+]
