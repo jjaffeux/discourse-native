@@ -3,9 +3,15 @@ import 'dart:ui' show SemanticsValidationResult;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
+
+bool _isComboboxTouchPlatform(BuildContext context) =>
+    Theme.of(context).platform == TargetPlatform.iOS ||
+    Theme.of(context).platform == TargetPlatform.android;
 
 enum DComboboxChangeReason {
   input,
@@ -151,9 +157,10 @@ class DCombobox<T> extends FormField<List<T>> {
     this.equals,
     this.itemToStringLabel,
     this.limit,
+    this.closeOnSelect = true,
     this.readOnly = false,
     super.enabled = true,
-    super.onSaved,
+    FormFieldSetter<T?>? onSaved,
     super.onReset,
     FormFieldValidator<T?>? validator,
     super.autovalidateMode,
@@ -170,6 +177,9 @@ class DCombobox<T> extends FormField<List<T>> {
          validator: validator == null
              ? null
              : (values) => validator(values?.firstOrNull),
+         onSaved: onSaved == null
+             ? null
+             : (values) => onSaved(values?.firstOrNull),
          builder: (state) => (state as _DComboboxState<T>)._build(),
        );
 
@@ -201,9 +211,10 @@ class DCombobox<T> extends FormField<List<T>> {
     this.equals,
     this.itemToStringLabel,
     this.limit,
+    this.closeOnSelect = true,
     this.readOnly = false,
     super.enabled = true,
-    super.onSaved,
+    FormFieldSetter<T?>? onSaved,
     super.onReset,
     FormFieldValidator<T?>? validator,
     super.autovalidateMode,
@@ -220,6 +231,9 @@ class DCombobox<T> extends FormField<List<T>> {
          validator: validator == null
              ? null
              : (values) => validator(values?.firstOrNull),
+         onSaved: onSaved == null
+             ? null
+             : (values) => onSaved(values?.firstOrNull),
          builder: (state) => (state as _DComboboxState<T>)._build(),
        );
 
@@ -251,6 +265,7 @@ class DCombobox<T> extends FormField<List<T>> {
     this.equals,
     this.itemToStringLabel,
     this.limit,
+    this.closeOnSelect = true,
     this.readOnly = false,
     super.enabled = true,
     super.onSaved,
@@ -299,6 +314,7 @@ class DCombobox<T> extends FormField<List<T>> {
     this.equals,
     this.itemToStringLabel,
     this.limit,
+    this.closeOnSelect = true,
     this.readOnly = false,
     super.enabled = true,
     super.onSaved,
@@ -348,6 +364,7 @@ class DCombobox<T> extends FormField<List<T>> {
   final bool Function(T left, T right)? equals;
   final String Function(T value)? itemToStringLabel;
   final int? limit;
+  final bool closeOnSelect;
   final bool readOnly;
   final FormFieldValidator<T?>? singleValidator;
 
@@ -363,6 +380,8 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   final GlobalKey _anchorKey = GlobalKey();
   final Map<T, GlobalKey> _itemKeys = {};
   final Map<T, FocusNode> _chipFocusNodes = {};
+  late final List<T> _resetValues;
+  late final String _resetQuery;
   bool _open = false;
   T? _highlighted;
   bool _syncingText = false;
@@ -433,6 +452,8 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     if (!combobox.multiple && textController.text.isEmpty && selected != null) {
       _replaceText(labelFor(selected));
     }
+    _resetValues = List<T>.unmodifiable(selectedValues);
+    _resetQuery = textController.text;
   }
 
   @override
@@ -453,8 +474,12 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       textController.addListener(_textChanged);
     }
     if (combobox.controlled &&
-        !_sameValues(value ?? const [], combobox.controlledValues)) {
+        !_sameValues(oldWidget.controlledValues, combobox.controlledValues)) {
       setValue(List<T>.unmodifiable(combobox.controlledValues));
+      if (!combobox.multiple && combobox.query == null) {
+        final selected = combobox.controlledValues.firstOrNull;
+        _replaceText(selected == null ? '' : labelFor(selected));
+      }
     }
     if (combobox.query case final controlledQuery?
         when controlledQuery != textController.text) {
@@ -471,6 +496,9 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         )) {
       _requestHighlight(null, DComboboxChangeReason.input);
     }
+    _itemKeys.removeWhere(
+      (value, _) => !_allOptions.any((option) => _equal(option.value, value)),
+    );
     _controller._changed();
   }
 
@@ -510,6 +538,10 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     bool focusInput = false,
   }) {
     if (!mounted || (open && !enabled)) return;
+    if (open == isOpen) {
+      if (open && focusInput) _focusInputAfterBuild();
+      return;
+    }
     _measureAnchor();
     if (combobox.open == null) _open = open;
     combobox.onOpenChanged?.call(open, reason);
@@ -522,23 +554,29 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     }
     setState(() {});
     _controller._changed();
-    if (open && focusInput) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && isOpen && focusNode.canRequestFocus) {
-          focusNode.requestFocus();
-        }
-      });
-    }
+    if (open && focusInput) _focusInputAfterBuild();
   }
 
-  void _requestQuery(String next, DComboboxChangeReason reason) {
+  void _focusInputAfterBuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && isOpen && focusNode.canRequestFocus) {
+        focusNode.requestFocus();
+      }
+    });
+  }
+
+  void _requestQuery(
+    String next,
+    DComboboxChangeReason reason, {
+    bool openPopup = true,
+  }) {
     if (!enabled) return;
     if (combobox.query == null && textController.text != next) {
       _replaceText(next);
     }
     combobox.onQueryChanged?.call(next, reason);
-    _requestOpen(true, reason);
-    if (combobox.autoHighlight) {
+    if (openPopup) _requestOpen(true, reason);
+    if (openPopup && combobox.autoHighlight) {
       _highlightFirst(reason);
     } else {
       _requestHighlight(null, reason);
@@ -559,7 +597,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     _controller._changed();
     if (value != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final itemContext = _itemKeys[value]?.currentContext;
+        final itemContext = _entryFor(_itemKeys, value)?.value.currentContext;
         if (mounted && isOpen && itemContext != null) {
           Scrollable.ensureVisible(
             itemContext,
@@ -584,12 +622,15 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     var index = current == null
         ? (delta > 0 ? -1 : candidates.length)
         : candidates.indexWhere((option) => _equal(option.value, current));
-    var next = index + delta;
-    if (combobox.loopFocus) {
-      next %= candidates.length;
-    } else {
-      next = next.clamp(0, candidates.length - 1);
+    if (current != null &&
+        ((delta > 0 && index == candidates.length - 1) ||
+            (delta < 0 && index == 0))) {
+      if (combobox.loopFocus) {
+        _requestHighlight(null, DComboboxChangeReason.keyboard);
+      }
+      return;
     }
+    final next = (index + delta).clamp(0, candidates.length - 1);
     _requestHighlight(candidates[next].value, DComboboxChangeReason.keyboard);
   }
 
@@ -604,15 +645,15 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         next.removeAt(index);
       }
       _emitValues(next, reason);
-      _requestQuery('', reason);
-      _requestOpen(true, reason);
+      _requestQuery('', reason, openPopup: !combobox.closeOnSelect);
+      if (combobox.closeOnSelect) _requestOpen(false, reason);
     } else {
       _emitValues([option.value], reason);
       if (!combobox.controlled) {
         _replaceText(option.label);
         combobox.onQueryChanged?.call(option.label, reason);
       }
-      _requestOpen(false, reason);
+      _requestOpen(!combobox.closeOnSelect, reason);
     }
     if (focusNode.canRequestFocus) focusNode.requestFocus();
   }
@@ -678,23 +719,43 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     }
   }
 
-  GlobalKey keyFor(T value) => _itemKeys.putIfAbsent(value, GlobalKey.new);
+  MapEntry<T, V>? _entryFor<V>(Map<T, V> entries, T value) =>
+      entries.entries.where((entry) => _equal(entry.key, value)).firstOrNull;
+
+  GlobalKey keyFor(T value) =>
+      _entryFor(_itemKeys, value)?.value ?? (_itemKeys[value] = GlobalKey());
+
+  void registerChip(T value, FocusNode focusNode) {
+    final existing = _entryFor(_chipFocusNodes, value);
+    if (existing != null && !identical(existing.key, value)) {
+      _chipFocusNodes.remove(existing.key);
+    }
+    _chipFocusNodes[value] = focusNode;
+  }
+
+  void unregisterChip(T value, FocusNode focusNode) {
+    final existing = _entryFor(_chipFocusNodes, value);
+    if (existing != null && identical(existing.value, focusNode)) {
+      _chipFocusNodes.remove(existing.key);
+    }
+  }
+
+  FocusNode? chipFocusFor(T value) => _entryFor(_chipFocusNodes, value)?.value;
 
   @override
   void reset() {
     super.reset();
-    if (!combobox.controlled) setValue(combobox.initialValues);
-    final next = combobox.initialQuery;
-    _replaceText(next);
-    combobox.onQueryChanged?.call(next, DComboboxChangeReason.formReset);
+    if (!combobox.controlled) setValue(_resetValues);
+    _replaceText(_resetQuery);
+    combobox.onQueryChanged?.call(_resetQuery, DComboboxChangeReason.formReset);
     if (combobox.multiple) {
       combobox.onValuesChanged?.call(
-        combobox.initialValues,
+        _resetValues,
         DComboboxChangeReason.formReset,
       );
     } else {
       combobox.onChanged?.call(
-        combobox.initialValues.firstOrNull,
+        _resetValues.firstOrNull,
         DComboboxChangeReason.formReset,
       );
     }
@@ -709,7 +770,6 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         controller: _popoverController,
         open: isOpen,
         focusContentOnOpen: false,
-        restoreFocus: false,
         onOpenChange: (open, reason) =>
             _requestOpen(open, _popoverReason(reason)),
         content: DPopoverContent(
@@ -949,7 +1009,7 @@ class _ComboboxInputSurface<T> extends StatelessWidget {
                   if (showClear && hasValue)
                     _ComboboxIconAction(
                       semanticLabel: 'Clear selection',
-                      icon: Icons.close,
+                      icon: const DIcon(DIcons.xmark, size: 16),
                       onPressed: () => root._clear(DComboboxChangeReason.clear),
                     )
                   else if (showTrigger)
@@ -957,7 +1017,7 @@ class _ComboboxInputSurface<T> extends StatelessWidget {
                       semanticLabel: root.isOpen
                           ? 'Close suggestions'
                           : 'Open suggestions',
-                      icon: Icons.keyboard_arrow_down,
+                      icon: const DIcon(DIcons.chevronDown, size: 16),
                       onPressed: () => root._requestOpen(
                         !root.isOpen,
                         DComboboxChangeReason.triggerPress,
@@ -982,23 +1042,29 @@ class _ComboboxIconAction extends StatelessWidget {
   });
 
   final String semanticLabel;
-  final IconData icon;
+  final Widget icon;
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: semanticLabel,
-    child: IconButton(
-      tooltip: '',
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-      padding: EdgeInsets.zero,
-      iconSize: 16,
-      onPressed: onPressed,
-      icon: Icon(icon),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final touch = _isComboboxTouchPlatform(context);
+    final dimension = touch ? DSpacing.touchTarget : 24.0;
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: IconButton(
+        tooltip: '',
+        visualDensity: touch ? VisualDensity.standard : VisualDensity.compact,
+        constraints: BoxConstraints.tightFor(
+          width: dimension,
+          height: dimension,
+        ),
+        padding: EdgeInsets.zero,
+        onPressed: onPressed,
+        icon: icon,
+      ),
+    );
+  }
 }
 
 class DComboboxContent extends StatelessWidget {
@@ -1117,7 +1183,7 @@ class _DComboboxItemState<T> extends State<DComboboxItem<T>> {
         root._equal(highlightedValue, widget.option.value);
     final active =
         highlighted || (_hovered && root.combobox.highlightItemOnHover);
-    return MouseRegion(
+    Widget item = MouseRegion(
       cursor: widget.option.enabled
           ? SystemMouseCursors.click
           : MouseCursor.defer,
@@ -1167,7 +1233,7 @@ class _DComboboxItemState<T> extends State<DComboboxItem<T>> {
                 SizedBox(
                   width: 16,
                   child: selected
-                      ? Icon(Icons.check, size: 16, color: tokens.foreground)
+                      ? DIcon(DIcons.check, size: 16, color: tokens.foreground)
                       : null,
                 ),
               ],
@@ -1176,6 +1242,13 @@ class _DComboboxItemState<T> extends State<DComboboxItem<T>> {
         ),
       ),
     );
+    if (_isComboboxTouchPlatform(context)) {
+      item = SizedBox(
+        height: DSpacing.touchTarget,
+        child: Center(child: item),
+      );
+    }
+    return item;
   }
 }
 
@@ -1415,7 +1488,7 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
       if (next < 0 || next >= values.length) {
         root.focusNode.requestFocus();
       } else {
-        root._chipFocusNodes[values[next]]?.requestFocus();
+        root.chipFocusFor(values[next])?.requestFocus();
       }
       return KeyEventResult.handled;
     }
@@ -1426,7 +1499,7 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _root = _DComboboxScope.of<T>(context)
-      .._chipFocusNodes[widget.value] = _focusNode;
+      ..registerChip(widget.value, _focusNode);
   }
 
   @override
@@ -1434,8 +1507,11 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
     super.didUpdateWidget(oldWidget);
     final root = _DComboboxScope.of<T>(context);
     if (!root._equal(oldWidget.value, widget.value)) {
-      root._chipFocusNodes.remove(oldWidget.value);
-      root._chipFocusNodes[widget.value] = _focusNode;
+      root.unregisterChip(oldWidget.value, _focusNode);
+      root.registerChip(widget.value, _focusNode);
+    } else if (!identical(oldWidget.value, widget.value)) {
+      root.unregisterChip(oldWidget.value, _focusNode);
+      root.registerChip(widget.value, _focusNode);
     }
   }
 
@@ -1492,7 +1568,7 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
                   if (widget.showRemove)
                     _ComboboxIconAction(
                       semanticLabel: 'Remove ${root.labelFor(widget.value)}',
-                      icon: Icons.close,
+                      icon: const DIcon(DIcons.xmark, size: 16),
                       onPressed: () => root._remove(
                         widget.value,
                         DComboboxChangeReason.chipRemove,
@@ -1509,7 +1585,7 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
 
   @override
   void dispose() {
-    _root?._chipFocusNodes.remove(widget.value);
+    _root?.unregisterChip(widget.value, _focusNode);
     _focusNode.dispose();
     super.dispose();
   }

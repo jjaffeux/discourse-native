@@ -5,6 +5,7 @@ import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -91,5 +92,27 @@ void main() {
     await tester.tap(find.text('Japan').last);
     await tester.pumpAndSettle();
     expect(find.widgetWithText(DButton, 'Japan'), findsOneWidget);
+  });
+
+  testWidgets('Popup Escape restores focus to its trigger', (tester) async {
+    final example = comboboxExamples.examples.firstWhere(
+      (example) => example.title == 'Popup',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Center(child: Builder(builder: example.builder)),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Canada'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<DButton>(find.byType(DButton)).focusNode?.hasFocus,
+      isTrue,
+    );
   });
 }

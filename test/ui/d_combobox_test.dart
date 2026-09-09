@@ -84,6 +84,35 @@ void main() {
     expect(selected, 'remix');
   });
 
+  testWidgets('loop focus passes through the input between list ends', (
+    tester,
+  ) async {
+    final controller = DComboboxController<String>();
+    await tester.pumpWidget(
+      _app(
+        DCombobox<String>(
+          controller: controller,
+          options: _options,
+          anchor: const DComboboxInput<String>(),
+          content: const DComboboxContent(children: [DComboboxList<String>()]),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    controller.highlight('remix');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(controller.highlightedValue, isNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(controller.highlightedValue, 'next');
+    controller.highlight('next');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    expect(controller.highlightedValue, isNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    expect(controller.highlightedValue, 'remix');
+    controller.dispose();
+  });
+
   testWidgets('clear action clears selection and restores input focus', (
     tester,
   ) async {
@@ -100,7 +129,7 @@ void main() {
       ),
     );
     expect(find.text('Next.js'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.close));
+    await tester.tap(find.byType(IconButton));
     await tester.pumpAndSettle();
     expect(selected, isNull);
     expect(tester.testTextInput.isVisible, isTrue);
@@ -148,9 +177,38 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('SvelteKit').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.close).first);
+    await tester.tap(find.byType(IconButton).first);
     await tester.pump();
     expect(values, isEmpty);
+  });
+
+  testWidgets('multiple selection closes by default and can remain open', (
+    tester,
+  ) async {
+    for (final closeOnSelect in [true, false]) {
+      final controller = DComboboxController<String>();
+      await tester.pumpWidget(
+        _app(
+          DCombobox<String>.multiple(
+            controller: controller,
+            closeOnSelect: closeOnSelect,
+            options: _options,
+            anchor: const DComboboxChips<String>(
+              input: DComboboxChipsInput<String>(),
+            ),
+            content: const DComboboxContent(
+              children: [DComboboxList<String>()],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Next.js').last);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, !closeOnSelect);
+      controller.dispose();
+    }
   });
 
   testWidgets('controlled selection only displays accepted parent values', (
@@ -174,6 +232,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(request, 'next');
     expect(find.text('Next.js'), findsNothing);
+  });
+
+  testWidgets('accepted controlled selection updates the editor label', (
+    tester,
+  ) async {
+    String? value;
+    await tester.pumpWidget(
+      _app(
+        StatefulBuilder(
+          builder: (context, setState) => DCombobox<String>.controlled(
+            value: value,
+            options: _options,
+            onChanged: (next, _) => setState(() => value = next),
+            anchor: const DComboboxInput<String>(),
+            content: const DComboboxContent(
+              children: [DComboboxList<String>()],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'ne');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next.js'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      'Next.js',
+    );
   });
 
   testWidgets('dynamic results discard stale highlight but retain selection', (
@@ -301,6 +390,69 @@ void main() {
     form.currentState!.reset();
     await tester.pump();
     expect(value, 'next');
+    expect(find.widgetWithText(TextField, 'Next.js'), findsOneWidget);
+  });
+
+  testWidgets('single Form save is typed as the selected value', (
+    tester,
+  ) async {
+    final form = GlobalKey<FormState>();
+    String? saved;
+    await tester.pumpWidget(
+      _app(
+        Form(
+          key: form,
+          child: DCombobox<String>(
+            initialValue: 'next',
+            options: _options,
+            onSaved: (value) => saved = value,
+            anchor: const DComboboxInput<String>(),
+            content: const DComboboxContent(
+              children: [DComboboxList<String>()],
+            ),
+          ),
+        ),
+      ),
+    );
+    form.currentState!.save();
+    expect(saved, 'next');
+  });
+
+  testWidgets('custom equality retains chip keyboard focus after rebuild', (
+    tester,
+  ) async {
+    var ids = ['a', 'b'];
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      _app(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return DCombobox<_Choice>.multipleControlled(
+              value: [for (final id in ids) _Choice(id)],
+              options: const [],
+              equals: (left, right) => left.id == right.id,
+              itemToStringLabel: (choice) => choice.id.toUpperCase(),
+              onValuesChanged: (values, _) => setState(
+                () => ids = values.map((value) => value.id).toList(),
+              ),
+              anchor: const DComboboxChips<_Choice>(
+                input: DComboboxChipsInput<_Choice>(),
+              ),
+              content: const DComboboxContent(children: []),
+            );
+          },
+        ),
+      ),
+    );
+
+    rebuild(() {});
+    await tester.pump();
+    await tester.tap(find.text('A'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await tester.pump();
+    expect(ids, ['a']);
   });
 
   testWidgets('disabled input cannot open', (tester) async {
@@ -308,6 +460,29 @@ void main() {
     await tester.tap(find.byType(TextField), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.text('Next.js'), findsNothing);
+  });
+
+  testWidgets('touch items and actions retain 48 logical pixel targets', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        DCombobox<String>(
+          options: _options,
+          anchor: const DComboboxInput<String>(showClear: true),
+          content: const DComboboxContent(children: [DComboboxList<String>()]),
+        ),
+        theme: ThemeData(platform: TargetPlatform.iOS),
+      ),
+    );
+    expect(tester.getSize(find.byType(IconButton)).height, 48);
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.text('SvelteKit').last).height,
+      lessThanOrEqualTo(48),
+    );
+    expect(tester.getRect(find.byType(DComboboxItem<String>).first).height, 48);
   });
 
   testWidgets('open popup reads live theme tokens', (tester) async {
@@ -340,4 +515,11 @@ void main() {
       Brightness.dark,
     );
   });
+}
+
+@immutable
+class _Choice {
+  const _Choice(this.id);
+
+  final String id;
 }

@@ -28,6 +28,8 @@ class _ComboboxReviewState extends State<_ComboboxReview> {
   StyleguideTheme palette = StyleguideTheme.light;
   double scale = 1;
   bool rtl = false;
+  bool reducedMotion = false;
+  bool narrow = false;
   String saved = 'Nothing saved';
 
   @override
@@ -37,7 +39,7 @@ class _ComboboxReviewState extends State<_ComboboxReview> {
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
         textScaler: TextScaler.linear(scale),
-        disableAnimations: false,
+        disableAnimations: reducedMotion,
       ),
       child: Directionality(
         textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
@@ -69,6 +71,15 @@ class _ComboboxReviewState extends State<_ComboboxReview> {
                   label: const Text('RTL'),
                   onPressed: () => setState(() => rtl = !rtl),
                 ),
+                DButton(
+                  label: Text(reducedMotion ? 'Motion reduced' : 'Motion on'),
+                  onPressed: () =>
+                      setState(() => reducedMotion = !reducedMotion),
+                ),
+                DButton(
+                  label: Text(narrow ? '216px preview' : '320px preview'),
+                  onPressed: () => setState(() => narrow = !narrow),
+                ),
                 Text(saved),
               ],
             ),
@@ -88,7 +99,7 @@ class _ComboboxReviewState extends State<_ComboboxReview> {
                         ),
                         const SizedBox(height: 8),
                         SizedBox(
-                          width: 320,
+                          width: narrow ? 216 : 320,
                           child: Builder(builder: example.builder),
                         ),
                         const SizedBox(height: 24),

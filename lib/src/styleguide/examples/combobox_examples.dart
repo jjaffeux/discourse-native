@@ -133,7 +133,7 @@ final comboboxExamples = ComponentExamples(
     StyleguideExample(
       title: 'Multiple',
       description:
-          'Starts with Next.js selected and keeps the popup available while choosing.',
+          'Starts with Next.js selected and closes after each choice like the reference.',
       code: _multipleCode,
       builder: (_) => const _MultipleCombobox(),
     ),

@@ -639,8 +639,9 @@ class _MobileMemberFact extends StatelessWidget {
         : relative
         ? relativeTime(value!)
         : _dateText(context, value!)}',
-    style: Theme.of(context).textTheme.labelSmall
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
   );
 }
 
@@ -876,6 +877,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
             equals: (left, right) => left.id == right.id,
             itemToStringLabel: (choice) => choice.label,
             filterLocally: false,
+            closeOnSelect: false,
             enabled: !controller.saving,
             onQueryChanged: (query, _) => controller.search(query),
             onValuesChanged: (values, _) => _selectionChanged(values),

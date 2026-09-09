@@ -61,10 +61,12 @@ the editable input remains the sole value, focus, Form and IME owner.
 - An application can replace options after any async request. Selection is retained
   even if a selected value is outside the latest page; a highlight that no longer
   resolves to an enabled visible option is cleared.
-- Arrow Up/Down moves through enabled filtered items and optionally loops. Enter
+- Arrow Up/Down moves through enabled filtered items and optionally loops through
+  the input between list ends, matching the ARIA combobox focus model. Enter
   selects the highlight. Escape dismisses and restores the accepted single label.
   Pointer hover can own highlight without moving editor focus.
-- Multiple selection toggles values and keeps the popup usable. Remove actions and
+- Multiple selection toggles values, clears the filter and closes by default;
+  `closeOnSelect: false` preserves an open rapid-entry workflow. Remove actions and
   Backspace on an empty query remove chips. Chip text can truncate visually at
   extreme scale while its full label and remove action remain semantic.
 - Clear changes selection and query through their distinct callbacks. Form reset
@@ -124,4 +126,3 @@ Retained deliberately:
   selection restricted to one returned object.
 - DSelect/DNativeSelect remain non-editable selection owners. Command menus remain
   action selection owners, not form values.
-
