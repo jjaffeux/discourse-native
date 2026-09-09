@@ -38,6 +38,7 @@ export 'src/ui/components/d_resizable.dart';
 export 'src/ui/components/d_scroll_area.dart';
 export 'src/ui/components/d_select.dart';
 export 'src/ui/components/d_separator.dart';
+export 'src/ui/components/d_sheet.dart';
 export 'src/ui/components/d_sidebar.dart';
 export 'src/ui/components/d_skeleton.dart';
 export 'src/ui/components/d_slider.dart';
