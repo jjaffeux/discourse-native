@@ -134,10 +134,12 @@ class _ButtonGroupReviewState extends State<_ButtonGroupReview> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                Text(
-                  '${_example + 1}/${examples.length} — '
-                  '${example.title}',
-                  style: Theme.of(context).textTheme.titleLarge,
+                Builder(
+                  builder: (context) => Text(
+                    '${_example + 1}/${examples.length} — '
+                    '${example.title}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(example.description),

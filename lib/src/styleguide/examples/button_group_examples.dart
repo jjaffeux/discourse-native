@@ -6,7 +6,7 @@ import '../styleguide_example.dart';
 final buttonGroupExamples = ComponentExamples(
   description:
       'A joined container for independent actions, fields, and passive text.',
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   notes:
       'The frozen Base UI markdown hash is '
       '9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda. '

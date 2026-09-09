@@ -68,7 +68,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 36 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
 | 37 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
 | 38 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
-| 39 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
+| 39 | button-group | review_ready | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 40 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
 | 41 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
 | 42 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
@@ -2324,7 +2324,7 @@ Status: merged. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/ui-fie
 
 ### button-group
 
-Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/ui-button-group.
+Status: review_ready. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/ui-button-group.
 
 **acceptanceCriteria**
 
@@ -2341,7 +2341,7 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 - Normal Flex layout measures controls without intrinsic queries and stretches separators to their cross-axis extent. Passive text shrink-wraps, fixing the 600px-versus-32px regression while supporting LayoutBuilder-based Select.
 - Non-tabbable focus listeners change paint order only: the focused direct child paints last. Joined DButton surfaces allow their exterior ring to remain unclipped. Keyboard, semantic and hit-test order remain unchanged.
 - All Button Group compositions use final public APIs. Select's Back/Range/Next example now uses DButtonGroup with horizontal reachability. Input Group's button-actions example retains its editor/focus/state ownership.
-- Replacement reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 preserves recovered handoff 97554ada and implementation history, and owns remaining native acceptance and the authorized local-main merge.
+- Replacement reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 preserves recovered handoff 97554ada and implementation history. Source, final-owner compositions, official browser and exact-source native acceptance are complete; final current-main reconciliation and local merge remain.
 
 **migrations**
 
@@ -2360,13 +2360,13 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 - Frozen Markdown SHA-256 9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda and twelve linked Base sources were inspected. Official rendered light/dark, Dropdown Menu/Select dismissal and focus were reviewed; see evidence/button-group/browser-reference.md.
 - Final-owner integration previously passed 112 focused tests. After main reconciliation and sizing/composition fixes: 56 Button Group/Select/styleguide tests, 22 direct/navigation tests, 21 direct/Input Group tests and 34 Popover/Dropdown Menu tests passed with seed 826145. Batches overlap.
 - Root analysis and profiles/full enforced-lockfile resolution plus analysis passed without diagnostics; lockfiles unchanged. Final main overlap verification remains required.
-- Source cff5dfc2b34035806d29ab551f25b5908515c018 built successfully for the offline native fixture. /private/tmp/ButtonGroupReview-cff5dfc2.app has a unique identity, verified signature/restricted entitlements, and matching source/copy kernel SHA-256 f7fd7af43360515dd2cdba6461d8eaab9822f646e26e6122919fdfac4398bde3. Native interaction awaits the desktop lease.
+- Source cff5dfc2b34035806d29ab551f25b5908515c018 built successfully for the offline native fixture. /private/tmp/ButtonGroupReview-cff5dfc2.app has a unique identity, verified signature/restricted entitlements, and matching source/copy kernel SHA-256 f7fd7af43360515dd2cdba6461d8eaab9822f646e26e6122919fdfac4398bde3. All 13 native pages passed via approved CUA, including real Input Group/Select parent examples, editing retention, independent actions, overlay dismissal/focus, four palettes, narrow/scaled/RTL and reduced-motion surfaces. See evidence/button-group/native-review.md.
 - Focus layering was verified by a pixel regression that fails when focused-child ordering is disabled. All 88 affected Button/Button Group/Select/styleguide/navigation tests and root/full analysis pass after the correction (seed 826145).
 
 **limitations**
 
-- Native inspection of rebuilt source cff5dfc2 remains required before acceptance. Earlier approved attempts were blocked by the locked Mac. Old queue entries were withdrawn during source corrections and rejoined after rebuilding.
-- VoiceOver speech and iOS/Linux device inspection have not been performed. Automated semantics/platform tests do not replace those checks.
+- Native inspection was macOS only. The offline production navigation fixture exposes geometry/semantics; active history, refresh and shortcut behavior is verified by focused widget tests, not an authenticated native session.
+- Spoken VoiceOver and physical iOS/Android/Linux device inspection were not performed. The fixture-only dark heading context was corrected after native capture; component/example behavior and the acceptance-only status promotion are source-equivalent.
 - Official browser comparison is qualitative because Geist and native host-font rasterization differ; source hashes and geometry assertions record the exact contract.
 
 ### command

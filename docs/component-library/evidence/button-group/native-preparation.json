@@ -25,7 +25,9 @@
     "com.apple.security.network.server"
   ],
   "signatureVerification": "codesign --verify --deep --strict passed",
-  "nativeInspectionStatus": "awaiting_slot",
+  "nativeInspectionStatus": "completed",
+  "nativeInspectionDate": "2026-09-09",
+  "nativeInspectionEvidence": "docs/component-library/evidence/button-group/native-review.md",
   "desktopLeaseReleased": true,
   "notes": "The normal Discourse bundle and provisioning were not modified or launched. The isolated copy has a unique identity and restricted ad-hoc debug entitlements. Earlier 412091d0 launch attempts were blocked by the locked Mac. This rebuilt fixture includes separator/text sizing, scoped Input Group geometry, focused-child painting and unclipped joined Button rings, Select parent composition and Input Group button-actions. Controls cover four themes, RTL, 100/200% text, 320/440px width and reduced motion. The focus-ring pixel regression fails without focused-child layering; 88 affected tests and root/full analysis pass."
 }
