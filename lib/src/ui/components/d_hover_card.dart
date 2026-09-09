@@ -605,17 +605,18 @@ class _DHoverCardState extends State<DHoverCard>
       }
       return;
     }
-    if (!_open ||
-        !_DHoverCardLayers.isTopmost(this) ||
-        event is! PointerDownEvent) {
+    if (event is! PointerDownEvent) {
       return;
     }
     final point = event.position;
     if (_globalRect(context)?.contains(point) ?? false) {
       _cancelTimers();
-      _request(false, DHoverCardChangeReason.triggerPress, immediate: true);
+      if (_open && _DHoverCardLayers.isTopmost(this)) {
+        _request(false, DHoverCardChangeReason.triggerPress, immediate: true);
+      }
       return;
     }
+    if (!_open || !_DHoverCardLayers.isTopmost(this)) return;
     if (_globalRect(_surfaceKey.currentContext)?.contains(point) ?? false) {
       return;
     }
