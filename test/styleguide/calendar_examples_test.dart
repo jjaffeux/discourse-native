@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/calendar_examples.dart';
@@ -6,10 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Calendar registers the complete frozen example matrix', () {
+  test('Calendar registers the current reference example matrix', () {
     expect(componentExamples['calendar'], same(calendarExamples));
     expect(calendarExamples.examples.map((example) => example.title), [
       'Basic',
+      'Multiple',
       'Range',
       'Month and Year Selector',
       'Presets',
@@ -95,6 +98,42 @@ void main() {
     expect(find.byType(DField), findsNWidgets(2));
     expect(find.byType(DInputGroup), findsNWidgets(2));
     expect(find.byType(DInputGroupInput), findsNWidgets(2));
+  });
+
+  testWidgets('multiple example toggles dates independently', (tester) async {
+    final multiple = calendarExamples.examples.singleWhere(
+      (example) => example.title == 'Multiple',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: Builder(builder: multiple.builder)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final september8 = find.bySemanticsLabel('Tuesday, September 8, 2026');
+    final september9 = find.bySemanticsLabel('Wednesday, September 9, 2026');
+    expect(
+      tester.getSemantics(september8).flagsCollection.isSelected,
+      Tristate.isTrue,
+    );
+    expect(
+      tester.getSemantics(september9).flagsCollection.isSelected,
+      Tristate.isFalse,
+    );
+
+    await tester.tap(september9);
+    await tester.pump();
+
+    expect(
+      tester.getSemantics(september8).flagsCollection.isSelected,
+      Tristate.isTrue,
+    );
+    expect(
+      tester.getSemantics(september9).flagsCollection.isSelected,
+      Tristate.isTrue,
+    );
   });
 
   testWidgets('custom cells announce the actual month and price', (
