@@ -27,10 +27,18 @@ final sheetExamples = ComponentExamples(
     StyleguideExample(
       title: 'Side',
       description:
-          'The documented top, right, bottom and left physical sides. Long content scrolls without moving its actions.',
+          'The documented edit-profile form on the top, right, bottom and left physical sides.',
       code: _sideCode,
       builder: (_) => const _SideSheets(),
-      states: const ['top', 'right', 'bottom', 'left', 'scrollable'],
+      states: const ['top', 'right', 'bottom', 'left'],
+    ),
+    StyleguideExample(
+      title: 'Scrollable body',
+      description:
+          'Long complementary content scrolls independently without moving the header or actions.',
+      code: _scrollableCode,
+      builder: (_) => const _ScrollableSheet(),
+      states: const ['long content', 'fixed header', 'fixed footer'],
     ),
     StyleguideExample(
       title: 'No Close Button',
@@ -85,9 +93,17 @@ const _sideCode = '''for (final side in const [
   trigger: sideButton,
   content: DSheetContent(
     side: side,
-    topBottomMaxHeightFactor: .5,
-    children: [header, DSheetBody(child: longContent), footer],
+    children: [header, DSheetBody(child: profileFields), footer],
   ),
+)''';
+
+const _scrollableCode = '''DSheet<void>(
+  trigger: trigger,
+  content: DSheetContent(children: [
+    header,
+    DSheetBody(child: longContent),
+    footer,
+  ]),
 )''';
 
 const _noCloseCode = '''DSheet<void>(
@@ -97,7 +113,6 @@ const _noCloseCode = '''DSheet<void>(
       DSheetTitle(child: Text('No Close Button')),
       DSheetDescription(child: Text('Click outside to close.')),
     ]),
-    DSheetFooter(children: [DSheetClose<void>(builder: closeButton)]),
   ]),
 )''';
 
@@ -286,7 +301,6 @@ class _SideSheets extends StatelessWidget {
           ),
           content: DSheetContent(
             side: side,
-            topBottomMaxHeightFactor: .5,
             semanticLabel: '${side.name} sheet',
             children: [
               const DSheetHeader(
@@ -300,29 +314,78 @@ class _SideSheets extends StatelessWidget {
                 ],
               ),
               DSheetBody(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: DFieldGroup(
                   children: [
-                    for (var index = 0; index < 10; index++) ...[
-                      if (index > 0) const SizedBox(height: 8),
-                      const Text(
-                        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '
-                        'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-                      ),
-                    ],
+                    DField(
+                      children: [
+                        DInput(initialValue: 'Pedro Duarte', labelText: 'Name'),
+                      ],
+                    ),
+                    DField(
+                      children: [
+                        DInput(
+                          initialValue: '@peduarte',
+                          labelText: 'Username',
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
               DSheetFooter(
                 children: [
-                  DButton(onPressed: () {}, label: const Text('Save changes')),
-                  const DSheetClose<void>(builder: _closeButton),
+                  DSheetClose<void>(
+                    builder: (context, close) => DButton(
+                      onPressed: close,
+                      label: const Text('Save changes'),
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
         ),
     ],
+  );
+}
+
+class _ScrollableSheet extends StatelessWidget {
+  const _ScrollableSheet();
+
+  @override
+  Widget build(BuildContext context) => DSheet<void>(
+    trigger: DSheetTrigger(
+      builder: (context, open) => _trigger('Open long sheet', open),
+    ),
+    content: DSheetContent(
+      semanticLabel: 'Scrollable sheet',
+      children: [
+        const DSheetHeader(
+          children: [
+            DSheetTitle(child: Text('Scrollable body')),
+            DSheetDescription(
+              child: Text('The header and footer remain fixed.'),
+            ),
+          ],
+        ),
+        DSheetBody(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < 14; index++) ...[
+                if (index > 0) const SizedBox(height: 8),
+                Text(
+                  'Section ${index + 1}: complementary details remain reachable.',
+                ),
+              ],
+            ],
+          ),
+        ),
+        const DSheetFooter(
+          children: [DSheetClose<void>(builder: _closeButton)],
+        ),
+      ],
+    ),
   );
 }
 
@@ -348,7 +411,6 @@ class _NoCloseSheet extends StatelessWidget {
             ),
           ],
         ),
-        DSheetFooter(children: [DSheetClose<void>(builder: _closeButton)]),
       ],
     ),
   );

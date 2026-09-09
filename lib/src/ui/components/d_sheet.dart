@@ -380,7 +380,7 @@ class DSheetTitle extends StatelessWidget {
       child: DefaultTextStyle(
         style: Theme.of(context).textTheme.titleMedium!.copyWith(
           fontSize: DiscourseTypography.base,
-          height: 1,
+          height: 24 / 16,
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
           color: tokens.foreground,

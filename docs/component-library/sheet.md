@@ -21,7 +21,7 @@ Flutter logical pixels at 100% scale.
 | Left/right `inset-y-0`, `w-3/4`, `sm:max-w-sm`, one edge border | Full-height panel at 75% viewport width; from 640px it is capped at 384px. |
 | 200ms `ease-in-out`, opacity and `translate` by 2.5rem | The popup fades and travels 40 logical pixels from its edge. Reduced motion makes the route duration zero. |
 | Header `gap-0.5 p-4`; footer `mt-auto flex-col gap-2 p-4` | Header children have a 2px gap and 16px padding. Footer is pushed to the edge on full-height sides and uses 8px gaps with 16px padding. |
-| Title `text-base font-medium`; description `text-sm text-muted-foreground` | Host heading font family with 16px, weight 500, line-height 1; description is 14px/20px and uses the live muted foreground. |
+| Title `text-base font-medium`; description `text-sm text-muted-foreground` | Host heading font family with 16px/24px, weight 500; description is 14px/20px and uses the live muted foreground. |
 | Ghost `icon-sm` close at physical `top-3 right-3` | A compact 28px `DButton` with 16px X artwork at physical top/right 12px and an invisible native touch expansion. It is not directionally mirrored by ambient RTL. |
 
 ## Behavior and API decisions

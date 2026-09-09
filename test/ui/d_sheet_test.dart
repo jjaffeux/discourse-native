@@ -206,6 +206,18 @@ void main() {
     expect(close.right, closeTo(sheet.right - 12, .01));
   });
 
+  testWidgets('title matches the reference text-base leading', (tester) async {
+    await tester.pumpWidget(_host(_sheet<void>()));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final titleContext = tester.element(find.text('Example sheet'));
+    final style = DefaultTextStyle.of(titleContext).style;
+    expect(style.fontSize, 16);
+    expect(style.height, 24 / 16);
+    expect(style.fontWeight, FontWeight.w500);
+  });
+
   testWidgets('no close button and disabled dismissal remain open', (
     tester,
   ) async {
