@@ -522,28 +522,25 @@ class _EmptyRoom extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const DIcon(DIcons.microphoneLines, size: 52),
-        const SizedBox(height: 12),
-        Text('Nobody is in ${room.name} yet.'),
-        // The site cooks the description like a post; the raw markdown is
-        // only what the editor shows.
-        if (room.cookedDescription case final cooked?) ...[
-          const SizedBox(height: 8),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: CookedHtml(html: cooked),
-          ),
-        ] else if (room.description case final description?) ...[
-          const SizedBox(height: 8),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Text(description, textAlign: TextAlign.center),
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
+            children: [
+              const DEmptyMedia(
+                variant: DEmptyMediaVariant.icon,
+                child: DIcon(DIcons.microphoneLines),
+              ),
+              DEmptyTitle('Nobody is in ${room.name} yet.'),
+              // Preserve cooked markup ownership, including links and embedded content.
+              if (room.cookedDescription case final cooked?)
+                DEmptyDescription.child(child: CookedHtml(html: cooked))
+              else if (room.description case final description?)
+                DEmptyDescription(description),
+            ],
           ),
         ],
-      ],
+      ),
     ),
   );
 }
