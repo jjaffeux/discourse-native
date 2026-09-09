@@ -2428,7 +2428,7 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+    "nativeInspectionTaskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
     "nativeInspectionQueue": [
       "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "01a083ac-5fd5-78b1-9263-7e3218a878b6",
@@ -2753,12 +2753,12 @@
         "input"
       ],
       "purpose": "Temporary combined source/testing checkout to prepare file-input Button API reconciliation. This is not a catalogue/main merge, does not satisfy native acceptance, and does not make unmerged dependencies available for new task dispatch.",
-      "combinedCommit": "a84d495520bf3f1d72c3de4e5300aa6843f82504",
+      "combinedCommit": "a84d4955",
       "componentHeads": {
         "button": "f32de5cc356a561c3a3d26c75aeb855e0ad28307",
         "input": "a7550c39004087bc8509efdbdb8f0b2a82ca779b"
       },
-      "verification": "Combined Input40 focused tests and root/full analysis pass. Independent whole-styleguide semantics check proves search now has its own204\u00d720 editor node, with a non-editable page node and sibling navigation. Two Button-owned Users touch layout regressions remain under correction.",
+      "verification": "Combined Input/Sidebar/styleguide field-boundary adoption passes all 51 affected tests with seed 909619. Root native AX review is active after Button explicitly released the desktop; final Button source reconciliation remains.",
       "remaining": [
         "Button owner fixing Users toolbar and reorder target geometry on touch;184 downstream tests passed with two real Users geometry failures and one erroneous nonexistent test path.",
         "Generic Input semantic boundary is integrated and 40 affected tests pass. Apply final Button Users fixes before rerunning affected combined checks and analysis.",
