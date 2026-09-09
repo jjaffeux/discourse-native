@@ -6,22 +6,28 @@ import 'd_typography.dart';
 
 /// Wrapping, non-selectable text for a native control's label slot.
 ///
-/// Put this in DCheckbox.title, [SwitchListTile.title], or
-/// [RadioListTile.title]. That owner associates the label with its control,
-/// combines their semantics, and provides touch activation and keyboard focus.
-/// The label adds no gesture handler or tab stop. Standalone labels are ordinary
-/// text; placing one beside a control does not associate them.
+/// The reference `<label htmlFor>` associates by element id. Flutter has no id
+/// registry, so the control's label slot owns association: DCheckbox.title,
+/// DSwitchTile.title and DRadioGroupItem.label toggle their control from the
+/// label and merge one accessible name with its state; DFieldLabel,
+/// DInput.labelText, DTextarea.labelText and DNativeSelect.label focus their
+/// editor. The label adds no gesture handler or tab stop. A standalone DLabel is
+/// ordinary text; placing one beside a control does not associate them.
 ///
-/// Existing Flutter fields use [InputDecoration.labelText] to own their
-/// accessible name and focus/error behavior. The library's Input and Field
-/// components own the field's visual treatment. Labels do not replace [Form],
-/// validation, descriptions, or error messages.
+/// A slot owner wraps the label it receives in its own DLabel to supply the
+/// composition's line height and invalid color, and derives the disabled
+/// treatment from its control the way the reference `peer-disabled` and
+/// `group-data-[disabled=true]` selectors do. A DLabel nested inside another
+/// therefore inherits the enclosing metrics, merges only its own [style], and
+/// dims only when the enclosing label has not already done so.
 ///
-/// [child] can compose text, spans, and decorative icons. Native list tiles merge
-/// their semantics, so put independently interactive links outside the tile.
-/// The caller owns layout and the control's value, callbacks, and focus node.
-/// For icon/text rows, use [DSpacing.sm] (8 logical pixels) between children.
-/// There is no outer padding, border or minimum height on the label itself.
+/// [child] can compose text, spans and decorative icons. The reference label is
+/// a cross-axis-centered flex row with an 8 logical pixel gap: use a `Row` with
+/// `crossAxisAlignment: center`, `spacing: DSpacing.sm` and a flexible text
+/// child so it wraps. Native slots merge semantics, so keep independently
+/// interactive links outside them. The caller owns layout and the control's
+/// value, callbacks and focus node. There is no outer padding, border or
+/// minimum height on the label itself.
 class DLabel extends StatelessWidget {
   const DLabel({
     super.key,
@@ -32,11 +38,11 @@ class DLabel extends StatelessWidget {
 
   final Widget child;
 
-  /// Keep this in sync with the owning control's enabled state / null callback.
-  ///
-  /// A disabled label uses 50% opacity, exposes disabled semantics, and blocks
-  /// pointer and keyboard interaction with its content. It cannot disable a
-  /// sibling or ancestor control on the caller's behalf.
+  /// Disabled treatment for a standalone label: 50% opacity, disabled
+  /// semantics, a forbidden cursor, and no pointer or keyboard interaction
+  /// with its content. It cannot disable a sibling or ancestor control. Inside
+  /// a control's label slot the control derives this from its own state, and
+  /// a label whose enclosing label is already disabled adds nothing.
   final bool enabled;
 
   /// Optional emphasis merged after the reference metrics and live colors.
@@ -47,30 +53,37 @@ class DLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return Semantics(
-      enabled: enabled ? null : false,
-      child: MouseRegion(
-        cursor: enabled ? MouseCursor.defer : SystemMouseCursors.forbidden,
-        child: ExcludeFocus(
-          excluding: !enabled,
-          child: IgnorePointer(
-            ignoring: !enabled,
-            child: Opacity(
-              opacity: enabled ? 1 : 0.5,
-              child: SelectionContainer.disabled(
-                child: DefaultTextStyle(
-                  style: DText.styleOf(context, DTextVariant.small)
-                      .copyWith(
-                        fontSize: DiscourseTypography.sm,
-                        fontWeight: FontWeight.w500,
-                        height: 1,
-                        letterSpacing: 0,
-                        color: tokens.foreground,
-                      )
-                      .merge(style),
-                  textAlign: TextAlign.start,
-                  child: child,
+    final scope = _DLabelScope.maybeOf(context);
+    final base =
+        scope?.style ??
+        DText.styleOf(context, DTextVariant.small).copyWith(
+          fontSize: DiscourseTypography.sm,
+          fontWeight: FontWeight.w500,
+          height: 1,
+          letterSpacing: 0,
+          color: DTokens.of(context).foreground,
+        );
+    final resolved = base.merge(style);
+    final dims = !enabled && (scope?.enabled ?? true);
+    return _DLabelScope(
+      enabled: enabled && (scope?.enabled ?? true),
+      style: resolved,
+      child: Semantics(
+        enabled: dims ? false : null,
+        child: MouseRegion(
+          cursor: dims ? SystemMouseCursors.forbidden : MouseCursor.defer,
+          child: ExcludeFocus(
+            excluding: dims,
+            child: IgnorePointer(
+              ignoring: dims,
+              child: Opacity(
+                opacity: dims ? 0.5 : 1,
+                child: SelectionContainer.disabled(
+                  child: DefaultTextStyle(
+                    style: resolved,
+                    textAlign: TextAlign.start,
+                    child: child,
+                  ),
                 ),
               ),
             ),
@@ -79,4 +92,24 @@ class DLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The resolved metrics and effective enabled state of an enclosing label, so
+/// a nested label extends its slot owner's composition instead of resetting it.
+class _DLabelScope extends InheritedWidget {
+  const _DLabelScope({
+    required this.enabled,
+    required this.style,
+    required super.child,
+  });
+
+  final bool enabled;
+  final TextStyle style;
+
+  static _DLabelScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DLabelScope>();
+
+  @override
+  bool updateShouldNotify(_DLabelScope oldWidget) =>
+      enabled != oldWidget.enabled || style != oldWidget.style;
 }

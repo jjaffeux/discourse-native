@@ -361,6 +361,89 @@ void main() {
     expect(find.text('Dismissed'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'a nested label keeps the enclosing label metrics and merges its emphasis',
+    (tester) async {
+      await _pump(
+        tester,
+        const DLabel(
+          style: TextStyle(height: 1.375, color: Color(0xFFAA0000)),
+          child: DLabel(
+            style: TextStyle(fontStyle: FontStyle.italic),
+            child: Text('Nested'),
+          ),
+        ),
+      );
+      final style = tester
+          .renderObject<RenderParagraph>(find.text('Nested'))
+          .text
+          .style!;
+      expect(style.fontSize, 14);
+      expect(style.fontWeight, FontWeight.w500);
+      expect(style.height, 1.375);
+      expect(style.color, const Color(0xFFAA0000));
+      expect(style.fontStyle, FontStyle.italic);
+    },
+  );
+
+  testWidgets(
+    'a radio item label slot keeps its invalid color through a nested label',
+    (tester) async {
+      await _pump(
+        tester,
+        DRadioGroup<String>(
+          child: const DRadioGroupItem<String>(
+            value: 'a',
+            invalid: true,
+            description: Text('Description'),
+            label: DLabel(child: Text('Alpha')),
+          ),
+        ),
+      );
+      final style = tester
+          .renderObject<RenderParagraph>(find.text('Alpha'))
+          .text
+          .style!;
+      final context = tester.element(find.text('Alpha'));
+      expect(style.color, DTokens.of(context).destructive);
+      expect(style.height, 1.375);
+    },
+  );
+
+  for (final (outer, inner) in [(false, false), (true, false), (false, true)]) {
+    testWidgets(
+      'nested labels dim once when outer enabled=$outer and inner enabled=$inner',
+      (tester) async {
+        await _pump(
+          tester,
+          DLabel(
+            enabled: outer,
+            child: DLabel(enabled: inner, child: const Text('Dimmed')),
+          ),
+        );
+        final opacities = tester
+            .widgetList<Opacity>(
+              find.descendant(
+                of: find.byType(DLabel).first,
+                matching: find.byType(Opacity),
+              ),
+            )
+            .map((widget) => widget.opacity);
+        expect(opacities.where((value) => value == 0.5), hasLength(1));
+        expect(
+          tester
+              .widgetList<IgnorePointer>(
+                find.descendant(
+                  of: find.byType(DLabel).first,
+                  matching: find.byType(IgnorePointer),
+                ),
+              )
+              .where((widget) => widget.ignoring),
+          hasLength(1),
+        );
+      },
+    );
+  }
 }
 
 Future<void> _pump(WidgetTester tester, Widget child) => tester.pumpWidget(
