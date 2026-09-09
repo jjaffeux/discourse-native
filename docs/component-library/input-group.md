@@ -129,9 +129,13 @@ Textarea dependency:
 Button Group dependency:
 
 - Implementation task: `01a08581-831f-7751-b714-096b5aebf86a`.
-- Reviewer task: `01a0859e-170c-7821-b0fd-9ff24a9bfaac`.
+- Replacement reviewer task: `01a085f4-2a6b-7c82-9dc3-c9b14d76b355`,
+  branch `codex/review-button-group-recovered`. The earlier reviewer
+  `01a0859e-170c-7821-b0fd-9ff24a9bfaac` is superseded.
 - The Button Group styleguide’s explicitly labeled local Input Group handoff
   fixture must be replaced with the final public `DInputGroup` composition
   without reducing the example surface.
+- Button Group is a downstream consumer and is not a reverse acceptance gate
+  for Input Group.
 - Spinner’s former local Input Group validation fixture now uses public
   `DInputGroup` while preserving its example coverage.
