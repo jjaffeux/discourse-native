@@ -75,8 +75,9 @@ Sidebar.
   changed visuals compose already accepted component owners and Drawer's frozen
   reference/native evidence is unchanged.
 
-Final candidate verification and the local-main merge SHA are recorded in
-`progress.json`.
+The current-main candidate was merged locally with `--no-ff` as
+`2b79f083247b2edd53353e873fde56e354acedf1`. The follow-up tracking commit is
+recorded in `progress.json`; no remote or release action was performed.
 
 ## Intentional limitations
 

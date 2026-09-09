@@ -4843,7 +4843,7 @@
     }
   ],
   "finalAudit": {
-    "status": "review_ready",
+    "status": "merged",
     "taskId": "01a0879a-c563-7fa0-a5df-49654971f6da",
     "branch": "codex/review-component-library-final",
     "decisions": [
@@ -4859,7 +4859,8 @@
       "The complete styleguide directory passed 367 tests with randomized seed 9092026 before fixes. The post-fix Styleguide page, Drawer, Label, Aspect Ratio, Tooltip, Textarea, Switch and Collapsible matrix passed 100 tests with seed 9092028.",
       "Exact source f15c6f67 built as a macOS debug styleguide. The isolated org.discourse.native.component-library-final-audit.f15c6f67 bundle's copied/build kernels both hash 44554591e7f4241107cbc681643ec109cdf78eec25e9d630c629863e24fc0095; deep strict ad-hoc signature verification passed with seven permitted debug entitlements and no push/team/application identifier.",
       "Actual macOS inspection confirmed the shared Sidebar exposes all 64 component destinations. Drawer has no pending banner, opened with bounded radio controls, accepted another delivery time and returned Confirmed: 5:00. Label's DField/DInput composition rendered with shared geometry and editable focus. The isolated app was quit and process disappearance confirmed; the desktop lease was released.",
-      "The final current-main candidate is based on 6ddaff9ee748ad6390102307a6b691f22ff2f0ba and preserves the coordinator's final-audit ownership commits. Root and profiles/full flutter analyze --no-pub passed; the complete styleguide plus DCalendar, DDatePicker, EventCalendar and TopicCalendar matrix passed all 415 tests with randomized seed 9092029."
+      "The final current-main candidate is based on 6ddaff9ee748ad6390102307a6b691f22ff2f0ba and preserves the coordinator's final-audit ownership commits. Root and profiles/full flutter analyze --no-pub passed; the complete styleguide plus DCalendar, DDatePicker, EventCalendar and TopicCalendar matrix passed all 415 tests with randomized seed 9092029.",
+      "The repository main checkout merged codex/review-component-library-final-candidate with --no-ff as 2b79f083247b2edd53353e873fde56e354acedf1. No remote push, release, provisioning, account or App Store Connect action was performed."
     ],
     "findings": [
       "Reconciled one incorrect planned status, six stale dependency-era styleguide notes and one obsolete Material field composition.",
@@ -4876,7 +4877,7 @@
       "Browser/native font rasterizers can differ; accepted source-specific evidence establishes documented geometry, styling, interaction and semantics rather than cross-renderer pixel identity.",
       "Persian/Hijri/Jalali chronology remains an explicit Kalender engine seam; Gregorian paging is not presented as alternate-calendar support."
     ],
-    "mergeCommit": null,
+    "mergeCommit": "2b79f083247b2edd53353e873fde56e354acedf1",
     "finalCompositionReviewGate": "All 64 catalogue components and every required finalCompositionReview must be accepted and merged before the final whole-library audit or goal completion.",
     "worktree": "/Users/joffreyjaffeux/.codex/worktrees/364e/discourse-native",
     "title": "Audit and merge complete component library",
@@ -4942,7 +4943,7 @@
     "resume": {
       "requestedAt": "2026-09-09T02:57:25+02:00",
       "instruction": "Once the current correction is done, resume the goal and continue the other components. Commit and merge only locally; do not push anything to GitHub or change anything on App Store Connect.",
-      "status": "final_audit_in_progress",
+      "status": "final_audit_merged",
       "startingMainCommit": "8ea22c643829a10a5031019e2aef4e83956c7a8f",
       "nextComponents": [],
       "activeTasks": [],

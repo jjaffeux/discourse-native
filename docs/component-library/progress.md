@@ -3554,7 +3554,7 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 
 ### Final audit
 
-Status: review_ready. Task: 01a0879a-c563-7fa0-a5df-49654971f6da. Branch: codex/review-component-library-final.
+Status: merged. Task: 01a0879a-c563-7fa0-a5df-49654971f6da. Branch: codex/review-component-library-final.
 
 **decisions**
 
@@ -3572,6 +3572,7 @@ Status: review_ready. Task: 01a0879a-c563-7fa0-a5df-49654971f6da. Branch: codex/
 - Exact source f15c6f67 built as a macOS debug styleguide. The isolated org.discourse.native.component-library-final-audit.f15c6f67 bundle's copied/build kernels both hash 44554591e7f4241107cbc681643ec109cdf78eec25e9d630c629863e24fc0095; deep strict ad-hoc signature verification passed with seven permitted debug entitlements and no push/team/application identifier.
 - Actual macOS inspection confirmed the shared Sidebar exposes all 64 component destinations. Drawer has no pending banner, opened with bounded radio controls, accepted another delivery time and returned Confirmed: 5:00. Label's DField/DInput composition rendered with shared geometry and editable focus. The isolated app was quit and process disappearance confirmed; the desktop lease was released.
 - The final current-main candidate is based on 6ddaff9ee748ad6390102307a6b691f22ff2f0ba and preserves the coordinator's final-audit ownership commits. Root and profiles/full flutter analyze --no-pub passed; the complete styleguide plus DCalendar, DDatePicker, EventCalendar and TopicCalendar matrix passed all 415 tests with randomized seed 9092029.
+- The repository main checkout merged codex/review-component-library-final-candidate with --no-ff as 2b79f083247b2edd53353e873fde56e354acedf1. No remote push, release, provisioning, account or App Store Connect action was performed.
 
 **limitations**
 
