@@ -199,8 +199,10 @@ class _DItemState extends State<DItem> {
           if (!_active || !_focus.hasPrimaryFocus) {
             return KeyEventResult.ignored;
           }
-          if (event.logicalKey != LogicalKeyboardKey.enter &&
-              event.logicalKey != LogicalKeyboardKey.space) {
+          final activates =
+              event.logicalKey == LogicalKeyboardKey.enter ||
+              (!widget.link && event.logicalKey == LogicalKeyboardKey.space);
+          if (!activates) {
             return KeyEventResult.ignored;
           }
           if (event is KeyDownEvent) widget.onPressed!();

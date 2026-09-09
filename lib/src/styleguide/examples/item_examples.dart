@@ -47,19 +47,27 @@ const _descriptions = {
   'Basic':
       'Frozen Basic Item and verified profile link; actions report locally.',
   'Variant': 'Default, outline and muted at the reference 448px width.',
-  'Size': 'Default, sm and xs. Notice the smaller description and zero content gap in xs.',
-  'Icon': 'Security Alert with the reference ShieldAlert artwork and Review action.',
-  'Avatar': 'Evil Rabbit and overlapping team avatars. Invite actions update local status.',
-  'Image': 'Three song links with bundled grayscale reference artwork and trailing duration.',
+  'Size':
+      'Default, sm and xs. Notice the smaller description and zero content gap in xs.',
+  'Icon':
+      'Security Alert with the reference ShieldAlert artwork and Review action.',
+  'Avatar':
+      'Evil Rabbit and overlapping team avatars. Invite actions update local status.',
+  'Image':
+      'Three song links with bundled grayscale reference artwork and trailing duration.',
   'Group':
       'People at 384px, followed by an explicit ItemSeparator composition.',
-  'Header': 'Three model cards with full-width reference photos. Narrow widths reflow the grid.',
+  'Header':
+      'Three model cards with full-width reference photos. Narrow widths reflow the grid.',
   'Link': 'Documentation and external-resource links dispatch local callbacks.',
   'Dropdown':
       'Accepted Dropdown Menu composition with passive compact person Items.',
-  'RTL': 'Frozen Arabic basic and verified items with directional content and action placement.',
-  'Composition': 'All parts: full-width header/footer, avatar, two content columns and independent action.',
-  'States': 'Enabled and disabled links; a secondary action does not open the row. Tab and Return/Space work independently.',
+  'RTL':
+      'Frozen Arabic basic and verified items with directional content and action placement.',
+  'Composition':
+      'All parts: full-width header/footer, avatar, two content columns and independent action.',
+  'States':
+      'Enabled and disabled links; a secondary action does not open the row. Tab and Return work independently; Space is reserved for button-like rows.',
 };
 
 const _codes = {

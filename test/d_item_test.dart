@@ -129,13 +129,41 @@ void main() {
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      expect((opened, saved), (2, 2));
+      expect(
+        (opened, saved),
+        (1, 2),
+        reason: 'anchor-like rows activate on Enter, not Space',
+      );
       await tester.tap(find.text('Project'));
-      expect((opened, saved), (3, 2));
+      expect((opened, saved), (2, 2));
       await tester.pumpWidget(host(const Text('Removed')));
       expect(() => row.requestFocus(), returnsNormally);
     },
   );
+
+  testWidgets('button-like row activates with Enter and Space', (tester) async {
+    final row = FocusNode();
+    addTearDown(row.dispose);
+    var activated = 0;
+    await tester.pumpWidget(
+      host(
+        DItem(
+          focusNode: row,
+          onPressed: () => activated++,
+          children: const [
+            DItemContent(children: [DItemTitle(child: Text('Open project'))]),
+          ],
+        ),
+      ),
+    );
+
+    row.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+
+    expect(activated, 2);
+  });
 
   testWidgets(
     'composed final Checkbox owns Space and pointer without activating its row',
