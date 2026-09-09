@@ -94,6 +94,31 @@ void main() {
     );
   });
 
+  testWidgets('merged Switch tile keeps one compact row activation owner', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(const FieldNotificationsExample()));
+    final control = find.byType(DSwitch);
+    expect(control, findsOneWidget);
+    expect(find.byType(Switch), findsNothing);
+    expect(tester.widget<DSwitch>(control).value, isFalse);
+
+    await tester.tap(find.text('Multi-factor authentication'));
+    await tester.pump();
+
+    expect(tester.widget<DSwitch>(control).value, isTrue);
+  });
+
+  testWidgets('merged Slider keeps each range thumb as its own owner', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(const FieldSliderExample()));
+    final slider = tester.widget<DMultiSlider>(find.byType(DMultiSlider));
+    expect(slider.values, const [200, 800]);
+    expect(slider.semanticLabels, const ['Minimum price', 'Maximum price']);
+    expect(find.byType(RangeSlider), findsNothing);
+  });
+
   testWidgets(
     'merged Radio choice label focuses its item and arrows preserve group ownership',
     (tester) async {

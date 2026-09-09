@@ -244,28 +244,18 @@ class _ChoiceState extends State<_Choice> {
     }
     return DField(
       enabled: widget.enabled,
-      orientation: DFieldOrientation.horizontal,
       children: [
-        DFieldControl(
-          label: widget.label,
-          description: widget.description,
-          expand: false,
-          child: Switch(
-            value: _value,
-            onChanged: widget.enabled ? _change : null,
+        DSwitchTile(
+          value: _value,
+          enabled: widget.enabled,
+          onChanged: widget.enabled ? _change : null,
+          title: DFieldLabel(
+            style: const TextStyle(fontWeight: FontWeight.w400),
+            child: Text(widget.label),
           ),
-        ),
-        DFieldContent(
-          children: [
-            DFieldLabel(
-              excludeSemantics: true,
-              onPressed: () => _change(!_value),
-              style: const TextStyle(fontWeight: FontWeight.w400),
-              child: Text(widget.label),
-            ),
-            if (widget.description != null)
-              DFieldDescription(child: Text(widget.description!)),
-          ],
+          subtitle: widget.description == null
+              ? null
+              : DFieldDescription(child: Text(widget.description!)),
         ),
       ],
     );
@@ -530,21 +520,22 @@ class FieldSliderExample extends StatefulWidget {
 }
 
 class _FieldSliderExampleState extends State<FieldSliderExample> {
-  RangeValues _range = const RangeValues(200, 800);
+  List<double> _range = const [200, 800];
   @override
   Widget build(BuildContext context) => DField(
     children: [
       const DFieldTitle(child: Text('Price Range')),
       DFieldDescription(
         child: Text(
-          'Set your budget range (\$${_range.start.round()} - \$${_range.end.round()}).',
+          'Set your budget range (\$${_range.first.round()} - \$${_range.last.round()}).',
         ),
       ),
-      RangeSlider(
+      DMultiSlider(
         values: _range,
         max: 1000,
-        divisions: 100,
-        semanticFormatterCallback: (value) => 'Price Range: \$${value.round()}',
+        step: 10,
+        semanticLabels: const ['Minimum price', 'Maximum price'],
+        semanticFormatter: (value, _) => '\$${value.round()}',
         onChanged: (value) => setState(() => _range = value),
       ),
     ],

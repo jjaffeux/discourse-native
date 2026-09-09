@@ -248,6 +248,21 @@ void main() {
       await tester.pump();
       expect(changed, isFalse);
       expect(focus.hasFocus, isFalse);
+      final disabledOpacity = tester
+          .widgetList<Opacity>(
+            find.descendant(
+              of: find.byType(DFieldLabel),
+              matching: find.byType(Opacity),
+            ),
+          )
+          .singleWhere((widget) => widget.opacity == 0.5);
+      expect(
+        find.descendant(
+          of: find.byWidget(disabledOpacity),
+          matching: find.byType(DecoratedBox),
+        ),
+        findsOneWidget,
+      );
     },
   );
 

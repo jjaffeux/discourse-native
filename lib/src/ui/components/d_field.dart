@@ -394,7 +394,7 @@ class _DFieldLabelState extends State<DFieldLabel> {
     final canActivate =
         enabled && (widget.onPressed != null || widget.focusNode != null);
     Widget child = DLabel(
-      enabled: enabled,
+      enabled: widget.choice ? true : enabled,
       style: TextStyle(
         height: 1.375,
         color: scope?.invalid == true ? tokens.destructive : tokens.foreground,
@@ -431,6 +431,18 @@ class _DFieldLabelState extends State<DFieldLabel> {
           child: Padding(padding: const EdgeInsets.all(11), child: child),
         ),
       );
+      if (!enabled) {
+        child = Semantics(
+          enabled: false,
+          child: ExcludeFocus(
+            excluding: true,
+            child: IgnorePointer(
+              ignoring: true,
+              child: Opacity(opacity: 0.5, child: child),
+            ),
+          ),
+        );
+      }
     }
     return Focus(
       canRequestFocus: false,
