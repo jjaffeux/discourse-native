@@ -109,14 +109,14 @@ suites run now. No iOS/Linux device or spoken VoiceOver verification is claimed.
 
 ## Isolated macOS bundle
 
-Source commit: `9ab5a887cbf71b021022454f91cbdcd8f6041a4b`.
+Source commit: `41ac9023ab4c30de27f386d22d3e4a833170d88b`.
 Build: `flutter build macos --debug --no-pub -t tool/switch_review_main.dart`.
-Bundle: `/private/tmp/discourse-switch-review-9ab5a887/Discourse Switch Review.app`.
+Bundle: `/private/tmp/discourse-switch-review-41ac9023/Discourse Switch Review 41ac9023.app`.
 The original worktree build and isolated bundle have the same kernel SHA256:
-`4545ebfacea1b7417d4f2e5820a2fa1a2be8c2714f208b015b608b5ff0df7d59`.
+`f38fcf8e1c62d6f708ae2fae2d5e8af18ecbe869964cb49beed17931d2fde589`.
 
-The copy has bundle ID `org.discourse.switch-review` and URL scheme
-`discourse-switch-review`; `codesign --verify --deep --strict --verbose=2`
+The copy has bundle ID `org.discourse.switch-review-41ac9023` and URL scheme
+`discourse-switch-review-41ac9023`; `codesign --verify --deep --strict --verbose=2`
 passed after ad-hoc signing. Only the isolated copy removes the APS entitlement.
 Workspace runner configuration and the user's main-checkout app were preserved.
 The full trace, source equality and source hash are recorded in
