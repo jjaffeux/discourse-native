@@ -2,6 +2,9 @@
 
 Implementation task: `01a085af-d606-7281-ac25-34c83adc855e`.
 Branch: `codex/ui-input-group`.
+Implementation source: `30078b3bf4e4eac96411c19c3bc16b2732ceff59`.
+Independent review: task `01a085d3-1acf-7361-9dc8-fc4a99de7c45`, branch
+`codex/review-input-group`.
 
 ## Reference
 
