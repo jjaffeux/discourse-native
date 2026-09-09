@@ -1,0 +1,45 @@
+Window: "Discourse", App: Discourse Switch Review 3243a88c.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Discourse Switch Review 3243a88c
+		2 container (settable)
+			3 button (settable)
+			4 container (settable) Local Chat settings
+			5 button (settable) Settings
+			6 button (settable) Members (0)
+			7 image (settable) Local review
+Tell people what this channel is about.
+/chat/c/-/9
+Mute channel
+Hide unread indicators and stop channel notifications.
+Threaded replies
+Replies open as separate conversations alongside the main channel.
+Category
+Controls visibility and membership rules.
+Category
+Message history
+Messages are removed after the retention period.
+Forever
+Channel is open.
+Closing prevents non-staff members from posting.
+Remove Local review from your sidebar and stop following its conversations.
+				8 button (settable) Edit details
+				9 container (settable) Your notifications
+				10 switch (settable, boolean) Mute channel, Value: on
+				11 container (settable) Conversation
+				12 switch (settable, boolean) Enable threads, Value: off
+				13 container (settable) Channel information
+				14 container (settable) Channel management
+				15 button (settable) Close channel
+				16 container (settable) Leave this channel
+				17 button (settable) Leave channel
+	18 close button
+	19 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	20 minimize button
+21 menu bar
+	22 Discourse Switch Review 3243a88c
+	23 Edit
+	24 View
+	25 Window
+	26 Help
+
+The focused UI element is 1 container Discourse Switch Review 3243a88c

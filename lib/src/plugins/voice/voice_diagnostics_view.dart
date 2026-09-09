@@ -403,7 +403,7 @@ class _CaptureControls extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SwitchListTile.adaptive(
+              DSwitchTile(
                 key: const ValueKey('voice-capture-switch'),
                 contentPadding: EdgeInsets.zero,
                 value: state.enabled,
