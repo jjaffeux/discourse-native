@@ -22,6 +22,7 @@ import 'examples/skeleton_examples.dart';
 import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
 import 'examples/switch_examples.dart';
+import 'examples/table_examples.dart';
 import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
@@ -29,6 +30,7 @@ import 'styleguide_example.dart';
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
   'accordion': accordionExamples,
+  'table': tableExamples,
   'collapsible': collapsibleExamples,
   'input': inputExamples,
   'radio-group': radioGroupExamples,
