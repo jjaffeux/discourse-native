@@ -88,7 +88,7 @@ class AppSettingsModal extends StatelessWidget {
                             : () => unawaited(appSettings.resetTextScale()),
                       ),
                       const SizedBox(height: 36),
-                      SwitchListTile.adaptive(
+                      DSwitchTile(
                         key: const ValueKey('disable-gif-animations-switch'),
                         contentPadding: EdgeInsets.zero,
                         title: const DLabel(

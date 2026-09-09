@@ -474,7 +474,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
                 ?search,
                 ?loading,
                 Expanded(
-                  child: Scrollbar(
+                  child: DScrollBar(
                     key: const ValueKey('assigned-people-scrollbar'),
                     controller: _peopleScrollController,
                     thumbVisibility: true,

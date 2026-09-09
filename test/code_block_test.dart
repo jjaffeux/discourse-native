@@ -270,7 +270,7 @@ void main() {
       expect(scrollView.scrollDirection, Axis.horizontal);
       expect(scrollView.controller!.position.maxScrollExtent, greaterThan(0));
       expect(
-        tester.widget<Scrollbar>(find.byType(Scrollbar)).thumbVisibility,
+        tester.widget<DScrollBar>(find.byType(DScrollBar)).thumbVisibility,
         isTrue,
       );
     });

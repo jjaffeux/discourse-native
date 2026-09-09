@@ -1,0 +1,28 @@
+Window: "Discourse", App: Discourse Switch Review 3243a88c.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Discourse Switch Review 3243a88c
+		2 container (settable)
+			3 button (settable)
+			4 container (settable) Local preferences
+			5 container (settable)
+				6 button (settable) Profile
+				7 button (settable) Notifications
+				8 button (settable) Interface
+			9 button (settable) Like notifications
+First time and daily
+				10 text (settable) Choose when likes should create a notification.
+				11 switch (settable, boolean) Value: off, Notify me about replies to linked posts
+Get a notification when someone replies to a post you linked.
+			12 image (settable)
+			13 button (settable) Save Notifications preferences
+	14 close button
+	15 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	16 minimize button
+17 menu bar
+	18 Discourse Switch Review 3243a88c
+	19 Edit
+	20 View
+	21 Window
+	22 Help
+
+The focused UI element is 1 container Discourse Switch Review 3243a88c

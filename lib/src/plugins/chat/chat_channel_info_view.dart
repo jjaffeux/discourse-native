@@ -303,10 +303,11 @@ class _ChannelSettings extends StatelessWidget {
                                   label: 'Mute channel',
                                   description:
                                       'Hide unread indicators and stop channel notifications.',
-                                  action: Switch.adaptive(
+                                  action: DSwitch(
                                     key: const ValueKey(
                                       'chat-channel-muted-setting',
                                     ),
+                                    semanticLabel: 'Mute channel',
                                     value: membership.muted,
                                     onChanged: notificationBusy
                                         ? null
@@ -384,10 +385,11 @@ class _ChannelSettings extends StatelessWidget {
                                   label: 'Threaded replies',
                                   description:
                                       'Replies open as separate conversations alongside the main channel.',
-                                  action: Switch.adaptive(
+                                  action: DSwitch(
                                     key: const ValueKey(
                                       'chat-channel-threading-switch',
                                     ),
+                                    semanticLabel: 'Enable threads',
                                     value: channel.threadingEnabled,
                                     onChanged: settingsBusy
                                         ? null

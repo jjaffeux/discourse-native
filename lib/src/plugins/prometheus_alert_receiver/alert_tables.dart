@@ -203,7 +203,8 @@ class _AlertTableState extends State<_AlertTable> {
                   constraints.maxWidth,
                   (group.showDescription ? 620 : 460) * textScale,
                 );
-                return Scrollbar(
+                return DScrollBar(
+                  axis: Axis.horizontal,
                   controller: _scroll,
                   thumbVisibility: true,
                   child: SingleChildScrollView(
