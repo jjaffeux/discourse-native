@@ -49,7 +49,7 @@ final collapsibleExamples = ComponentExamples(
     StyleguideExample(
       title: 'File Tree',
       description:
-          'Independent nested folders. Tab visits visible entries; Enter/Space toggles folders.',
+          '256px Card with independent nested folders. Tab visits visible entries; Enter/Space toggles folders.',
       code: '''DCollapsible(child: Column(children: [
   DCollapsibleTrigger(child: Text('components')),
   DCollapsibleContent(child: Padding(
@@ -276,6 +276,14 @@ class _Trigger extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DCollapsibleTrigger(
     semanticLabel: iconOnly ? label : null,
+    focusBorderRadius: BorderRadius.circular(
+      small
+          ? (DTokens.of(context).radius * 0.8).clamp(0, 12)
+          : DTokens.of(context).radius,
+    ),
+    focusBorder: true,
+    focusRingWidth: 3,
+    focusRingOpacity: 0.5,
     builder: (context, state) {
       final t = DTokens.of(context);
       final touch =
@@ -667,7 +675,7 @@ class _FileTreeState extends State<_FileTree> {
   );
   @override
   Widget build(BuildContext context) => _Frame(
-    width: 384,
+    width: 256,
     child: DCard(
       children: [
         DCardHeader(
