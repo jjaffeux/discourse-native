@@ -1,0 +1,24 @@
+Window: "Discourse", App: Checkbox Review 132a Visual.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Checkbox Review 132a Visual
+		2 container (settable)
+			3 container (settable) All flags are received by moderators and will be reviewed as soon as possible.
+467 remaining
+				4 checkbox (settable, integer) Value: 1, Illegal
+This may break the law.
+					5 radio button (settable, integer) 1
+				6 text field (settable) Local review fixture explanation.
+				7 checkbox (settable, integer) What I’ve written above is accurate and complete, Value: 1
+				8 button (settable) Message
+			9 text (settable) Dismiss
+	10 close button
+	11 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	12 minimize button
+13 menu bar
+	14 Checkbox Review 132a Visual
+	15 Edit
+	16 View
+	17 Window
+	18 Help
+
+The focused UI element is 1 container Checkbox Review 132a Visual

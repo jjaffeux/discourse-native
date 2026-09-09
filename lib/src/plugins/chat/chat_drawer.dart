@@ -217,6 +217,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
         widget is EditableText ||
         widget is ButtonStyleButton ||
         widget is IconButton ||
+        widget is DCheckbox ||
         widget is Checkbox ||
         widget is RawRadio ||
         widget is Radio ||

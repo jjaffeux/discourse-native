@@ -3,6 +3,7 @@ import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
 import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
+import 'examples/checkbox_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
@@ -21,6 +22,7 @@ import 'styleguide_example.dart';
 final componentExamples = <String, ComponentExamples>{
   'input': inputExamples,
   'radio-group': radioGroupExamples,
+  'checkbox': checkboxExamples,
   'card': cardExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,

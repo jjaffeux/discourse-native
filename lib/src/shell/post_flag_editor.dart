@@ -310,7 +310,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
               ],
               if (selected?.isIllegal == true) ...[
                 const SizedBox(height: 8),
-                CheckboxListTile(
+                DCheckbox(
                   key: const ValueKey('post-flag-illegal-confirmation'),
                   value: _accurateAndComplete,
                   enabled: !_saving,
@@ -319,11 +319,10 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                       : (value) => setState(
                           () => _accurateAndComplete = value == true,
                         ),
-                  controlAffinity: ListTileControlAffinity.leading,
+
                   contentPadding: EdgeInsets.zero,
-                  title: DLabel(
-                    enabled: !_saving,
-                    child: const Text(
+                  title: const DLabel(
+                    child: Text(
                       'What I’ve written above is accurate and complete',
                     ),
                   ),

@@ -575,11 +575,11 @@ void main() {
             expect(find.text('This poll is closed.'), findsOneWidget);
             expect(cast, findsNothing);
             expect(find.textContaining('Choose between'), findsNothing);
-            final ink = find.descendant(
+            final checkbox = find.descendant(
               of: option,
-              matching: find.byType(InkWell),
+              matching: find.byType(DCheckbox),
             );
-            expect(tester.widget<InkWell>(ink).onTap, isNull);
+            expect(tester.widget<DCheckbox>(checkbox).onChanged, isNull);
             expect(writes, 0);
             await deadline.expectIdle();
           });

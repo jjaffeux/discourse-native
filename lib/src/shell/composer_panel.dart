@@ -3096,10 +3096,10 @@ class _ExistingGalleryImagesDialogState
           itemBuilder: (context, index) {
             final image = widget.images[index];
             final selected = _selectedStarts.contains(image.start);
-            return CheckboxListTile(
+            return DCheckbox(
               key: ValueKey('gallery-existing-image-${image.start}'),
               value: selected,
-              controlAffinity: ListTileControlAffinity.leading,
+
               secondary: const Icon(Icons.image_outlined),
               title: Text(
                 image.alt.isEmpty ? 'Image ${index + 1}' : image.alt,

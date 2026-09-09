@@ -638,81 +638,38 @@ class _PollOptionRow extends StatelessWidget {
         ),
       );
     }
-    return Semantics(
-      container: true,
-      button: canSelect,
-      enabled: canSelect,
-      selected: selected,
-      label: '$plain$resultLabel',
-      child: InkWell(
-        onTap: canSelect ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
-        child: ExcludeSemantics(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 44),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 7),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: Icon(
-                        multiple
-                            ? (selected
-                                  ? Icons.check_box
-                                  : Icons.check_box_outline_blank)
-                            : (selected
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_unchecked),
-                        size: 22,
-                        color: selected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          CookedHtml(
-                            html: option.html,
-                            siteUrl: siteUrl,
-                            textStyle: Theme.of(context).textTheme.bodyLarge,
-                          ),
-                          if (votes != null && percentage != null) ...[
-                            const SizedBox(height: 5),
-                            Row(
-                              children: [
-                                Text(
-                                  votes == 1 ? '1 vote' : '$votes votes',
-                                  style: Theme.of(context).textTheme.bodyLarge
-                                      ?.copyWith(color: whisper),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '$percentage%',
-                                  style: Theme.of(context).textTheme.bodyLarge
-                                      ?.copyWith(color: whisper),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            _ResultBar(percentage: percentage!),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+
+    return DCheckbox(
+      value: selected,
+      onChanged: canSelect ? (_) => onTap() : null,
+      semanticLabel: '$plain$resultLabel',
+      contentPadding: const EdgeInsets.symmetric(vertical: 7),
+      title: ExcludeSemantics(
+        child: IgnorePointer(
+          child: ExcludeFocus(
+            child: CookedHtml(
+              html: option.html,
+              siteUrl: siteUrl,
+              textStyle: theme.textTheme.bodyLarge,
             ),
           ),
         ),
       ),
+      subtitle: votes == null || percentage == null
+          ? null
+          : ExcludeSemantics(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '${votes == 1 ? '1 vote' : '$votes votes'}, $percentage%',
+                    style: theme.textTheme.bodyLarge?.copyWith(color: whisper),
+                  ),
+                  const SizedBox(height: 4),
+                  _ResultBar(percentage: percentage!),
+                ],
+              ),
+            ),
     );
   }
 }
