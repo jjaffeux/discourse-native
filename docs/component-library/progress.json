@@ -2477,7 +2477,7 @@
     },
     {
       "id": "carousel",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
       "branch": "codex/ui-carousel",
       "dependencies": [
@@ -2522,10 +2522,10 @@
         "The production native fixture used deterministic local media metadata and did not open an authenticated gallery or network session. Browser/native font rasterization differs, so no pixel-equality claim is made."
       ],
       "implementationCommit": "e03cc7f150d14a5bf231ec9d66cc02359b67d588",
-      "mergeCommit": null,
+      "mergeCommit": "3ec0c089d273029ff901d9155eba93e17c4d3a23",
       "reviewTaskId": "01a08589-3822-72d2-88a1-5fcaea66e089",
       "reviewBranch": "codex/review-carousel",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed"
     },
@@ -3043,16 +3043,6 @@
           "headCommit": "17e7778e355ee398f8dad71f5839f98b7627cb9f"
         },
         {
-          "component": "carousel",
-          "taskId": "01a08589-3822-72d2-88a1-5fcaea66e089",
-          "branch": "codex/review-carousel",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f646/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
-          "implementationBranch": "codex/ui-carousel",
-          "headCommit": "ace58e0ff2c7a41ed6c14f92638fa01a0d15ee67"
-        },
-        {
           "component": "toast",
           "taskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
           "branch": "codex/review-toast",
@@ -3352,7 +3342,8 @@
           "branch": "codex/review-carousel",
           "implementationTaskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
           "implementationBranch": "codex/ui-carousel",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "3ec0c089d273029ff901d9155eba93e17c4d3a23"
         },
         {
           "component": "toast",

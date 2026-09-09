@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**29 of 64 components are merged locally.** 15 existing components are in progress; 20 are planned.
+**30 of 64 components are merged locally.** 14 existing components are in progress; 20 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -29,7 +29,6 @@ Branch preparation does not mark a component merged or visually verified.
 | button-group | independent review | a0cca310 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
 | command | Implementation and checks | — | — |
 | dropdown-menu | Implementation and checks | — | — |
-| carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
 
 ## Component implementation
@@ -87,7 +86,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 49 | pagination | planned | — | — | button, select | — |
 | 50 | calendar | planned | — | — | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
-| 52 | carousel | review_ready | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | — |
+| 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
@@ -2190,7 +2189,7 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 
 ### carousel
 
-Status: review_ready. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/ui-carousel.
+Status: merged. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/ui-carousel.
 
 **acceptanceCriteria**
 
