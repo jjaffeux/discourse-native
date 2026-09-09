@@ -1184,6 +1184,7 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 - See docs/component-library/resizable.md for primary source hashes, measurements, API/constraint and native adaptation decisions. Frozen page hash matches catalogue; Base Nova 1px divider + 4x24 pill, rounded-lg = 1x token radius.
 - Public group/panel/handle plus typed explicit pixel/percentage sizes and controller; controlled/uncontrolled state, constraints/collapse, disabled panels, dynamic stable IDs, relative/pixel parent sizing. Native 48px coarse targets with in-bounds collapsed-edge semantics.
 - App adapters reuse DResizableHandle.standalone; persistence/async races remain outside generic UI. No Form field or unmerged component dependency. Styleguide status remains baseline pending native gate.
+- Independent source/check/build work complete; awaiting_slot. Coordinator must complete native/reference comparison before review_ready or merge.
 
 **migrations**
 
@@ -1200,7 +1201,7 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 - flutter pub get --enforce-lockfile at root and profiles/full passed; Flutter 3.47.2 and lockfiles unchanged.
 - Focused tests: d_resizable_test, styleguide/resizable_examples_test, resizable_pane_test, panel_width_controller_headless_test, users_page_test, chat_thread_workspace_test passed (88 tests); final radius correction additionally passed 16 component/styleguide tests including custom zero-radius assertion.
 - Final root and full-profile flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed. Four extracted self-contained usage programs passed Dart analysis.
-- Local native review entrypoint lib/resizable_review_main.dart mounts actual ResizablePane, UsersColumnResizeHandle, ChatThreadPaneDivider and all component examples without real settings/services. Build evidence follows.
+- Isolated local-data native fixture built successfully from source 3cda4109fb5846b48d0f7fe5ae2184a493e58a80. Copied /tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app has unique name/ID/URL scheme; build app.dill and original/copied kernels share SHA256 61910f371df8867797f0a76d5b014915c0b986c0183b35ff0e4a98572dde88a7. Deep strict signature verification passed. See docs/component-library/resizable-native.md and evidence/resizable logs.
 
 **limitations**
 
