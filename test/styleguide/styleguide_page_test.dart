@@ -113,7 +113,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        tester.widget<Scrollbar>(scrollbar).controller!.offset,
+        tester.widget<DScrollBar>(scrollbar).controller!.offset,
         greaterThan(0),
       );
       await _choose(tester, 'Viewport width', '360 px');

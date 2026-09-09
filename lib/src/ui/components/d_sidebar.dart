@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../foundation/tokens.dart';
+import 'd_scroll_area.dart';
 import 'd_separator.dart';
 import 'd_skeleton.dart';
 import 'd_tooltip.dart';
@@ -452,7 +453,7 @@ class DSidebarContent extends StatelessWidget {
   /// Borrowed; the caller disposes it.
   final ScrollController? controller;
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
+  Widget build(BuildContext context) => DScrollArea(
     controller: controller,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

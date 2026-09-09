@@ -145,6 +145,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - packages/discourse_native/src/styleguide/assets/scroll_area/ornella.jpg
+    - packages/discourse_native/src/styleguide/assets/scroll_area/tom.jpg
+    - packages/discourse_native/src/styleguide/assets/scroll_area/vladimir.jpg
     - packages/discourse_native/src/styleguide/assets/discourse.png
     - assets/fonts/JetBrainsMono-OFL.txt
   fonts:

@@ -5,6 +5,7 @@ import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
+import 'examples/scroll_area_examples.dart';
 import 'examples/separator_examples.dart';
 import 'examples/sidebar_examples.dart';
 import 'examples/skeleton_examples.dart';
@@ -21,6 +22,7 @@ final componentExamples = <String, ComponentExamples>{
   'avatar': avatarExamples,
   'direction': directionExamples,
   'typography': typographyExamples,
+  'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'label': labelExamples,

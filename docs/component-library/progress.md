@@ -35,7 +35,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 23 | empty | planned | — | — | typography | — |
 | 24 | item | planned | — | — | separator | — |
 | 25 | table | planned | — | — | typography | — |
-| 26 | scroll-area | planned | — | — | separator | — |
+| 26 | scroll-area | in_progress | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | — |
 | 27 | collapsible | planned | — | — | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | planned | — | — | button | — |
@@ -1166,6 +1166,48 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 - iOS and Linux native device inspection unavailable in this macOS session. Widget tests and platform overrides are not device testing.
 - No VoiceOver audit; some native accessibility snapshots were sparse. Widget tests verify semantic grouping and keyboard/focus behavior. Preferences, Categories, Aggregate, Voice diagnostics and cooked/request fallback migrations have focused test coverage but were not individually inspected natively.
 - Adjacent Button/Input/Badge/Toggle Group visuals remain pending their owners, as documented in the examples. Native inspected build displayed baseline status before the final metadata-only promotion to implemented.
+
+### scroll-area
+
+Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/ui-scroll-area.
+
+**acceptanceCriteria**
+
+- Port base-nova 10px transparent scrollbar track, 1px padding plus 1px transparent leading border and border-colored rounded thumb with live palette/radius and visible viewport keyboard focus.
+- Expose vertical, horizontal and combined viewport/scrollbar/thumb/corner composition with one Flutter scroll owner per axis, owned or borrowed controllers and preserved position across rebuilds.
+- Verify wheel, thumb drag, touch and keyboard scrolling, RTL, visibility, resizing and controller replacement/removal without disposing borrowed resources.
+- Reproduce Tags/Horizontal/RTL reference examples and local combined/lazy composition; preserve styleguide explicit 360/768/1024 widths and state during preview changes.
+- Audit core/plugins, migrate appropriate Sidebar and wide-preview scrollbar ownership, document retained specialized timelines/menus and any additional migrations.
+- Pass focused component/downstream tests, root/full-profile analysis and isolated signed macOS fixture build; remain in_progress awaiting serialized reference/native comparison.
+
+**decisions**
+
+- Source mapping, native adaptations and full adoption audit: docs/component-library/scroll-area.md; hashed official registry/Markdown/Base UI behavior and reference photos in reference/scroll-area/sources.json.
+- DScrollArea uses one native position per enabled axis; DScrollBar decorates existing native scrolling, with composable DScrollViewport, DScrollThumb and DScrollCorner. Live tokens, 7px capsule in 10px track, 16px minimum thumb and keyboard focus ring.
+- Tags, Horizontal, RTL, combined overflow and lazy-controller composition are actual public-component styleguide examples; remain baseline pending native visual gate.
+
+**migrations**
+
+- DSidebarContent and explicit wide styleguide preview scrollbar (width/state/controller preservation).
+- CodeBlock, DiagnosticsPanel, VoiceDiagnosticsView, Assign people rail, Prometheus tables and EventCalendar month scrollbar decorators preserve native viewport/controllers and domain behavior.
+
+**retainedAlternatives**
+
+- Synchronized split-column Users directory scrollbars need dedicated adapter/fixture review; retained.
+- Topic/Chat/SuperList timelines, shell sliver sidebar and restoration/pagination owners are retained without a second viewport.
+- ChoiceMenu/CommandMenu/AnchoredPicker focus/intrinsic viewport owners and existing example-specific scroll demonstrations remain with their catalogue owners; no unmerged dependency used.
+
+**verification**
+
+- Flutter 3.47.2/Dart 3.13.2 unchanged; root and full-profile flutter pub get --enforce-lockfile succeeded with unchanged lockfiles.
+- flutter analyze --no-pub: no issues; full-profile flutter analyze --no-pub: no issues.
+- flutter test --no-pub test/d_scroll_area_test.dart test/styleguide/scroll_area_examples_test.dart test/d_sidebar_test.dart test/styleguide/sidebar_examples_test.dart test/styleguide/styleguide_page_test.dart test/code_block_test.dart test/diagnostics_panel_test.dart test/voice_diagnostics_view_test.dart test/assigned_group_view_test.dart test/alert_tables_test.dart test/event_calendar_test.dart --test-randomize-ordering-seed=random: 103 passed; log /tmp/scroll-area-focused.log.
+- Touched Dart formatting and git diff --check pass. Native offline fixture entrypoint lib/scroll_area_review_main.dart mounts actual migrated widgets and styleguide.
+
+**limitations**
+
+- Mac locked: no CUA, browser/native launch or visual comparison performed. Remain in_progress awaiting_slot; not mergeable until coordinator visual/native review.
+- No iOS/Linux device or VoiceOver testing; no pixel-parity claim.
 
 ### sidebar
 

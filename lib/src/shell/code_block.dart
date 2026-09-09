@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DScrollBar;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart' as editor;
@@ -396,7 +397,8 @@ class _CodeBlockState extends State<CodeBlock> {
           // since wrapping makes indentation lie about structure. The
           // scrollbar stays up whenever there is somewhere to scroll.
           LayoutBuilder(
-            builder: (context, constraints) => Scrollbar(
+            builder: (context, constraints) => DScrollBar(
+              axis: Axis.horizontal,
               controller: _horizontal,
               thumbVisibility: true,
               child: SingleChildScrollView(
