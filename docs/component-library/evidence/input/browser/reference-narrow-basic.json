@@ -1,0 +1,27 @@
+{
+  "background": "rgba(0, 0, 0, 0)",
+  "border": "1px solid lab(90.952 0 -0.0000119209)",
+  "borderRadius": "10px",
+  "color": "lab(0 0 0)",
+  "direction": "ltr",
+  "fileButton": {
+    "border": "0px none lab(0 0 0)",
+    "font": "16px / 24px Geist, \"Geist Fallback\"",
+    "height": "auto",
+    "margin": "0px",
+    "padding": "0px"
+  },
+  "font": "16px / 24px Geist, \"Geist Fallback\"",
+  "id": "base-ui-_R_8vaanpfknqbr6lb_",
+  "opacity": "1",
+  "padding": "4px 10px",
+  "parentBackground": "rgba(0, 0, 0, 0)",
+  "rect": {
+    "height": 32,
+    "width": 245,
+    "x": 65,
+    "y": 1369.984375
+  },
+  "shadow": "none",
+  "type": "text"
+}

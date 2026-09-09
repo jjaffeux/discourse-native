@@ -234,6 +234,7 @@ class _DInputState extends FormFieldState<String> {
             child: ExcludeSemantics(
               child: DLabel(
                 enabled: input.enabled,
+                style: const TextStyle(height: 19.25 / 14),
                 child: Text(input.labelText!),
               ),
             ),
@@ -325,6 +326,8 @@ class _DInputState extends FormFieldState<String> {
             child: Text(
               error ?? input.helperText!,
               style: style.copyWith(
+                fontSize: 14,
+                height: 21 / 14,
                 color: error == null ? t.mutedForeground : t.destructive,
               ),
             ),
@@ -612,7 +615,7 @@ class _DFileInputState extends FormFieldState<List<String>> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           value?.isNotEmpty == true

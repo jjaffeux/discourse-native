@@ -280,3 +280,43 @@ unique isolated bundle and verified its identifier/scheme and deep strict
 ad-hoc signature. Source-build and copied kernels both SHA256
 `661a1bb69eaf830e8c84de3f2931d1f2df5b760ea3dc4e86980c386cd243939a`. This supersedes previous
 unlaunched checkpoints. No launch or CUA/native interaction was performed.
+
+## Official browser comparison, 2026-09-09
+
+Used the exclusively granted browser slot on the official
+https://ui.shadcn.com/docs/components/base/input page. Saved computed styles and
+crops in `evidence/input/browser/` cover dark default/focus/disabled/invalid/file/
+RTL, light default/disabled/invalid/file and a 390px narrow viewport. The reference
+uses Geist (Noto Sans Arabic for RTL). Desktop inputs are 32px high with 1px border,
+4px vertical and 10px horizontal padding, 10px radius and 14/20px text. The actual
+text inset is 11px including the border. Narrow text is 16/24px. File-selector
+button is 24px high, weight 500, 14/20px text, no padding/border and 4px right margin.
+FieldLabel uses 14/19.25px, FieldDescription 14/21px, both with 8px composition gaps.
+Dark input background is white at .15 × .3; disabled changes this to .15 × .8 before
+outer .5 opacity. Focus and invalid rings are exterior 3px, matching the corrected
+Flutter painter and alpha tests.
+
+Corrected the file-trigger gap from 12px to 4px and supplied the measured Field
+label/description leading in DInput's convenience composition. The shared DLabel
+component's standalone defaults remain owned by Label. An actual errorText stays
+red and live-announced; it is not the reference's muted FieldDescription. The
+reference's invalid parent Field also colors its label/entered text, which remains
+Field composition ownership rather than an intrinsic Input style.
+
+`test/input_reference_render_test.dart` renders all seven registered builders in
+both app palettes and the actual Add Site and Invite editors. Sixteen 600×850
+exports in `evidence/input/flutter-reference/` explicitly load repository JetBrains
+Mono through FontLoader and apply it to the text theme. They are readable app
+palette/geometry evidence, not native screenshots or exact Geist glyph goldens.
+Inspected the field states, Add Site, Invite and file images. Geometry assertions
+verify label leading (Flutter rounds 19.25 to 19 at 1×), description 21px, 11px text
+inset and 4px file gap. Existing 320px/200% RTL examples and native touch target
+adaptations remain covered. Flutter's touch field may grow above the browser's
+fixed 32px to retain 16/24 text plus padding and its transparent 48px hit target.
+Button's final 24px enum and disabled theme reconciliation remain coordinator-owned.
+
+After the interrupted turn, Input tab 1360425200 was absent from browser inventory.
+No replacement tab was opened and no other tab was modified. Explicitly RELEASED
+the browser slot to the coordinator before final tests/build. The prior tab's
+light theme and 390×844 viewport restoration could not be verified because the tab
+was gone. Native access remains ungranted; no getApp or native launch occurred.

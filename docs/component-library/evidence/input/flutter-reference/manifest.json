@@ -1,0 +1,30 @@
+{
+  "referenceUrl": "https://ui.shadcn.com/docs/components/base/input",
+  "inputSourceSha256": "fdc8c2d4c9ee8d62410be8bfb1f3e08fd5f4067311d448c3a7456569091673ef",
+  "images": {
+    "app-add-site.png": "74d664fc342ef425ac524922adc7cc0cb5cf05605d097d221663fdd2e9345750",
+    "app-invite.png": "d4192c1abbb858ad71c1dcf8d37c350c43e734990abbf05ce6dc4c7c3275683e",
+    "dark-example-0.png": "364368a95cf6807e7121a75114d80d977402a0de246acc0b364ed09079278091",
+    "dark-example-1.png": "fb36b8491165cafa86154bc1c1c2954a6022b16778f8b8aadd44a2cfd27def83",
+    "dark-example-2.png": "be90336a84f5b4990eeaf6bb763992e29279cfa614ca5a2ece23ec9f3c998619",
+    "dark-example-3.png": "51e9f6f361aa2268f23e9b1a88186866cdedc3a58134f1194377d1de358b7eea",
+    "dark-example-4.png": "96d6e73c1e4bfb930e410ab21fc224fe37f006bc2a6ddc60ab1b1205cc88206a",
+    "dark-example-5.png": "51c8e883998c643d92175cc11724a32724b7cd479dedbf1233cff61cb2fb2f28",
+    "dark-example-6.png": "9d46f05503da35399a88aa5324430d49df90c9405a7f4566388b87ed298b00c0",
+    "light-example-0.png": "9fc696cb34985ec4aa97ce57aa5f45e58b553bbc977f0b9aa7e67c997550d78e",
+    "light-example-1.png": "6b6a9c9eeb95a8e103bdf3e1c3e11708f731f7f97ea56e4f9532d3cb69d03596",
+    "light-example-2.png": "58bf1730e998272abe2db40de6572780f84be1bb535c836e691fe499129b13ef",
+    "light-example-3.png": "84a840a323bf8ca3508d6b8198c27f910895ab345d7a2b77917beb35f8edcc5f",
+    "light-example-4.png": "43f637267a28db5e2d77931b1a67fe811441b4d529adc36856f80379644c8355",
+    "light-example-5.png": "4b9d1f12ee136c0f490a92a029861c18d22c580ceb3476d9b29f0df6629abf55",
+    "light-example-6.png": "1bff305328e96290082194cfc6c8ecd868cc1650f8e913765fb660f53456ad65"
+  },
+  "kind": "Font-loaded Flutter registered examples and migrated Add Site/Invite; not native screenshots",
+  "font": "assets/fonts/JetBrainsMono-Regular.ttf",
+  "fontSha256": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f",
+  "dimensions": [
+    600,
+    850
+  ],
+  "pixelRatio": 1
+}
