@@ -11,6 +11,7 @@ import 'examples/collapsible_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/empty_examples.dart';
+import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
@@ -63,6 +64,7 @@ final componentExamples = <String, ComponentExamples>{
   'kbd': kbdExamples,
   'label': labelExamples,
   'native-select': nativeSelectExamples,
+  'field': fieldExamples,
   'progress': progressExamples,
   'marker': markerExamples,
   'popover': popoverExamples,
