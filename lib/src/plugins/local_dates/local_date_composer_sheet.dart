@@ -425,25 +425,19 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
   }) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Row(
-        children: [
-          Expanded(
-            child: DInput(
-              controller: date,
-              keyboardType: TextInputType.datetime,
-              labelText: '$label date',
-            ),
+      LayoutBuilder(
+        builder: (context, constraints) => DDatePickerInput(
+          controller: date,
+          initialValue: _civilDate(date.text),
+          label: '$label date',
+          width: constraints.maxWidth,
+          startMonth: DCalendarDate(1900, 1, 1),
+          endMonth: DCalendarDate(2200, 12, 31),
+          dateCodec: const DIntlDateTextCodec(
+            formatPattern: 'yyyy-MM-dd',
+            useLocaleDateOrder: false,
           ),
-          DTooltip(
-            message: 'Choose $label date',
-            labelTrigger: true,
-            child: IconButton(
-              onPressed: () => unawaited(_pickDate(date)),
-              icon: const Icon(Icons.calendar_month),
-              tooltip: '',
-            ),
-          ),
-        ],
+        ),
       ),
       DCheckbox(
         contentPadding: EdgeInsets.zero,
@@ -601,21 +595,6 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     Navigator.of(context).pop(LocalDateComposerSheetAction.apply(draft));
   }
 
-  Future<void> _pickDate(TextEditingController controller) async {
-    final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(2200),
-    );
-    if (selected == null || !mounted) return;
-    controller.text =
-        '${selected.year.toString().padLeft(4, '0')}-'
-        '${selected.month.toString().padLeft(2, '0')}-'
-        '${selected.day.toString().padLeft(2, '0')}';
-  }
-
   Future<void> _pickTime(TextEditingController controller) async {
     final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(controller.text);
     final initial = match == null
@@ -633,6 +612,11 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
         '${selected.hour.toString().padLeft(2, '0')}:'
         '${selected.minute.toString().padLeft(2, '0')}:00';
   }
+}
+
+DCalendarDate? _civilDate(String value) {
+  final parsed = DateTime.tryParse(value.trim());
+  return parsed == null ? null : DCalendarDate.fromDateTime(parsed);
 }
 
 class _TimezoneMenu extends StatelessWidget {

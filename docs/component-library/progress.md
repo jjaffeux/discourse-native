@@ -27,7 +27,7 @@ Branch preparation does not mark a component merged or visually verified.
 | breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
 | pagination | independent review | 2167c871 | 01a08629-4841-73d0-a5a6-c723f253b4b0 |
 | calendar | independent review | 4b86c11a | 01a08631-7574-70b0-a98f-4e7217e03209 |
-| date-picker | Implementation and checks | — | — |
+| date-picker | Implementation and checks | — | 01a086a1-dd61-77d1-ae4f-a09fa87ff595 |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
@@ -2656,6 +2656,7 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Independent reviewer task 01a086a1-dd61-77d1-ae4f-a09fa87ff595 owns source review, fixes, browser/native acceptance, dependency reconciliation and final local main merge.
 
 ### carousel
 
@@ -3088,3 +3089,4 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+

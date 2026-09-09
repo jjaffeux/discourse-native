@@ -3148,13 +3148,14 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Independent reviewer task 01a086a1-dd61-77d1-ae4f-a09fa87ff595 owns source review, fixes, browser/native acceptance, dependency reconciliation and final local main merge."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "e70ad9740e0b57bee38d84eab4eb8c8d54f1887a",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/51f7/discourse-native",
       "queueStage": "reference_and_dependency_preparation",
@@ -3170,9 +3171,9 @@
           "status": "in_progress",
           "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
           "branch": "codex/ui-calendar",
-          "reviewTaskId": null,
-          "reviewBranch": null,
-          "implementationCommit": null,
+          "reviewTaskId": "01a08631-7574-70b0-a98f-4e7217e03209",
+          "reviewBranch": "codex/review-calendar",
+          "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
           "mergeCommit": null
         },
         {
@@ -3195,7 +3196,30 @@
           "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
           "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
         }
-      ]
+      ],
+      "preparedDependencies": [
+        {
+          "id": "calendar",
+          "branch": "codex/ui-calendar",
+          "commit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
+          "reviewTaskId": "01a08631-7574-70b0-a98f-4e7217e03209",
+          "evidence": "Kalender 0.29.1-backed public Calendar source, catalogue examples and focused tests supplied by owner task 01a085fd-5d83-79c3-b598-bd3ffc5b366e.",
+          "mergeGate": "Final Date Picker reviewer must reconcile the accepted Calendar revision from main before merge."
+        },
+        {
+          "id": "input-group",
+          "branch": "codex/review-input-group",
+          "commit": "c48643dc",
+          "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
+          "evidence": "Prepared Input Group source plus shared state, native touch-bound and supporting-text fixes integrated for the editable example.",
+          "mergeGate": "Input Group is accepted on local main at d1de717b1e2d1eeaf06d86dafe1452662d05e368; the reviewer must use that accepted revision."
+        }
+      ],
+      "reviewTaskId": "01a086a1-dd61-77d1-ae4f-a09fa87ff595",
+      "reviewBranch": "codex/review-date-picker",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native",
+      "reviewStatus": "in_progress",
+      "queueStage": "independent_review"
     },
     {
       "id": "carousel",
