@@ -21,8 +21,10 @@ import 'd_label.dart';
 /// [labelText] is a static focus-activating DLabel. [helperText], [errorText]
 /// and [showCounter] compose below the field. Validation remains caller-owned.
 /// Native selection, clipboard, undo, keyboard and IME are owned by TextField.
-/// There is no browser resize grip; content growth and optional line bounds
-/// keep native layouts usable without adding an independent resize interaction.
+/// The box is editable edge to edge: its padding takes the text cursor and a
+/// press there focuses the editor. There is no browser resize grip; content
+/// growth and optional line bounds keep native layouts usable without adding
+/// an independent resize interaction.
 class DTextarea extends FormField<String> {
   DTextarea({
     super.key,
@@ -334,6 +336,7 @@ class _DTextareaState extends FormFieldState<String> {
           enabled: input.enabled,
           invalid: isInvalid,
           focused: _focus.hasFocus,
+          onTap: _focus.requestFocus,
           child: editor,
         ),
         if (input.showCounter && input.maxLength != null) ...[
@@ -371,9 +374,11 @@ class _TextareaSurface extends StatelessWidget {
     required this.enabled,
     required this.invalid,
     required this.focused,
+    required this.onTap,
   });
   final Widget child;
   final bool enabled, invalid, focused;
+  final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
     final t = DTokens.of(context);
@@ -385,38 +390,57 @@ class _TextareaSurface extends StatelessWidget {
         : t.colors.outlineVariant;
     final ring = invalid
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .4 : .2))
-        : t.focusRing.withValues(alpha: t.focusRing.a * .5);
-    return MouseRegion(
-      cursor: enabled ? MouseCursor.defer : SystemMouseCursors.forbidden,
-      child: Opacity(
-        opacity: enabled ? 1 : .5,
-        child: IgnorePointer(
-          ignoring: !enabled,
-          child: AnimatedContainer(
-            duration: DMotion.duration(
-              context,
-              const Duration(milliseconds: 150),
+        : focused
+        ? t.focusRing.withValues(alpha: t.focusRing.a * .5)
+        : null;
+    // The editor's own recognizers win presses inside it; the surface only
+    // claims the padding, which the reference box also makes editable.
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      excludeFromSemantics: true,
+      onTap: enabled ? onTap : null,
+      child: MouseRegion(
+        cursor: enabled
+            ? SystemMouseCursors.text
+            : SystemMouseCursors.forbidden,
+        child: Opacity(
+          opacity: enabled ? 1 : .5,
+          child: IgnorePointer(
+            ignoring: !enabled,
+            // transition-colors eases the border and fill; the ring is a box
+            // shadow outside that property list, so it paints at once.
+            child: CustomPaint(
+              foregroundPainter: ring == null
+                  ? null
+                  : _TextareaRing(color: ring, radius: t.radius),
+              child: AnimatedContainer(
+                duration: DMotion.duration(
+                  context,
+                  const Duration(milliseconds: 150),
+                ),
+                curve: Curves.fastOutSlowIn,
+                constraints: const BoxConstraints(minHeight: 64),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: dark
+                      ? t.colors.outlineVariant.withValues(
+                          alpha:
+                              t.colors.outlineVariant.a * (enabled ? .3 : .8),
+                        )
+                      : enabled
+                      ? Colors.transparent
+                      : t.colors.outlineVariant.withValues(
+                          alpha: t.colors.outlineVariant.a * .5,
+                        ),
+                  borderRadius: BorderRadius.circular(t.radius),
+                  border: Border.all(color: border),
+                ),
+                child: child,
+              ),
             ),
-            constraints: const BoxConstraints(minHeight: 64),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: dark
-                  ? t.colors.outlineVariant.withValues(
-                      alpha: t.colors.outlineVariant.a * (enabled ? .3 : .8),
-                    )
-                  : enabled
-                  ? Colors.transparent
-                  : t.colors.outlineVariant.withValues(
-                      alpha: t.colors.outlineVariant.a * .5,
-                    ),
-              borderRadius: BorderRadius.circular(t.radius),
-              border: Border.all(color: border),
-            ),
-            foregroundDecoration: _TextareaRingDecoration(
-              color: invalid || focused ? ring : ring.withValues(alpha: 0),
-              radius: t.radius,
-            ),
-            child: child,
           ),
         ),
       ),
@@ -424,45 +448,22 @@ class _TextareaSurface extends StatelessWidget {
   }
 }
 
-/// Paint only the exterior annulus: a spread shadow would also tint the
-/// translucent input fill. Keeping a Decoration preserves color interpolation.
-class _TextareaRingDecoration extends Decoration {
-  const _TextareaRingDecoration({required this.color, required this.radius});
+/// Paints only the exterior annulus: a spread shadow would also tint the
+/// translucent input fill behind the text.
+class _TextareaRing extends CustomPainter {
+  const _TextareaRing({required this.color, required this.radius});
   final Color color;
   final double radius;
   @override
-  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
-      _TextareaRingPainter(this);
-  @override
-  Decoration? lerpFrom(Decoration? a, double t) => a is _TextareaRingDecoration
-      ? _TextareaRingDecoration(
-          color: Color.lerp(a.color, color, t)!,
-          radius: a.radius + (radius - a.radius) * t,
-        )
-      : super.lerpFrom(a, t);
-  @override
-  Decoration? lerpTo(Decoration? b, double t) => b is _TextareaRingDecoration
-      ? _TextareaRingDecoration(
-          color: Color.lerp(color, b.color, t)!,
-          radius: radius + (b.radius - radius) * t,
-        )
-      : super.lerpTo(b, t);
-}
-
-class _TextareaRingPainter extends BoxPainter {
-  _TextareaRingPainter(this.decoration);
-  final _TextareaRingDecoration decoration;
-  @override
-  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
-    final rect = offset & configuration.size!;
+  void paint(Canvas canvas, Size size) {
     final inner = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(decoration.radius),
+      Offset.zero & size,
+      Radius.circular(radius),
     );
-    canvas.drawDRRect(
-      inner.inflate(3),
-      inner,
-      Paint()..color = decoration.color,
-    );
+    canvas.drawDRRect(inner.inflate(3), inner, Paint()..color = color);
   }
+
+  @override
+  bool shouldRepaint(_TextareaRing oldDelegate) =>
+      color != oldDelegate.color || radius != oldDelegate.radius;
 }

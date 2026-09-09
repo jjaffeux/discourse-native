@@ -1,8 +1,9 @@
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -367,4 +368,98 @@ void main() {
     await tester.pump();
     expect(find.text('2/3'), findsOneWidget);
   });
+
+  testWidgets(
+    'the box takes the text cursor and a press in its padding focuses the editor',
+    (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      Widget build(bool enabled) => host(
+        DTextarea(focusNode: focus, hintText: 'Message', enabled: enabled),
+      );
+      await tester.pumpWidget(build(true));
+      final surface = find.byType(AnimatedContainer);
+      expect(
+        tester.getTopLeft(find.byType(TextField)),
+        tester.getTopLeft(surface) + const Offset(11, 9),
+      );
+      final padding = tester.getTopLeft(surface) + const Offset(4, 4);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: padding);
+      await tester.pump();
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.text,
+      );
+      await tester.tapAt(padding);
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+      await tester.pumpWidget(build(false));
+      await tester.pump();
+      expect(focus.hasFocus, isFalse);
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.forbidden,
+      );
+      await tester.tapAt(padding);
+      await tester.pump();
+      expect(focus.hasFocus, isFalse);
+    },
+  );
+
+  testWidgets(
+    'border color eases over 150 milliseconds while the ring paints at once',
+    (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      await tester.pumpWidget(host(DTextarea(focusNode: focus)));
+      final tokens = DTokens.of(tester.element(find.byType(TextField)));
+      Color border() {
+        final box = tester.widget<DecoratedBox>(
+          find.descendant(
+            of: find.byType(AnimatedContainer),
+            matching: find.byType(DecoratedBox),
+          ),
+        );
+        return ((box.decoration as BoxDecoration).border! as Border).top.color;
+      }
+
+      CustomPainter? ring() => tester
+          .widget<CustomPaint>(
+            find
+                .ancestor(
+                  of: find.byType(AnimatedContainer),
+                  matching: find.byType(CustomPaint),
+                )
+                .first,
+          )
+          .foregroundPainter;
+      expect(ring(), isNull);
+      expect(border(), tokens.colors.outlineVariant);
+      focus.requestFocus();
+      await tester.pump();
+      await tester.pump();
+      expect(ring(), isNotNull);
+      expect(border(), tokens.colors.outlineVariant);
+      await tester.pump(const Duration(milliseconds: 75));
+      expect(
+        border(),
+        Color.lerp(
+          tokens.colors.outlineVariant,
+          tokens.focusRing,
+          Curves.fastOutSlowIn.transform(.5),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 75));
+      expect(border(), tokens.focusRing);
+      focus.unfocus();
+      await tester.pump();
+      await tester.pump();
+      expect(ring(), isNull);
+      expect(border(), tokens.focusRing);
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(border(), tokens.colors.outlineVariant);
+    },
+  );
 }
