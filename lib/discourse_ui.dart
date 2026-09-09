@@ -19,6 +19,7 @@ export 'src/ui/components/d_sidebar.dart';
 export 'src/ui/components/d_skeleton.dart';
 export 'src/ui/components/d_spinner.dart';
 export 'src/ui/components/d_switch.dart';
+export 'src/ui/components/d_tabs.dart';
 export 'src/ui/components/d_tooltip.dart';
 export 'src/ui/components/d_typography.dart';
 export 'src/ui/foundation/tokens.dart';

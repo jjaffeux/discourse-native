@@ -513,31 +513,19 @@ class _DiagnosticsTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selected = topicScrollSelected
+        ? 1
+        : selectedPlugin == null
+        ? 0
+        : plugins.indexOf(selectedPlugin!) + 2;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: SizedBox(
         width: double.infinity,
-        child: SegmentedButton<int>(
-          key: const ValueKey('diagnostics-top-level-tabs'),
-          segments: [
-            const ButtonSegment(value: 0, label: Text('General')),
-            const ButtonSegment(value: 1, label: Text('Topic scroll')),
-            for (var index = 0; index < plugins.length; index++)
-              ButtonSegment(
-                value: index + 2,
-                label: Text(plugins[index].diagnosticsLabel),
-              ),
-          ],
-          selected: {
-            topicScrollSelected
-                ? 1
-                : selectedPlugin == null
-                ? 0
-                : plugins.indexOf(selectedPlugin!) + 2,
-          },
-          showSelectedIcon: false,
-          onSelectionChanged: (selection) {
-            final index = selection.first;
+        child: DTabs<int>.controlled(
+          value: selected,
+          onChanged: (index) {
+            if (index == null) return;
             if (index == 0) {
               onGeneralSelected();
             } else if (index == 1) {
@@ -546,6 +534,20 @@ class _DiagnosticsTabs extends StatelessWidget {
               onPluginSelected(plugins[index - 2]);
             }
           },
+          children: [
+            DTabList<int>(
+              key: const ValueKey('diagnostics-top-level-tabs'),
+              children: [
+                const DTabTrigger(value: 0, child: Text('General')),
+                const DTabTrigger(value: 1, child: Text('Topic scroll')),
+                for (var index = 0; index < plugins.length; index++)
+                  DTabTrigger(
+                    value: index + 2,
+                    child: Text(plugins[index].diagnosticsLabel),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );
