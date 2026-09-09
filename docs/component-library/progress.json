@@ -2034,13 +2034,14 @@
         "Run meaningful focused component/migration checks and root/full analysis, prepare exact-source fixtures, then create a new reviewer for required rendered/native acceptance, final compositions, fixes and local main merge."
       ],
       "decisions": [
-        "Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory."
+        "Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.",
+        "Verified independent reviewer Review and merge Alert Dialog (01a086a4-4ba7-7a63-9af8-23f4a345f270) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "77a8933a9f58b275b44dc41ede4cf22e46ae9c9f",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -2052,7 +2053,20 @@
           "mergeGate": "Parent is accepted on local main at 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
           "acceptedMergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
         }
-      ]
+      ],
+      "reviewTaskId": "01a086a4-4ba7-7a63-9af8-23f4a345f270",
+      "reviewBranch": "codex/review-alert-dialog",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8d26/discourse-native",
+      "reviewHandoffCommit": "c8c6f049c299d6b41c4cc31ac2c1f106b8f56bd0",
+      "reviewStatus": "in_progress",
+      "queueStage": "independent_review",
+      "implementationHandoffVerification": {
+        "focusedTests": "Source reports 32 Alert Dialog/Dialog checks passing with seed 4155910622 after accepted Dialog integration, plus separately recorded affected production-consumer regressions in the component evidence.",
+        "analysis": "Root and full-profile analysis and final source integrity checks pass.",
+        "native": "An isolated signed local-data fixture was prepared but not launched; first official rendered and actual native acceptance remain reviewer-owned.",
+        "transport": "Implementation stopped with a committed transport prompt because its task API was unavailable. Root created and verified this sole independent reviewer.",
+        "acceptance": "Reviewer owns full Alert Dialog API/example and production-confirmation guard review, reconciliation with accepted Drawer/Dialog shared route corrections, all fixes and remaining official/native acceptance, and the final local main merge."
+      }
     },
     {
       "id": "sheet",
@@ -3230,16 +3244,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Date Picker (01a086a1-dd61-77d1-ae4f-a09fa87ff595) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "f980b6f5c7e0e0a0fe2888f6f3c1a1f4f563421e",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/51f7/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement full reference Date Picker Composition, Basic, Range Picker, Date of Birth, Input, Time Picker, Natural Language Picker and RTL examples. New explicit user requirement: Calendar MUST use the existing kalender package (pinned 0.29.1) and share the styleguide theme. Compose that Kalender-backed Calendar API; do not introduce a separate handwritten calendar engine, a competing date-picker package, or leave a temporary calendar accepted. Calendar owner is 01a085fd-5d83-79c3-b598-bd3ffc5b366e on codex/ui-calendar. Begin reference/API planning and app audit now, agree the API directly, then use its committed tested source when available; final merge requires accepted Calendar. Keep field text/parsing/formatting, typed value/range/timezone and popup/open/focus/Form lifecycle clear, handle bounds/disabled dates/leap/DST/invalid input and locale, and implement meaningful deterministic natural-language behavior or an explicit adapter meeting the example rather than a static demo. Reuse final Popover/Input/Field/Input Group owners. Audit real date/time inputs and retain domain scheduling, validation and async state in adapters.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/date-picker",
@@ -3277,7 +3292,19 @@
           "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
           "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
         }
-      ]
+      ],
+      "reviewTaskId": "01a086a1-dd61-77d1-ae4f-a09fa87ff595",
+      "reviewBranch": "codex/review-date-picker",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native",
+      "reviewHandoffCommit": "bb6072283237d82ff9d95eeef62b5938f0940cf2",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Source reports 36 Date Picker, Calendar and Local Date checks passing with seed 9082026, covering parsing, state/Form ownership, range completion, bounds, invalid-text retention, focus, scaled/RTL layouts and all eight examples.",
+        "analysis": "Root and full-profile analysis and diff checks pass; exact-source offline macOS fixture builds.",
+        "adoption": "The production Local Date composer migration is included, with its lifecycle, invalid-date application validation and existing composer behavior covered.",
+        "dependencies": "Input Group is accepted at d1de717b1e2d1eeaf06d86dafe1452662d05e368. Calendar is now accepted at 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361; its owner and Date Picker source author have notified this reviewer to reconcile that final Kalender-based API.",
+        "acceptance": "Verified independent reviewer owns current-main reconciliation, all source and adoption corrections, first official/native acceptance and final local main merge. Source checks do not establish acceptance."
+      }
     },
     {
       "id": "carousel",
@@ -3958,16 +3985,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Input OTP (01a086a4-4667-75c1-bcd5-318d677939ec) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "953692fe1de87078c58a50bb73bb4200553414d4",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9aa9/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement complete Input OTP anatomy/group/slot/separator and Pattern, Separator, Disabled, Controlled, Invalid, Four Digits, Alphanumeric, Form and RTL examples. Use an actual accessible editable text owner for native typing/selection/paste/autofill/IME; do not build independent decorative fields that break platform one-time-code autofill or backspace/selection behavior. Provide typed value/controller/initial ownership, length/pattern/paste transformation, completion/reset/validation callbacks and borrowed focus/controller lifecycle. Match shadcn slots/caret/focus/error/disabled geometry using shared tokens and preserve logical order/accessibility at text scale/RTL. Compose final Field for Form/invalid examples and coordinate its reviewer. Audit actual core/plugin authentication/code inputs without touching accounts or external auth settings; migrate suitable widgets preserving their existing submission/security/business callbacks. Test paste, selection, deletion, autofill configuration, completion, validation/reset and relevant app regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/input-otp",
@@ -3995,7 +4023,19 @@
           "implementationCommit": "e298291e7c85ce47d24049004504c84208d3d07f",
           "mergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
         }
-      ]
+      ],
+      "reviewTaskId": "01a086a4-4667-75c1-bcd5-318d677939ec",
+      "reviewBranch": "codex/review-input-otp",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/d9e1/discourse-native",
+      "reviewHandoffCommit": "dbb84413056f74a7481700d895731ad635fb15fb",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Source reports 15 OTP/example tests with seed 9092026, 55 OTP/Field/Input/Button/styleguide checks with seed 9092027, and 31 Card/Button checks with seed 9092028, all passing.",
+        "analysis": "Root and full-profile locked resolution and analysis pass without dependency changes; touched formatting and diff checks pass.",
+        "native": "The source d41610d48c08db875cc348f6b788f92d7b4ed317 fixture was built, isolated and signed with matching kernel 6e8685c1e33ea86792cc719e2a62d34546727e67442d5a94ae7263bf52935ad9, but was not launched or visually accepted.",
+        "transport": "Implementation stopped with a committed transport prompt because its task API was unavailable. Root created and verified this sole independent reviewer; the old source worktree is absent, while its exact branch and commits remain available.",
+        "acceptance": "Reviewer owns source and adoption-audit corrections, all ten final examples, current accepted owner reconciliation, first official/native acceptance and final local main merge."
+      }
     },
     {
       "id": "questionnaire",
@@ -4147,7 +4187,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T14:44:56+00:00",
+    "updatedAt": "2026-09-09T14:57:08+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -4233,13 +4273,6 @@
           "headCommit": "97554adac80cf4a702408966add2702f3bc313e0"
         },
         {
-          "component": "alert-dialog",
-          "taskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
-          "branch": "codex/ui-alert-dialog",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/1a18/discourse-native",
-          "status": "implementation"
-        },
-        {
           "component": "attachment",
           "taskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
           "branch": "codex/review-attachment",
@@ -4248,22 +4281,6 @@
           "implementationTaskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
           "implementationBranch": "codex/ui-attachment",
           "headCommit": "7c465bd106296dd9a102af5e08aefbb04e09f265"
-        },
-        {
-          "component": "input-otp",
-          "taskId": "01a08606-ca44-78f3-98f2-d147200278ef",
-          "branch": "codex/ui-input-otp",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9aa9/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
-          "component": "date-picker",
-          "taskId": "01a08606-ca30-7bc1-8e27-69575273d443",
-          "branch": "codex/ui-date-picker",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/51f7/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
         },
         {
           "component": "hover-card",
@@ -4384,6 +4401,36 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "headCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b"
+        },
+        {
+          "component": "input-otp",
+          "taskId": "01a086a4-4667-75c1-bcd5-318d677939ec",
+          "branch": "codex/review-input-otp",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d9e1/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-ca44-78f3-98f2-d147200278ef",
+          "implementationBranch": "codex/ui-input-otp",
+          "headCommit": "dbb84413056f74a7481700d895731ad635fb15fb"
+        },
+        {
+          "component": "alert-dialog",
+          "taskId": "01a086a4-4ba7-7a63-9af8-23f4a345f270",
+          "branch": "codex/review-alert-dialog",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8d26/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
+          "implementationBranch": "codex/ui-alert-dialog",
+          "headCommit": "c8c6f049c299d6b41c4cc31ac2c1f106b8f56bd0"
+        },
+        {
+          "component": "date-picker",
+          "taskId": "01a086a1-dd61-77d1-ae4f-a09fa87ff595",
+          "branch": "codex/review-date-picker",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-ca30-7bc1-8e27-69575273d443",
+          "implementationBranch": "codex/ui-date-picker",
+          "headCommit": "bb6072283237d82ff9d95eeef62b5938f0940cf2"
         }
       ],
       "nativeReadyTasks": []
@@ -4813,6 +4860,42 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
+          "status": "in_progress"
+        },
+        {
+          "component": "input-otp",
+          "title": "Review and merge Input OTP",
+          "taskId": "01a086a4-4667-75c1-bcd5-318d677939ec",
+          "hostId": "local",
+          "branch": "codex/review-input-otp",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d9e1/discourse-native",
+          "implementationTaskId": "01a08606-ca44-78f3-98f2-d147200278ef",
+          "implementationBranch": "codex/ui-input-otp",
+          "implementationCommit": "953692fe1de87078c58a50bb73bb4200553414d4",
+          "status": "in_progress"
+        },
+        {
+          "component": "alert-dialog",
+          "title": "Review and merge Alert Dialog",
+          "taskId": "01a086a4-4ba7-7a63-9af8-23f4a345f270",
+          "hostId": "local",
+          "branch": "codex/review-alert-dialog",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8d26/discourse-native",
+          "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
+          "implementationBranch": "codex/ui-alert-dialog",
+          "implementationCommit": "77a8933a9f58b275b44dc41ede4cf22e46ae9c9f",
+          "status": "in_progress"
+        },
+        {
+          "component": "date-picker",
+          "title": "Review and merge Date Picker",
+          "taskId": "01a086a1-dd61-77d1-ae4f-a09fa87ff595",
+          "hostId": "local",
+          "branch": "codex/review-date-picker",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native",
+          "implementationTaskId": "01a08606-ca30-7bc1-8e27-69575273d443",
+          "implementationBranch": "codex/ui-date-picker",
+          "implementationCommit": "f980b6f5c7e0e0a0fe2888f6f3c1a1f4f563421e",
           "status": "in_progress"
         }
       ],

@@ -17,19 +17,19 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
 | toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
-| alert-dialog | Implementation and checks | — | — |
+| alert-dialog | independent review | c8c6f049 | 01a086a4-4ba7-7a63-9af8-23f4a345f270 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | combobox | independent review | 55dcf257 | 01a08628-7889-7dd2-a93c-c854fcdf1e9a |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | independent review | 10b63f75 | 01a08628-7042-7173-a37d-7f1f04eade66 |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
-| date-picker | Implementation and checks | — | — |
+| date-picker | independent review | bb607228 | 01a086a1-dd61-77d1-ae4f-a09fa87ff595 |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
-| input-otp | Implementation and checks | — | — |
+| input-otp | independent review | dbb84413 | 01a086a4-4667-75c1-bcd5-318d677939ec |
 
 ## Component implementation
 
@@ -2046,6 +2046,7 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 **decisions**
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
+- Verified independent reviewer Review and merge Alert Dialog (01a086a4-4ba7-7a63-9af8-23f4a345f270) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### sheet
 
@@ -2756,6 +2757,7 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-69575273d443. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Date Picker (01a086a1-dd61-77d1-ae4f-a09fa87ff595) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### carousel
 
@@ -3132,6 +3134,7 @@ Status: in_progress. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Input OTP (01a086a4-4667-75c1-bcd5-318d677939ec) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### questionnaire
 
@@ -3188,4 +3191,3 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
-
