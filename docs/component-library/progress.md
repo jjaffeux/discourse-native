@@ -1628,7 +1628,7 @@ Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/u
 - Touched dart format and git diff --check passed; flutter analyze --no-pub at root and profiles/full passed.
 - 61 focused tests passed: test/ui/d_collapsible_test.dart, test/styleguide/collapsible_examples_test.dart, test/collapsible_editor_migration_test.dart, test/collapsible_review_fixture_test.dart, test/event_composer_test.dart, test/plugins/local_dates/local_date_composer_sheet_lifecycle_test.dart, test/plugins/local_dates/local_date_composer_component_test.dart, test/alert_tables_test.dart, test/prometheus_alert_receiver_plugin_test.dart, test/styleguide/styleguide_page_test.dart.
 - Isolated Collapsible Review 3c15 macOS debug app built from e05de6002a37f1dfbc7483a29f921086dffb0d3d; restored source equality and deep strict ad-hoc signature verification passed. Embedded/built kernel SHA256 57c4799f2342c03b9638bccf126114ce1f70ecc2dfcea46f9a2a472e850955f2. Exact path/identity/temporary signing adaptations: docs/component-library/evidence/collapsible/native-build.json. No launch.
-- Integration focused checks: 47 tests passed across component, examples, editor/fixture, Events, Local Dates and Prometheus suites; root/full-profile analysis passed. New isolated restricted-free ad-hoc fixture build pending.
+- Integration: 47 focused tests and root/full analysis passed. Source 39159f39becd55a320da35aab967aaaad2ef6d6f built as Collapsible Integrated 3c15.app. Embedded/built kernel SHA256 0c06245b0af44db0d0cb2220cc4e98ad6b00cbbc3b300a497e3d7696fd1054c1; source equality, restricted-free signed debug/JIT readback and strict deep signature passed. Exact identity/path/evidence in native-build.json. No launch.
 
 **limitations**
 

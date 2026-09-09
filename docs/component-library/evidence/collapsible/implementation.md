@@ -161,3 +161,14 @@ the sole disclosure interaction owner; its child is passive visual content.
 Prior notes describing baseline Button/Input are historical and superseded.
 Browser and native inspection are prohibited in this locked/admin-policy-denied
 session; no attempt or workaround was performed.
+
+Integration source `39159f39becd55a320da35aab967aaaad2ef6d6f` has 47 focused
+tests passing plus root/full analysis. The new Collapsible Integrated 3c15 bundle
+uses local ad-hoc signing with allow-jit and allow-unsigned-executable-memory;
+Xcode adds debug get-task-allow. Signed readback was checked against exactly
+these three nonrestricted keys. Initial two-key equality exposed that expected
+debug addition; no rebuild or launch was needed. No APS, application identifier,
+team identifier, keychain group or other restricted entitlement is present.
+Strict deep signature and source/kernel equality passed; native-build.json
+records the final path, source commit and kernel. Production runner identities,
+entitlements, pins and locks are unchanged. Still in_progress/awaiting_slot.
