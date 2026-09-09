@@ -39,7 +39,7 @@ Branch preparation does not mark a component merged or visually verified.
 | message-scroller | Implementation and checks | — | — |
 | data-table | Implementation and checks | — | — |
 | input-otp | Implementation and checks | — | — |
-| questionnaire | Implementation and checks | — | — |
+| questionnaire | independent review | a6149429 | 01a08633-c9ed-7062-86c4-16b0835eb303 |
 
 ## Component implementation
 

@@ -3674,6 +3674,9 @@
       "status": "in_progress",
       "taskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
       "branch": "codex/ui-questionnaire",
+      "reviewTaskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
+      "reviewBranch": "codex/review-questionnaire",
+      "reviewStatus": "independent_review",
       "dependencies": [
         "field",
         "button",
@@ -3722,7 +3725,7 @@
       "implementationCommit": "3cedb9ad6c72ae9fc8eab26df7dd757704aeb111",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6d37/discourse-native",
-      "queueStage": "independent_review_handoff_pending",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement the full reference Questionnaire state machine and API, including Composition, Multiple Selection, Freeform Answer, Explicit Skip, Shortcuts, Custom Validation, Controlled, Resume, Conditional Items, Navigation State, Custom Progress, Animated Items, Card, Dialog, Accessibility and Unstyled modes. Correctly own typed answers, item identity, conditional visibility, visited/navigation/progress state, skipped-vs-empty answers, async validation cancellation, controlled acceptance, reset and serializable/resumable state. Preserve focus/keyboard shortcuts/announcements and readable transitions with reduced motion/narrow/RTL/large text. Use final Field/Button/Progress/Card/Dialog/Native Select owners and keep persistence/network/domain branching adapters outside generic widgets. Audit core/plugin surveys/onboarding/stepped forms; migrate appropriate real flows without altering required questions, permission or validation rules. Implement the reference behavior fully even if no current app usage exists, documenting the audit. Add meaningful state-transition, resume/conditional/backtracking/async-validation and real-consumer regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/questionnaire",
@@ -4010,11 +4013,14 @@
         },
         {
           "component": "questionnaire",
-          "taskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
-          "branch": "codex/ui-questionnaire",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6d37/discourse-native",
-          "status": "implementation",
-          "phase": "independent_review_handoff_pending"
+          "taskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
+          "branch": "codex/review-questionnaire",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6384/discourse-native",
+          "headCommit": "a6149429781c662c76967ef6339aad3b95207ba6",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
+          "implementationBranch": "codex/ui-questionnaire",
+          "phase": "official_browser_and_native_acceptance"
         },
         {
           "component": "menubar",
