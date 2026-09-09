@@ -18,7 +18,7 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
-| hover-card | Implementation and checks | — | — |
+| hover-card | independent review | 4d0a7058 | 01a08619-dc41-7213-a887-5afb891b99da |
 | alert-dialog | Implementation and checks | — | — |
 | sheet | Implementation and checks | — | — |
 | drawer | Implementation and checks | — | — |
@@ -2001,6 +2001,7 @@ Status: in_progress. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/u
 **decisions**
 
 - Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
+- Implementation handed directly to verified independent task Review and merge Hover Card (01a08619-dc41-7213-a887-5afb891b99da), which owns remaining fixes, first actual browser/native acceptance, final current-main reconciliation and local merge. Source commit c03c39b5 and metadata tip4d0a7058 are verified local objects; no native inspection is claimed at handoff.
 
 ### dialog
 
@@ -2882,4 +2883,3 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
-

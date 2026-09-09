@@ -1970,14 +1970,20 @@
         "Verify meaningful timer/pointer/focus/state/adoption regressions and root/full analysis, prepare exact-source fixtures and create an independent reviewer for required rendered/native acceptance and final local main merge."
       ],
       "decisions": [
-        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory."
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.",
+        "Implementation handed directly to verified independent task Review and merge Hover Card (01a08619-dc41-7213-a887-5afb891b99da), which owns remaining fixes, first actual browser/native acceptance, final current-main reconciliation and local merge. Source commit c03c39b5 and metadata tip4d0a7058 are verified local objects; no native inspection is claimed at handoff."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "implementationCommit": "c03c39b5bf037e33dd84e86db6216ee3b7febaa9",
+      "mergeCommit": null,
+      "reviewTaskId": "01a08619-dc41-7213-a887-5afb891b99da",
+      "reviewBranch": "codex/review-hover-card",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/4417/discourse-native",
+      "reviewHandoffCommit": "4d0a7058de7b91c74aa579195dea5e25741a2abf",
+      "reviewStatus": "in_progress"
     },
     {
       "id": "dialog",
@@ -2602,7 +2608,22 @@
       "reviewBranch": "codex/review-dropdown-menu",
       "reviewStatus": "in_progress",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
-      "reviewHandoffCommit": "48599440787a16d27c00d1b399d021f385113be5"
+      "reviewHandoffCommit": "48599440787a16d27c00d1b399d021f385113be5",
+      "reviewBlocker": {
+        "status": "blocked_mac_locked",
+        "recordedAt": "2026-09-09T12:23:20+00:00",
+        "reportedByTask": "01a085cf-f401-7813-80da-7c687de8a5d5",
+        "observation": "Two Dropdown Menu reviewer attempts on the approved CUA surface found the Mac locked and automatic unlock unavailable. The reviewer released desktop immediately; no native app/browser inspection occurred on either attempt.",
+        "requiredAction": "Manual Mac unlock. Resume approved visual verification once the host is actually unlocked; do not change OS security or provisioning. Source review, implementation, tests and builds may continue.",
+        "dependentMergeImpact": [
+          "dropdown-menu",
+          "input-group",
+          "button-group"
+        ],
+        "preparedSourceCommit": "dd0ad309c5a7ecc7d4af2c1f566bd8c5678a3f18",
+        "preparedBundle": "/private/tmp/dropdown-menu-review-dd0a.qRppAc/Dropdown Menu Review dd0a.app",
+        "verification": "Reviewer reports47 focused tests (seed826145), clean root/full analysis, deep/strict signed bundle and matching built/copied kernel55eb9f8f5408bd77b4d74bf8e79d26670eeb588e236f992dcd121b3aaf70303d. First successful final browser/native acceptance remains required."
+      }
     },
     {
       "id": "context-menu",
@@ -3728,7 +3749,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T12:03:13+00:00",
+    "updatedAt": "2026-09-09T12:23:20+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -3871,13 +3892,6 @@
           "status": "implementation"
         },
         {
-          "component": "hover-card",
-          "taskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
-          "branch": "codex/ui-hover-card",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/02bf/discourse-native",
-          "status": "implementation"
-        },
-        {
           "component": "sheet",
           "taskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
           "branch": "codex/ui-sheet",
@@ -3980,6 +3994,16 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8f35/discourse-native",
           "status": "implementation",
           "phase": "reference_and_dependency_preparation"
+        },
+        {
+          "component": "hover-card",
+          "taskId": "01a08619-dc41-7213-a887-5afb891b99da",
+          "branch": "codex/review-hover-card",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4417/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
+          "implementationBranch": "codex/ui-hover-card",
+          "headCommit": "4d0a7058de7b91c74aa579195dea5e25741a2abf"
         }
       ],
       "nativeReadyTasks": []
@@ -3993,11 +4017,20 @@
     "nativeInspectionBlocker": {
       "reason": "mac_locked",
       "observedAt": "2026-09-09T07:44:57.141232+00:00",
-      "status": "resolved",
+      "status": "blocked_mac_locked",
       "userUnlockRequested": true,
       "latestResult": "Switch CUA app selection twice reported: The Mac is locked and automatic unlock could not unlock it. Native review not performed; Switch explicitly released its slot in switch-native-handoff.md.",
       "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds continue; browser reference navigation is separately blocked.",
-      "resolution": "After the user unlock update, fresh native Switch CUA inspection succeeded. Coordinator viewed actual size-default-focus.png and matching accessibility tree from3243a88c, including on/off switch states in the updated styleguide."
+      "resolution": "After the user unlock update, fresh native Switch CUA inspection succeeded. Coordinator viewed actual size-default-focus.png and matching accessibility tree from3243a88c, including on/off switch states in the updated styleguide.",
+      "recordedAt": "2026-09-09T12:23:20+00:00",
+      "reportedByTask": "01a085cf-f401-7813-80da-7c687de8a5d5",
+      "observation": "Two Dropdown Menu reviewer attempts on the approved CUA surface found the Mac locked and automatic unlock unavailable. The reviewer released desktop immediately; no native app/browser inspection occurred on either attempt.",
+      "requiredAction": "Manual Mac unlock. Resume approved visual verification once the host is actually unlocked; do not change OS security or provisioning. Source review, implementation, tests and builds may continue.",
+      "dependentMergeImpact": [
+        "dropdown-menu",
+        "input-group",
+        "button-group"
+      ]
     },
     "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Use up to five running source implementation tasks as accepted dependencies or recorded prepared parent sources become available. Each implementer creates an independent reviewer that owns remaining acceptance and local merge. Prepared source does not satisfy rendered/native or accepted-parent gates. Desktop inspection uses the FIFO lease; main-checkout mutations use the separate exclusive main lease.",
@@ -4134,7 +4167,8 @@
           "branch": "codex/review-field",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
           "implementationBranch": "codex/ui-field",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
         },
         {
           "component": "alert",
@@ -4266,6 +4300,18 @@
           "implementationTaskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
           "implementationBranch": "codex/ui-attachment",
           "implementationCommit": "17f2d88f31adaf3748341745e423d37810f88419",
+          "status": "in_progress"
+        },
+        {
+          "component": "hover-card",
+          "title": "Review and merge Hover Card",
+          "taskId": "01a08619-dc41-7213-a887-5afb891b99da",
+          "hostId": "local",
+          "branch": "codex/review-hover-card",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4417/discourse-native",
+          "implementationTaskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
+          "implementationBranch": "codex/ui-hover-card",
+          "implementationCommit": "c03c39b5bf037e33dd84e86db6216ee3b7febaa9",
           "status": "in_progress"
         }
       ],
