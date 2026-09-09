@@ -105,6 +105,7 @@ class DCarouselAutoplay extends DCarouselPlugin {
   bool _reducedMotion = false;
   bool _hovered = false;
   bool _focused = false;
+  bool _advancing = false;
 
   bool get isPlaying => _timer?.isActive ?? false;
 
@@ -158,7 +159,8 @@ class DCarouselAutoplay extends DCarouselPlugin {
   void _schedule() {
     _timer?.cancel();
     final controller = _controller;
-    if (!_allowed ||
+    if (_advancing ||
+        !_allowed ||
         _reducedMotion ||
         (stopOnMouseEnter && _hovered) ||
         (stopOnFocusIn && _focused) ||
@@ -167,12 +169,17 @@ class DCarouselAutoplay extends DCarouselPlugin {
       return;
     }
     _timer = Timer(delay, () async {
-      if (controller.canScrollNext) {
-        await controller.next();
-      } else {
-        await controller.select(0);
+      _advancing = true;
+      try {
+        if (controller.canScrollNext) {
+          await controller.next();
+        } else {
+          await controller.select(0);
+        }
+      } finally {
+        _advancing = false;
+        _schedule();
       }
-      _schedule();
     });
   }
 
