@@ -8,7 +8,7 @@ import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 
 final alertDialogExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'A focused confirmation flow that interrupts the user and requires an explicit response.',
   notes:

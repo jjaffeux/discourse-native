@@ -102,12 +102,38 @@ Retained alternatives are deliberate:
   common two-choice adapter; they are no longer the owner for the migrated
   focused confirmations.
 
-## Verification boundary at implementation handoff
+## Independent review acceptance
 
-Focused widget, styleguide, Dialog dependency and migrated-consumer tests cover
-geometry, focus order, explicit dismissal, typed results, async/error behavior,
-live route behavior, narrow/200%/RTL/reduced motion, and domain lifecycle guards.
-The independent reviewer still owns the first rendered official/native visual
-comparison, local-data production fixture, source/kernel/signature evidence,
-dependency reconciliation with the accepted Dialog revision, any resulting
-fixes, final analysis and local `main` merge.
+The implementation branch was merged into an isolated reviewer branch with its
+history intact, audited against the accepted Dialog and Drawer route foundation,
+and then reconstructed on the latest local `main`. No Alert Dialog behavior fix
+was required. The implementation keeps route, focus and button mechanics in the
+accepted shared owners while retaining alert-specific dismissal and async rules.
+
+The rendered shadcn reference was inspected in the browser for Basic, Small,
+Media, Destructive and RTL. Its settled 384px regular and 320px small surfaces,
+16px padding/gaps, 40px media tile, 16/24 medium title, 14/20 description, flush
+footer, equal small actions and cancel-first focus agreed with the recorded
+mapping. The remaining Composition and Small with Media source examples were
+checked in the frozen registry and Markdown.
+
+The exact-source signed macOS fixture was launched and inspected through the
+actual registered styleguide and local-only production adapters. The pass covered
+regular, small, media, destructive and Arabic variants; light, dark and Forest
+palettes; pointer and keyboard activation; closed-loop Tab focus; inert outside
+press; Escape cancellation; native semantics; reduced motion; and a 360px RTL
+preview at 200% text. Production destructive and regular confirmations returned
+only fixture-local outcomes and performed no account or server mutation.
+
+The final randomized component/Dialog/Drawer matrix passed 56 checks with seed
+`1113783763`. Focused affected consumer groups passed 92 checks. Root and
+`profiles/full` analysis passed. The exact component, examples and harness hashes
+still match the prepared bundle, whose copied kernel SHA-256 is
+`a2724f22c8a502674b303547455467b94ba6df30da6cfec4ac365037cf86248d`;
+deep strict ad-hoc signature verification passed. A wider parallel batch was not
+used as acceptance evidence because it reproduced the documented diagnostics
+resize-handle flake and unrelated stale toast expectations before interruption.
+
+No physical iOS/Linux device or spoken VoiceOver/TalkBack session was run.
+Browser and native rasterization were compared for composition, geometry,
+interaction and semantics rather than pixel identity.
