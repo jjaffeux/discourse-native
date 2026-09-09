@@ -88,6 +88,18 @@ void main() {
     );
   });
 
+  testWidgets('Space opens and focuses the first enabled row', (tester) async {
+    await pumpMenu(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(find.text('Disabled API'), findsOneWidget);
+    expect(
+      tester.binding.focusManager.primaryFocus?.debugLabel,
+      contains('Profile'),
+    );
+  });
+
   testWidgets('typeahead wraps from the active row', (tester) async {
     await pumpMenu(tester);
     await open(tester);
@@ -318,6 +330,18 @@ void main() {
         isEnabled: true,
         hasCheckedState: true,
         isChecked: false,
+        hasTapAction: true,
+      ),
+    );
+    expect(
+      tester.getSemantics(find.text('Bottom')),
+      matchesSemantics(
+        label: 'Bottom',
+        hasEnabledState: true,
+        isEnabled: true,
+        hasCheckedState: true,
+        isChecked: true,
+        isInMutuallyExclusiveGroup: true,
         hasTapAction: true,
       ),
     );
