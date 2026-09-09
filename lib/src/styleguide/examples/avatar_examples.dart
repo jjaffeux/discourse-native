@@ -30,7 +30,8 @@ final avatarExamples = ComponentExamples(
       'Checker artwork is embedded local PNG data, identical in both app profiles. '
       'The Dropdown example composes the accepted DDropdownMenu and DButton '
       'owners with the reference 32px circular ghost trigger and 128px menu. '
-      'Their ghost/icon/destructive props are not Avatar variants.',
+      'Group actions also use DButton, with one focusable action per avatar. '
+      'Their ghost/destructive props are not Avatar variants.',
   examples: [
     StyleguideExample(
       title: 'Basic and composition',
@@ -39,7 +40,8 @@ final avatarExamples = ComponentExamples(
           'and an icon fallback. Named avatars expose one stable identity; '
           'decorative avatars defer naming to adjacent text or the action owner.',
       states: const ['Image', 'Fallback', 'Decorative', 'Composition'],
-      code: '''// provider is a local MemoryImage or AssetImage supplied by the caller.
+      code:
+          '''// provider is a local MemoryImage or AssetImage supplied by the caller.
 DAvatar(
   semanticLabel: 'Community member',
   image: DAvatarImage(image: provider),
@@ -124,14 +126,33 @@ $_plusUsage''',
       code: '''const DAvatarGroup(children: [
   DAvatar(semanticLabel: 'Chris', fallback: DAvatarFallback(child: Text('CN'))),
   DAvatar(semanticLabel: 'Lee', fallback: DAvatarFallback(child: Text('LR'))),
+  DAvatar(semanticLabel: 'Evil Rabbit', fallback: DAvatarFallback(child: Text('ER'))),
   DAvatarGroupCount(semanticLabel: '3 more members', child: Text('+3')),
-  DAvatarGroupCount(semanticLabel: 'More members', child: AvatarExamplePlusIcon()),
 ])
 
+// Omit the count for the plain group, or replace its child with
+// AvatarExamplePlusIcon() and its semanticLabel with 'More members'.
 $_plusUsage''',
       builder: (_) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const DAvatarGroup(
+            children: [
+              DAvatar(
+                semanticLabel: 'Chris',
+                fallback: DAvatarFallback(child: Text('CN')),
+              ),
+              DAvatar(
+                semanticLabel: 'Lee',
+                fallback: DAvatarFallback(child: Text('LR')),
+              ),
+              DAvatar(
+                semanticLabel: 'Evil Rabbit',
+                fallback: DAvatarFallback(child: Text('ER')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
           for (final size in DAvatarSize.values) ...[
             DAvatarGroup(
               size: size,
@@ -160,6 +181,10 @@ $_plusUsage''',
                 semanticLabel: 'Lee',
                 fallback: DAvatarFallback(child: Text('LR')),
               ),
+              DAvatar(
+                semanticLabel: 'Evil Rabbit',
+                fallback: DAvatarFallback(child: Text('ER')),
+              ),
               DAvatarGroupCount(
                 semanticLabel: 'More members',
                 child: AvatarExamplePlusIcon(),
@@ -168,6 +193,34 @@ $_plusUsage''',
           ),
         ],
       ),
+    ),
+    StyleguideExample(
+      title: 'Group actions',
+      description:
+          'Each avatar is a separate DButton with its own accessible name and '
+          'local action. Tab visits members in reading order. At 200% text, '
+          'the buttons grow with their avatars and narrow groups wrap. '
+          'Touch layouts separate buttons so their 48px targets do not overlap.',
+      states: const ['Composition', 'Keyboard', 'Focus', 'Independent actions'],
+      code:
+          '''// Desktop composition. On touch layouts, put the same buttons in a
+// Wrap(spacing: 8, runSpacing: 8, children: buttons) for separate 48px targets.
+DAvatarGroup(children: [
+  DButton(
+    semanticLabel: 'Open Chris',
+    tooltip: 'Open Chris',
+    variant: DButtonVariant.ghost,
+    padding: EdgeInsets.zero,
+    borderRadius: BorderRadius.circular(999),
+    label: const DAvatar(
+      decorative: true,
+      fallback: DAvatarFallback(child: Text('CN')),
+    ),
+    onPressed: openChris,
+  ),
+  // Add separately named buttons for other members.
+])''',
+      builder: (_) => const _GroupActions(),
     ),
     StyleguideExample(
       title: 'Sizes',
@@ -236,14 +289,15 @@ DDropdownMenu(
   ]),
   child: DDropdownMenuTrigger(
     focusNode: triggerFocus,
-    builder: (context, menu) => DButton.iconOnly(
+    builder: (context, menu) => DButton(
       focusNode: menu.focusNode,
-      tooltip: 'Open member menu',
+      semanticLabel: 'Open member menu',
       variant: DButtonVariant.ghost,
       hasPopup: true,
       expanded: menu.open,
+      padding: EdgeInsets.zero,
       borderRadius: BorderRadius.circular(999),
-      icon: const DAvatar(
+      label: const DAvatar(
         decorative: true,
         fallback: DAvatarFallback(child: Text('CN')),
       ),
@@ -290,6 +344,53 @@ DDropdownMenu(
     ),
   ],
 );
+
+class _GroupActions extends StatefulWidget {
+  const _GroupActions();
+  @override
+  State<_GroupActions> createState() => _GroupActionsState();
+}
+
+class _GroupActionsState extends State<_GroupActions> {
+  String _action = 'No member selected';
+
+  @override
+  Widget build(BuildContext context) {
+    final platform = Theme.of(context).platform;
+    final touch =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.android;
+    final buttons = [
+      for (final member in const [
+        ('Chris', 'CN'),
+        ('Lee', 'LR'),
+        ('Evil Rabbit', 'ER'),
+      ])
+        DButton(
+          semanticLabel: 'Open ${member.$1}',
+          tooltip: 'Open ${member.$1}',
+          variant: DButtonVariant.ghost,
+          padding: EdgeInsets.zero,
+          borderRadius: BorderRadius.circular(999),
+          label: DAvatar(
+            decorative: true,
+            fallback: DAvatarFallback(child: Text(member.$2)),
+          ),
+          onPressed: () => setState(() => _action = '${member.$1} selected'),
+        ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (touch)
+          Wrap(spacing: 8, runSpacing: 8, children: buttons)
+        else
+          DAvatarGroup(children: buttons),
+        const SizedBox(height: 12),
+        Text(_action),
+      ],
+    );
+  }
+}
 
 class _ImageStates extends StatefulWidget {
   const _ImageStates();
@@ -387,14 +488,15 @@ class _AvatarMenuState extends State<_AvatarMenu> {
         ),
         child: DDropdownMenuTrigger(
           focusNode: _focus,
-          builder: (context, menu) => DButton.iconOnly(
+          builder: (context, menu) => DButton(
             focusNode: menu.focusNode,
-            tooltip: 'Open member menu',
+            semanticLabel: 'Open member menu',
             variant: DButtonVariant.ghost,
             hasPopup: true,
             expanded: menu.open,
+            padding: EdgeInsets.zero,
             borderRadius: BorderRadius.circular(999),
-            icon: const DAvatar(
+            label: const DAvatar(
               decorative: true,
               fallback: DAvatarFallback(child: Text('CN')),
             ),

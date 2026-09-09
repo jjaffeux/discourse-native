@@ -90,7 +90,10 @@ void main() {
     );
     expect(DTokens.of(tester.element(menuLabel)).radius, 12);
 
-    await tester.tap(menuLabel);
+    // Updating the first row's label must not reorder keyboard navigation.
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('Selected: RTL'), findsOneWidget);
     expect(find.text('Menu direction: RTL'), findsNothing);

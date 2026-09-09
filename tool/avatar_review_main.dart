@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/forum_icon.dart';
 import 'package:discourse_native/src/styleguide/examples/avatar_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/direction_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -49,14 +50,16 @@ class _Review extends StatefulWidget {
 }
 
 class _ReviewState extends State<_Review> {
-  bool _dark = false;
+  StyleguideTheme _theme = StyleguideTheme.light;
   bool _rtl = false;
+  bool _narrow = false;
+  bool _reducedMotion = false;
   double _scale = 1;
   String _state = 'loading';
   int _actions = 0;
   @override
   Widget build(BuildContext context) => Theme(
-    data: _dark ? AppTheme.dark : AppTheme.light,
+    data: _theme.resolve(AppTheme.light),
     child: Builder(
       builder: (context) => Scaffold(
         appBar: AppBar(
@@ -81,8 +84,17 @@ class _ReviewState extends State<_Review> {
                 runSpacing: 8,
                 children: [
                   DButton(
-                    label: Text(_dark ? 'Light' : 'Dark'),
-                    onPressed: () => setState(() => _dark = !_dark),
+                    label: Text('Theme: ${_theme.name}'),
+                    onPressed: () => setState(() {
+                      const themes = [
+                        StyleguideTheme.light,
+                        StyleguideTheme.dark,
+                        StyleguideTheme.forest,
+                        StyleguideTheme.plum,
+                      ];
+                      _theme =
+                          themes[(themes.indexOf(_theme) + 1) % themes.length];
+                    }),
                   ),
                   DButton(
                     label: const Text('RTL'),
@@ -93,6 +105,15 @@ class _ReviewState extends State<_Review> {
                     onPressed: () =>
                         setState(() => _scale = _scale == 1 ? 2 : 1),
                   ),
+                  DButton(
+                    label: const Text('360px'),
+                    onPressed: () => setState(() => _narrow = !_narrow),
+                  ),
+                  DButton(
+                    label: const Text('Reduced motion'),
+                    onPressed: () =>
+                        setState(() => _reducedMotion = !_reducedMotion),
+                  ),
                   for (final state in ['loading', 'error', 'ready'])
                     DButton(
                       label: Text(state),
@@ -100,59 +121,82 @@ class _ReviewState extends State<_Review> {
                     ),
                 ],
               ),
+              const SizedBox(height: 12),
+              Text(
+                'Preview: ${_theme.name}, ${_rtl ? 'RTL' : 'LTR'}, '
+                '${(_scale * 100).round()}%, ${_narrow ? '360px' : 'wide'}, '
+                '${_reducedMotion ? 'reduced' : 'standard'} motion',
+              ),
               const SizedBox(height: 24),
               MediaQuery(
-                data: MediaQuery.of(context)
-                    .copyWith(textScaler: TextScaler.linear(_scale)),
-                child: Directionality(
-                  textDirection: _rtl ? TextDirection.rtl : TextDirection.ltr,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Final Avatar dropdown composition'),
-                      const SizedBox(height: 8),
-                      Builder(
-                        builder: avatarExamples.examples
-                            .firstWhere((example) => example.title == 'Dropdown')
-                            .builder,
-                      ),
-                      const SizedBox(height: 24),
-                      const Text('Final Direction dropdown composition'),
-                      const SizedBox(height: 8),
-                      Builder(
-                        builder: directionExamples.examples
-                            .firstWhere(
-                              (example) =>
-                                  example.title ==
-                                  'Inherited direction in a dropdown menu',
-                            )
-                            .builder,
-                      ),
-                      const SizedBox(height: 24),
-                      Text('Production AvatarImage: $_state'),
-                      DAvatar.frame(
-                        child: AvatarImage(
-                          url: 'https://avatar-review.invalid/$_state',
-                          size: 40,
-                          fallback: const DAvatarFallback(child: Text('CN')),
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(_scale),
+                  disableAnimations: _reducedMotion,
+                ),
+                child: SizedBox(
+                  width: _narrow ? 360 : null,
+                  child: Directionality(
+                    textDirection: _rtl ? TextDirection.rtl : TextDirection.ltr,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Final Avatar dropdown composition'),
+                        const SizedBox(height: 8),
+                        Builder(
+                          builder: avatarExamples.examples
+                              .firstWhere(
+                                (example) => example.title == 'Dropdown',
+                              )
+                              .builder,
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text('Production ForumIcon and action owner'),
-                      DButton(
-                        semanticLabel: 'Open local forum',
-                        label: ForumIcon(
-                          forum: DiscourseInstance(
-                            url: 'https://avatar-review.invalid',
-                            title: 'Local community',
-                            iconUrl: 'https://avatar-review.invalid/$_state',
+                        const SizedBox(height: 24),
+                        const Text('Final Avatar group actions'),
+                        const SizedBox(height: 8),
+                        Builder(
+                          builder: avatarExamples.examples
+                              .firstWhere(
+                                (example) => example.title == 'Group actions',
+                              )
+                              .builder,
+                        ),
+                        const SizedBox(height: 24),
+                        const Text('Final Direction dropdown composition'),
+                        const SizedBox(height: 8),
+                        Builder(
+                          builder: directionExamples.examples
+                              .firstWhere(
+                                (example) =>
+                                    example.title ==
+                                    'Inherited direction in a dropdown menu',
+                              )
+                              .builder,
+                        ),
+                        const SizedBox(height: 24),
+                        Text('Production AvatarImage: $_state'),
+                        DAvatar.frame(
+                          child: AvatarImage(
+                            url: 'https://avatar-review.invalid/$_state',
+                            size: 40,
+                            fallback: const DAvatarFallback(child: Text('CN')),
                           ),
-                          size: 40,
                         ),
-                        onPressed: () => setState(() => _actions++),
-                      ),
-                      Text('Forum actions: $_actions'),
-                    ],
+                        const SizedBox(height: 24),
+                        const Text('Production ForumIcon and action owner'),
+                        DButton(
+                          semanticLabel: 'Open local forum',
+                          label: ForumIcon(
+                            forum: DiscourseInstance(
+                              url: 'https://avatar-review.invalid',
+                              title: 'Local community',
+                              iconUrl: 'https://avatar-review.invalid/$_state',
+                            ),
+                            size: 40,
+                          ),
+                          onPressed: () => setState(() => _actions++),
+                        ),
+                        Text('Forum actions: $_actions'),
+                      ],
+                    ),
                   ),
                 ),
               ),
