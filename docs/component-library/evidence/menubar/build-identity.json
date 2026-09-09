@@ -1,0 +1,35 @@
+{
+  "component": "menubar",
+  "sourceCommit": "aab023bf4f9f41af2b60fe1d008f010eecaa4062",
+  "branch": "codex/review-menubar-candidate",
+  "flutter": "3.47.2",
+  "target": "lib/styleguide_main.dart",
+  "buildCommand": "flutter build macos --debug -t lib/styleguide_main.dart --no-pub",
+  "buildResult": "passed",
+  "fixturePath": "/private/tmp/discourse-menubar-review-aab0.x4CZn7/Discourse Menubar Review aab0.app",
+  "bundleIdentifier": "org.discourse.menubarreview.aab0",
+  "kernelSha256": "6affee4fa8bc5e6714b318addcac0daa2eb4d1e0dac688c119faa5547db37810",
+  "signature": {
+    "kind": "ad-hoc",
+    "deepStrictVerification": "passed",
+    "mainEntitlements": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.cs.allow-jit": true,
+      "com.apple.security.get-task-allow": true
+    },
+    "signedExecutableCount": 7,
+    "restrictedEntitlementExecutableCount": 0,
+    "restrictedKeysChecked": [
+      "com.apple.application-identifier",
+      "com.apple.developer.team-identifier",
+      "com.apple.developer.aps-environment"
+    ]
+  },
+  "sourceScope": "The fixture mounts the production styleguide and registered real DMenubar examples from the exact source commit. The copied bundle only changes its Info.plist identity and ad-hoc signature; repository runner identities and entitlements are unchanged.",
+  "inspection": {
+    "launched": false,
+    "officialBrowserCompared": true,
+    "nativeMacosInspected": false,
+    "note": "The independent reviewer compared the official rendered light reference and inspected the preceding exact-source native bundle across interaction, light/dark/Plum, RTL, 360px, 200% text and reduced motion. That pass found an off-screen focused-trigger issue, fixed in this source commit. This rebuilt exact bundle is queued for the required post-fix native confirmation before acceptance."
+  }
+}
