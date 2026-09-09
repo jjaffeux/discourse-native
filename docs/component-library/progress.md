@@ -2753,6 +2753,38 @@ Status: in_progress. Task: 01a08606-ce86-7be2-b92f-59676b40cb40. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 
+**decisions**
+
+- Frozen Markdown SHA256 fc0e1a7bdc05d81c833e001292419e85e1eb7c16be3942a7468ff2d6c1d2b165 reproduced exactly. Preserved base-nova registry and published @shadcn/react 0.3.1 sources establish the complete Provider/Root/Viewport/Content/Item/Button contract; hashes and URLs are recorded under docs/component-library/reference/message-scroller/.
+- DMessageScrollerController provides typed start/end/stable-message commands and observable edge, live-follow, current-anchor and visible-id state. The provider owns an omitted controller and borrows a supplied one; queued targets survive an initially empty transcript and unknown mounted IDs fail immediately.
+- Direct-item and builder viewports share one SuperListView implementation. Stable IDs drive keys, target discovery, prepend restoration and variable-height resize correction without rebuilding transcript rows on controller-state changes; wheel, pointer/touch and keyboard reader intent cancels smooth movement or live following.
+- Base-nova defaults are preserved: initial end, edge threshold 8, margin 0, previous context 64, content gap 24, contained full-size viewport, accepted DScrollBar chrome and centered secondary edge controls at 16px with 200/400ms transitions. Reduced motion is immediate and logical alignment is RTL-correct.
+- The production Chat adapter disables generic initial landing, resize correction and stable-key repositioning because its reversed window already owns server target/last-read landing and physical-index offset correction. It still exposes stable row IDs and keeps paging/read/selection/domain ownership outside the generic component.
+- Catalogue examples use prepared Message pin 04873114 and Bubble pin 78c60d0c so they exercise real final-owner APIs. These are preparation, not acceptance; the reviewer must reconcile accepted main-owned Message, Bubble and Attachment corrections before merge.
+
+**migrations**
+
+- ChatMessageStream, shared by channel and thread routes, now composes DMessageScrollerProvider, DMessageScroller and DMessageScrollerViewport.builder around the existing reversed virtualizer. Stable IDs cover message, day, elapsed-time, deleted, unread-divider and loading rows.
+- The Chat adapter retains ListBoundaryShortcuts, bidirectional history paging, server target and last-read landing, unread/read dwell, live-window projection, floating day, selection, highlight, nested code-scroll filtering and the application-owned pending-message-count jump control.
+
+**retainedAlternatives**
+
+- Topic post streams remain document timelines with their sliver, route and post-loading owner.
+- Menus, pickers, search and inbox lists retain focus-sized or result-list scrolling; composer editors and horizontal attachment rails retain editable or axis-specific owners.
+- The production pending-window jump remains application-owned because it loads an absent latest window and exposes a domain count; DMessageScrollerButton handles ordinary in-window edge navigation.
+
+**verification**
+
+- All 92 combined Message Scroller, catalogue, prepared Message/Bubble, channel lifecycle, thread workspace and message-timeline tests passed with randomized seed 1788963.
+- Every catalogue example rendered at 360px, 200% text, RTL and reduced motion; command interaction reached stable virtualized row command-23. Controller tests cover initial no-flash, all target alignments, unknown/queued IDs, 64px new-turn context, streaming cancellation, variable-height prepend, 1000-row virtualization and keyboard/wheel intent.
+- Root flutter analyze --no-pub and profiles/full flutter pub get --enforce-lockfile plus flutter analyze --no-pub completed with no issues or dependency-pin changes. Touched formatting and git diff --check passed. lib/message_scroller_review_main.dart is the offline exact-source catalogue fixture.
+
+**limitations**
+
+- This source task claims no official browser or native macOS acceptance. The independent reviewer owns first exact-source browser comparison, signed native fixture, real production-surface interaction/accessibility review and resulting fixes under the shared desktop lease.
+- Message and Bubble are integrated prepared sources only and may change during independent review; Message Scroller cannot merge ahead of accepted Message, Bubble and Attachment main revisions.
+- No iOS/Linux device or spoken VoiceOver run is claimed; widget semantics, keyboard, touch-intent, text-scale, RTL and reduced-motion checks are not device evidence.
+
 ### chart
 
 Status: merged. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-chart.
