@@ -457,6 +457,7 @@ void main() {
         expect(find.byTooltip('Deafen'), findsOneWidget);
         expect(find.byTooltip('Camera on'), findsOneWidget);
         expect(find.text('Leave room'), findsOneWidget);
+        expect(find.byType(DToggle), findsAtLeastNWidgets(3));
 
         harness.media.sessions.single.failNextMute = true;
         await tester.tap(find.byTooltip('Mute'));
