@@ -3554,12 +3554,27 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 
 ### Final audit
 
-Status: in_progress. Task: 01a0879a-c563-7fa0-a5df-49654971f6da. Branch: codex/review-component-library-final.
+Status: review_ready. Task: 01a0879a-c563-7fa0-a5df-49654971f6da. Branch: codex/review-component-library-final.
 
 **decisions**
 
 - The independent final audit task owns integrated-library and app-adoption review, substantiated shared/API/theme/accessibility/styleguide fixes, affected verification and the final local main merge. Existing accepted component and composition evidence remains valid for unchanged behavior; the coordinator is not a routine approval gate.
+- The integrated source has one reusable rendering owner per catalogue component. Questionnaire's split controller is re-exported by its public component; the shell Select file is the accepted compatibility export rather than another renderer. Generic components have no Discourse data, networking, shell, store or plugin imports.
+- Drawer's live styleguide status and dependency-era notes for Tooltip, Aspect Ratio, Textarea, Label, Switch and Collapsible were stale after accepted merges. Drawer is now marked implemented, and Label's temporary Material TextFormField example composes accepted DField and DInput with explicit borrowed FocusNode ownership.
+- A durable catalogue regression now requires all 64 frozen entries to be registered, implemented, described, documented, backed by non-empty usage snippets and free of duplicate example titles. Foundations is the sole permitted extra documentation page.
+- No substantiated production migration remained that could preserve less behavior than the recorded alternatives. Kalender stays pinned at 0.29.1; EventCalendar and TopicCalendar retain their domain controllers under DKalenderTheme, and the three Material date flows retain their documented combined date-time, account-zone/DST and guarded-expiry responsibilities.
 
 **verification**
 
-- Prerequisite audit gate verified by the coordinator: all 64 unique catalogue components and all four required final-composition reviews are accepted, with their merge commits in local main ancestry. This is dispatch evidence, not completion of the final audit.
+- Prerequisite audit gate verified by the coordinator: all 64 unique catalogue components and all four required final-composition reviews are accepted, with their merge commits in local main ancestry.
+- Locked dependency resolution passed at root and profiles/full without lockfile or Flutter-pin changes. Baseline root and profiles/full flutter analyze --no-pub passed.
+- The complete styleguide directory passed 367 tests with randomized seed 9092026 before fixes. The post-fix Styleguide page, Drawer, Label, Aspect Ratio, Tooltip, Textarea, Switch and Collapsible matrix passed 100 tests with seed 9092028.
+- Exact source f15c6f67 built as a macOS debug styleguide. The isolated org.discourse.native.component-library-final-audit.f15c6f67 bundle's copied/build kernels both hash 44554591e7f4241107cbc681643ec109cdf78eec25e9d630c629863e24fc0095; deep strict ad-hoc signature verification passed with seven permitted debug entitlements and no push/team/application identifier.
+- Actual macOS inspection confirmed the shared Sidebar exposes all 64 component destinations. Drawer has no pending banner, opened with bounded radio controls, accepted another delivery time and returned Confirmed: 5:00. Label's DField/DInput composition rendered with shared geometry and editable focus. The isolated app was quit and process disappearance confirmed; the desktop lease was released.
+- The final current-main candidate is based on 6ddaff9ee748ad6390102307a6b691f22ff2f0ba and preserves the coordinator's final-audit ownership commits. Root and profiles/full flutter analyze --no-pub passed; the complete styleguide plus DCalendar, DDatePicker, EventCalendar and TopicCalendar matrix passed all 415 tests with randomized seed 9092029.
+
+**limitations**
+
+- Actual native inspection was macOS only. No iOS/Linux device or spoken VoiceOver/TalkBack claim is made.
+- Browser/native font rasterizers can differ; accepted source-specific evidence establishes documented geometry, styling, interaction and semantics rather than cross-renderer pixel identity.
+- Persian/Hijri/Jalali chronology remains an explicit Kalender engine seam; Gregorian paging is not presented as alternate-calendar support.

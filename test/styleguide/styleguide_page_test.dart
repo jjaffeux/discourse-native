@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/component_catalogue.dart';
+import 'package:discourse_native/src/styleguide/component_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
@@ -85,6 +87,35 @@ void main() {
     expect(
       scheduled.map((entry) => entry['id']),
       unorderedEquals(components.map((entry) => entry['id'])),
+    );
+    for (final component in components) {
+      final id = component['id'] as String;
+      final examples = componentExamples[id];
+      expect(examples, isNotNull, reason: '$id must be registered');
+      expect(
+        examples!.status,
+        ComponentStatus.implemented,
+        reason: '$id must be accepted before final audit completion',
+      );
+      expect(examples.description.trim(), isNotEmpty, reason: id);
+      expect(examples.notes.trim(), isNotEmpty, reason: id);
+      expect(examples.examples, isNotEmpty, reason: id);
+      expect(
+        examples.examples.map((example) => example.title).toSet().length,
+        examples.examples.length,
+        reason: '$id example titles must be unique',
+      );
+      for (final example in examples.examples) {
+        expect(example.title.trim(), isNotEmpty, reason: id);
+        expect(example.description.trim(), isNotEmpty, reason: id);
+        expect(example.code.trim(), isNotEmpty, reason: '$id/${example.title}');
+      }
+    }
+    expect(
+      componentExamples.keys.toSet().difference(
+        components.map((entry) => entry['id'] as String).toSet(),
+      ),
+      {'foundations'},
     );
     final available = <String>{};
     for (final entry in scheduled) {

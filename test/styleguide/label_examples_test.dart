@@ -17,7 +17,7 @@ void main() {
     expect(labelExamples.examples.map((example) => example.title), [
       'Control association and disabled state',
       'Rich labels and wrapping',
-      'Label in a native form',
+      'Label in a form',
       'RTL labels',
     ]);
   });
@@ -104,10 +104,7 @@ void main() {
           find.text('Enter an email address containing @.'),
           findsOneWidget,
         );
-        await tester.enterText(
-          find.byType(TextFormField),
-          'reader@example.test',
-        );
+        await tester.enterText(find.byType(DInput), 'reader@example.test');
         await tester.tap(find.text('Send me product updates'));
         await tester.tap(find.text('Submit example'));
         await tester.pumpAndSettle();

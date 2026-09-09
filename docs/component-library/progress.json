@@ -4843,14 +4843,38 @@
     }
   ],
   "finalAudit": {
-    "status": "in_progress",
+    "status": "review_ready",
     "taskId": "01a0879a-c563-7fa0-a5df-49654971f6da",
     "branch": "codex/review-component-library-final",
     "decisions": [
-      "The independent final audit task owns integrated-library and app-adoption review, substantiated shared/API/theme/accessibility/styleguide fixes, affected verification and the final local main merge. Existing accepted component and composition evidence remains valid for unchanged behavior; the coordinator is not a routine approval gate."
+      "The independent final audit task owns integrated-library and app-adoption review, substantiated shared/API/theme/accessibility/styleguide fixes, affected verification and the final local main merge. Existing accepted component and composition evidence remains valid for unchanged behavior; the coordinator is not a routine approval gate.",
+      "The integrated source has one reusable rendering owner per catalogue component. Questionnaire's split controller is re-exported by its public component; the shell Select file is the accepted compatibility export rather than another renderer. Generic components have no Discourse data, networking, shell, store or plugin imports.",
+      "Drawer's live styleguide status and dependency-era notes for Tooltip, Aspect Ratio, Textarea, Label, Switch and Collapsible were stale after accepted merges. Drawer is now marked implemented, and Label's temporary Material TextFormField example composes accepted DField and DInput with explicit borrowed FocusNode ownership.",
+      "A durable catalogue regression now requires all 64 frozen entries to be registered, implemented, described, documented, backed by non-empty usage snippets and free of duplicate example titles. Foundations is the sole permitted extra documentation page.",
+      "No substantiated production migration remained that could preserve less behavior than the recorded alternatives. Kalender stays pinned at 0.29.1; EventCalendar and TopicCalendar retain their domain controllers under DKalenderTheme, and the three Material date flows retain their documented combined date-time, account-zone/DST and guarded-expiry responsibilities."
     ],
     "verification": [
-      "Prerequisite audit gate verified by the coordinator: all 64 unique catalogue components and all four required final-composition reviews are accepted, with their merge commits in local main ancestry. This is dispatch evidence, not completion of the final audit."
+      "Prerequisite audit gate verified by the coordinator: all 64 unique catalogue components and all four required final-composition reviews are accepted, with their merge commits in local main ancestry.",
+      "Locked dependency resolution passed at root and profiles/full without lockfile or Flutter-pin changes. Baseline root and profiles/full flutter analyze --no-pub passed.",
+      "The complete styleguide directory passed 367 tests with randomized seed 9092026 before fixes. The post-fix Styleguide page, Drawer, Label, Aspect Ratio, Tooltip, Textarea, Switch and Collapsible matrix passed 100 tests with seed 9092028.",
+      "Exact source f15c6f67 built as a macOS debug styleguide. The isolated org.discourse.native.component-library-final-audit.f15c6f67 bundle's copied/build kernels both hash 44554591e7f4241107cbc681643ec109cdf78eec25e9d630c629863e24fc0095; deep strict ad-hoc signature verification passed with seven permitted debug entitlements and no push/team/application identifier.",
+      "Actual macOS inspection confirmed the shared Sidebar exposes all 64 component destinations. Drawer has no pending banner, opened with bounded radio controls, accepted another delivery time and returned Confirmed: 5:00. Label's DField/DInput composition rendered with shared geometry and editable focus. The isolated app was quit and process disappearance confirmed; the desktop lease was released.",
+      "The final current-main candidate is based on 6ddaff9ee748ad6390102307a6b691f22ff2f0ba and preserves the coordinator's final-audit ownership commits. Root and profiles/full flutter analyze --no-pub passed; the complete styleguide plus DCalendar, DDatePicker, EventCalendar and TopicCalendar matrix passed all 415 tests with randomized seed 9092029."
+    ],
+    "findings": [
+      "Reconciled one incorrect planned status, six stale dependency-era styleguide notes and one obsolete Material field composition.",
+      "Verified 64 unique catalogue/progress identities in preserved dependency-topological progress order and rejected duplicate IDs/keys through JSON parsing plus the catalogue regression.",
+      "Verified public export ownership, generic/domain layering, bottom-left styleguide access coverage, responsive shared Sidebar coverage and documented calendar/date-picker retention boundaries."
+    ],
+    "implementationCommit": "f15c6f67b0e247e534588fe8b76d30878e65e240",
+    "report": "docs/component-library/final-audit.md",
+    "candidateBranch": "codex/review-component-library-final-candidate",
+    "candidateBaseCommit": "6ddaff9ee748ad6390102307a6b691f22ff2f0ba",
+    "nativeInspectionStatus": "completed",
+    "limitations": [
+      "Actual native inspection was macOS only. No iOS/Linux device or spoken VoiceOver/TalkBack claim is made.",
+      "Browser/native font rasterizers can differ; accepted source-specific evidence establishes documented geometry, styling, interaction and semantics rather than cross-renderer pixel identity.",
+      "Persian/Hijri/Jalali chronology remains an explicit Kalender engine seam; Gregorian paging is not presented as alternate-calendar support."
     ],
     "mergeCommit": null,
     "finalCompositionReviewGate": "All 64 catalogue components and every required finalCompositionReview must be accepted and merged before the final whole-library audit or goal completion.",
@@ -4918,71 +4942,10 @@
     "resume": {
       "requestedAt": "2026-09-09T02:57:25+02:00",
       "instruction": "Once the current correction is done, resume the goal and continue the other components. Commit and merge only locally; do not push anything to GitHub or change anything on App Store Connect.",
-      "status": "in_progress",
+      "status": "final_audit_in_progress",
       "startingMainCommit": "8ea22c643829a10a5031019e2aef4e83956c7a8f",
       "nextComponents": [],
-      "activeTasks": [
-        {
-          "component": "input-group",
-          "taskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
-          "branch": "codex/review-input-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/478c/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085af-d606-7281-ac25-34c83adc855e",
-          "implementationBranch": "codex/ui-input-group",
-          "headCommit": "bc39e7f4ffab614dad82b13f6b5ad749869fc6fa"
-        },
-        {
-          "component": "toggle-group",
-          "taskId": "01a085e6-4bb7-7e13-9e2a-98992292b4b3",
-          "branch": "codex/review-toggle-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ddc5/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085ce-ca89-7af3-8375-946721be90c6",
-          "implementationBranch": "codex/ui-toggle-group",
-          "headCommit": "7f4de6a88f41983a20ec757dd606153bca067500"
-        },
-        {
-          "component": "hover-card",
-          "taskId": "01a08619-dc41-7213-a887-5afb891b99da",
-          "branch": "codex/review-hover-card",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4417/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
-          "implementationBranch": "codex/ui-hover-card",
-          "headCommit": "4d0a7058de7b91c74aa579195dea5e25741a2abf"
-        },
-        {
-          "component": "pagination",
-          "taskId": "01a08629-4841-73d0-a5a6-c723f253b4b0",
-          "branch": "codex/review-pagination",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/690e/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
-          "implementationBranch": "codex/ui-pagination",
-          "headCommit": "2167c8715f4866a47b8b3e30045a1346f3a1f6d4"
-        },
-        {
-          "component": "sheet",
-          "taskId": "01a0862f-b27f-76d2-a441-8a77594aedc8",
-          "branch": "codex/review-sheet",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9bc6/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
-          "implementationBranch": "codex/ui-sheet",
-          "headCommit": "88e3e8c2d753cfb7acea1244c179062815a0e2d0"
-        },
-        {
-          "component": "bubble",
-          "taskId": "01a08639-b066-7882-85f5-a759c5fdab6f",
-          "branch": "codex/review-bubble",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f764/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
-          "implementationBranch": "codex/ui-bubble",
-          "headCommit": "3aa4251692789567de9a3f010566dcd8aaa54d7b"
-        }
-      ],
+      "activeTasks": [],
       "nativeReadyTasks": []
     },
     "externalWritePolicy": {
