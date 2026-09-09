@@ -183,3 +183,40 @@ exactly equals this allowlist; no push or other restricted entitlement remains.
 `codesign --verify --deep --strict --verbose=2` passed. Read-back is stored at
 `/tmp/table-review-7328/entitlements-readback.plist`, alongside provenance and
 signature logs. No browser/native app use; **awaiting_slot** remains in effect.
+
+## Independent review
+
+The independent review task `01a08558-73ce-7a51-bfd4-8e0f48d5f675` merged the
+implementation history into `codex/review-table` and reconciled it with current
+main. The official Base UI page was inspected in light and dark at its rendered
+default, Footer and Actions examples. The Flutter default invoice table matched
+the reference's compact 14/20 typography, 40px header, 36px body rows, column
+alignment, one-pixel rules, half-muted footer, caption spacing and 32px actions
+trigger. Dark and Forest palette previews preserved those relationships.
+
+The first native Actions pass found that the temporary `MenuAnchor` could open
+from its DButton trigger, but did not focus its first action or restore focus to
+the custom trigger. The review adds first-item autofocus and supplies the same
+owned per-row `FocusNode` to `MenuAnchor.childFocusNode` and DButton. The nodes
+are disposed by the example state. A regression now opens, activates Edit, and
+reopens the menu entirely from the keyboard. The final exact-source macOS pass
+confirmed visible Edit focus, Return activation, live-region feedback and
+trigger focus restoration. Dropdown Menu remains the planned visual owner for
+the final menu surface; this functional native composition is explicit rather
+than counted as that component.
+
+The local production fixture was also inspected with the actual AlertTables
+adapter: native table/row/cell ancestry and independent link/date/action controls
+were exposed; collapse survived refresh; quote actions followed permission;
+empty-to-ready data worked; Local Dates rendered; and dark RTL at 200% kept
+logical reading order without overflow. The horizontal overflow contract is
+covered by widget interaction tests; the native inspection did not establish a
+trackpad horizontal-scroll result. No account data or network request was used.
+
+The final review bundle is `/tmp/table-review-fdec-907ddaf1/Table Review fdec
+final.app`, bundle ID `org.discourse.tablereviewfdecfinal`, built from review
+source `907ddaf18f703ed3aed95c5456705d73b97dc20f`. Its copied and built kernels
+both hash to `d5db668fc8233f8772cf612ccf79a9797d527539ec132ab2a0f9475680356282`.
+The ad-hoc entitlement read-back contains only JIT, unsigned executable memory
+and library-validation disablement, and deep strict signature verification
+passes.
