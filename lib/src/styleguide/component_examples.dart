@@ -16,6 +16,7 @@ import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
+import 'examples/native_select_examples.dart';
 import 'examples/progress_examples.dart';
 import 'examples/radio_group_examples.dart';
 import 'examples/resizable_examples.dart';
@@ -27,6 +28,7 @@ import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
 import 'examples/switch_examples.dart';
 import 'examples/table_examples.dart';
+import 'examples/tabs_examples.dart';
 import 'examples/textarea_examples.dart';
 import 'examples/toggle_examples.dart';
 import 'examples/tooltip_examples.dart';
@@ -57,6 +59,7 @@ final componentExamples = <String, ComponentExamples>{
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'label': labelExamples,
+  'native-select': nativeSelectExamples,
   'field': fieldExamples,
   'progress': progressExamples,
   'marker': markerExamples,
@@ -65,6 +68,7 @@ final componentExamples = <String, ComponentExamples>{
   'spinner': spinnerExamples,
   'slider': sliderExamples,
   'switch': switchExamples,
+  'tabs': tabsExamples,
   'toggle': toggleExamples,
   'button': buttonExamples,
   'tooltip': tooltipExamples,

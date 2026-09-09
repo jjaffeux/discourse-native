@@ -299,45 +299,39 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                 ],
               ),
               const SizedBox(height: 10),
-              InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Clear after',
-                  border: OutlineInputBorder(),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<_StatusExpiry>(
-                    value: _expiry,
-                    isDense: true,
-                    isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(
-                        value: _StatusExpiry.never,
-                        child: Text('Never'),
-                      ),
-                      DropdownMenuItem(
-                        value: _StatusExpiry.oneHour,
-                        child: Text('1 hour'),
-                      ),
-                      DropdownMenuItem(
-                        value: _StatusExpiry.twoHours,
-                        child: Text('2 hours'),
-                      ),
-                      DropdownMenuItem(
-                        value: _StatusExpiry.tomorrow,
-                        child: Text('Tomorrow'),
-                      ),
-                      DropdownMenuItem(
-                        value: _StatusExpiry.custom,
-                        child: Text('Custom date and time'),
-                      ),
-                    ],
-                    onChanged: _busy
-                        ? null
-                        : (value) {
-                            if (value != null) unawaited(_chooseExpiry(value));
-                          },
+              DNativeSelect<_StatusExpiry>.controlled(
+                isExpanded: true,
+                placeholderEnabled: false,
+                label: 'Clear after',
+                value: _expiry,
+                entries: const [
+                  DNativeSelectOption(
+                    value: _StatusExpiry.never,
+                    label: 'Never',
                   ),
-                ),
+                  DNativeSelectOption(
+                    value: _StatusExpiry.oneHour,
+                    label: '1 hour',
+                  ),
+                  DNativeSelectOption(
+                    value: _StatusExpiry.twoHours,
+                    label: '2 hours',
+                  ),
+                  DNativeSelectOption(
+                    value: _StatusExpiry.tomorrow,
+                    label: 'Tomorrow',
+                  ),
+                  DNativeSelectOption(
+                    value: _StatusExpiry.custom,
+                    label: 'Custom date and time',
+                  ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) {
+                        if (value != null) unawaited(_chooseExpiry(value));
+                      },
+                initialValue: _expiry,
               ),
               if (_expiry == _StatusExpiry.custom && _customEndsAt != null) ...[
                 const SizedBox(height: 8),

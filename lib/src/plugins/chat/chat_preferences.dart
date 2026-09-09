@@ -50,25 +50,24 @@ class _ChatPreferenceForm extends StatelessWidget {
       spacing: 0,
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: DSelectField<ChatSeparateSidebarPreference>(
-          key: ValueKey(('chat-separate-sidebar-mode', selectedMode)),
-          initialValue: selectedMode,
+        child: DNativeSelect<ChatSeparateSidebarPreference>.controlled(
           isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Show separate sidebar modes for forum and chat',
-          ),
-          items: const [
-            DropdownMenuItem(
+          placeholderEnabled: false,
+          key: ValueKey(('chat-separate-sidebar-mode', selectedMode)),
+          value: selectedMode,
+          label: 'Show separate sidebar modes for forum and chat',
+          entries: const [
+            DNativeSelectOption(
               value: ChatSeparateSidebarPreference.always,
-              child: Text('Always'),
+              label: 'Always',
             ),
-            DropdownMenuItem(
+            DNativeSelectOption(
               value: ChatSeparateSidebarPreference.fullscreen,
-              child: Text('When chat is in fullscreen'),
+              label: 'When chat is in fullscreen',
             ),
-            DropdownMenuItem(
+            DNativeSelectOption(
               value: ChatSeparateSidebarPreference.never,
-              child: Text('Never'),
+              label: 'Never',
             ),
           ],
           onChanged: enabled
@@ -76,6 +75,7 @@ class _ChatPreferenceForm extends StatelessWidget {
                   if (value != null) onChanged(value);
                 }
               : null,
+          initialValue: selectedMode,
         ),
       ),
     );
