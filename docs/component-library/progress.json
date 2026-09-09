@@ -3070,7 +3070,7 @@
     },
     {
       "id": "calendar",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
       "branch": "codex/ui-calendar",
       "dependencies": [
@@ -3109,14 +3109,15 @@
         "After accepted-parent reconstruction, the same 38-test Calendar/styleguide/EventCalendar/TopicCalendar matrix passed with seed 20260909 and root plus profiles/full flutter analyze --no-pub remained clean.",
         "Official browser comparison covered rendered Basic, Range, selector, Presets, Date and Time, Booked, Custom Cell, Week Numbers and Arabic RTL examples plus timezone and alternate-calendar guidance.",
         "Native macOS inspection covered Light, Dark, Forest and Plum; LTR/RTL; 720/360px; 100/200% text; pointer and roving-keyboard selection; selector updates; presets; time fields; booked/disabled dates; priced cells; week-number semantics; and actual EventCalendar Month/Week/Day/Year surfaces.",
-        "Final source build ff08f52b produced /private/tmp/calendar-review-final-source.Kyozwl/Calendar Review.app with unique org.discourse.native.calendar-review identity; App framework SHA256 8456db108f4ae9af13cec970252ccfd289d5a42be7bdd43894ef08cc87fff314 and deep strict ad-hoc signature verification passed. The final delta after native inspection only corrects the RTL outside-month semantic label and is covered by its focused widget regression."
+        "Final source build ff08f52b produced /private/tmp/calendar-review-final-source.Kyozwl/Calendar Review.app with unique org.discourse.native.calendar-review identity; App framework SHA256 8456db108f4ae9af13cec970252ccfd289d5a42be7bdd43894ef08cc87fff314 and deep strict ad-hoc signature verification passed. The final delta after native inspection only corrects the RTL outside-month semantic label and is covered by its focused widget regression.",
+        "The accepted candidate was reconstructed on local main 0f04e04e02029383301460cb996b879c382c9d4a, reverified, and merged from the repository's main checkout with no-fast-forward merge commit 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361."
       ],
       "limitations": [
         "No iOS/Linux device or spoken VoiceOver/TalkBack pass; macOS AX inspection and widget semantics tests do not claim cross-platform device parity.",
         "Browser and native font rasterization differ, so acceptance compares composition, geometry, state, interaction and semantics rather than pixel equality."
       ],
       "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
-      "mergeCommit": null,
+      "mergeCommit": "0bbb6c3673b395f75f4e03f80c15fcb0a0f16361",
       "preparedDependencies": [
         {
           "id": "select",
@@ -3144,8 +3145,8 @@
       "reviewHandoffCommit": "4b86c11a85bec38911cc3f5558c9ba315eee3043",
       "nativeInspectionStatus": "completed",
       "browserInspectionStatus": "completed",
-      "reviewStatus": "review_ready",
-      "reviewedBranchHead": "e1d87b69",
+      "reviewStatus": "merged",
+      "reviewedBranchHead": "f295df1050e0e721eff28d115ce5625b8a1eedcb",
       "queueStage": "independent_review",
       "implementationHandoffVerification": {
         "focusedTests": "Source record reports15 Calendar/styleguide/EventCalendar tests passing with seed20260909.",
@@ -4308,16 +4309,6 @@
           "headCommit": "3aa4251692789567de9a3f010566dcd8aaa54d7b"
         },
         {
-          "component": "calendar",
-          "taskId": "01a08631-7574-70b0-a98f-4e7217e03209",
-          "branch": "codex/review-calendar",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/53b6/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
-          "implementationBranch": "codex/ui-calendar",
-          "headCommit": "4b86c11a85bec38911cc3f5558c9ba315eee3043"
-        },
-        {
           "component": "message-scroller",
           "taskId": "01a08639-b066-7882-85f5-a7729bfd111b",
           "branch": "codex/review-message-scroller",
@@ -4741,18 +4732,6 @@
           "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
           "implementationBranch": "codex/ui-bubble",
           "implementationCommit": "78c60d0cd7cf87d34c46524fff95336b43e261cd",
-          "status": "in_progress"
-        },
-        {
-          "component": "calendar",
-          "title": "Review and merge Calendar",
-          "taskId": "01a08631-7574-70b0-a98f-4e7217e03209",
-          "hostId": "local",
-          "branch": "codex/review-calendar",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/53b6/discourse-native",
-          "implementationTaskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
-          "implementationBranch": "codex/ui-calendar",
-          "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
           "status": "in_progress"
         },
         {

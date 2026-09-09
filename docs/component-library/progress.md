@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**47 of 64 components are merged locally.** 17 existing components are in progress; 0 are planned.
+**48 of 64 components are merged locally.** 16 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -26,7 +26,6 @@ Branch preparation does not mark a component merged or visually verified.
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
 | pagination | independent review | 2167c871 | 01a08629-4841-73d0-a5a6-c723f253b4b0 |
-| calendar | independent review | 4b86c11a | 01a08631-7574-70b0-a98f-4e7217e03209 |
 | date-picker | Implementation and checks | — | — |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
@@ -87,7 +86,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
 | 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
 | 49 | pagination | in_progress | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | — |
-| 50 | calendar | review_ready | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
+| 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
 | 51 | date-picker | in_progress | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
 | 53 | toast | merged | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | d454c8f62fb4ab8718b3a32b2743556f2f78609d |
@@ -2624,7 +2623,7 @@ Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/u
 
 ### calendar
 
-Status: review_ready. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-calendar.
+Status: merged. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/ui-calendar.
 
 **acceptanceCriteria**
 
@@ -2664,6 +2663,7 @@ Status: review_ready. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/
 - Official browser comparison covered rendered Basic, Range, selector, Presets, Date and Time, Booked, Custom Cell, Week Numbers and Arabic RTL examples plus timezone and alternate-calendar guidance.
 - Native macOS inspection covered Light, Dark, Forest and Plum; LTR/RTL; 720/360px; 100/200% text; pointer and roving-keyboard selection; selector updates; presets; time fields; booked/disabled dates; priced cells; week-number semantics; and actual EventCalendar Month/Week/Day/Year surfaces.
 - Final source build ff08f52b produced /private/tmp/calendar-review-final-source.Kyozwl/Calendar Review.app with unique org.discourse.native.calendar-review identity; App framework SHA256 8456db108f4ae9af13cec970252ccfd289d5a42be7bdd43894ef08cc87fff314 and deep strict ad-hoc signature verification passed. The final delta after native inspection only corrects the RTL outside-month semantic label and is covered by its focused widget regression.
+- The accepted candidate was reconstructed on local main 0f04e04e02029383301460cb996b879c382c9d4a, reverified, and merged from the repository's main checkout with no-fast-forward merge commit 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361.
 
 **limitations**
 
