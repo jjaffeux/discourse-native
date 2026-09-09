@@ -2484,7 +2484,7 @@
       "mergeCommit": null,
       "reviewStatus": "in_progress",
       "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
-      "reviewBranch": "codex/review-command-final-main",
+      "reviewBranch": "codex/review-command-final2",
       "preparedDependencies": [
         {
           "id": "dialog",
@@ -3791,12 +3791,12 @@
         {
           "component": "command",
           "taskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
-          "branch": "codex/review-command-final-main",
+          "branch": "codex/review-command-final2",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a336/discourse-native",
           "status": "independent_review",
           "implementationTaskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
           "implementationBranch": "codex/ui-command",
-          "headCommit": "4f91d697d4d16d2dac766380fdff84cd5f00688a"
+          "headCommit": "722a7d1ab33cf67db8a84bffade8896730e02dd4"
         },
         {
           "component": "select",
@@ -4221,7 +4221,7 @@
           "taskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
           "hostId": "local",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a336/discourse-native",
-          "branch": "codex/review-command-final-main",
+          "branch": "codex/review-command-final2",
           "implementationTaskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
           "implementationBranch": "codex/ui-command",
           "implementationCommit": "c73c39b8e284abc85fcecfe74d7cf5cf83cd91c7",
