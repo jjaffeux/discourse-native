@@ -303,9 +303,9 @@ class DInputGroupAddon extends StatelessWidget {
         bottom: 6,
       ),
       DInputGroupAddonAlignment.blockStart =>
-        const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 4),
+        const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 6),
       DInputGroupAddonAlignment.blockEnd =>
-        const EdgeInsetsDirectional.fromSTEB(10, 4, 10, 8),
+        const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 8),
     };
     final row = Row(
       mainAxisSize: block ? MainAxisSize.max : MainAxisSize.min,

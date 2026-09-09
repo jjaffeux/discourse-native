@@ -440,6 +440,46 @@ void main() {
     expect(padding.padding, const EdgeInsets.fromLTRB(6, 5, 6, 5));
   });
 
+  testWidgets('block addons keep base padding at their inner edge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        DInputGroup(
+          children: [
+            DInputGroupInput(semanticLabel: 'Name'),
+            const DInputGroupAddon(
+              key: ValueKey('block-start'),
+              alignment: DInputGroupAddonAlignment.blockStart,
+              child: Text('First name'),
+            ),
+            const DInputGroupAddon(
+              key: ValueKey('block-end'),
+              alignment: DInputGroupAddonAlignment.blockEnd,
+              child: Text('Required'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    EdgeInsetsGeometry addonPadding(Key key) => tester
+        .widget<Padding>(
+          find
+              .descendant(of: find.byKey(key), matching: find.byType(Padding))
+              .first,
+        )
+        .padding;
+    expect(
+      addonPadding(const ValueKey('block-start')),
+      const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 6),
+    );
+    expect(
+      addonPadding(const ValueKey('block-end')),
+      const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 8),
+    );
+  });
+
   testWidgets('keycap addons use the reduced inset and offset radius', (
     tester,
   ) async {
