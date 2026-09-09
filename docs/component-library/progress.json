@@ -1075,7 +1075,7 @@
       "limitations": [
         "Official rendered comparison, native macOS interaction, VoiceOver and final accepted Field/Button Group reconciliation remain for the new reviewer; no physical iOS/Linux device check is claimed."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "d6a9be0d00c160dffa7daf67e8f2f4cefa00c336",
       "mergeCommit": null
     },
     {
