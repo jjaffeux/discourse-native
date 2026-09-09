@@ -2573,6 +2573,7 @@
         "DButtonGroup is a passive semantic/layout boundary for independent controls. It owns no selection, roving focus or toolbar shortcuts; each child retains its callback, state, focus and native role.",
         "DJoinedControlScope changes only joined radii and the painted leading seam. DInputGroup consumes it at its outer surface and resets it around its editor/addons; detached Popover content also resets it.",
         "Normal Flex layout measures controls without intrinsic queries and stretches separators to their cross-axis extent. Passive text shrink-wraps, fixing the 600px-versus-32px regression while supporting LayoutBuilder-based Select.",
+        "Non-tabbable focus listeners change paint order only: the focused direct child paints last. Joined DButton surfaces allow their exterior ring to remain unclipped. Keyboard, semantic and hit-test order remain unchanged.",
         "All Button Group compositions use final public APIs. Select's Back/Range/Next example now uses DButtonGroup with horizontal reachability. Input Group's button-actions example retains its editor/focus/state ownership.",
         "Replacement reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 preserves recovered handoff 97554ada and implementation history, and owns remaining native acceptance and the authorized local-main merge."
       ],
@@ -2590,10 +2591,11 @@
         "Frozen Markdown SHA-256 9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda and twelve linked Base sources were inspected. Official rendered light/dark, Dropdown Menu/Select dismissal and focus were reviewed; see evidence/button-group/browser-reference.md.",
         "Final-owner integration previously passed 112 focused tests. After main reconciliation and sizing/composition fixes: 56 Button Group/Select/styleguide tests, 22 direct/navigation tests, 21 direct/Input Group tests and 34 Popover/Dropdown Menu tests passed with seed 826145. Batches overlap.",
         "Root analysis and profiles/full enforced-lockfile resolution plus analysis passed without diagnostics; lockfiles unchanged. Final main overlap verification remains required.",
-        "Source 52bbbc175ef076a0fffbb7dc5294d0c0f9455235 built successfully for the offline native fixture. /private/tmp/ButtonGroupReview-52bbbc17.app has a unique identity, verified signature/restricted entitlements, and matching source/copy kernel SHA-256 02834a404d77b84aa27782d3c6e7fe5706dcf1e1957cabf59d48f48dd1e40483. Native interaction awaits the desktop lease."
+        "Source cff5dfc2b34035806d29ab551f25b5908515c018 built successfully for the offline native fixture. /private/tmp/ButtonGroupReview-cff5dfc2.app has a unique identity, verified signature/restricted entitlements, and matching source/copy kernel SHA-256 f7fd7af43360515dd2cdba6461d8eaab9822f646e26e6122919fdfac4398bde3. Native interaction awaits the desktop lease.",
+        "Focus layering was verified by a pixel regression that fails when focused-child ordering is disabled. All 88 affected Button/Button Group/Select/styleguide/navigation tests and root/full analysis pass after the correction (seed 826145)."
       ],
       "limitations": [
-        "Native inspection of rebuilt source 52bbbc17 remains required before acceptance. Earlier approved attempts were blocked by the locked Mac. The old queue entry was withdrawn during the sizing correction and rejoined after rebuilding.",
+        "Native inspection of rebuilt source cff5dfc2 remains required before acceptance. Earlier approved attempts were blocked by the locked Mac. Old queue entries were withdrawn during source corrections and rejoined after rebuilding.",
         "VoiceOver speech and iOS/Linux device inspection have not been performed. Automated semantics/platform tests do not replace those checks.",
         "Official browser comparison is qualitative because Geist and native host-font rasterization differ; source hashes and geometry assertions record the exact contract."
       ],
@@ -2616,7 +2618,7 @@
         "gitWriteVerificationCommit": "94fe7a776dd8377ef0aac3c01c6bf9a0e378653e",
         "verification": "Replacement verified archive and resolved DInput hashes, then ordinary git add and git commit succeeded in its fresh app-created worktree. Source resolution and all remaining acceptance stay with the replacement reviewer."
       },
-      "reviewSourceCommit": "52bbbc175ef076a0fffbb7dc5294d0c0f9455235",
+      "reviewSourceCommit": "cff5dfc2b34035806d29ab551f25b5908515c018",
       "browserReview": {
         "status": "completed",
         "evidence": "docs/component-library/evidence/button-group/browser-reference.md"
