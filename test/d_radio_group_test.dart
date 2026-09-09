@@ -27,11 +27,12 @@ const choices = Column(
   ],
 );
 
-List<SemanticsNode> radioSemantics(WidgetTester tester) {
-  final radios = <SemanticsNode>[];
+List<SemanticsData> radioSemantics(WidgetTester tester) {
+  final radios = <SemanticsData>[];
   void visit(SemanticsNode node) {
-    if (node.getSemanticsData().flagsCollection.isInMutuallyExclusiveGroup) {
-      radios.add(node);
+    if (!node.isMergedIntoParent &&
+        node.getSemanticsData().flagsCollection.isInMutuallyExclusiveGroup) {
+      radios.add(node.getSemanticsData());
     }
     node.visitChildren((child) {
       visit(child);
@@ -181,10 +182,7 @@ void main() {
     ).singleWhere((node) => node.label == 'Alpha');
     expect(node.label, 'Alpha');
     expect(node.hint, contains('Choose one'));
-    expect(
-      node.getSemanticsData().validationResult,
-      SemanticsValidationResult.invalid,
-    );
+    expect(node.validationResult, SemanticsValidationResult.invalid);
     await tester.tap(find.text('Alpha'));
     await tester.pump();
     expect(form.currentState!.validate(), isTrue);
@@ -196,10 +194,7 @@ void main() {
     expect(focus.hasFocus, isTrue);
     node = radioSemantics(tester).singleWhere((node) => node.label == 'Alpha');
     expect(node.hint, isNot(contains('Choose one')));
-    expect(
-      node.getSemanticsData().validationResult,
-      SemanticsValidationResult.none,
-    );
+    expect(node.validationResult, SemanticsValidationResult.none);
     semantics.dispose();
   });
 
@@ -435,7 +430,7 @@ void main() {
           );
           if (title == 'Invalid') {
             expect(
-              nodes.map((node) => node.getSemanticsData().validationResult),
+              nodes.map((node) => node.validationResult),
               everyElement(SemanticsValidationResult.invalid),
             );
           }
@@ -443,7 +438,6 @@ void main() {
             expect(
               nodes
                   .singleWhere((node) => node.label == 'Disabled')
-                  .getSemanticsData()
                   .hasAction(SemanticsAction.tap),
               isFalse,
             );
