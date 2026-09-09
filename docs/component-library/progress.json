@@ -2428,7 +2428,7 @@
     },
     {
       "id": "command",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
       "branch": "codex/ui-command",
       "dependencies": [
@@ -2473,7 +2473,8 @@
         "The official rendered page was inspected in light and dark across embedded, Basic, Shortcuts, Groups, Scrollable and Arabic RTL examples. It confirmed the compact 384px surface, 32px rows/input, grouped separators, 288px scrolling viewport, disabled 50% treatment and plain trailing shortcut text.",
         "Native CUA inspected the exact isolated f0ae622b source bundle in light and Plum dark themes. Literal AZERTY-safe entry filtered to Billing, Return activated it, unmatched text announced No results found, loading changed to Privacy/Security/Devices, pointer actions updated state, and the real CommandMenuAnchor adapter returned close.",
         "The native dialog retained the focused editor, dismissed with Escape, and stayed open across live palette/radius/font/RTL/200%/reduced-motion changes. At 200% RTL the result list scrolled without overflow and 15 Arrow Down movements kept View action 4 visible. RTL logical placement and disabled/checked states rendered correctly.",
-        "The unique bundle used identifier org.discourse.command-review.f0ae622b, display name Command Review f0ae622b and URL scheme discourse-command-review-f0ae622b. codesign --verify --deep --strict passed with only allow-jit, allow-unsigned-executable-memory and disable-library-validation entitlements. DCommand source SHA256 was 29a101237c7ef04b916e9bf6ecb3a796aca567acdf3402d3d3fec18546b3322e; fixture SHA256 adf7e5d040a0dc037c0ce3f46c3329ef900569d486fb98e1da64c6703c7cd7b3; built/copied pre-sign kernel SHA256 2788c6c952471cd70b1079f2f533bc3adf5e2db5a6049cfb2c94d531cf5f0c2a."
+        "The unique bundle used identifier org.discourse.command-review.f0ae622b, display name Command Review f0ae622b and URL scheme discourse-command-review-f0ae622b. codesign --verify --deep --strict passed with only allow-jit, allow-unsigned-executable-memory and disable-library-validation entitlements. DCommand source SHA256 was 29a101237c7ef04b916e9bf6ecb3a796aca567acdf3402d3d3fec18546b3322e; fixture SHA256 adf7e5d040a0dc037c0ce3f46c3329ef900569d486fb98e1da64c6703c7cd7b3; built/copied pre-sign kernel SHA256 2788c6c952471cd70b1079f2f533bc3adf5e2db5a6049cfb2c94d531cf5f0c2a.",
+        "Independent reviewer merged the accepted Command candidate into local main as 090d4f5448c2d8f87183d62092c6a5393ce90bd6 without pushing."
       ],
       "limitations": [
         "No spoken VoiceOver session or iOS/Linux device run is claimed. macOS AX exposed named editors, result groups, enabled/disabled buttons, checked result content and live status text; touch-target/activation behavior is covered by widget tests rather than a touch device.",
@@ -2481,8 +2482,8 @@
         "The full topic_reading_integration_test run showed unrelated/order-sensitive failures when run concurrently with other files; the only changed topic action test passes independently. The full suite is not required."
       ],
       "implementationCommit": "c73c39b8e284abc85fcecfe74d7cf5cf83cd91c7",
-      "mergeCommit": null,
-      "reviewStatus": "in_progress",
+      "mergeCommit": "090d4f5448c2d8f87183d62092c6a5393ce90bd6",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
       "reviewBranch": "codex/review-command-final2",
       "preparedDependencies": [
@@ -3789,16 +3790,6 @@
           "headCommit": "bc39e7f4ffab614dad82b13f6b5ad749869fc6fa"
         },
         {
-          "component": "command",
-          "taskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
-          "branch": "codex/review-command-final2",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a336/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
-          "implementationBranch": "codex/ui-command",
-          "headCommit": "722a7d1ab33cf67db8a84bffade8896730e02dd4"
-        },
-        {
           "component": "select",
           "taskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
           "branch": "codex/review-select",
@@ -4213,18 +4204,6 @@
           "implementationTaskId": "01a085af-d606-7281-ac25-34c83adc855e",
           "implementationBranch": "codex/ui-input-group",
           "implementationCommit": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
-          "status": "in_progress"
-        },
-        {
-          "component": "command",
-          "title": "Review and merge Command",
-          "taskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a336/discourse-native",
-          "branch": "codex/review-command-final2",
-          "implementationTaskId": "01a085bc-5eda-7712-9863-190bf6846bcc",
-          "implementationBranch": "codex/ui-command",
-          "implementationCommit": "c73c39b8e284abc85fcecfe74d7cf5cf83cd91c7",
           "status": "in_progress"
         },
         {

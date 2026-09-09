@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**38 of 64 components are merged locally.** 26 existing components are in progress; 0 are planned.
+**39 of 64 components are merged locally.** 25 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -25,7 +25,6 @@ Branch preparation does not mark a component merged or visually verified.
 | select | independent review | 69e5ec66 | 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 |
 | input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
-| command | independent review | 722a7d1a | 01a085d3-21b9-75d0-a4f0-c739439ccb9d |
 | combobox | Implementation and checks | — | — |
 | dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
 | context-menu | Implementation and checks | — | — |
@@ -88,7 +87,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 39 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
 | 40 | input-group | in_progress | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner | — |
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
-| 42 | command | in_progress | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | — |
+| 42 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
 | 43 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command | — |
 | 44 | dropdown-menu | in_progress | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
 | 45 | context-menu | in_progress | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | — |
@@ -2285,7 +2284,7 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 
 ### command
 
-Status: in_progress. Task: 01a085bc-5eda-7712-9863-190bf6846bcc. Branch: codex/ui-command.
+Status: merged. Task: 01a085bc-5eda-7712-9863-190bf6846bcc. Branch: codex/ui-command.
 
 **acceptanceCriteria**
 
@@ -2330,6 +2329,7 @@ Status: in_progress. Task: 01a085bc-5eda-7712-9863-190bf6846bcc. Branch: codex/u
 - Native CUA inspected the exact isolated f0ae622b source bundle in light and Plum dark themes. Literal AZERTY-safe entry filtered to Billing, Return activated it, unmatched text announced No results found, loading changed to Privacy/Security/Devices, pointer actions updated state, and the real CommandMenuAnchor adapter returned close.
 - The native dialog retained the focused editor, dismissed with Escape, and stayed open across live palette/radius/font/RTL/200%/reduced-motion changes. At 200% RTL the result list scrolled without overflow and 15 Arrow Down movements kept View action 4 visible. RTL logical placement and disabled/checked states rendered correctly.
 - The unique bundle used identifier org.discourse.command-review.f0ae622b, display name Command Review f0ae622b and URL scheme discourse-command-review-f0ae622b. codesign --verify --deep --strict passed with only allow-jit, allow-unsigned-executable-memory and disable-library-validation entitlements. DCommand source SHA256 was 29a101237c7ef04b916e9bf6ecb3a796aca567acdf3402d3d3fec18546b3322e; fixture SHA256 adf7e5d040a0dc037c0ce3f46c3329ef900569d486fb98e1da64c6703c7cd7b3; built/copied pre-sign kernel SHA256 2788c6c952471cd70b1079f2f533bc3adf5e2db5a6049cfb2c94d531cf5f0c2a.
+- Independent reviewer merged the accepted Command candidate into local main as 090d4f5448c2d8f87183d62092c6a5393ce90bd6 without pushing.
 
 **limitations**
 
