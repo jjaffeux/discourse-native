@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**21 of 64 components are merged locally.** 17 existing components are in progress; 26 are planned.
+**21 of 64 components are merged locally.** 18 existing components are in progress; 25 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -23,12 +23,13 @@ Branch preparation does not mark a component merged or visually verified.
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | table | independent review | b3107cab | 01a08558-73ce-7a51-bfd4-8e0f48d5f675 |
 | collapsible | independent review | 684faacd | 01a08558-a79c-7911-8f75-53b3528fc08f |
-| tabs | Implementation and checks | — | — |
+| tabs | independent review | fcb0e06f | 01a08581-d666-7f81-b039-f9caae6c45c2 |
 | resizable | independent review | a7e26a93 | 01a08558-7acd-73d3-a690-2e5ceb920d6c |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
+| button-group | Implementation and checks | — | — |
 | carousel | Implementation and checks | — | — |
 | toast | Implementation and checks | — | — |
 | alert | independent review | 38002135 | 01a08558-ae1e-7843-8cff-724c8e877ba5 |
@@ -78,7 +79,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 38 | native-select | in_progress | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | — |
 | 39 | field | in_progress | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
 | 40 | input-group | planned | — | — | input, textarea, button, kbd, spinner | — |
-| 41 | button-group | planned | — | — | button, separator | — |
+| 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | planned | — | — | input, dialog, scroll-area | — |
 | 43 | combobox | planned | — | — | input, popover, command | — |
 | 44 | dropdown-menu | planned | — | — | popover, checkbox, radio-group | — |
@@ -1747,17 +1748,43 @@ Status: in_progress. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match the frozen Base UI/base-nova default/line, horizontal/vertical, disabled, icon, RTL and Card composition examples with explicit source-to-native geometry and behavior mapping.
-- Implement complete controlled/uncontrolled selection and public composition/controller APIs, native tab semantics, focus/keyboard behavior, dynamic/disabled entries and panel state lifecycle.
-- Support live host theme/font/radius, light/dark/custom palettes, touch, narrow layouts, text scaling, RTL and reduced motion without substituting platform-default appearance.
-- Audit and migrate appropriate forum/topic/group/preferences and plugin tab surfaces while keeping navigation, unread state, permissions and domain state in app adapters.
-- Provide complete interactive examples, accurate usage, meaningful component/consumer tests, root/full-profile analysis and honest exact-source rendered/native evidence.
-- Create a new independent Review and merge Tabs Codex task; it owns fixes, remaining verification and final local main merge under shared leases without coordinator approval.
+- Match the frozen Base UI/base-nova default/line, horizontal/vertical, disabled, icon, RTL and Card compositions with explicit source-to-Flutter geometry and behavior mapping.
+- Provide generic local, controlled and borrowed-controller selection; dynamic fallback; native selected-button semantics; roving focus; panel lifecycle and focus restoration without app dependencies.
+- Support live host theme/font/radius, light/dark/custom palettes, touch, narrow layouts, text scaling, RTL and reduced motion while retaining compact shadcn artwork.
+- Migrate appropriate core/plugin tab surfaces while preserving application routing, permissions, plugin data and state ownership; document retained domain alternatives.
+- Provide complete interactive examples, meaningful component/consumer tests, root/full-profile analysis and honest rendered/native evidence owned to completion by the independent reviewer.
 
 **decisions**
 
-- Button dependency and Card composition owner are merged.
-- Collapsible File Tree composition has a direct dependency handoff between Tabs and reviewer 01a08558-a79c-7911-8f75-53b3528fc08f; retain explicit follow-up until the final DTabs composition is verified.
+- Exact frozen/reference source hashes, measurements, API mapping and acceptance are recorded in docs/component-library/tabs-reference.md.
+- DTabs<T>, DTabList<T>, DTabTrigger<T>, DTabPanel<T> and DTabController<T> expose composition and selection. Hidden panels unmount by default; maintainState keeps them offstage without ticking/semantics.
+- Horizontal lists scroll and reveal focused triggers. Vertical content stacks below its still-vertical list below 320px or above 150% text scaling to prevent narrow overflow.
+- Collapsible reviewer 01a08558-a79c-7911-8f75-53b3528fc08f received the final API handoff for its temporary File Tree selector; the Tabs reviewer will notify it after merge.
+
+**migrations**
+
+- Group primary core/plugin route tabs use controlled DTabs while capability filtering and GroupRoute translation remain in group_page.dart.
+- Chat channel-info Settings/Members use the line variant inside the retained 58px app bar; ChatShellService remains routing owner.
+- Diagnostics General/Topic scroll/plugin routes use controlled DTabs; capture and plugin state remain diagnostics-owned.
+
+**retainedAlternatives**
+
+- ForumTabsBar and Aggregate tabs retain browser-workspace close/reopen/reorder/persistence/context-menu behavior and are not layered content tabs.
+- Topic list and User Menu strips retain unread/filter/period/notification domain rendering; Group secondary and Preferences navigation remain sidebar/picker owners.
+
+**verification**
+
+- Frozen shadcn Markdown SHA256 reproduced exactly; current base-nova registry and Base UI Markdown inspected with hashes recorded in tabs-reference.md.
+- 16 component/styleguide widget tests passed with random seed 1188269210, covering geometry, local/controlled/controller selection, pointer/semantics, manual/automatic/RTL/vertical roving focus, Tab entry, disabled/dynamic fallback, panel lifecycle, focus restoration, touch/narrow/200% text, reduced motion and live tokens.
+- 65 Group, Chat channel-info, Diagnostics and Voice production regression tests passed with random seed 592397163 using real migrated widgets and local/fake data.
+- The two Chat shell migration-specific layout/routing tests pass after retaining the full-width 58px app bar and updating its old custom-trigger assertion to the measured 25px shared trigger.
+- Full test/chat_shell_integration_test.dart passed all 138 tests with random seed 1517999890 after the Chat tab migration correction.
+- Root and profiles/full flutter analyze --no-pub pass with no issues. Touched Dart format check and git diff --check pass; dependency pins, SDK and lockfiles are unchanged.
+
+**limitations**
+
+- Implementation task did not acquire the shared desktop lease and makes no browser/native render, macOS launch, VoiceOver, iOS or Linux device claim. The independent reviewer owns those remaining acceptance checks and any fixes.
+- Current implementation branch predates later shared-main workflow/progress commits; reviewer must integrate latest main and preserve every other component row.
 
 ### resizable
 
@@ -1992,6 +2019,22 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/u
 - awaiting_slot: Mac locked; coordinator reports independent first-browser-navigation admin-policy failure. No CUA/browser/native access, retry or bypass attempted. Reference-rendered/native inspection and VoiceOver remain unverified; status in_progress, not review_ready or mergeable.
 - Unmerged Switch/Textarea/selection/Slider examples retain explicit temporary controls. Responsive custom-error composition retains one native FormField/TextField because completed DInput exposes no custom error builder; documented in field.md. No completed control API or state owner was redesigned.
 - send_message_to_thread remains absent from available tool inventory. Progress record and final head/artifact report carry the coordinator handoff.
+
+### button-group
+
+Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/ui-button-group.
+
+**acceptanceCriteria**
+
+- Match the complete frozen Button Group, Separator and Text API and every orientation, size, nested, split, control composition and RTL example with measured shadcn geometry and behavior.
+- Preserve independent control interaction and semantics, joined edges and exterior state rings, live themes, native targets, scaling and nested overlay appearance without leaking broad theme overrides.
+- Audit/migrate suitable core/plugin action groups; preserve domain callbacks and distinguish grouped actions from tabs or group selection.
+- Verify focused component/consumer regressions and root/full analysis; create an independent reviewer to finish remaining real-owner compositions, rendered/native acceptance and local main merge.
+
+**decisions**
+
+- Button and Separator dependencies are merged.
+- Field, Input Group, Dropdown Menu, Select and Popover compositions must reconcile with their final owners; track outstanding compositions and coordinate directly, without duplicating components or reducing the frozen examples.
 
 ### carousel
 
