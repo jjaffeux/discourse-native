@@ -2470,7 +2470,7 @@
       "latestResult": "Mac remains locked; automatic unlock failed. Existing unlock request remains pending; no repeated prompt.",
       "latestCheckRecordedAt": "2026-09-09T05:20:55+02:00"
     },
-    "pendingCoordinatorNativeReview": "Use Component Fidelity B104 at 6a99b2d2 after unlock to inspect title Escape/save failure, final styleguide preview scrollbar and corrected floating Sidebar radius.",
+    "pendingCoordinatorNativeReview": "Use Component Fidelity B104 at a872962f after unlock: title Escape/save failure, final styleguide preview scrollbar, floating Sidebar radius, Diagnostics rows at100%/200% and detail navigation.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
     "browserInspectionTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
@@ -2647,13 +2647,33 @@
       ]
     },
     "diagnosticsLogTextScale": {
-      "status": "automated_checks_passed_native_bundle_preparation",
+      "status": "awaiting_native_review",
       "branch": "codex/component-fidelity-follow-up",
       "problem": "Scroll Area actual production export at360px/200% exposed the pre-existing diagnostics fixed70px row clipping metadata by14px. Coordinator owns row sizing and regression independently of Scroll Area scrollbar migration.",
       "verification": [
-        "31 Diagnostics panel/acceptance tests passed seed909515, including the reproduced narrow200% row overflow and detail navigation. Root/full analysis clean.",
-        "Review fixture extends tool/title_review_main.dart with the actual DiagnosticsPanel and memory-only sample events. No native launch."
-      ]
+        "Before: reproduced the fixed70px row overflow in the actual narrow200% DiagnosticsPanel.",
+        "After:31 Diagnostics panel/acceptance tests plus1 font-loaded production render test passed, seed909515. Root/full analysis clean.",
+        "Actual360\u00d71000 production panel exported at100%/200% with SFNS and MaterialIcons,2\u00d7 raster. Request lifecycle seed verified to show status200 and120ms durations. Method labels remain on one line.",
+        "Committed-source macOS build succeeded;1386 tracked source files match commit, app.dill/built/copied kernels match, deep strict signature passes. Bundle has not been launched."
+      ],
+      "implementationCommit": "a872962fe3b02c7bd7d596fcb517707d36c13619",
+      "reviewDocument": "docs/component-library/diagnostics-row-follow-up.md",
+      "bundle": "/private/tmp/DiscourseComponentFidelityB104-a872962f.app",
+      "kernelSHA256": "58be24947baedb42ee067e049ec9253d5fbb6b23cdf03f55378a74f04e539fe5"
+    },
+    "currentNativeReviewBundle": {
+      "sourceCommit": "a872962fe3b02c7bd7d596fcb517707d36c13619",
+      "sourceTree": "55cbce581a807368b1360a26cb2e27e5d0635882",
+      "entrypoint": "tool/title_review_main.dart",
+      "bundle": "/private/tmp/DiscourseComponentFidelityB104-a872962f.app",
+      "bundleIdentifier": "org.discourse.native.component-fidelity.b104.a872962f",
+      "urlScheme": "discourse-component-fidelity-b104-a872962f",
+      "kernelSHA256": "58be24947baedb42ee067e049ec9253d5fbb6b23cdf03f55378a74f04e539fe5",
+      "sourceManifestSHA256": "4daf955e32f97c3707ee124f46ce5b7e8de24c1825b86cf186cea9fff8f75990",
+      "sourceFileCount": 1386,
+      "signatureVerification": "codesign --verify --deep --strict passed",
+      "nativeInspectionStatus": "awaiting_unlock",
+      "supersedes": "/private/tmp/DiscourseComponentFidelityB104-e2196438.app"
     }
   }
 }
