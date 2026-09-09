@@ -1991,7 +1991,11 @@
         "No spoken VoiceOver session or iOS/Linux device inspection was performed."
       ],
       "implementationCommit": "c03c39b5bf037e33dd84e86db6216ee3b7febaa9",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/02bf/discourse-native",
+      "reviewStatus": "assigned",
+      "reviewTaskId": "01a08619-dc41-7213-a887-5afb891b99da",
+      "reviewBranch": "codex/review-hover-card"
     },
     {
       "id": "dialog",
