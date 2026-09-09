@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
+**35 of 64 components are merged locally.** 17 existing components are in progress; 12 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -72,7 +72,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 35 | sheet | planned | — | — | dialog | — |
-| 36 | drawer | planned | — | — | dialog | — |
+| 36 | drawer | in_progress | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | — |
 | 37 | select | in_progress | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | — |
 | 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
 | 39 | field | in_progress | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
@@ -2054,6 +2054,52 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 **decisions**
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
+
+### drawer
+
+Status: in_progress. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/ui-drawer.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Drawer composition and measured surface geometry for vertical and side positions, custom sizing/styling, swipe handle, nested, non-modal, snap-point and responsive examples.
+- Expose typed controlled/uncontrolled open and snap state, controller/detached trigger lifecycle, cancellable reasons and completion callbacks, all four physical directions plus logical start/end placement, modal/trap-focus/non-modal behavior, focus targeting/restoration, outside/Escape/back dismissal, swipe area and keyboard-inset-safe layout.
+- Provide interruptible drag and spring-to-snap behavior with velocity-aware and sequential modes, overshoot resistance/bleed, scroll-edge handoff, nested frontmost gesture ownership and parent stack transforms; reduced motion must settle immediately.
+- Keep Drawer independent of Discourse business logic, audit current core/plugin drawers and sheets, migrate only semantically suitable transient gesture surfaces, and record retained persistent/resizable or Sheet-owned alternatives.
+- Add complete interactive styleguide examples and focused regression coverage for layout, theme, narrow/scaled/RTL, gestures, snap control, nesting, non-modal interaction, focus and lifecycle; hand remaining official browser/native acceptance and local merge to a new reviewer task.
+
+**decisions**
+
+- The frozen Markdown was fetched unchanged on 2026-09-09 and matched SHA-256 e3fca4a3433436c5eb043a1075f04d064f97add28e4d89872a9a01fe493cc63a. The base-nova drawer registry source was pinned at SHA-256 fc81c0adadef868df72172c9cf83237b8ab791a4f0f3e300540883be56c26982.
+- The current Base UI Drawer API reference was pinned at SHA-256 06e18a642563ba92e71fe756dbadfc3fc8789c9458a37bba6b7b359f3ae8fbcd. Public Flutter composition covers Root/Trigger/Portal/Overlay/Content/Handle/Header/Footer/Title/Description/Close, provider/indent, swipe-area and virtual-keyboard boundaries without importing web runtime state.
+- Base-nova geometry maps exactly to 450ms cubic motion, 10% black/4px-blur overlay, exposed-edge border and xl radius, content-sized vertical panels capped 96px from the viewport, 75% side width capped at 384px, 16px section padding, 96x4 handle and 48px overshoot bleed. Native theme tokens, safe areas, text scaling and Flutter focus/semantics remain integration owners.
+- Drawer owns swipe, snap and nested gesture behavior. Concurrent Sheet task 01a08606-5dcc-7381-bbbb-719367c8f574 owns showShellSheet adoption and non-gesture sheet conveniences; shared Dialog route changes are coordinated directly to avoid competing lifecycle owners.
+- DOverlayRoute is the shared route/focus/live-environment foundation used by Dialog and Drawer. Drawer adds its own interruptible travel controller, velocity projection, sequential snap selection, overshoot resistance, scroll-edge handoff, frontmost nested-stack ownership and modal/non-modal pointer policy.
+- Touch, stylus and trackpad can drag the whole surface; mouse dragging is intentionally restricted to the visible handle so body text remains selectable. Logical start/end resolve from the live Directionality scope. Reduced motion completes route and spring state immediately, including completion callbacks.
+
+**migrations**
+
+- Added Drawer as a public discourse_ui.dart component and registered nine runnable styleguide examples: delivery-time composition, custom size/style, physical/logical positions, swipe handle, four-level nesting, non-modal interaction, pixel/fraction snap points, responsive Dialog composition and RTL placement.
+- No application surface was migrated. The concurrent Sheet task owns all existing showShellSheet callers and its one internal showModalBottomSheet implementation, so changing those here would create duplicate component ownership.
+
+**retainedAlternatives**
+
+- ChatDrawerOverlay remains the app-specific persistent, collapsible and user-resizable chat workspace. It owns session navigation, saved width, collapse/full-page transitions and desktop placement; replacing it with a transient route Drawer would remove those contracts.
+- Voice room chat retains its direct modal bottom sheet pending the Sheet task's app audit. No Scaffold.drawer or NavigationDrawer usage exists in core, bundled plugins, profiles or packages.
+
+**verification**
+
+- Flutter 3.47.2 / Dart 3.13.2 dependencies were resolved with flutter pub get --enforce-lockfile and no pubspec.lock changes.
+- flutter test --no-pub test/ui/d_drawer_test.dart test/ui/d_dialog_test.dart test/styleguide/drawer_examples_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=19040911 passed all 57 tests after the reduced-motion completion regression was added.
+- Focused tests cover typed results, controlled cancellation, open/close completion, focus restoration and closed-loop trapping, modal and true non-modal pointer behavior, outside/focus/Escape dismissal, live theme/direction, bottom/side/RTL geometry, swipe dismissal, sequential controlled snaps, scroll-edge handoff, attached swipe-area opening, provider indent and frontmost nested Escape ownership.
+- Every Drawer styleguide example opens without overflow at 320x640, 200% text and RTL; the complete styleguide search/accounting/regression suite passed in the same randomized run.
+- flutter analyze --no-pub passed at the repository root and profiles/full; dart format and git diff --check passed.
+- flutter build macos --debug --no-pub -t tool/drawer_review_main.dart succeeded at build/macos/Build/Products/Debug/Discourse.app. The fixture uses only local component data and exposes light/dark, LTR/RTL, 100/200%, reduced motion, bottom/logical-side/snap/non-modal cases and a page pass-through action.
+- The d-sheet skill's required Silk Sheet/Scroll/SheetStack source was inspected before implementation; docs/component-library/reference/drawer.md records the exact source-to-Flutter and Silk behavior mapping.
+
+**limitations**
+
+- The shared desktop/browser inspection lease remained queued behind four earlier component owners, so this implementation task did not claim interactive native or official-page acceptance. The required independent reviewer owns that final browser/native comparison and any fixes before merge.
+- iOS, Android and Linux devices were not run. Widget tests exercise Flutter pointer, keyboard, focus, direction, scaling and reduced-motion behavior, and the macOS fixture was compiled but not interactively accepted in this task.
 
 ### select
 

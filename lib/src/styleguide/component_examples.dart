@@ -10,6 +10,7 @@ import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/drawer_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
@@ -56,6 +57,7 @@ final componentExamples = <String, ComponentExamples>{
   'badge': badgeExamples,
   'direction': directionExamples,
   'dialog': dialogExamples,
+  'drawer': drawerExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,

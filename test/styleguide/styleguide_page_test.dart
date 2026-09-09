@@ -114,12 +114,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('styleguide-component-drawer')));
     await tester.pump();
-    expect(
-      find.textContaining(
-        'Its implementation and interactive examples are scheduled.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Delivery time'), findsWidgets);
 
     await tester.enterText(
       find.byKey(const ValueKey('styleguide-search')),
