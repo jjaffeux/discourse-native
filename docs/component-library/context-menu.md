@@ -187,15 +187,18 @@ These sets overlap; their counts are not a combined unique-test total.
 The final native RTL check exposed the inherited double-mirrored submenu
 chevron: the indicator points right even though logical submenu navigation is
 leftward. Menubar reviewer `01a08628-7042-7173-a37d-7f1f04eade66`
-owns the shared Dropdown Menu correction in prepared commit
+prepared the shared Dropdown Menu correction in commit
 `430b46a0690a23613ca795b3a95a6f64da9b590e`, together with popup-local
-focus scrolling. The Dropdown Menu reviewer confirmed this single owner.
+focus scrolling. The Dropdown Menu reviewer consolidated this with the
+registration-order correction on `codex/review-dropdown-menu-followup` at
+`7110ef80`, reported 50 focused tests and clean root/full analysis, and owns
+the accepted local-main checkpoint after exact native verification.
 
 Context-specific regressions reproduce both defects on the inspected source:
 the RTL glyph is double-mirrored, and opening a constrained context popup in an
 embedded Navigator moves its enclosing page by 62px. Acceptance remains pending
 the shared correction's native verification and local-main merge. This branch
-does not import unaccepted Menubar ancestors or duplicate the parent fix.
+does not import unaccepted parent ancestors or duplicate the shared fix.
 
 ## Evidence limitations
 

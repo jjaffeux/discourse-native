@@ -2651,7 +2651,7 @@ Status: in_progress. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/u
 
 - A Context Menu-owned 1px DPopoverAnchor tracks the exact invocation point while the accepted Dropdown Menu source remains the sole navigation, selection, submenu and popup-content engine.
 - Keyboard and accessibility invocation anchor at logical bottom-start of the focused trigger; secondary pointer and touch long press use their local event position.
-- Native Sides and real forum-rail checks completed against accepted Dropdown Menu and Alert Dialog source. Acceptance awaits Menubar-owned shared Dropdown follow-up 430b46a (RTL chevron and popup-local focus scrolling), its native verification and local-main merge; no unaccepted parent is imported.
+- Native Sides and real forum-rail checks completed against accepted Dropdown Menu and Alert Dialog source. Acceptance awaits the Dropdown owner's combined follow-up codex/review-dropdown-menu-followup at 7110ef80 (registration order plus Menubar's 430b46a RTL-chevron/popup-focus corrections), its native verification and local-main merge; no unaccepted parent is imported.
 
 **migrations**
 
@@ -2675,7 +2675,7 @@ Status: in_progress. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/u
 **limitations**
 
 - Native Shift+F10 did not open through the available key synthesizer. Approved CUA exposes no long-press primitive or callable custom reader AX action; exact key/gesture/semantics callbacks pass focused widget/integration tests. Touch presentation was pointer-operated with an iOS theme-platform override on macOS, not a device run. No iOS/Linux device, spoken VoiceOver or pixel-diff equality is claimed.
-- Context Menu remains unaccepted until the Menubar-owned shared Dropdown RTL-chevron/popup-focus correction is natively verified and merged on main; all other remaining native acceptance surfaces have been inspected.
+- Context Menu remains unaccepted until the Dropdown owner's combined registration-order/RTL-chevron/popup-focus correction is natively verified and merged on main; all other remaining native acceptance surfaces have been inspected.
 
 ### menubar
 
