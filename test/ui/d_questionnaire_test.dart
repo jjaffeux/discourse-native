@@ -158,6 +158,20 @@ void main() {
     await tester.pump();
     expect(controller.answerFor('one').valueAs<String>(), 'B');
     expect(controller.currentItemId, 'one');
+    expect(
+      tester
+          .widget<FocusableActionDetector>(
+            find
+                .ancestor(
+                  of: find.text('B').first,
+                  matching: find.byType(FocusableActionDetector),
+                )
+                .first,
+          )
+          .focusNode
+          ?.hasFocus,
+      isTrue,
+    );
 
     await tester.tap(find.byType(TextField));
     await tester.enterText(find.byType(TextField), 'a custom answer');

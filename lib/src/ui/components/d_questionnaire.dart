@@ -287,7 +287,11 @@ class _DQuestionnaireState extends State<DQuestionnaire> {
     DQuestionnaireItem item,
   ) {
     final mode = widget.shortcuts;
-    final enabled = item.choices.where((choice) => choice.enabled).toList();
+    final enabled = [
+      for (var index = 0; index < item.choices.length; index++)
+        if (item.choices[index].enabled)
+          (index: index, choice: item.choices[index]),
+    ];
     final limit = mode == DQuestionnaireShortcutMode.numbers ? 9 : 26;
     return {
       const _QuestionnaireShortcutActivator(
@@ -313,9 +317,10 @@ class _DQuestionnaireState extends State<DQuestionnaire> {
           ),
         ): () {
           final choice = enabled[index];
+          _choiceFocus[item.id]![choice.index].requestFocus();
           item.multiple
-              ? _controller.toggle(item.id, choice.value)
-              : _controller.setSingle(item.id, choice.value);
+              ? _controller.toggle(item.id, choice.choice.value)
+              : _controller.setSingle(item.id, choice.choice.value);
         },
     };
   }
