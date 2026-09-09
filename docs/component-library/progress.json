@@ -1526,7 +1526,7 @@
     },
     {
       "id": "table",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
       "branch": "codex/ui-table",
       "dependencies": [
@@ -1578,8 +1578,8 @@
         "No spoken VoiceOver or iOS/Linux device inspection was performed, and no pixel-parity claim is made."
       ],
       "implementationCommit": "80c801e69ee94b8f1d02ca71ccb489bc53aec257",
-      "mergeCommit": null,
-      "reviewStatus": "review_ready",
+      "mergeCommit": "082fcc55ab85d3bd4012c6bd24c647c1febd7d2a",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
       "reviewBranch": "codex/review-table"
     },
@@ -2861,15 +2861,6 @@
           "implementationTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383"
         },
         {
-          "component": "table",
-          "taskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
-          "branch": "codex/review-table",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fdec/discourse-native",
-          "headCommit": "b3107cab0c01e2c7abe0de5f7649df99b19414c6",
-          "status": "independent_review",
-          "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a"
-        },
-        {
           "component": "textarea",
           "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
           "branch": "codex/review-textarea",
@@ -3152,17 +3143,6 @@
           "branch": "codex/review-chart",
           "implementationTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
           "implementationBranch": "codex/ui-chart",
-          "status": "in_progress"
-        },
-        {
-          "component": "table",
-          "title": "Review and merge Table",
-          "taskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fdec/discourse-native",
-          "branch": "codex/review-table",
-          "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
-          "implementationBranch": "codex/ui-table",
           "status": "in_progress"
         },
         {
