@@ -1,0 +1,53 @@
+{
+  "component": "Message",
+  "reviewTaskId": "01a08627-8995-7b43-9c06-8a219d472681",
+  "sourceCommit": "5f419da121fad15bcacc4927517ef9c71ad66d9d",
+  "mainBase": "0f9b77564772646b60cebcf1731d30d6ce5b3f62",
+  "acceptedParents": {
+    "attachment": "99cea2172e9ddb5da775bff7b81e82c24ad72870",
+    "bubble": "c3d6ae97af486134b32067aecc29f7191b05367d",
+    "avatar": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0",
+    "marker": "fc92f4e69042191eff5d39d52c1355a6d6a87da7"
+  },
+  "build": {
+    "command": "flutter build macos --debug --no-pub -t tool/message_native_review_main.dart",
+    "fixture": "tool/message_native_review_main.dart",
+    "fixtureSha256": "f9fc1860cb14789f7387b54d70e656e1f36bfc99b64f3c11077e9a79d21a6828",
+    "bundle": "/private/tmp/message-review-35ac776c.BfkVrK/Message Review 5f419da1.app",
+    "bundleIdentifier": "org.discourse.native.messagereview5f419da1",
+    "urlScheme": "discourse-message-review-5f419da1",
+    "kernelSha256": "10d8cf44ec7c22929bc3d5bac09b568b9dd36e31e464bdf4ca997fb9615923fe",
+    "kernelEquivalence": "The compiler app.dill, built App.framework kernel_blob.bin and isolated copied bundle kernel_blob.bin share this SHA256.",
+    "signature": "Ad-hoc; codesign --verify --deep --strict passed. Signed entitlement readback contains exactly the three listed runtime entitlements and no team/application or push capability.",
+    "entitlements": [
+      "com.apple.security.cs.allow-jit",
+      "com.apple.security.cs.allow-unsigned-executable-memory",
+      "com.apple.security.cs.disable-library-validation"
+    ]
+  },
+  "verification": [
+    "193 combined Message, Bubble, Attachment, complete styleguide and Chat lifecycle tests passed with seed 39054.",
+    "Earlier dedicated ChatMessageTile suite: 55 passed plus one known baseline tooltip-field expectation with seed 39055. Accepted main test-only correction 7b09b62d resolves that stale assertion and is integrated in 5f419da1.",
+    "All 212 affected checks passed on 5f419da1 with seed 39059: Message, examples, review fixture, dedicated ChatMessageTile, Chat lifecycle, ReactionPill and reaction-picker accessibility. No remaining failures in this run.",
+    "Root and profiles/full flutter analyze --no-pub passed on 5f419da1. Locked full-profile dependency resolution, touched formatting and git diff --check passed."
+  ],
+  "browserInspectionStatus": "in_progress",
+  "nativeInspectionStatus": "in_progress",
+  "completedInspection": {
+    "date": "2026-09-09",
+    "sourceCommit": "c7af4ca53318d1ba94abe142383cf1f32af3258d",
+    "bundleIdentifier": "org.discourse.native.messagereviewc7af4ca5",
+    "kernelSha256": "77784879e09df53e700ed140fa5837d51c8259af6b120c4b33329f28743dbe5c",
+    "browser": "Official rendered Base UI Message overview light; Avatar, Group and Header/Footer light/dark; Actions and Attachment dark. DOM measurement confirmed 384px row, 8px row gap, 32px avatar, 344px avatar-adjacent content, 10px content gap, 14/20 row text and 12/16 weight-500 metadata with 12px horizontal inset.",
+    "native": "All seven normal light examples inspected. Dark overview/Avatar and custom Plum 360px/200%/RTL overview inspected. Copy, Like, Dislike, Retry and Download each produced visible local result changes; pending/delivered/read/failed/deleted state controls exposed independent status nodes. Avatars, reaction, file and action nodes remain independent in native accessibility output.",
+    "remaining": "Confirm corrected footer, lower scaled compositions and actual production tile fixture on 5f419da1; finish remaining light/dark reference views.",
+    "sourceEquivalence": "Generic Message and action/status examples are unchanged from the inspected c7af4ca5 source. The new bundle additionally contains corrected footer text, explicit review scroll controls, an unchained fixture reply target and responsive production reaction/thread metadata. Those production changes await their own native confirmation.",
+    "cleanup": "Owned c7af4ca5 app received Quit Discourse and owned reference tab was closed; desktop lease a99d11c2 released before staging the next bundle."
+  },
+  "limitations": [
+    "No spoken VoiceOver, iOS/Linux device or physical-touch run is claimed.",
+    "The production fixture mounts actual ChatMessageTile widgets against local in-memory records; it does not exercise a real account or network.",
+    "Native wheel scrolling worked at normal scale but stopped advancing the scaled fixture while AX clicks remained functional. Keyboard activation was not established in that pass. The review-only harness now has explicit scroll controls; Message itself owns no scrolling.",
+    "The Attachment image example uses deterministic local artwork through the real Attachment owner, not the reference photograph. Host fonts, palette and radius use live Discourse tokens; literal cross-host bitmap identity is not claimed."
+  ]
+}

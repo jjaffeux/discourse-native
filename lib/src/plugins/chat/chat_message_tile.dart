@@ -1738,55 +1738,59 @@ class _ThreadSummaryContents extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              OverflowBar(
+                alignment: MainAxisAlignment.spaceBetween,
+                overflowAlignment: OverflowBarAlignment.start,
+                spacing: 8,
+                overflowSpacing: 4,
                 children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        if (name != null)
-                          Flexible(
-                            child: Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (name != null)
+                        Flexible(
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        UserStatusMessage(
-                          siteUrl: siteUrl,
-                          userId: user?.id,
-                          status: user?.status,
-                          size: 14,
-                          leadingGap: 4,
                         ),
-                        if (name != null && thread.lastReplyAt != null)
-                          const SizedBox(width: 4),
-                        if (thread.lastReplyAt case final at?)
-                          Text(
-                            relativeTime(at),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.discourse.primaryHigh,
-                            ),
+                      UserStatusMessage(
+                        siteUrl: siteUrl,
+                        userId: user?.id,
+                        status: user?.status,
+                        size: 14,
+                        leadingGap: 4,
+                      ),
+                      if (name != null && thread.lastReplyAt != null)
+                        const SizedBox(width: 4),
+                      if (thread.lastReplyAt case final at?)
+                        Text(
+                          relativeTime(at),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.discourse.primaryHigh,
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
-                  if (_participantTotal(thread) > 0) ...[
-                    const SizedBox(width: 8),
-                    _ThreadParticipants(siteUrl: siteUrl, thread: thread),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    _replyCountLabel(thread.replyCount),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (_participantTotal(thread) > 0)
+                        _ThreadParticipants(siteUrl: siteUrl, thread: thread),
+                      Text(
+                        _replyCountLabel(thread.replyCount),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -286,8 +286,9 @@ class _ReactionPillState extends State<ReactionPill> {
                                 : theme.shell.divider,
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        child: Wrap(
+                          spacing: 5,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             SiteEmojiImage(
                               siteUrl: widget.siteUrl,
@@ -296,7 +297,6 @@ class _ReactionPillState extends State<ReactionPill> {
                               alt: ':${widget.reaction}:',
                               style: theme.textTheme.labelSmall,
                             ),
-                            const SizedBox(width: 5),
                             Text(
                               '${widget.count}',
                               style: theme.textTheme.labelMedium?.copyWith(
