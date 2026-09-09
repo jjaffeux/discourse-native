@@ -15,7 +15,7 @@ void main() {
       'Sizes',
       'Nested groups',
       'Separator and split action',
-      'Input and text',
+      'Input',
       'Input Group composition',
       'Dropdown menu',
       'Select composition',
@@ -116,16 +116,28 @@ void main() {
     expect(find.text('42.50'), findsOneWidget);
   });
 
-  testWidgets('field labels and describes the grouped search input', (
+  testWidgets('input fixture matches the documented two-control composition', (
     tester,
   ) async {
     await _pump(tester, 5);
-    expect(find.byType(DField), findsOneWidget);
-    expect(find.byType(DFieldLabel), findsOneWidget);
-    expect(find.byType(DFieldDescription), findsOneWidget);
-    await tester.tap(find.text('Search topics'));
+
+    expect(find.byType(DField), findsNothing);
+    expect(find.byType(DButtonGroupText), findsNothing);
+    expect(find.byType(DInput), findsOneWidget);
+    expect(find.byTooltip('Search'), findsOneWidget);
+
+    final group = tester.getRect(find.byType(DButtonGroup));
+    final input = tester.getRect(find.byType(DInput));
+    final action = tester.getRect(find.byTooltip('Search'));
+    expect(group.width, 229);
+    expect(input.left, group.left);
+    expect(input.right, action.left);
+    expect(action.right, group.right);
+
+    await tester.enterText(find.byType(TextField), 'retained query');
+    await tester.tap(find.byTooltip('Search'));
     await tester.pump();
-    expect(Focus.of(tester.element(find.byType(TextField))).hasFocus, isTrue);
+    expect(find.text('retained query'), findsOneWidget);
   });
 
   testWidgets('input group fixture preserves editing and voice action state', (

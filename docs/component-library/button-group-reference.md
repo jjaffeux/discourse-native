@@ -31,12 +31,12 @@ The twelve linked Base example sources were also downloaded and inspected.
 ## Frozen compositions
 
 The styleguide registers runnable sections for Composition, Orientation, Size,
-Nested, Separator, Split, Field/Input, Input Group, Dropdown Menu, Select,
+Nested, Separator, Split, Input, Input Group, Dropdown Menu, Select,
 Popover, and RTL. It also explains Button Group versus Toggle Group and
 demonstrates the three public API parts. Each dependency composition now mounts
-its public component: `DField` labels and describes the multi-control search
-group without wrapping it in `DFieldControl`; `DInputGroup` owns its nested
-editor/addon surface; `DDropdownMenu` owns split-menu focus and dismissal;
+its public component: the documented Input example directly joins `DInput` and
+its search action; `DInputGroup` owns its nested editor/addon surface;
+`DDropdownMenu` owns split-menu focus and dismissal;
 `DSelect` is the sole direct joined currency trigger; and `DPopover` owns its
 detached content. `DJoinedControlScope.boundary` prevents popup descendants
 from inheriting the trigger's joined geometry.

@@ -99,3 +99,19 @@ gap, and the voice action inside the input surface. Native accessibility exposed
 the named outer group, attachment button, composer field, and voice button as
 separate descendants. Spoken VoiceOver and physical mobile devices were not
 exercised in this follow-up.
+
+## Input-example correction — 2026-09-10
+
+The current Base UI Input example source was compared with its live browser
+rendering. The documented composition contains only an editable input and a
+trailing outline Search action. The browser group measured 229×32px: a 192px
+input and 37px action sharing one seam. The previous local Field label,
+description and passive prefix were not part of that reference.
+
+The corrected fixture was built from `tool/button_group_review_main.dart` and
+inspected through the exact debug-app path while holding the desktop lease. It
+showed one complete rounded input/action group in light LTR at 100% and dark RTL
+at 200%, including at the 320px fixture width. Literal text entry survived the
+Search action. Native accessibility exposed a named Search text field and a
+separate Search button, with no passive prefix. Spoken VoiceOver and physical
+mobile devices were not exercised in this follow-up.
