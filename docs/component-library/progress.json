@@ -4473,7 +4473,9 @@
       },
       "nativeInspectionStatus": "completed",
       "browserInspectionStatus": "completed",
-      "reviewBuildSource": "228f838c8b476850f15029b37c9856b9f1da789e"
+      "reviewBuildSource": "228f838c8b476850f15029b37c9856b9f1da789e",
+      "reviewedBranchHead": "06f95bbdc42633c7c02cb0da79f1a2da9a323da8",
+      "finalIntegrationVerification": "Candidate06f95bbd from main57c30455 passes93 Data Table/example/Dropdown Menu/Select/Popover/styleguide checks seed9092026, clean root/full analysis and diff checks. Context Menu and Data Table registrations preserved; all other progress rows/workflow unchanged. Native-inspected Data Table bodies unchanged except acceptance status/notes; newer Popover parameters retain equivalent defaults and explicit anchors are unused here."
     },
     {
       "id": "sidebar",

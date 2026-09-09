@@ -254,3 +254,10 @@ main integration preserves the inspected Data Table bodies; newer Popover
 transition parameters retain the same defaults, and these examples do not use
 its explicit anchor lifecycle. Affected composition checks are rerun on the
 final integration rather than repeating unchanged native work.
+
+Final candidate `06f95bbdc42633c7c02cb0da79f1a2da9a323da8` is based on main
+`57c3045504a1b4d41c6a8d88daa236ec38177694`. All 93 affected Data Table,
+example, Dropdown Menu, Select, Popover and styleguide-shell checks passed with
+seed `9092026`; root/full analysis and diff checks are clean. Context Menu
+import/export conflicts retain both owners. Every other progress row and the
+complete workflow were verified unchanged by Data Table integration.
