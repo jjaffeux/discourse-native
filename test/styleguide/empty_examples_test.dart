@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/empty_examples.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,7 +55,7 @@ void main() {
     await tester.tap(find.text('Search'));
     await tester.pump();
     expect(find.text('Enter a search query.'), findsOneWidget);
-    await tester.enterText(find.byType(TextFormField), 'guide');
+    await tester.enterText(find.byType(DInput), 'guide');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pump();
     expect(find.text('No local pages match “guide”.'), findsOneWidget);

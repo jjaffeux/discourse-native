@@ -43,13 +43,13 @@ loading/error/selected/input props are exposed. Reduced motion requires no speci
 handling because Empty has no motion.
 
 Outline and background are idiomatic equivalents of the source className
-composition. Full Button and Input Group are separate catalogue work. The example
-uses sanctioned StyleguideAction and an actual native TextFormField with Form
+composition. Button and Input are merged catalogue owners. The example
+uses DButton and DInput with Form
 validation, Enter submission and local support feedback. Its field is explicitly
 labeled native composition, with later Input Group reconciliation required. The
 slash keycap is a hint as in the source, not an invented keyboard binding. Local
 48px avatar fallbacks replace remote portraits; their fallback states are part of
-the reference. Native action owners supply pointer versus 48px touch bounds.
+the reference. The merged Button owner supplies pointer versus 48px touch bounds. Badge, Checkbox and Radio owners are inherited unchanged; Empty has no selection or badge-specific API.
 Self-contained displayed source is generated from the actual sample widgets with
 `dart run tool/generate_empty_example_source.dart`.
 
@@ -104,3 +104,13 @@ The fixture smoke test checks these owners mount and Chat retry completes.
 This fixture is for native review after unlock. It has not been launched. Other
 migrated production owners have downstream widget coverage, not claimed native
 inspection. No VoiceOver, iOS/Linux device or pixel-parity claim is made.
+
+## Pinned-main integration
+
+Merged `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` into the Empty branch,
+preserving all non-Empty progress rows exactly and the 17 merged components.
+Coordinator Group/Sidebar/Topic Inbox changes remain intact. Examples now use
+DButton variants/sizes and DInput Form/prefix/suffix APIs; independent action
+callbacks and page scrolling remain intact. Input Group is still not imported
+or implemented. Native/reference review is still required; no desktop action
+is authorized by this integration build.

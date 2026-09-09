@@ -106,15 +106,23 @@ class _EmptySampleState extends State<_EmptySample> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      StyleguideAction(
-                        label: action,
-                        outlined: kind == 'Outline' || kind == 'Background',
+                      DButton(
+                        label: Text(action),
+                        variant: kind == 'Outline' || kind == 'Background'
+                            ? DButtonVariant.outline
+                            : DButtonVariant.standard,
+                        size:
+                            kind == 'Outline' ||
+                                kind == 'Avatar' ||
+                                kind == 'Avatar Group'
+                            ? DButtonSize.small
+                            : DButtonSize.regular,
                         onPressed: () => act(action),
                       ),
                       if (basic)
-                        StyleguideAction(
-                          label: rtl ? 'استيراد مشروع' : 'Import Project',
-                          outlined: true,
+                        DButton(
+                          label: Text(rtl ? 'استيراد مشروع' : 'Import Project'),
+                          variant: DButtonVariant.outline,
                           onPressed: () => act('Import Project'),
                         ),
                     ],
@@ -122,9 +130,12 @@ class _EmptySampleState extends State<_EmptySample> {
                 ],
               ),
               if (basic)
-                StyleguideAction(
-                  label: rtl ? 'تعرف على المزيد' : 'Learn More',
-                  icon: rtl ? Icons.north_west : Icons.north_east,
+                DButton(
+                  label: Text(rtl ? 'تعرف على المزيد' : 'Learn More'),
+                  variant: DButtonVariant.link,
+                  size: DButtonSize.small,
+                  iconPosition: DButtonIconPosition.end,
+                  icon: Icon(rtl ? Icons.north_west : Icons.north_east),
                   onPressed: () => act('Project help opened'),
                 ),
             ],
@@ -264,34 +275,30 @@ class _EmptySearchSampleState extends State<EmptySearchSample> {
                 width:
                     constraints.maxWidth *
                     (MediaQuery.sizeOf(context).width >= 640 ? .75 : 1),
-                child: TextFormField(
-                  decoration: const InputDecoration(
-                    hintText: 'Try searching for pages...',
-                    labelText: 'Search pages',
-                    prefixIcon: Icon(Icons.search),
-                    suffixIcon: Padding(
-                      padding: EdgeInsets.all(8),
-                      child: DKbd('/'),
-                    ),
-                  ),
+                child: DInput(
+                  hintText: 'Try searching for pages...',
+                  labelText: 'Search pages',
+                  prefix: const Icon(Icons.search, size: 16),
+                  suffix: const DKbd('/'),
                   textInputAction: TextInputAction.search,
                   validator: (value) => value == null || value.trim().isEmpty
                       ? 'Enter a search query.'
                       : null,
                   onSaved: (value) => _query = value!.trim(),
-                  onFieldSubmitted: (_) => _submit(),
+                  onSubmitted: (_) => _submit(),
                 ),
               ),
             ),
-            StyleguideAction(label: 'Search', onPressed: _submit),
+            DButton(label: const Text('Search'), onPressed: _submit),
             DEmptyDescription.child(
               child: Wrap(
                 alignment: WrapAlignment.center,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const Text('Need help?'),
-                  StyleguideAction(
-                    label: 'Contact support',
+                  DButton(
+                    label: const Text('Contact support'),
+                    variant: DButtonVariant.link,
                     onPressed: () => setState(
                       () => _result =
                           'Support is available at help@example.test.',
