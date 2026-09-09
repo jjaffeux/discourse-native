@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/input_group_scope.dart';
 import '../foundation/tokens.dart';
 import 'd_label.dart';
 
@@ -25,11 +26,13 @@ import 'd_label.dart';
 class DTextarea extends FormField<String> {
   DTextarea({
     super.key,
+    this.editorKey,
     this.controller,
     this.value,
     String? initialValue,
     this.focusNode,
     this.labelText,
+    this.semanticLabel,
     this.hintText,
     this.helperText,
     this.errorText,
@@ -76,10 +79,11 @@ class DTextarea extends FormField<String> {
          builder: (state) => (state as _DTextareaState)._build(),
        );
 
+  final Key? editorKey;
   final TextEditingController? controller;
   final String? value;
   final FocusNode? focusNode;
-  final String? labelText, hintText, helperText, errorText;
+  final String? labelText, semanticLabel, hintText, helperText, errorText;
   final bool invalid;
 
   /// Exposes required semantics; the caller supplies the validation rule.
@@ -120,6 +124,7 @@ class DTextarea extends FormField<String> {
 class _DTextareaState extends FormFieldState<String> {
   TextEditingController? _ownedController;
   FocusNode? _ownedFocus;
+  DInputGroupControlScope? _group;
   late final String _resetValue;
   bool _syncing = false;
   DTextarea get input => widget as DTextarea;
@@ -141,6 +146,16 @@ class _DTextareaState extends FormFieldState<String> {
 
   void _focusChanged() {
     if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = DInputGroupControlScope.maybeOf(context);
+    if (!identical(next, _group)) {
+      _group?.remove(_focus);
+      _group = next;
+    }
   }
 
   void _changed() {
@@ -171,6 +186,7 @@ class _DTextareaState extends FormFieldState<String> {
       setValue(input.value);
     }
     if (oldWidget.focusNode != input.focusNode) {
+      _group?.remove(oldWidget.focusNode ?? _ownedFocus!);
       (oldWidget.focusNode ?? _ownedFocus!).removeListener(_focusChanged);
       _ownedFocus?.dispose();
       _ownedFocus = input.focusNode == null ? FocusNode() : null;
@@ -206,6 +222,7 @@ class _DTextareaState extends FormFieldState<String> {
 
   @override
   void dispose() {
+    _group?.remove(_focus);
     _controller.removeListener(_changed);
     _focus.removeListener(_focusChanged);
     _ownedController?.dispose();
@@ -229,6 +246,65 @@ class _DTextareaState extends FormFieldState<String> {
       letterSpacing: 0,
       color: t.foreground,
     );
+    final group = _group;
+    group?.report(_focus, input.enabled, isInvalid);
+    final editor = Semantics(
+      container: true,
+      label: input.semanticLabel ?? input.labelText,
+      isRequired: input.isRequired,
+      validationResult: isInvalid
+          ? SemanticsValidationResult.invalid
+          : SemanticsValidationResult.none,
+      child: TextField(
+        key: input.editorKey,
+        controller: _controller,
+        focusNode: _focus,
+        enabled: input.enabled,
+        readOnly: input.readOnly,
+        autofocus: input.autofocus,
+        style: style,
+        decoration: InputDecoration(
+          isCollapsed: true,
+          isDense: true,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          filled: false,
+          contentPadding: EdgeInsets.zero,
+          hintText: input.hintText,
+          hintStyle: style.copyWith(color: t.mutedForeground),
+          counterText: '',
+        ),
+        cursorColor: t.foreground,
+        keyboardType: input.keyboardType,
+        textInputAction: input.textInputAction,
+        textCapitalization: input.textCapitalization,
+        minLines: input.minLines,
+        maxLines: input.maxLines,
+        scrollController: input.scrollController,
+        scrollPhysics: input.scrollPhysics,
+        textAlignVertical: TextAlignVertical.top,
+        autocorrect: input.autocorrect,
+        enableSuggestions: input.enableSuggestions,
+        enableInteractiveSelection: input.enableInteractiveSelection,
+        inputFormatters: input.inputFormatters,
+        autofillHints: input.autofillHints,
+        maxLength: input.maxLength,
+        maxLengthEnforcement: input.maxLengthEnforcement,
+        textAlign: input.textAlign,
+        textDirection: input.textDirection,
+        undoController: input.undoController,
+        contextMenuBuilder: input.contextMenuBuilder,
+        onChanged: input.onChanged,
+        onSubmitted: input.onSubmitted,
+        onEditingComplete: input.onEditingComplete,
+        onTap: input.onTap,
+        onTapOutside: input.onTapOutside,
+      ),
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -250,67 +326,18 @@ class _DTextareaState extends FormFieldState<String> {
           ),
           const SizedBox(height: 8),
         ],
-        _TextareaSurface(
-          enabled: input.enabled,
-          invalid: isInvalid,
-          focused: _focus.hasFocus,
-          child: Semantics(
-            container: true,
-            label: input.labelText,
-            isRequired: input.isRequired,
-            validationResult: isInvalid
-                ? SemanticsValidationResult.invalid
-                : SemanticsValidationResult.none,
-            child: TextField(
-              controller: _controller,
-              focusNode: _focus,
-              enabled: input.enabled,
-              readOnly: input.readOnly,
-              autofocus: input.autofocus,
-              style: style,
-              decoration: InputDecoration(
-                isCollapsed: true,
-                isDense: true,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                filled: false,
-                contentPadding: EdgeInsets.zero,
-                hintText: input.hintText,
-                hintStyle: style.copyWith(color: t.mutedForeground),
-                counterText: '',
-              ),
-              cursorColor: t.foreground,
-              keyboardType: input.keyboardType,
-              textInputAction: input.textInputAction,
-              textCapitalization: input.textCapitalization,
-              minLines: input.minLines,
-              maxLines: input.maxLines,
-              scrollController: input.scrollController,
-              scrollPhysics: input.scrollPhysics,
-              textAlignVertical: TextAlignVertical.top,
-              autocorrect: input.autocorrect,
-              enableSuggestions: input.enableSuggestions,
-              enableInteractiveSelection: input.enableInteractiveSelection,
-              inputFormatters: input.inputFormatters,
-              autofillHints: input.autofillHints,
-              maxLength: input.maxLength,
-              maxLengthEnforcement: input.maxLengthEnforcement,
-              textAlign: input.textAlign,
-              textDirection: input.textDirection,
-              undoController: input.undoController,
-              contextMenuBuilder: input.contextMenuBuilder,
-              onChanged: input.onChanged,
-              onSubmitted: input.onSubmitted,
-              onEditingComplete: input.onEditingComplete,
-              onTap: input.onTap,
-              onTapOutside: input.onTapOutside,
-            ),
+        if (group == null)
+          _TextareaSurface(
+            enabled: input.enabled,
+            invalid: isInvalid,
+            focused: _focus.hasFocus,
+            child: editor,
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: editor,
           ),
-        ),
         if (input.showCounter && input.maxLength != null) ...[
           const SizedBox(height: 8),
           Align(

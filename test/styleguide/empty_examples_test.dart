@@ -85,7 +85,7 @@ void main() {
     await tester.tap(find.text('Search'));
     await tester.pump();
     expect(find.text('Enter a search query.'), findsOneWidget);
-    await tester.enterText(find.byType(DInput), 'guide');
+    await tester.enterText(find.byType(DInputGroupInput), 'guide');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pump();
     expect(find.text('No local pages match “guide”.'), findsOneWidget);
