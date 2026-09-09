@@ -12,8 +12,7 @@ final _materialButtonConstructor = RegExp(
 // adding another raw Material button requires reviewing this boundary.
 const _intentionalMaterialButtons = <String, int>{
   'lib/src/ui/components/d_button.dart': 1, // DButton's rendering primitive.
-  // Native menu and rich-text focus examples, including their usage snippets.
-  'lib/src/styleguide/examples/direction_examples.dart': 2,
+  // Rich-text focus examples, including their usage snippets.
   'lib/src/styleguide/examples/typography_examples.dart': 2,
   'lib/src/plugins/chat/chat_channel_view.dart': 2, // Dense selection strips.
   // Kalender's zero-padding day headers and compact overflow rows.

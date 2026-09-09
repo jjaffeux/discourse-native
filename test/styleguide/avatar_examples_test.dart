@@ -81,6 +81,50 @@ void main() {
     expect(find.text('Settings selected'), findsOneWidget);
   });
   testWidgets(
+    'dropdown uses the accepted final owners and reference geometry',
+    (tester) async {
+      final example = avatarExamples.examples.firstWhere(
+        (e) => e.title == 'Dropdown',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      );
+
+      expect(find.byType(MenuAnchor), findsNothing);
+      expect(find.byType(MenuItemButton), findsNothing);
+      expect(find.byType(DDropdownMenu), findsOneWidget);
+      expect(find.byType(DDropdownMenuTrigger), findsOneWidget);
+      final content = tester
+          .widget<DDropdownMenu>(find.byType(DDropdownMenu))
+          .content;
+      expect(content.width, 128);
+      expect(content.align, DPopoverAlign.start);
+
+      final trigger = tester.widget<DButton>(find.byType(DButton));
+      expect(trigger.variant, DButtonVariant.ghost);
+      expect(trigger.size, DButtonSize.regular);
+      expect(trigger.hasPopup, isTrue);
+      expect(trigger.icon, isA<DAvatar>());
+      expect(trigger.borderRadius, BorderRadius.circular(999));
+      expect(tester.getSize(find.byType(DButton)), const Size.square(32));
+
+      await tester.tap(find.byType(DButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuGroup), findsNWidgets(2));
+      expect(find.byType(DDropdownMenuSeparator), findsOneWidget);
+      final logout = tester.widget<DDropdownMenuItem>(
+        find.ancestor(
+          of: find.text('Log out'),
+          matching: find.byType(DDropdownMenuItem),
+        ),
+      );
+      expect(logout.variant, DDropdownMenuItemVariant.destructive);
+    },
+  );
+  testWidgets(
     'image selection survives environment changes and resets by key',
     (tester) async {
       final example = avatarExamples.examples.firstWhere(
