@@ -1355,7 +1355,8 @@
         "Source mapping, native adaptations and full adoption audit: docs/component-library/scroll-area.md; hashed official registry/Markdown/Base UI behavior and reference photos in reference/scroll-area/sources.json.",
         "DScrollArea uses one native position per enabled axis; DScrollBar decorates existing native scrolling, with composable DScrollViewport, DScrollThumb and DScrollCorner. Live tokens, 7px capsule in 10px track, 16px minimum thumb and keyboard focus ring.",
         "Tags, Horizontal, RTL, combined overflow and lazy-controller composition are actual public-component styleguide examples; remain baseline pending native visual gate.",
-        "Coordinator keyboard follow-up: only overflowing areas enter root Tab traversal; descendant focus/state survive content and viewport resize transitions. Shift+Space pages upward; unrelated Ctrl/Alt/Meta and Shift-modified keys bubble."
+        "Coordinator keyboard follow-up: only overflowing areas enter root Tab traversal; descendant focus/state survive content and viewport resize transitions. Shift+Space pages upward; unrelated Ctrl/Alt/Meta and Shift-modified keys bubble.",
+        "Browser-only review completed and released: measured light/dark/RTL/keyboard reference, corrected exterior-only focus ring with alpha multiplication, rounded-md\u00d70.8 and rendered photo150\u00d7200 dimensions. Font-loaded actual examples/production fixtures exported; scroll-area-render-review.md and hashed rendered artifacts preserve findings."
       ],
       "migrations": [
         "DSidebarContent and explicit wide styleguide preview scrollbar (width/state/controller preservation).",
@@ -1374,13 +1375,16 @@
         "Final source f3ad79ca78f2552771803e8722fd72e5774644ec: root and full-profile analysis clean. Self-contained usage snippets rechecked with example test; 103-test focused run seed 1005865238.",
         "Isolated macOS debug build succeeded. Unique final app ID org.discourse.scrollareareviewd422 and URL scheme discourse-scroll-area-review-d422. Kernel equality and deep strict ad-hoc signature verification passed; full provenance in docs/component-library/scroll-area-native.md.",
         "Keyboard follow-up: 35 focused Scroll Area/Sidebar/styleguide tests passed, including real Tab traversal, child text selection and button Enter/Space activation, content/viewport overflow transitions and modified-key propagation. Log /tmp/scroll-area-keyboard.log.",
-        "Keyboard follow-up final executable source 5ccd42497c6db763d5e37f3ffb5a5d89f5111209: root/full-profile analysis clean; rebuilt isolated macOS fixture, production source equality checked, copied/build kernel SHA256 042805352d6b28602593333032112aad0aa7b45e17eadb65cd35671894251d63; deep strict signature verification passed. Awaiting native slot."
+        "Keyboard follow-up final executable source 5ccd42497c6db763d5e37f3ffb5a5d89f5111209: root/full-profile analysis clean; rebuilt isolated macOS fixture, production source equality checked, copied/build kernel SHA256 042805352d6b28602593333032112aad0aa7b45e17eadb65cd35671894251d63; deep strict signature verification passed. Awaiting native slot.",
+        "Rendered follow-up:106 focused tests passed (seed1519015133), including RGBA focus interior/exterior/alpha regression; root/full-profile analysis clean. Export runner captured registered examples and migrated widgets with loaded SFNS/SFArabic/MaterialIcons/JetBrains Mono; fixture errors explicitly recorded, not treated as native acceptance.",
+        "Rendered-review final executable source 1514d822c89c30e32cc5d46419682c6541d7e3ad: clean source equality after runner restoration; isolated macOS debug build succeeded; unique ID verified; build/copied kernel SHA256 42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192; deep strict signature passed. No native launch."
       ],
       "limitations": [
         "Mac locked: no CUA, browser/native launch or visual comparison performed. Remain in_progress awaiting_slot; not mergeable until coordinator visual/native review.",
-        "No iOS/Linux device or VoiceOver testing; no pixel-parity claim."
+        "No iOS/Linux device or VoiceOver testing; no pixel-parity claim.",
+        "Browser slot released with original dark theme restored, viewport reset and task tab closed. Native slot remains pending. At360px/200%, retained DiagnosticsPanel fixed-height rows overflow14px (14 exceptions); coordinator owns separate fix. Exact artifacts: reference/scroll-area/rendered/fixture-narrow200-diagnostics.png and fixture-render-errors.json."
       ],
-      "implementationCommit": "5ccd42497c6db763d5e37f3ffb5a5d89f5111209",
+      "implementationCommit": "1514d822c89c30e32cc5d46419682c6541d7e3ad",
       "mergeCommit": null,
       "nativeReviewStatus": "awaiting_slot"
     },
@@ -1952,13 +1956,35 @@
       "dependencies": [
         "spinner"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "acceptanceCriteria": [
+        "Match frozen base-nova Marker/MarkerIcon/MarkerContent: inline, border, separator, 14/20 typography, 16px decorative artwork, 8px gaps and 1px border geometry using live host tokens.",
+        "Provide explicit status announcements, controlled status composition, optional button/link actions with disabled semantics, keyboard/visible focus and borrowed focus ownership; shimmer respects RTL, reduced motion, ticker and app lifecycle.",
+        "Reproduce all documented examples with local state; audit core/plugins and migrate appropriate conversation separators without moving domain callbacks or adopting unrelated Badge/Spinner/progress controls.",
+        "Pass touched formatting, root/full analysis and focused component/styleguide/downstream tests; prepare uniquely identified isolated native fixture bundle with source/kernel/signature provenance, then await explicit desktop slot before reference/native review."
+      ],
+      "decisions": [
+        "Reference source, hashes, measured geometry, shimmer color/motion and native adaptations: docs/component-library/marker-reference.md; captured Markdown matches frozen SHA256.",
+        "One public DMarker/DMarkerIcon/DMarkerContent owner; explicit liveRegion and button/link semantics, borrowed focus node, owned lifecycle-aware shimmer; no new dependency or domain state."
+      ],
+      "migrations": [
+        "Shared StreamDaySeparator now composes Marker for Topic/Chat date boundaries, preserving date formatting, label-only callback, tooltip, floating appearance and timeline sizing.",
+        "Four actual-component styleguide groups plus local-data native fixture lib/marker_review_main.dart."
+      ],
+      "retainedAlternatives": [
+        "Chat one-sided destructive New boundary retains DSeparator; delivery retries, badges, presence dots, circular loading and numeric progress retain existing appropriate owners. Full core/bundled-plugin audit in marker-reference.md."
+      ],
+      "verification": [
+        "Flutter 3.47.2 unchanged; root/full enforced-lockfile resolution passed without lockfile changes.",
+        "Root/full analysis clean; touched Dart formatting and git diff --check passed.",
+        "115 focused Marker, Topic date separator, Chat stream/channel lifecycle and styleguide-page tests passed with randomized ordering; /tmp/marker-focused.log.",
+        "Final shimmer alpha correction passed all13 Marker tests; root/full analysis remains clean.",
+        "Isolated macOS fixture build succeeded: Marker Review 3d0a.app in /tmp/marker-review-3d0a-c9dffe43; ID org.discourse.markerreview3d0a, URL scheme discourse-marker-review-3d0a. All1340 lib/packages/pubspec/pin files match source4e48ba45; three-way kernel SHA256056c1ff41d714c630b966e954b39879d6c9fc78dd3bc41e05520edb4d57067fa and deep strict signature verified. Full provenance and pending inspection checklist: docs/component-library/marker-native.md."
+      ],
+      "limitations": [
+        "Mac locked; no CUA/browser/native inspection. Remain in_progress awaiting_slot until actual reference/native styleguide and production fixture comparison.",
+        "No VoiceOver or iOS/Linux device testing; shimmer raster/underline placement require visual review."
+      ],
+      "implementationCommit": "4e48ba4597a5bbf4dbf3fb7bb55a16c8117cee18",
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:30c945fe-66ff-4d13-a4ed-120a945e4aa3",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native"
@@ -2262,21 +2288,6 @@
       ],
       "activeTasks": [
         {
-          "component": "scroll-area",
-          "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
-          "branch": "codex/ui-scroll-area",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
-          "status": "browser_and_renderer_review"
-        },
-        {
-          "component": "marker",
-          "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
-          "branch": "codex/ui-marker",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
-          "baseCommit": "cd1de63a04b60c5cdaa11f18e585a78d5f9eb1f9",
-          "status": "implementation"
-        },
-        {
           "component": "native-select",
           "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
           "branch": "codex/ui-native-select",
@@ -2290,6 +2301,13 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
           "baseCommit": "adcb5a9fcc0468aa60f4e95a7c8919f55c1df2d0",
           "status": "implementation"
+        },
+        {
+          "component": "chart",
+          "taskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
+          "branch": "codex/ui-chart",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native",
+          "status": "browser_and_source_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2335,14 +2353,6 @@
           "status": "awaiting_native_review"
         },
         {
-          "component": "chart",
-          "taskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
-          "branch": "codex/ui-chart",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native",
-          "headCommit": "ae57cf6b1e407ff20a6ad5af664d6b5c957e387e",
-          "status": "awaiting_browser_and_native_review"
-        },
-        {
           "component": "radio-group",
           "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
           "branch": "codex/ui-radio-group",
@@ -2373,6 +2383,22 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
           "headCommit": "43437c9a271e8352d71684a634654e11f3028d15",
           "status": "awaiting_browser_native_and_button_reconciliation"
+        },
+        {
+          "component": "marker",
+          "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
+          "branch": "codex/ui-marker",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
+          "headCommit": "dfbe6df0f538a8834cd48b4d02416f609ab5d5fe",
+          "status": "awaiting_browser_and_native_review"
+        },
+        {
+          "component": "scroll-area",
+          "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
+          "branch": "codex/ui-scroll-area",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
+          "headCommit": "dd729ba02654ee7f76b7300e4522b47596014131",
+          "status": "awaiting_native_review"
         }
       ]
     },
@@ -2392,7 +2418,7 @@
     },
     "pendingCoordinatorNativeReview": "Use Component Fidelity B104 at 6a99b2d2 after unlock to inspect title Escape/save failure, final styleguide preview scrollbar and corrected floating Sidebar radius.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": null,
+    "browserInspectionTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
@@ -2412,7 +2438,7 @@
       },
       "scroll-area": {
         "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
-        "status": "in_progress",
+        "status": "resolved_awaiting_native_review",
         "issue": "Radio renderer comparison confirms a shared focus-ring bug: BoxShadow(spreadRadius:3) paints underneath transparent content. DScrollArea viewport focus ring currently uses that pattern and can tint the entire scrolled content. Replace with an exterior-only ring, verify actual focused exports and retain keyboard/state behavior."
       },
       "button": {
@@ -2443,7 +2469,7 @@
       },
       "chart": {
         "taskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
-        "status": "queued_for_free_execution_slot",
+        "status": "in_progress",
         "issue": "Coordinator scratch regression /private/tmp/chart_coordinator_escape_test.dart fails: first Escape dismisses selected chart inspection, but second Escape still gets consumed with no selection and cannot reach the containing dialog. Return ignored when no chart state is active; verify during browser comparison."
       }
     }

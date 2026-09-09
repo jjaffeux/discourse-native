@@ -1350,6 +1350,7 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 - DScrollArea uses one native position per enabled axis; DScrollBar decorates existing native scrolling, with composable DScrollViewport, DScrollThumb and DScrollCorner. Live tokens, 7px capsule in 10px track, 16px minimum thumb and keyboard focus ring.
 - Tags, Horizontal, RTL, combined overflow and lazy-controller composition are actual public-component styleguide examples; remain baseline pending native visual gate.
 - Coordinator keyboard follow-up: only overflowing areas enter root Tab traversal; descendant focus/state survive content and viewport resize transitions. Shift+Space pages upward; unrelated Ctrl/Alt/Meta and Shift-modified keys bubble.
+- Browser-only review completed and released: measured light/dark/RTL/keyboard reference, corrected exterior-only focus ring with alpha multiplication, rounded-md×0.8 and rendered photo150×200 dimensions. Font-loaded actual examples/production fixtures exported; scroll-area-render-review.md and hashed rendered artifacts preserve findings.
 
 **migrations**
 
@@ -1372,11 +1373,14 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 - Isolated macOS debug build succeeded. Unique final app ID org.discourse.scrollareareviewd422 and URL scheme discourse-scroll-area-review-d422. Kernel equality and deep strict ad-hoc signature verification passed; full provenance in docs/component-library/scroll-area-native.md.
 - Keyboard follow-up: 35 focused Scroll Area/Sidebar/styleguide tests passed, including real Tab traversal, child text selection and button Enter/Space activation, content/viewport overflow transitions and modified-key propagation. Log /tmp/scroll-area-keyboard.log.
 - Keyboard follow-up final executable source 5ccd42497c6db763d5e37f3ffb5a5d89f5111209: root/full-profile analysis clean; rebuilt isolated macOS fixture, production source equality checked, copied/build kernel SHA256 042805352d6b28602593333032112aad0aa7b45e17eadb65cd35671894251d63; deep strict signature verification passed. Awaiting native slot.
+- Rendered follow-up:106 focused tests passed (seed1519015133), including RGBA focus interior/exterior/alpha regression; root/full-profile analysis clean. Export runner captured registered examples and migrated widgets with loaded SFNS/SFArabic/MaterialIcons/JetBrains Mono; fixture errors explicitly recorded, not treated as native acceptance.
+- Rendered-review final executable source 1514d822c89c30e32cc5d46419682c6541d7e3ad: clean source equality after runner restoration; isolated macOS debug build succeeded; unique ID verified; build/copied kernel SHA256 42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192; deep strict signature passed. No native launch.
 
 **limitations**
 
 - Mac locked: no CUA, browser/native launch or visual comparison performed. Remain in_progress awaiting_slot; not mergeable until coordinator visual/native review.
 - No iOS/Linux device or VoiceOver testing; no pixel-parity claim.
+- Browser slot released with original dark theme restored, viewport reset and task tab closed. Native slot remains pending. At360px/200%, retained DiagnosticsPanel fixed-height rows overflow14px (14 exceptions); coordinator owns separate fix. Exact artifacts: reference/scroll-area/rendered/fixture-narrow200-diagnostics.png and fixture-render-errors.json.
 
 ### resizable
 
@@ -1464,6 +1468,40 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 ### marker
 
 Status: in_progress. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-marker.
+
+**acceptanceCriteria**
+
+- Match frozen base-nova Marker/MarkerIcon/MarkerContent: inline, border, separator, 14/20 typography, 16px decorative artwork, 8px gaps and 1px border geometry using live host tokens.
+- Provide explicit status announcements, controlled status composition, optional button/link actions with disabled semantics, keyboard/visible focus and borrowed focus ownership; shimmer respects RTL, reduced motion, ticker and app lifecycle.
+- Reproduce all documented examples with local state; audit core/plugins and migrate appropriate conversation separators without moving domain callbacks or adopting unrelated Badge/Spinner/progress controls.
+- Pass touched formatting, root/full analysis and focused component/styleguide/downstream tests; prepare uniquely identified isolated native fixture bundle with source/kernel/signature provenance, then await explicit desktop slot before reference/native review.
+
+**decisions**
+
+- Reference source, hashes, measured geometry, shimmer color/motion and native adaptations: docs/component-library/marker-reference.md; captured Markdown matches frozen SHA256.
+- One public DMarker/DMarkerIcon/DMarkerContent owner; explicit liveRegion and button/link semantics, borrowed focus node, owned lifecycle-aware shimmer; no new dependency or domain state.
+
+**migrations**
+
+- Shared StreamDaySeparator now composes Marker for Topic/Chat date boundaries, preserving date formatting, label-only callback, tooltip, floating appearance and timeline sizing.
+- Four actual-component styleguide groups plus local-data native fixture lib/marker_review_main.dart.
+
+**retainedAlternatives**
+
+- Chat one-sided destructive New boundary retains DSeparator; delivery retries, badges, presence dots, circular loading and numeric progress retain existing appropriate owners. Full core/bundled-plugin audit in marker-reference.md.
+
+**verification**
+
+- Flutter 3.47.2 unchanged; root/full enforced-lockfile resolution passed without lockfile changes.
+- Root/full analysis clean; touched Dart formatting and git diff --check passed.
+- 115 focused Marker, Topic date separator, Chat stream/channel lifecycle and styleguide-page tests passed with randomized ordering; /tmp/marker-focused.log.
+- Final shimmer alpha correction passed all13 Marker tests; root/full analysis remains clean.
+- Isolated macOS fixture build succeeded: Marker Review 3d0a.app in /tmp/marker-review-3d0a-c9dffe43; ID org.discourse.markerreview3d0a, URL scheme discourse-marker-review-3d0a. All1340 lib/packages/pubspec/pin files match source4e48ba45; three-way kernel SHA256056c1ff41d714c630b966e954b39879d6c9fc78dd3bc41e05520edb4d57067fa and deep strict signature verified. Full provenance and pending inspection checklist: docs/component-library/marker-native.md.
+
+**limitations**
+
+- Mac locked; no CUA/browser/native inspection. Remain in_progress awaiting_slot until actual reference/native styleguide and production fixture comparison.
+- No VoiceOver or iOS/Linux device testing; shimmer raster/underline placement require visual review.
 
 ### chart
 
