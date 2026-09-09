@@ -2340,13 +2340,36 @@
       ],
       "decisions": [
         "Button is the implementation dependency and is merged; Card composition is also merged. Frozen sections include Sizes, Spacing, Orientation, Options, API, Events, Plugins and RTL. Reproduce complete documented behavior and native API counterparts, including responsive slide extents/spacing, horizontal/vertical and direction-aware navigation, previous/next enabled states, scrolling/selection events and controller lifecycle, options, and the demonstrated autoplay plugin behavior with correct interaction/reduced-motion/disposal handling. Inspect official Embla-linked behavior to define the actual supported native contract; no inert options or ornamental plugin API. Audit shell/composer_image_gallery.dart, shell/lightbox.dart, other media/page-view owners and plugins for appropriate adoption. Preserve zoom/pan, media lifecycle, keyboard navigation, accessibility and domain state; record retained grids or specialized viewers rather than converting inappropriate surfaces simply to add a usage. Provide real migrated local-data fixtures and all documented Card compositions.",
-        "Implementation uses the direct reviewer workflow; root is not an approval gate."
+        "Implementation uses the direct reviewer workflow; root is not an approval gate.",
+        "Frozen Markdown hash 98fdaa46f982b7ebf29b3c18f5e848f478244a766a0270f9c520f5e2eaf2fd59 was reproduced; base-nova registry response hash is 14737a7cf92048df9de47f9d1a9527d6d3beafba12115f52a3c353134ee2b50b. Exact geometry and behavior mapping is in carousel-reference.md.",
+        "DCarousel exposes only faithful native options: horizontal/vertical orientation, start/center snap alignment, bounded/loop navigation, fractional/responsive extents and spacing. DOM watch/free-drag options are not accepted as inert values.",
+        "Borrowed DCarouselController and plugins are detached but not disposed; internally created controllers and ownedPlugins are disposed by DCarousel. DCarouselAutoplay implements timing, play/stop/reset, interaction stopping, optional hover pause, focus pause and reduced-motion suppression.",
+        "Reference navigation reserves a real 48px outer hit-test inset around the viewport because Flutter children painted outside parent bounds cannot receive pointer input; navigationInsets:false is explicit for composed tracks without reference controls."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "migrations": [
+        "ImageGridCarousel now composes DCarousel for its real production page track, swipe, selection, looping and axis-key handling while preserving ImageGridTile media rendering, gallery callbacks, dot/counter controls and topic-scroll isolation."
+      ],
+      "retainedAlternatives": [
+        "LightboxGallery retains its specialized PageView because every page owns PhotoView zoom/pan/scale controllers, resize bounds, download state, keyboard chrome and media lifecycle; generic carousel composition would compete for gestures and duplicate ownership.",
+        "Composer image-gallery code retains markup editing and its grid/carousel mode selector because it edits post markup rather than rendering a carousel.",
+        "Event calendar paging is retained because it owns unbounded domain-date navigation and post-layout state publication, not finite carousel content; no plugin PageView was an appropriate adoption."
+      ],
+      "verification": [
+        "9 Carousel widget tests passed with randomized seed 940219: controller/API state, bounded and loop navigation, swipe progress/events, responsive extents without state reset, horizontal RTL and vertical keyboard input, slide semantics, autoplay interaction/reduced-motion behavior, and borrowed lifecycle.",
+        "33 ImageGrid production-widget tests passed with randomized seed 940219, including pointer/keyboard/dot navigation, looping, edited-item clamping, outer-topic scroll isolation, accessibility, narrow layout and gallery opening.",
+        "17 styleguide access/page tests passed with randomized seed 940219; Carousel registration preserves frozen catalogue accounting and documentation shell behavior.",
+        "Root flutter analyze --no-pub clean. profiles/full locked dependency resolution and flutter analyze --no-pub clean. Flutter 3.47.2, dependency pins and lockfiles unchanged.",
+        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart succeeded and produced build/macos/Build/Products/Debug/Discourse.app.",
+        "Touched Dart formatting and git diff --check passed. Implementation integrated current main before handoff."
+      ],
+      "limitations": [
+        "Independent reviewer owns official rendered browser comparison and native interaction/accessibility inspection; implementation task claims no CUA run, pixel equality, iOS/Linux device test or spoken VoiceOver.",
+        "Generic loop wrap uses the real finite PageView pages, so a wrap animation can cross intervening slides; reviewer must judge native/reference interaction quality and adjust if rendered review finds it materially different."
+      ],
+      "implementationCommit": "e03cc7f150d14a5bf231ec9d66cc02359b67d588",
+      "reviewTaskId": "01a08589-3822-72d2-88a1-5fcaea66e089",
+      "reviewBranch": "codex/review-carousel",
+      "reviewStatus": "in_progress",
       "mergeCommit": null
     },
     {
