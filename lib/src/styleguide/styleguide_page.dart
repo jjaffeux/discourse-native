@@ -696,8 +696,12 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                           child: Align(
                             alignment: Alignment.topCenter,
                             child: SizedBox(
+                              key: ValueKey(
+                                'styleguide-example-viewport-${_selected.id}',
+                              ),
                               width: width,
                               height: switch (_selected.id) {
+                                'accordion' => 800,
                                 'card' => 480,
                                 'sidebar' => 500,
                                 _ => 400,
