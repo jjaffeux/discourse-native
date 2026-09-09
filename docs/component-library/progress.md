@@ -1777,32 +1777,36 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/u
 - Primary source hashes and measured geometry/API/semantics/migration mapping recorded in docs/component-library/field.md and reference/field/.
 - Single Field composition owner plus DFieldControl native association; no Form state or borrowed resource ownership. Choice cards use outside-only 3px ring and multiplicative live alpha.
 - Nine actual-component examples with generated complete runnable sources. Baseline status explicitly preserves the pending control reconciliation/native review gate.
+- Bounded integration preparation: merge pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 via 6c31531c. Preserve completed Button/Badge/Input/Radio/Checkbox implementations and shared root fixes. Reconcile ordinary Field examples with DInput/DCheckbox/DRadioGroup and primary/outline Button actions; Radio label/card activation borrows its item focus node. Preserve explicit unmerged native Switch/Textarea/Select/Slider adapters and sole-FormField custom error demo.
 
 **migrations**
 
 - Preferences _PreferenceCard uses DFieldGroup with spacing:0 to retain adapter-owned gaps; device-timezone help uses DFieldDescription. Saving, restoration, permissions and notice owners unchanged.
 - VoiceRoomEditorDialog uses DFieldGroup (20px); production showVoiceRoomEditor retains latest-controller save behavior, controller lifetimes and draft conversion. Public dialog name permits the actual production form to return local draft data in the isolated fixture.
+- Pinned integration: Voice ordinary DInput editors now have surrounding DFieldLabel/DFieldControl descriptions and dialog-owned borrowed focus nodes. Original controllers, required-name save guard, latest-controller resolution and multiline/switch owners remain. Preferences Field grouping/help and pinned-main owners preserved; 22 tests pass.
 
 **retainedAlternatives**
 
 - Full core/plugin audit and exact adjacent-owner overlaps recorded in field.md. Input/Textarea/Checkbox/Radio/Switch/Slider/Native Select/Button are unmerged; native example controls remain visibly temporary and no other worktree is imported.
 - Alert owns inline status/error notices and Empty page-scale states. Domain composite editors and schema-driven Poll/Local Dates/Events forms await serialized owner reconciliation.
+- After pinned integration, only multiline Textarea, Switch, selection and Slider sample controls remain unmerged placeholders. The responsive custom DFieldError example retains native FormField/TextField because merged DInput does not expose an error builder; no second value/validation owner or change to completed Input is introduced.
 
 **verification**
 
-- Touched 11 Dart files format clean; git diff --check passes. Flutter 3.47.2 and root/Voice/full-profile lockfiles unchanged. Isolated build used flutter pub get --enforce-lockfile.
-- Final flutter analyze --no-pub: root clean (5.3s), profiles/full clean (1.5s). Logs /tmp/field-final-analysis.log and /tmp/field-full-final-analysis.log.
-- Final flutter test --no-pub test/ui/d_field_test.dart test/styleguide/field_examples_test.dart test/preferences_page_test.dart test/voice_room_view_test.dart --test-randomize-ordering-seed=random: 103 passed, seed 1870857252; /tmp/field-final-tests.log. Includes 18 Field/example tests for native control metadata/actions, borrowed focus, Form save/reset/reflow, disabled guards, error deduplication/empty geometry, direct group spacing, 280px/200% RTL examples, and exterior-ring/live-multiplicative-alpha pixel regression.
-- Earlier flutter test --no-pub test/preferences_page_test.dart test/voice_room_view_test.dart test/ui/d_label_test.dart test/ui/d_separator_test.dart test/styleguide/label_examples_test.dart test/plugin_dependency_boundary_test.dart --test-randomize-ordering-seed=random: 132 passed, seed 734624525; /tmp/field-downstream-tests.log.
-- Isolated native build succeeded: flutter build macos --debug --no-pub -t tool/field_review_main.dart. Source commit 5aa4e377b7399a22dca17263ec62dae20c290090. Final bundle /var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-ready-5aa4e377-7yhdcp9f/Field Review.app; ID org.discourse.field.review; URL scheme discourse-field-review. Never launched.
-- Native evidence: 2367 of 2371 tracked source files/symlink targets byte-equal to source commit; four temporary runner-only overrides for unique app identity, local ad-hoc signing and omission of unused APS entitlement. Original/copied kernel SHA256 d6ef9893a7290ce61a299edf769a5ddb11dca5de802b631aebb590e0a7e419c7. codesign --verify --deep --strict --verbose=2 passes after re-signing copied root to account for build-generated Credits.rtf. Full evidence in docs/component-library/field-build.json; production runner/pins unchanged.
-- awaiting_slot: actual reference-rendered comparison, native styleguide/production Preferences/Voice fixture inspection and VoiceOver have not run. Status remains in_progress, never review_ready.
+- Pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 merged via 6c31531c. All non-Field progress rows and completed Button/Badge/Input/Radio/Checkbox source preserved. Frozen reference capture/export work not repeated.
+- Integration source e298291e7c85ce47d24049004504c84208d3d07f: touched 5 Dart files format clean, git diff --check clean; root flutter analyze --no-pub clean (3.2s), profiles/full clean (1.4s). Logs /tmp/field-integration-final-analysis.log and /tmp/field-integration-full-analysis.log.
+- flutter test --no-pub test/styleguide/field_examples_test.dart test/ui/d_field_test.dart --test-randomize-ordering-seed=random: 21 passed, seed 2279137221; /tmp/field-integration-final-tests.log. New integration cases verify merged Input combined semantic metadata/editing action, compact Checkbox label/Space activation, Radio label focus and arrow ownership/disabled guard.
+- flutter test --no-pub test/preferences_page_test.dart: 22 passed; /tmp/field-integration-preferences.log. Targeted Voice editor tests (validates room names while the user types; uses the latest controller when saving a room): 2 passed; /tmp/field-integration-voice.log. Save finder now targets completed DButton and required metadata is checked at the Field/Input combined semantic boundary.
+- Fresh isolated flutter pub get --enforce-lockfile and flutter build macos --debug --no-pub -t tool/field_review_main.dart succeeded. Source e298291e7c85ce47d24049004504c84208d3d07f; artifact /var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-integration-ready-e298-vo08i7cv/Field Integration E298.app; identifier org.discourse.field.e298; scheme discourse-field-e298. No launch.
+- Exact-source evidence: 2869/2873 tracked source files/symlink targets match source Git blobs; four documented temporary runner-only identity/signing/entitlement overrides. Original/copied kernel SHA256 82cce279152dbbe67c9cbef442a44e91801c42676bd71e1108d19d8d5d62fd09. Explicit ad-hoc signed entitlement read-back equals the seven-key review whitelist, no APS/com.apple.developer.*/application/team identifiers, TeamIdentifier not set, no embedded provisioning. codesign --verify --deep --strict passes. Full proof docs/component-library/field-build.json.
+- Flutter 3.47.2, all root/Voice/full locks, production signing and provisioning unchanged. Initial branch checks and source-mapping history remain in field.md and prior commits.
+- awaiting_slot: Mac locked and coordinator-reported browser admin-policy failure remain untouched. No CUA/browser/native access, retry or bypass attempted. Reference/native/VoiceOver gate still pending; in_progress, not review_ready.
 
 **limitations**
 
-- awaiting_slot: no desktop/browser access was granted. Reference-rendered comparison, actual native styleguide/production inspection and VoiceOver remain unverified. Keep in_progress; not review_ready or mergeable.
-- Source/control reconciliation remains explicit: after pending controls merge, replace temporary example controls, inspect compact indicator heights, and adopt Field in adjacent examples. See field.md.
-- send_message_to_thread is unavailable in the tool inventory; durable progress row and final handoff carry coordination evidence.
+- awaiting_slot: Mac locked; coordinator reports independent first-browser-navigation admin-policy failure. No CUA/browser/native access, retry or bypass attempted. Reference-rendered/native inspection and VoiceOver remain unverified; status in_progress, not review_ready or mergeable.
+- Unmerged Switch/Textarea/selection/Slider examples retain explicit temporary controls. Responsive custom-error composition retains one native FormField/TextField because completed DInput exposes no custom error builder; documented in field.md. No completed control API or state owner was redesigned.
+- send_message_to_thread remains absent from available tool inventory. Progress record and final head/artifact report carry the coordinator handoff.
 
 ### alert
 
