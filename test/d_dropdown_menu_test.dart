@@ -453,7 +453,7 @@ void main() {
     addTearDown(mouse.removePointer);
     await mouse.addPointer();
 
-    await mouse.moveTo(tester.getCenter(find.text('Profile')));
+    await mouse.moveTo(Offset.zero);
     await tester.pump();
     await mouse.moveTo(tester.getCenter(find.text('Billing')));
     await tester.pump();
@@ -475,6 +475,82 @@ void main() {
 
     expect(rowColor('Profile'), Colors.transparent);
     expect(rowColor('Billing'), isNot(Colors.transparent));
+  });
+
+  testWidgets('hovering a partially visible row keeps scroll position', (
+    tester,
+  ) async {
+    await pumpMenu(
+      tester,
+      child: DDropdownMenu(
+        content: DDropdownMenuContent(
+          constraints: const BoxConstraints(maxHeight: 110),
+          children: [
+            for (var index = 0; index < 10; index++)
+              DDropdownMenuItem(
+                onPressed: _noop,
+                child: Text('Hover command $index'),
+              ),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton(
+            label: const Text('Open'),
+            onPressed: state.toggle,
+            focusNode: state.focusNode,
+          ),
+        ),
+      ),
+    );
+    await open(tester);
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byType(DScrollViewport),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    final viewport = tester.getRect(find.byType(DScrollViewport));
+    Finder row(int index) => find
+        .ancestor(
+          of: find.text('Hover command $index'),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is MouseRegion && widget.onEnter != null,
+          ),
+        )
+        .first;
+    final partialRow = List.generate(10, (index) => row(index)).firstWhere((
+      row,
+    ) {
+      final rect = tester.getRect(row);
+      return rect.top < viewport.bottom && rect.bottom > viewport.bottom;
+    });
+    final partialRect = tester.getRect(partialRow);
+    final initialOffset = scrollable.position.pixels;
+    final initialFocus = FocusManager.instance.primaryFocus;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+
+    await mouse.moveTo(Offset(partialRect.center.dx, viewport.bottom - 2));
+    await tester.pumpAndSettle();
+
+    expect(scrollable.position.pixels, initialOffset);
+    expect(FocusManager.instance.primaryFocus, same(initialFocus));
+    final visual = tester.widget<Container>(
+      find
+          .descendant(
+            of: partialRow,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container && widget.decoration is BoxDecoration,
+            ),
+          )
+          .first,
+    );
+    expect(
+      (visual.decoration! as BoxDecoration).color,
+      isNot(Colors.transparent),
+    );
   });
 
   testWidgets('opening a sibling submenu closes the previous overlay', (
