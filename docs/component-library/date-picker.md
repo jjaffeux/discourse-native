@@ -87,12 +87,22 @@ not date-entry controls, and remain with their existing application owners.
 Chat/topic day separators and calendar-day helpers are display/domain logic, not
 picker migrations.
 
-## Verification still required
+## Review acceptance
 
-- Calendar owner commit/API and focused evidence, followed by exact integration
-  of the accepted Kalender 0.29.1-backed revision.
-- Focused value, Form, controller, keyboard, overlay, range, disabled/bounds,
-  leap/DST-adapter and migrated-app regressions; root and profiles/full analysis.
-- Exact-source native fixture and official Base UI browser comparison in light,
-  dark, custom palette, narrow/200% text and RTL. These are reviewer gates and
-  are not satisfied by widget screenshots or build success.
+- The accepted Kalender 0.29.1-backed Calendar merge
+  `0bbb6c3673b395f75f4e03f80c15fcb0a0f16361` and accepted Input Group merge
+  `d1de717b1e2d1eeaf06d86dafe1452662d05e368` are both ancestors of the final
+  Date Picker candidate.
+- Independent review covered value, Form, controller ownership, IME editing,
+  keyboard and overlay lifecycle, range, disabled/bounds, leap-day handling,
+  wall-clock separation and the migrated Local Date composer. The final
+  randomized affected matrix contains 105 passing tests; root and
+  `profiles/full` locked analysis are clean.
+- Official Base UI browser comparison covered all eight documented examples in
+  light and dark. Source-exact macOS inspection covered those examples plus the
+  production Local Date composer in light, dark, custom palettes, narrow and
+  200% text, LTR/RTL and reduced-motion configurations.
+- No physical iOS/Linux device or spoken VoiceOver pass was performed. Widget
+  tests cover the iOS minimum action target and the semantic/keyboard contracts;
+  native acceptance establishes mapped geometry and behavior rather than pixel
+  equality across browser and Flutter font rasterizers.

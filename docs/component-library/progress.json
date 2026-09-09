@@ -3266,12 +3266,31 @@
       ],
       "decisions": [
         "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
-        "Verified independent reviewer Review and merge Date Picker (01a086a1-dd61-77d1-ae4f-a09fa87ff595) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
+        "Verified independent reviewer Review and merge Date Picker (01a086a1-dd61-77d1-ae4f-a09fa87ff595) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.",
+        "Independent review retained the accepted DPopover, DField, DInput Group and Kalender-backed DCalendar owners. Date Picker owns typed civil-date/range/wall-clock values, controlled/local/Form synchronization, strict editable parsing and close policy without duplicating overlay or calendar engines.",
+        "The reviewer added explicit controlled open state, disabled-open enforcement, strict ISO shape and leap validation, IME-composition protection, full-width trigger justification and optional chevron parity. Natural-language parsing now requires an explicit clock rather than consulting process time.",
+        "The eight styleguide examples now reproduce the frozen Composition, Basic, Range, Date of Birth, Input, Time, Natural Language and interactive English/Arabic/Hebrew RTL contracts with independent real code samples."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "migrations": [
+        "Local Date composer start/end civil-date fields now use DDatePickerInput with the existing ISO controllers, 1900-2200 bounds and LocalDateComposerDraft validation, timezone, recurrence, preview and final-apply ownership preserved."
+      ],
+      "retainedAlternatives": [
+        "Discourse Events retains its combined date-time adapter and Material two-stage dialog until a picker adapter can preserve all-day parsing, recurrence-until, end-after-start and site-timezone behavior without splitting its existing string ownership.",
+        "Bookmark reminder retains its account-zone dialog because it rejects nonexistent DST wall times and coordinates async persistence and session currency.",
+        "User status custom expiry retains its guarded async date/time flow and future-time validation; fixed relative expiry actions remain domain actions rather than Date Picker presets.",
+        "Event/topic Kalender views remain full domain calendars rather than date-entry controls."
+      ],
+      "verification": [
+        "Frozen Markdown SHA256 cedb8c5a45c2cc2cede23b564b55c7a7a3c506e5d14f6b413d7758c03a0550c6 and all eight recorded shadcn-ui primary-source hashes were reproduced at repository commit 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048.",
+        "Official browser inspection covered all eight Base UI examples in light and dark, including the open Basic calendar, the two-month range, date-of-birth captions, strict Input, empty-date Time, deterministic September 11 Natural Language result and interactive Arabic/Hebrew RTL selector.",
+        "Source-exact macOS inspection covered all eight examples and the production Local Date composer across light, dark, Forest and Plum palettes, 720/360 widths, 100/200% text, LTR/RTL and reduced motion. Pointer selection, focus restoration, Escape dismissal, range display and localized RTL calendar behavior were exercised.",
+        "The final current-main candidate passed 105 randomized Date Picker, Calendar, Popover, Input Group, Input, Field, Local Date and event-calendar tests with seed 202609093. Locked dependency resolution, formatting, diff checks and root/profiles-full flutter analyze --no-pub were clean.",
+        "The final isolated macOS candidate is /private/tmp/discourse-date-picker-final-candidate.DcP7in/Date Picker Review Candidate.app with bundle identifier org.discourse.native.date-picker-review-candidate-11aa; deep strict ad-hoc verification passed. App.framework SHA256 is fa6887ef6cae7bf7654116b6940eefab52bc1a8d9b52f3d2d25ffb66d27ec432."
+      ],
+      "limitations": [
+        "No physical iOS/Linux device or spoken VoiceOver verification was performed; widget coverage verifies the iOS 48px action target and semantic/keyboard contracts.",
+        "Browser and native font rasterizers differ, so acceptance establishes mapped geometry, palette relationships and behavior rather than pixel equality."
+      ],
       "implementationCommit": "f980b6f5c7e0e0a0fe2888f6f3c1a1f4f563421e",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/51f7/discourse-native",
@@ -3285,13 +3304,13 @@
       "dependencyOwners": [
         {
           "id": "calendar",
-          "status": "in_progress",
+          "status": "merged",
           "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
           "branch": "codex/ui-calendar",
           "reviewTaskId": "01a08631-7574-70b0-a98f-4e7217e03209",
           "reviewBranch": "codex/review-calendar",
           "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
-          "mergeCommit": null
+          "mergeCommit": "0bbb6c3673b395f75f4e03f80c15fcb0a0f16361"
         },
         {
           "id": "popover",
@@ -3312,6 +3331,26 @@
           "reviewBranch": null,
           "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
           "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
+        }
+      ],
+      "preparedDependencies": [
+        {
+          "id": "calendar",
+          "branch": "main",
+          "commit": "0bbb6c3673b395f75f4e03f80c15fcb0a0f16361",
+          "reviewTaskId": "01a08631-7574-70b0-a98f-4e7217e03209",
+          "evidence": "Accepted Kalender 0.29.1-backed Calendar merge, tracking commit 17b1be15 and reviewed head f295df1050e0e721eff28d115ce5625b8a1eedcb are integrated in the Date Picker candidate.",
+          "mergeGate": "Cleared",
+          "acceptedMergeCommit": "0bbb6c3673b395f75f4e03f80c15fcb0a0f16361"
+        },
+        {
+          "id": "input-group",
+          "branch": "main",
+          "commit": "d1de717b1e2d1eeaf06d86dafe1452662d05e368",
+          "reviewTaskId": "01a085d3-1acf-7361-9dc8-fc4a99de7c45",
+          "evidence": "Accepted Input Group merge and tracking commit eeb9a9cabc8713d12c2e9c579be7e22934a60b34 are integrated in the Date Picker candidate.",
+          "mergeGate": "Cleared",
+          "acceptedMergeCommit": "d1de717b1e2d1eeaf06d86dafe1452662d05e368"
         }
       ],
       "reviewTaskId": "01a086a1-dd61-77d1-ae4f-a09fa87ff595",

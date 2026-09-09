@@ -68,4 +68,39 @@ void main() {
     expect(find.byType(DInputGroupInput), findsOneWidget);
     expect(find.byType(DPopover), findsOneWidget);
   });
+
+  testWidgets('time and natural examples use the frozen reference values', (
+    tester,
+  ) async {
+    Future<void> pumpExample(String title) async {
+      final example = datePickerExamples.examples.singleWhere(
+        (example) => example.title == title,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      );
+    }
+
+    await pumpExample('Time Picker');
+    expect(tester.widget<DDatePicker>(find.byType(DDatePicker)).value, isNull);
+    expect(
+      tester.widget<DTimeInput>(find.byType(DTimeInput)).initialValue,
+      const DTimeValue(hour: 10, minute: 30),
+    );
+
+    await pumpExample('Natural Language Picker');
+    final input = tester.widget<DDatePickerInput>(
+      find.byType(DDatePickerInput),
+    );
+    expect(input.value, DCalendarDate(2026, 9, 11));
+    expect(input.referenceDate, DateTime(2026, 9, 9));
+    expect(input.controller?.text, 'In 2 days');
+    expect(
+      find.text('Your post will be published on September 11, 2026.'),
+      findsOneWidget,
+    );
+  });
 }
