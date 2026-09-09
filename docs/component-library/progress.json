@@ -4277,7 +4277,7 @@
         "dropdown-menu": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787",
         "dropdown-menu-followup": "85f9265bf2593a7edc0693582b7eadf1c6645b8d"
       },
-      "nativeInspectionStatus": "in_progress",
+      "nativeInspectionStatus": "blocked_mac_locked",
       "browserInspectionStatus": "in_progress"
     },
     {

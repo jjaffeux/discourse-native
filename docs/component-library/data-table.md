@@ -215,3 +215,9 @@ The reviewer withdrew from desktop FIFO during integration/rebuild and rejoined
 with the completed bundle. Remaining native checks include the footer and empty
 action heading plus menu activation, repeated column toggles and restored focus
 against the updated parent. The rendered Tasks comparison remains pending.
+
+At 18:34 UTC on 2026-09-09, the reviewer acquired its desktop lease and made
+one fresh-session CUA call for the exact `228f` bundle. The approved surface
+reported that the Mac is locked and requires manual unlocking. The lease was
+released immediately; no alternate route or unlock attempt was used. The
+rebuilt fixture has not received its final native pass and remains unaccepted.
