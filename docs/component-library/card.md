@@ -131,6 +131,11 @@ Retained alternatives and concrete ownership reasons:
 
 ## Verification
 
+The separately accepted final-owner composition follow-up is documented in
+[card-final-composition-review.md](card-final-composition-review.md). It
+supersedes the original pending-owner notes, while preserving the seven-part
+API, production adopters and the original evidence below.
+
 Recorded seeded tests, native comparison evidence and platform limitations are
 in the Card progress row. Native fixtures are temporary build artifacts and
 use local fake data, not connected accounts. No runner files, Flutter pin,

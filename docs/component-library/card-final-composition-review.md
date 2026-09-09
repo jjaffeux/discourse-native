@@ -48,6 +48,9 @@ identical to accepted main.
 - 125 Card/Button/Input/Badge/Toggle Group/Field component and example tests,
   including Voice diagnostics, passed with randomized seed `9082026` after
   integrating both owner follow-ups.
+- Final candidate `2daaaa10` on main `80649ca1` passed the same focused command
+  with 127 tests (including accepted Field regressions), seed `9082026`.
+  Root/full analysis passed again with no issues (7.1s/3.1s).
 - The combined owner/example/affected-consumer run on integrated source
   `2cbfd9fe` reached 304 passing cases and one failure: the Voice diagnostics
   export test did not observe `Voice report saved`. The earlier Calendar
@@ -91,4 +94,56 @@ identity.
 
 ## Rendered and native acceptance
 
-Pending the canonical FIFO desktop lease.
+Completed on 2026-09-09 under the canonical desktop lease, using the exact
+isolated fixture above. Screenshots and accessibility observations are inline
+in task `01a086cd-3f9c-75b0-bda3-7d65d96604a0`; they are not saved PNG files.
+
+- Inspected the official rendered Base UI page in light and dark. Read-only
+  computed geometry confirmed 384px login/terms/image widths, 320px Small,
+  16/12px shared spacing, 32px standard controls, 28px small buttons, 14px
+  label leading, an unpadded 20px recovery link, 24px field gap, 8px footer
+  gap and the 192px terms viewport. Compared login, Small, image and Arabic
+  screenshots, including secondary/outline treatment and joined footers.
+- Inspected all eight native examples. Light, dark, Forest and Plum previews
+  used live tokens, host fonts and the accepted component owners. The bundled
+  event cover decoded and clipped correctly, its dark treatment changed with
+  theme, and Featured remained a passive secondary badge. Arabic text shaped
+  correctly, with the header action and recovery link at logical end.
+- Native email Next/Return focused Password; Password Done/Return validated
+  and displayed `Signed in locally`. The email/password draft survived text
+  scale, direction, viewport, spacing and theme changes. Sign Up, recovery
+  and Google produced their separate local feedback. Empty Arabic submission
+  displayed both validation errors (the local demo's error copy is English).
+- The existing 360px preview at 200% text, RTL and reduced motion exercised
+  actual keyboard focus: after pointer focus, Left arrows, Home and End
+  revealed the appropriate spacing option. Space selected 32px, increased
+  Card insets and retained the draft. Exact 260px focus visibility and
+  focus-without-selection are additionally asserted by widget tests; the
+  native styleguide does not offer a 260px preset.
+- Small report actions displayed their local results. Terms scrolled within
+  their own body while the header/footer stayed fixed; Decline and Accept
+  displayed the respective result. View Event revealed local details.
+  Loaded activation incremented the digest counter; Disabled did not.
+  Selected, Busy, Error, Empty and Retry all produced the intended states,
+  with Retry returning to loaded content. Content-only and empty passive
+  surfaces remained visible without invented controls.
+
+The final candidate starts from main `80649ca1` and preserves the exact Card,
+Button, Input, Badge and Toggle Group source inspected in `49e27ca6`. Main's
+accepted Radio follow-up also removes the unnecessary LayoutBuilder from
+fixed-orientation Field layout; its Flex geometry is unchanged. Card uses
+that fixed vertical path, and affected Card/Field checks were rerun after
+integration. No new native pass is claimed for that source reconciliation.
+
+Native verification is macOS only, not an iOS/Linux device or spoken VoiceOver
+audit. The unchanged production adopters retain their original acceptance and
+documented limits in `card.md`. Browser Geist/Noto and native font rendering,
+site colors/radii and the intentional bundled cover differ; no pixel-equality
+claim is made. Temporary test raster exports are preflight only, not native
+acceptance evidence.
+
+Cleanup of the owned browser tab returned `Tab 1 is not part of browser session
+01a086cd-3f9c-75b0-bda3-7d65d96604a0`. UI actions stopped immediately, without
+reselection or bypass, and the desktop lease was released. The next FIFO
+reviewer was asked to quit only the isolated Card app through its native menu;
+app closure and tab cleanup were not verified by this task at release.
