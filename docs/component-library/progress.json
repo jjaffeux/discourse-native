@@ -3434,7 +3434,7 @@
         "Frozen Markdown SHA256 cedb8c5a45c2cc2cede23b564b55c7a7a3c506e5d14f6b413d7758c03a0550c6 and all eight recorded shadcn-ui primary-source hashes were reproduced at repository commit 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048.",
         "Official browser inspection covered all eight Base UI examples in light and dark, including the open Basic calendar, the two-month range, date-of-birth captions, strict Input, empty-date Time, deterministic September 11 Natural Language result and interactive Arabic/Hebrew RTL selector.",
         "Source-exact macOS inspection covered all eight examples and the production Local Date composer across light, dark, Forest and Plum palettes, 720/360 widths, 100/200% text, LTR/RTL and reduced motion. Pointer selection, focus restoration, Escape dismissal, range display and localized RTL calendar behavior were exercised.",
-        "The final current-main candidate passed 105 randomized Date Picker, Calendar, Popover, Input Group, Input, Field, Local Date and event-calendar tests with seed 202609093. Locked dependency resolution, formatting, diff checks and root/profiles-full flutter analyze --no-pub were clean.",
+        "The final current-main candidate passed 107 randomized Date Picker, Calendar, Popover, Input Group, Input, Field, Local Date and event-calendar tests with seed 202609095. Locked dependency resolution, formatting, diff checks and root/profiles-full flutter analyze --no-pub were clean.",
         "The final isolated macOS candidate is /private/tmp/discourse-date-picker-final-candidate.DcP7in/Date Picker Review Candidate.app with bundle identifier org.discourse.native.date-picker-review-candidate-11aa; deep strict ad-hoc verification passed. App.framework SHA256 is fa6887ef6cae7bf7654116b6940eefab52bc1a8d9b52f3d2d25ffb66d27ec432."
       ],
       "limitations": [
@@ -3508,7 +3508,7 @@
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native",
       "reviewHandoffCommit": "bb6072283237d82ff9d95eeef62b5938f0940cf2",
       "reviewStatus": "accepted",
-      "reviewedBranchHead": "ae53cf7ad5ebaa75c0080cd5bf41cc6495d55b34",
+      "reviewedBranchHead": "d673b077bb452963f3082f83919a9b8359ef8e68",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed",
       "implementationHandoffVerification": {

@@ -96,7 +96,7 @@ picker migrations.
 - Independent review covered value, Form, controller ownership, IME editing,
   keyboard and overlay lifecycle, range, disabled/bounds, leap-day handling,
   wall-clock separation and the migrated Local Date composer. The final
-  randomized affected matrix contains 105 passing tests; root and
+  randomized affected matrix contains 107 passing tests; root and
   `profiles/full` locked analysis are clean.
 - Official Base UI browser comparison covered all eight documented examples in
   light and dark. Source-exact macOS inspection covered those examples plus the
