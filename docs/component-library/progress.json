@@ -2512,6 +2512,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native",
           "headCommit": "c9367d73b42c419091ad65c1b653e60df0d71e5c",
           "status": "native_and_downstream_review"
+        },
+        {
+          "component": "textarea",
+          "taskId": "01a08437-208f-7332-b373-192eaada5844",
+          "branch": "codex/ui-textarea",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
+          "headCommit": "5c845d1732f792ce6178a5667233c01188e30ee1",
+          "status": "semantics_boundary_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2595,14 +2603,6 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/89bf/discourse-native",
           "headCommit": "fb3f5f1f175c151dfaf72b9a61d18766de9f2821",
           "status": "awaiting_native_review"
-        },
-        {
-          "component": "textarea",
-          "taskId": "01a08437-208f-7332-b373-192eaada5844",
-          "branch": "codex/ui-textarea",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
-          "headCommit": "5c845d1732f792ce6178a5667233c01188e30ee1",
-          "status": "awaiting_browser_and_native_review"
         },
         {
           "component": "empty",
@@ -2757,7 +2757,7 @@
         "button": "f32de5cc356a561c3a3d26c75aeb855e0ad28307",
         "input": "43437c9a271e8352d71684a634654e11f3028d15"
       },
-      "verification": "52 Button/Input and example tests passed seed909611. Improved actual glyph bounds exposed previously masked double-fading (83 instead of136 intensity), then passed after honoring shared disabled-opacity override. Final Input browser corrections being integrated before combined review.",
+      "verification": "Combined Input40 focused tests and root/full analysis pass. Independent whole-styleguide semantics check proves search now has its own204×20 editor node, with a non-editable page node and sibling navigation. Two Button-owned Users touch layout regressions remain under correction.",
       "remaining": [
         "Button owner fixing Users toolbar and reorder target geometry on touch;184 downstream tests passed with two real Users geometry failures and one erroneous nonexistent test path.",
         "Root/full analysis passed. Apply final generic Input semantic boundary and final Button changes before rerunning affected combined checks.",
