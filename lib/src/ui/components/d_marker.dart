@@ -319,7 +319,11 @@ class _DMarkerContentState extends State<DMarkerContent>
     final rtl = Directionality.of(context) == TextDirection.rtl;
     return AnimatedBuilder(
       animation: _animation,
-      child: widget.child,
+      // The shader owns color/alpha; the child supplies only glyph coverage.
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: base.withValues(alpha: 1)),
+        child: widget.child,
+      ),
       builder: (context, child) => ShaderMask(
         blendMode: BlendMode.srcIn,
         shaderCallback: (bounds) {
