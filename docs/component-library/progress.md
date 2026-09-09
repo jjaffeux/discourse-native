@@ -2226,7 +2226,7 @@ Status: merged. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/ui-sel
 - DSelect is the single rich rendering owner and Flutter FormField; DSelect.controlled represents controlled null explicitly, the default constructor owns initialValue, and DMultiSelect maps Base UI multiple mode. Borrowed FocusNode, DPopoverController and ScrollController remain caller-owned.
 - The optional DPopoverPlacementResolver receives read-only target/boundary/content geometry and returns a candidate that remains subject to Popover boundary correction. Select alone decides touch and selected-row fallback; no overlay lifecycle is duplicated.
 - Accepted Popover main merge dc6ab75fe99f2af8b401bae60285fdbe65e8012a is reconciled, retaining lifecycle correction 8281dda2, DNativeSelect layering regression 6a608c56 and topmost Escape ownership d9ecd110.
-- Accepted Field remains a metadata/layout owner around Select; DSelect stays the sole Form/value/validation/focus/action owner. Button Group's internal joined-edge scope is downstream and will adapt the trigger in its own accepted composition without moving the popup into joined geometry.
+- Accepted Field remains a metadata/layout owner around Select; DSelect stays the sole Form/value/validation/focus/action owner. Button Group's accepted joined-edge scope now adapts the trigger without moving the popup into joined geometry. Select's Back/Range/Next example uses the real DButtonGroup with independent action and selection state, verified in the Button Group native pass and final 169-test integration matrix.
 
 **migrations**
 
@@ -2368,13 +2368,13 @@ Status: review_ready. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/
 
 **decisions**
 
-- Button, Separator, Field, Input Group, Dropdown Menu, Select and Popover are accepted on main. Candidate preparation uses main 68cedc52, with final reconciliation still required.
+- Button, Separator, Field, Input Group, Dropdown Menu, Select and Popover are accepted on main. Final candidate 8120a12c starts from main 4d79219d and preserves all accepted owners, exports, examples and other progress rows.
 - DButtonGroup is a passive semantic/layout boundary for independent controls. It owns no selection, roving focus or toolbar shortcuts; each child retains its callback, state, focus and native role.
 - DJoinedControlScope changes only joined radii and the painted leading seam. DInputGroup consumes it at its outer surface and resets it around its editor/addons; detached Popover content also resets it.
 - Normal Flex layout measures controls without intrinsic queries and stretches separators to their cross-axis extent. Passive text shrink-wraps, fixing the 600px-versus-32px regression while supporting LayoutBuilder-based Select.
 - Non-tabbable focus listeners change paint order only: the focused direct child paints last. Joined DButton surfaces allow their exterior ring to remain unclipped. Keyboard, semantic and hit-test order remain unchanged.
 - All Button Group compositions use final public APIs. Select's Back/Range/Next example now uses DButtonGroup with horizontal reachability. Input Group's button-actions example retains its editor/focus/state ownership.
-- Replacement reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 preserves recovered handoff 97554ada and implementation history. Source, final-owner compositions, official browser and exact-source native acceptance are complete; final current-main reconciliation and local merge remain.
+- Replacement reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 preserves recovered handoff 97554ada and implementation history. Source, final-owner compositions, official browser, exact-source native acceptance and current-main integration verification are complete.
 
 **migrations**
 
@@ -2392,9 +2392,10 @@ Status: review_ready. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/
 - Recovery verified archive and resolved DInput hashes; ordinary git writes succeeded at 94fe7a77. See evidence/button-group/recovery.md.
 - Frozen Markdown SHA-256 9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda and twelve linked Base sources were inspected. Official rendered light/dark, Dropdown Menu/Select dismissal and focus were reviewed; see evidence/button-group/browser-reference.md.
 - Final-owner integration previously passed 112 focused tests. After main reconciliation and sizing/composition fixes: 56 Button Group/Select/styleguide tests, 22 direct/navigation tests, 21 direct/Input Group tests and 34 Popover/Dropdown Menu tests passed with seed 826145. Batches overlap.
-- Root analysis and profiles/full enforced-lockfile resolution plus analysis passed without diagnostics; lockfiles unchanged. Final main overlap verification remains required.
+- Root and profiles/full flutter analyze --no-pub passed without diagnostics after final reconciliation with main 4d79219d. Prior full-profile enforced-lockfile resolution passed; manifests and lockfiles are unchanged.
 - Source cff5dfc2b34035806d29ab551f25b5908515c018 built successfully for the offline native fixture. /private/tmp/ButtonGroupReview-cff5dfc2.app has a unique identity, verified signature/restricted entitlements, and matching source/copy kernel SHA-256 f7fd7af43360515dd2cdba6461d8eaab9822f646e26e6122919fdfac4398bde3. All 13 native pages passed via approved CUA, including real Input Group/Select parent examples, editing retention, independent actions, overlay dismissal/focus, four palettes, narrow/scaled/RTL and reduced-motion surfaces. See evidence/button-group/native-review.md.
 - Focus layering was verified by a pixel regression that fails when focused-child ordering is disabled. All 88 affected Button/Button Group/Select/styleguide/navigation tests and root/full analysis pass after the correction (seed 826145).
+- Final main-integrated candidate 8120a12c passed all 169 affected Button Group, Button/reference/adoption, Input, Input Group, Select, Popover, Dropdown Menu, Field, example and production navigation tests with seed 826145. Touched formatting and git diff --check passed. See evidence/button-group/final-integration.md.
 
 **limitations**
 
