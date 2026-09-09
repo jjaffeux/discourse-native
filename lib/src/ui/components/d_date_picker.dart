@@ -716,6 +716,8 @@ class DDatePickerInput extends StatefulWidget {
     this.description,
     this.errorText,
     this.placeholder = 'June 01, 2025',
+    this.labels = const DDatePickerLabels(),
+    this.calendarLabels = const DCalendarLabels(),
     this.semanticLabel,
     this.enabled = true,
     this.width = 288,
@@ -749,6 +751,8 @@ class DDatePickerInput extends StatefulWidget {
     this.description,
     this.errorText,
     this.placeholder = 'June 01, 2025',
+    this.labels = const DDatePickerLabels(),
+    this.calendarLabels = const DCalendarLabels(),
     this.semanticLabel,
     this.enabled = true,
     this.width = 288,
@@ -778,6 +782,8 @@ class DDatePickerInput extends StatefulWidget {
   final DCalendarController? calendarController;
   final String? label, description, errorText, semanticLabel;
   final String placeholder;
+  final DDatePickerLabels labels;
+  final DCalendarLabels calendarLabels;
   final bool enabled;
   final double width;
   final bool? open;
@@ -978,7 +984,7 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
         align: DPopoverAlign.end,
         alignOffset: -8,
         sideOffset: 10,
-        semanticLabel: 'Calendar',
+        semanticLabel: widget.calendarLabels.calendar,
         child: _calendarViewport(
           geometry,
           DCalendar(
@@ -987,6 +993,7 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
             onSelectionChanged: _selected,
             controller: _calendar,
             locale: locale,
+            labels: widget.calendarLabels,
             initialDisplayedMonth: value,
             startMonth: widget.startMonth,
             endMonth: widget.endMonth,
@@ -1015,12 +1022,19 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
               ),
               DInputGroupAddon(
                 alignment: DInputGroupAddonAlignment.inlineEnd,
-                child: DInputGroupButton.icon(
-                  icon: const DIcon(_calendarIcon, size: 16),
-                  tooltip: 'Select date',
-                  semanticLabel: 'Select date',
-                  hasPopup: true,
-                  onPressed: widget.enabled ? trigger.toggle : null,
+                child: Semantics(
+                  button: true,
+                  enabled: widget.enabled,
+                  expanded: trigger.open,
+                  label: widget.labels.calendar,
+                  onTap: widget.enabled ? trigger.toggle : null,
+                  child: ExcludeSemantics(
+                    child: DInputGroupButton.icon(
+                      icon: const DIcon(_calendarIcon, size: 16),
+                      tooltip: widget.labels.calendar,
+                      onPressed: widget.enabled ? trigger.toggle : null,
+                    ),
+                  ),
                 ),
               ),
             ],
