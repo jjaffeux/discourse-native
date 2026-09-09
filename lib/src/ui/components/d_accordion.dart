@@ -72,9 +72,6 @@ class DAccordion<T> extends StatefulWidget {
   /// Reference Borders composition: a rounded outer border and 16px item inset.
   final bool outlined;
 
-  static DAccordionController<T> controllerOf<T>(BuildContext context) =>
-      _DAccordionScope.of<T>(context).owner._activeController;
-
   @override
   State<DAccordion<T>> createState() => _DAccordionState<T>();
 }
