@@ -26,6 +26,7 @@ import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
 import 'examples/switch_examples.dart';
 import 'examples/table_examples.dart';
+import 'examples/tabs_examples.dart';
 import 'examples/textarea_examples.dart';
 import 'examples/toggle_examples.dart';
 import 'examples/tooltip_examples.dart';
@@ -63,6 +64,7 @@ final componentExamples = <String, ComponentExamples>{
   'spinner': spinnerExamples,
   'slider': sliderExamples,
   'switch': switchExamples,
+  'tabs': tabsExamples,
   'toggle': toggleExamples,
   'button': buttonExamples,
   'tooltip': tooltipExamples,

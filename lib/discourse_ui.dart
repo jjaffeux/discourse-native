@@ -30,6 +30,7 @@ export 'src/ui/components/d_slider.dart';
 export 'src/ui/components/d_spinner.dart';
 export 'src/ui/components/d_switch.dart';
 export 'src/ui/components/d_table.dart';
+export 'src/ui/components/d_tabs.dart';
 export 'src/ui/components/d_textarea.dart';
 export 'src/ui/components/d_toggle.dart';
 export 'src/ui/components/d_tooltip.dart';
