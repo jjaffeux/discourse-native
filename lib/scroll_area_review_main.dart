@@ -70,10 +70,11 @@ class _ReviewState extends State<_Review> {
             label: const Text('Theme'),
             onPressed: () => setState(() => _dark = !_dark),
           ),
-          DButton(
-            label: const Text('Empty / ready'),
-            onPressed: () => setState(() => _empty = !_empty),
-          ),
+          if (const [1, 2, 3, 5, 7].contains(_page))
+            DButton(
+              label: const Text('Empty / ready'),
+              onPressed: () => setState(() => _empty = !_empty),
+            ),
         ],
       ),
       body: Column(
