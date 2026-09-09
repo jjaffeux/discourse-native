@@ -44,7 +44,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | merged | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | a492253dc0abaed3f424df1b59c5a11b266d5b60 |
-| 16 | toggle-group | merged | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | b77f25c9ac779f324dd3853590df0ce0dd27eaa9 |
+| 16 | toggle-group | merged | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | aaff45d5af3456c3d44e0e681400a071cb673908 |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
@@ -1184,6 +1184,7 @@ Status: merged. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-tog
 - Final candidate f7c3fec516639bedf0e52137d8bc5c5e98d143a9 reconciled the accepted history onto main b2f425545756bf78798ae2e1635b261f1719b14d without relevant source overlap. The same 72 focused checks passed with seed 9052046; root and profiles/full flutter analyze --no-pub and locked resolution remained clean.
 - The repository main checkout merged the reviewed candidate with --no-ff as b77f25c9ac779f324dd3853590df0ce0dd27eaa9. No remote push, release or provisioning action was performed.
 - Follow-up commit d1815e50b850262e5f7ab2b0b8c75e1790a3ed14 adds 200% text regressions proving End/Home reveal horizontal LTR/RTL targets, End reveals vertical targets, and focus movement does not change selection before Space. Eleven component tests passed with seed 9052049; 75 Toggle/Composer checks passed with seed 9052048; root and profiles/full analysis remained clean.
+- The repository main checkout merged the focus-visibility follow-up with --no-ff as aaff45d5af3456c3d44e0e681400a071cb673908, superseding the original accepted merge b77f25c9ac779f324dd3853590df0ce0dd27eaa9 for the final component source.
 
 **limitations**
 
