@@ -4174,12 +4174,29 @@
       ],
       "decisions": [
         "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
-        "Verified independent reviewer Review and merge Data Table (01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
+        "Verified independent reviewer Review and merge Data Table (01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.",
+        "Independent reviewer integrated the preserved implementation history into current-main candidate 4f702a45f0f9ab993a7cbced2406dc8d416a1c96 based on 9834f36a9c4c44f1792e9970bf0a9abfcbedd47d. Accepted Pagination, Select, Field and Dropdown Menu sources are unchanged by the Data Table diff.",
+        "Native 360px/200% inspection found the fixed-width page-size Select hiding its value. Reviewer fix 58aa1c03 measures the widest scaled option while retaining the 70px reference minimum; LTR and RTL truncation regressions failed before the fix and passed afterward."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "migrations": [
+        "Added four searchable, runnable styleguide examples using the final shared Table, Checkbox, Input, Dropdown Menu, Pagination, Select, Button and Badge owners."
+      ],
+      "retainedAlternatives": [
+        "Users directory retains its pinned identity pane, synchronized virtualized viewports, persisted resizable metric columns and server-side infinite loading; an eager Data Table would remove capabilities.",
+        "Alert Tables retain passive document DTable structure; Topic, Chat, SuperList and badges retain their card/timeline/infinite-feed presentations. No bounded homogeneous production grid was found for a suitable migration."
+      ],
+      "verification": [
+        "Source review and adoption audit recorded in docs/component-library/data-table.md; exact frozen reference/Tasks source mappings remain intact.",
+        "Initial independent candidate passed 72 focused Data Table/example/Pagination/Select/Dropdown Menu/Table checks, seed 9092026, with clean root/full analysis and a successful exact-widget macOS build.",
+        "Approved browser inspection exercised the official payment table's Email ascending/descending sort, Carmella filtering, repeated Amount visibility changes, selection and row actions.",
+        "Actual macOS inspection of candidate 31912939 covered Light/Dark/Forest/Plum, filter entry/clear, ascending/descending sort, repeated visibility toggles, none/mixed/all selection, all four page controls, page size 10 to 20, stable-ID selection through reverse/remove/reset, row-menu Down/Return activation and visible restored focus, Arabic RTL and 360px/200%/reduced-motion layouts.",
+        "Corrected candidate 4f702a45 passed 74 focused component/composition/dependency checks, seed 9092026, and root/full flutter analyze --no-pub without diagnostics. The corrected exact-widget macOS fixture builds and passes deep strict signature verification; copied/build kernel hashes match 67fa17530f6572f94536b8f92a7e5b9de376e2f82dc6058b12d093cf870cc307.",
+        "Current-main candidate 1f6e1cc9 passed 34 Data Table/example/styleguide checks, seed 9092026, and root/full analysis. A CUA getApp -10005 timeout initially blocked final native confirmation; desktop was released. The subsequent leased Button Group reviewer confirmed normal-control recovery and quit the exact old Data Table instance through its native menu. Data Table rejoined FIFO for its final native checks and rendered Tasks comparison; cleanup does not establish visual acceptance and no merge is claimed."
+      ],
+      "limitations": [
+        "No iOS or Linux device run and no spoken VoiceOver claim. Widget semantics and native macOS keyboard behavior were checked.",
+        "Browser/native font rasterization is not pixel-identical. The fixture is offline and does not exercise authenticated server adapters."
+      ],
       "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/656f/discourse-native",
@@ -4203,13 +4220,13 @@
         },
         {
           "id": "pagination",
-          "status": "in_progress",
+          "status": "merged",
           "taskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
           "branch": "codex/ui-pagination",
-          "reviewTaskId": null,
-          "reviewBranch": null,
-          "implementationCommit": null,
-          "mergeCommit": null
+          "reviewTaskId": "01a08629-4841-73d0-a5a6-c723f253b4b0",
+          "reviewBranch": "codex/review-pagination",
+          "implementationCommit": "cd69ff21400192e6a141a675ffb7ec6a7199526c",
+          "mergeCommit": "20f1673402d8b52370efacb5ca61d5f099810582"
         },
         {
           "id": "checkbox",
@@ -4233,17 +4250,17 @@
         },
         {
           "id": "dropdown-menu",
-          "status": "in_progress",
+          "status": "merged",
           "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
           "branch": "codex/ui-dropdown-menu",
           "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
-          "reviewBranch": "codex/review-dropdown-menu",
+          "reviewBranch": "codex/review-dropdown-menu-accepted",
           "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
-          "mergeCommit": null
+          "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
         }
       ],
       "reviewTaskId": "01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a",
-      "reviewBranch": "codex/review-data-table",
+      "reviewBranch": "codex/review-data-table-accepted",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f127/discourse-native",
       "reviewHandoffCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b",
       "reviewStatus": "in_progress",
@@ -4252,7 +4269,15 @@
         "analysis": "Root and full-profile analysis and enforced locked resolution pass without lockfile changes; touched formatting and diff checks pass.",
         "native": "The exact-widget macOS fixture builds; no official rendered browser comparison or actual native acceptance was claimed.",
         "acceptance": "Reviewer owns remaining source, fixture and adoption-audit corrections, official/native acceptance, reconciliation with accepted Pagination/Select/Field/Dropdown Menu and the final local main merge."
-      }
+      },
+      "acceptedDependencyMerges": {
+        "pagination": "20f1673402d8b52370efacb5ca61d5f099810582",
+        "select": "57bbeb94368649a4665483180e4f5c84b5f33856",
+        "field": "5cd7f3694498e4e09e3c114639baca834b56705e",
+        "dropdown-menu": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
+      },
+      "nativeInspectionStatus": "in_progress",
+      "browserInspectionStatus": "in_progress"
     },
     {
       "id": "sidebar",
