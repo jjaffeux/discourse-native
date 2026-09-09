@@ -45,6 +45,7 @@ bool navigationShortcutsAllowed(
       widget is DSwitchTile ||
       widget is Switch ||
       widget is SwitchListTile ||
+      widget is DMultiSlider ||
       widget is Slider ||
       widget is RangeSlider ||
       widget is SegmentedButton<Object?> ||
