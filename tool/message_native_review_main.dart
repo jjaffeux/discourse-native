@@ -136,6 +136,7 @@ class _MessageNativeReviewApp extends StatefulWidget {
 }
 
 class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
+  final _scrollController = ScrollController();
   var dark = false;
   var plum = false;
   var narrow = false;
@@ -146,8 +147,20 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     widget.controller.dispose();
     super.dispose();
+  }
+
+  void _scrollBy(double delta) {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    _scrollController.jumpTo(
+      (position.pixels + delta).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
   }
 
   @override
@@ -164,8 +177,23 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
             : AppTheme.light,
         home: Builder(
           builder: (context) => Scaffold(
-            appBar: AppBar(title: const Text('Message Review 8953')),
+            appBar: AppBar(
+              title: const Text('Message Review 8953'),
+              actions: [
+                IconButton(
+                  tooltip: 'Scroll preview up',
+                  onPressed: () => _scrollBy(-500),
+                  icon: const Icon(Icons.arrow_upward),
+                ),
+                IconButton(
+                  tooltip: 'Scroll preview down',
+                  onPressed: () => _scrollBy(500),
+                  icon: const Icon(Icons.arrow_downward),
+                ),
+              ],
+            ),
             body: ListView(
+              controller: _scrollController,
               padding: const EdgeInsets.all(24),
               children: [
                 Wrap(

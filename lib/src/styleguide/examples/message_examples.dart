@@ -424,7 +424,7 @@ class _MetadataExample extends StatelessWidget {
                   ),
                 ],
               ),
-              DMessageFooter(children: [Text('Read'), Text('Yesterday')]),
+              DMessageFooter(children: [Text('Read Yesterday')]),
             ],
           ),
         ],
