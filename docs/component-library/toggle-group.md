@@ -148,3 +148,16 @@ activation. Eleven component tests passed with seed `9052049`; the 75-test
 Toggle/Composer suite passed with seed `9052048`; root and full-profile analysis
 remained clean. The dependent Card reviewer owns the source-specific rendered
 composition confirmation before Card merges.
+
+That exact-source native confirmation passed in
+`/private/tmp/CardCompositionReview-49e27ca6.app` at Card source
+`49e27ca655373749b9099325ac78f56b27313824`; its Toggle Group implementation
+and tests are byte-identical to accepted `d1815e50`. The bundle kernel SHA-256
+is `7e5e09b5d7274a04332e50e23068fdf4c5e100109acd514c4bb44e513a7d34e6`.
+At the available native 360px preset with 200% text, RTL and reduced motion,
+32px began clipped. Pointer focus on 16px followed by RTL arrows revealed 32px
+with its focus ring; Home revealed 16px again; End then Space revealed and
+selected 32px while preserving the email draft and updating Card insets. The
+exact 260px case remains the passing permanent widget regression, not a claimed
+native preset. AX press alone did not establish Flutter keyboard focus, so the
+successful native sequence began from the visible pointer target.
