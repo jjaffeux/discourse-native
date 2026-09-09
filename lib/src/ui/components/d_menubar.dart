@@ -387,6 +387,17 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
   bool _pressed = false;
   bool _focused = false;
 
+  void _revealFocusedTrigger() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_focused) return;
+      Scrollable.ensureVisible(
+        context,
+        duration: DMotion.duration(context, DMotion.exit),
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
+  }
+
   KeyEventResult _onKey(
     KeyEvent event,
     _DMenubarState root,
@@ -484,7 +495,10 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                 canRequestFocus: enabled,
                 skipTraversal: !root.isCurrent(menu),
                 onFocusChange: (focused) {
-                  if (focused) root.focused(menu);
+                  if (focused) {
+                    root.focused(menu);
+                    _revealFocusedTrigger();
+                  }
                   if (mounted) setState(() => _focused = focused);
                 },
                 onKeyEvent: (_, event) => _onKey(event, root, menu, trigger),

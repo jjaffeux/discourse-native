@@ -135,10 +135,7 @@ class _Preview extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 288),
-          child: bar,
-        ),
+        bar,
         if (status != null) ...[
           const SizedBox(height: 12),
           Text(status!, style: Theme.of(context).textTheme.bodySmall),

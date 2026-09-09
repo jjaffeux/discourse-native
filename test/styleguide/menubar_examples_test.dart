@@ -1,11 +1,13 @@
 import 'dart:ui' show CheckedState;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/menubar_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -88,6 +90,41 @@ void main() {
       tester.getSemantics(find.text('Andy')).flagsCollection.isChecked,
       CheckedState.isTrue,
     );
+  });
+
+  testWidgets('composition reveals a focused trigger at narrow 200 percent', (
+    tester,
+  ) async {
+    final example = menubarExamples.examples.first;
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Builder(builder: example.builder),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+
+    final bar = tester.getRect(find.byType(DMenubar));
+    final lastTrigger = tester.getRect(find.text('Profiles'));
+    expect(lastTrigger.left, greaterThanOrEqualTo(bar.left + 4));
+    expect(lastTrigger.right, lessThanOrEqualTo(bar.right - 4));
   });
 
   testWidgets('icon example exposes the destructive command', (tester) async {
