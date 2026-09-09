@@ -150,6 +150,7 @@ class _MenuRegistration {
 
 class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   final _items = <Object, _MenuRegistration>{};
+  DDropdownMenuController? _activeSubmenu;
   String _search = '';
   Timer? _searchTimer;
   bool _autofocused = false;
@@ -159,6 +160,21 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   }
 
   void unregister(Object owner) => _items.remove(owner);
+
+  void activateSubmenu(DDropdownMenuController controller) {
+    if (identical(_activeSubmenu, controller)) return;
+    _activeSubmenu?.close();
+    _activeSubmenu = controller;
+  }
+
+  void deactivateSubmenu(DDropdownMenuController controller) {
+    if (identical(_activeSubmenu, controller)) _activeSubmenu = null;
+  }
+
+  void closeActiveSubmenu() {
+    _activeSubmenu?.close();
+    _activeSubmenu = null;
+  }
 
   List<_MenuRegistration> get _enabledItems => [
     for (final item in _items.values)
@@ -664,9 +680,17 @@ class _DDropdownMenuSubState extends State<DDropdownMenuSub> {
     debugLabel:
         'Dropdown item ${widget.semanticLabel ?? _plainText(widget.trigger)}',
   );
+  _DDropdownMenuContentState? _parent;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _parent = _DropdownMenuContentScope.of(context);
+  }
 
   @override
   void dispose() {
+    _parent?.deactivateSubmenu(_controller);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -680,6 +704,13 @@ class _DDropdownMenuSubState extends State<DDropdownMenuSub> {
         : LogicalKeyboardKey.arrowLeft;
     return DDropdownMenu(
       controller: _controller,
+      onOpenChange: (open, _) {
+        if (open) {
+          _parent?.activateSubmenu(_controller);
+        } else {
+          _parent?.deactivateSubmenu(_controller);
+        }
+      },
       content: DDropdownMenuContent(
         isSubmenu: true,
         side: DPopoverSide.inlineEnd,
@@ -712,6 +743,7 @@ class _DDropdownMenuSubState extends State<DDropdownMenuSub> {
             return KeyEventResult.ignored;
           },
           onActivate: trigger.toggle,
+          preserveSubmenuOnFocus: true,
           child: widget.trigger,
         ),
       ),
@@ -736,6 +768,7 @@ class _DropdownMenuItemSurface extends StatefulWidget {
     this.onHover,
     this.onKey,
     this.autofocus = false,
+    this.preserveSubmenuOnFocus = false,
   });
 
   final String label;
@@ -753,6 +786,7 @@ class _DropdownMenuItemSurface extends StatefulWidget {
   final ValueChanged<bool>? onHover;
   final KeyEventResult Function(KeyEvent event)? onKey;
   final bool autofocus;
+  final bool preserveSubmenuOnFocus;
 
   @override
   State<_DropdownMenuItemSurface> createState() =>
@@ -899,6 +933,9 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
               : SystemMouseCursors.basic,
           onEnter: (_) {
             if (!widget.enabled) return;
+            if (!widget.preserveSubmenuOnFocus) {
+              _content?.closeActiveSubmenu();
+            }
             setState(() => _hovered = true);
             _focus.requestFocus();
             widget.onHover?.call(true);
@@ -913,6 +950,9 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
             canRequestFocus: widget.enabled,
             skipTraversal: !widget.enabled,
             onFocusChange: (focused) {
+              if (focused && !widget.preserveSubmenuOnFocus) {
+                _content?.closeActiveSubmenu();
+              }
               if (mounted) setState(() => _focused = focused);
             },
             onKeyEvent: _onKey,
