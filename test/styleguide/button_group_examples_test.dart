@@ -68,6 +68,29 @@ void main() {
     },
   );
 
+  testWidgets('nested fixture spaces complete button and input groups', (
+    tester,
+  ) async {
+    await _pump(tester, 3);
+
+    expect(find.byType(DButtonGroup), findsNWidgets(3));
+    expect(find.byType(DInputGroup), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(DInputGroup),
+        matching: find.byType(DInputGroupButton),
+      ),
+      findsOneWidget,
+    );
+
+    final attachment = tester.getRect(find.byTooltip('Add attachment'));
+    final composer = tester.getRect(find.byType(DInputGroup));
+    final group = tester.getRect(find.byType(DButtonGroup).first);
+    expect(composer.left - attachment.right, DSpacing.sm);
+    expect(group.width, 252);
+    expect(composer.width, group.width - attachment.width - DSpacing.sm);
+  });
+
   testWidgets('dropdown trigger opens and remains an independent button', (
     tester,
   ) async {

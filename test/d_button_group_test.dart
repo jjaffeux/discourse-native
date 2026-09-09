@@ -144,6 +144,45 @@ void main() {
     expect(activations, ['first', 'second']);
   });
 
+  testWidgets(
+    'nested groups add spacing and retain their own outside corners',
+    (tester) async {
+      await _pump(
+        tester,
+        const DButtonGroup(
+          children: [
+            DButtonGroup(
+              children: [
+                DButton(
+                  key: ValueKey('nested-first'),
+                  label: Text('First'),
+                  onPressed: _noop,
+                ),
+              ],
+            ),
+            DButtonGroup(
+              children: [
+                DButton(
+                  key: ValueKey('nested-second'),
+                  label: Text('Second'),
+                  onPressed: _noop,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      final first = tester.getRect(find.byKey(const ValueKey('nested-first')));
+      final second = tester.getRect(
+        find.byKey(const ValueKey('nested-second')),
+      );
+      expect(second.left - first.right, DSpacing.sm);
+      _expectCorners(tester, 0, const [false, false, false, false]);
+      _expectCorners(tester, 1, const [false, false, false, false]);
+    },
+  );
+
   testWidgets('vertical group joins top and bottom and keeps Tab navigation', (
     tester,
   ) async {

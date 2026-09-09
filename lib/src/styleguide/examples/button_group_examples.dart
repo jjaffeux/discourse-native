@@ -71,13 +71,39 @@ final buttonGroupExamples = ComponentExamples(
     StyleguideExample(
       title: 'Nested groups',
       description:
-          'Each direct nested group owns only its children. The outer group does '
-          'not leak radius changes into a tooltip or menu overlay.',
-      states: const ['Nested', 'Scoped edges', 'Tooltip trigger'],
-      code: '''DButtonGroup(children: [
-  DButtonGroup(children: [addButton]),
-  DButtonGroup(children: [messageInput, voiceButton]),
-])''',
+          'The outer group spaces its nested groups by 8px. Each nested group '
+          'owns its children, so the attachment button and the composer keep '
+          'their complete rounded outlines.',
+      states: const ['Nested', '8px gap', 'Input Group', 'Tooltip trigger'],
+      code: '''SizedBox(
+  width: 252,
+  child: DButtonGroup(
+    mainAxisSize: MainAxisSize.max,
+    children: [
+      DButtonGroup(children: [addButton]),
+      DButtonGroupExpanded(
+        child: DButtonGroup(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            DButtonGroupExpanded(
+              child: DInputGroup(children: [
+                DInputGroupInput(hintText: 'Send a message...'),
+                DInputGroupAddon(
+                  alignment: DInputGroupAddonAlignment.inlineEnd,
+                  child: DInputGroupButton.icon(
+                    icon: Icon(Icons.graphic_eq),
+                    tooltip: 'Voice mode',
+                    onPressed: enableVoice,
+                  ),
+                ),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    ],
+  ),
+)''',
       builder: (_) => const _NestedGroup(),
     ),
     StyleguideExample(
@@ -318,7 +344,7 @@ class _NestedGroup extends StatelessWidget {
   const _NestedGroup();
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 360,
+    width: 252,
     child: DButtonGroup(
       mainAxisSize: MainAxisSize.max,
       semanticLabel: 'Message composer actions',
@@ -338,13 +364,20 @@ class _NestedGroup extends StatelessWidget {
             mainAxisSize: MainAxisSize.max,
             children: [
               DButtonGroupExpanded(
-                child: DInput(hintText: 'Send a message...'),
-              ),
-              DButton.iconOnly(
-                variant: DButtonVariant.outline,
-                icon: const Icon(Icons.graphic_eq),
-                tooltip: 'Voice mode',
-                onPressed: () {},
+                child: DInputGroup(
+                  semanticLabel: 'Message composer',
+                  children: [
+                    DInputGroupInput(hintText: 'Send a message...'),
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      child: DInputGroupButton.icon(
+                        icon: const Icon(Icons.graphic_eq),
+                        tooltip: 'Voice mode',
+                        onPressed: () {},
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

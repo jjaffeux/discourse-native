@@ -14,6 +14,7 @@ enum DButtonGroupOrientation { horizontal, vertical }
 /// Children retain their own callbacks, focus nodes and accessibility roles.
 /// The group adds a semantic boundary and joined-edge metadata only; it does
 /// not implement selection, roving focus, or toolbar keyboard behavior.
+/// A direct nested group enables an 8px gap between the outer group's children.
 class DButtonGroup extends StatefulWidget {
   const DButtonGroup({
     super.key,
@@ -55,6 +56,10 @@ class _DButtonGroupState extends State<DButtonGroup> {
     final axis = widget.orientation == DButtonGroupOrientation.horizontal
         ? Axis.horizontal
         : Axis.vertical;
+    final containsNestedGroup = children.any((child) {
+      final layoutChild = child is DButtonGroupExpanded ? child.child : child;
+      return layoutChild is DButtonGroup;
+    });
     Widget scope(int index, Widget child) => DJoinedControlScope(
       axis: axis,
       first: index == 0,
@@ -91,6 +96,7 @@ class _DButtonGroupState extends State<DButtonGroup> {
       child: _ButtonGroupFlex(
         direction: axis,
         mainAxisSize: widget.mainAxisSize,
+        spacing: containsNestedGroup ? DSpacing.sm : 0,
         focusedIndex: _focusedIndex,
         children: scoped,
       ),
@@ -202,6 +208,7 @@ class _ButtonGroupFlex extends Flex {
   const _ButtonGroupFlex({
     required super.direction,
     required super.mainAxisSize,
+    required super.spacing,
     required super.children,
     required this.focusedIndex,
   });
@@ -214,6 +221,7 @@ class _ButtonGroupFlex extends Flex {
     direction: direction,
     mainAxisSize: mainAxisSize,
     textDirection: Directionality.of(context),
+    spacing: spacing,
   );
 
   @override
@@ -232,6 +240,7 @@ class _RenderButtonGroup extends RenderFlex {
     required super.direction,
     required super.mainAxisSize,
     required super.textDirection,
+    required super.spacing,
   });
 
   int? _focusedIndex;
