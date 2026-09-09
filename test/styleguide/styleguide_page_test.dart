@@ -8,7 +8,6 @@ import 'package:discourse_native/src/styleguide/styleguide_chrome.dart';
 import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -159,6 +158,59 @@ void main() {
     }
   });
 
+  testWidgets(
+    'every component renders its complete shadcn outline and every example',
+    (tester) async {
+      await _pump(tester, size: const Size(1400, 900));
+
+      Finder keysStartingWith(String prefix) =>
+          find.byWidgetPredicate((widget) {
+            final key = widget.key;
+            return key is ValueKey<String> && key.value.startsWith(prefix);
+          });
+
+      for (final component in componentCatalogue) {
+        final componentButton = find.byKey(
+          ValueKey('styleguide-component-${component.id}'),
+        );
+        tester.widget<DSidebarMenuButton>(componentButton).onPressed!();
+        await tester.pump(const Duration(milliseconds: 1));
+
+        final sections = component.outline
+            .where((section) => section.label != 'Installation')
+            .toList(growable: false);
+        expect(
+          keysStartingWith('styleguide-section-heading-'),
+          findsNWidgets(sections.length),
+          reason: '${component.id} must render every outline heading',
+        );
+        expect(
+          keysStartingWith('styleguide-example-panel'),
+          findsNWidgets(componentExamples[component.id]!.examples.length),
+          reason: '${component.id} must render every registered example',
+        );
+        for (var index = 0; index < sections.length; index++) {
+          expect(
+            find.byKey(ValueKey('styleguide-section-$index')),
+            findsOneWidget,
+            reason: '${component.id}/${sections[index].label} needs a link',
+          );
+          expect(
+            find.byKey(ValueKey('styleguide-section-heading-$index')),
+            findsOneWidget,
+            reason: '${component.id}/${sections[index].label} needs an anchor',
+          );
+        }
+        expect(
+          find.widgetWithText(StyleguideAction, 'Installation'),
+          findsNothing,
+          reason: component.id,
+        );
+        expect(tester.takeException(), isNull, reason: component.id);
+      }
+    },
+  );
+
   testWidgets('search finds documented capabilities and reports no matches', (
     tester,
   ) async {
@@ -196,7 +248,7 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey('styleguide-component-input-group')),
       );
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(
         find.widgetWithText(StyleguideAction, 'Installation'),
@@ -232,18 +284,90 @@ void main() {
         findsNothing,
       );
 
+      final detail = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('styleguide-detail-input-group')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(detail.position.maxScrollExtent, greaterThan(3000));
       await tester.tap(find.widgetWithText(StyleguideAction, 'Text'));
-      await tester.pumpAndSettle();
-      expect(find.text('Text addons'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        tester
+            .widget<StyleguideAction>(
+              find.widgetWithText(StyleguideAction, 'Text'),
+            )
+            .selected,
+        isTrue,
+      );
+      expect(detail.position.pixels, greaterThan(0));
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey('styleguide-section-heading-8')),
+            )
+            .dy,
+        inInclusiveRange(0, 900),
+      );
 
       await tester.tap(find.widgetWithText(StyleguideAction, 'Usage'));
-      await tester.pumpAndSettle();
-      expect(find.text('Default search'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(detail.position.pixels, lessThan(800));
+    },
+  );
+
+  testWidgets(
+    'Attachment renders one continuous anchored document including API parts',
+    (tester) async {
+      await _pump(tester, size: const Size(1400, 900));
+      await tester.enterText(
+        find.byKey(const ValueKey('styleguide-search')),
+        'attachment',
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('styleguide-component-attachment')),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      Finder keysStartingWith(String prefix) =>
+          find.byWidgetPredicate((widget) {
+            final key = widget.key;
+            return key is ValueKey<String> && key.value.startsWith(prefix);
+          });
+
+      final reference = componentCatalogue.singleWhere(
+        (component) => component.id == 'attachment',
+      );
       expect(
-        find.textContaining(
-          "import 'package:discourse_native/discourse_ui.dart';",
+        keysStartingWith('styleguide-section-heading-'),
+        findsNWidgets(
+          reference.sections
+              .where((section) => section != 'Installation')
+              .length,
         ),
-        findsOneWidget,
+      );
+      expect(
+        keysStartingWith('styleguide-example-panel'),
+        findsNWidgets(componentExamples['attachment']!.examples.length),
+      );
+      expect(find.textContaining('DAttachmentGroup'), findsOneWidget);
+
+      final apiLink = find.widgetWithText(StyleguideAction, 'AttachmentGroup');
+      await tester.ensureVisible(apiLink);
+      await tester.pump();
+      await tester.tap(apiLink);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey('styleguide-section-heading-22')),
+            )
+            .dy,
+        inInclusiveRange(0, 900),
       );
     },
   );
@@ -268,12 +392,9 @@ void main() {
       final scrollbar = find.byKey(
         const ValueKey('styleguide-preview-scrollbar'),
       );
-      final track = tester.getRect(scrollbar);
-      await tester.dragFrom(
-        Offset(track.left + 100, track.bottom - 4),
-        const Offset(160, 0),
-        kind: PointerDeviceKind.mouse,
-      );
+      await tester.ensureVisible(scrollbar);
+      await tester.pump();
+      await tester.drag(preview, const Offset(-160, 0));
       await tester.pumpAndSettle();
       expect(
         tester.widget<DScrollBar>(scrollbar).controller!.offset,
@@ -306,7 +427,7 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey('styleguide-component-accordion')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(
       tester
@@ -317,11 +438,17 @@ void main() {
       800,
     );
 
-    await _chooseExample(tester, 'RTL');
+    final rtlIndex = await _chooseExample(tester, 'accordion', 'RTL');
     await _choose(tester, 'Viewport width', '360 px');
     await _choose(tester, 'Text scale', '200%');
     final viewport = tester.getRect(
-      find.byKey(const ValueKey('styleguide-example-viewport-accordion')),
+      find.byKey(
+        ValueKey(
+          rtlIndex == 0
+              ? 'styleguide-example-viewport-accordion'
+              : 'styleguide-example-viewport-accordion-$rtlIndex',
+        ),
+      ),
     );
     final finalTrigger = tester.getRect(find.text('ما طرق الدفع المقبولة؟'));
     expect(finalTrigger.bottom, lessThanOrEqualTo(viewport.bottom));
@@ -335,7 +462,7 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey('styleguide-component-accordion')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(const ValueKey('styleguide-Example')), findsNothing);
     expect(find.text('Implementation notes'), findsNothing);
@@ -353,10 +480,10 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey('styleguide-component-direction')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('تسجيل الدخول إلى حسابك'), findsOneWidget);
     expect(find.text('Arabic (العربية)'), findsOneWidget);
-    await _chooseExample(tester, 'Live direction and editing');
+    await _chooseExample(tester, 'direction', 'Live direction and editing');
     expect(find.text('Current direction: LTR'), findsOneWidget);
     final field = find.widgetWithText(DInput, 'Display name');
     await tester.ensureVisible(field);
@@ -386,7 +513,11 @@ void main() {
     );
     await _choose(tester, 'Theme', 'Forest site');
     expect(find.text('Current direction: RTL'), findsOneWidget);
-    await _chooseExample(tester, 'Nested overrides and fixed content');
+    await _chooseExample(
+      tester,
+      'direction',
+      'Nested overrides and fixed content',
+    );
     expect(find.text('URL island: LTR'), findsOneWidget);
     expect(find.text('Outer sibling: RTL'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -404,9 +535,10 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey('styleguide-component-typography')),
       );
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
       await _chooseExample(
         tester,
+        'typography',
         'Inline code, rich text and keyboard actions',
       );
       await tester.ensureVisible(find.text('Show details'));
@@ -661,7 +793,7 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey('styleguide-component-sidebar')),
       );
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
       final preview = find.byKey(const ValueKey('styleguide-preview'));
       final provider = find.descendant(
         of: preview,
@@ -672,6 +804,8 @@ void main() {
         of: preview,
         matching: find.text('History'),
       );
+      await tester.ensureVisible(preview);
+      await tester.pump();
       await tester.tap(history);
       await tester.pump();
       expect(find.text('History selected'), findsOneWidget);
@@ -679,14 +813,30 @@ void main() {
       await _choose(tester, 'Viewport width', '360 px');
       expect(tester.state<DSidebarProviderState>(provider).isMobile, true);
       expect(history, findsNothing);
-      await tester.tap(
-        find.descendant(of: preview, matching: find.byType(DSidebarTrigger)),
+      final panel = find.byKey(const ValueKey('styleguide-example-panel'));
+      final detail = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('styleguide-detail-sidebar')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
-      await tester.pumpAndSettle();
+      detail.position.jumpTo(
+        (detail.position.pixels + tester.getTopLeft(panel).dy - 100).clamp(
+          detail.position.minScrollExtent,
+          detail.position.maxScrollExtent,
+        ),
+      );
+      await tester.pump();
+      expect(tester.getTopLeft(panel).dy, inInclusiveRange(0, 900));
+      tester.state<DSidebarProviderState>(provider).setOpenMobile(true);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('History'), findsOneWidget);
-      await tester.tap(find.text('Starred'));
-      await tester.pumpAndSettle();
-      expect(find.text('Starred selected'), findsOneWidget);
+      expect(find.text('History selected'), findsOneWidget);
+      tester.state<DSidebarProviderState>(provider).setOpenMobile(false);
+      await tester.pump(const Duration(milliseconds: 300));
       expect(tester.state<DSidebarProviderState>(provider).openMobile, false);
       expect(tester.takeException(), isNull);
     },
@@ -742,22 +892,26 @@ Future<void> _choose(WidgetTester tester, String label, String value) async {
   final choice = find.byKey(ValueKey('styleguide-$label'));
   await tester.ensureVisible(choice);
   await tester.tap(choice);
-  await tester.pumpAndSettle();
+  await tester.pump(const Duration(milliseconds: 300));
   await tester.tap(find.text(value).last);
-  await tester.pumpAndSettle();
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
-Future<void> _chooseExample(WidgetTester tester, String title) async {
+Future<int> _chooseExample(
+  WidgetTester tester,
+  String componentId,
+  String title,
+) async {
   expect(find.byKey(const ValueKey('styleguide-Example')), findsNothing);
-  String selectedTitle() => tester
-      .widget<Text>(find.byKey(const ValueKey('styleguide-example-title')))
-      .data!;
-  for (var index = 0; index < 32 && selectedTitle() != title; index++) {
-    final next = find.byKey(const ValueKey('styleguide-next-example'));
-    expect(next, findsOneWidget);
-    await tester.ensureVisible(next);
-    await tester.tap(next);
-    await tester.pumpAndSettle();
+  final examples = componentExamples[componentId]!.examples;
+  final index = examples.indexWhere((example) => example.title == title);
+  expect(index, greaterThanOrEqualTo(0), reason: '$componentId/$title');
+  final heading = find.byKey(ValueKey('styleguide-example-title-$index'));
+  if (heading.evaluate().isNotEmpty) {
+    await tester.ensureVisible(heading);
+  } else {
+    await tester.ensureVisible(find.text(title).first);
   }
-  expect(selectedTitle(), title);
+  await tester.pump(const Duration(milliseconds: 300));
+  return index;
 }

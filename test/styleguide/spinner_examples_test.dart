@@ -355,8 +355,15 @@ void main() {
           )
           .first,
     );
-    expect(find.byType(DSpinner), findsOneWidget);
-    expect(find.byType(DItem), findsOneWidget);
+    final preview = find.byKey(const ValueKey('styleguide-preview'));
+    expect(
+      find.descendant(of: preview, matching: find.byType(DSpinner)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: preview, matching: find.byType(DItem)),
+      findsOneWidget,
+    );
     expect(find.text('Processing payment'), findsWidgets);
   });
 }

@@ -40,7 +40,13 @@ void main() {
           .first,
     );
     await tester.pumpAndSettle();
-    expect(find.byType(DAspectRatio), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('styleguide-preview')),
+        matching: find.byType(DAspectRatio),
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
