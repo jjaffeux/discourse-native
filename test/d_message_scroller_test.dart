@@ -619,6 +619,50 @@ void main() {
     },
   );
 
+  for (final reverse in [false, true]) {
+    testWidgets(
+      'large prepend preserves a measured offset (reverse: $reverse)',
+      (tester) async {
+        final controller = DMessageScrollerController();
+        addTearDown(controller.dispose);
+        var first = 20;
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return scroller(
+                  controller: controller,
+                  reverse: reverse,
+                  initial: DMessageScrollerInitialPosition.start,
+                  items: rows(
+                    List.generate(50 - first, (index) => '${first + index}'),
+                    height: (id) => int.parse(id).isEven ? 92 : 60,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        controller.scrollToMessage(
+          '25',
+          options: const DMessageScrollerScrollOptions(scrollMargin: 24),
+        );
+        await tester.pumpAndSettle();
+        final retained = find.text('Message 25');
+        final top = tester.getTopLeft(retained).dy;
+
+        rebuild(() => first = 0);
+        await tester.pumpAndSettle();
+        expect(retained, findsOneWidget);
+        expect(tester.getTopLeft(retained).dy, closeTo(top, .5));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('virtualized builder jumps across a thousand stable rows', (
     tester,
   ) async {

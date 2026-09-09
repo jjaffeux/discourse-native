@@ -96,6 +96,28 @@ void main() {
     expect(viewport.itemId(23), 'command-23');
   });
 
+  testWidgets('history example preserves its visible row across large prepends', (
+    tester,
+  ) async {
+    final example = messageScrollerExamples.examples.singleWhere(
+      (candidate) => candidate.title == 'Load history',
+    );
+    await tester.pumpWidget(exampleHost(example.builder));
+    await tester.pumpAndSettle();
+    final retained = find.text(
+      'Earlier message 20 includes a second line to demonstrate variable-height restoration.',
+    );
+    final top = tester.getTopLeft(retained).dy;
+
+    for (var batch = 0; batch < 2; batch++) {
+      await tester.tap(find.text('Load earlier messages'));
+      await tester.pumpAndSettle();
+      expect(retained, findsOneWidget);
+      expect(tester.getTopLeft(retained).dy, closeTo(top, .5));
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('composer owners reset, select a tool, send and stop a reply', (
     tester,
   ) async {

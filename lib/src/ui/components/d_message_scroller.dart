@@ -785,6 +785,23 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     }
 
     if (_pendingRestore case final hold? when _mode == _ScrollerMode.free) {
+      final index = _indexOf(hold.id);
+      if (index != null && _rowTop(hold.id) == null) {
+        // A large prepend can evict the held row from the virtualizer's cache.
+        // Mount that stable row before correcting its measured viewport offset.
+        _restoring = true;
+        _list.jumpToItem(
+          index: index,
+          scrollController: _scroll,
+          alignment: widget.reverse ? 1 : 0,
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _restoring = false;
+          if (mounted) _scheduleContentChange();
+        });
+        WidgetsBinding.instance.scheduleFrame();
+        return;
+      }
       if (_restoreHold(hold)) return;
       _pendingRestore = null;
     }
