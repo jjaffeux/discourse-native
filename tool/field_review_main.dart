@@ -4,7 +4,6 @@ import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
-import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_editor.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
@@ -61,7 +60,6 @@ class _FieldReviewState extends State<_FieldReview> {
   bool _dark = false;
   bool _rtl = false;
   double _scale = 1;
-  String? _draft;
   @override
   void dispose() {
     widget.shell.dispose();
@@ -119,18 +117,8 @@ class _FieldReviewState extends State<_FieldReview> {
                       ),
                       DButton(
                         label: const Text('Actual Voice editor'),
-                        onPressed: () async {
-                          final draft = await showDialog<VoiceRoomDraft>(
-                            context: context,
-                            builder: (_) => const VoiceRoomEditorDialog(),
-                          );
-                          if (mounted && draft != null) {
-                            setState(
-                              () => _draft =
-                                  'Local draft: ${draft.name}; public=${draft.isPublic}',
-                            );
-                          }
-                        },
+                        onPressed: () =>
+                            showVoiceRoomEditor(context, siteUrl: _site.url),
                       ),
                       DButton(
                         label: const Text('Light / dark'),
@@ -147,7 +135,6 @@ class _FieldReviewState extends State<_FieldReview> {
                       ),
                     ],
                   ),
-                  if (_draft != null) Text(_draft!),
                   const SizedBox(height: 24),
                   const SizedBox(width: 448, child: FieldChoiceExample()),
                   const SizedBox(height: 24),

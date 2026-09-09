@@ -5,20 +5,20 @@ import '../styleguide_example.dart';
 import 'field_example_sources.dart';
 
 final fieldExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'Labels, controls, help and validation composed into accessible fields.',
   notes:
       'Field is composition, not a second Form owner. DFieldControl supplies '
       'the native accessible name, help and errors; DFieldLabel reuses the control '
       'focus node or callback without a second tab stop. FieldGroup reflows at 448px. '
-      'Input, Checkbox, Radio and Button use their completed merged owners. '
-      'Multiline editors, Switch, RangeSlider and native selection remain explicit '
-      'temporary dependencies; no unmerged worktree is imported. '
+      'DInput, DTextarea, DCheckbox, DRadioGroup, DSwitch, DMultiSlider, '
+      'DNativeSelect and DButton remain the public control and Form owners; Field '
+      'adds layout and metadata without duplicating their value, focus or actions. '
       'The responsive custom-error example intentionally retains a native '
       'FormField/TextField: DInput owns its own error slot and does not expose an '
       'error builder. This keeps DFieldError custom validation demonstrated with '
-      'exactly one FormField owner. All values stay local; reference/native review is blocked.',
+      'exactly one FormField owner. All example values stay local.',
   examples: [
     _example(
       'Payment method',

@@ -1,6 +1,45 @@
-# Field implementation and review handoff
+# Field implementation and independent review
 
-Branch `codex/ui-field`, base `402fe578`. Field remains **in_progress**;
+## Independent acceptance — 2026-09-09
+
+Field is accepted. This section supersedes the historical preparation and
+`awaiting_slot` statements retained below. The independent reviewer reconciled
+the implementation with the accepted Input, Textarea, Checkbox, Radio Group,
+Switch, Slider, Native Select, Button and Dialog owners, fixed disabled choice
+cards so opacity applies to the complete bordered surface, and verified the
+result from source `4efec6cc` in an exact isolated macOS bundle.
+
+The official rendered Base UI page was inspected in the approved browser in
+both light and dark themes. The 448px field group, 8/20/12px field/group/choice
+rhythms, 320×65 choice card, 10px radius, 14px/19.25px medium choice label,
+selected alpha treatment, responsive row layout and the complete set of
+payment, editor, select, slider, fieldset, checkbox, radio, switch, choice,
+group, RTL and error compositions matched the captured source mapping.
+
+The exact native bundle passed light/dark, LTR/RTL and 100%/200% inspection.
+Choice-card pointer selection worked, the disabled card stayed inert and the
+entire surface dimmed, responsive content reflowed without overflow, and empty
+submission exposed the expected invalid label, border and message. The actual
+styleguide payment and editor examples exposed one editable/select owner each;
+the real Preferences page exposed one Native Select and one Switch owner; the
+real Voice editor exposed direct DInput/DTextarea/DSwitchTile/DNativeSelect
+owners. VoiceOver speech was not run, so screen-reader behavior is supported by
+widget semantics tests rather than claimed manual speech output.
+
+Public composition contract: DField owns layout and metadata only. DInput,
+DTextarea, DCheckbox, DRadioGroup, DSwitch/DSwitchTile, DSlider/DMultiSlider,
+DNativeSelect and DButton retain value, Form, validation, focus and action
+ownership. DFieldControl wraps one otherwise-unlabelled native/custom control;
+do not add it around a public control that already owns those semantics. The
+responsive custom-error example deliberately retains one native
+FormField/TextField because DInput has no custom error builder.
+
+## Historical implementation record
+
+The remaining sections preserve the original implementation and staged
+integration evidence. Their status/dependency wording is historical.
+
+Branch `codex/ui-field`, base `402fe578`. Field was **in_progress**;
 styleguide status is baseline until reference/native review and dependent-control
 reconciliation. No desktop/browser slot was used. See its progress row for checks
 and build evidence.
@@ -82,7 +121,7 @@ measurements, not claims of rendered pixel parity.
 | Checked dark `border-primary/20 bg-primary/10` | live primary existing alpha ×0.20 / ×0.10 |
 | Enabled hover `bg-muted/50` | live muted alpha ×0.50 |
 | Focus-visible `border-ring ring-3 ring-ring/50` | ring-color border; outside-only 3px DRRect paint with live alpha ×0.50 |
-| Disabled label `opacity-50` | 50% label/content opacity; pointer/focus guards; underlying controls also receive disabled state |
+| Disabled label `opacity-50` | 50% opacity across the complete choice surface, including border/background/content; pointer/focus guards; underlying controls also receive disabled state |
 
 No artwork belongs to Field apart from ordinary list bullets and the Separator.
 Control artwork remains owned by the pending Checkbox/Radio/Switch/etc. tasks.
