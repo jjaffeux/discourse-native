@@ -135,7 +135,12 @@ void main() {
       expect(find.byType(DSpinner), findsNWidgets(2));
       expect(
         tester
-            .widget<TextField>(find.byKey(const ValueKey('spinner-subject')))
+            .widget<TextField>(
+              find.descendant(
+                of: find.byKey(const ValueKey('spinner-subject')),
+                matching: find.byType(TextField),
+              ),
+            )
             .enabled,
         isFalse,
       );
@@ -152,7 +157,12 @@ void main() {
       );
       expect(
         tester
-            .widget<TextField>(find.byKey(const ValueKey('spinner-message')))
+            .widget<TextField>(
+              find.descendant(
+                of: find.byKey(const ValueKey('spinner-message')),
+                matching: find.byType(TextField),
+              ),
+            )
             .enabled,
         isTrue,
       );
