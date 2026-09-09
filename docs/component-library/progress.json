@@ -3104,15 +3104,16 @@
       ],
       "verification": [
         "Frozen Markdown fetched byte-for-byte at 8ae4486c307453e61359a37284084facbfbc6495ed0dabdc47ad991a06f734ae; base-nova registry response SHA-256 265f030bd11d52072325f749bfd2c8070a9a1cc48098aa3fb245b2460801e6cd. Exact geometry/behavior/API mapping is recorded in docs/component-library/menubar.md.",
-        "63 combined randomized tests pass on correction 430b46a0690a23613ca795b3a95a6f64da9b590e with seed 1320190751: Menubar, Dropdown Menu, Popover, Table and both menu styleguide suites. Coverage includes controlled/default-open coordination, borrowed controllers, iOS touch bounds, pointer/keyboard switching, checked/radio/disabled states, nested Escape, typeahead, focus restoration, live palettes, large text and RTL.",
+        "64 combined randomized tests pass on integrated review source e3104c9ae1547b90629f85d6e7a7bb97c863f6c7 with seed 1320190751: Menubar, Dropdown Menu, Popover, Table and both menu styleguide suites. Coverage includes controlled/default-open coordination, borrowed controllers, iOS touch bounds, pointer/keyboard switching, checked/radio/disabled states, nested Escape, typeahead, focus restoration, live palettes, large text and RTL.",
         "Nested-Navigator regressions reproduce both native focus failures before the correction: popup focus moved an enclosing page by 86px and an opened RTL Profiles trigger to x=-275. Popup-local scrolling plus a single menu-owned autofocus path fix both; logical trigger reveal is checked before and after opening/wrapping at 200% text in LTR and RTL.",
         "RTL submenu regression confirms one directional Material chevron glyph, avoiding the native-observed double mirror. Native Context Menu review independently reproduced the same inherited arrow defect.",
         "flutter pub get --enforce-lockfile previously passed at root and profiles/full with unchanged Flutter 3.47.2 and lockfiles. Current root and full-profile flutter analyze --no-pub pass; formatting and git diff --check are clean.",
         "Official light rendered reference and earlier exact-source native fixtures were inspected for compact geometry, File/Edit/View/Profiles switching, checkbox/radio retention, nested Share/Escape, typeahead Print, Home/End, light/dark/Plum, 360px/200%, reduced motion, Arabic RTL and dark destructive icons. The 67aa23ab fixture exposed the remaining RTL clipping and mirrored arrow; final corrected native inspection and official dark comparison remain required.",
-        "Source 430b46a0690a23613ca795b3a95a6f64da9b590e builds the real debug macOS styleguide. Fixture /private/tmp/discourse-menubar-review-430b.2BbJSL/Discourse Menubar Review 430b.app; bundle org.discourse.menubarreview.430b; kernel SHA-256 ba40288f9634cf77a0a19a2caeff110ea22a327362bbb7462821ac31ec0a09c8. Deep strict ad-hoc verification passes, only sandbox/allow-jit/get-task-allow main entitlements, and 0 of 7 signed executables contain application/team/APS identifiers. Repository runner signing/provisioning is unchanged."
+        "Source e3104c9ae1547b90629f85d6e7a7bb97c863f6c7 builds the real debug macOS styleguide with the exact combined Dropdown source from prepared follow-up 7110ef80. Fixture /private/tmp/discourse-menubar-review-e310.IoqW0P/Discourse Menubar Review e310.app; bundle org.discourse.menubarreview.e310; kernel SHA-256 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318. Deep strict ad-hoc verification passes, only sandbox/allow-jit/get-task-allow main entitlements, and 0 of 7 signed executables contain application/team/APS identifiers. Repository runner signing/provisioning is unchanged.",
+        "Affected-consumer validation: Context Menu dfd02ea4 in a disposable checkout fails the two new regressions on its old parent (62px host scroll and double-mirrored RTL glyph). All 11 Context Menu tests pass with seed 826145 on combined Dropdown blob b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6, preserving Avatar live-registration order; the temporary checkout was removed."
       ],
       "limitations": [
-        "Corrected source 430b46a0 is queued for focused native confirmation of enlarged RTL anchor reveal and submenu direction, plus remaining official dark comparison. iOS/Linux device behavior and spoken VoiceOver remain unverified."
+        "Combined source e3104c9a is queued for focused native confirmation of enlarged RTL anchor reveal and submenu direction, plus remaining official dark comparison. Final merge also awaits the Dropdown owner's accepted-main checkpoint for the prepared shared follow-up. iOS/Linux device behavior and spoken VoiceOver remain unverified."
       ],
       "implementationCommit": "3aef780c8aa4ad042d464c1c6cdf9c419e996c58",
       "mergeCommit": null,
@@ -3155,16 +3156,23 @@
           "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
           "evidence": "Reviewer reports exact candidate has 47 focused Dropdown/Popover/Table/styleguide tests passing with seed 826145 and clean root/full analysis. Public Menu, Trigger, Content, Item, Checkbox, Radio, Label, Separator, Shortcut and Sub APIs are stable at this pin; official browser/native acceptance is still pending.",
           "mergeGate": "Cleared: Dropdown Menu is accepted on local main and reconciled into the latest-main Menubar candidate.",
-          "acceptedMergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
+          "acceptedMergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787",
+          "followup": {
+            "commit": "7110ef80",
+            "branch": "codex/review-dropdown-menu-followup",
+            "integratedReviewCommit": "e3104c9ae1547b90629f85d6e7a7bb97c863f6c7",
+            "status": "awaiting_native_and_parent_main_acceptance",
+            "scope": "Preserve Avatar live-registration order plus reviewed popup-local focus and single RTL glyph mirroring. The Dropdown owner will publish the accepted main pin after native evidence; Menubar final merge waits for that checkpoint."
+          }
         }
       ],
       "reviewBlocker": {
         "status": "awaiting_desktop_slot",
         "reportedByTask": "01a08628-7042-7173-a37d-7f1f04eade66",
-        "observation": "The 67aa23ab native pass found inherited popup focus scrolling in embedded Navigators and a double-mirrored RTL submenu arrow. Both have fail-before/pass-after regressions in source 430b46a0; the exact rebuilt fixture is queued for focused confirmation.",
-        "requiredAction": "Acquire the FIFO desktop lease, confirm open-menu trigger visibility at 360px/200% in LTR/RTL plus the Arabic submenu arrow and keyboard direction, finish the official dark comparison, then accept and merge from latest main.",
-        "preparedReviewCommit": "430b46a0690a23613ca795b3a95a6f64da9b590e",
-        "preparedBundle": "/private/tmp/discourse-menubar-review-430b.2BbJSL/Discourse Menubar Review 430b.app"
+        "observation": "Inherited RTL clipping and arrow defects have fail-before/pass-after regressions. The current exact fixture integrates the Dropdown owner's prepared combined follow-up, including Avatar live-registration order; 64 combined tests and 11 Context consumer tests pass.",
+        "requiredAction": "Acquire FIFO desktop, verify the combined exact fixture at 360px/200% in LTR/RTL plus Arabic submenu arrow/navigation and official dark comparison; send native evidence to Dropdown and Context owners, wait for the parent's accepted-main pin, then accept and merge from latest main.",
+        "preparedReviewCommit": "e3104c9ae1547b90629f85d6e7a7bb97c863f6c7",
+        "preparedBundle": "/private/tmp/discourse-menubar-review-e310.IoqW0P/Discourse Menubar Review e310.app"
       }
     },
     {

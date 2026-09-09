@@ -113,8 +113,14 @@ persistent File/Edit/View-style in-app strip should adopt `DMenubar` directly.
   glyph in RTL mirrored twice. The shared Dropdown Menu now uses the directional
   right glyph once, matching the submenu's actual RTL opening direction.
 
-Source `430b46a0690a23613ca795b3a95a6f64da9b590e` passes 63 combined randomized
+Source `e3104c9ae1547b90629f85d6e7a7bb97c863f6c7` passes 64 combined randomized
 Menubar/Dropdown Menu/Popover/Table component and styleguide tests (seed
 1320190751), root/full-profile analysis, and the debug macOS styleguide build.
+It incorporates the Dropdown owner's prepared `7110ef80` follow-up, including
+Avatar's live-registration-order correction. In a disposable checkout of Context
+Menu `dfd02ea4`, both consumer regressions fail on the previous parent (62px host
+scroll and mirrored RTL glyph); all 11 Context Menu tests pass with seed 826145
+on the combined Dropdown blob `b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6`.
+The disposable checkout was removed; its source and tests remain in Git.
 The exact-source isolated bundle and signature/kernel identity are recorded in
 `evidence/menubar/build-identity.json`; focused native confirmation is pending.

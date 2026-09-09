@@ -1,14 +1,14 @@
 {
   "component": "menubar",
-  "sourceCommit": "430b46a0690a23613ca795b3a95a6f64da9b590e",
-  "branch": "codex/review-menubar-final",
+  "sourceCommit": "e3104c9ae1547b90629f85d6e7a7bb97c863f6c7",
+  "branch": "codex/review-menubar-current",
   "flutter": "3.47.2",
   "target": "lib/styleguide_main.dart",
   "buildCommand": "flutter build macos --debug -t lib/styleguide_main.dart --no-pub",
   "buildResult": "passed",
-  "fixturePath": "/private/tmp/discourse-menubar-review-430b.2BbJSL/Discourse Menubar Review 430b.app",
-  "bundleIdentifier": "org.discourse.menubarreview.430b",
-  "kernelSha256": "ba40288f9634cf77a0a19a2caeff110ea22a327362bbb7462821ac31ec0a09c8",
+  "fixturePath": "/private/tmp/discourse-menubar-review-e310.IoqW0P/Discourse Menubar Review e310.app",
+  "bundleIdentifier": "org.discourse.menubarreview.e310",
+  "kernelSha256": "71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318",
   "signature": {
     "kind": "ad-hoc",
     "deepStrictVerification": "passed",
@@ -28,8 +28,16 @@
   "sourceScope": "The fixture mounts the production styleguide and registered real DMenubar examples from the exact source commit. The copied bundle only changes its Info.plist identity and ad-hoc signature; repository runner identities and entitlements are unchanged.",
   "inspection": {
     "launched": false,
-    "officialBrowserCompared": "light completed; dark still required",
+    "officialBrowserCompared": false,
     "nativeMacosInspected": false,
-    "note": "Earlier exact-source native passes inspected command/checkbox/radio/submenu/typeahead/Escape/Home/End behavior, dark/light/Plum, 360px/200% text, reduced motion, Arabic RTL and dark destructive icons. The 67aa23ab pass exposed remaining RTL anchor clipping and double-mirrored submenu chevrons. Source 430b46a0 fixes both; nested-Navigator regressions fail before and pass after. This rebuilt fixture is queued for focused native confirmation; it is not yet accepted."
+    "note": "Earlier exact-source native passes inspected command/checkbox/radio/submenu/typeahead/Escape/Home/End behavior, dark/light/Plum, 360px/200% text, reduced motion, Arabic RTL and dark destructive icons. The 67aa23ab pass exposed remaining RTL anchor clipping and double-mirrored submenu chevrons. Correction 430b46a0 fixes both; current source e3104c9a additionally integrates the prepared Dropdown owner's 7110ef80 follow-up, preserving Avatar live-registration order. 64 combined tests and 11 affected Context Menu tests pass. This exact rebuilt fixture awaits focused native confirmation and the remaining official dark comparison; it is not yet accepted.",
+    "officialBrowserStates": [
+      "light"
+    ]
+  },
+  "sharedDropdownSource": {
+    "commit": "7110ef80",
+    "blob": "b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6",
+    "includes": "Popup-local focus, single menu-owned autofocus, single RTL glyph mirroring, and Avatar live-registration order."
   }
 }
