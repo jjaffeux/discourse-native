@@ -844,6 +844,11 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       _setOptionFocusability(_isOpen);
       if (_isOpen) _focusInitial();
     }
+    if (!_isOpen &&
+        _lastTypeaheadMatch != null &&
+        _selectedIndex != _lastTypeaheadMatch) {
+      _resetTypeahead();
+    }
   }
 
   void _scrollChanged() {
@@ -946,6 +951,11 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       _openWith(trigger, last: true);
       return KeyEventResult.handled;
     }
+    if (!widget.readOnly &&
+        !widget.multiple &&
+        _handleTypeahead(event, current: _selectedIndex, commit: true)) {
+      return KeyEventResult.handled;
+    }
     if (event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.space) {
       _openedWithTouch = false;
@@ -992,50 +1002,78 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       );
       return KeyEventResult.handled;
     }
+    if (_handleTypeahead(event, current: current, commit: false)) {
+      return KeyEventResult.handled;
+    }
     if ((event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.space) &&
         current >= 0) {
       _choose(_items[current], DSelectChangeReason.keyboard);
       return KeyEventResult.handled;
     }
-    final keyboard = HardwareKeyboard.instance;
-    final character = event.character;
-    if (character != null &&
-        character.trim().isNotEmpty &&
-        character.length == 1 &&
-        !keyboard.isControlPressed &&
-        !keyboard.isMetaPressed &&
-        !keyboard.isAltPressed) {
-      _typeaheadTimer?.cancel();
-      final letter = character.toLowerCase();
-      final recent =
-          _lastTypedAt != null &&
-          event.timeStamp - _lastTypedAt! < const Duration(milliseconds: 700);
-      final repeated =
-          recent &&
-          _typeahead.isNotEmpty &&
-          _typeahead.runes.every((rune) => String.fromCharCode(rune) == letter);
-      _typeahead = recent && !repeated ? '$_typeahead$letter' : letter;
-      _lastTypedAt = event.timeStamp;
-      _typeaheadTimer = Timer(const Duration(milliseconds: 700), () {
-        _typeahead = '';
-      });
-      final items = _items;
-      final start = recent && !repeated
-          ? (_lastTypeaheadMatch ?? current)
-          : ((recent ? (_lastTypeaheadMatch ?? current) : current) + 1);
-      for (var step = 0; step < items.length; step++) {
-        final index = (math.max(0, start) + step) % items.length;
-        if (items[index].enabled &&
-            items[index].textValue.toLowerCase().startsWith(_typeahead)) {
-          _lastTypeaheadMatch = index;
-          _focusIndex(index);
-          break;
-        }
-      }
-      return KeyEventResult.handled;
-    }
     return KeyEventResult.ignored;
+  }
+
+  bool _handleTypeahead(
+    KeyEvent event, {
+    required int current,
+    required bool commit,
+  }) {
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isControlPressed ||
+        keyboard.isMetaPressed ||
+        keyboard.isAltPressed) {
+      return false;
+    }
+    final recent =
+        _lastTypedAt != null &&
+        event.timeStamp - _lastTypedAt! < const Duration(milliseconds: 700);
+    final character = event.logicalKey == LogicalKeyboardKey.space
+        ? ' '
+        : event.character;
+    if (character == null ||
+        character.length != 1 ||
+        (character.trim().isEmpty && (!recent || _typeahead.isEmpty))) {
+      return false;
+    }
+
+    _typeaheadTimer?.cancel();
+    final letter = character.toLowerCase();
+    final repeated =
+        letter.trim().isNotEmpty &&
+        recent &&
+        _typeahead.isNotEmpty &&
+        _typeahead.runes.every((rune) => String.fromCharCode(rune) == letter);
+    _typeahead = recent && !repeated ? '$_typeahead$letter' : letter;
+    _lastTypedAt = event.timeStamp;
+    _typeaheadTimer = Timer(const Duration(milliseconds: 700), () {
+      _typeahead = '';
+    });
+    final items = _items;
+    final start = recent && !repeated
+        ? (_lastTypeaheadMatch ?? current)
+        : ((recent ? (_lastTypeaheadMatch ?? current) : current) + 1);
+    for (var step = 0; step < items.length; step++) {
+      final index = (math.max(0, start) + step) % items.length;
+      if (items[index].enabled &&
+          items[index].textValue.toLowerCase().startsWith(_typeahead)) {
+        _lastTypeaheadMatch = index;
+        if (commit) {
+          widget.onItemChanged(items[index], DSelectChangeReason.keyboard);
+        } else {
+          _focusIndex(index);
+        }
+        break;
+      }
+    }
+    return true;
+  }
+
+  void _resetTypeahead() {
+    _typeaheadTimer?.cancel();
+    _typeahead = '';
+    _lastTypedAt = null;
+    _lastTypeaheadMatch = null;
   }
 
   void _choose(DSelectItem<T> item, DSelectChangeReason reason) {
@@ -1051,10 +1089,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       _focus.requestFocus();
     }
     if (!open) {
-      _typeaheadTimer?.cancel();
-      _typeahead = '';
-      _lastTypedAt = null;
-      _lastTypeaheadMatch = null;
+      _resetTypeahead();
     }
     widget.onOpenChange?.call(open, reason);
     if (open) _focusInitial();
@@ -1409,28 +1444,16 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       onTap: widget.enabled ? trigger.toggle : null,
       child: ExcludeSemantics(child: visual),
     );
-    action = FocusableActionDetector(
+    action = Focus(
       focusNode: trigger.focusNode,
       autofocus: widget.autofocus,
-      enabled: widget.enabled,
-      onShowFocusHighlight: (value) => setState(() => _triggerFocused = value),
-      onShowHoverHighlight: (value) => setState(() => _triggerHovered = value),
-      shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-      },
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            _openedWithTouch = false;
-            trigger.toggle(DPopoverInteraction.keyboard);
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        canRequestFocus: false,
-        onKeyEvent: (_, event) => _triggerKey(trigger, event),
+      canRequestFocus: widget.enabled,
+      skipTraversal: !widget.enabled,
+      onFocusChange: (value) => setState(() => _triggerFocused = value),
+      onKeyEvent: (_, event) => _triggerKey(trigger, event),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _triggerHovered = true),
+        onExit: (_) => setState(() => _triggerHovered = false),
         child: Listener(
           onPointerDown: (event) {
             _openedWithTouch = event.kind == PointerDeviceKind.touch;
@@ -1478,6 +1501,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         Widget select = DPopover(
           open: _isOpen,
           controller: _popover,
+          focusContentOnOpen: false,
           onOpenChange: _openChanged,
           onOpenChangeComplete: widget.onOpenChangeComplete,
           content: _popup(math.max(144, popupWidth).toDouble()),
