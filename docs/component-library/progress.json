@@ -2066,7 +2066,7 @@
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "26c0970a1c4580b8f719b33b907d3966f2f02273",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -2160,7 +2160,7 @@
       "implementationCommit": null,
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d486/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement the complete current Base UI Drawer API and Custom Sizes, Styling, Position, Swipe Handle, Nested, Non Modal, Snap Points and Responsive examples. Inspect the actual current reference rather than assuming old Vaul behavior. Provide genuine drag/swipe/snap/interruption physics, scroll-versus-drag coordination, axis/logical positioning, nested gesture ownership and nonmodal behavior, with typed controlled/local/controller lifecycle and correct outside/Escape/back/focus accessibility. Build on accepted Dialog/shared overlay lifecycle where appropriate; don't duplicate a route manager. Preserve safe-area/keyboard insets and reduced motion. Coordinate shared source/app-adoption boundaries with the separately queued Sheet owner. Audit existing real core/plugin bottom sheets/drawers and migrate suitable interactive surfaces without changing business callbacks/permissions or swallowing scroll gestures. Meaningful snap/gesture/lifecycle/focus/production regression coverage is required.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/drawer",
@@ -3033,9 +3033,9 @@
           "status": "in_progress",
           "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
           "branch": "codex/ui-calendar",
-          "reviewTaskId": null,
-          "reviewBranch": null,
-          "implementationCommit": null,
+          "reviewTaskId": "01a08627-8995-7b43-9c06-8a219d472681",
+          "reviewBranch": "codex/review-message",
+          "implementationCommit": "1fd4d49aff7fe0b19cb7b6874e5e8610931531c4",
           "mergeCommit": null
         },
         {
@@ -3058,7 +3058,15 @@
           "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
           "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
         }
-      ]
+      ],
+      "browserInspectionStatus": "not_started",
+      "nativeInspectionStatus": "not_started",
+      "clientThreadId": "client-new-thread:20e7a5ee-6751-4dec-92ec-b735416377f0",
+      "reviewTaskId": "01a08639-b066-7882-85f5-a7729bfd111b",
+      "reviewBranch": "codex/review-message-scroller",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/a0b4/discourse-native",
+      "reviewHandoffCommit": "bf5657025ea15c9e19b057c33c7592fedadeb302",
+      "reviewStatus": "in_progress"
     },
     {
       "id": "carousel",
