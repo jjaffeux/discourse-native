@@ -1407,7 +1407,7 @@
     },
     {
       "id": "empty",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
       "branch": "codex/ui-empty",
       "dependencies": [
@@ -1460,8 +1460,8 @@
         "No iOS/Linux device, VoiceOver speech or pixel-parity claim. Other migrated owners beyond the inspected no-sites/categories/groups/Chat fixtures retain downstream widget coverage rather than native screen inspection."
       ],
       "implementationCommit": "8bdc0386d7434dc5c440c1e8132b4b95edca7d13",
-      "mergeCommit": null,
-      "reviewStatus": "accepted",
+      "mergeCommit": "fb790fcd2356a9acc7cd488ca587eaafb4d91ccb",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-ae1d-7d61-a060-dd8cce1380fc",
       "reviewBranch": "codex/review-empty"
     },
@@ -2808,7 +2808,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T10:03:54.746431+00:00",
+    "updatedAt": "2026-09-09T10:26:30+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -2927,15 +2927,6 @@
           "status": "independent_review",
           "headCommit": "38002135f93007ea04bc19873bd8bdf2e379f346",
           "implementationTaskId": "01a08454-55a6-7681-8da9-bec8b23899a4"
-        },
-        {
-          "component": "empty",
-          "taskId": "01a08558-ae1d-7d61-a060-dd8cce1380fc",
-          "branch": "codex/review-empty",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ffcf/discourse-native",
-          "headCommit": "9d4ebc9eabb5066721a2fe853f74f71fc16f445f",
-          "status": "independent_review",
-          "implementationTaskId": "01a0843e-76da-7911-ac98-49bd6dba8384"
         },
         {
           "component": "item",
@@ -3226,17 +3217,6 @@
           "branch": "codex/review-alert",
           "implementationTaskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
           "implementationBranch": "codex/ui-alert",
-          "status": "in_progress"
-        },
-        {
-          "component": "empty",
-          "title": "Review and merge Empty",
-          "taskId": "01a08558-ae1d-7d61-a060-dd8cce1380fc",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ffcf/discourse-native",
-          "branch": "codex/review-empty",
-          "implementationTaskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
-          "implementationBranch": "codex/ui-empty",
           "status": "in_progress"
         },
         {
