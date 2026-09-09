@@ -39,30 +39,146 @@ void main() {
             theme: ThemeData(platform: TargetPlatform.macOS),
           ),
         );
-        final rows = find.byType(RawRadio<String>);
+        final rows = title == 'Default'
+            ? find.byType(RawRadio<String>)
+            : find.byType(DField);
         expect(rows, findsNWidgets(3));
         final bounds = [
           for (final e in rows.evaluate())
             tester.getRect(find.byWidget(e.widget)),
         ];
         for (var i = 1; i < bounds.length; i++) {
-          expect(bounds[i].top - bounds[i - 1].bottom, closeTo(8, 0.001));
+          expect(
+            bounds[i].top - bounds[i - 1].bottom,
+            closeTo(8, 0.001),
+            reason: '$title row $i: $bounds',
+          );
         }
         if (title == 'Default') {
           expect(bounds.first.height, 16);
           expect(bounds.last.bottom - bounds.first.top, 64);
         } else {
-          final content = tester.getSize(
-            find
-                .descendant(of: rows.first, matching: find.byType(DLabel))
-                .first,
-          );
-          if (title == 'Fieldset') expect(bounds.first.height, content.height);
+          final content = tester.getSize(find.byType(DFieldLabel).first);
+          if (title == 'Fieldset') {
+            expect(bounds.first.height, content.height);
+          }
           if (title == 'Description') {
             expect(bounds.first.height, greaterThan(content.height));
           }
         }
       }
+    },
+  );
+  testWidgets(
+    'frozen examples use final Label and Field compositions with one radio owner',
+    (tester) async {
+      Future<void> show(String title) async {
+        final example = radioGroupExamples.examples.singleWhere(
+          (example) => example.title == title,
+        );
+        await tester.pumpWidget(
+          host(
+            Builder(builder: example.builder),
+            theme: ThemeData(platform: TargetPlatform.macOS),
+          ),
+        );
+        await tester.pump();
+        expect(find.byType(RawRadio<String>), findsNWidgets(3), reason: title);
+      }
+
+      await show('Default');
+      expect(
+        tester
+            .widgetList<DRadioGroupItem<String>>(
+              find.byType(DRadioGroupItem<String>),
+            )
+            .every((item) => item.label is DLabel),
+        true,
+      );
+
+      for (final title in [
+        'Description',
+        'Choice Card',
+        'Fieldset',
+        'Disabled',
+        'Invalid',
+        'RTL',
+      ]) {
+        await show(title);
+        expect(find.byType(DField), findsNWidgets(3), reason: title);
+        expect(find.byType(DFieldControl), findsNWidgets(3), reason: title);
+        expect(
+          tester
+              .widgetList<DRadioGroupItem<String>>(
+                find.byType(DRadioGroupItem<String>),
+              )
+              .every((item) => item.label == null && !item.card),
+          true,
+          reason: '$title keeps the radio as the sole interaction owner',
+        );
+      }
+
+      await show('Description');
+      await tester.tap(find.text('Compact'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>))
+            .groupValue,
+        'compact',
+      );
+
+      await show('Choice Card');
+      expect(
+        tester
+            .widgetList<DFieldLabel>(find.byType(DFieldLabel))
+            .where((label) => label.choice),
+        hasLength(3),
+      );
+      await tester.tap(find.text('Pro'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>))
+            .groupValue,
+        'pro',
+      );
+
+      await show('Fieldset');
+      expect(find.byType(DFieldSet), findsOneWidget);
+      expect(find.byType(DFieldLegend), findsOneWidget);
+
+      await show('Disabled');
+      await tester.tap(find.text('Disabled'), warnIfMissed: false);
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>))
+            .groupValue,
+        'comfortable',
+      );
+      await tester.tap(find.text('Option 3'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>))
+            .groupValue,
+        'compact',
+      );
+
+      await show('Invalid');
+      expect(
+        tester
+            .widgetList<DField>(find.byType(DField))
+            .every((field) => field.invalid),
+        true,
+      );
+
+      await show('RTL');
+      expect(
+        Directionality.of(tester.element(find.byType(DField).first)),
+        TextDirection.rtl,
+      );
     },
   );
   testWidgets(

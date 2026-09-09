@@ -11,7 +11,7 @@ final radioGroupExamples = ComponentExamples(
       'Label rows use 12px gaps and 14px labels; desktop rows follow intrinsic content height; touch bounds are at least 48×48. '
       'Use DRadioGroup for local initialValue or DRadioGroup.controlled for parent-owned groupValue. '
       'Both integrate with Form validator/onSaved/reset. readOnly preserves focus and blocks selection; nullable item overrides inherit it. required announces the requirement while validator owns enforcement and error text. Tab enters once, arrows wrap and skip disabled items; Space selects. '
-      'Label, description and card slots compose presentation without implementing the pending Field component. '
+      'The frozen Default example composes DLabel; Description, Choice Card, Fieldset, Disabled, Invalid and RTL compose the accepted DField family while each DRadioGroupItem remains the sole radio, focus and selection owner. '
       'All samples use local state. The preview toolbar changes live theme, direction, scaling and motion.',
   examples: [
     StyleguideExample(
@@ -96,39 +96,133 @@ final radioGroupExamples = ComponentExamples(
 );
 
 String _code(String mode) {
-  final sample = _Reference(mode: mode);
-  final labels = sample.labels;
-  final descriptions = sample.descriptions;
-  final rows = <String>[];
-  for (var i = 0; i < 3; i++) {
-    if (i != 0) rows.add('    SizedBox(height: 8),');
-    rows.add("    DRadioGroupItem<String>(value: '${sample.values[i]}',");
-    if (mode == 'Disabled' && i == 0) rows.add('      enabled: false,');
-    if (['Disabled', 'Invalid', 'Fieldset'].contains(mode)) {
-      rows.add('      contentGap: 8, labelStyle: TextStyle(height: 1.375),');
-    }
-    rows.add("      label: Text('${labels[i].replaceAll(r'$', r'\$')}'),");
-    if (sample.hasDescriptions) {
-      rows.add("      description: Text('${descriptions[i]}'),");
-    }
-    if (mode == 'Choice Card') rows.add('      card: true,');
-    rows.add('    ),');
+  if (mode == 'Default') {
+    return '''DRadioGroup<String>.controlled(
+  groupValue: value,
+  onChanged: (next) => setState(() => value = next!),
+  child: DFieldGroup(
+    spacing: 8,
+    children: const [
+      DRadioGroupItem(value: 'default', label: DLabel(child: Text('Default'))),
+      DRadioGroupItem(value: 'comfortable', label: DLabel(child: Text('Comfortable'))),
+      DRadioGroupItem(value: 'compact', label: DLabel(child: Text('Compact'))),
+    ],
+  ),
+)''';
   }
-  return "${mode == 'Choice Card'
-          ? 'ConstrainedBox(constraints: BoxConstraints(maxWidth: 384), child: '
-          : ['Fieldset', 'Invalid'].contains(mode)
-          ? 'ConstrainedBox(constraints: BoxConstraints(maxWidth: 320), child: '
-          : 'IntrinsicWidth(child: '}${mode == 'RTL' ? 'Directionality(textDirection: TextDirection.rtl, child: ' : ''}DRadioGroup<String>(\n"
-      "  initialValue: '${sample.initial}',\n"
-      "  invalid: ${mode == 'Invalid'},\n"
-      "${mode == 'Fieldset' ? "  label: Text('Subscription Plan'),\n  description: Text('Yearly and lifetime plans offer significant savings.'),\n" : ''}"
-      "${mode == 'Invalid' ? "  label: Text('Notification Preferences'),\n  description: Text('Choose how you want to receive notifications.'),\n" : ''}"
-      "  child: const Column(children: [\n${rows.join('\n')}\n  ]),\n)${mode == 'RTL' ? ')' : ''})";
+  if (mode == 'Choice Card') {
+    return '''DRadioGroup<String>.controlled(
+  groupValue: plan,
+  onChanged: (next) => setState(() => plan = next!),
+  child: DFieldGroup(
+    spacing: 8,
+    children: plans.map((plan) => DFieldLabel.choice(
+      selected: value == plan.value,
+      focusNode: focus(plan.value),
+      onPressed: () => setState(() => value = plan.value),
+      child: DField(
+        orientation: DFieldOrientation.horizontal,
+        children: [
+          DFieldContent(children: [
+            DFieldTitle(excludeSemantics: true, child: Text(plan.title)),
+            DFieldDescription(child: Text(plan.description)),
+          ]),
+          DFieldControl(
+            label: plan.title,
+            description: plan.description,
+            expand: false,
+            alignIndicatorToContent: true,
+            child: DRadioGroupItem(
+              value: plan.value,
+              semanticLabel: '',
+              focusNode: focus(plan.value),
+            ),
+          ),
+        ],
+      ),
+    )).toList(),
+  ),
+)''';
+  }
+  final fieldsetHeader = switch (mode) {
+    'Fieldset' => '''
+  const DFieldLegend(
+    variant: DFieldLegendVariant.label,
+    child: Text('Subscription Plan'),
+  ),
+  const DFieldDescription(
+    child: Text('Yearly and lifetime plans offer significant savings.'),
+  ),''',
+    'Invalid' => '''
+  const DFieldLegend(
+    variant: DFieldLegendVariant.label,
+    child: Text('Notification Preferences'),
+  ),
+  const DFieldDescription(
+    child: Text('Choose how you want to receive notifications.'),
+  ),''',
+    _ => '',
+  };
+  return '''${mode == 'RTL' ? 'Directionality(textDirection: TextDirection.rtl, child: ' : ''}${['Fieldset', 'Invalid'].contains(mode) ? 'DFieldSet(children: [' : ''}
+$fieldsetHeader
+DRadioGroup<String>.controlled(
+  groupValue: value,
+  invalid: ${mode == 'Invalid'},
+  onChanged: (next) => setState(() => value = next!),
+  child: DFieldGroup(
+    spacing: 8,
+    children: options.map((option) => DField(
+      orientation: DFieldOrientation.horizontal,
+      invalid: ${mode == 'Invalid'},
+      enabled: option.enabled,
+      children: [
+        DFieldControl(
+          label: option.label,
+          description: option.description,
+          expand: false,
+          alignIndicatorToContent: option.description != null,
+          child: DRadioGroupItem(
+            value: option.value,
+            semanticLabel: '',
+            enabled: option.enabled,
+            focusNode: focus(option.value),
+          ),
+        ),
+        ${['Description', 'RTL'].contains(mode) ? '''DFieldContent(children: [
+          DFieldLabel(
+            excludeSemantics: true,
+            focusNode: focus(option.value),
+            onPressed: () => select(option),
+            child: Text(option.label),
+          ),
+          DFieldDescription(child: Text(option.description!)),
+        ]),''' : '''DFieldLabel(
+          excludeSemantics: true,
+          enabled: option.enabled,
+          focusNode: focus(option.value),
+          onPressed: option.enabled ? () => select(option) : null,
+          style: const TextStyle(fontWeight: FontWeight.w400),
+          child: Text(option.label),
+        ),'''}
+      ],
+    )).toList(),
+  ),
+)
+${['Fieldset', 'Invalid'].contains(mode) ? '])' : ''}${mode == 'RTL' ? ')' : ''}''';
 }
 
-class _Reference extends StatelessWidget {
+class _Reference extends StatefulWidget {
   const _Reference({required this.mode});
   final String mode;
+
+  @override
+  State<_Reference> createState() => _ReferenceState();
+}
+
+class _ReferenceState extends State<_Reference> {
+  final _focusNodes = <String, FocusNode>{};
+
+  String get mode => widget.mode;
   List<String> get labels => (mode == 'Choice Card')
       ? ['Plus', 'Pro', 'Enterprise']
       : (mode == 'RTL')
@@ -171,6 +265,147 @@ class _Reference extends StatelessWidget {
       : 'default';
   bool get hasDescriptions =>
       mode == 'Choice Card' || mode == 'RTL' || mode == 'Description';
+
+  late String _value = initial;
+
+  @override
+  void didUpdateWidget(covariant _Reference oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mode != widget.mode) _value = initial;
+  }
+
+  FocusNode _focus(String value) =>
+      _focusNodes.putIfAbsent(value, FocusNode.new);
+
+  @override
+  void dispose() {
+    for (final node in _focusNodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  void _select(String value, {bool enabled = true}) {
+    if (enabled) setState(() => _value = value);
+  }
+
+  Widget _item({
+    required int index,
+    bool description = false,
+    bool invalid = false,
+    bool enabled = true,
+  }) {
+    final value = values[index];
+    final label = labels[index];
+    final help = description ? descriptions[index] : null;
+    return DField(
+      orientation: DFieldOrientation.horizontal,
+      invalid: invalid,
+      enabled: enabled,
+      children: [
+        DFieldControl(
+          label: label,
+          description: help,
+          expand: false,
+          alignIndicatorToContent: description,
+          child: DRadioGroupItem<String>(
+            value: value,
+            semanticLabel: '',
+            enabled: enabled,
+            focusNode: _focus(value),
+          ),
+        ),
+        if (description)
+          DFieldContent(
+            children: [
+              DFieldLabel(
+                excludeSemantics: true,
+                focusNode: _focus(value),
+                onPressed: () => _select(value, enabled: enabled),
+                child: Text(label),
+              ),
+              DFieldDescription(child: Text(help!)),
+            ],
+          )
+        else
+          DFieldLabel(
+            excludeSemantics: true,
+            enabled: enabled,
+            focusNode: _focus(value),
+            onPressed: enabled ? () => _select(value) : null,
+            style: const TextStyle(fontWeight: FontWeight.w400),
+            child: Text(label),
+          ),
+      ],
+    );
+  }
+
+  Widget _items({
+    bool description = false,
+    bool invalid = false,
+    bool firstDisabled = false,
+  }) => _spaced([
+    for (var i = 0; i < 3; i++)
+      _item(
+        index: i,
+        description: description,
+        invalid: invalid,
+        enabled: !firstDisabled || i != 0,
+      ),
+  ]);
+
+  Widget _spaced(List<Widget> children) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (var i = 0; i < children.length; i++) ...[
+        if (i > 0) const SizedBox(height: 8),
+        children[i],
+      ],
+    ],
+  );
+
+  Widget _group(Widget child, {bool invalid = false}) =>
+      DRadioGroup<String>.controlled(
+        groupValue: _value,
+        invalid: invalid,
+        onChanged: (next) => setState(() => _value = next!),
+        child: child,
+      );
+
+  Widget _choiceCards() => _group(
+    _spaced([
+      for (var i = 0; i < 3; i++)
+        DFieldLabel.choice(
+          selected: _value == values[i],
+          focusNode: _focus(values[i]),
+          onPressed: () => _select(values[i]),
+          child: DField(
+            orientation: DFieldOrientation.horizontal,
+            children: [
+              DFieldContent(
+                children: [
+                  DFieldTitle(excludeSemantics: true, child: Text(labels[i])),
+                  DFieldDescription(child: Text(descriptions[i])),
+                ],
+              ),
+              DFieldControl(
+                label: labels[i],
+                description: descriptions[i],
+                expand: false,
+                alignIndicatorToContent: true,
+                child: DRadioGroupItem<String>(
+                  value: values[i],
+                  semanticLabel: '',
+                  focusNode: _focus(values[i]),
+                ),
+              ),
+            ],
+          ),
+        ),
+    ]),
+  );
+
   @override
   Widget build(BuildContext context) {
     final cards = mode == 'Choice Card';
@@ -179,56 +414,64 @@ class _Reference extends StatelessWidget {
     final invalid = mode == 'Invalid';
     final example = Directionality(
       textDirection: rtl ? TextDirection.rtl : Directionality.of(context),
-      child: DRadioGroup<String>(
-        initialValue: initial,
-
-        invalid: invalid,
-
-        label: fieldset
-            ? const Text('Subscription Plan', style: TextStyle(height: 20 / 14))
-            : invalid
-            ? const Text(
-                'Notification Preferences',
-                style: TextStyle(height: 20 / 14),
-              )
-            : null,
-        description: fieldset
-            ? const Text('Yearly and lifetime plans offer significant savings.')
-            : invalid
-            ? const Text('Choose how you want to receive notifications.')
-            : null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < 3; i++) ...[
-              if (i != 0) const SizedBox(height: 8),
+      child: switch (mode) {
+        'Default' => _group(
+          _spaced([
+            for (var i = 0; i < 3; i++)
               DRadioGroupItem<String>(
                 value: values[i],
-                enabled: mode != 'Disabled' || i != 0,
-                contentGap: ['Disabled', 'Invalid', 'Fieldset'].contains(mode)
-                    ? 8
-                    : null,
-                labelStyle: ['Disabled', 'Invalid', 'Fieldset'].contains(mode)
-                    ? const TextStyle(height: 1.375)
-                    : null,
-                label: Text(labels[i]),
-                description: cards || rtl || mode == 'Description'
-                    ? Text(descriptions[i])
-                    : null,
-                card: cards,
+                focusNode: _focus(values[i]),
+                label: DLabel(child: Text(labels[i])),
               ),
-            ],
+          ]),
+        ),
+        'Description' || 'RTL' => _group(_items(description: true)),
+        'Choice Card' => _choiceCards(),
+        'Fieldset' => DFieldSet(
+          spacing: 12,
+          children: [
+            const DFieldLegend(
+              variant: DFieldLegendVariant.label,
+              child: Text('Subscription Plan'),
+            ),
+            const DFieldDescription(
+              child: Text(
+                'Yearly and lifetime plans offer significant savings.',
+              ),
+            ),
+            _group(_items()),
           ],
         ),
-      ),
+        'Disabled' => _group(_items(firstDisabled: true)),
+        'Invalid' => DFieldSet(
+          spacing: 12,
+          children: [
+            const DFieldLegend(
+              variant: DFieldLegendVariant.label,
+              child: Text('Notification Preferences'),
+            ),
+            const DFieldDescription(
+              child: Text('Choose how you want to receive notifications.'),
+            ),
+            _group(_items(invalid: true), invalid: true),
+          ],
+        ),
+        _ => const SizedBox.shrink(),
+      },
     );
     return Align(
-      child: cards || fieldset || invalid
-          ? ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: cards ? 384 : 320),
+      child: mode == 'Default'
+          ? IntrinsicWidth(child: example)
+          : SizedBox(
+              width: cards
+                  ? 384
+                  : fieldset || invalid
+                  ? 320
+                  : rtl || mode == 'Description'
+                  ? 280
+                  : 160,
               child: example,
-            )
-          : IntrinsicWidth(child: example),
+            ),
     );
   }
 }
