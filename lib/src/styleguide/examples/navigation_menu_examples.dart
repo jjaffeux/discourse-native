@@ -319,43 +319,59 @@ class _ControlledMenuState extends State<_ControlledMenu> {
   );
 }
 
-class _RtlMenu extends StatelessWidget {
+class _RtlMenu extends StatefulWidget {
   const _RtlMenu();
 
   @override
-  Widget build(BuildContext context) => const Directionality(
-    textDirection: TextDirection.rtl,
-    child: DNavigationMenu<String>(
-      viewport: false,
-      semanticLabel: 'التنقل الرئيسي',
-      child: DNavigationMenuList<String>(
-        children: [
-          DNavigationMenuItem<String>(
-            value: 'start',
-            trigger: DNavigationMenuTrigger(child: Text('البدء')),
-            content: DNavigationMenuContent(
-              width: 260,
-              child: DNavigationMenuLink(
-                onPressed: _noop,
-                child: Text('مقدمة المكونات'),
-              ),
-            ),
-          ),
-          DNavigationMenuItem<String>(
-            value: 'parts',
-            trigger: DNavigationMenuTrigger(child: Text('المكونات')),
-            content: DNavigationMenuContent(
-              width: 260,
-              child: DNavigationMenuLink(
-                onPressed: _noop,
-                child: Text('قائمة المكونات'),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+  State<_RtlMenu> createState() => _RtlMenuState();
 }
 
-void _noop() {}
+class _RtlMenuState extends State<_RtlMenu> {
+  String _destination = 'None';
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Directionality(
+        textDirection: TextDirection.rtl,
+        child: DNavigationMenu<String>(
+          viewport: false,
+          semanticLabel: 'التنقل الرئيسي',
+          child: DNavigationMenuList<String>(
+            children: [
+              DNavigationMenuItem<String>(
+                value: 'start',
+                trigger: const DNavigationMenuTrigger(child: Text('البدء')),
+                content: DNavigationMenuContent(
+                  width: 260,
+                  child: DNavigationMenuLink(
+                    closeOnActivate: true,
+                    onPressed: () =>
+                        setState(() => _destination = 'Introduction'),
+                    child: const Text('مقدمة المكونات'),
+                  ),
+                ),
+              ),
+              DNavigationMenuItem<String>(
+                value: 'parts',
+                trigger: const DNavigationMenuTrigger(child: Text('المكونات')),
+                content: DNavigationMenuContent(
+                  width: 260,
+                  child: DNavigationMenuLink(
+                    closeOnActivate: true,
+                    onPressed: () =>
+                        setState(() => _destination = 'Components'),
+                    child: const Text('قائمة المكونات'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text('Destination: $_destination'),
+    ],
+  );
+}

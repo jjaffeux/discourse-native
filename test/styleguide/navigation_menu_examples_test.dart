@@ -7,6 +7,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('RTL links report their destination and dismiss', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Center(
+            child: Builder(
+              builder: navigationMenuExamples.examples.last.builder,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('البدء'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مقدمة المكونات'));
+    await tester.pumpAndSettle();
+    expect(find.text('Destination: Introduction'), findsOneWidget);
+    expect(find.text('مقدمة المكونات'), findsNothing);
+  });
+
   test('Navigation Menu registers the frozen documentation compositions', () {
     expect(componentExamples['navigation-menu'], same(navigationMenuExamples));
     expect(navigationMenuExamples.status, ComponentStatus.implemented);

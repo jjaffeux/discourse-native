@@ -736,6 +736,12 @@ class _DPopoverAnchorState extends State<DPopoverAnchor> {
   );
 
   @override
+  void deactivate() {
+    _root?._unregisterAnchor(context);
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
     _root?._unregisterAnchor(context);
     super.dispose();

@@ -8,6 +8,58 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('live orientation updates an unchanged menu child', (
+    tester,
+  ) async {
+    final axis = ValueNotifier(Axis.horizontal);
+    addTearDown(axis.dispose);
+    final menu = _menu(onRoute: (_) {}) as DNavigationMenu<String>;
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<Axis>(
+          valueListenable: axis,
+          builder: (context, orientation, child) => DNavigationMenu<String>(
+            orientation: orientation,
+            child: menu.child,
+          ),
+        ),
+      ),
+    );
+    axis.value = Axis.vertical;
+    await tester.pumpAndSettle();
+    expect(
+      tester.getCenter(find.text('Components')).dy,
+      greaterThan(tester.getCenter(find.text('Getting started')).dy + 30),
+    );
+  });
+
+  testWidgets('vertical list roves with Down and enters content with Right', (
+    tester,
+  ) async {
+    final horizontal = _menu(onRoute: (_) {}) as DNavigationMenu<String>;
+    await tester.pumpWidget(
+      _app(
+        DNavigationMenu<String>(
+          orientation: Axis.vertical,
+          child: horizontal.child,
+        ),
+      ),
+    );
+    _menuFocus(tester, 'getting').requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(_menuFocus(tester, 'components').hasFocus, isTrue);
+    expect(find.text('Alert Dialog'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(find.text('Alert Dialog'), findsOneWidget);
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'Navigation menu link',
+    );
+  });
+
   testWidgets('trigger state follows opening, switching and closing', (
     tester,
   ) async {

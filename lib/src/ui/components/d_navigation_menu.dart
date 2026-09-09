@@ -312,13 +312,17 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
 
   KeyEventResult _navigateList(T current, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-        event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-      final right = event.logicalKey == LogicalKeyboardKey.arrowRight;
-      _moveFrom(
-        current,
-        right == (Directionality.of(context) == TextDirection.ltr) ? 1 : -1,
-      );
+    final horizontal = widget.orientation == Axis.horizontal;
+    final reversed =
+        horizontal && Directionality.of(context) == TextDirection.rtl;
+    final forward = horizontal
+        ? LogicalKeyboardKey.arrowRight
+        : LogicalKeyboardKey.arrowDown;
+    final backward = horizontal
+        ? LogicalKeyboardKey.arrowLeft
+        : LogicalKeyboardKey.arrowUp;
+    if (event.logicalKey == forward || event.logicalKey == backward) {
+      _moveFrom(current, (event.logicalKey == forward) != reversed ? 1 : -1);
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.home ||
@@ -515,13 +519,15 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
 
 class _DNavigationMenuScope<T> extends InheritedWidget {
   _DNavigationMenuScope({required this.state, required super.child})
-    : value = state.value;
+    : value = state.value,
+      configuration = state.widget;
   final _DNavigationMenuState<T> state;
   final T? value;
+  final DNavigationMenu<T> configuration;
 
   @override
   bool updateShouldNotify(_DNavigationMenuScope<T> oldWidget) =>
-      value != oldWidget.value;
+      value != oldWidget.value || configuration != oldWidget.configuration;
 }
 
 class _DNavigationMenuLinkScope extends InheritedWidget {
@@ -644,11 +650,17 @@ class DNavigationMenuTrigger extends StatelessWidget {
         final navigation = root._navigateList(item.value, event);
         if (navigation == KeyEventResult.handled) return navigation;
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-            event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        final horizontal = root.widget.orientation == Axis.horizontal;
+        final firstKey = horizontal
+            ? LogicalKeyboardKey.arrowDown
+            : (Directionality.of(context) == TextDirection.ltr
+                  ? LogicalKeyboardKey.arrowRight
+                  : LogicalKeyboardKey.arrowLeft);
+        if (event.logicalKey == firstKey ||
+            (horizontal && event.logicalKey == LogicalKeyboardKey.arrowUp)) {
           root._select(item.value, DNavigationMenuChangeReason.listNavigation);
           root._focusContent(
-            last: event.logicalKey == LogicalKeyboardKey.arrowUp,
+            last: horizontal && event.logicalKey == LogicalKeyboardKey.arrowUp,
           );
           return KeyEventResult.handled;
         }
@@ -670,7 +682,8 @@ class DNavigationMenuTrigger extends StatelessWidget {
         ],
       ),
     );
-    if (!root.widget.viewport && open) {
+    if (!root.widget.viewport &&
+        (open || (root.value == null && root._lastValue == item.value))) {
       action = DPopoverAnchor(child: action);
     }
     return MouseRegion(
