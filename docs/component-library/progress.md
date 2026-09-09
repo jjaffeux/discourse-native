@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**54 of 64 components are merged locally.** 10 existing components are in progress; 0 are planned.
+**55 of 64 components are merged locally.** 9 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -25,7 +25,6 @@ Branch preparation does not mark a component merged or visually verified.
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
-| input-otp | independent review | dbb84413 | 01a086a4-4667-75c1-bcd5-318d677939ec |
 
 ## Component implementation
 
@@ -93,7 +92,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
 | 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
-| 63 | input-otp | review_ready | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | — |
+| 63 | input-otp | merged | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | 7c5d30c31961c42b8a6aa4d99ea1b144f6551af1 |
 | 64 | questionnaire | merged | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | 4217ffe98a37c61510d464f21cfef87c563e82f1 |
 
 ## Decisions and evidence
@@ -3234,7 +3233,7 @@ Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sid
 
 ### input-otp
 
-Status: review_ready. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/ui-input-otp.
+Status: merged. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/ui-input-otp.
 
 **acceptanceCriteria**
 

@@ -4254,7 +4254,7 @@
     },
     {
       "id": "input-otp",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08606-ca44-78f3-98f2-d147200278ef",
       "branch": "codex/ui-input-otp",
       "dependencies": [
@@ -4294,9 +4294,8 @@
         "Native device inspection was macOS only. iOS/Linux devices and spoken VoiceOver were not run; widget semantics and keyboard tests cover those contracts without claiming device equivalence."
       ],
       "implementationCommit": "953692fe1de87078c58a50bb73bb4200553414d4",
-      "mergeCommit": null,
+      "mergeCommit": "7c5d30c31961c42b8a6aa4d99ea1b144f6551af1",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9aa9/discourse-native",
-      "queueStage": "review_accepted",
       "implementationBrief": "Implement complete Input OTP anatomy/group/slot/separator and Pattern, Separator, Disabled, Controlled, Invalid, Four Digits, Alphanumeric, Form and RTL examples. Use an actual accessible editable text owner for native typing/selection/paste/autofill/IME; do not build independent decorative fields that break platform one-time-code autofill or backspace/selection behavior. Provide typed value/controller/initial ownership, length/pattern/paste transformation, completion/reset/validation callbacks and borrowed focus/controller lifecycle. Match shadcn slots/caret/focus/error/disabled geometry using shared tokens and preserve logical order/accessibility at text scale/RTL. Compose final Field for Form/invalid examples and coordinate its reviewer. Audit actual core/plugin authentication/code inputs without touching accounts or external auth settings; migrate suitable widgets preserving their existing submission/security/business callbacks. Test paste, selection, deletion, autofill configuration, completion, validation/reset and relevant app regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/input-otp",
@@ -4329,7 +4328,7 @@
       "reviewBranch": "codex/review-input-otp",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/d9e1/discourse-native",
       "reviewHandoffCommit": "dbb84413056f74a7481700d895731ad635fb15fb",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewedBranchHead": "6df840adfced510954cf8ecfac0020c5cdc509e7",
       "implementationHandoffVerification": {
         "focusedTests": "Source reports 15 OTP/example tests with seed 9092026, 55 OTP/Field/Input/Button/styleguide checks with seed 9092027, and 31 Card/Button checks with seed 9092028, all passing.",
@@ -4694,16 +4693,6 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "headCommit": "679db98d2492cad8ff8d38fbba907fc0b1e90f7b"
-        },
-        {
-          "component": "input-otp",
-          "taskId": "01a086a4-4667-75c1-bcd5-318d677939ec",
-          "branch": "codex/review-input-otp",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d9e1/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-ca44-78f3-98f2-d147200278ef",
-          "implementationBranch": "codex/ui-input-otp",
-          "headCommit": "dbb84413056f74a7481700d895731ad635fb15fb"
         },
         {
           "component": "alert-dialog",
@@ -5177,18 +5166,6 @@
           "implementationTaskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
           "implementationBranch": "codex/ui-data-table",
           "implementationCommit": "2fc6bd180bfbf7c46f9f73037a54ca7444518c8c",
-          "status": "in_progress"
-        },
-        {
-          "component": "input-otp",
-          "title": "Review and merge Input OTP",
-          "taskId": "01a086a4-4667-75c1-bcd5-318d677939ec",
-          "hostId": "local",
-          "branch": "codex/review-input-otp",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d9e1/discourse-native",
-          "implementationTaskId": "01a08606-ca44-78f3-98f2-d147200278ef",
-          "implementationBranch": "codex/ui-input-otp",
-          "implementationCommit": "953692fe1de87078c58a50bb73bb4200553414d4",
           "status": "in_progress"
         },
         {
