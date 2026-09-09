@@ -148,6 +148,12 @@ path bounded in the production row, exposed both labelled links in AX, and
 confirmed each callback navigates to the correct local category feed. These
 macOS checks do not establish VoiceOver speech or iOS/Linux device behavior.
 
-The final acceptance record must add the accepted Dropdown merge SHA, confirm
-that the prepared pin is contained or reconcile its changed paths, rerun the
-affected tests, and repeat the open-overlay checks before Breadcrumb merges.
+Dropdown Menu was accepted on local main at merge
+`5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787`, with progress follow-up
+`a5ad2b5883e7b16e1ef3535f8836b5a86581c2bd`. The prepared pin is an ancestor,
+and its component, example and focused-test paths are byte-equal to the
+accepted revision. After current-main reconciliation, all 48 affected
+Breadcrumb/Dropdown/styleguide tests and both topic-row regressions passed
+again with seed `826145`; root and full-profile analysis are clean. The final
+native open-overlay check uses the rebuilt accepted-source bundle recorded in
+the progress row.
