@@ -95,7 +95,7 @@ editable or horizontal controls rather than streaming transcripts.
 ## Independent review corrections
 
 The independent review exercised state transitions that were not covered by
-the implementation handoff and corrected four behavioral defects:
+the implementation handoff and corrected these behavioral defects:
 
 - End and last-anchor startup now enter the pending state before the first
   viewport paint. The maintained transcript stays hidden until the deliberate
@@ -110,6 +110,16 @@ the implementation handoff and corrected four behavioral defects:
   animation settles. Reader-position resize correction can no longer cancel a
   command after its first animation frame; later genuine reader input still
   cancels it.
+- Stable row-key bookkeeping runs in release mode as well as debug mode; it
+  no longer depends on an assertion's side effect.
+- A nearest-aligned command leaves a fully visible message in place. Deferred
+  commands resolve their stable id after prepends, and a prepend's old reader
+  hold does not override an explicit target.
+- Edge commands rebuild away a target's spacer before measuring the real
+  transcript edge. Last-anchor startup remains hidden through its deferred
+  landing and margin correction.
+- Reader intent explicitly stops an in-flight scroll activity, so a canceled
+  smooth command cannot continue moving underneath the reader.
 
 The review also locks owned-versus-borrowed controller, list-controller,
 focus-node and scroll-controller disposal behavior in a permanent regression.

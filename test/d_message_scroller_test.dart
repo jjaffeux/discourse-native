@@ -188,6 +188,126 @@ void main() {
     expect(scroll.position.pixels, scroll.position.maxScrollExtent);
   });
 
+  testWidgets('nearest leaves a fully visible message in place', (
+    tester,
+  ) async {
+    final controller = DMessageScrollerController();
+    final scroll = ScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      host(
+        scroller(
+          controller: controller,
+          scrollController: scroll,
+          initial: DMessageScrollerInitialPosition.start,
+          items: rows(List.generate(10, (index) => '$index')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    scroll.jumpTo(40);
+    await tester.pumpAndSettle();
+    final before = scroll.offset;
+
+    expect(
+      controller.scrollToMessage(
+        '1',
+        options: const DMessageScrollerScrollOptions(
+          alignment: DMessageScrollerAlignment.nearest,
+        ),
+      ),
+      isTrue,
+    );
+    await tester.pumpAndSettle();
+    expect(scroll.offset, before);
+  });
+
+  testWidgets('last-anchor startup remains pending until the target lands', (
+    tester,
+  ) async {
+    final controller = DMessageScrollerController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      host(
+        scroller(
+          controller: controller,
+          initial: DMessageScrollerInitialPosition.lastAnchor,
+          items: rows(List.generate(12, (index) => '$index'), anchors: {'7'}),
+        ),
+      ),
+    );
+    expect(controller.state.pendingInitialScroll, isTrue);
+    await tester.pumpAndSettle();
+    expect(controller.state.pendingInitialScroll, isFalse);
+    final viewportTop = tester
+        .getTopLeft(find.byType(DMessageScrollerViewport))
+        .dy;
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('7'))).dy - viewportTop,
+      closeTo(64, 1),
+    );
+  });
+
+  testWidgets('an edge command removes a previous message-target spacer', (
+    tester,
+  ) async {
+    final controller = DMessageScrollerController();
+    final scroll = ScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      host(
+        scroller(
+          controller: controller,
+          scrollController: scroll,
+          items: rows(List.generate(10, (index) => '$index')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final naturalEnd = scroll.position.maxScrollExtent;
+    controller.scrollToMessage('9');
+    await tester.pumpAndSettle();
+    expect(scroll.position.maxScrollExtent, greaterThan(naturalEnd));
+
+    controller.scrollToEnd();
+    await tester.pumpAndSettle();
+    expect(scroll.position.maxScrollExtent, closeTo(naturalEnd, 1));
+    expect(scroll.offset, closeTo(naturalEnd, 1));
+    expect(controller.state.canScrollEnd, isFalse);
+  });
+
+  testWidgets('a deferred message command keeps its stable id after prepend', (
+    tester,
+  ) async {
+    final controller = DMessageScrollerController();
+    addTearDown(controller.dispose);
+    final key = GlobalKey<_MutableTranscriptState>();
+    await tester.pumpWidget(
+      host(
+        _MutableTranscript(
+          key: key,
+          controller: controller,
+          initial: DMessageScrollerInitialPosition.start,
+          initialIds: List.generate(10, (index) => '$index'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    controller.scrollToMessage('3');
+    key.currentState!.prepend(['older-1', 'older-2'], heights: [72, 72]);
+    await tester.pumpAndSettle();
+    final viewportTop = tester
+        .getTopLeft(find.byType(DMessageScrollerViewport))
+        .dy;
+    expect(
+      tester.getTopLeft(find.text('Message 3')).dy - viewportTop,
+      closeTo(0, 1),
+    );
+  });
+
   testWidgets('borrowed controllers and focus nodes remain caller-owned', (
     tester,
   ) async {
@@ -228,6 +348,62 @@ void main() {
     list.removeListener(listener);
     expect(() => focus.addListener(listener), returnsNormally);
     focus.removeListener(listener);
+  });
+
+  testWidgets('retains a mounted child across transcript rebuilds', (
+    tester,
+  ) async {
+    late StateSetter rebuild;
+    var prepend = false;
+    await tester.pumpWidget(
+      host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return scroller(
+              initial: DMessageScrollerInitialPosition.start,
+              items: rows([if (prepend) 'older', 'retained', 'tail']),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final child = tester.element(find.text('Message retained'));
+    rebuild(() => prepend = true);
+    await tester.pumpAndSettle();
+    expect(tester.element(find.text('Message retained')), same(child));
+  });
+
+  testWidgets('reader intent stops an in-flight smooth command', (
+    tester,
+  ) async {
+    final controller = DMessageScrollerController();
+    final scroll = ScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      host(
+        scroller(
+          controller: controller,
+          scrollController: scroll,
+          initial: DMessageScrollerInitialPosition.start,
+          items: rows(List.generate(20, (index) => '$index')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    controller.scrollToEnd(behavior: DMessageScrollerScrollBehavior.smooth);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    final interruptedAt = scroll.offset;
+    expect(interruptedAt, greaterThan(0));
+    expect(interruptedAt, lessThan(scroll.position.maxScrollExtent));
+
+    controller.stopFollowing();
+    await tester.pumpAndSettle();
+    expect(scroll.offset, closeTo(interruptedAt, 1));
+    expect(controller.state.autoScrolling, isFalse);
   });
 
   testWidgets(
