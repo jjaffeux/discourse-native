@@ -18,8 +18,8 @@ enum DDropdownMenuItemVariant { standard, destructive }
 
 /// A shadcn/Base UI dropdown menu composed on the shared popover lifecycle.
 ///
-/// Supplying [open] enables controlled state. [controller] and [triggerFocusNode]
-/// are borrowed and never disposed; internally-created resources are owned by
+/// Supplying [open] enables controlled state. Borrowed controllers and trigger
+/// focus nodes are never disposed; internally-created resources are owned by
 /// this widget and its descendants.
 class DDropdownMenu extends StatelessWidget {
   const DDropdownMenu({
@@ -141,10 +141,9 @@ class DDropdownMenuContent extends StatefulWidget {
 }
 
 class _MenuRegistration {
-  _MenuRegistration(this.node, this.label, this.activate, this.enabled);
+  _MenuRegistration(this.node, this.label, this.enabled);
   final FocusNode node;
   final String label;
-  final VoidCallback activate;
   final bool enabled;
 }
 
@@ -479,7 +478,6 @@ class DDropdownMenuItem extends StatelessWidget {
     this.closeOnSelect = true,
     this.semanticLabel,
     this.focusNode,
-    this.autofocus = false,
   });
 
   final Widget child;
@@ -491,14 +489,12 @@ class DDropdownMenuItem extends StatelessWidget {
   final bool closeOnSelect;
   final String? semanticLabel;
   final FocusNode? focusNode;
-  final bool autofocus;
 
   @override
   Widget build(BuildContext context) => _DropdownMenuItemSurface(
     label: semanticLabel ?? _plainText(child),
     enabled: onPressed != null,
     focusNode: focusNode,
-    autofocus: autofocus,
     variant: variant,
     inset: inset,
     leading: leading,
@@ -767,7 +763,6 @@ class _DropdownMenuItemSurface extends StatefulWidget {
     this.expanded,
     this.onHover,
     this.onKey,
-    this.autofocus = false,
     this.preserveSubmenuOnFocus = false,
   });
 
@@ -785,7 +780,6 @@ class _DropdownMenuItemSurface extends StatefulWidget {
   final bool? expanded;
   final ValueChanged<bool>? onHover;
   final KeyEventResult Function(KeyEvent event)? onKey;
-  final bool autofocus;
   final bool preserveSubmenuOnFocus;
 
   @override
@@ -826,15 +820,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
 
   void _register() {
     _content = _DropdownMenuContentScope.of(context)
-      ..register(
-        this,
-        _MenuRegistration(
-          _focus,
-          widget.label,
-          widget.onActivate,
-          widget.enabled,
-        ),
-      );
+      ..register(this, _MenuRegistration(_focus, widget.label, widget.enabled));
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -946,7 +932,6 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
           },
           child: Focus(
             focusNode: _focus,
-            autofocus: widget.autofocus,
             canRequestFocus: widget.enabled,
             skipTraversal: !widget.enabled,
             onFocusChange: (focused) {
