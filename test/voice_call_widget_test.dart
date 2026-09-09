@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/voice/voice_call_port.dart';
 import 'package:discourse_native/src/plugins/voice/voice_call_widget.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +32,7 @@ void main() {
       expect(find.text('meta · 2 present'), findsOneWidget);
       expect(find.byTooltip('Mute'), findsOneWidget);
       expect(find.byTooltip('Leave room'), findsOneWidget);
+      expect(find.byType(DToggle), findsOneWidget);
     });
   });
 

@@ -1,0 +1,29 @@
+{
+  "sourceCommit": "6134b938b1b007d55ee56bf2a71fb16823af8663",
+  "sourceTree": "9e531629e0d3ecd075dcd32d61e25394f899825b",
+  "reviewBundle": "/private/tmp/DiscourseEmptyReview-6134b938.app",
+  "bundleId": "org.discourse.native.empty.6134b938",
+  "urlScheme": "discourse-empty-review-6134b938",
+  "sourceKernelSha256": "d670ec098b6103300b509c81e907838f7ce73b276b392d496d10066b6c6260d0",
+  "copiedKernelSha256": "d670ec098b6103300b509c81e907838f7ce73b276b392d496d10066b6c6260d0",
+  "signatureVerification": "codesign --verify --deep --strict passed; signed entitlement readback contains only the explicit seven-key local debug/JIT sandbox whitelist and no restricted developer, push, application or team identifiers.",
+  "browserInspection": [
+    "Official Base UI Empty page inspected in light and dark themes.",
+    "Compared default primary/outline/link actions, compact icon media, title and description geometry, dashed outline and muted background roles."
+  ],
+  "nativeInspection": [
+    "Corrected Basic primary action, Outline dash, Background RefreshCcw, Avatar Group Plus and Basic/RTL ArrowUpRight artwork inspected in the exact bundle.",
+    "Search empty validation, literal editing, local submission and support action completed; DInput and actions remained independent semantic controls.",
+    "Arabic RTL and 200% layouts inspected with dark and Forest palettes without overflow or clipped Empty content.",
+    "Actual no-sites, categories empty/error, groups and Chat fixtures inspected; Chat retry changed Local request failed. to No threads yet."
+  ],
+  "reviewFixes": [
+    "6fd972c3 restores captured Lucide RefreshCcw, Plus and ArrowUpRight artwork.",
+    "6134b938 restores primary variants for documented default actions and adds regression coverage."
+  ],
+  "limitations": [
+    "No iOS or Linux device run, VoiceOver speech session or pixel-diff parity claim.",
+    "Input Group reconciliation is scheduled after its Textarea prerequisite; the current DInput/Form example is functional but is not claimed as Input Group."
+  ],
+  "reviewStatus": "accepted"
+}
