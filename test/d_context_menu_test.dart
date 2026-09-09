@@ -255,9 +255,90 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
     await tester.pumpAndSettle();
 
+    final chevron = tester.widget<Icon>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Icon &&
+            (widget.icon == Icons.chevron_left ||
+                widget.icon == Icons.chevron_right),
+      ),
+    );
+    expect(chevron.icon, Icons.chevron_right);
+    expect(chevron.icon!.matchTextDirection, isTrue);
+    expect(
+      Directionality.of(tester.element(find.byWidget(chevron))),
+      TextDirection.rtl,
+    );
+
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
     expect(find.text('رجوع'), findsOneWidget);
+  });
+
+  testWidgets('context popup focus does not scroll its embedded host', (
+    tester,
+  ) async {
+    final pageScroll = ScrollController();
+    addTearDown(pageScroll.dispose);
+    await tester.pumpWidget(
+      _host(
+        SingleChildScrollView(
+          controller: pageScroll,
+          child: Column(
+            children: [
+              const SizedBox(height: 150),
+              SizedBox(
+                width: 360,
+                height: 360,
+                child: Navigator(
+                  onGenerateRoute: (_) => MaterialPageRoute<void>(
+                    builder: (_) => Center(
+                      child: DContextMenu(
+                        content: DContextMenuContent(
+                          constraints: const BoxConstraints(maxHeight: 120),
+                          children: [
+                            for (var index = 0; index < 20; index++)
+                              DContextMenuItem(
+                                onPressed: () {},
+                                child: Text('Action $index'),
+                              ),
+                          ],
+                        ),
+                        child: const DContextMenuTrigger(
+                          child: SizedBox(
+                            width: 200,
+                            height: 100,
+                            child: Center(child: Text('Context target')),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 1000),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(
+      tester.getCenter(find.text('Context target')),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+    expect(pageScroll.offset, 0);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+    expect(pageScroll.offset, 0);
+    final popup = tester.getRect(find.byType(DContextMenuContent));
+    final lastItem = tester.getRect(find.text('Action 19'));
+    expect(lastItem.top, greaterThanOrEqualTo(popup.top));
+    expect(lastItem.bottom, lessThanOrEqualTo(popup.bottom));
+    expect(Focus.of(tester.element(find.text('Action 19'))).hasFocus, isTrue);
   });
 
   testWidgets(

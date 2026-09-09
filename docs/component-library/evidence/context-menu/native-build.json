@@ -15,5 +15,24 @@
     "Root and profiles/full flutter analyze --no-pub report no issues"
   ],
   "fixture": "Production InstanceRail with three in-memory forums, visible forum-order feedback, all Context Menu examples and local theme/platform controls",
-  "nativeInspection": "Pending desktop FIFO at build time"
+  "nativeInspection": {
+    "date": "2026-09-09",
+    "reviewTaskId": "01a0861f-38ca-7122-b18f-5f286ab90ccb",
+    "surface": "Approved CUA, isolated macOS debug app and live official Context Menu reference, under the shared desktop lease",
+    "completed": [
+      "Top/right/bottom/left/inline-end secondary-pointer placement; logical inline-end flips left in RTL; all popups remain in bounds",
+      "Production InstanceRail Beta Move up changes visible order from Alpha,Beta,Gamma to Beta,Alpha,Gamma and dismisses the menu",
+      "Tab traversal then Context Menu key opens Beta Forum actions; Escape and Context Menu reopen the same forum menu",
+      "Remove Beta opens the accepted Alert Dialog with Cancel focused; Cancel preserves order; confirmed Remove produces Alpha,Gamma and dismisses dialog/menu",
+      "macOS iOS-theme-platform override exposes More Options; the actual touch sheet Move down changes order to Gamma,Alpha and dismisses",
+      "Official live Sides examples opened top/right/bottom/left for rendered placement comparison"
+    ],
+    "inheritedDefect": "RTL submenu indicator points right due to the Dropdown owner's double mirroring; shared correction 430b46a is pending native acceptance/main merge",
+    "limitations": [
+      "Shift+F10 native key synthesis did not open; widget key-chord test passes",
+      "No approved CUA long-press primitive or callable custom reader AX action was exposed; actual callbacks are widget/integration tested",
+      "Touch presentation was exercised by mouse on macOS, not a touch device; no iOS/Linux device, spoken VoiceOver or pixel-diff pass is claimed"
+    ],
+    "cleanup": "Own native app quit, own reference tab closed and desktop lease released"
+  }
 }

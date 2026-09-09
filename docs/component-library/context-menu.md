@@ -39,10 +39,9 @@ styleguide notes and public API.
 | Submenu inline-end and directional arrows | shared sibling ownership, hover/arrow opening, logical RTL direction, typeahead/roving focus and deepest Escape |
 | 100ms fade/zoom/8px slide | shared Popover animation, removed when reduced motion is requested |
 
-The Context Menu does not implement a second menu engine. The exact reviewed
-Dropdown Menu candidate source is integrated only for isolated compilation and
-tests while that owner completes acceptance. The Context Menu reviewer must
-replace/reconcile it with the accepted main revision before any final merge.
+Context Menu does not implement a second menu engine. It uses the accepted
+Dropdown Menu owner for common menu content, navigation, selection and focus.
+Shared-owner follow-ups must be accepted on main before this dependent merges.
 
 ## Acceptance criteria
 
@@ -106,59 +105,104 @@ content/navigation/selection. No shared parent API was changed. The final
 Context Menu candidate is based on the accepted parent revision without local
 changes to the Dropdown Menu source.
 
-## Review boundary
+## Independent rendered and native review
 
-Source preparation, exact-source mapping, full documented examples, forum-rail
-adoption and focused widget regressions are prepared. Official rendered browser
-comparison and isolated native macOS inspection remain with the independent
-reviewer under the shared desktop lease. Required native proof includes pointer
-placement, touch long press, keyboard/reader entry, focus restoration, nested
-direction/Escape, outside dismissal, collision, live themes, 200% text, RTL and
-the real forum-rail surface. No iOS or Linux device run, spoken VoiceOver pass
-or pixel-diff equality is claimed by this implementation task.
+Reviewer `01a0861f-38ca-7122-b18f-5f286ab90ccb` preserved the
+implementation/handoff history on `codex/review-context-menu`, then prepared
+new candidates from accepted current main without merging main into a worktree.
+The initial prepared-parent source was source-equivalent to the subsequently
+accepted Dropdown Menu implementation; its completed behavior checks remain
+valid for that unchanged source.
 
-## Independent review checkpoint
-
-On 2026-09-09, reviewer `01a0861f-38ca-7122-b18f-5f286ab90ccb`
-integrated the implementation and handoff history into
-`codex/review-context-menu` from then-current main while preserving all other
-component rows, exports and examples. The prepared Dropdown Menu file was
-confirmed source-equivalent to both `d273c27e788bb3991c773c7432e0b8c927715651`
-and the parent's newer `dd0ad309c5a7ecc7d4af2c1f566bd8c5678a3f18`
-candidate except for Dart formatter layout of one typedef.
-
-The reviewer reran 64 focused Context Menu, Dropdown Menu, Popover,
-styleguide, InstanceActions accessibility and modal lifecycle tests with seed
-`826145`; all passed. Root and `profiles/full` analysis were clean. The
-exact-source styleguide macOS build passed, and the built plus isolated signed
-bundle kernels both had SHA256
+The initial isolated styleguide bundle had kernel SHA256
 `b26f476a523afa6d28849f22b3049719ea3ba50bc9055d021e1557a02fe05342`.
+Live official reference inspection in light and dark confirmed 14/20 text,
+28px rows, 6px gaps, 4px popup padding, 8px item radius, 10px popup radius,
+1px translucent ring and medium shadow. The native app demonstrated:
 
-Live official reference inspection in light and dark confirmed the shared
-14/20 text, 28px rows, 6px gaps, 4px popup padding, 8px item radius, 10px
-popup radius, 1px translucent ring and medium shadow. The isolated macOS app
-then demonstrated actual secondary-pointer placement and selection callback,
-Context Menu key entry, first enabled focus, End plus submenu arrow navigation,
-deepest Escape, outside dismissal, checkbox/radio semantics with retained open
-state, live Forest tokens, and a collision-safe 360px/200%-text/reduced-motion
-RTL submenu.
+- Secondary-pointer placement, selection callback and dismissal.
+- Context Menu key entry, first enabled focus, disabled-item semantics,
+  End plus submenu arrow navigation, deepest Escape and outside dismissal.
+- Checkbox/radio checked semantics with retained open state, live Forest
+  tokens, and a collision-safe 360px/200%-text/reduced-motion RTL submenu.
 
-The Mac locked during the remaining Sides sweep. The desktop lease was released
-immediately and the waiting request was cancelled. Native Shift+F10 could not
-be established through the available key synthesizer, long-press/reader action
-and the real forum-rail surface remain to inspect, and the full top/right/
-bottom/left/inline-end sweep remains incomplete. No Context Menu acceptance or
-merge was claimed at that checkpoint; Dropdown Menu was still pending then.
+Two locked-Mac attempts were stopped and their leases released. After the user
+unlocked the Mac, the remaining inspection completed on 2026-09-09 using
+`tool/context_menu_review_main.dart`. This fixture mounts the production
+`InstanceRail` and real Context Menu examples with only in-memory Alpha/Beta/
+Gamma forums. It cannot change real accounts. It was rebuilt after accepted
+Alert Dialog reconciliation at source
+`0792b3eca67ce32ef3461758571a33e09202fa5f`; the built and isolated
+strictly signed bundle kernels match at SHA256
+`4fa70255585e2ff883e88025fa887859e137707a478bfa08e45b5ceb3a622b21`.
+Full build/signature provenance is in
+[native-build.json](evidence/context-menu/native-build.json).
 
-After Dropdown Menu was accepted on local main, the reviewer rebuilt Context
-Menu from that exact source in current-main candidate `7431e6386578f56801131c0574fb2d7e2e80c79d`.
-The 64-test focused matrix passed again with seed `826145`; root and
-`profiles/full` analysis were clean. The rebuilt debug macOS styleguide and its
-isolated strictly signed copy matched at kernel SHA256
-`63a6c24bdedee148bad6d808b4017644769578fa585229b4a07767ca3c9641e4`.
+- **Sides:** actual secondary-pointer invocation placed top/right/bottom/left
+  and inline-end popups on the requested side, in bounds. Inline-end changed
+  from right to left under RTL, with right-aligned content. The live official
+  Sides examples were also opened on each physical side for comparison.
+- **Forum reorder:** Beta's real rail menu selected Move up and visibly changed
+  order to Beta, Alpha, Gamma; the menu dismissed.
+- **Keyboard restoration:** Tab traversal focused Beta. The Context Menu key
+  opened its actual Forum actions; Escape followed by the same key reopened
+  that forum's menu. An AX activation click alone is not keyboard traversal.
+- **Destructive confirmation:** Remove forum opened the accepted shared Alert
+  Dialog, with Cancel initially focused. Cancel preserved Beta and the order.
+  Reopening and confirming Remove produced Alpha, Gamma and dismissed both
+  surfaces, exercising the real controller callback against fake storage.
+- **Touch presentation adapter:** a local iOS theme-platform override exposed
+  More Options; selecting it opened the real forum sheet. Move down changed
+  order to Gamma, Alpha and closed the sheet. This is macOS pointer operation
+  of the touch presentation, not a touch-device run.
 
-When Context Menu reached the desktop FIFO again, the single approved probe
-reported that the Mac was locked and automatic unlock failed. The lease was
-released immediately. The remaining Sides, long-press/reader-action and real
-forum-rail inspections still require a manually unlocked Mac; the candidate
-therefore remains unaccepted and unmerged.
+The reviewer quit only its own fixture, closed its own reference tab and
+released the shared desktop lease after inspection.
+
+## Focused verification
+
+All commands use randomized seed `826145` and `--no-pub`:
+
+- `flutter test test/d_context_menu_test.dart test/d_dropdown_menu_test.dart
+  test/d_popover_test.dart test/styleguide/context_menu_examples_test.dart
+  test/instance_actions_accessibility_test.dart
+  test/modal_controller_lifecycle_test.dart`: 64 passed on the original,
+  accepted-parent and refreshed current-main candidates.
+- `flutter test test/shell_navigation_integration_test.dart --name
+  'ordering sites|removing a site'`: 21 passed, including actual long-press
+  gestures, touch reorder arbitration, More Options, cancel/removal persistence
+  and controller/session guards.
+- After accepted Alert Dialog reconciliation, `flutter test
+  test/instance_actions_accessibility_test.dart
+  test/modal_controller_lifecycle_test.dart
+  test/shell_navigation_integration_test.dart --name 'forum context actions|forum
+  semantics action|instance actions|ordering sites|removing a site'`: 26 passed.
+- Root and `profiles/full` `flutter analyze --no-pub` are clean. Fixture
+  formatting, the debug macOS build and `git diff --check` passed.
+
+These sets overlap; their counts are not a combined unique-test total.
+
+## Remaining shared-owner correction
+
+The final native RTL check exposed the inherited double-mirrored submenu
+chevron: the indicator points right even though logical submenu navigation is
+leftward. Menubar reviewer `01a08628-7042-7173-a37d-7f1f04eade66`
+owns the shared Dropdown Menu correction in prepared commit
+`430b46a0690a23613ca795b3a95a6f64da9b590e`, together with popup-local
+focus scrolling. The Dropdown Menu reviewer confirmed this single owner.
+
+Context-specific regressions reproduce both defects on the inspected source:
+the RTL glyph is double-mirrored, and opening a constrained context popup in an
+embedded Navigator moves its enclosing page by 62px. Acceptance remains pending
+the shared correction's native verification and local-main merge. This branch
+does not import unaccepted Menubar ancestors or duplicate the parent fix.
+
+## Evidence limitations
+
+Native Context Menu key entry and focus restoration passed. Shift+F10 did not
+open through the available native key synthesizer; the exact key chord passes
+the widget regression. The approved CUA surface has no long-press primitive,
+and the rail's custom reader action was not exposed as a callable secondary AX
+action. Actual long-press and custom-semantics callbacks are covered by focused
+widget/integration tests, not claimed as native CUA gestures. No iOS/Linux
+device run, spoken VoiceOver pass or pixel-diff equality is claimed.
