@@ -84,4 +84,40 @@ void main() {
       'still editable',
     );
   });
+
+  testWidgets(
+    'Field keeps Input Group validation and focus ownership external',
+    (tester) async {
+      final example = inputGroupExamples.examples.singleWhere(
+        (example) => example.title == 'Form validation',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      );
+
+      expect(find.byType(DField), findsOneWidget);
+      await tester.tap(find.text('Username'));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+        isTrue,
+      );
+
+      await tester.enterText(find.byType(DInputGroupInput), '');
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+
+      expect(find.text('Required'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DInputGroup),
+          matching: find.text('Required'),
+        ),
+        findsNothing,
+      );
+    },
+  );
 }
