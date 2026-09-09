@@ -14,8 +14,9 @@
   `disabled: false`, `orientation: horizontal` and `modal: true`.
 - Accepted Dropdown Menu merge:
   `5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787` on local `main`, reviewer task
-  `01a085cf-f401-7813-80da-7c687de8a5d5`. Menubar's integration candidate
-  preserves the accepted Dropdown Menu implementation byte-for-byte.
+  `01a085cf-f401-7813-80da-7c687de8a5d5`. The current candidate also integrates
+  that owner's prepared `7110ef80` follow-up for focus, RTL glyph direction and
+  live registration order; its accepted-main checkpoint remains a merge gate.
 
 ## Reference-to-Flutter mapping
 
