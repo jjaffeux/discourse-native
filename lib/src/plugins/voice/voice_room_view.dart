@@ -831,27 +831,27 @@ class _CallControls extends StatelessWidget {
       runSpacing: 8,
       children: [
         if (canPublish)
-          _Control(
+          VoiceToolbarControl(
             label: call.muted ? 'Unmute' : 'Mute',
             icon: call.muted ? DIcons.microphoneSlash : DIcons.microphoneLines,
             selected: call.muted,
             onPressed: () => controller.setMuted(!call.muted),
           ),
-        _Control(
+        VoiceToolbarControl(
           label: call.deafened ? 'Listen' : 'Deafen',
           icon: DIcons.earListen,
           selected: call.deafened,
           onPressed: () => controller.setDeafened(!call.deafened),
         ),
         if (canPublishVideo)
-          _Control(
+          VoiceToolbarControl(
             label: call.cameraEnabled ? 'Camera off' : 'Camera on',
             icon: call.cameraEnabled ? DIcons.videoSlash : DIcons.video,
             selected: call.cameraEnabled,
             onPressed: () => controller.setCameraEnabled(!call.cameraEnabled),
           ),
         if (canShare)
-          _Control(
+          VoiceToolbarControl(
             label: call.screenSharing ? 'Stop sharing' : 'Share screen',
             icon: DIcons.display,
             selected: call.screenSharing,
@@ -859,7 +859,7 @@ class _CallControls extends StatelessWidget {
           ),
         if (call.room.type == VoiceRoomType.stage &&
             role == VoiceRole.participant)
-          _Control(
+          VoiceToolbarControl(
             label: me?.handRaisedAt == null ? 'Raise hand' : 'Lower hand',
             icon: DIcons.hand,
             selected: me?.handRaisedAt != null,
@@ -867,10 +867,10 @@ class _CallControls extends StatelessWidget {
                 controller.requestToSpeak(raised: me?.handRaisedAt == null),
           ),
         if (call.room.canInvite)
-          _Control(
+          VoiceToolbarControl(
             label: 'Invite people',
             icon: DIcons.userPlus,
-            selected: false,
+            selected: null,
             onPressed: () => _showVoiceInvite(
               context,
               controller,
@@ -880,10 +880,10 @@ class _CallControls extends StatelessWidget {
             ),
           ),
         if (call.room.chatAvailable)
-          _Control(
+          VoiceToolbarControl(
             label: 'Room chat',
             icon: DIcons.comment,
-            selected: false,
+            selected: null,
             onPressed: () => _showVoiceChat(
               context,
               controller,
@@ -894,7 +894,7 @@ class _CallControls extends StatelessWidget {
         if (call.room.canManage &&
             call.media.transport == VoiceTransport.livekit &&
             recordingEnabled)
-          _Control(
+          VoiceToolbarControl(
             label: call.room.recording?.active == true
                 ? 'Stop recording'
                 : 'Start recording',
@@ -907,10 +907,10 @@ class _CallControls extends StatelessWidget {
               controllerResolver: controllerResolver,
             ),
           ),
-        _Control(
+        VoiceToolbarControl(
           label: 'Media settings',
           icon: DIcons.gear,
-          selected: false,
+          selected: null,
           onPressed: () => _showMediaSettings(
             context,
             controller,
@@ -918,10 +918,10 @@ class _CallControls extends StatelessWidget {
           ),
         ),
         if (call.room.canManage)
-          _Control(
+          VoiceToolbarControl(
             label: 'Edit room',
             icon: DIcons.gear,
-            selected: false,
+            selected: null,
             onPressed: () => showVoiceRoomEditor(
               context,
               siteUrl: siteUrl,
@@ -934,10 +934,10 @@ class _CallControls extends StatelessWidget {
             ),
           ),
         if (call.room.canManage)
-          _Control(
+          VoiceToolbarControl(
             label: 'Manage members',
             icon: DIcons.users,
-            selected: false,
+            selected: null,
             onPressed: () => _showVoiceMembers(
               context,
               controller,
@@ -956,8 +956,14 @@ class _CallControls extends StatelessWidget {
   }
 }
 
-class _Control extends StatelessWidget {
-  const _Control({
+/// A Voice toolbar action that preserves controlled toggle state when present.
+///
+/// This remains plugin-owned: callers outside Voice should use [DToggle] or
+/// [DButton] directly. It is public within this library so the isolated review
+/// harness can mount the exact production adapter without network/media state.
+class VoiceToolbarControl extends StatelessWidget {
+  const VoiceToolbarControl({
+    super.key,
     required this.label,
     required this.icon,
     required this.selected,
@@ -965,19 +971,29 @@ class _Control extends StatelessWidget {
   });
   final String label;
   final DIconData icon;
-  final bool selected;
+
+  /// Null identifies a momentary action; non-null values are controlled
+  /// independent toggle state owned by the voice controller.
+  final bool? selected;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => DTooltip(
     message: label,
     labelTrigger: true,
-    child: IconButton.filledTonal(
-      tooltip: '',
-      isSelected: selected,
-      onPressed: onPressed,
-      icon: DIcon(icon, size: 19),
-    ),
+    excludeFromSemantics: selected != null,
+    child: selected == null
+        ? IconButton.filledTonal(
+            tooltip: '',
+            onPressed: onPressed,
+            icon: DIcon(icon, size: 19),
+          )
+        : DToggle.iconOnly(
+            pressed: selected,
+            onPressedChanged: (_) => onPressed(),
+            semanticLabel: label,
+            icon: DIcon(icon, size: 19),
+          ),
   );
 }
 
@@ -1613,17 +1629,20 @@ class _DevicePicker extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   @override
-  Widget build(BuildContext context) => DSelectField<String>(
-    initialValue: value,
-    decoration: InputDecoration(labelText: label),
+  Widget build(BuildContext context) => DNativeSelect<String>.controlled(
+    isExpanded: true,
+    placeholderEnabled: false,
+    value: value,
+    label: label,
     onChanged: devices.isEmpty ? null : onChanged,
-    items: [
+    entries: [
       for (final device in devices)
-        DropdownMenuItem(
+        DNativeSelectOption(
           value: device.deviceId,
-          child: Text(device.label.isEmpty ? 'Default $label' : device.label),
+          label: device.label.isEmpty ? 'Default $label' : device.label,
         ),
     ],
+    initialValue: value,
   );
 }
 
@@ -2081,14 +2100,20 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                 ),
               ),
               const SizedBox(width: 8),
-              DSelect<VoiceRole>(
-                value: _newRole,
-                onChanged: (value) =>
-                    setState(() => _newRole = value ?? _newRole),
-                items: [
-                  for (final role in VoiceRole.values)
-                    DropdownMenuItem(value: role, child: Text(role.name)),
-                ],
+              SizedBox(
+                width: 120,
+                child: DNativeSelect<VoiceRole>.controlled(
+                  isExpanded: true,
+                  placeholderEnabled: false,
+                  value: _newRole,
+                  onChanged: (value) =>
+                      setState(() => _newRole = value ?? _newRole),
+                  entries: [
+                    for (final role in VoiceRole.values)
+                      DNativeSelectOption(value: role, label: role.name),
+                  ],
+                  initialValue: _newRole,
+                ),
               ),
               DTooltip(
                 message: 'Add member',

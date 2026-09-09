@@ -14,9 +14,10 @@ final collapsibleExamples = ComponentExamples(
       'focus or expose semantics. Animation is opt-in and respects reduced motion. '
       'Triggers accept passive children, not nested buttons. Button variants are '
       'example composition, not Collapsible props. Settings uses DInput editing '
-      'with Field composition still pending; Explorer/Outline use DButton '
-      'pending Tabs adoption; Field intentionally remains owned by DInput until '
-      'its merged follow-up. Official rendered and native review passed.',
+      'with Field composition still pending; the File Tree composes its '
+      'Explorer/Outline layers with controlled DTabs. Field intentionally '
+      'remains owned by DInput until its merged follow-up. Official rendered '
+      'and native review passed.',
   examples: [
     StyleguideExample(
       title: 'Order details',
@@ -671,22 +672,17 @@ class _FileTreeState extends State<_FileTree> {
     child: DCard(
       children: [
         DCardHeader(
-          title: Wrap(
-            spacing: 4,
-            children: [
-              DButton(
-                label: const Text('Explorer'),
-                variant: !outline
-                    ? DButtonVariant.secondary
-                    : DButtonVariant.ghost,
-                onPressed: () => setState(() => outline = false),
-              ),
-              DButton(
-                label: const Text('Outline'),
-                variant: outline
-                    ? DButtonVariant.secondary
-                    : DButtonVariant.ghost,
-                onPressed: () => setState(() => outline = true),
+          title: DTabs<String>.controlled(
+            value: outline ? 'outline' : 'explorer',
+            onChanged: (value) {
+              if (value != null) setState(() => outline = value == 'outline');
+            },
+            children: const [
+              DTabList<String>(
+                children: [
+                  DTabTrigger(value: 'explorer', child: Text('Explorer')),
+                  DTabTrigger(value: 'outline', child: Text('Outline')),
+                ],
               ),
             ],
           ),

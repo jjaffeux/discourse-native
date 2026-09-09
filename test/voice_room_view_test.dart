@@ -456,6 +456,7 @@ void main() {
         expect(find.byTooltip('Deafen'), findsOneWidget);
         expect(find.byTooltip('Camera on'), findsOneWidget);
         expect(find.text('Leave room'), findsOneWidget);
+        expect(find.byType(DToggle), findsAtLeastNWidgets(3));
 
         harness.media.sessions.single.failNextMute = true;
         await tester.tap(find.byTooltip('Mute'));
@@ -845,7 +846,7 @@ void main() {
         expect(find.text('Default Speaker'), findsOneWidget);
         expect(find.text('Desk camera'), findsOneWidget);
 
-        final pickers = find.byType(DropdownButtonFormField<String>);
+        final pickers = find.byType(DNativeSelect<String>);
         await tester.tap(pickers.at(0));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Travel microphone').last);
@@ -1151,15 +1152,10 @@ void main() {
         isEmpty,
       );
 
-      await tester.tap(find.byType(DropdownButton<VoiceRole>));
+      await tester.tap(find.byType(DNativeSelect<VoiceRole>));
       await tester.pumpAndSettle();
       await tester.tap(
-        find
-            .widgetWithText(
-              DropdownMenuItem<VoiceRole>,
-              VoiceRole.moderator.name,
-            )
-            .last,
+        find.widgetWithText(MenuItemButton, VoiceRole.moderator.name).last,
       );
       await tester.pumpAndSettle();
       await tester.enterText(username, '  jordan  ');
