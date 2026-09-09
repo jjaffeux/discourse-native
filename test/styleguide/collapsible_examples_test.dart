@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/collapsible_examples.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +35,52 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  testWidgets('styled triggers use the reference focus treatment', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Builder(
+            builder: collapsibleExamples.examples
+                .firstWhere((example) => example.title == 'Basic')
+                .builder,
+          ),
+        ),
+      ),
+    );
+
+    final trigger = tester.widget<DCollapsibleTrigger>(
+      find.byType(DCollapsibleTrigger),
+    );
+    expect(trigger.focusBorderRadius, isNotNull);
+    expect(trigger.focusBorder, isTrue);
+    expect(trigger.focusRingWidth, 3);
+    expect(trigger.focusRingOpacity, 0.5);
+  });
+
+  testWidgets('file tree uses the current 16rem reference width', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Builder(
+              builder: collapsibleExamples.examples
+                  .firstWhere((example) => example.title == 'File Tree')
+                  .builder,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.getSize(find.byType(DCard)).width, 256);
+  });
+
   testWidgets(
     'settings edits survive disclosure and nested tree retains opened folder',
     (tester) async {
