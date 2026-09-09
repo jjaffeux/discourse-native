@@ -128,3 +128,23 @@ has occurred. The task must remain in_progress until the coordinator grants a
 desktop slot and both native production fixtures and reference comparisons pass.
 Bundle identity, source/kernel hashes and final command outcomes will be recorded
 in the progress row and native evidence record after the isolated build.
+
+## Prepared bundle
+
+Final executable source: `3813f11df01e4a1db8d7b45fe0457d8f904f4d49`.
+[Native preparation evidence](evidence/slider/native-preparation.json) records
+source equality, tree IDs, Credits stamp, kernel hashes and signature output.
+Bundle: `/private/tmp/DiscourseSliderReview-01a083ce.app`.
+Identifier: `org.discourse.native.slider.01a083ce`.
+URL scheme: `discourse-slider-review-01a083ce`.
+The source/copy kernel SHA256 is
+`1aae7dca646a7e21939f7c334e1fc16d29412d9a8869651b977b61baa0dbd6a0`.
+Deep strict ad-hoc signature verification passed. Only the isolated copy's
+identity and signature were changed; its fixture entitlements omit push.
+The main checkout's application and build directory were untouched.
+
+The 217-test focused selection passed; after the final frame scheduling
+safeguard, all 14 Slider interaction/controlled tests passed again. Final source
+root and profiles/full analysis report no issues. See
+[verification output](evidence/slider/verification.txt). The bundle is **not
+launched** and remains queued for native inspection.

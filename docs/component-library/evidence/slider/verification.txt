@@ -1,0 +1,24 @@
+Source: 3813f11df01e4a1db8d7b45fe0457d8f904f4d49
+
+Analyzing discourse-native...                                   
+No issues found! (ran in 2.6s)
+
+profiles/full:
+Analyzing full...                                               
+No issues found! (ran in 1.5s)
+
+Focused selection seed 4982:
+00:13 +215: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/keyboard_navigation_test.dart: 1440.0 Enter reads, replies, returns, and selects the next topic
+00:14 +216: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/keyboard_navigation_test.dart: list J/K shortcuts pause for search and dialogs
+00:14 +217: All tests passed!
+
+Final frame safeguard, slider and controlled suites:
+00:00 +12: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/d_slider_test.dart: small widths and large text preserve thumb geometry under live themes
+00:00 +13: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/d_slider_test.dart: invalid bounds, unordered values and impossible spacing are rejected
+00:00 +14: All tests passed!
+
+Final native build:
+Building macOS application...                                   
+✓ Built build/macos/Build/Products/Debug/Discourse.app
+
+No native launch or visual comparison has run.

@@ -873,14 +873,16 @@ Status: in_progress. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/u
 
 - Flutter 3.47.2 unchanged. Root and profiles/full flutter pub get --enforce-lockfile pass; lockfiles unchanged.
 - Root and profiles/full flutter analyze --no-pub: no issues. Touched Dart format and git diff --check pass.
-- Focused widget tests cover actual input, controlled ownership, Form state, cancellation/removal, semantics, keyboard/RTL/vertical, multi-pointer/collision spacing, examples and production fixtures. Existing video/topic/Voice/reading keyboard/Chat and geometry example regressions included; final count recorded with native bundle evidence.
+- 217 focused tests passed with seed 4982 across test/d_slider_test.dart, test/d_slider_controlled_test.dart, test/slider_migrations_test.dart, test/styleguide/slider_examples_test.dart, test/inline_video_test.dart, test/topic_progress_test.dart, test/topic_progress_lifecycle_test.dart, test/voice_room_view_test.dart, test/keyboard_navigation_test.dart, test/chat_drawer_test.dart, and Skeleton/AspectRatio example suites. Final accepted-commit frame safeguard rechecked with all 14 slider interaction/controlled tests passing.
 - tool/slider_review_main.dart mounts real production TopicPositionSlider, VoiceParticipantVolumeSlider and InlineVideoPlaybackSurface with local playback session; native app not launched.
+- Final source commit 3813f11df01e4a1db8d7b45fe0457d8f904f4d49 built via flutter build macos --debug --no-pub -t tool/slider_review_main.dart; root/full analysis remain clean. Source equality git diff check passed for lib/tool/macos/manifests/locks.
+- Isolated review bundle /private/tmp/DiscourseSliderReview-01a083ce.app; bundle ID org.discourse.native.slider.01a083ce; URL scheme discourse-slider-review-01a083ce. Source and copied kernels match SHA256 1aae7dca646a7e21939f7c334e1fc16d29412d9a8869651b977b61baa0dbd6a0. codesign --verify --deep --strict passes. Credits stamps source 3813f11df01e, unmodified. Evidence: docs/component-library/evidence/slider/native-preparation.json. Bundle has not been launched.
 
 **limitations**
 
 - Mac locked; no native desktop/reference-browser inspection performed. Awaiting coordinator slot; no visual/native parity claim.
 - No iOS/Linux device or VoiceOver speech verification. Swap collision is not exposed; stable ordered native focus with default push and optional stop is documented.
-- Isolated macOS review bundle build pending; status must remain in_progress, nativeInspectionStatus awaiting_slot.
+- Native bundle is prepared but unlaunched; status remains in_progress / awaiting_slot. Source examples remain baseline until the actual native/reference comparison gate passes.
 
 ### skeleton
 
