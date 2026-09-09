@@ -115,4 +115,51 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets('Input Group example composes accepted addons and control', (
+    tester,
+  ) async {
+    final example = comboboxExamples.examples.firstWhere(
+      (example) => example.title == 'Input Group',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Center(child: Builder(builder: example.builder)),
+        ),
+      ),
+    );
+
+    expect(find.byType(DInputGroup), findsOneWidget);
+    expect(find.byType(DInputGroupControl), findsOneWidget);
+    expect(find.byType(DInputGroupAddon), findsNWidgets(2));
+    expect(find.byType(DInputGroupButton), findsOneWidget);
+  });
+
+  testWidgets('Custom Items uses passive accepted Item composition', (
+    tester,
+  ) async {
+    final example = comboboxExamples.examples.firstWhere(
+      (example) => example.title == 'Custom Items',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Center(child: Builder(builder: example.builder)),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DItem), findsWidgets);
+    for (final item in tester.widgetList<DItem>(find.byType(DItem))) {
+      expect(item.onPressed, isNull);
+      expect(item.link, isFalse);
+      expect(item.size, DItemSize.xs);
+      expect(item.padding, EdgeInsets.zero);
+    }
+  });
 }

@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 
 const _frameworks = [
@@ -204,8 +206,15 @@ final comboboxExamples = ComponentExamples(
       description:
           'A globe addon shares the compact input surface and the popup aligns past it.',
       code: '''DComboboxInput<String>(
-  leading: Icon(Icons.public),
+  addons: const [
+    DInputGroupAddon(child: DIcon(DIcons.globe, size: 16)),
+  ],
   placeholder: 'Select a timezone',
+)
+
+DComboboxContent<String>(
+  width: 240,
+  alignOffset: -28,
 )''',
       builder: (_) => const _GroupsCombobox(inputGroup: true),
     ),
@@ -257,10 +266,14 @@ const _customCode = '''DCombobox<String>(
   anchor: const DComboboxInput<String>(placeholder: 'Search countries...'),
   content: DComboboxContent(children: [
     const DComboboxEmpty<String>(child: Text('No countries found.')),
-    DComboboxList<String>(itemBuilder: (context, option) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(option.label), Text(option.searchText!),
-      ])),
+    DComboboxList<String>(itemBuilder: (context, option) => DItem(
+      size: DItemSize.xs,
+      padding: EdgeInsets.zero,
+      children: [DItemContent(children: [
+        DItemTitle(child: Text(option.label)),
+        DItemDescription(child: Text(option.searchText!)),
+      ])],
+    )),
   ]),
 )''';
 
@@ -355,11 +368,14 @@ class _GroupsCombobox extends StatelessWidget {
     groups: _timezoneGroups,
     anchor: DComboboxInput<String>(
       placeholder: 'Select a timezone',
-      leading: inputGroup ? const Icon(Icons.public) : null,
+      addons: inputGroup
+          ? const [DInputGroupAddon(child: DIcon(DIcons.globe, size: 16))]
+          : const [],
     ),
-    content: const DComboboxContent(
-      width: 280,
-      children: [
+    content: DComboboxContent(
+      width: inputGroup ? 240 : 280,
+      alignOffset: inputGroup ? -28 : 0,
+      children: const [
         DComboboxEmpty<String>(child: Text('No timezones found.')),
         DComboboxList<String>(),
       ],
@@ -378,15 +394,19 @@ class _CustomItemsCombobox extends StatelessWidget {
       children: [
         const DComboboxEmpty<String>(child: Text('No countries found.')),
         DComboboxList<String>(
-          itemBuilder: (context, option) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          itemBuilder: (context, option) => DItem(
+            size: DItemSize.xs,
+            padding: EdgeInsets.zero,
             children: [
-              Text(option.label),
-              Text(
-                option.searchText!.split(' ').skip(1).join(' '),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: DTokens.of(context).mutedForeground,
-                ),
+              DItemContent(
+                children: [
+                  DItemTitle(child: Text(option.label)),
+                  DItemDescription(
+                    child: Text(
+                      option.searchText!.split(' ').skip(1).join(' '),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

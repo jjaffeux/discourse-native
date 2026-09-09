@@ -45,11 +45,11 @@ input-inside-popup, clear, status and collision-aware positioning.
 | 100ms fade/95% zoom/8px side slide | accepted `DPopover` motion; reduced motion resolves immediately |
 
 The registry's `ComboboxInput` is an Input Group composition and the custom row
-example is an Item composition. This source-preparation branch exposes the same
-slots without importing unaccepted parents. The independent reviewer must replace
-those temporary compositions with the accepted Input Group and Item owners on a
-candidate based on current main. Field labels wrap the Combobox as metadata only;
-the editable input remains the sole value, focus, Form and IME owner.
+example is an Item composition. The reviewed candidate uses the accepted
+`DInputGroup`, `DInputGroupControl`, addon and button APIs, while custom results
+compose passive `DItem` parts inside the Combobox-owned option target. Field
+labels wrap the Combobox as metadata only; the editable input remains the sole
+value, focus, Form and IME owner.
 
 ## Public behavior and lifecycle
 

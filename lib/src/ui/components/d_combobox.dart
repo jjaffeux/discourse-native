@@ -7,6 +7,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
+import 'd_input_group.dart';
 import 'd_popover.dart';
 
 bool _isComboboxTouchPlatform(BuildContext context) =>
@@ -846,7 +847,7 @@ class DComboboxInput<T> extends StatelessWidget {
     this.showTrigger = true,
     this.showClear = false,
     this.invalid = false,
-    this.leading,
+    this.addons = const [],
     this.autofocus = false,
     this.registerAsAnchor = true,
     this.semanticLabel,
@@ -856,7 +857,7 @@ class DComboboxInput<T> extends StatelessWidget {
   final bool showTrigger;
   final bool showClear;
   final bool invalid;
-  final Widget? leading;
+  final List<DInputGroupAddon> addons;
   final bool autofocus;
   final bool registerAsAnchor;
   final String? semanticLabel;
@@ -864,18 +865,58 @@ class DComboboxInput<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final root = _DComboboxScope.of<T>(context);
+    final isInvalid = invalid || root.hasError;
+    final hasValue = root.selectedValues.isNotEmpty || root.query.isNotEmpty;
+    final action = showClear && hasValue
+        ? DInputGroupButton.icon(
+            tooltip: 'Clear selection',
+            icon: const DIcon(DIcons.xmark, size: 16),
+            onPressed: root.mutable
+                ? () => root._clear(DComboboxChangeReason.clear)
+                : null,
+          )
+        : showTrigger
+        ? Semantics(
+            expanded: root.isOpen,
+            child: DInputGroupButton.icon(
+              tooltip: root.isOpen ? 'Close suggestions' : 'Open suggestions',
+              icon: const DIcon(DIcons.chevronDown, size: 16),
+              hasPopup: true,
+              onPressed: () => root._requestOpen(
+                !root.isOpen,
+                DComboboxChangeReason.triggerPress,
+                focusInput: true,
+              ),
+            ),
+          )
+        : null;
     final input = Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onKeyEvent: root._handleKey,
-      child: _ComboboxInputSurface<T>(
-        placeholder: placeholder,
-        showTrigger: showTrigger,
-        showClear: showClear,
-        invalid: invalid || root.hasError,
-        leading: leading,
-        autofocus: autofocus,
-        semanticLabel: semanticLabel,
+      child: DInputGroup(
+        enabled: root.enabled,
+        invalid: isInvalid,
+        children: [
+          DInputGroupControl(
+            focusNode: root.focusNode,
+            enabled: root.enabled,
+            invalid: isInvalid,
+            builder: (context, focusNode) => _ComboboxTextEditor<T>(
+              focusNode: focusNode,
+              placeholder: placeholder,
+              autofocus: autofocus,
+              semanticLabel: semanticLabel,
+              invalid: isInvalid,
+            ),
+          ),
+          ...addons,
+          if (action != null)
+            DInputGroupAddon(
+              alignment: DInputGroupAddonAlignment.inlineEnd,
+              child: action,
+            ),
+        ],
       ),
     );
     if (!registerAsAnchor) return input;
@@ -886,41 +927,25 @@ class DComboboxInput<T> extends StatelessWidget {
   }
 }
 
-class _ComboboxInputSurface<T> extends StatelessWidget {
-  const _ComboboxInputSurface({
+class _ComboboxTextEditor<T> extends StatelessWidget {
+  const _ComboboxTextEditor({
+    required this.focusNode,
     this.placeholder,
-    required this.showTrigger,
-    required this.showClear,
-    required this.invalid,
-    this.leading,
     required this.autofocus,
     this.semanticLabel,
+    required this.invalid,
   });
 
+  final FocusNode focusNode;
   final String? placeholder;
-  final bool showTrigger, showClear, invalid, autofocus;
-  final Widget? leading;
+  final bool autofocus;
   final String? semanticLabel;
+  final bool invalid;
 
   @override
   Widget build(BuildContext context) {
     final root = _DComboboxScope.of<T>(context);
     final tokens = DTokens.of(context);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final focused = root.focusNode.hasFocus;
-    final enabled = root.enabled;
-    final border = invalid
-        ? tokens.destructive.withValues(
-            alpha: tokens.destructive.a * (dark ? .5 : 1),
-          )
-        : focused
-        ? tokens.focusRing
-        : tokens.colors.outlineVariant;
-    final ring = invalid
-        ? tokens.destructive.withValues(
-            alpha: tokens.destructive.a * (dark ? .4 : .2),
-          )
-        : tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
       fontSize: DiscourseTypography.sm,
@@ -928,118 +953,31 @@ class _ComboboxInputSurface<T> extends StatelessWidget {
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
     );
-    final hasValue = root.selectedValues.isNotEmpty || root.query.isNotEmpty;
-    return Opacity(
-      opacity: enabled ? 1 : .5,
-      child: IgnorePointer(
-        ignoring: !enabled,
-        child: TextFieldTapRegion(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              root.focusNode.requestFocus();
-              root._requestOpen(true, DComboboxChangeReason.input);
-            },
-            child: AnimatedContainer(
-              duration: DMotion.duration(
-                context,
-                const Duration(milliseconds: 150),
-              ),
-              constraints: const BoxConstraints(minHeight: 32),
-              padding: const EdgeInsetsDirectional.only(start: 10, end: 4),
-              decoration: BoxDecoration(
-                color: dark
-                    ? tokens.colors.outlineVariant.withValues(
-                        alpha: tokens.colors.outlineVariant.a * .3,
-                      )
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(tokens.radius),
-                border: Border.all(color: border),
-              ),
-              foregroundDecoration: _ComboboxRingDecoration(
-                color: invalid || focused ? ring : Colors.transparent,
-                radius: tokens.radius,
-              ),
-              child: Row(
-                children: [
-                  if (leading != null) ...[
-                    IconTheme.merge(
-                      data: IconThemeData(
-                        size: 16,
-                        color: tokens.mutedForeground,
-                      ),
-                      child: leading!,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Semantics(
-                      container: true,
-                      label: semanticLabel,
-                      expanded: root.isOpen,
-                      validationResult: invalid
-                          ? SemanticsValidationResult.invalid
-                          : SemanticsValidationResult.none,
-                      child: TextField(
-                        key: key,
-                        controller: root.textController,
-                        focusNode: root.focusNode,
-                        autofocus: autofocus,
-                        enabled: enabled,
-                        readOnly: root.combobox.readOnly,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        textInputAction: TextInputAction.done,
-                        style: style,
-                        cursorColor: tokens.foreground,
-                        decoration: InputDecoration(
-                          isCollapsed: true,
-                          isDense: true,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 5,
-                          ),
-                          hintText: placeholder,
-                          hintStyle: style.copyWith(
-                            color: tokens.mutedForeground,
-                          ),
-                        ),
-                        onChanged: (value) => root._requestQuery(
-                          value,
-                          DComboboxChangeReason.input,
-                        ),
-                        onTap: () => root._requestOpen(
-                          true,
-                          DComboboxChangeReason.input,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (showClear && hasValue)
-                    _ComboboxIconAction(
-                      semanticLabel: 'Clear selection',
-                      icon: const DIcon(DIcons.xmark, size: 16),
-                      onPressed: root.mutable
-                          ? () => root._clear(DComboboxChangeReason.clear)
-                          : null,
-                    )
-                  else if (showTrigger)
-                    _ComboboxIconAction(
-                      semanticLabel: root.isOpen
-                          ? 'Close suggestions'
-                          : 'Open suggestions',
-                      icon: const DIcon(DIcons.chevronDown, size: 16),
-                      onPressed: () => root._requestOpen(
-                        !root.isOpen,
-                        DComboboxChangeReason.triggerPress,
-                        focusInput: true,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
+    return Semantics(
+      container: true,
+      label: semanticLabel,
+      expanded: root.isOpen,
+      validationResult: invalid
+          ? SemanticsValidationResult.invalid
+          : SemanticsValidationResult.none,
+      child: TextField(
+        controller: root.textController,
+        focusNode: focusNode,
+        autofocus: autofocus,
+        enabled: root.enabled,
+        readOnly: root.combobox.readOnly,
+        autocorrect: false,
+        enableSuggestions: false,
+        textInputAction: TextInputAction.done,
+        style: style,
+        cursorColor: tokens.foreground,
+        decoration: InputDecoration.collapsed(
+          hintText: placeholder,
+          hintStyle: style.copyWith(color: tokens.mutedForeground),
         ),
+        onChanged: (value) =>
+            root._requestQuery(value, DComboboxChangeReason.input),
+        onTap: () => root._requestOpen(true, DComboboxChangeReason.input),
       ),
     );
   }

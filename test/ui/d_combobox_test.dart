@@ -129,7 +129,7 @@ void main() {
       ),
     );
     expect(find.text('Next.js'), findsOneWidget);
-    await tester.tap(find.byType(IconButton));
+    await tester.tap(find.byTooltip('Clear selection'));
     await tester.pumpAndSettle();
     expect(selected, isNull);
     expect(tester.testTextInput.isVisible, isTrue);
@@ -534,7 +534,7 @@ void main() {
         theme: ThemeData(platform: TargetPlatform.iOS),
       ),
     );
-    expect(tester.getSize(find.byType(IconButton)).height, 48);
+    expect(tester.getSize(find.byType(DInputGroupButton)).height, 48);
     await tester.tap(find.byType(TextField));
     await tester.pumpAndSettle();
     expect(
