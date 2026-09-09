@@ -3378,7 +3378,7 @@
     },
     {
       "id": "bubble",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
       "branch": "codex/ui-bubble",
       "dependencies": [
@@ -3405,7 +3405,8 @@
         "Independent review added exact geometry, typography, natural semantics, borrowed FocusNode, reduced-motion and secondary-versus-muted token regressions. Fourteen Bubble/example tests passed with randomized seeds 6864 and 6865 after the final visual correction; root flutter analyze --no-pub and git diff --check passed.",
         "Official rendered reference inspection covered variants, logical alignment, grouping, links/buttons, reactions, Collapsible, Tooltip and Popover in light and dark. DOM measurements confirmed 80% width, 8px group spacing, overlapping reactions and the exterior interactive focus treatment; current global token drift was recorded separately from the frozen registry contract.",
         "Exact-source isolated macOS review bundle /private/tmp/Discourse Bubble Review e456fc7d.app used identifier org.discourse.native.bubble.e456fc7d and kernel SHA256 e0115b275e4a8cb16ae913e4f60e2a515d9609e98a8c2c3642973ccab2fe010c. Pre-sign kernel equality, explicit restricted-free entitlements and deep strict ad-hoc signature verification passed.",
-        "Native acceptance exercised all eight styleguide examples, pointer actions, visible focus, selected/disabled/busy/error states, static and interactive reactions, disclosure expansion, Popover details, light/dark/Forest/Plum palettes, 360px, 200% text, RTL and reduced motion. The isolated app and reference tab were closed before desktop lease release; full provenance is in docs/component-library/evidence/bubble/native-build.json."
+        "Native acceptance exercised all eight styleguide examples, pointer actions, visible focus, selected/disabled/busy/error states, static and interactive reactions, disclosure expansion, Popover details, light/dark/Forest/Plum palettes, 360px, 200% text, RTL and reduced motion. The isolated app and reference tab were closed before desktop lease release; full provenance is in docs/component-library/evidence/bubble/native-build.json.",
+        "Candidate 86526407 reconciled accepted Bubble onto main 411ee32d without source conflicts outside progress regeneration. Fourteen focused tests passed again with seed6866; root and profiles/full flutter analyze --no-pub passed with no issues. Main merged the reviewed candidate with --no-ff as c3d6ae97af486134b32067aecc29f7191b05367d."
       ],
       "limitations": [
         "No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.",
@@ -3413,7 +3414,7 @@
         "Browser Geist and native host-font rasterization differ, so no pixel-equality claim is made; geometry, semantic palette relationships, interaction, motion and accessibility structure were compared directly."
       ],
       "implementationCommit": "88a58ebbea197b745bad2d070500ddda596cd3b5",
-      "mergeCommit": null,
+      "mergeCommit": "c3d6ae97af486134b32067aecc29f7191b05367d",
       "preparedDependencies": [
         {
           "id": "popover",
@@ -3429,8 +3430,7 @@
       "reviewBranch": "codex/review-bubble",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f764/discourse-native",
       "reviewHandoffCommit": "3aa4251692789567de9a3f010566dcd8aaa54d7b",
-      "reviewStatus": "accepted",
-      "queueStage": "ready_to_merge",
+      "reviewStatus": "merged",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed",
       "implementationHandoffVerification": {
@@ -3498,13 +3498,13 @@
         },
         {
           "id": "bubble",
-          "status": "in_progress",
+          "status": "merged",
           "taskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
           "branch": "codex/ui-bubble",
-          "reviewTaskId": null,
-          "reviewBranch": null,
-          "implementationCommit": null,
-          "mergeCommit": null
+          "reviewTaskId": "01a08639-b066-7882-85f5-a759c5fdab6f",
+          "reviewBranch": "codex/review-bubble",
+          "implementationCommit": "88a58ebbea197b745bad2d070500ddda596cd3b5",
+          "mergeCommit": "c3d6ae97af486134b32067aecc29f7191b05367d"
         },
         {
           "id": "marker",

@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**42 of 64 components are merged locally.** 22 existing components are in progress; 0 are planned.
+**43 of 64 components are merged locally.** 21 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -33,7 +33,6 @@ Branch preparation does not mark a component merged or visually verified.
 | calendar | independent review | 4b86c11a | 01a08631-7574-70b0-a98f-4e7217e03209 |
 | date-picker | Implementation and checks | — | — |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
-| bubble | independent review | 3aa42516 | 01a08639-b066-7882-85f5-a759c5fdab6f |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
@@ -99,7 +98,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
 | 55 | attachment | in_progress | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
-| 57 | bubble | in_progress | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | — |
+| 57 | bubble | merged | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | c3d6ae97af486134b32067aecc29f7191b05367d |
 | 58 | message | in_progress | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | in_progress | 01a08606-ce86-7be2-b92f-59676b40cb40 | codex/ui-message-scroller | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
@@ -2766,7 +2765,7 @@ Status: merged. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-mar
 
 ### bubble
 
-Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/ui-bubble.
+Status: merged. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/ui-bubble.
 
 **acceptanceCriteria**
 
@@ -2788,6 +2787,7 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/u
 - Official rendered reference inspection covered variants, logical alignment, grouping, links/buttons, reactions, Collapsible, Tooltip and Popover in light and dark. DOM measurements confirmed 80% width, 8px group spacing, overlapping reactions and the exterior interactive focus treatment; current global token drift was recorded separately from the frozen registry contract.
 - Exact-source isolated macOS review bundle /private/tmp/Discourse Bubble Review e456fc7d.app used identifier org.discourse.native.bubble.e456fc7d and kernel SHA256 e0115b275e4a8cb16ae913e4f60e2a515d9609e98a8c2c3642973ccab2fe010c. Pre-sign kernel equality, explicit restricted-free entitlements and deep strict ad-hoc signature verification passed.
 - Native acceptance exercised all eight styleguide examples, pointer actions, visible focus, selected/disabled/busy/error states, static and interactive reactions, disclosure expansion, Popover details, light/dark/Forest/Plum palettes, 360px, 200% text, RTL and reduced motion. The isolated app and reference tab were closed before desktop lease release; full provenance is in docs/component-library/evidence/bubble/native-build.json.
+- Candidate 86526407 reconciled accepted Bubble onto main 411ee32d without source conflicts outside progress regeneration. Fourteen focused tests passed again with seed6866; root and profiles/full flutter analyze --no-pub passed with no issues. Main merged the reviewed candidate with --no-ff as c3d6ae97af486134b32067aecc29f7191b05367d.
 
 **limitations**
 
