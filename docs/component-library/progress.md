@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
+**36 of 64 components are merged locally.** 15 existing components are in progress; 13 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -22,7 +22,6 @@ Branch preparation does not mark a component merged or visually verified.
 | hover-card | Implementation and checks | — | — |
 | alert-dialog | Implementation and checks | — | — |
 | select | independent review | 69e5ec66 | 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 |
-| field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | command | independent review | f3180d99 | 01a085d3-21b9-75d0-a4f0-c739439ccb9d |
@@ -75,7 +74,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 36 | drawer | planned | — | — | dialog | — |
 | 37 | select | in_progress | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | — |
 | 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
-| 39 | field | review_ready | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
+| 39 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
 | 40 | input-group | in_progress | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner | — |
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | in_progress | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | — |
@@ -2125,7 +2124,7 @@ Status: merged. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/ui-nat
 
 ### field
 
-Status: review_ready. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/ui-field.
+Status: merged. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/ui-field.
 
 **acceptanceCriteria**
 

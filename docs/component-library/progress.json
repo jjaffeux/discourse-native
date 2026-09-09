@@ -2197,7 +2197,7 @@
     },
     {
       "id": "field",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
       "branch": "codex/ui-field",
       "dependencies": [
@@ -2245,8 +2245,9 @@
         "The responsive custom-error example intentionally uses one native FormField/TextField because DInput has no custom error builder."
       ],
       "implementationCommit": "e298291e7c85ce47d24049004504c84208d3d07f",
-      "mergeCommit": null,
-      "reviewStatus": "review_ready",
+      "mergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e",
+      "reviewedBranchHead": "774dd89f9c669d401484a0fd2d71d8fc3cf630f6",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-7a22-7f53-a798-52669b7ddef5",
       "reviewBranch": "codex/review-field-final"
     },
@@ -3167,15 +3168,6 @@
       "startingMainCommit": "8ea22c643829a10a5031019e2aef4e83956c7a8f",
       "nextComponents": [],
       "activeTasks": [
-        {
-          "component": "field",
-          "taskId": "01a08558-7a22-7f53-a798-52669b7ddef5",
-          "branch": "codex/review-field",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/95bf/discourse-native",
-          "status": "independent_review",
-          "headCommit": "09869a6713a9e2e01b3012515cfc5bbeefcee868",
-          "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97"
-        },
         {
           "component": "item",
           "taskId": "01a08558-aec4-7591-ac85-682a1eae4290",
