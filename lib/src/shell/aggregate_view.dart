@@ -1069,32 +1069,25 @@ class _AggregateTopicRow extends StatelessWidget {
 
 class _PartialFailureBanner extends StatelessWidget {
   const _PartialFailureBanner({required this.failed, required this.onRetry});
-
   final int failed;
   final VoidCallback onRetry;
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.errorContainer.withValues(alpha: 0.55),
-      child: ListTile(
-        leading: DIcon(
-          DIcons.triangleExclamation,
-          color: theme.colorScheme.onErrorContainer,
-          size: 18,
-        ),
-        title: Text(
-          '$failed ${failed == 1 ? 'forum could' : 'forums could'} not be refreshed.',
-        ),
-        trailing: DButton(
-          label: const Text('Retry'),
-          onPressed: onRetry,
-          variant: DButtonVariant.link,
-        ),
+  Widget build(BuildContext context) => DAlert(
+    variant: DAlertVariant.destructive,
+    icon: const DIcon(DIcons.triangleExclamation),
+    description: DAlertDescription(
+      child: Text(
+        '$failed ${failed == 1 ? 'forum could' : 'forums could'} not be refreshed.',
       ),
-    );
-  }
+    ),
+    action: DAlertAction(
+      child: DButton(
+        label: const Text('Retry'),
+        onPressed: onRetry,
+        variant: DButtonVariant.link,
+      ),
+    ),
+  );
 }
 
 class _AggregateEmptyState extends StatelessWidget {

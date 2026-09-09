@@ -53,7 +53,10 @@ class BadgesPage extends StatelessWidget {
                 if (state.loading &&
                     (state.catalog != null || state.badge != null))
                   const SliverToBoxAdapter(
-                    child: LinearProgressIndicator(minHeight: 2),
+                    child: DProgress(
+                      semanticsLabel: 'Refreshing badges',
+                      track: DProgressTrack(height: 2),
+                    ),
                   ),
                 if (state.error != null)
                   SliverToBoxAdapter(
@@ -502,14 +505,17 @@ class _BadgeError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 16),
-    child: Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Text(message),
-        DButton(label: const Text('Retry'), onPressed: onRetry),
-      ],
+    child: DAlert(
+      variant: DAlertVariant.destructive,
+      icon: const DIcon(DIcons.triangleExclamation),
+      description: DAlertDescription(child: Text(message)),
+      action: DAlertAction(
+        child: DButton(
+          label: const Text('Retry'),
+          onPressed: onRetry,
+          variant: DButtonVariant.link,
+        ),
+      ),
     ),
   );
 }

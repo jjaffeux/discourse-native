@@ -1,0 +1,31 @@
+Window: "Discourse", App: Discourse Switch Review 3243a88c.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Discourse Switch Review 3243a88c
+		2 container (settable)
+			3 container (settable) Insert date and time
+				4 button (settable) Close
+				5 container (settable)
+					6 text field (settable)
+					7 button (settable) Choose Start date
+					8 checkbox (settable, integer) Start time, Value: 0
+					9 switch (settable, boolean) End date and time, Value: on
+					10 text field (settable)
+					11 button (settable) Choose End date
+					12 checkbox (settable, integer) End time, Value: 0
+					13 text field (settable)
+					14 text (settable) today → today
+					15 text (settable) Display options
+					16 button (settable) Cancel
+					17 button (settable) Apply
+			18 text (settable) Dismiss
+	19 close button
+	20 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	21 minimize button
+22 menu bar
+	23 Discourse Switch Review 3243a88c
+	24 Edit
+	25 View
+	26 Window
+	27 Help
+
+The focused UI element is 1 container Discourse Switch Review 3243a88c

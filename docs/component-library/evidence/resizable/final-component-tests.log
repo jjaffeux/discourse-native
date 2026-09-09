@@ -1,0 +1,18 @@
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: iOS TextDirection.rtl keeps collapsed-edge drag and semantics target inside its group
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: iOS TextDirection.ltr keeps collapsed-edge drag and semantics target inside its group
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: divider and pill keep reference geometry and live palette with borrowed focus
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: pixel-preserving panel survives container resize while relative panel absorbs space
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: pointer midpoint snap conserves extent with 80.0 opposite capacity and a disabled neighbour
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: pointer midpoint snap conserves extent with 200.0 opposite capacity and a disabled neighbour
+00:00 +6: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: programmatic resizing propagates past adjacent minimum and preserves total
+00:00 +7: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: disabled panel remains fixed while surrounding panels resize
+00:00 +8: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: TextDirection.rtl arrows, Home and Enter resize and collapse with focus
+00:00 +9: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: TextDirection.ltr arrows, Home and Enter resize and collapse with focus
+00:00 +10: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: controlled parent may reject proposed layout
+00:00 +11: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: stable IDs retain child state through reorder and removal
+00:00 +12: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: vertical gesture and cancellation commit actual geometry
+00:01 +13: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +14: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: iOS production adapters provide 48px transparent drag regions
+00:01 +15: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: controlled example supports collapse, restore and dynamic panels
+00:01 +16: All tests passed!

@@ -1,0 +1,46 @@
+Window: "Discourse", App: Discourse Switch Review 3243a88c.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Discourse Switch Review 3243a88c
+		2 container (settable)
+			3 button (settable)
+			4 container (settable) No changes saved
+			5 text (settable) Local Review
+			6 text (settable) @review
+			7 image (settable) Members
+			8 image (settable) Activity
+			9 image (settable) Manage
+			10 image (settable) Permissions
+			11 container (settable)
+				12 text (settable) Group settings
+				13 image (settable) Profile
+				14 image (settable) Membership
+				15 image (settable) Interaction
+				16 image (settable) Email
+				17 image (settable) Categories
+				18 image (settable) Tags
+				19 image (settable) Logs
+			20 container (settable) Membership
+Choose who can discover and join this group.
+				21 button (settable) Who can join?
+Invitation only
+				22 switch (settable, boolean) Members can leave, Value: on
+				23 button (settable) Group visibility
+Everyone
+				24 button (settable) Member-list visibility
+Everyone
+				25 text field (settable)
+				26 text field (settable)
+				27 text field (settable)
+				28 text field (settable)
+				29 button (settable) Save changes
+	30 close button
+	31 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	32 minimize button
+33 menu bar
+	34 Discourse Switch Review 3243a88c
+	35 Edit
+	36 View
+	37 Window
+	38 Help
+
+The focused UI element is 1 container Discourse Switch Review 3243a88c

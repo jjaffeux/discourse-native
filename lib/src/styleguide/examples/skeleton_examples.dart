@@ -322,23 +322,23 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
       ),
       if (_shape != 'Circle') ...[
         Text('Width: ${_width.round()}'),
-        Slider(
+        DSlider(
           semanticFormatterCallback: (value) => 'Width: ${value.round()}',
           value: _width,
           min: 40,
           max: 240,
-          divisions: 20,
+          step: 10,
           onChanged: (value) => setState(() => _width = value),
         ),
       ],
       Text('${_shape == 'Circle' ? 'Diameter' : 'Height'}: ${_height.round()}'),
-      Slider(
+      DSlider(
         semanticFormatterCallback: (value) =>
             '${_shape == 'Circle' ? 'Diameter' : 'Height'}: ${value.round()}',
         value: _height,
         min: 8,
         max: 96,
-        divisions: 22,
+        step: 4,
         onChanged: (value) => setState(() => _height = value),
       ),
       if (_shape == 'Rectangle') ...[
@@ -347,13 +347,13 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
               ? 'Radius: site default'
               : 'Radius: ${_radius!.round()}',
         ),
-        Slider(
+        DSlider(
           semanticFormatterCallback: (value) =>
               'Corner radius: ${value.round()}',
           value: _radius ?? (DTokens.of(context).radius * 0.8).clamp(0, 32),
           min: 0,
           max: 32,
-          divisions: 16,
+          step: 2,
           onChanged: (value) => setState(() => _radius = value),
         ),
         DButton(
@@ -808,29 +808,31 @@ class _TableContent extends StatelessWidget {
   const _TableContent();
 
   @override
-  Widget build(BuildContext context) => Table(
+  Widget build(BuildContext context) => DTable(
     columnWidths: const {1: FixedColumnWidth(112), 2: FixedColumnWidth(96)},
-    children: [
-      for (final (index, name) in [
-        'Ada',
-        'Grace',
-        'Linus',
-        'Margaret',
-        'Ken',
-      ].indexed)
-        TableRow(
-          children: [
-            for (final value in [name, '${index + 2} posts', 'Member'])
-              Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  end: DSpacing.lg,
-                  top: DSpacing.sm,
-                  bottom: DSpacing.sm,
+    body: DTableBody(
+      rows: [
+        for (final (index, name) in [
+          'Ada',
+          'Grace',
+          'Linus',
+          'Margaret',
+          'Ken',
+        ].indexed)
+          DTableRow(
+            cells: [
+              for (final value in [name, '${index + 2} posts', 'Member'])
+                DTableCell(
+                  padding: const EdgeInsetsDirectional.only(
+                    end: DSpacing.lg,
+                    top: DSpacing.sm,
+                    bottom: DSpacing.sm,
+                  ),
+                  child: Text(value),
                 ),
-                child: Text(value),
-              ),
-          ],
-        ),
-    ],
+            ],
+          ),
+      ],
+    ),
   );
 }

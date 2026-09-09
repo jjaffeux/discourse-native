@@ -365,7 +365,6 @@ class _Drafts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       builder: (context, lane) => RefreshIndicator(
@@ -379,28 +378,19 @@ class _Drafts extends StatelessWidget {
                 slivers: [
                   if (feed.error case final error?)
                     SliverToBoxAdapter(
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            DIcon(
-                              DIcons.triangleExclamation,
-                              size: 18,
-                              color: theme.colorScheme.onErrorContainer,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(child: Text(error)),
-                            DButton(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: DAlert(
+                          variant: DAlertVariant.destructive,
+                          icon: const DIcon(DIcons.triangleExclamation),
+                          description: DAlertDescription(child: Text(error)),
+                          action: DAlertAction(
+                            child: DButton(
                               label: const Text('Retry'),
                               onPressed: () => unawaited(onRefresh()),
                               variant: DButtonVariant.link,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),

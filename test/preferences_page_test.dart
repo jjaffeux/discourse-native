@@ -517,6 +517,7 @@ void main() {
 
         final saved = find.bySemanticsLabel('Notifications preferences saved.');
         expect(saved, findsOneWidget);
+        expect(find.byType(DAlert), findsOneWidget);
         expect(
           tester.getSemantics(saved),
           isSemantics(
@@ -632,7 +633,7 @@ void main() {
         await tester.pump();
         expect(
           tester
-              .widget<SwitchListTile>(
+              .widget<DSwitchTile>(
                 find.byKey(const ValueKey('notify-on-linked-posts')),
               )
               .value,
@@ -648,7 +649,7 @@ void main() {
         );
         expect(
           tester
-              .widget<SwitchListTile>(
+              .widget<DSwitchTile>(
                 find.byKey(const ValueKey('notify-on-linked-posts')),
               )
               .value,
@@ -732,7 +733,7 @@ void main() {
       );
       expect(
         tester
-            .widget<SwitchListTile>(
+            .widget<DSwitchTile>(
               find.byKey(const ValueKey('notify-on-linked-posts')),
             )
             .onChanged,

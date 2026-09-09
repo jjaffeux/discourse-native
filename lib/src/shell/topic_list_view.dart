@@ -1001,38 +1001,22 @@ class _FeedErrorBanner extends StatelessWidget {
     required this.message,
     required this.onRetry,
   });
-
   final String message;
   final VoidCallback onRetry;
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      liveRegion: true,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        color: theme.colorScheme.errorContainer,
-        child: Row(
-          children: [
-            DIcon(
-              DIcons.triangleExclamation,
-              size: 17,
-              color: theme.colorScheme.onErrorContainer,
-            ),
-            const SizedBox(width: 9),
-            Expanded(child: Text(message)),
-            DButton(
-              key: const ValueKey('topic-feed-error-retry'),
-              label: const Text('Retry'),
-              onPressed: onRetry,
-              variant: DButtonVariant.link,
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => DAlert(
+    variant: DAlertVariant.destructive,
+    icon: const Icon(Icons.error_outline),
+    description: DAlertDescription(child: Text(message)),
+    action: DAlertAction(
+      child: DButton(
+        key: const ValueKey('topic-feed-error-retry'),
+        label: const Text('Retry'),
+        onPressed: onRetry,
+        variant: DButtonVariant.link,
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _TopicRow extends StatelessWidget {
