@@ -23,3 +23,11 @@ Preparation HEAD: `d0b89668b01e3140bd6f2b2452494c6a598f8e96`.
 Bundle: `/private/tmp/discourse-switch-review-c637efb3/Discourse Switch Review c637efb3.app`.
 The verified bundle/source and existing evidence remain unchanged. Switch stays
 `in_progress`; its native gate has not passed and no status promotion was made.
+
+## User update
+
+The user reports that the Mac is now unlocked. The lock blocker is cleared,
+but the previously released exclusive slot has not been reassigned to Switch.
+Coordinator messaging remains unavailable in this task. Switch is ready to
+resume native review as soon as the coordinator grants the slot again; no
+desktop access was attempted after release.
