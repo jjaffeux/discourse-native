@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
@@ -862,6 +863,7 @@ void main() {
       final downloader = _FakeImageDownloader();
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
           home: LightboxGallery(
             images: [parse(singleImage)],
             initialIndex: 0,
