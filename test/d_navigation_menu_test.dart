@@ -76,6 +76,42 @@ void main() {
     }
   });
 
+  testWidgets('Tab enters the roving list once and then exits', (tester) async {
+    final before = FocusNode(debugLabel: 'before menu');
+    final after = FocusNode(debugLabel: 'after menu');
+    addTearDown(before.dispose);
+    addTearDown(after.dispose);
+    await tester.pumpWidget(
+      _app(
+        Column(
+          children: [
+            TextButton(
+              focusNode: before,
+              onPressed: () {},
+              child: const Text('Before'),
+            ),
+            _menu(onRoute: (_) {}),
+            TextButton(
+              focusNode: after,
+              onPressed: () {},
+              child: const Text('After'),
+            ),
+          ],
+        ),
+      ),
+    );
+    before.requestFocus();
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, contains('getting'));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus, after);
+  });
+
   testWidgets('Down enters content and Escape restores trigger focus', (
     tester,
   ) async {
@@ -93,6 +129,38 @@ void main() {
     expect(FocusManager.instance.primaryFocus?.debugLabel, contains('getting'));
   });
 
+  testWidgets('leaving the keyboard menu closes without stealing focus', (
+    tester,
+  ) async {
+    final after = FocusNode(debugLabel: 'after open menu');
+    addTearDown(after.dispose);
+    await tester.pumpWidget(
+      _app(
+        Column(
+          children: [
+            _menu(onRoute: (_) {}),
+            TextButton(
+              focusNode: after,
+              onPressed: () {},
+              child: const Text('After'),
+            ),
+          ],
+        ),
+      ),
+    );
+    _menuFocus(tester, 'getting').requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('Introduction'), findsOneWidget);
+
+    after.requestFocus();
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pumpAndSettle();
+    expect(find.text('Introduction'), findsNothing);
+    expect(FocusManager.instance.primaryFocus, after);
+  });
+
   testWidgets('controlled null remains closed until owner accepts request', (
     tester,
   ) async {
@@ -105,6 +173,27 @@ void main() {
     await tester.tap(find.text('Getting started'));
     await tester.pumpAndSettle();
     expect(find.text('Introduction'), findsOneWidget);
+  });
+
+  testWidgets('controlled owner can reject Escape dismissal', (tester) async {
+    await tester.pumpWidget(_app(const _ControlledCloseHarness()));
+    await tester.pumpAndSettle();
+    _menuFocus(tester, 'getting').requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      contains('Navigation menu content'),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Introduction'), findsOneWidget);
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      contains('Navigation menu content'),
+    );
   });
 
   testWidgets('borrowed controller opens and ignores calls after detach', (
@@ -136,6 +225,43 @@ void main() {
     await tester.pumpWidget(_app(const SizedBox()));
     controller.close();
     expect(controller.value, isNull);
+  });
+
+  testWidgets('disposing a borrowed controller while mounted is harmless', (
+    tester,
+  ) async {
+    final controller = DNavigationMenuController<String>();
+    await tester.pumpWidget(_app(_menuWithController(controller: controller)));
+    controller.dispose();
+
+    await tester.tap(find.text('Getting started'));
+    await tester.pumpAndSettle();
+    expect(find.text('Introduction'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('controlled owner is notified when its open item is removed', (
+    tester,
+  ) async {
+    final changes = <DNavigationMenuChange<String>>[];
+    final harnessKey = GlobalKey<_DynamicControlledHarnessState>();
+    await tester.pumpWidget(
+      _app(
+        _DynamicControlledHarness(
+          key: harnessKey,
+          onSelectionChanged: changes.add,
+        ),
+      ),
+    );
+    await tester.tap(find.text('Getting started'));
+    await tester.pumpAndSettle();
+    expect(find.text('Introduction'), findsOneWidget);
+
+    harnessKey.currentState!.removeItem();
+    await tester.pumpAndSettle();
+    expect(find.text('Introduction'), findsNothing);
+    expect(changes.last.value, isNull);
+    expect(changes.last.reason, DNavigationMenuChangeReason.dynamic);
   });
 
   testWidgets('direct active destination exposes link and current semantics', (
@@ -263,6 +389,21 @@ Widget _menu({
   ),
 );
 
+Widget _menuWithController({
+  required DNavigationMenuController<String> controller,
+}) => DNavigationMenu<String>(
+  controller: controller,
+  child: const DNavigationMenuList<String>(
+    children: [
+      DNavigationMenuItem<String>(
+        value: 'getting',
+        trigger: DNavigationMenuTrigger(child: Text('Getting started')),
+        content: DNavigationMenuContent(child: Text('Introduction')),
+      ),
+    ],
+  ),
+);
+
 class _ControlledHarness extends StatefulWidget {
   const _ControlledHarness({required this.accept});
   final bool accept;
@@ -289,6 +430,70 @@ class _ControlledHarnessState extends State<_ControlledHarness> {
         ),
       ],
     ),
+  );
+}
+
+class _ControlledCloseHarness extends StatelessWidget {
+  const _ControlledCloseHarness();
+
+  @override
+  Widget build(BuildContext context) => DNavigationMenu<String>.controlled(
+    value: 'getting',
+    onValueChanged: (_) {},
+    child: const DNavigationMenuList<String>(
+      children: [
+        DNavigationMenuItem<String>(
+          value: 'getting',
+          trigger: DNavigationMenuTrigger(child: Text('Getting started')),
+          content: DNavigationMenuContent(child: Text('Introduction')),
+        ),
+      ],
+    ),
+  );
+}
+
+class _DynamicControlledHarness extends StatefulWidget {
+  const _DynamicControlledHarness({
+    super.key,
+    required this.onSelectionChanged,
+  });
+
+  final ValueChanged<DNavigationMenuChange<String>> onSelectionChanged;
+
+  @override
+  State<_DynamicControlledHarness> createState() =>
+      _DynamicControlledHarnessState();
+}
+
+class _DynamicControlledHarnessState extends State<_DynamicControlledHarness> {
+  String? value;
+  bool showItem = true;
+
+  void removeItem() => setState(() => showItem = false);
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      DNavigationMenu<String>.controlled(
+        value: value,
+        onValueChanged: (next) => setState(() => value = next),
+        onSelectionChanged: widget.onSelectionChanged,
+        child: DNavigationMenuList<String>(
+          children: [
+            if (showItem)
+              const DNavigationMenuItem<String>(
+                value: 'getting',
+                trigger: DNavigationMenuTrigger(child: Text('Getting started')),
+                content: DNavigationMenuContent(child: Text('Introduction')),
+              ),
+          ],
+        ),
+      ),
+      TextButton(
+        onPressed: () => setState(() => showItem = false),
+        child: const Text('Remove item'),
+      ),
+    ],
   );
 }
 

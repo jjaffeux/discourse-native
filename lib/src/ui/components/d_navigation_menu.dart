@@ -35,6 +35,7 @@ class DNavigationMenuController<T> extends ChangeNotifier {
   void Function(T value)? _open;
   VoidCallback? _close;
   T? Function()? _value;
+  bool _disposed = false;
 
   T? get value => _value?.call();
   bool get isOpen => value != null;
@@ -47,6 +48,7 @@ class DNavigationMenuController<T> extends ChangeNotifier {
     required VoidCallback close,
     required T? Function() value,
   }) {
+    if (_disposed) return;
     _open = open;
     _close = close;
     _value = value;
@@ -58,10 +60,13 @@ class DNavigationMenuController<T> extends ChangeNotifier {
     _value = null;
   }
 
-  void _changed() => notifyListeners();
+  void _changed() {
+    if (!_disposed) notifyListeners();
+  }
 
   @override
   void dispose() {
+    _disposed = true;
     _detach();
     super.dispose();
   }
@@ -127,13 +132,14 @@ class DNavigationMenu<T> extends StatefulWidget {
 }
 
 class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
-  final _popover = DPopoverController();
   final _contentFocus = FocusScopeNode(debugLabel: 'Navigation menu content');
   final Map<T, FocusNode> _focusNodes = {};
   Timer? _openTimer;
   Timer? _closeTimer;
   T? _localValue;
   T? _lastValue;
+  T? _invalidValueReported;
+  T? _rovingValue;
   bool _pointerInList = false;
   bool _pointerInContent = false;
 
@@ -171,20 +177,61 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
         in _focusNodes.keys.where((key) => !values.contains(key)).toList()) {
       _focusNodes.remove(removed)?.dispose();
     }
+    _syncRovingFocus();
     final selected = value;
-    if (!_controlled && selected != null && !values.contains(selected)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && value == selected) {
-          _select(null, DNavigationMenuChangeReason.dynamic);
-        }
-      });
+    final selectedItem = _item(selected);
+    final invalid =
+        selected != null &&
+        (selectedItem == null ||
+            selectedItem.disabled ||
+            selectedItem.content == null);
+    if (!invalid) {
+      _invalidValueReported = null;
+      return;
+    }
+    if (_invalidValueReported == selected) return;
+    _invalidValueReported = selected;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && value == selected) {
+        _select(null, DNavigationMenuChangeReason.dynamic);
+      }
+    });
+  }
+
+  bool _isEnabled(DNavigationMenuItem<T> item) =>
+      !item.disabled &&
+      (item.link == null ||
+          (!item.link!.disabled && item.link!.onPressed != null));
+
+  void _syncRovingFocus() {
+    final enabled = _items.where(_isEnabled).toList();
+    if (enabled.isEmpty) {
+      _rovingValue = null;
+    } else if (!enabled.any((item) => item.value == _rovingValue)) {
+      _rovingValue = enabled.first.value;
+    }
+    for (final entry in _focusNodes.entries) {
+      entry.value.skipTraversal = entry.key != _rovingValue;
     }
   }
 
-  FocusNode _focusFor(T value) => _focusNodes.putIfAbsent(
-    value,
-    () => FocusNode(debugLabel: 'Navigation menu $value'),
-  );
+  void _setRovingValue(T next) {
+    if (_rovingValue == next) return;
+    _rovingValue = next;
+    _syncRovingFocus();
+  }
+
+  FocusNode _focusFor(T value) => _focusNodes.putIfAbsent(value, () {
+    late final FocusNode node;
+    node =
+        FocusNode(
+          debugLabel: 'Navigation menu $value',
+          skipTraversal: value != _rovingValue,
+        )..addListener(() {
+          if (node.hasFocus) _setRovingValue(value);
+        });
+    return node;
+  });
 
   DNavigationMenuItem<T>? _item(T? wanted) {
     if (wanted == null) return null;
@@ -233,7 +280,7 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
   }
 
   void _moveFrom(T current, int delta) {
-    final enabled = _items.where((item) => !item.disabled).toList();
+    final enabled = _items.where(_isEnabled).toList();
     if (enabled.isEmpty) return;
     var index = enabled.indexWhere((item) => item.value == current);
     if (index < 0) index = 0;
@@ -247,7 +294,7 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
   }
 
   void _focusBoundary(bool first) {
-    final enabled = _items.where((item) => !item.disabled).toList();
+    final enabled = _items.where(_isEnabled).toList();
     if (enabled.isEmpty) return;
     _focusFor((first ? enabled.first : enabled.last).value).requestFocus();
   }
@@ -278,6 +325,9 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
 
   void _popoverChanged(bool open, DPopoverChangeReason reason) {
     if (open || value == null) return;
+    final triggerToRestore = reason == DPopoverChangeReason.escape
+        ? value
+        : null;
     final mapped = switch (reason) {
       DPopoverChangeReason.outsidePress =>
         DNavigationMenuChangeReason.outsidePress,
@@ -285,6 +335,13 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
       _ => DNavigationMenuChangeReason.focusOut,
     };
     _select(null, mapped);
+    if (triggerToRestore != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && value == null) {
+          _focusFor(triggerToRestore).requestFocus();
+        }
+      });
+    }
   }
 
   Widget _content(DNavigationMenuItem<T> item) {
@@ -384,20 +441,31 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
         ),
       ),
     );
-    return Semantics(
-      container: true,
-      explicitChildNodes: true,
-      label: widget.semanticLabel,
-      child: DPopover(
-        open: selected != null,
-        onOpenChange: _popoverChanged,
-        onOpenChangeComplete: widget.onOpenChangeComplete,
-        focusContentOnOpen: false,
-        transitionDuration: const Duration(milliseconds: 350),
-        reverseTransitionDuration: const Duration(milliseconds: 150),
-        transitionCurve: const Cubic(0.22, 1, 0.36, 1),
-        content: content,
-        child: widget.viewport ? DPopoverAnchor(child: menuList) : menuList,
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (hasFocus) {
+        if (hasFocus) {
+          _closeTimer?.cancel();
+        } else if (value != null) {
+          _scheduleClose(DNavigationMenuChangeReason.focusOut);
+        }
+      },
+      child: Semantics(
+        container: true,
+        explicitChildNodes: true,
+        label: widget.semanticLabel,
+        child: DPopover(
+          open: selected != null,
+          onOpenChange: _popoverChanged,
+          onOpenChangeComplete: widget.onOpenChangeComplete,
+          restoreFocus: false,
+          focusContentOnOpen: false,
+          transitionDuration: const Duration(milliseconds: 350),
+          reverseTransitionDuration: const Duration(milliseconds: 150),
+          transitionCurve: const Cubic(0.22, 1, 0.36, 1),
+          content: content,
+          child: widget.viewport ? DPopoverAnchor(child: menuList) : menuList,
+        ),
       ),
     );
   }
@@ -411,7 +479,6 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
       node.dispose();
     }
     _contentFocus.dispose();
-    _popover.dispose();
     super.dispose();
   }
 }
@@ -777,7 +844,7 @@ class _NavigationActionState extends State<_NavigationAction> {
     final touch = Theme.of(context).platform == TargetPlatform.iOS;
     final visualHeight = widget.triggerStyle ? 36.0 : null;
     final action = Focus(
-      focusNode: widget.focusNode,
+      canRequestFocus: false,
       onKeyEvent: (_, KeyEvent event) {
         final result = widget.onKeyEvent?.call(event) ?? KeyEventResult.ignored;
         if (result == KeyEventResult.handled) return result;
@@ -790,6 +857,7 @@ class _NavigationActionState extends State<_NavigationAction> {
         return KeyEventResult.ignored;
       },
       child: FocusableActionDetector(
+        focusNode: widget.focusNode,
         enabled: interactive,
         mouseCursor: interactive
             ? SystemMouseCursors.click
@@ -853,7 +921,9 @@ class _NavigationActionState extends State<_NavigationAction> {
                   ),
                   fontSize: DiscourseTypography.sm,
                   height: DiscourseTypography.lineHeightSmall,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: widget.triggerStyle
+                      ? FontWeight.w500
+                      : FontWeight.w400,
                   letterSpacing: 0,
                 ),
                 child: IconTheme.merge(

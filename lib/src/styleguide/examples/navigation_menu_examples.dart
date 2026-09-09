@@ -202,7 +202,7 @@ class _ReferenceMenuState extends State<_ReferenceMenu> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
         Text(
           description,
