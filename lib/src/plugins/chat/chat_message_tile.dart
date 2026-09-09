@@ -1090,45 +1090,51 @@ class _Tile extends StatelessWidget {
                   ? null
                   : () => onJumpToMessage!(reply.id),
             ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          DMessage(
+            avatarAlignment: DMessageAvatarAlignment.top,
+            spacing: 0,
             children: [
-              SizedBox(
-                width: ChatMessageTile.gutter,
-                // Align loosens the gutter's tight width before sizing the
-                // avatar; SizedBox alone would be clamped back to gutter width.
-                child: chained
-                    ? const SizedBox.shrink()
-                    : Align(
-                        alignment: Alignment.topLeft,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: UserCardTarget.avatar(
-                            username: message.author.username,
-                            siteUrl: siteUrl,
-                            semanticLabel: message.author.flair == null
-                                ? null
-                                : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
-                            child: ChatUserAvatar(
+              DMessageAvatar(
+                minimumExtent: 0,
+                shiftForFooter: false,
+                child: SizedBox(
+                  width: ChatMessageTile.gutter,
+                  // Align loosens the gutter's tight width before sizing the
+                  // avatar; SizedBox alone would be clamped back to gutter width.
+                  child: chained
+                      ? const SizedBox.shrink()
+                      : Align(
+                          alignment: Alignment.topLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: UserCardTarget.avatar(
+                              username: message.author.username,
                               siteUrl: siteUrl,
-                              userId: message.author.id,
-                              url: message.author.avatarUrl,
-                              flair: message.author.flair,
-                              size: 28,
-                              fallback: ColoredBox(
-                                color: theme.shell.floating,
-                                child: Center(
-                                  child: Text(
-                                    message.author.username.isEmpty
-                                        ? '?'
-                                        : message
-                                              .author
-                                              .username
-                                              .characters
-                                              .first
-                                              .toUpperCase(),
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
+                              semanticLabel: message.author.flair == null
+                                  ? null
+                                  : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
+                              child: ChatUserAvatar(
+                                siteUrl: siteUrl,
+                                userId: message.author.id,
+                                url: message.author.avatarUrl,
+                                flair: message.author.flair,
+                                size: 28,
+                                fallback: ColoredBox(
+                                  color: theme.shell.floating,
+                                  child: Center(
+                                    child: Text(
+                                      message.author.username.isEmpty
+                                          ? '?'
+                                          : message
+                                                .author
+                                                .username
+                                                .characters
+                                                .first
+                                                .toUpperCase(),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                     ),
                                   ),
                                 ),
@@ -1136,72 +1142,90 @@ class _Tile extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!chained) _Header(siteUrl: siteUrl, message: message),
-                    if (messageBody != null)
-                      _MessageBodySelection(
-                        selectionKey: ChatMessageTile.bodySelectionKey(
-                          message.id,
-                        ),
-                        child: messageBody,
-                      ),
-                    if (message.uploads.isNotEmpty)
-                      ChatUploads(siteUrl: siteUrl, uploads: message.uploads),
-                    if (message.edited)
-                      Text(
-                        key: ChatMessageTile.editedIndicatorKey(message.id),
-                        '(edited)',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.discourse.whisper,
-                        ),
-                      ),
-                    if (message.reactions.isNotEmpty)
-                      _Reactions(siteUrl: siteUrl, message: message),
-                    if (message.thread case final thread?
-                        when showThreadSummary && thread.replyCount > 0)
-                      _ThreadSummaryCard(
-                        siteUrl: siteUrl,
-                        thread: thread,
-                        onOpen: onOpenThread == null
-                            ? null
-                            : () => onOpenThread!(thread),
-                      ),
-                    if (message.delivery == ChatMessageDelivery.failed)
-                      _DeliveryStatus(message: message),
-                  ],
                 ),
               ),
-              if (message.pinned)
-                Padding(
-                  padding: const EdgeInsets.only(left: 6, top: 2),
-                  child: Semantics(
-                    label: 'Pinned chat message',
-                    child: DIcon(
-                      DIcons.thumbtack,
-                      size: 14,
-                      color: theme.colorScheme.primary,
-                    ),
+              DMessageContent(
+                spacing: 0,
+                alignChildren: false,
+                flushMetadata: true,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (!chained)
+                              _Header(siteUrl: siteUrl, message: message),
+                            if (messageBody != null)
+                              _MessageBodySelection(
+                                selectionKey: ChatMessageTile.bodySelectionKey(
+                                  message.id,
+                                ),
+                                child: messageBody,
+                              ),
+                            if (message.uploads.isNotEmpty)
+                              ChatUploads(
+                                siteUrl: siteUrl,
+                                uploads: message.uploads,
+                              ),
+                            if (message.edited)
+                              Text(
+                                key: ChatMessageTile.editedIndicatorKey(
+                                  message.id,
+                                ),
+                                '(edited)',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.discourse.whisper,
+                                ),
+                              ),
+                            if (message.reactions.isNotEmpty)
+                              _Reactions(siteUrl: siteUrl, message: message),
+                            if (message.thread case final thread?
+                                when showThreadSummary && thread.replyCount > 0)
+                              _ThreadSummaryCard(
+                                siteUrl: siteUrl,
+                                thread: thread,
+                                onOpen: onOpenThread == null
+                                    ? null
+                                    : () => onOpenThread!(thread),
+                              ),
+                            if (message.delivery == ChatMessageDelivery.failed)
+                              _DeliveryStatus(message: message),
+                          ],
+                        ),
+                      ),
+                      if (message.pinned)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6, top: 2),
+                          child: Semantics(
+                            label: 'Pinned chat message',
+                            child: DIcon(
+                              DIcons.thumbtack,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      if (message.bookmark case final bookmark?)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6, top: 2),
+                          child: Semantics(
+                            label: bookmark.reminderAt == null
+                                ? 'Bookmarked chat message'
+                                : 'Chat message bookmarked with a reminder',
+                            child: DIcon(
+                              _bookmarkIcon(bookmark),
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-              if (message.bookmark case final bookmark?)
-                Padding(
-                  padding: const EdgeInsets.only(left: 6, top: 2),
-                  child: Semantics(
-                    label: bookmark.reminderAt == null
-                        ? 'Bookmarked chat message'
-                        : 'Chat message bookmarked with a reminder',
-                    child: DIcon(
-                      _bookmarkIcon(bookmark),
-                      size: 14,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
+                ],
+              ),
             ],
           ),
         ],
