@@ -97,26 +97,18 @@ class _DraftListViewState extends State<DraftListView> {
     if (instance?.isConnected != true) return;
     final siteUrl = widget.siteUrl;
     final lease = controller.lifecycle.capture(siteUrl);
-    final confirmed = await showDiscourseDialog<bool>(
+    final confirmed = await showDiscourseAlertDialog<bool>(
       context: context,
-      builder: (context) => DiscourseAlertDialog(
-        title: const Text('Remove draft?'),
-        content: Text(
-          '“${draft.displayTitle}” will be permanently removed from this '
-          'account.',
-        ),
-        actions: [
-          AdaptiveDialogAction(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          AdaptiveDialogAction(
-            kind: AdaptiveDialogActionKind.destructive,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Remove'),
-          ),
-        ],
+      title: const Text('Remove draft?'),
+      description: Text(
+        '“${draft.displayTitle}” will be permanently removed from this '
+        'account.',
       ),
+      cancelLabel: const Text('Cancel'),
+      actionLabel: const Text('Remove'),
+      cancelResult: false,
+      actionResult: true,
+      actionVariant: DButtonVariant.destructive,
     );
     if (confirmed != true || !mounted || !lease.isCurrent) return;
     if (widget.siteUrl != siteUrl ||

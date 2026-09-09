@@ -23,6 +23,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
@@ -2315,26 +2316,18 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     required String action,
     bool destructive = false,
   }) async =>
-      await showDialog<bool>(
+      await showDiscourseAlertDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            DButton(
-              label: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(false),
-            ),
-            DButton(
-              key: ValueKey('topic-selected-${action.toLowerCase()}-confirm'),
-              label: Text(action),
-              onPressed: () => Navigator.of(context).pop(true),
-              variant: destructive
-                  ? DButtonVariant.danger
-                  : DButtonVariant.primary,
-            ),
-          ],
-        ),
+        title: Text(title),
+        description: Text(message),
+        cancelLabel: const Text('Cancel'),
+        actionLabel: Text(action),
+        cancelResult: false,
+        actionResult: true,
+        actionKey: ValueKey('topic-selected-${action.toLowerCase()}-confirm'),
+        actionVariant: destructive
+            ? DButtonVariant.destructive
+            : DButtonVariant.primary,
       ) ??
       false;
 
