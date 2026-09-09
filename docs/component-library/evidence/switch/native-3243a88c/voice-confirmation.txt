@@ -1,0 +1,21 @@
+Window: "Discourse", App: Discourse Switch Review 3243a88c.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Discourse Switch Review 3243a88c
+		2 container (settable)
+			3 container (settable)
+				4 text (settable) Turn on deep Voice capture?
+				5 text (settable) This records usernames and user IDs, network addresses, raw SDP and ICE negotiation, media statistics, and device details. Credentials and other secrets are redacted. Capture stays on until you turn it off or restart the app.
+				6 button (settable) Cancel
+				7 button (settable) Turn on capture
+			8 text (settable) Dismiss
+	9 close button
+	10 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	11 minimize button
+12 menu bar
+	13 Discourse Switch Review 3243a88c
+	14 Edit
+	15 View
+	16 Window
+	17 Help
+
+The focused UI element is 1 container Discourse Switch Review 3243a88c

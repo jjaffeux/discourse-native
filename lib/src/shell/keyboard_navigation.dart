@@ -41,6 +41,8 @@ bool navigationShortcutsAllowed(
       widget is RawRadio<Object?> ||
       widget is Radio<Object?> ||
       widget is RadioListTile<Object?> ||
+      widget is DSwitch ||
+      widget is DSwitchTile ||
       widget is Switch ||
       widget is SwitchListTile ||
       widget is Slider ||
