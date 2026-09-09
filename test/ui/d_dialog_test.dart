@@ -596,6 +596,13 @@ void main() {
       await tester.pumpAndSettle();
       final popup = tester.getRect(find.byType(DDialogContent));
       final close = tester.getRect(find.bySemanticsLabel('Close').last);
+      final closeSurface = tester.widget<FilledButton>(
+        find.descendant(
+          of: find.bySemanticsLabel('Close').last,
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(closeSurface.style?.fixedSize?.resolve({}), const Size.square(32));
       if (direction == TextDirection.ltr) {
         expect(close.right, popup.right - 8);
       } else {
@@ -627,6 +634,7 @@ void main() {
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Dismiss dialog'), findsOneWidget);
       final fieldNode = tester.getSemantics(
         find.bySemanticsLabel('Profile name').last,
       );

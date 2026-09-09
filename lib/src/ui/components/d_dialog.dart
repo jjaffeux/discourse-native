@@ -758,7 +758,7 @@ class DDialogContent extends StatelessWidget {
                   DDialogClose<void>(
                     builder: (context, close) => DButton.iconOnly(
                       onPressed: close,
-                      size: DButtonSize.regular,
+                      size: DButtonSize.small,
                       variant: DButtonVariant.ghost,
                       icon: const _DDialogCloseIcon(),
                       tooltip: closeSemanticLabel,
