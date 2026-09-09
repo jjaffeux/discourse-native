@@ -26,7 +26,6 @@ import 'd_label.dart';
 class DInput extends FormField<String> {
   DInput({
     super.key,
-    this.editorKey,
     this.controller,
     this.value,
     String? initialValue,
@@ -76,7 +75,6 @@ class DInput extends FormField<String> {
          builder: (state) => (state as _DInputState)._build(),
        );
 
-  final Key? editorKey;
   final TextEditingController? controller;
   final String? value;
   final FocusNode? focusNode;
@@ -261,7 +259,6 @@ class _DInputState extends FormFieldState<String> {
                   ? SemanticsValidationResult.invalid
                   : SemanticsValidationResult.none,
               child: TextField(
-                key: input.editorKey,
                 controller: _controller,
                 focusNode: _focus,
                 enabled: enabled,

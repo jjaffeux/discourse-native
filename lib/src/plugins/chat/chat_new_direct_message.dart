@@ -331,7 +331,7 @@ class _ChatNewDirectMessageDialogState
             DInputGroup(
               children: [
                 DInputGroupInput(
-                  editorKey: const ValueKey('chat-new-direct-message-search'),
+                  key: const ValueKey('chat-new-direct-message-search'),
                   controller: _search,
                   autofocus: true,
                   enabled: !_opening,

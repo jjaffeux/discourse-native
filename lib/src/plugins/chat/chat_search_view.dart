@@ -249,7 +249,7 @@ class _SearchControls extends StatelessWidget {
               child: DInputGroup(
                 children: [
                   DInputGroupInput(
-                    editorKey: const ValueKey('chat-search-field'),
+                    key: const ValueKey('chat-search-field'),
                     controller: controller,
                     focusNode: focusNode,
                     autofocus: true,
