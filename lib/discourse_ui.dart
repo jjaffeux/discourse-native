@@ -22,6 +22,7 @@ export 'src/ui/components/d_checkbox.dart';
 export 'src/ui/components/d_collapsible.dart';
 export 'src/ui/components/d_combobox.dart';
 export 'src/ui/components/d_command.dart';
+export 'src/ui/components/d_context_menu.dart';
 export 'src/ui/components/d_date_picker.dart';
 export 'src/ui/components/d_dialog.dart';
 export 'src/ui/components/d_direction.dart';
