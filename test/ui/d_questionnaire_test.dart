@@ -161,9 +161,52 @@ void main() {
 
     await tester.tap(find.byType(TextField));
     await tester.enterText(find.byType(TextField), 'a custom answer');
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
     await tester.pump();
     expect(controller.answerFor('one').freeform, 'a custom answer');
     expect(controller.answerFor('one').values, isEmpty);
+  });
+
+  testWidgets('submit shortcut does not interrupt active IME composition', (
+    tester,
+  ) async {
+    var submissions = 0;
+    final controller = DQuestionnaireController(
+      items: [
+        item(
+          'one',
+          input: const DQuestionnaireInputConfiguration(label: 'Answer'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      app(
+        DQuestionnaire(
+          items: controller.items,
+          controller: controller,
+          onSubmit: (_) => submissions++,
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.showKeyboard(find.byType(TextField));
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'é',
+        selection: TextSelection.collapsed(offset: 1),
+        composing: TextRange(start: 0, end: 1),
+      ),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(submissions, 0);
+    expect(controller.answerFor('one').freeform, 'é');
   });
 
   testWidgets('answer arrows wrap and Enter advances from a selected answer', (

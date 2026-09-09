@@ -290,25 +290,28 @@ class _DQuestionnaireState extends State<DQuestionnaire> {
     final enabled = item.choices.where((choice) => choice.enabled).toList();
     final limit = mode == DQuestionnaireShortcutMode.numbers ? 9 : 26;
     return {
-      const SingleActivator(LogicalKeyboardKey.enter, control: true): () =>
+      const _QuestionnaireShortcutActivator(
+        SingleActivator(LogicalKeyboardKey.enter, control: true),
+        allowEditable: true,
+      ): () =>
           _controller.canGoNext ? _next() : _submit(),
-      const SingleActivator(LogicalKeyboardKey.enter, meta: true): () =>
+      const _QuestionnaireShortcutActivator(
+        SingleActivator(LogicalKeyboardKey.enter, meta: true),
+        allowEditable: true,
+      ): () =>
           _controller.canGoNext ? _next() : _submit(),
       for (
         var index = 0;
         mode != null && index < enabled.length && index < limit;
         index++
       )
-        SingleActivator(
-          mode == DQuestionnaireShortcutMode.letters
-              ? LogicalKeyboardKey(LogicalKeyboardKey.keyA.keyId + index)
-              : LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + index),
+        _QuestionnaireShortcutActivator(
+          SingleActivator(
+            mode == DQuestionnaireShortcutMode.letters
+                ? LogicalKeyboardKey(LogicalKeyboardKey.keyA.keyId + index)
+                : LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + index),
+          ),
         ): () {
-          final focusContext = FocusManager.instance.primaryFocus?.context;
-          if (focusContext?.findAncestorWidgetOfExactType<EditableText>() !=
-              null) {
-            return;
-          }
           final choice = enabled[index];
           item.multiple
               ? _controller.toggle(item.id, choice.value)
@@ -419,6 +422,33 @@ class _DQuestionnaireState extends State<DQuestionnaire> {
       controller.dispose();
     }
     super.dispose();
+  }
+}
+
+class _QuestionnaireShortcutActivator implements ShortcutActivator {
+  const _QuestionnaireShortcutActivator(
+    this.activator, {
+    this.allowEditable = false,
+  });
+
+  final SingleActivator activator;
+  final bool allowEditable;
+
+  @override
+  Iterable<LogicalKeyboardKey>? get triggers => activator.triggers;
+
+  @override
+  String debugDescribeKeys() => activator.debugDescribeKeys();
+
+  @override
+  bool accepts(KeyEvent event, HardwareKeyboard state) {
+    if (!activator.accepts(event, state)) return false;
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    final editable = focusContext?.findAncestorStateOfType<EditableTextState>();
+    if (editable == null) return true;
+    if (!allowEditable) return false;
+    final composing = editable.widget.controller.value.composing;
+    return !composing.isValid || composing.isCollapsed;
   }
 }
 
