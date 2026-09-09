@@ -1706,11 +1706,46 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match frozen Base UI/base-nova documentation and source, record exact metrics and native adaptations.
-- Implement complete documented composition and state/interaction behavior with shared Button, live tokens and correct native focus/semantics/lifecycle.
-- Provide all reference examples and meaningful narrow/large-text/RTL states; reconcile pending Input and Field compositions through their owners.
-- Audit and migrate appropriate real core/plugin surfaces while retaining specialized adjacent catalogue owners.
-- Pass focused component/downstream tests and root/full analysis; compare actual rendered reference and native production fixture before review_ready.
+- Provide one public generic Dialog owner exported from discourse_ui.dart with typed DDialogController<T>, DDialog/DDialogTrigger/DDialogContent/DDialogHeader/DDialogTitle/DDialogDescription/DDialogFooter/DDialogClose composition and a showDDialog<T> helper that uses the nearest Navigator by default.
+- Match the frozen base-nova registry at 100% scale: black/10 blurred backdrop, full-width popup capped at 384px with 16px viewport margins, 16px grid gaps and padding, xl radius, foreground/10 one-pixel exterior ring, popover surface, 16px medium/leading-none title, 14px muted description, 8px header/footer gaps, muted/50 bordered footer, and a 32px ghost X close control at logical top/end 8px.
+- Support uncontrolled and externally controlled open state, typed close results, trigger/close reasons, custom or omitted corner close controls, footer close composition, custom initial/final focus, focus trap/restoration, Escape and barrier dismissal policies, programmatic close, route/widget removal, nested Navigators/dialogs, and live inherited theme/direction/text-scale/reduced-motion changes while open.
+- Keep background content modal/inert and expose a correctly labeled dialog route and independent close/actions to assistive technology; preserve keyboard Tab/Shift-Tab traversal, mouse/touch activation, 48px invisible touch affordances where needed, logical RTL placement, and focus visibility without merging editable field semantics with surrounding controls.
+- Provide constrained and scrollable layouts that avoid keyboard/view-inset obstruction and overflow at 320px width and 200% text, including documented default profile form, Custom Close Button, No Close Button, Sticky Footer, Scrollable Content and Arabic RTL examples; compose the merged Input owner while keeping Field with its separate catalogue owner.
+- Define explicit async-submit ownership so completion, failure, double activation and disposal cannot close or mutate the wrong dialog; retain caller-owned validation, errors, permissions, persistence and routing behavior in application adapters.
+- Audit ordinary modal dialogs in core and bundled plugins and migrate appropriate usages to DDialog while preserving callbacks, async/lifecycle behavior and accessibility; record Alert Dialog, Sheet, Drawer, Popover, native system dialogs and specialized media/composer surfaces as narrowly retained alternatives rather than conflating their owners.
+- Format and analyze touched code, run focused component/styleguide/downstream migration tests and affected profile checks, build a uniquely identified isolated macOS local-data fixture that mounts actual changed production dialogs, and after coordinator slot approval compare the reference and native styleguide/migrated fixtures in light/dark/custom palettes, narrow/large-text/RTL/reduced-motion states with source, kernel and strict permitted-signature evidence.
+
+**decisions**
+
+- Frozen shadcn Base UI Dialog Markdown, generated base-nova registry and upstream abstract owner are recorded with SHA-256 hashes and commit provenance in dialog.md; CSS pixels map one-to-one to Flutter logical pixels at 100% scale.
+- DDialog<T> provides controlled or uncontrolled declarative ownership; DDialogController<T> provides borrowed imperative ownership and coalesced typed submit futures. A submission is bound to one attachment and one open session, so late completion, disposal or reopening cannot mutate the wrong dialog.
+- A route-owned configuration notifier keeps content, barrier/Escape policy, label and initial focus current while open. Replaced controllers detach immediately; obscured parent closure removes its own route instead of popping a typed child route.
+- showDDialog<T> defers its builder into a route-descendant context and bridges live caller-scoped Theme, MediaQuery and Directionality updates while retaining caller-owned Form state.
+- The native surface uses shared DButton and DInput owners, live DTokens, exact 16px custom X artwork, closed-loop focus traversal, logical placement, modal semantics, SafeArea/view-inset handling and reduced-motion behavior.
+- Seven actual styleguide examples cover default profile editing, custom/no close controls, sticky and scrollable layouts, RTL and controlled/typed results without implementing the separately owned Field primitive.
+
+**migrations**
+
+- Chat channel details now uses showDDialog<void>/DDialogContent while preserving validation, error/loading state, disabled barrier dismissal, metadata diffing and its original async controller callback.
+- Voice room create/edit now uses typed showDDialog<VoiceRoomDraft> while preserving fields, switches, required-name validation, cancellation, latest-controller resolution and caller-owned persistence.
+
+**retainedAlternatives**
+
+- Destructive confirmations and adaptive Cupertino alerts remain Alert Dialog; sheets, drawers, popovers, pickers, media/full-screen routes and native system dialogs keep their distinct catalogue or platform owners.
+- App Settings remains a large navigation workspace; composer and vendored WebRTC examples retain their specialized or third-party lifecycle contracts.
+
+**verification**
+
+- Root and profiles/full flutter analyze --no-pub pass; touched Dart is formatted and git diff --check is clean.
+- Final randomized Dialog/styleguide/Chat/Voice run passes all 393 tests with seed 4147437372. The 22 focused Dialog/example checks pass with seed 4094924130, including typed nested routes, controller replacement, current content/dismissal policy, open-session submit ownership, disposal, live helper scope and retained Form state.
+- Isolated flutter build macos --debug --no-pub -t lib/dialog_native_fixture.dart and unique DialogNativeReview Xcode scheme build pass from final source b75bee83e15f75692e8391502e5640124f83b9ed.
+- Prepared unlaunched bundle /private/tmp/discourse-native-dialog.qNoMNI/build/DialogNativeReviewDerived/Build/Products/Debug/Dialog Native Review.app has identifier org.discourse.native.styleguide.dialog; six production source files byte-match the worktree and d_dialog.dart SHA-256 is 05993f5cb8c3e388e8ab7d5bd7a2b8260862eeef24e3c769d53a6675e34438db.
+- Final bundle kernel SHA-256 is cce09d0ea6b8e0139c0ce9f7698efaa826896280f51df75d22afa3a79486528b. Ad-hoc codesign --verify --deep --strict passes; entitlements contain only sandbox, JIT, audio/camera, user-selected read/write and network client/server, with no APS, application identifier or team identifier.
+
+**limitations**
+
+- Native/reference-rendered visual comparison and VoiceOver/device behavior remain awaiting the coordinator's serialized UI slot; the prepared uniquely identified app has not been launched and no CUA interaction was performed.
+- No physical iOS/Linux execution. Rich Field composition remains with its planned catalogue owner; Dialog now composes merged DInput where applicable.
 
 ### native-select
 
