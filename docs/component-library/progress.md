@@ -69,10 +69,10 @@ Branch preparation does not mark a component merged or visually verified.
 | 38 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
 | 39 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 40 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
-| 41 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
-| 42 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
-| 43 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
-| 44 | input-group | merged | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner, field, dropdown-menu, popover | d1de717b1e2d1eeaf06d86dafe1452662d05e368 |
+| 41 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
+| 42 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
+| 43 | input-group | merged | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner, field, dropdown-menu, popover | d1de717b1e2d1eeaf06d86dafe1452662d05e368 |
+| 44 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
 | 45 | context-menu | in_progress | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | — |
 | 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
@@ -2449,46 +2449,6 @@ Status: merged. Task: 01a085bc-5eda-7712-9863-190bf6846bcc. Branch: codex/ui-com
 - Native CUA Arrow navigation and Return activation were visible. Its Ctrl-N/P injection produced no visible signal on the AZERTY host, so Ctrl-N/J/P/K and native IME-composing preservation are claimed only from focused widget tests, not from the native CUA pass.
 - The full topic_reading_integration_test run showed unrelated/order-sensitive failures when run concurrently with other files; the only changed topic action test passes independently. The full suite is not required.
 
-### combobox
-
-Status: merged. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/ui-combobox.
-
-**acceptanceCriteria**
-
-- Implement the frozen Base UI Combobox complete autocomplete/chips/collection API and Simple, chips, groups, custom items, multiple selection, clear, invalid, disabled, auto highlight, Popup, Input Group and RTL examples with primary-source mapping.
-- Provide typed selection/query/filter/highlight ownership, editable focus/IME, dynamic/disabled results, chip navigation/deletion, keyboard selection, anchored scrolling/collision, dismissal/restoration and safe lifecycle; preserve domain querying/network state in adapters.
-- Use accepted shared popup/input owners and reconcile Command/Field/Input Group/Item APIs where the actual Base UI semantics fit; retain every required example and prevent prepared parents reaching main before acceptance.
-- Migrate appropriate core/plugin searchable selectors and multi-value fields, preserving permissions, asynchronous results and callbacks; verify focused component/consumer regressions and root/full analysis with live themes and native/scaled/RTL behavior.
-- Create a new independent reviewer for remaining official rendered/native acceptance, fixes, required compositions and final local main merge.
-
-**decisions**
-
-- Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
-- Independent reviewer 01a08628-7889-7dd2-a93c-c854fcdf1e9a corrected controlled selection/editor synchronization, mount-time Form reset, read-only behavior, custom-equality lookup, Escape focus restoration, touch targets, loop-focus/highlight semantics and multiple close-on-select defaults.
-- The final input composes accepted DInputGroup controls and buttons while retaining one Combobox-owned editable TextField/IME owner; custom result content composes passive accepted DItem parts inside the Combobox option target.
-- The candidate was repeatedly reconstructed from advancing accepted main rather than merging main into the review branch, and the frozen official browser examples were compared with the isolated native macOS fixture.
-
-**migrations**
-
-- Migrated Add Group Members to the multiple Combobox while preserving controller-owned debounce, request sequencing, stale-result rejection, loading/error state, selected usernames/emails, permissions and save authority.
-
-**retainedAlternatives**
-
-- Topic filter query syntax, composer mention/emoji completion, category/tag/assignment/time pickers, topic-list tag filtering, DSelect/DNativeSelect and action Command menus retain their specialized owners because they are not selection-restricted autocomplete fields.
-
-**verification**
-
-- Frozen shadcn Markdown, Base Nova registry and Base UI API sources matched recorded SHA256 pins 1999428362ac7386c7770217e5b48e1a44c2b414005f9721ef68b9366e9ef0f2, d4b9231b00428269f6fa42bf3e26714f15c69245f35b62d1bbae6d1a4853d314 and 0ef20214794c6e06ddae5f448fa37f598f2e5ff92e0602993ad31eeffa68ca27.
-- 101 focused Combobox, styleguide, Input Group, Item, Popover and Group Page tests passed with seed 9092026 after accepted dependency reconciliation; root and profiles/full static analysis were clean.
-- Official browser acceptance exercised Basic filtering/selection, grouped results, custom two-line items and Popup composition, and confirmed every frozen example heading.
-- Isolated native macOS acceptance exercised filtering, arrow/Return selection, Escape/focus restoration, chip selection/removal, clear, Input Group, Popup, live themes, 216/320px bounds, 200% text, RTL and reduced motion.
-- The production Add Group Members fixture searched local async results, retained rapid-entry multiple selection and completed a local fake save with the expected username.
-- Exact candidate be8ffa8d637bd23ace4d21e8502a4c82b7a4e51a built as a macOS debug fixture; its kernel_blob.bin SHA256 was be5f83f7b8a8970efefda52164a63c7c1d513cdbc6189230b235954d52ad9475. Local main accepted it with a required no-fast-forward merge.
-
-**limitations**
-
-- No iOS/Linux device or spoken VoiceOver session was inspected; those remain covered by widget semantics/geometry tests rather than this macOS visual acceptance pass.
-
 ### dropdown-menu
 
 Status: merged. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dropdown-menu.
@@ -2635,6 +2595,46 @@ Status: merged. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/ui-inp
 
 - Native inspection was performed on macOS; physical iOS/Android devices, Linux and spoken VoiceOver output were not run. Widget tests cover touch targets, keyboard/focus, semantics, RTL and narrow/200% layouts.
 - No automated pixel-diff baseline was produced; geometry and state comparisons were inspected against the frozen official browser reference.
+
+### combobox
+
+Status: merged. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/ui-combobox.
+
+**acceptanceCriteria**
+
+- Implement the frozen Base UI Combobox complete autocomplete/chips/collection API and Simple, chips, groups, custom items, multiple selection, clear, invalid, disabled, auto highlight, Popup, Input Group and RTL examples with primary-source mapping.
+- Provide typed selection/query/filter/highlight ownership, editable focus/IME, dynamic/disabled results, chip navigation/deletion, keyboard selection, anchored scrolling/collision, dismissal/restoration and safe lifecycle; preserve domain querying/network state in adapters.
+- Use accepted shared popup/input owners and reconcile Command/Field/Input Group/Item APIs where the actual Base UI semantics fit; retain every required example and prevent prepared parents reaching main before acceptance.
+- Migrate appropriate core/plugin searchable selectors and multi-value fields, preserving permissions, asynchronous results and callbacks; verify focused component/consumer regressions and root/full analysis with live themes and native/scaled/RTL behavior.
+- Create a new independent reviewer for remaining official rendered/native acceptance, fixes, required compositions and final local main merge.
+
+**decisions**
+
+- Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
+- Independent reviewer 01a08628-7889-7dd2-a93c-c854fcdf1e9a corrected controlled selection/editor synchronization, mount-time Form reset, read-only behavior, custom-equality lookup, Escape focus restoration, touch targets, loop-focus/highlight semantics and multiple close-on-select defaults.
+- The final input composes accepted DInputGroup controls and buttons while retaining one Combobox-owned editable TextField/IME owner; custom result content composes passive accepted DItem parts inside the Combobox option target.
+- The candidate was repeatedly reconstructed from advancing accepted main rather than merging main into the review branch, and the frozen official browser examples were compared with the isolated native macOS fixture.
+
+**migrations**
+
+- Migrated Add Group Members to the multiple Combobox while preserving controller-owned debounce, request sequencing, stale-result rejection, loading/error state, selected usernames/emails, permissions and save authority.
+
+**retainedAlternatives**
+
+- Topic filter query syntax, composer mention/emoji completion, category/tag/assignment/time pickers, topic-list tag filtering, DSelect/DNativeSelect and action Command menus retain their specialized owners because they are not selection-restricted autocomplete fields.
+
+**verification**
+
+- Frozen shadcn Markdown, Base Nova registry and Base UI API sources matched recorded SHA256 pins 1999428362ac7386c7770217e5b48e1a44c2b414005f9721ef68b9366e9ef0f2, d4b9231b00428269f6fa42bf3e26714f15c69245f35b62d1bbae6d1a4853d314 and 0ef20214794c6e06ddae5f448fa37f598f2e5ff92e0602993ad31eeffa68ca27.
+- 101 focused Combobox, styleguide, Input Group, Item, Popover and Group Page tests passed with seed 9092026 after accepted dependency reconciliation; root and profiles/full static analysis were clean.
+- Official browser acceptance exercised Basic filtering/selection, grouped results, custom two-line items and Popup composition, and confirmed every frozen example heading.
+- Isolated native macOS acceptance exercised filtering, arrow/Return selection, Escape/focus restoration, chip selection/removal, clear, Input Group, Popup, live themes, 216/320px bounds, 200% text, RTL and reduced motion.
+- The production Add Group Members fixture searched local async results, retained rapid-entry multiple selection and completed a local fake save with the expected username.
+- Exact candidate be8ffa8d637bd23ace4d21e8502a4c82b7a4e51a built as a macOS debug fixture; its kernel_blob.bin SHA256 was be5f83f7b8a8970efefda52164a63c7c1d513cdbc6189230b235954d52ad9475. Local main accepted it with a required no-fast-forward merge.
+
+**limitations**
+
+- No iOS/Linux device or spoken VoiceOver session was inspected; those remain covered by widget semantics/geometry tests rather than this macOS visual acceptance pass.
 
 ### context-menu
 

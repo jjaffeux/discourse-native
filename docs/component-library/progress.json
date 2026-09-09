@@ -2715,103 +2715,6 @@
       "reviewHandoffCommit": "f3180d998bd901ce24c2f21e386d5b08f78afbd5"
     },
     {
-      "id": "combobox",
-      "status": "merged",
-      "taskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
-      "branch": "codex/ui-combobox",
-      "dependencies": [
-        "input",
-        "popover",
-        "command",
-        "field",
-        "input-group",
-        "item"
-      ],
-      "acceptanceCriteria": [
-        "Implement the frozen Base UI Combobox complete autocomplete/chips/collection API and Simple, chips, groups, custom items, multiple selection, clear, invalid, disabled, auto highlight, Popup, Input Group and RTL examples with primary-source mapping.",
-        "Provide typed selection/query/filter/highlight ownership, editable focus/IME, dynamic/disabled results, chip navigation/deletion, keyboard selection, anchored scrolling/collision, dismissal/restoration and safe lifecycle; preserve domain querying/network state in adapters.",
-        "Use accepted shared popup/input owners and reconcile Command/Field/Input Group/Item APIs where the actual Base UI semantics fit; retain every required example and prevent prepared parents reaching main before acceptance.",
-        "Migrate appropriate core/plugin searchable selectors and multi-value fields, preserving permissions, asynchronous results and callbacks; verify focused component/consumer regressions and root/full analysis with live themes and native/scaled/RTL behavior.",
-        "Create a new independent reviewer for remaining official rendered/native acceptance, fixes, required compositions and final local main merge."
-      ],
-      "decisions": [
-        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.",
-        "Independent reviewer 01a08628-7889-7dd2-a93c-c854fcdf1e9a corrected controlled selection/editor synchronization, mount-time Form reset, read-only behavior, custom-equality lookup, Escape focus restoration, touch targets, loop-focus/highlight semantics and multiple close-on-select defaults.",
-        "The final input composes accepted DInputGroup controls and buttons while retaining one Combobox-owned editable TextField/IME owner; custom result content composes passive accepted DItem parts inside the Combobox option target.",
-        "The candidate was repeatedly reconstructed from advancing accepted main rather than merging main into the review branch, and the frozen official browser examples were compared with the isolated native macOS fixture."
-      ],
-      "migrations": [
-        "Migrated Add Group Members to the multiple Combobox while preserving controller-owned debounce, request sequencing, stale-result rejection, loading/error state, selected usernames/emails, permissions and save authority."
-      ],
-      "retainedAlternatives": [
-        "Topic filter query syntax, composer mention/emoji completion, category/tag/assignment/time pickers, topic-list tag filtering, DSelect/DNativeSelect and action Command menus retain their specialized owners because they are not selection-restricted autocomplete fields."
-      ],
-      "verification": [
-        "Frozen shadcn Markdown, Base Nova registry and Base UI API sources matched recorded SHA256 pins 1999428362ac7386c7770217e5b48e1a44c2b414005f9721ef68b9366e9ef0f2, d4b9231b00428269f6fa42bf3e26714f15c69245f35b62d1bbae6d1a4853d314 and 0ef20214794c6e06ddae5f448fa37f598f2e5ff92e0602993ad31eeffa68ca27.",
-        "101 focused Combobox, styleguide, Input Group, Item, Popover and Group Page tests passed with seed 9092026 after accepted dependency reconciliation; root and profiles/full static analysis were clean.",
-        "Official browser acceptance exercised Basic filtering/selection, grouped results, custom two-line items and Popup composition, and confirmed every frozen example heading.",
-        "Isolated native macOS acceptance exercised filtering, arrow/Return selection, Escape/focus restoration, chip selection/removal, clear, Input Group, Popup, live themes, 216/320px bounds, 200% text, RTL and reduced motion.",
-        "The production Add Group Members fixture searched local async results, retained rapid-entry multiple selection and completed a local fake save with the expected username.",
-        "Exact candidate be8ffa8d637bd23ace4d21e8502a4c82b7a4e51a built as a macOS debug fixture; its kernel_blob.bin SHA256 was be5f83f7b8a8970efefda52164a63c7c1d513cdbc6189230b235954d52ad9475. Local main accepted it with a required no-fast-forward merge."
-      ],
-      "limitations": [
-        "No iOS/Linux device or spoken VoiceOver session was inspected; those remain covered by widget semantics/geometry tests rather than this macOS visual acceptance pass."
-      ],
-      "implementationCommit": "51749084ce7c616b40e887b2c78fc977bde85f03",
-      "mergeCommit": "336c4edb05afee7f1ca4d260484537f16d03573c",
-      "preparedDependencies": [
-        {
-          "id": "command",
-          "branch": "codex/review-command-final2",
-          "commit": "090d4f5448c2d8f87183d62092c6a5393ce90bd6",
-          "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
-          "evidence": "Command was independently accepted and merged to local main as 090d4f54. The final public API and behavioral evidence are recorded in the Command row and command.md; the reviewer fixes preserve controlled/dynamic highlight state, native editor focus/IME, valid Return activation and accessibility semantics.",
-          "mergeGate": "Satisfied: candidate is based on accepted Command merge 090d4f54 and affected behavior was reverified.",
-          "acceptedMergeCommit": "090d4f5448c2d8f87183d62092c6a5393ce90bd6"
-        },
-        {
-          "id": "popover",
-          "commit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a",
-          "evidence": "Accepted DPopover owns collision, dismissal, restoration and reduced-motion behavior; Combobox adds the reviewed content-autofocus opt-out without changing the default.",
-          "mergeGate": "Satisfied on current accepted main.",
-          "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
-        },
-        {
-          "id": "field",
-          "commit": "5cd7f3694498e4e09e3c114639baca834b56705e",
-          "evidence": "Accepted Field is retained as metadata composition; Combobox remains the only Form, editor, focus and IME owner.",
-          "mergeGate": "Satisfied on current accepted main.",
-          "acceptedMergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
-        },
-        {
-          "id": "input-group",
-          "commit": "eeb9a9cabc8713d12c2e9c579be7e22934a60b34",
-          "evidence": "ComboboxInput composes the accepted DInputGroup control/addon/button API; addon-aware control padding has a focused regression.",
-          "mergeGate": "Satisfied on current accepted main.",
-          "acceptedMergeCommit": "eeb9a9cabc8713d12c2e9c579be7e22934a60b34"
-        },
-        {
-          "id": "item",
-          "commit": "97ba78e575635a4682377a89ddbe1f99958e5ab4",
-          "evidence": "Custom Combobox results compose passive accepted DItem content while Combobox retains the single option interaction owner.",
-          "mergeGate": "Satisfied on current accepted main.",
-          "acceptedMergeCommit": "97ba78e575635a4682377a89ddbe1f99958e5ab4"
-        }
-      ],
-      "reviewTaskId": "01a08628-7889-7dd2-a93c-c854fcdf1e9a",
-      "reviewBranch": "codex/review-combobox",
-      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8b89/discourse-native",
-      "reviewHandoffCommit": "55dcf257cba0c0ef9df75ab246960c4bef5248d2",
-      "reviewStatus": "merged",
-      "queueStage": "complete",
-      "implementationHandoffVerification": {
-        "focusedTests": "Implementation owner reports34 Combobox/styleguide/Popover checks and24 GroupPage migration tests passing with seed9092026.",
-        "analysis": "Root/full dependency resolution and static analysis clean at source handoff.",
-        "native": "Committed local-data fixture is prepared; macOS build was interrupted by Xcode contention. No native acceptance claimed.",
-        "acceptance": "Reviewer owns lifecycle/focus corrections, accepted Command/Input Group/Item reconciliation, official browser/native acceptance and local main merge. GroupPage Add Group Members migration preserves controller-owned requests, debounce, stale results and save state."
-      }
-    },
-    {
       "id": "dropdown-menu",
       "status": "merged",
       "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
@@ -3016,6 +2919,103 @@
         "Button Group reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 owns replacing only its labeled local Input Group handoff fixture with public DInputGroup after this merge, preserving its complete example surface.",
         "Calendar reviewer 01a08631-7574-70b0-a98f-4e7217e03209 and Combobox reviewer 01a08628-7889-7dd2-a93c-c854fcdf1e9a may reconcile against this accepted public API after the merge and tracking commits are recorded."
       ]
+    },
+    {
+      "id": "combobox",
+      "status": "merged",
+      "taskId": "01a085fd-5d83-79c3-b598-bd49a5152023",
+      "branch": "codex/ui-combobox",
+      "dependencies": [
+        "input",
+        "popover",
+        "command",
+        "field",
+        "input-group",
+        "item"
+      ],
+      "acceptanceCriteria": [
+        "Implement the frozen Base UI Combobox complete autocomplete/chips/collection API and Simple, chips, groups, custom items, multiple selection, clear, invalid, disabled, auto highlight, Popup, Input Group and RTL examples with primary-source mapping.",
+        "Provide typed selection/query/filter/highlight ownership, editable focus/IME, dynamic/disabled results, chip navigation/deletion, keyboard selection, anchored scrolling/collision, dismissal/restoration and safe lifecycle; preserve domain querying/network state in adapters.",
+        "Use accepted shared popup/input owners and reconcile Command/Field/Input Group/Item APIs where the actual Base UI semantics fit; retain every required example and prevent prepared parents reaching main before acceptance.",
+        "Migrate appropriate core/plugin searchable selectors and multi-value fields, preserving permissions, asynchronous results and callbacks; verify focused component/consumer regressions and root/full analysis with live themes and native/scaled/RTL behavior.",
+        "Create a new independent reviewer for remaining official rendered/native acceptance, fixes, required compositions and final local main merge."
+      ],
+      "decisions": [
+        "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.",
+        "Independent reviewer 01a08628-7889-7dd2-a93c-c854fcdf1e9a corrected controlled selection/editor synchronization, mount-time Form reset, read-only behavior, custom-equality lookup, Escape focus restoration, touch targets, loop-focus/highlight semantics and multiple close-on-select defaults.",
+        "The final input composes accepted DInputGroup controls and buttons while retaining one Combobox-owned editable TextField/IME owner; custom result content composes passive accepted DItem parts inside the Combobox option target.",
+        "The candidate was repeatedly reconstructed from advancing accepted main rather than merging main into the review branch, and the frozen official browser examples were compared with the isolated native macOS fixture."
+      ],
+      "migrations": [
+        "Migrated Add Group Members to the multiple Combobox while preserving controller-owned debounce, request sequencing, stale-result rejection, loading/error state, selected usernames/emails, permissions and save authority."
+      ],
+      "retainedAlternatives": [
+        "Topic filter query syntax, composer mention/emoji completion, category/tag/assignment/time pickers, topic-list tag filtering, DSelect/DNativeSelect and action Command menus retain their specialized owners because they are not selection-restricted autocomplete fields."
+      ],
+      "verification": [
+        "Frozen shadcn Markdown, Base Nova registry and Base UI API sources matched recorded SHA256 pins 1999428362ac7386c7770217e5b48e1a44c2b414005f9721ef68b9366e9ef0f2, d4b9231b00428269f6fa42bf3e26714f15c69245f35b62d1bbae6d1a4853d314 and 0ef20214794c6e06ddae5f448fa37f598f2e5ff92e0602993ad31eeffa68ca27.",
+        "101 focused Combobox, styleguide, Input Group, Item, Popover and Group Page tests passed with seed 9092026 after accepted dependency reconciliation; root and profiles/full static analysis were clean.",
+        "Official browser acceptance exercised Basic filtering/selection, grouped results, custom two-line items and Popup composition, and confirmed every frozen example heading.",
+        "Isolated native macOS acceptance exercised filtering, arrow/Return selection, Escape/focus restoration, chip selection/removal, clear, Input Group, Popup, live themes, 216/320px bounds, 200% text, RTL and reduced motion.",
+        "The production Add Group Members fixture searched local async results, retained rapid-entry multiple selection and completed a local fake save with the expected username.",
+        "Exact candidate be8ffa8d637bd23ace4d21e8502a4c82b7a4e51a built as a macOS debug fixture; its kernel_blob.bin SHA256 was be5f83f7b8a8970efefda52164a63c7c1d513cdbc6189230b235954d52ad9475. Local main accepted it with a required no-fast-forward merge."
+      ],
+      "limitations": [
+        "No iOS/Linux device or spoken VoiceOver session was inspected; those remain covered by widget semantics/geometry tests rather than this macOS visual acceptance pass."
+      ],
+      "implementationCommit": "51749084ce7c616b40e887b2c78fc977bde85f03",
+      "mergeCommit": "336c4edb05afee7f1ca4d260484537f16d03573c",
+      "preparedDependencies": [
+        {
+          "id": "command",
+          "branch": "codex/review-command-final2",
+          "commit": "090d4f5448c2d8f87183d62092c6a5393ce90bd6",
+          "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
+          "evidence": "Command was independently accepted and merged to local main as 090d4f54. The final public API and behavioral evidence are recorded in the Command row and command.md; the reviewer fixes preserve controlled/dynamic highlight state, native editor focus/IME, valid Return activation and accessibility semantics.",
+          "mergeGate": "Satisfied: candidate is based on accepted Command merge 090d4f54 and affected behavior was reverified.",
+          "acceptedMergeCommit": "090d4f5448c2d8f87183d62092c6a5393ce90bd6"
+        },
+        {
+          "id": "popover",
+          "commit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a",
+          "evidence": "Accepted DPopover owns collision, dismissal, restoration and reduced-motion behavior; Combobox adds the reviewed content-autofocus opt-out without changing the default.",
+          "mergeGate": "Satisfied on current accepted main.",
+          "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
+        },
+        {
+          "id": "field",
+          "commit": "5cd7f3694498e4e09e3c114639baca834b56705e",
+          "evidence": "Accepted Field is retained as metadata composition; Combobox remains the only Form, editor, focus and IME owner.",
+          "mergeGate": "Satisfied on current accepted main.",
+          "acceptedMergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
+        },
+        {
+          "id": "input-group",
+          "commit": "eeb9a9cabc8713d12c2e9c579be7e22934a60b34",
+          "evidence": "ComboboxInput composes the accepted DInputGroup control/addon/button API; addon-aware control padding has a focused regression.",
+          "mergeGate": "Satisfied on current accepted main.",
+          "acceptedMergeCommit": "eeb9a9cabc8713d12c2e9c579be7e22934a60b34"
+        },
+        {
+          "id": "item",
+          "commit": "97ba78e575635a4682377a89ddbe1f99958e5ab4",
+          "evidence": "Custom Combobox results compose passive accepted DItem content while Combobox retains the single option interaction owner.",
+          "mergeGate": "Satisfied on current accepted main.",
+          "acceptedMergeCommit": "97ba78e575635a4682377a89ddbe1f99958e5ab4"
+        }
+      ],
+      "reviewTaskId": "01a08628-7889-7dd2-a93c-c854fcdf1e9a",
+      "reviewBranch": "codex/review-combobox",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8b89/discourse-native",
+      "reviewHandoffCommit": "55dcf257cba0c0ef9df75ab246960c4bef5248d2",
+      "reviewStatus": "merged",
+      "queueStage": "complete",
+      "implementationHandoffVerification": {
+        "focusedTests": "Implementation owner reports34 Combobox/styleguide/Popover checks and24 GroupPage migration tests passing with seed9092026.",
+        "analysis": "Root/full dependency resolution and static analysis clean at source handoff.",
+        "native": "Committed local-data fixture is prepared; macOS build was interrupted by Xcode contention. No native acceptance claimed.",
+        "acceptance": "Reviewer owns lifecycle/focus corrections, accepted Command/Input Group/Item reconciliation, official browser/native acceptance and local main merge. GroupPage Add Group Members migration preserves controller-owned requests, debounce, stale results and save state."
+      }
     },
     {
       "id": "context-menu",
