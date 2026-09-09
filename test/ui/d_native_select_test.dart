@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -399,6 +400,57 @@ void main() {
     await tester.tap(find.byType(DNativeSelect<String>));
     await tester.pumpAndSettle();
     expect(find.text('Vegetables').hitTestable(), findsNothing);
+  });
+
+  testWidgets('popup choices expose actionable native semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    String? changed;
+    await tester.pumpWidget(
+      _app(
+        DNativeSelect<String>(
+          entries: _entries,
+          initialValue: 'apple',
+          onChanged: (value) => changed = value,
+        ),
+      ),
+    );
+    await tester.tap(find.byType(MenuAnchor));
+    await tester.pumpAndSettle();
+
+    final bananaBoundary = find.ancestor(
+      of: find.text('Banana').last,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.button == true &&
+            widget.properties.selected == false &&
+            widget.properties.enabled == true &&
+            widget.properties.onTap != null,
+      ),
+    );
+    expect(bananaBoundary, findsOneWidget);
+    expect(
+      tester
+          .getSemantics(find.text('Banana').last)
+          .getSemanticsData()
+          .hasAction(SemanticsAction.tap),
+      isTrue,
+    );
+    expect(
+      tester
+          .getSemantics(find.text('Vegetables').last)
+          .getSemanticsData()
+          .hasAction(SemanticsAction.tap),
+      isFalse,
+    );
+    final bananaNode = tester.getSemantics(bananaBoundary);
+    bananaNode.owner!.performAction(bananaNode.id, SemanticsAction.tap);
+    await tester.pumpAndSettle();
+    expect(changed, 'banana');
+    expect(find.text('Vegetables').hitTestable(), findsNothing);
+    semantics.dispose();
   });
 
   testWidgets('keyboard opens selects dismisses and restores borrowed focus', (

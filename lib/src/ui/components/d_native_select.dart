@@ -510,8 +510,19 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
                   menuChildren: [
                     for (var i = 0; i < rows.length; i++)
                       Semantics(
+                        container: true,
                         header: rows[i].heading,
+                        button: rows[i].heading ? null : true,
+                        enabled: rows[i].heading
+                            ? null
+                            : rows[i].enabled && _enabled,
                         selected: rows[i].heading ? null : i == selected,
+                        onTap: rows[i].enabled && _enabled
+                            ? () {
+                                _change(rows[i].value);
+                                _menu.close();
+                              }
+                            : null,
                         child: Focus(
                           canRequestFocus: false,
                           onKeyEvent: (_, event) => typeAhead(event),
