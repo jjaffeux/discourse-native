@@ -76,7 +76,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 38 | native-select | in_progress | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | — |
 | 39 | field | in_progress | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
 | 40 | input-group | planned | — | — | input, textarea, button, kbd, spinner | — |
-| 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
+| 41 | button-group | review_ready | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | planned | — | — | input, dialog, scroll-area | — |
 | 43 | combobox | planned | — | — | input, popover, command | — |
 | 44 | dropdown-menu | planned | — | — | popover, checkbox, radio-group | — |
@@ -2033,7 +2033,7 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/u
 
 ### button-group
 
-Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/ui-button-group.
+Status: review_ready. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/ui-button-group.
 
 **acceptanceCriteria**
 
@@ -2046,6 +2046,33 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 
 - Button and Separator dependencies are merged.
 - Field, Input Group, Dropdown Menu, Select and Popover compositions must reconcile with their final owners; track outstanding compositions and coordinate directly, without duplicating components or reducing the frozen examples.
+- DButtonGroup is a passive semantic/layout boundary for independent controls. It owns no selection, roving focus or toolbar shortcuts; each child retains its callback, state, focus and native role.
+- A narrowly scoped DJoinedControlScope is installed per direct child. DButton and DInput consume only joined-edge geometry; nested groups replace the scope and overlays receive no broad Theme or radius override.
+- DButtonGroupExpanded is the explicit finite-width Flutter flex adaptation for the reference input:flex-1 selector. The styleguide remains baseline until the reviewer replaces four dependency-aware fixtures with final owning components.
+
+**migrations**
+
+- ContentNavigationControls now uses a labeled DButtonGroup for Back, Forward and Refresh while preserving keys, shortcuts, enabled guards, refresh lifecycle and shell callbacks.
+
+**retainedAlternatives**
+
+- Forum/preferences/topic tab rows remain navigation or selection controls, not independent Button Groups.
+- Radio, checkbox, switch and toggle rows retain their selection owners; Button Group does not absorb Toggle Group semantics.
+- Dialog/sheet action rows retain spaced or wrapping presentation because joining cancel and destructive confirmation changes narrow modal behavior.
+- Inline-video alternative link actions remain wrapping links, and composer controls remain overflow-aware toolbars pending their dedicated component owners.
+
+**verification**
+
+- Frozen Markdown downloaded and SHA-256 verified exactly as 9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda. Base registry source and all twelve linked Base examples were inspected; source mapping and concrete acceptance criteria are recorded in docs/component-library/button-group-reference.md.
+- Before current-main integration, 109 randomized focused Button Group, Button, Input, Separator, styleguide and production navigation tests passed (seed 3806760654); after merging main 27ddc513, 33 direct component/styleguide/consumer tests passed (random seed recorded in /private/tmp/button-group-post-main-tests.log).
+- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed before and after current-main integration with no issues. dart format covered lib/test and git diff --check passed.
+- flutter build macos --debug --no-pub succeeded at build/macos/Build/Products/Debug/Discourse.app. This is build/kernel evidence only; the app was not launched and no browser/native/VoiceOver inspection is claimed.
+
+**limitations**
+
+- The styleguide has complete accounted sections, but Input Group, library Dropdown Menu, rich Select and Popover use explicitly labeled local handoff fixtures because those final owners are still pending or in review. Native Select is not substituted. The new Button Group reviewer owns coordinating their final replacements.
+- No shared desktop lease was available during source implementation. Official rendered-page comparison, native macOS interaction/visual inspection, VoiceOver, iOS and Linux device checks remain for the new reviewer.
+- DInput joined-edge painting was source- and widget-tested after replacing its uniform BoxDecoration with an equivalent animated custom decoration, but requires rendered pixel comparison in final review.
 
 ### carousel
 
