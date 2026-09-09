@@ -714,7 +714,7 @@
     },
     {
       "id": "textarea",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08437-208f-7332-b373-192eaada5844",
       "branch": "codex/ui-textarea",
       "dependencies": [
@@ -764,12 +764,13 @@
         "Browser Geist and native host font rasterization differ, so no pixel-equality claim is made; geometry, palette, focus/invalid states, interaction and semantics were compared directly."
       ],
       "implementationCommit": "d286e1188bc57c2f2b1a26c3439c69d636606d9b",
-      "mergeCommit": null,
+      "mergeCommit": "6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3",
       "nativeInspectionStatus": "completed",
       "browserInspectionStatus": "completed",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
-      "reviewBranch": "codex/review-textarea"
+      "reviewBranch": "codex/review-textarea",
+      "reviewedBranchHead": "280c0ad19f779bd6773372960723de682a86e36f"
     },
     {
       "id": "checkbox",
@@ -2168,8 +2169,8 @@
           "branch": "codex/review-textarea",
           "commit": "4ca5aaa85681ced6dd2668a8158b7551ee176f73",
           "reviewTaskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
-          "evidence": "Clean committed source/API with 163 affected tests and root/full analysis passing; official browser and initial native inspection recorded. Final exact-bundle confirmation and accepted main merge still belong to the Textarea reviewer.",
-          "mergeGate": "Use accepted main directly if Textarea has landed. Otherwise prepare against this pin only in the isolated worktree; the Input Group reviewer must integrate and verify the accepted Textarea main revision before any final merge."
+          "evidence": "Clean committed source/API with repeated 163-test affected runs and root/full analysis passing; official browser and native macOS inspection completed. Acceptance-only styleguide metadata is source-equivalent to the inspected component and production fixtures. Textarea merged through 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3.",
+          "mergeGate": "Textarea is accepted on main. Input Group must integrate and verify main including merge 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3 before its final merge."
         }
       ]
     },
@@ -2925,15 +2926,6 @@
           "implementationTaskId": "01a083f3-9a01-7c71-9931-3674b85e81b3"
         },
         {
-          "component": "textarea",
-          "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
-          "branch": "codex/review-textarea",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ea56/discourse-native",
-          "headCommit": "058bb044ddbe72d0a5f9c2eda523cabc510bd39c",
-          "status": "independent_review",
-          "implementationTaskId": "01a08437-208f-7332-b373-192eaada5844"
-        },
-        {
           "component": "field",
           "taskId": "01a08558-7a22-7f53-a798-52669b7ddef5",
           "branch": "codex/review-field",
@@ -3204,17 +3196,6 @@
           "branch": "codex/review-native-select",
           "implementationTaskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
           "implementationBranch": "codex/ui-native-select",
-          "status": "in_progress"
-        },
-        {
-          "component": "textarea",
-          "title": "Review and merge Textarea",
-          "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ea56/discourse-native",
-          "branch": "codex/review-textarea",
-          "implementationTaskId": "01a08437-208f-7332-b373-192eaada5844",
-          "implementationBranch": "codex/ui-textarea",
           "status": "in_progress"
         },
         {

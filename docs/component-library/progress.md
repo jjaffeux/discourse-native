@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**28 of 64 components are merged locally.** 14 existing components are in progress; 22 are planned.
+**29 of 64 components are merged locally.** 13 existing components are in progress; 22 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -16,7 +16,6 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
-| textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
 | toggle | independent review | 17e7778e | 01a08579-4e43-7ce2-9919-546137c84a24 |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | accordion | Implementation and checks | — | — |
@@ -45,7 +44,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | merged | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | 916580e72e11de6a6b7872c41d5c4d92e27e9635 |
 | 10 | input | merged | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | 7df72ef294826616e8ba24c31c6129d8e9041fec |
-| 11 | textarea | review_ready | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
+| 11 | textarea | merged | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3 |
 | 12 | checkbox | merged | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | 13466a062d19c247905ccc65adc615c8d0d6273d |
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
@@ -856,7 +855,7 @@ Status: merged. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/ui-inp
 
 ### textarea
 
-Status: review_ready. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/ui-textarea.
+Status: merged. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/ui-textarea.
 
 **acceptanceCriteria**
 

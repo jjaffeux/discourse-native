@@ -253,6 +253,9 @@ Final integration of main `7d29f531` preserved accepted Table, Alert, Empty and
 Chart owners; all 163 affected tests passed again with seed 1934955355, and
 root/full analysis plus `git diff --check` remained clean.
 
+Reviewed branch head `280c0ad19f779bd6773372960723de682a86e36f` merged into
+local `main` as `6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3`.
+
 No iOS/Linux device or spoken VoiceOver verification is claimed. Browser Geist
 and native host font rasterization differ, so the review compares geometry,
 palette, state, interaction and semantics rather than claiming pixel equality.
