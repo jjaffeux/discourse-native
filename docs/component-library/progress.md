@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**31 of 64 components are merged locally.** 14 existing components are in progress; 19 are planned.
+**32 of 64 components are merged locally.** 13 existing components are in progress; 19 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -19,7 +19,6 @@ Branch preparation does not mark a component merged or visually verified.
 | toggle-group | Implementation and checks | — | — |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
-| tabs | independent review | fcb0e06f | 01a08581-d666-7f81-b039-f9caae6c45c2 |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
 | select | Implementation and checks | — | — |
@@ -63,7 +62,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
 | 28 | accordion | in_progress | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | — |
-| 29 | tabs | review_ready | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | — |
+| 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
 | 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
@@ -1824,7 +1823,7 @@ Status: in_progress. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/u
 
 ### tabs
 
-Status: review_ready. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/ui-tabs.
+Status: merged. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/ui-tabs.
 
 **acceptanceCriteria**
 
@@ -1864,6 +1863,7 @@ Status: review_ready. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/
 - Root and profiles/full flutter analyze --no-pub pass with no issues after latest-main reconciliation. Touched Dart format check and git diff --check pass; dependency pins, SDK and lockfiles are unchanged.
 - Approved official-browser inspection measured the 32px list, 25px default artwork, selected/inactive palettes, complete 0.5 disabled opacity, 2px line indicator, vertical geometry and right-to-left logical order; pointer selection replaced the active Card panel.
 - Two uniquely identified signed macOS bundles passed native review. The styleguide rendered all seven examples in dark/light palettes, RTL and 200% text without clipping, and exposed one bounded button per trigger plus active-panel-only content. The production harness exercised actual Group, Chat channel-info and Diagnostics route tabs. Full observations and bundle hashes: docs/component-library/evidence/tabs/native-review.md.
+- Final latest-main reconciliation preserved every other component row, integrated Toggle Group dispatch metadata and passed 27 component/example checks, 43 production overlap checks, and root/full static analysis before local main merge 7e6bf1234fcd55aced4037c7e36946d017fe5c79.
 
 **limitations**
 

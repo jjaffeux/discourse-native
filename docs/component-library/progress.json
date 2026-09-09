@@ -1776,7 +1776,7 @@
     },
     {
       "id": "tabs",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
       "branch": "codex/ui-tabs",
       "dependencies": [
@@ -1814,7 +1814,8 @@
         "Full test/chat_shell_integration_test.dart passed all 138 tests with random seed 1517999890 after the Chat tab migration correction.",
         "Root and profiles/full flutter analyze --no-pub pass with no issues after latest-main reconciliation. Touched Dart format check and git diff --check pass; dependency pins, SDK and lockfiles are unchanged.",
         "Approved official-browser inspection measured the 32px list, 25px default artwork, selected/inactive palettes, complete 0.5 disabled opacity, 2px line indicator, vertical geometry and right-to-left logical order; pointer selection replaced the active Card panel.",
-        "Two uniquely identified signed macOS bundles passed native review. The styleguide rendered all seven examples in dark/light palettes, RTL and 200% text without clipping, and exposed one bounded button per trigger plus active-panel-only content. The production harness exercised actual Group, Chat channel-info and Diagnostics route tabs. Full observations and bundle hashes: docs/component-library/evidence/tabs/native-review.md."
+        "Two uniquely identified signed macOS bundles passed native review. The styleguide rendered all seven examples in dark/light palettes, RTL and 200% text without clipping, and exposed one bounded button per trigger plus active-panel-only content. The production harness exercised actual Group, Chat channel-info and Diagnostics route tabs. Full observations and bundle hashes: docs/component-library/evidence/tabs/native-review.md.",
+        "Final latest-main reconciliation preserved every other component row, integrated Toggle Group dispatch metadata and passed 27 component/example checks, 43 production overlap checks, and root/full static analysis before local main merge 7e6bf1234fcd55aced4037c7e36946d017fe5c79."
       ],
       "limitations": [
         "No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.",
@@ -1823,9 +1824,9 @@
         "Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette/state mapping, direction, interaction and semantic ownership were compared directly."
       ],
       "implementationCommit": "fcb0e06f084954f7f1576af7b6967a6dec3fff03",
-      "mergeCommit": null,
+      "mergeCommit": "7e6bf1234fcd55aced4037c7e36946d017fe5c79",
       "nativeReviewStatus": "completed",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08581-d666-7f81-b039-f9caae6c45c2",
       "reviewClientThreadId": "client-new-thread:cf14d860-c708-42a4-9fb3-7d5afc7fcba9",
       "reviewBranch": "codex/review-tabs",
