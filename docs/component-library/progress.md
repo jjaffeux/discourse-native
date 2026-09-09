@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**26 of 64 components are merged locally.** 15 existing components are in progress; 23 are planned.
+**28 of 64 components are merged locally.** 13 existing components are in progress; 23 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -18,7 +18,6 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
 | toggle | independent review | 17e7778e | 01a08579-4e43-7ce2-9919-546137c84a24 |
-| empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | accordion | Implementation and checks | — | — |
 | tabs | independent review | fcb0e06f | 01a08581-d666-7f81-b039-f9caae6c45c2 |
@@ -30,7 +29,6 @@ Branch preparation does not mark a component merged or visually verified.
 | button-group | Implementation and checks | — | — |
 | carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
-| chart | independent review | c782a940 | 01a08558-4ae6-7db2-bdd6-ee52e8570ff3 |
 
 ## Component implementation
 
@@ -58,7 +56,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
 | 22 | card | merged | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | a73f465ac86105fdda35f5b56f8b491da4b3936d |
-| 23 | empty | review_ready | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | — |
+| 23 | empty | merged | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | fb790fcd2356a9acc7cd488ca587eaafb4d91ccb |
 | 24 | item | in_progress | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
 | 25 | table | merged | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | 082fcc55ab85d3bd4012c6bd24c647c1febd7d2a |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
@@ -95,7 +93,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
-| 60 | chart | in_progress | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | — |
+| 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
 | 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
 | 63 | input-otp | planned | — | — | input, field | — |
@@ -1484,7 +1482,7 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 
 ### empty
 
-Status: review_ready. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/ui-empty.
+Status: merged. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/ui-empty.
 
 **acceptanceCriteria**
 
@@ -2291,7 +2289,7 @@ Status: merged. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-mar
 
 ### chart
 
-Status: in_progress. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-chart.
+Status: merged. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-chart.
 
 **acceptanceCriteria**
 
@@ -2306,6 +2304,8 @@ Status: in_progress. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/u
 - One generic owner exports DChartContainer/config, typed DBarChart series and controlled inspection, reusable tooltip/legend content and inline DChartBar. Existing native drawing/focus primitives; no plotting package or unmerged dependency.
 - Ten actual-component styleguide examples remain baseline pending native/reference gate. Colors resolve live; proportional tooltip radius and multiplicative alpha rules applied.
 - Independent source/tests/build complete; awaiting_slot. Keep status in_progress and examples baseline until coordinator grants and completes reference/native review.
+- Independent review added DChartColors.series so multiple series remain visually distinct when a site palette collapses primary and tertiary roles; the fallback stays live and palette-relative instead of introducing fixed swatches.
+- Independent native review added the actual multiple-choice PollCard Checkbox path and made Tooltip anatomy card widths scale with accessible text. Browser and macOS review passed, so the ten actual-component examples are promoted to implemented.
 
 **migrations**
 
@@ -2326,11 +2326,14 @@ Status: in_progress. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/u
 - Isolated macOS debug build succeeded; unique bundle /tmp/chart-review-eab4-3dceccf1/Chart Review eab4.app, ID org.discourse.chartrevieweab4, scheme discourse-chart-review-eab4. Source equality, three-way kernel SHA256 ddd4ce813f3caf72ae4fa11e2f165e1574b89c1dfdafe7b65d4e7ffacf6458f0 and deep strict ad-hoc signature verification passed. Provenance/inspection checklist: docs/component-library/chart-native.md.
 - 15 existing styleguide-page/Button-adoption integration tests passed, seed 2936222072; /tmp/chart-styleguide-integration.log.
 - Pinned main e612ad7b merged at 1edacc28; final component owners/adapters and all non-Chart rows preserved. 193 integration tests pass seed 4024479176; root/full analysis clean. Source-exact isolated bundle /tmp/chart-review-eab4-1edacc28/Chart Review eab4.app; explicit restricted-free debug/JIT signed readback and deep strict signature pass. Evidence: docs/component-library/evidence/chart/integration/build-identity.json. No CUA/browser/native launch; awaiting_slot.
+- Independent macOS review exercised actual Users ready/loading/empty/error states; Poll radio, checkbox, confidential and closed-zero paths; Chart pointer/keyboard/Escape semantics; light/dark, Forest/Plum, RTL and narrow/large-text states. Palette corrections were rechecked natively.
+- Final exact-source bundle /tmp/chart-review-c0d7-6a07c5ea/Chart Review c0d7.app (org.discourse.chartreviewc0d7) passed deep strict signature verification; source/copy kernel SHA256 3f0236a425737cfafc39f2d7577481d26e9e8c15a1d6c511810fe92ade77cae2. Plum + 360px + 200% Tooltip anatomy remained readable, stacked and complete in the native accessibility tree.
+- After final latest-main integration, 151 focused Chart/styleguide/Poll/Users tests passed with randomized seed 2389001480; root and full-profile flutter analyze --no-pub were clean.
 
 **limitations**
 
-- Browser comparison completed with font-loaded actual examples and production fixtures; evidence in chart-browser-review.md. Browser slot released. Mac locked; remain in_progress awaiting_slot until native review.
-- No iOS/Linux device or VoiceOver testing; test image geometry is not pixel-parity evidence.
+- Browser comparison and macOS native fixture/styleguide inspection are complete; evidence is recorded in chart-browser-review.md and chart-native.md.
+- No iOS/Linux device or VoiceOver speech testing was performed; macOS accessibility-tree inspection and test image geometry are not cross-platform or pixel-parity evidence.
 
 ### sidebar
 
