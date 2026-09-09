@@ -84,12 +84,24 @@ class _DMenubarState extends State<DMenubar> {
 
   bool isCurrent(_MenubarRegistration menu) => identical(_current, menu);
 
+  void _reveal(_MenubarRegistration menu) {
+    final context = menu.focusNode.context;
+    final target = context?.findRenderObject();
+    if (context == null || target == null || !target.attached) return;
+    final scrollable = Scrollable.maybeOf(context, axis: widget.orientation);
+    if (scrollable?.position.hasContentDimensions != true) return;
+    // The anchor must be visible before its popup mounts and takes focus.
+    scrollable!.position.ensureVisible(target, alignment: 0.5);
+  }
+
   void focused(_MenubarRegistration menu) {
+    _reveal(menu);
     if (identical(_current, menu)) return;
     setState(() => _current = menu);
   }
 
   void opened(_MenubarRegistration menu) {
+    _reveal(menu);
     if (identical(_openMenu, menu)) return;
     final previous = _openMenu;
     _switching = previous != null;
@@ -114,6 +126,7 @@ class _DMenubarState extends State<DMenubar> {
 
   void open(_MenubarRegistration menu) {
     if (widget.disabled || !menu.enabled) return;
+    _reveal(menu);
     if (!identical(_openMenu, menu)) {
       final previous = _openMenu;
       _switching = previous != null;
@@ -387,17 +400,6 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
   bool _pressed = false;
   bool _focused = false;
 
-  void _revealFocusedTrigger() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_focused) return;
-      Scrollable.ensureVisible(
-        context,
-        duration: DMotion.duration(context, DMotion.exit),
-        alignment: 0.5,
-      );
-    });
-  }
-
   KeyEventResult _onKey(
     KeyEvent event,
     _DMenubarState root,
@@ -497,7 +499,6 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                 onFocusChange: (focused) {
                   if (focused) {
                     root.focused(menu);
-                    _revealFocusedTrigger();
                   }
                   if (mounted) setState(() => _focused = focused);
                 },

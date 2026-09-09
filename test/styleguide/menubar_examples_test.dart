@@ -150,6 +150,29 @@ void main() {
         lessThanOrEqualTo(bar.right - 4),
         reason: direction.name,
       );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(
+        direction == TextDirection.ltr
+            ? LogicalKeyboardKey.arrowRight
+            : LogicalKeyboardKey.arrowLeft,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('New Tab'), findsOneWidget);
+      bar = tester.getRect(find.byType(DMenubar));
+      revealedTrigger = tester.getRect(find.text('File'));
+      expect(
+        revealedTrigger.left,
+        greaterThanOrEqualTo(bar.left + 4),
+        reason: 'open menu ${direction.name}',
+      );
+      expect(
+        revealedTrigger.right,
+        lessThanOrEqualTo(bar.right - 4),
+        reason: 'open menu ${direction.name}',
+      );
     }
   });
 
