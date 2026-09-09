@@ -236,7 +236,7 @@ class _TableActionsExampleState extends State<TableActionsExample> {
                       ],
                       builder: (context, controller, child) => DButton.iconOnly(
                         variant: DButtonVariant.ghost,
-                        size: DButtonSize.small,
+                        size: DButtonSize.regular,
                         hasPopup: true,
                         tooltip: 'Open menu for ${product.$2}',
                         icon: const Icon(Icons.more_horiz),
