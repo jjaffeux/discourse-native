@@ -347,3 +347,8 @@ separate native roles, no button beneath a text-field ancestor, required/invalid
 metadata, value, helper description, live error and filename. Removing the boundary
 makes the rectangle assertion fail (`/tmp/input-semantics-negative.log`). No UI
 slot was used; native AX confirmation remains pending coordinator review.
+
+Semantics correction source 0464e555817ef8dae4fe63b1e8dd48548a2c3bed: editor container prevents editable role from merging into its page; Sidebar adoption inherits it and File Button remains separate. Three boundary regressions plus affected suites pass (369 tests, seed 928374611), root/full analysis clean. Exact-source unique /private/tmp/DiscourseInputReview-01a083ad.app rebuilt and deep strict ad-hoc signed with empty entitlements (no restricted entitlements); source/copy kernel SHA256 53eaa15f083810cdf1e97449df3abd24386bd355754e74795493797a5c13b34b. Unlaunched, awaiting_slot; no UI interaction.
+
+Logs: `/tmp/input-semantics-focused.log`, `/tmp/input-semantics-analysis.log`,
+`/tmp/input-semantics-full-analysis.log`, `/tmp/input-semantics-native-build.log`.
