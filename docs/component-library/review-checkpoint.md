@@ -1,15 +1,30 @@
 # Component library review checkpoint
 
-Spinner, Tooltip, Avatar and Card are merged into local `main` in
-`/Users/joffreyjaffeux/Code/discourse-native`. The frozen catalogue is
-**11 of 64 components complete**. Their combined focused tests, static analysis
-and final macOS app build pass. **Work is paused for the user's review and
-directions.** The remaining 53 catalogue components and final audit are unfinished.
+Sidebar and the shadcn documentation correction are merged into local `main` in
+`/Users/joffreyjaffeux/Code/discourse-native`. The frozen catalogue is now
+**12 of 64 components complete**. Affected tests, static analysis and the real
+macOS app build pass. **Work is paused for the user's review and directions.**
+The remaining 52 catalogue components and final audit are unfinished.
 
 No further component or final audit task will be dispatched before the user
-gives directions.
+gives further directions.
 
-## This batch
+## Sidebar and documentation correction
+
+| Change | What is available | Adoption |
+| --- | --- | --- |
+| Sidebar | Provider, sidebar/floating/inset variants, offcanvas/icon/static modes, modal navigation, composition parts, focus and theme behavior; six interactive examples. | The styleguide uses the public Sidebar on desktop and in its narrow drawer. Forum and Chat retain their documented domain adapters. |
+| Documentation layout | Compact navigation, neutral light/dark canvas, 640px article, matching title/spacing, centered previews, optional code and notes, working width presets and mouse scrollbar. | The same styleguide page is opened by the existing real-app palette button and the independent preview entrypoint. |
+
+Sidebar merge: `93bfcf65f64868c92340f9aec8236d77585c3cd8`. Documentation merge: `0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5`.
+The 160 affected tests passed; the final scrollbar change passed all 14
+styleguide-page tests, including mouse dragging, exact preview width and state
+retention. One frozen-catalogue/dependency check also passed after the evidence
+update. The final scrollbar screenshot was blocked by the locked Mac; earlier
+native desktop/narrow, light/dark, 200% text and navigation checks are recorded
+in [the documentation design review](styleguide-design.md).
+
+## Previous batch
 
 | Component | What is available | Real app adoption |
 | --- | --- | --- |
@@ -37,9 +52,11 @@ flutter run -d macos -t lib/styleguide_main.dart --no-pub
 ```
 
 Reference styling comes from the frozen shadcn Base UI/base-nova sources.
-The app retains its configured palette, font family and radius. Specific native
-adaptations, including text-driven wrapping and focus ownership, are recorded
-with their rationale in the component evidence.
+The documentation canvas uses neutral light/dark colors and the configured
+host font. Component previews retain the app palette, font and radius; the
+canvas theme does not change the app or preview settings. Native adaptations,
+including text-driven wrapping and focus ownership, have explicit source
+mappings and rationale in the evidence.
 
 - [Detailed progress and merge commits](progress.md)
 - [Visual fidelity contract](visual-fidelity.md)
@@ -47,6 +64,8 @@ with their rationale in the component evidence.
 - [Tooltip reference and native evidence](tooltip-visual-mapping.md)
 - [Avatar mapping](evidence/avatar/implementation.md) and [verification](evidence/avatar/native-review.md)
 - [Card mapping and adoption](card.md)
+- [Sidebar mapping and adoption](sidebar.md) and [component native evidence](sidebar-native.md)
+- [Documentation design and native review](styleguide-design.md)
 
 Saved native captures include [Avatar badges](evidence/avatar/native-light-badges.png),
 [large-text RTL groups](evidence/avatar/native-forest-groups-full.png), and the
@@ -61,12 +80,21 @@ integration, with formatting and static analysis. Native comparison used isolate
 macOS apps and local-data fixtures mounting the actual migrated application
 widgets. No iOS/Linux device or spoken VoiceOver verification is claimed.
 
-The real macOS app built successfully from the eleven-component main checkpoint
-`ea58497479e75efce7a86ebe95c784cd3c974846`. Full-profile locked dependency
-resolution, static analysis and the affected compatibility tests also passed.
-The progress document records the exact commands and logs. Compilation and
-bundling do not diagnose the user's reported inability to start the real app;
-that startup issue remains unverified.
+The real macOS app build (`flutter build macos --debug --no-pub`) passed from
+`07539c2c57533835094f70b02e07cfbbba92896a` in the isolated coordinator checkout. Its complete Git tree
+`f288c94ea575d48a3585b1ca6355e4d35ce0ddf3` exactly matches merged main `0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5`. A Discourse
+process was using main's existing build directory, so that running bundle was
+preserved. Full-profile locked dependency resolution and static analysis also
+passed. The progress document records exact commands and logs. Compilation and
+bundling do not diagnose the user's earlier startup issue; no startup fix is
+claimed.
+
+The isolated final styleguide bundle remains at
+`/private/tmp/DiscourseStyleguideB104-20260909.app` for review. The Mac locked
+before its final explicit-scrollbar screenshot. Native Cmd/Ctrl+K attempts
+produced no visible response; the bindings pass widget tests. These limits
+are recorded separately from the successful native Sidebar pointer, search,
+Escape and focus-restoration checks.
 
 Spinner's evidence retains two unassigned diagnostic incidents: a forced-semantics
 crash also reproduced with pre-migration consumers, and a separate native keyboard
