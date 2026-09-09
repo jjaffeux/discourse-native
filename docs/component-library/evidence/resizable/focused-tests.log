@@ -1,0 +1,90 @@
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: iOS TextDirection.rtl keeps collapsed-edge drag and semantics target inside its group
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: iOS TextDirection.ltr keeps collapsed-edge drag and semantics target inside its group
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: divider and pill keep reference geometry and live palette with borrowed focus
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: pixel-preserving panel survives container resize while relative panel absorbs space
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: pointer midpoint snap conserves extent with 80.0 opposite capacity and a disabled neighbour
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: pointer midpoint snap conserves extent with 200.0 opposite capacity and a disabled neighbour
+00:00 +6: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: programmatic resizing propagates past adjacent minimum and preserves total
+00:00 +7: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: disabled panel remains fixed while surrounding panels resize
+00:00 +8: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: TextDirection.rtl arrows, Home and Enter resize and collapse with focus
+00:00 +9: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: TextDirection.ltr arrows, Home and Enter resize and collapse with focus
+00:00 +10: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: controlled parent may reject proposed layout
+00:00 +11: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: stable IDs retain child state through reorder and removal
+00:00 +12: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: vertical gesture and cancellation commit actual geometry
+00:01 +13: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/panel_width_controller_headless_test.dart: notifies synchronously and flushes without a scheduler binding
+00:01 +14: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/panel_width_controller_headless_test.dart: a resize prevents a stale restoration from replacing its width
+00:01 +15: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/resizable_pane_test.dart: LTR leading puts the handle on its logical edge
+00:01 +16: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +17: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +18: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +19: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +20: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +21: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +22: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +23: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +24: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +25: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +26: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +27: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory text NaN renders as unscaled text
+00:01 +28: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory text NaN renders as unscaled text
+00:01 +29: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: controlled example supports collapse, restore and dynamic panels
+00:01 +30: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory text Infinity renders as unscaled text
+00:01 +31: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory text -Infinity renders as unscaled text
+00:02 +32: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory text 1e999 renders as unscaled text
+00:02 +33: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory number NaN renders as unscaled text
+00:02 +34: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory number Infinity renders as unscaled text
+00:02 +35: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory number -Infinity renders as unscaled text
+00:02 +36: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory text 000000000000000000123 renders as unscaled text
+00:02 +37: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory text not a number with all its original text renders as unscaled text
+00:02 +38: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: oversized directory time number 9223372036855 renders without overflow
+00:02 +39: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: oversized directory time text 9223372036855 renders without overflow
+00:02 +40: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: oversized directory time number -9223372036855 renders without overflow
+00:02 +41: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:02 +42: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:02 +43: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:02 +44: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:02 +45: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:02 +46: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:02 +47: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:02 +48: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:03 +49: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:03 +50: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:03 +51: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:03 +52: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:03 +53: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:03 +54: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:03 +55: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:03 +56: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread route replaces the channel at 390 logical pixels
+00:03 +57: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: unchanged metrics reuse maxima through directory interactions
+00:03 +58: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: unchanged metrics reuse maxima through directory interactions
+00:03 +59: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: unchanged metrics reuse maxima through directory interactions
+00:03 +60: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: unchanged metrics reuse maxima through directory interactions
+00:03 +61: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:03 +62: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:03 +63: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +64: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +65: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +66: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +67: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +68: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: column management stops after the forum changes
+00:04 +69: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread notification choices use an anchored descriptive menu
+00:04 +70: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread notification choices use an anchored descriptive menu
+00:04 +71: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread notification choices use an anchored descriptive menu
+00:04 +72: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:04 +73: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:04 +74: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: Arrow Up edits the last current-user message in a thread
+00:04 +75: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: a resize wins over a delayed width restoration
+00:04 +76: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: original author can edit the thread title
+00:04 +77: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: original author can edit the thread title
+00:04 +78: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: original author can edit the thread title
+00:04 +79: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: Matrix follows an explicit theme avatar radius
+00:04 +80: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread notification choices use a sheet on touch
+00:04 +81: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread notification choices use a sheet on touch
+00:04 +82: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: Matrix keeps the scrollbar out of the pinned user column
+00:04 +83: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: Matrix keeps the scrollbar out of the pinned user column
+00:04 +84: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: Matrix remains usable in a narrow content lane
+00:04 +85: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: Matrix exposes stable loading, empty, and error states
+00:04 +86: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: Matrix does not show a progress strip while rows update
+00:04 +87: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: refresh button owns the directory loading feedback
+00:04 +88: All tests passed!
