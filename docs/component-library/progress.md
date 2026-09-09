@@ -824,6 +824,7 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 - Fixed 16px paint, 14px Lucide Check, 4px radius, token colors and explicit rings. Mixed uses a documented Minus extension pending visual review; pointer/touch targets reserve 40x32/48x48 native space.
 - Six actual-component styleguide examples cover basic, states, group, table, form recovery and RTL/long labels; Label examples migrated. Shared Sidebar shell remains unchanged.
 - Controlled-form follow-up: mutation paths retain the current prop synchronously. Native effective reset baseline is the controlled prop; separately captured reset proposal preserves onChanged and Form notification ordering, while errors and interaction flags clear normally. Parent acceptance syncs in didUpdateWidget without artificial interaction.
+- Visual correction: outlineVariant input token with multiplicative alpha; focus/invalid rings paint outside; intrinsic pointer label rows, source group/table typography and outer choice-card focus. Font-loaded exports and official browser evidence are preserved in evidence/checkbox.
 
 **migrations**
 
@@ -845,10 +846,12 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 - Final root/full-profile flutter analyze --no-pub passed after all source changes. Source, tree and native bundle provenance are recorded in checkbox-native-provenance.json.
 - Controlled follow-up: all 36 Checkbox/Label component and example tests pass (seed 927315), covering synchronous save/validate in caller/Form callbacks during declined toggles/resets, native reset error/interaction clearing, and later acceptance. Formatting/diff checks pass.
 - Controlled consistency source 7519fc61670d995a80dc027e902f6545105715a2: root/full-profile analysis clean; 36 focused tests pass. Refreshed bundle /private/tmp/DiscourseCheckbox132a-7519fc61.app, identifier org.discourse.native.checkbox.132a.sync and unique discourse-checkbox-132a-sync URL scheme. Source/copied kernel SHA256 e379f6048e80056a2d98aa976da8e850b6191b8a34b3bae299d705e0dcb35940 matches; deep strict ad-hoc signature verification passes. This supersedes the earlier 0df1b03c inspection bundle. No CUA or launch performed.
+- Visual follow-up: 38 focused Checkbox/Label/paint tests and 118 migration tests passed; three font-loaded export/pixel tests passed. Root/full analysis clean after removing two redundant test imports. Browser-only slot released after restoring original theme/viewport and closing the temporary tab.
+- Visual source a1d2737243099e8e6565c8fad268a102aa70a843: clean-source macOS debug build passed. Refreshed signed bundle /private/tmp/DiscourseCheckbox132a-a1d27372.app, identifier org.discourse.native.checkbox.132a.visual, scheme discourse-checkbox-132a-visual. Source/copied kernel SHA256 52687198c964426357053f2039af167ad2294598607a589b091aa9d7735ce715 matches; deep strict signature verification passes. No app launch; native inspection awaiting_slot.
 
 **limitations**
 
-- Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.
+- Native desktop inspection remains awaiting_slot. Official browser comparison and font-loaded Flutter exports completed; these do not constitute native app inspection. Status remains in_progress.
 - Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
 - Coordinator reports base Avatar assertions corrected on main adc25e7b and Tooltip/compact-title Escape fixed separately at c5d37bd1 pending native review; no changes to these owners in this follow-up.
 
@@ -872,6 +875,8 @@ Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/u
 - Poll explicitly opts into toggleable items to preserve withdrawal; normal radio groups do not deselect.
 - Current Base UI Radio API captured; readOnly guards native selection callbacks, required flags announce semantics while caller Form validator enforces requirements and localization.
 - Field composition source correction: input uses outlineVariant and alpha modifiers multiply existing alpha; choice cards use captured FieldLabel/Field 10px padding, base-radius lg, selected alpha, hover/focus and 8px/2px content geometry. No DField implementation.
+- Live browser correction: both card/radio focus rings, 20px card title, reference widths/selections and invalid-label colors. Outside foreground rings preserve translucent fills; evidence documents host font, focus token, hit target and disabled-opacity adaptations.
+- Removed discretionary desktop minimum: intrinsic labeled rows now match Default64px, Description142px and Fieldset73px with8px gaps; touch alone retains48px. Measurements document fractional SF line-height and width differences from browser.
 
 **migrations**
 
@@ -897,10 +902,13 @@ Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/u
 - ReadOnly replacement bundle /private/tmp/discourse-radio-readonly-review-l6gbqvk1/Radio Group Readonly Review.app built from 88400eed4c5d4c2215b2df534e7b419c0258b9b1; kernel c8399e45e0d59311d1bcebfc6fbef08400b7d3e29fab55ad1d36f95ef5416af9, 725 source files equal commit, matching copied kernel and deep strict ad-hoc signature verified. No native launch; awaiting_slot.
 - Visual-source correction: 163 focused tests passed seed 9092026, including translucent input/card color roles, light/dark modifier alpha, geometry and hover. Root/full static analysis clean; exact source captures and mapping updated.
 - Latest source-corrected fixture /private/tmp/discourse-radio-field-review-a2j2_677/Radio Group Field Review.app from 9ece5376b01fad2157af34ca2dd7914ba833e880; kernel 16336ff6c32757e9362121e5d6763a2e35e65d98df43ae4fed546aaf055e15b6; 725 source files byte-match, original/copied kernels equal, deep strict signature passes. No launch; native awaiting_slot.
+- Serialized official light/dark browser comparison completed and slot released; 22 font-loaded widget/production fixture PNGs and reproduction harness preserved in evidence/radio-group. Export plus component run passed 18 tests.
+- Final desktop geometry correction:165 focused tests pass seed9092026, including18 component tests and retained touch bounds; measured font-loaded export run passes.
+- Latest browser-corrected bundle /private/tmp/discourse-radio-browser-review-zpdismeb/Radio Group Browser Review.app from 99126e23b169f72ffde2975adb1da77fd5f966cb; kernel 2f72ac9df88df5dd329edafa55d2dced9a1c5e8961564768713b00484914ad11; 725 source files byte-match, kernels equal and deep strict signature passes. Root/full analyses clean. Native not launched, awaiting_slot.
 
 **limitations**
 
-- Native desktop is locked; no CUA or native/browser inspection performed. All native visual comparison remains awaiting_slot.
+- Browser comparison and font-loaded widget exports completed; native desktop remains locked and native visual inspection awaiting_slot.
 - No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review.
 
 ### switch
@@ -1406,10 +1414,40 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 
 - Port base-nova closed-control geometry (32/28px, 14/20px text, directional 10/32px padding, 16px chevron), token palette/radius, disabled opacity, invalid and keyboard focus rings.
 - Provide typed text options and disabled optgroups, placeholder, controlled and initial selection, Form save/reset/validation, borrowed focus lifecycle and accessible names.
-- Use Flutter DropdownButton as selection/popup owner, document exact platform adaptation distinct from custom rich Select; cover keyboard, touch, dismissal, scrolling, large text, RTL and theme changes.
+- Use Flutter MenuAnchor/MenuItemButton as selection/popup owner (coordinator correction: open overlays must update live), document exact platform adaptation distinct from custom rich Select; cover keyboard, touch, dismissal, scrolling, large text, RTL and theme changes.
 - Self-contained actual-component styleguide covers reference simple/groups/disabled/invalid/RTL plus form and state; audit core/plugins and migrate suitable simple selectors preserving callbacks and permission/busy guards.
 - Pass focused interaction/migration tests, touched format and root/full-profile analysis with unchanged pins/lockfiles; build isolated identifiable macOS local-data fixture with source/kernel/signature evidence.
 - Remain in_progress awaiting_slot until coordinator grants desktop and reference/native production-fixture review passes.
+- Provide typed-character prefix navigation and repeated-letter cycling; finish the concrete whole-app plain-selector audit rather than deferring eligible selectors to Select.
+
+**decisions**
+
+- Typed DNativeSelectOption/OptGroup, single DNativeSelect FormField adapter and Flutter MenuAnchor/MenuItemButton owner; no rich custom Select dependency.
+- Default content width measures widest text plus 42px; apps use isExpanded. 32/28px heights, input token/multiplicative alpha, proportional radii, exterior-only focus ring and exact Lucide chevron documented with hashed sources.
+- Controlled Form callbacks/validation/reset always see accepted props synchronously; uncontrolled defaults freeze at mount. Nonnullable app choices disable the placeholder and retain initial reset values.
+- Live menu palette/direction/text scale without dismissal; immediate transitions; type-ahead supports prefix and repeated-character cycling with disabled/headings skipped and no timers.
+
+**migrations**
+
+- 28 plain selector owners across Preferences, Group management, Bookmarks, Invites, Status editor, Chat, Assign, Poll, Local Dates and Voice. Full per-owner callback/permission audit in native-select.md.
+- Preserved Voice _heldDevice fallback, Custom expiry cancellation, legacy Assign status, nullable Default order and controlled async preference/filter changes.
+
+**retainedAlternatives**
+
+- Topic-move category selector retains icons/colors/hierarchy for rich Select; searchable/multi-choice/action/date pickers keep their distinct capabilities.
+- Existing DSelect baseline source/export and documentation chrome remain per coordinator ownership; no simple app callers remain on DSelect.
+
+**verification**
+
+- Flutter 3.47.2 and pins/lockfiles unchanged; enforced root/full-profile pub resolution passed.
+- 323 selected component, fixture, styleguide and production migration tests passed; routed Chat notification integration test also passed.
+- Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.
+- Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch.
+
+**limitations**
+
+- awaiting_slot: Mac locked; reference-rendered and native visual inspection remains required before review_ready or merge.
+- No CUA/app launch; widget platform overrides and native fixture tests are not device/VoiceOver/pixel-parity evidence.
 
 ### chart
 
@@ -1421,6 +1459,37 @@ Status: in_progress. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/u
 - Keep data adapters outside the generic chart owner; audit core and every plugin, migrate suitable existing poll result presentation while preserving confidential results, voting callbacks and async ownership.
 - Provide controlled and initial chart selection with mouse/touch/keyboard focus, Escape dismissal, semantic values, responsive/large-text/RTL/live-theme support and explicit lifecycle; chart inspection is not a Form value.
 - Supply self-contained actual-component examples and offline production fixtures, meaningful component/adoption tests, root/full analysis and isolated uniquely identified macOS build with source/kernel/signature evidence; remain in_progress awaiting native/reference slot.
+
+**decisions**
+
+- Frozen Markdown hash matches catalogue exactly; base-nova registry and complete inline examples saved with URLs/hashes. Full section accounting, CSS geometry, API and adaptation mapping: docs/component-library/chart.md.
+- One generic owner exports DChartContainer/config, typed DBarChart series and controlled inspection, reusable tooltip/legend content and inline DChartBar. Existing native drawing/focus primitives; no plotting package or unmerged dependency.
+- Ten actual-component styleguide examples remain baseline pending native/reference gate. Colors resolve live; proportional tooltip radius and multiplicative alpha rules applied.
+- Independent source/tests/build complete; awaiting_slot. Keep status in_progress and examples baseline until coordinator grants and completes reference/native review.
+
+**migrations**
+
+- PollCard private result bars replaced with DChartBar; percentage/confidential-count rules, permissions, voting/withdrawal and async accepted-result behavior preserved.
+- UsersPage metric cells use DChartBar while retaining maxima, minimum-width/intensity/value overlay, synchronized scrolling, sorting and persistence. Actual PollCard/UsersPage local-data fixture: lib/chart_review_main.dart.
+
+**retainedAlternatives**
+
+- Core/plugin loading indicators, topic reading progress, skeleton fractions and text statistics keep their appropriate owners.
+- Ranked-choice and pie-markup native accessible option tallies remain Poll domain composition; no speculative chart-family expansion. Prometheus tables and Voice diagnostic text remain unchanged.
+
+**verification**
+
+- Root/full flutter pub get --enforce-lockfile passed; Flutter 3.47.2 and pins/lockfiles unchanged.
+- Root/full flutter analyze --no-pub clean; touched formatting and git diff --check passed.
+- 146 focused Chart/example/offline-fixture/PollCard/UsersPage/Poll integration/controller tests passed with randomized ordering; final log /tmp/chart-final-focused.log. Covers native semantic current/next/previous values, keyboard/RTL pointer mapping, borrowed lifetimes, live theme/alpha, image paint, confidential values, maxima/width/scroll persistence and account/accepted-result regressions.
+- Final focused rerun: 146 passed, seed 1577084355; final executable source 083fa3dc9ddae9e395097e46782a8d43cc560682 (format-only follow-up).
+- Isolated macOS debug build succeeded; unique bundle /tmp/chart-review-eab4-083fa3dc/Chart Review eab4.app, ID org.discourse.chartrevieweab4, scheme discourse-chart-review-eab4. Source equality, three-way kernel SHA256 8a93ab451b3e0f16914a276deef3d2f4adf9f385bc9b9275a93d48e854da691e and deep strict ad-hoc signature verification passed. Provenance/inspection checklist: docs/component-library/chart-native.md.
+- 15 existing styleguide-page/Button-adoption integration tests passed, seed 2936222072; /tmp/chart-styleguide-integration.log.
+
+**limitations**
+
+- Mac locked; no CUA/browser/native inspection performed. Remain in_progress awaiting_slot, not review_ready, until actual reference and native styleguide/production-fixture comparison.
+- No iOS/Linux device or VoiceOver testing; test image geometry is not pixel-parity evidence.
 
 ### sidebar
 
