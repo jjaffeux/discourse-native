@@ -61,6 +61,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('17'), findsOneWidget);
       await show('File Tree');
+      await tester.tap(find.text('Outline'));
+      await tester.pumpAndSettle();
+      expect(find.text('No symbols in the selected file.'), findsOneWidget);
+      expect(find.text('components'), findsNothing);
+      await tester.tap(find.text('Explorer'));
+      await tester.pumpAndSettle();
+      expect(find.text('No symbols in the selected file.'), findsNothing);
       await tester.tap(find.text('components'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('ui'));
