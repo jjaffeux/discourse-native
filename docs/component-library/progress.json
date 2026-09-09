@@ -2618,7 +2618,7 @@
       "reviewStatus": "in_progress",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ebb3/discourse-native",
       "clientThreadId": "client-new-thread:7f9bdf00-33b2-4ed8-a22c-1a6c97e99400",
-      "reviewHandoffCommit": null
+      "reviewHandoffCommit": "fa108f3620985dea116070b23e7bb6ff5a789bba"
     },
     {
       "id": "pagination",
