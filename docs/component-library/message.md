@@ -64,11 +64,31 @@ Retained alternatives:
 - Voice room list rows, notification summaries, post streams and composer previews keep their domain-specific owners.
 - Message Scroller task `01a08606-ce86-7be2-b92f-59676b40cb40` owns stable item IDs, anchoring, pagination viewport and scroll lifecycle. It composes keyed Message children without inspecting them.
 
-## Prepared dependency provenance
+## Accepted dependency provenance
 
-- Bubble: exact prepared branch HEAD `f486021ed643332c951968a008b9e3051233957a`, component commit `78c60d0cd7cf87d34c46524fff95336b43e261cd`, task `01a085d9-7909-7fd0-b1b8-30a76c6ab2af`. Its 84 focused/downstream tests and root/full analysis passed; it remains unaccepted and itself contains the prepared Popover pin. Message's reviewer must wait for accepted Bubble/Popover main, integrate the accepted revisions and verify overlap.
-- Attachment: source commit `48f552a19d64faf3f4fed6763dc5937b5e9c8d7b` plus reviewer fixes `9e859788` and `df7cab1f`, candidate `codex/review-attachment`, reviewer `01a085f6-d243-7d73-8a4a-c1a1225d3a8f`. The reviewer reports 104 focused tests and clean root/full analysis at candidate `df7cab1fcdbf66bf393e79ced38fd71bf27c983b`; native/reference acceptance remains blocked on a locked Mac and no merge is claimed. Message's reviewer must reconcile the final accepted Attachment main revision before merge.
-- Avatar and Marker are accepted on current local main at merge commits `5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0` and `fc92f4e69042191eff5d39d52c1355a6d6a87da7` respectively.
+- Bubble: accepted local merge `c3d6ae97af486134b32067aecc29f7191b05367d`, reviewer `01a08639-b066-7882-85f5-a759c5fdab6f`.
+- Attachment: accepted local merge `99cea2172e9ddb5da775bff7b81e82c24ad72870`, reviewer `01a085f6-d243-7d73-8a4a-c1a1225d3a8f`.
+- Avatar and Marker: accepted local merges `5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0` and `fc92f4e69042191eff5d39d52c1355a6d6a87da7`.
+
+Message candidate `35ac776c` was created from accepted-parent main
+`b2f42554`; all accepted parent source wins over prepared snapshots. Their
+Message-facing APIs are unchanged. The reconciled 193-test component,
+composition and Chat lifecycle run passed.
+
+## Independent review
+
+Review fixes preserve intrinsic direct-child widths and order, use the exact
+zero default header gap, inherit medium-weight status typography and lock the
+14/20 and 12/16 metrics with live font tests. The styleguide now has seven
+complete example groups, including the separate multiline Avatar composition.
+Copy, like, dislike, retry and download callbacks expose real local results.
+
+Exact-source build provenance, completed browser/native observations and
+remaining checks are tracked in
+`docs/component-library/evidence/message/native-review.json`. The production
+fixture's visible thread/reply/jump/edit result belongs only to that local
+review harness. Generic Message and the production adapter expose no new
+network or scroll responsibilities.
 
 ## Acceptance checklist
 

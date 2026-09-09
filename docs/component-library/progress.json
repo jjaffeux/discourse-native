@@ -3652,6 +3652,10 @@
         "marker"
       ],
       "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Message complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
+        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
+        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
+        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.",
         "Reproduce the frozen base-nova Message, MessageGroup, MessageAvatar, MessageContent, MessageHeader and MessageFooter composition, start/end alignment, footer-aware avatar anchoring, exact 8px/10px/12px geometry and 14px row plus 12px metadata typography.",
         "Provide complete Avatar, Group, Header/Footer, Actions, Attachment and accessibility/status-update examples by composing the final Avatar, Bubble, Button, Attachment and Marker owners without duplicated rendering or placeholder primitives.",
         "Keep arbitrary rich content and sender/timestamp/status/action metadata generic; support independently labeled actions, appropriate live status announcements, keyboard/touch interaction, narrow and 200% text layouts, RTL, reduced motion and live host theme/font/radius changes.",
@@ -3659,6 +3663,8 @@
         "Pass focused component/styleguide/adoption regressions, formatting and root/full-profile analysis; prepare exact-source isolated browser/native evidence and create a new independent reviewer to complete acceptance, reconcile every parent against current main and merge locally."
       ],
       "decisions": [
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Message (01a08627-8995-7b43-9c06-8a219d472681) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.",
         "Frozen Markdown SHA256 39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782 verified on 2026-09-09; official base-nova registry SHA256 6a484395f7ed32d3b254619cc542aeed6ce77a5628d1e9a04d4b5baaf7de0c41.",
         "Implementation began from local main 77ee9b047528d43fcbcd4a31d464182f9640b835. One public presentational composition exports DMessage, DMessageGroup, DMessageAvatar, DMessageContent, DMessageHeader, DMessageFooter and DMessageStatus; docs/component-library/message.md records exact source mapping and adapter extensions.",
         "Ordinary Message rows add no semantic boundary, preserving arbitrary rich content and independent descendant actions. Whole-row labels/live regions are explicit; DMessageStatus provides caller-controlled localizable pending, delivered, read, failed and deleted states without owning delivery or retry work.",
@@ -3667,7 +3673,7 @@
       ],
       "migrations": [
         "ChatMessageTile production presentation now composes DMessage, DMessageAvatar and DMessageContent. Its app adapter explicitly retains the existing 42px gutter, top-anchored 28px authenticated avatar, zero internal gap, chaining, exact row padding/minimum heights, CookedHtml/preview, selection, uploads, reactions, thread/reply, delivery, pin/bookmark and hover/long-press action behavior.",
-        "Six actual-component styleguide groups reproduce Overview/Composition, Avatar, Group, Header/Footer, Actions, Attachment and Accessibility/Status examples with local state and final shared Avatar/Bubble/Button/Attachment/Marker composition. lib/message_review_main.dart is the offline source fixture."
+        "Seven actual-component styleguide groups reproduce Overview, Avatar, Group, Header/Footer, Actions, Attachment and Accessibility/Status with local state and accepted shared owners. tool/message_native_review_main.dart mounts the real local-data production tiles alongside these examples."
       ],
       "retainedAlternatives": [
         "Chat transcript QuotePanel/CookedHtml with source/channel links remains a quoted transcript rather than a live conversation row; private-message inbox/topic rows remain topic summaries.",
@@ -3691,13 +3697,68 @@
       "implementationCommit": "1fd4d49aff7fe0b19cb7b6874e5e8610931531c4",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/dee9/discourse-native",
-      "reviewStatus": "in_progress",
+      "queueStage": "independent_review",
+      "implementationBrief": "Implement full Message, Group, Avatar, Content, Header and Footer API with Avatar, Group, Header/Footer, Actions, Attachment and accessibility/status-update examples. Compose final Attachment, Avatar, Bubble, Marker and Button components rather than duplicating their rendering/logic. Keep arbitrary rich content, timestamps, sender/status metadata and actions generic, preserving independent native action labels and appropriate live-status announcements. Handle grouping/alignment/spacing, avatar stacking/availability, deleted/failed/pending/retry or other documented states, keyboard/touch, RTL/narrow/large text and live themes. Audit core/plugin chat/message presentation and migrate suitable actual widgets while leaving delivery/fetching/permissions/network/model transformations with app adapters. Coordinate Attachment reviewer 01a085f6-d243-7d73-8a4a-c1a1225d3a8f and Bubble implementer 01a085d9-7909-7fd0-b1b8-30a76c6ab2af; agree the Message API with the separately queued Message Scroller owner. Do independent planning/audit while waiting for a tested Bubble pin; no placeholder-owned final compositions.",
+      "dispatchReference": {
+        "url": "https://ui.shadcn.com/docs/components/base/message",
+        "sha256": "39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782",
+        "catalogue": "docs/component-library/catalogue.json"
+      },
+      "dependencyOwners": [
+        {
+          "id": "attachment",
+          "status": "merged",
+          "taskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
+          "branch": "codex/ui-attachment",
+          "reviewTaskId": "01a085f6-d243-7d73-8a4a-c1a1225d3a8f",
+          "reviewBranch": "codex/review-attachment",
+          "implementationCommit": "17f2d88f31adaf3748341745e423d37810f88419",
+          "mergeCommit": "99cea2172e9ddb5da775bff7b81e82c24ad72870"
+        },
+        {
+          "id": "avatar",
+          "status": "merged",
+          "taskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
+          "branch": "codex/ui-avatar",
+          "reviewTaskId": null,
+          "reviewBranch": null,
+          "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
+          "mergeCommit": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0"
+        },
+        {
+          "id": "bubble",
+          "status": "merged",
+          "taskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
+          "branch": "codex/ui-bubble",
+          "reviewTaskId": "01a08639-b066-7882-85f5-a759c5fdab6f",
+          "reviewBranch": "codex/review-bubble",
+          "implementationCommit": "88a58ebbea197b745bad2d070500ddda596cd3b5",
+          "mergeCommit": "c3d6ae97af486134b32067aecc29f7191b05367d"
+        },
+        {
+          "id": "marker",
+          "status": "merged",
+          "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
+          "branch": "codex/ui-marker",
+          "reviewTaskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
+          "reviewBranch": "codex/review-marker",
+          "implementationCommit": "ba156a2ce378787c25fdd4a8910fbf86390c4a8a",
+          "mergeCommit": "fc92f4e69042191eff5d39d52c1355a6d6a87da7"
+        }
+      ],
       "reviewTaskId": "01a08627-8995-7b43-9c06-8a219d472681",
       "reviewBranch": "codex/review-message",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8953/discourse-native",
+      "reviewHandoffCommit": "93729c14aef376f9212c1bae009f9c9791369fe8",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Implementation owner reports81 combined focused checks passing, including Message examples and ChatMessageTile adoption.",
+        "analysis": "Root and profiles/full analysis pass at handoff.",
+        "acceptance": "Bubble/Attachment remain prepared-only dependencies. Independent reviewer owns final accepted-parent reconciliation, fixes, first official browser/native acceptance and local main merge."
+      },
       "clientThreadId": "client-new-thread:dd02f9d0-ca1f-4824-a33a-3d1f878daa65",
-      "nativeInspectionStatus": "not_started",
-      "browserInspectionStatus": "not_started",
+      "nativeInspectionStatus": "in_progress",
+      "browserInspectionStatus": "in_progress",
       "preparedDependencies": [
         {
           "id": "bubble",
