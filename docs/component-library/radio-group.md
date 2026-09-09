@@ -205,3 +205,17 @@ Browser and native comparison have not been performed for this correction.
 - `field.json` SHA256 `586110f5563cbb5dc0929207ee34361f1349cf2f816465799c60b98821e4cedc`
 
 - `current-radio-group.md` SHA256 `e00939e01c108da6492bdf9a3d9ccf34bbb284e3dce26260dcf44dc4ef4219f6`
+
+### Latest source-corrected bundle (supersedes previous bundles)
+
+- Source `9ece5376b01fad2157af34ca2dd7914ba833e880`; 163 focused tests pass with seed9092026,
+  `/tmp/radio-field-regressions.log`; root/full analysis clean.
+- Final macOS build passed: `/tmp/radio-field-build.log`.
+- Bundle `/private/tmp/discourse-radio-field-review-a2j2_677/Radio Group Field Review.app`; ID `org.discourse.radio-group-field-review`;
+  scheme `discourse-radio-group-field-review`.
+- Kernel SHA256 `16336ff6c32757e9362121e5d6763a2e35e65d98df43ae4fed546aaf055e15b6`; copied/original kernels match.
+- 725 library/fixture/support files byte-match source commit; deep strict
+  ad-hoc signature verification passes. Subsequent metadata commit changes
+  documentation only. Main app/build untouched.
+- No browser/native actions or font-loaded exports performed in this slot.
+  Awaiting serialized rendered comparison and native inspection; no parity claim.

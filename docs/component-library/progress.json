@@ -779,13 +779,14 @@
         "Final Poll semantics-wrapper refinement and production fixture passed 35 tests with seed 9092026; final root/full static analysis clean. No native app launched.",
         "ReadOnly/required follow-up: 162 focused component, migration, ownership, keyboard, Chat and fixture tests pass seed 9092026. Final 15 component tests also pass after semantic-action binding cleanup and extra keyboard override coverage. Root/full analyses clean.",
         "ReadOnly replacement bundle /private/tmp/discourse-radio-readonly-review-l6gbqvk1/Radio Group Readonly Review.app built from 88400eed4c5d4c2215b2df534e7b419c0258b9b1; kernel c8399e45e0d59311d1bcebfc6fbef08400b7d3e29fab55ad1d36f95ef5416af9, 725 source files equal commit, matching copied kernel and deep strict ad-hoc signature verified. No native launch; awaiting_slot.",
-        "Visual-source correction: 163 focused tests passed seed 9092026, including translucent input/card color roles, light/dark modifier alpha, geometry and hover. Root/full static analysis clean; exact source captures and mapping updated."
+        "Visual-source correction: 163 focused tests passed seed 9092026, including translucent input/card color roles, light/dark modifier alpha, geometry and hover. Root/full static analysis clean; exact source captures and mapping updated.",
+        "Latest source-corrected fixture /private/tmp/discourse-radio-field-review-a2j2_677/Radio Group Field Review.app from 9ece5376b01fad2157af34ca2dd7914ba833e880; kernel 16336ff6c32757e9362121e5d6763a2e35e65d98df43ae4fed546aaf055e15b6; 725 source files byte-match, original/copied kernels equal, deep strict signature passes. No launch; native awaiting_slot."
       ],
       "limitations": [
         "Native desktop is locked; no CUA or native/browser inspection performed. All native visual comparison remains awaiting_slot.",
         "No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review."
       ],
-      "implementationCommit": "88400eed4c5d4c2215b2df534e7b419c0258b9b1",
+      "implementationCommit": "9ece5376b01fad2157af34ca2dd7914ba833e880",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },
