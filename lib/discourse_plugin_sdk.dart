@@ -56,8 +56,8 @@ export 'src/shell/content_reading_lane.dart'
         ContentReadingLaneGeometry;
 export 'src/shell/cooked_html.dart';
 export 'src/shell/diagnostics_text.dart';
-export 'src/shell/select.dart';
 export 'src/shell/site_url.dart';
 export 'src/theme/app_theme.dart';
 export 'src/theme/d_icon.dart';
 export 'src/theme/d_icons.dart';
+export 'src/ui/components/d_select.dart';

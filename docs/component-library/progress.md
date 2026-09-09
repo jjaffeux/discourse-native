@@ -21,7 +21,7 @@ Branch preparation does not mark a component merged or visually verified.
 | accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
-| select | Implementation and checks | — | — |
+| select | Implementation and checks | — | 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | input-group | Implementation and checks | — | — |
 | button-group | independent review | a0cca310 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
@@ -2014,14 +2014,42 @@ Status: in_progress. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match the frozen Base UI/base-nova rich Select API and Composition, Align Item With Trigger, Groups, Scrollable, Disabled, Invalid and RTL examples with measured source mapping.
-- Replace the appropriate generic rich selector and compose final shared popup, scrolling and control owners; preserve native option semantics, selected-item alignment/collision fallback, keyboard/typeahead/focus restoration, Form/controller lifecycle and live overlay theming.
-- Audit core/plugin selectors and migrate appropriate usages, coordinating final Field and Button Group compositions while retaining specifically justified native/simple selector alternatives.
-- Verify complete examples, narrow/scaled/RTL/touch/reduced-motion behavior, meaningful focused component/consumer tests and root/full analysis; create a new reviewer for remaining rendered/native acceptance and local merge after the accepted Popover main revision.
+- Match frozen Base Nova Select geometry and state artwork: 32/28px trigger, 14/20px type, directional 10/8px padding, 16px chevron/check, input border, proportional lg/md radii, transparent/light and multiplicative dark input tint, exterior 3px focus/invalid rings, 144px popup minimum, 4px offset, 28px pointer rows and 100ms motion.
+- Provide typed value/item/group/separator composition, null placeholder/clearable values, custom value/trigger/icon/indicator builders, controlled nullable and uncontrolled ownership, object equality, disabled/read-only/required/invalid states, Form validation/save/reset and a multiple-selection counterpart.
+- Use DPopover and DScrollArea as overlay/scroll owners; implement selected-row alignment with mouse/keyboard plus touch/edge/insufficient-space fallback, collision boundaries, large-list initial reveal, scroll arrows, outside/Escape dismissal, deepest-layer behavior, focus restoration and live overlay themes.
+- Support pointer/touch, compact 48px transparent touch targets, hover/press/focus, disabled-option skipping, looped arrows/Home/End/Tab containment, keyboard typeahead, stable actionable option semantics, scaling, narrow widths, RTL and reduced motion without state reset.
+- Replace the shell DropdownButton renderer with the public ui/components owner, preserve current core/plugin callback/form/permission behavior through the compatibility adapter until accepted Native Select integration reclassifies plain consumers, and retain DNativeSelect only for genuine native/simple selection.
+- Add exhaustive real-component styleguide examples for default composition, selected alignment toggle, groups/separator, scrolling, disabled, invalid/Form, RTL, multiple/custom composition and app edge cases; run focused component/consumer tests, root and full-profile analysis and exact-source build evidence before reviewer handoff.
 
 **decisions**
 
-- Prepare against the recorded tested parent source while final review continues; the new independent reviewer owns all acceptance, required final compositions and local merge after accepted parent integration.
+- Frozen Select Markdown SHA256 fc566bd829748e1caec337728e3198a951599be1c4c96f132e20d62266e2d0a9 verified on 2026-09-09; Base Nova registry SHA256 425e9b0a28b72617f18fabd75384050113295b88e7ba01c35bede2c72bd5d476 inspected with full Base UI API.
+- Prepared against unaccepted Popover review pin d99562f0f6973c9dc3f566eea02d9b00c6de4f7b from codex/review-popover, reviewer 01a08558-ae1e-7843-8cff-7221a399ea5c. This is source preparation only; Select review must wait for Popover acceptance on local main and reconcile it.
+- DSelect is the single rich rendering owner and Flutter FormField; DSelect.controlled represents controlled null explicitly, default DSelect owns initialValue, and DMultiSelect maps Base UI multiple mode. Borrowed FocusNode, DPopoverController and ScrollController remain caller-owned.
+- A generic optional DPopoverPlacementResolver receives read-only target/boundary/content geometry and returns a candidate still processed by Popover collision correction. Select alone decides touch and selected-row fallback; no overlay lifecycle is duplicated.
+
+**migrations**
+
+- Reduced lib/src/shell/select.dart to a compatibility export and moved DSelect/DSelectField rendering to lib/src/ui/components/d_select.dart; discourse_ui and discourse_plugin_sdk export the new owner.
+- Reconciled accepted Native Select main metadata 5a26e5713719988f69930a7f02b3373b530d050a and preserved its plain/simple Preferences, Poll, Local Dates, Chat, Assign, Voice, Bookmark, Invite, Group and status consumers; rich DSelect remains a public component/styleguide owner rather than replacing those accepted native adaptations.
+
+**retainedAlternatives**
+
+- DSelectField remains a source-compatibility FormField adapter only; it translates DropdownMenuItem/InputDecoration into DSelect entries and does not retain the old DropdownButton renderer.
+- Accepted DNativeSelect remains the owner for plain/simple platform-adapted selection. DSelect is retained for rich composed selection that needs its custom popup, grouping, selected alignment, typeahead or multiple-selection surface.
+
+**verification**
+
+- Frozen Markdown hash and registry/source/API inspection passed; concrete reference mapping is recorded in docs/component-library/select.md.
+- Root and profiles/full flutter analyze --no-pub passed with no diagnostics after reconciling accepted Native Select main.
+- flutter test --no-pub test/d_select_test.dart test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart --test-randomize-ordering-seed=391447 passed: 115 tests covering styleguide mounting across narrow 200% RTL live palettes, keyboard/typeahead/focus restoration, disabled/read-only states, Form validation/save/reset, selected-row alignment, Button Group handoff, controlled-null, multiple selection, dynamic items, borrowed resource ownership and accepted Native Select consumer behavior.
+- flutter build macos --debug --no-pub -t lib/styleguide_main.dart succeeded unlaunched from source head f3966666d772f5835a804a17f86eacb5bdf30a37; kernel SHA256 a20eb06d6f350a0d2cec122b1ddcd3f873c9d4f88772fd443c8ba0abe057383d, org.discourse.native.dev, CDHash 059b47bf1c10d2135b76bdaca92f5316ee920185, TeamIdentifier 6T3LU73T8S.
+- git diff --check passed.
+
+**limitations**
+
+- Official rendered browser comparison and native macOS/iOS/Linux acceptance are not yet claimed; the new reviewer owns required reference/native completion under the desktop lease.
+- Popover pin is not accepted or eligible for main through this branch; final Select merge is strictly blocked until accepted Popover is present on current local main.
 
 ### native-select
 
@@ -2484,4 +2512,3 @@ Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sid
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
-
