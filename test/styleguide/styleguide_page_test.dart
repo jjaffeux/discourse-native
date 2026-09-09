@@ -77,6 +77,34 @@ void main() {
         ],
       ),
     );
+    for (final component in componentCatalogue) {
+      expect(
+        component.sectionDepths,
+        anyOf(isEmpty, hasLength(component.sections.length)),
+        reason: component.id,
+      );
+      expect(
+        component.outline.map((section) => section.depth),
+        everyElement(anyOf(0, 1)),
+        reason: component.id,
+      );
+    }
+    expect(
+      componentCatalogue
+          .singleWhere((component) => component.id == 'input-group')
+          .outline
+          .map((section) => (section.label, section.depth)),
+      containsAllInOrder(const [
+        ('Align', 0),
+        ('inline-start', 1),
+        ('inline-end', 1),
+        ('block-start', 1),
+        ('block-end', 1),
+        ('Icon', 0),
+        ('API Reference', 0),
+        ('InputGroup', 1),
+      ]),
+    );
     final progress =
         jsonDecode(
               File('docs/component-library/progress.json').readAsStringSync(),
@@ -155,6 +183,70 @@ void main() {
     await tester.pump();
     expect(find.text('No components match your search.'), findsOneWidget);
   });
+
+  testWidgets(
+    'page outline follows shadcn heading order and depth without Installation',
+    (tester) async {
+      await _pump(tester, size: const Size(1400, 900));
+      await tester.enterText(
+        find.byKey(const ValueKey('styleguide-search')),
+        'input group',
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('styleguide-component-input-group')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(StyleguideAction, 'Installation'),
+        findsNothing,
+      );
+      expect(find.widgetWithText(StyleguideAction, 'Usage'), findsOneWidget);
+      expect(
+        find.widgetWithText(StyleguideAction, 'Composition'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(StyleguideAction, 'Align'), findsOneWidget);
+      expect(
+        find.widgetWithText(StyleguideAction, 'inline-start'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(StyleguideAction, 'InputGroup'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+                .getTopLeft(
+                  find.widgetWithText(StyleguideAction, 'inline-start'),
+                )
+                .dx -
+            tester
+                .getTopLeft(find.widgetWithText(StyleguideAction, 'Align'))
+                .dx,
+        32,
+      );
+      expect(
+        find.widgetWithText(StyleguideAction, 'Default search'),
+        findsNothing,
+      );
+
+      await tester.tap(find.widgetWithText(StyleguideAction, 'Text'));
+      await tester.pumpAndSettle();
+      expect(find.text('Text addons'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(StyleguideAction, 'Usage'));
+      await tester.pumpAndSettle();
+      expect(find.text('Default search'), findsOneWidget);
+      expect(
+        find.textContaining(
+          "import 'package:discourse_native/discourse_ui.dart';",
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'theme and viewport previews preserve example state and reset clears it',
@@ -654,7 +746,15 @@ Future<void> _choose(WidgetTester tester, String label, String value) async {
 
 Future<void> _chooseExample(WidgetTester tester, String title) async {
   expect(find.byKey(const ValueKey('styleguide-Example')), findsNothing);
-  final action = find.widgetWithText(StyleguideAction, title);
-  await tester.tap(action);
-  await tester.pumpAndSettle();
+  String selectedTitle() => tester
+      .widget<Text>(find.byKey(const ValueKey('styleguide-example-title')))
+      .data!;
+  for (var index = 0; index < 32 && selectedTitle() != title; index++) {
+    final next = find.byKey(const ValueKey('styleguide-next-example'));
+    expect(next, findsOneWidget);
+    await tester.ensureVisible(next);
+    await tester.tap(next);
+    await tester.pumpAndSettle();
+  }
+  expect(selectedTitle(), title);
 }

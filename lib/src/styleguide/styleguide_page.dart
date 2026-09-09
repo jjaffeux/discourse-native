@@ -57,6 +57,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   bool _codeOpen = false;
   bool _copied = false;
   int _exampleIndex = 0;
+  int _activeOutlineIndex = -1;
   int _reset = 0;
 
   @override
@@ -80,6 +81,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     setState(() {
       _selected = reference;
       _exampleIndex = 0;
+      _activeOutlineIndex = -1;
       _codeOpen = false;
       _copied = false;
     });
@@ -87,10 +89,48 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     _detailScroll.jumpTo(0);
   }
 
-  void _selectExample(int index) => setState(() {
+  void _selectExample(int index, {int outlineIndex = -1}) => setState(() {
     _exampleIndex = index;
+    _activeOutlineIndex = outlineIndex;
     _copied = false;
   });
+
+  int _exampleIndexForSection(
+    ComponentReferenceSection section,
+    int visibleIndex,
+    int visibleCount,
+    List<StyleguideExample> examples,
+  ) {
+    if (examples.length == 1 || section.label == 'Usage') return 0;
+
+    final needle = _normalizedSectionLabel(section.label);
+    var bestIndex = -1;
+    var bestScore = 0;
+    for (var index = 0; index < examples.length; index++) {
+      final example = examples[index];
+      final title = _normalizedSectionLabel(example.title);
+      final states = example.states.map(_normalizedSectionLabel);
+      final score = switch ((title, states)) {
+        (final title, _) when title == needle => 100,
+        (_, final states) when states.contains(needle) => 90,
+        (final title, _) when title.contains(needle) => 80,
+        (final title, _) when needle.contains(title) => 70,
+        _ => 0,
+      };
+      if (score > bestScore) {
+        bestIndex = index;
+        bestScore = score;
+      }
+    }
+    if (bestIndex >= 0) return bestIndex;
+
+    return visibleCount <= 1
+        ? 0
+        : (visibleIndex * (examples.length - 1) / (visibleCount - 1)).round();
+  }
+
+  String _normalizedSectionLabel(String value) =>
+      value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
 
   @override
   Widget build(BuildContext context) {
@@ -453,6 +493,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       header: true,
                       child: Text(
                         example.title,
+                        key: const ValueKey('styleguide-example-title'),
                         style: styleguideText(
                           context,
                           size: 20,
@@ -569,6 +610,30 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       icon: Icons.refresh,
                       iconOnly: true,
                       onPressed: () => setState(() => _reset++),
+                    ),
+                    StyleguideAction(
+                      key: const ValueKey('styleguide-previous-example'),
+                      label: 'Previous example',
+                      icon: Icons.chevron_left,
+                      iconOnly: true,
+                      onPressed: _exampleIndex > 0
+                          ? () => _selectExample(_exampleIndex - 1)
+                          : null,
+                    ),
+                    StyleguideAction(
+                      key: const ValueKey('styleguide-next-example'),
+                      label: 'Next example',
+                      icon: Icons.chevron_right,
+                      iconOnly: true,
+                      onPressed:
+                          _exampleIndex <
+                              (componentExamples[_selected.id]
+                                          ?.examples
+                                          .length ??
+                                      0) -
+                                  1
+                          ? () => _selectExample(_exampleIndex + 1)
+                          : null,
                     ),
                   ],
                 ),
@@ -724,6 +789,9 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     final examples =
         componentExamples[_selected.id]?.examples ??
         const <StyleguideExample>[];
+    final sections = _selected.outline
+        .where((section) => section.label != 'Installation')
+        .toList(growable: false);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 40, 24, 24),
       child: Column(
@@ -741,32 +809,44 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
               ),
             ),
           ),
-          for (var i = 0; i < examples.length; i++)
-            StyleguideAction(
-              key: ValueKey('styleguide-example-$i'),
-              label: examples[i].title,
-              selected: i == _exampleIndex,
-              alignment: AlignmentDirectional.centerStart,
-              onPressed: () {
-                _selectExample(i);
-                _detailScroll.jumpTo(0);
-              },
-            ),
-          if (examples.isNotEmpty)
-            StyleguideAction(
-              label: 'Usage',
-              alignment: AlignmentDirectional.centerStart,
-              onPressed: () {
-                setState(() => _codeOpen = true);
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    final target = _codeKey.currentContext;
-                    if (target != null) {
-                      unawaited(Scrollable.ensureVisible(target));
-                    }
-                  }
-                });
-              },
+          for (var index = 0; index < sections.length; index++)
+            Padding(
+              padding: EdgeInsetsDirectional.only(
+                start: sections[index].depth * 32.0,
+              ),
+              child: StyleguideAction(
+                key: ValueKey('styleguide-section-$index'),
+                label: sections[index].label,
+                selected: index == _activeOutlineIndex,
+                alignment: AlignmentDirectional.centerStart,
+                onPressed: examples.isEmpty
+                    ? null
+                    : () {
+                        final section = sections[index];
+                        _selectExample(
+                          _exampleIndexForSection(
+                            section,
+                            index,
+                            sections.length,
+                            examples,
+                          ),
+                          outlineIndex: index,
+                        );
+                        if (section.label == 'Usage') {
+                          setState(() => _codeOpen = true);
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            final target = _codeKey.currentContext;
+                            if (target != null) {
+                              unawaited(Scrollable.ensureVisible(target));
+                            }
+                          });
+                        } else {
+                          setState(() => _codeOpen = false);
+                          _detailScroll.jumpTo(0);
+                        }
+                      },
+              ),
             ),
         ],
       ),
