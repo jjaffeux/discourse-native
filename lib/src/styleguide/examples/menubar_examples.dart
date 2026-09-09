@@ -7,7 +7,7 @@ import '../styleguide_example.dart';
 final menubarExamples = ComponentExamples(
   description:
       'A visually persistent in-app command menu with coordinated popup menus.',
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   notes:
       'Installation: import package:discourse_native/discourse_ui.dart. '
       'Composition: DMenubar > DMenubarMenu(trigger + content), with groups, '
@@ -16,8 +16,8 @@ final menubarExamples = ComponentExamples(
       'and host-relative lg/sm radii. Top-level focus roves with logical arrows, '
       'Home and End; opening, pointer hover and arrows switch the active popup. '
       'Menus retain Dropdown Menu typeahead, nested Escape boundaries and focus '
-      'restoration. Native application/OS menus remain shell-owned. The status '
-      'stays baseline until independent official-rendered and native acceptance.',
+      'restoration. Native application/OS menus remain shell-owned. Independent '
+      'official-rendered and native macOS acceptance is recorded.',
   examples: [
     StyleguideExample(
       title: 'Composition',

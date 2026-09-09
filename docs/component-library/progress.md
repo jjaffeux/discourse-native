@@ -2669,7 +2669,7 @@ Status: in_progress. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/u
 
 **decisions**
 
-- Prepared source d273c27e788bb3991c773c7432e0b8c927715651 was reconciled with accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787. Independent Menubar review subsequently found and fixed shared popup-focus and RTL-chevron defects; the new corrections still require their focused native confirmation.
+- Prepared source d273c27e788bb3991c773c7432e0b8c927715651 was reconciled with accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787. Independent Menubar review subsequently found and fixed shared popup-focus and RTL-chevron defects; the corrected combined source passed focused native confirmation.
 - DMenubar owns only persistent top-level coordination: one active menu, logical arrow/Home/End roving focus, Enter/Space/open-direction entry, pointer hover switching and final trigger restoration. DDropdownMenu remains the popup/item/typeahead/submenu lifecycle owner.
 - Use a 32px minimum root with internal horizontal scrolling only when narrow or scaled layouts cannot fit persistent triggers. Keyboard focus centers newly focused triggers in the viewport in both LTR and RTL, preserving source geometry without a RenderFlex overflow or an undiscoverable off-screen command.
 - Keep Base UI's browser modal implementation detail with the shared Dropdown Menu lifecycle rather than expose an inert boolean; keep operating-system application menus outside this generic in-app widget.
@@ -2694,13 +2694,14 @@ Status: in_progress. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/u
 - Nested-Navigator regressions reproduce both native focus failures before the correction: popup focus moved an enclosing page by 86px and an opened RTL Profiles trigger to x=-275. Popup-local scrolling plus a single menu-owned autofocus path fix both; logical trigger reveal is checked before and after opening/wrapping at 200% text in LTR and RTL.
 - RTL submenu regression confirms one directional Material chevron glyph, avoiding the native-observed double mirror. Native Context Menu review independently reproduced the same inherited arrow defect.
 - flutter pub get --enforce-lockfile previously passed at root and profiles/full with unchanged Flutter 3.47.2 and lockfiles. Current root and full-profile flutter analyze --no-pub pass; formatting and git diff --check are clean.
-- Official light rendered reference and earlier exact-source native fixtures were inspected for compact geometry, File/Edit/View/Profiles switching, checkbox/radio retention, nested Share/Escape, typeahead Print, Home/End, light/dark/Plum, 360px/200%, reduced motion, Arabic RTL and dark destructive icons. The 67aa23ab fixture exposed the remaining RTL clipping and mirrored arrow; final corrected native inspection and official dark comparison remain required.
+- Official rendered light and dark references were compared with native default/File and dark With Icons/More states. Earlier exact-source native passes cover File/Edit/View/Profiles switching, checkbox/radio retention, nested Share/Escape, typeahead Print, Home/End, light/dark/Plum, Arabic RTL and destructive icons. Final corrected e3104c9a native pass confirms fully visible open/wrapped LTR+RTL triggers at 360px/200%/reduced motion, popup-only scrolling to Print, Plum large-text RTL, left-pointing Arabic chevron and logical Left/Right submenu navigation.
 - Source e3104c9ae1547b90629f85d6e7a7bb97c863f6c7 builds the real debug macOS styleguide with the exact combined Dropdown source from prepared follow-up 7110ef80. Fixture /private/tmp/discourse-menubar-review-e310.IoqW0P/Discourse Menubar Review e310.app; bundle org.discourse.menubarreview.e310; kernel SHA-256 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318. Deep strict ad-hoc verification passes, only sandbox/allow-jit/get-task-allow main entitlements, and 0 of 7 signed executables contain application/team/APS identifiers. Repository runner signing/provisioning is unchanged.
 - Affected-consumer validation: Context Menu dfd02ea4 in a disposable checkout fails the two new regressions on its old parent (62px host scroll and double-mirrored RTL glyph). All 11 Context Menu tests pass with seed 826145 on combined Dropdown blob b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6, preserving Avatar live-registration order; the temporary checkout was removed.
+- Exact native source e3104c9a accepted; subsequent styleguide promotion changes only status and acceptance text, not runtime behavior. Owned app and official-reference tab closed; desktop lease released.
 
 **limitations**
 
-- Combined source e3104c9a is queued for focused native confirmation of enlarged RTL anchor reveal and submenu direction, plus remaining official dark comparison. Final merge also awaits the Dropdown owner's accepted-main checkpoint for the prepared shared follow-up. iOS/Linux device behavior and spoken VoiceOver remain unverified.
+- Native iOS/Linux device behavior and spoken VoiceOver remain unverified.
 
 ### navigation-menu
 

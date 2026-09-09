@@ -124,4 +124,27 @@ scroll and mirrored RTL glyph); all 11 Context Menu tests pass with seed 826145
 on the combined Dropdown blob `b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6`.
 The disposable checkout was removed; its source and tests remain in Git.
 The exact-source isolated bundle and signature/kernel identity are recorded in
-`evidence/menubar/build-identity.json`; focused native confirmation is pending.
+`evidence/menubar/build-identity.json`.
+
+## Final native and rendered acceptance
+
+The exact `e3104c9a` fixture passed the focused native macOS correction check:
+
+- At 360px and 200% text with reduced motion, End then Down opens Profiles
+  with its trigger fully visible in both LTR and RTL. Logical wrapping from
+  the open Profiles menu reveals File fully before opening its popup.
+- Navigating File down to Print scrolls only the popup; the surrounding page
+  and menubar remain stationary. Return selects Print and closes the menu.
+- The Plum custom palette works at 360px/200%/RTL with reduced motion.
+- Arabic Share shows a left-pointing chevron. Logical Left opens the submenu
+  on the left; Right closes only the submenu and leaves the parent open.
+- The official rendered dark default, File-open, and With Icons/More-open
+  states were compared with native geometry, disabled text, separators,
+  shortcuts and destructive icon treatment. Earlier official light and native
+  command, checkbox, radio, typeahead and Escape evidence remains valid.
+
+Only the owned isolated app and reference tab were closed, and the desktop
+lease was released. Promotion to implemented changes status/acceptance text
+only, not the inspected runtime. Native iOS/Linux devices and spoken VoiceOver
+were not tested. The shared Dropdown follow-up must reach accepted local main
+through its owner before the final Menubar merge.

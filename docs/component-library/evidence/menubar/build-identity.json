@@ -27,12 +27,16 @@
   },
   "sourceScope": "The fixture mounts the production styleguide and registered real DMenubar examples from the exact source commit. The copied bundle only changes its Info.plist identity and ad-hoc signature; repository runner identities and entitlements are unchanged.",
   "inspection": {
-    "launched": false,
-    "officialBrowserCompared": false,
-    "nativeMacosInspected": false,
-    "note": "Earlier exact-source native passes inspected command/checkbox/radio/submenu/typeahead/Escape/Home/End behavior, dark/light/Plum, 360px/200% text, reduced motion, Arabic RTL and dark destructive icons. The 67aa23ab pass exposed remaining RTL anchor clipping and double-mirrored submenu chevrons. Correction 430b46a0 fixes both; current source e3104c9a additionally integrates the prepared Dropdown owner's 7110ef80 follow-up, preserving Avatar live-registration order. 64 combined tests and 11 affected Context Menu tests pass. This exact rebuilt fixture awaits focused native confirmation and the remaining official dark comparison; it is not yet accepted.",
+    "launched": true,
+    "officialBrowserCompared": true,
+    "nativeMacosInspected": true,
+    "note": "Exact e3104c9a fixture accepted on native macOS: 360px/200%/reduced-motion LTR and RTL Profiles open and logical wrap to File preserve fully visible active triggers; popup navigation to Print scrolls only popup, Return selects Print. Plum custom RTL large text inspected. Arabic Share chevron points left; Left opens submenu to left, Right returns to parent. Official dark default/File and With Icons/More states compared; earlier official light and unchanged native command/checkbox/radio/typeahead/Escape evidence retained. Own app and browser tab closed and desktop lease released. Status/acceptance-text promotion does not change inspected runtime.",
     "officialBrowserStates": [
-      "light"
+      "light",
+      "dark"
+    ],
+    "limitations": [
+      "Native iOS/Linux devices and spoken VoiceOver were not tested."
     ]
   },
   "sharedDropdownSource": {

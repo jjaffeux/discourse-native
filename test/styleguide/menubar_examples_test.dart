@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('Menubar registers every frozen documented example', () {
     expect(componentExamples['menubar'], same(menubarExamples));
-    expect(menubarExamples.status, ComponentStatus.baseline);
+    expect(menubarExamples.status, ComponentStatus.implemented);
     expect(menubarExamples.examples.map((example) => example.title), [
       'Composition',
       'Checkbox',
