@@ -4,6 +4,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('documented actions retain their reference button variants', (
+    tester,
+  ) async {
+    Future<DButton> actionFor(String exampleTitle, String label) async {
+      final example = emptyExamples.examples.singleWhere(
+        (example) => example.title == exampleTitle,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      );
+      return tester.widget<DButton>(
+        find.ancestor(of: find.text(label), matching: find.byType(DButton)),
+      );
+    }
+
+    expect(
+      (await actionFor('Basic', 'Create Project')).variant,
+      DButtonVariant.primary,
+    );
+    expect(
+      (await actionFor('Background', 'Refresh')).variant,
+      DButtonVariant.outline,
+    );
+    final invite = await actionFor('Avatar Group', 'Invite Members');
+    expect(invite.variant, DButtonVariant.primary);
+    expect(invite.icon, isNotNull);
+  });
+
   testWidgets(
     'every example fits narrow large-text RTL and wide dark previews',
     (tester) async {

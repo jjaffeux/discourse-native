@@ -180,7 +180,7 @@ class _EmptySampleState extends State<_EmptySample> {
                         },
                         variant: kind == 'Outline' || kind == 'Background'
                             ? DButtonVariant.outline
-                            : DButtonVariant.standard,
+                            : DButtonVariant.primary,
                         size:
                             kind == 'Outline' ||
                                 kind == 'Avatar' ||
