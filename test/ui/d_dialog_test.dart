@@ -760,4 +760,91 @@ void main() {
     await tester.pumpAndSettle();
     expect(result, 'done');
   });
+
+  testWidgets('showDDialog keeps live caller scope and route context', (
+    tester,
+  ) async {
+    var theme = ThemeData.light();
+    var direction = TextDirection.ltr;
+    var scale = 1.0;
+    late StateSetter update;
+    DDialogController<void>? dialogController;
+    final fieldController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    addTearDown(fieldController.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return Theme(
+              data: theme,
+              child: MediaQuery(
+                data: MediaQueryData(
+                  size: const Size(800, 600),
+                  textScaler: TextScaler.linear(scale),
+                ),
+                child: Directionality(
+                  textDirection: direction,
+                  child: Scaffold(
+                    body: Builder(
+                      builder: (callerContext) => TextButton(
+                        onPressed: () {
+                          unawaited(
+                            showDDialog<void>(
+                              context: callerContext,
+                              builder: (dialogContext, controller) {
+                                dialogController = controller;
+                                return DDialogContent(
+                                  children: [
+                                    Text(
+                                      '${Theme.of(dialogContext).brightness.name}|'
+                                      '${MediaQuery.textScalerOf(dialogContext).scale(10)}|'
+                                      '${Directionality.of(dialogContext).name}|'
+                                      '${ModalRoute.of(dialogContext) != null}|'
+                                      '${Navigator.of(dialogContext).canPop()}',
+                                    ),
+                                    Form(
+                                      key: formKey,
+                                      child: TextField(
+                                        key: const Key('helper-field'),
+                                        controller: fieldController,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          );
+                        },
+                        child: const Text('Open helper scope'),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open helper scope'));
+    await tester.pumpAndSettle();
+    expect(find.text('light|10.0|ltr|true|true'), findsOneWidget);
+    final formState = formKey.currentState;
+    await tester.enterText(find.byKey(const Key('helper-field')), 'draft');
+
+    update(() {
+      theme = ThemeData.dark();
+      direction = TextDirection.rtl;
+      scale = 2;
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('dark|20.0|rtl|true|true'), findsOneWidget);
+    expect(fieldController.text, 'draft');
+    expect(formKey.currentState, same(formState));
+    dialogController!.close();
+    await tester.pumpAndSettle();
+  });
 }

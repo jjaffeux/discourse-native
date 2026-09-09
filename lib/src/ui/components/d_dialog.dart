@@ -1003,10 +1003,14 @@ Future<T?> showDDialog<T>({
   FocusNode? finalFocusNode,
 }) async {
   final controller = DDialogController<T>(initiallyOpen: true);
-  final environment = ValueNotifier<_DDialogEnvironment?>(null);
+  final environment = ValueNotifier<_DDialogEnvironment?>(
+    _DDialogEnvironment.capture(context),
+  );
   final configuration = ValueNotifier<_DDialogConfiguration<T>?>(
     _DDialogConfiguration<T>(
-      content: builder(context, controller),
+      content: Builder(
+        builder: (dialogContext) => builder(dialogContext, controller),
+      ),
       barrierLabel: barrierLabel,
       dismissOnBarrier: dismissOnBarrier,
       dismissOnEscape: dismissOnEscape,
@@ -1014,6 +1018,17 @@ Future<T?> showDDialog<T>({
     ),
   );
   final previousFocus = FocusManager.instance.primaryFocus;
+  var watchingEnvironment = true;
+  void watchEnvironment() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!watchingEnvironment || !context.mounted) return;
+      final next = _DDialogEnvironment.capture(context);
+      if (environment.value != next) environment.value = next;
+      watchEnvironment();
+    });
+  }
+
+  watchEnvironment();
   late _DDialogRoute<T> route;
   route = _DDialogRoute<T>(
     settings: routeSettings,
@@ -1031,6 +1046,7 @@ Future<T?> showDDialog<T>({
       rootNavigator: useRootNavigator,
     ).push<T>(route);
   } finally {
+    watchingEnvironment = false;
     controller._detach(route);
     controller.dispose();
     environment.dispose();
