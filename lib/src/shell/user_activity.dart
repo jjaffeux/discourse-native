@@ -378,43 +378,29 @@ class _ActivityCategory extends StatelessWidget {
 
 class _LoadMoreError extends StatelessWidget {
   const _LoadMoreError({required this.message, required this.onRetry});
-
   final String message;
   final VoidCallback onRetry;
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      liveRegion: true,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: Container(
-            margin: const EdgeInsets.only(top: 12),
-            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-            color: theme.colorScheme.errorContainer,
-            child: Row(
-              children: [
-                DIcon(
-                  DIcons.triangleExclamation,
-                  size: 17,
-                  color: theme.colorScheme.onErrorContainer,
-                ),
-                const SizedBox(width: 9),
-                Expanded(child: Text(message)),
-                DButton(
-                  label: const Text('Retry'),
-                  onPressed: onRetry,
-                  variant: DButtonVariant.link,
-                ),
-              ],
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 1000),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: DAlert(
+          variant: DAlertVariant.destructive,
+          icon: const Icon(Icons.error_outline),
+          description: DAlertDescription(child: Text(message)),
+          action: DAlertAction(
+            child: DButton(
+              label: const Text('Retry'),
+              onPressed: onRetry,
+              variant: DButtonVariant.link,
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _ActivityLoadingSkeleton extends StatelessWidget {
