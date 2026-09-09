@@ -2,7 +2,7 @@
 
 Reviewer: `01a08621-0e86-7a62-82b9-6a8eca71227f`.
 Original implementation: `43ef3bca0725ed27f452ed141a6eda4bf120072e`.
-Latest source fixes: `1bbdb00a`; current-main integration: `2141e109`.
+Latest source fixes: `1bbdb00a`; current-main integration: `3c11feff`.
 
 ## Rendered reference and findings
 
@@ -38,12 +38,12 @@ reconciliation, dismissal focus policy and borrowed-controller disposal.
 
 ## Verification
 
-After integration onto main `4d79219df5ddc4c51e80defb02a0eb607dd6a3dd`,
-69 focused Navigation Menu, Popover and Combobox component/example tests pass
+After integration onto main `2b9797fe047d14ce59c6080ea214337b0114dc96`,
+98 focused Navigation Menu, Popover, Combobox and Button Group tests pass
 with seed 860606. Root and full-profile analysis report no issues. Every other
 component row and the workflow match that main revision exactly; the normalized
 progress hash with Navigation Menu removed is
-`17bf8ee5b713bb9d98e4713fd75ed0d10f0e78475c62fa39f469096f83f531a0`.
+`af9ab3e1db1c31a78f22051f0cbc84673f48d67c0d69749688003c84488270b7`.
 
 The rebuilt, ad-hoc signed and deep-strict verified fixture is:
 
@@ -51,9 +51,11 @@ The rebuilt, ad-hoc signed and deep-strict verified fixture is:
 
 Bundle ID: `org.discourse.navigationmenureview.r43ef3bca`.
 Kernel SHA-256:
-`2c7d7c9417233550384fe7c99ddfb2ac504a221a278f131df2997957cb199d98`.
+`ca1ab6d1d9dfe4e36f3c8551e2bd82931821ef5c0f3d9d5fb6007c65b9c32464`.
 Navigation Menu and its example source are byte-identical to `1bbdb00a`.
 The fixture's Popover differs from the integration source only in documentation.
+It includes the accepted Button Group popup boundary and byte-identical
+joined-control foundation, reconciled in `3c11feff`.
 
 Further failing-before/passing-after regressions cover vertical arrow travel,
 live orientation with an unchanged child and a real RTL destination callback.
