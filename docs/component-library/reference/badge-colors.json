@@ -1,0 +1,87 @@
+{
+  "source": "https://raw.githubusercontent.com/tailwindlabs/tailwindcss/main/packages/tailwindcss/theme.css",
+  "sha256": "443d7af364200f8ec8352dc78e39485a118a1840d498c97967bf0ae402b39167",
+  "conversion": "OKLCH to linear sRGB, sRGB transfer function, channel clipping, nearest 8-bit channel",
+  "colors": {
+    "blue-50": {
+      "oklch": "97% 0.014 254.604",
+      "argb": "ffeff6ff"
+    },
+    "blue-700": {
+      "oklch": "48.8% 0.243 264.376",
+      "argb": "ff1447e6"
+    },
+    "blue-950": {
+      "oklch": "28.2% 0.091 267.935",
+      "argb": "ff162456"
+    },
+    "blue-300": {
+      "oklch": "80.9% 0.105 251.813",
+      "argb": "ff8ec5ff"
+    },
+    "green-50": {
+      "oklch": "98.2% 0.018 155.826",
+      "argb": "fff0fdf4"
+    },
+    "green-700": {
+      "oklch": "52.7% 0.154 150.069",
+      "argb": "ff008236"
+    },
+    "green-950": {
+      "oklch": "26.6% 0.065 152.934",
+      "argb": "ff032e15"
+    },
+    "green-300": {
+      "oklch": "87.1% 0.15 154.449",
+      "argb": "ff7bf1a8"
+    },
+    "sky-50": {
+      "oklch": "97.7% 0.013 236.62",
+      "argb": "fff0f9ff"
+    },
+    "sky-700": {
+      "oklch": "50% 0.134 242.749",
+      "argb": "ff0069a8"
+    },
+    "sky-950": {
+      "oklch": "29.3% 0.066 243.157",
+      "argb": "ff052f4a"
+    },
+    "sky-300": {
+      "oklch": "82.8% 0.111 230.318",
+      "argb": "ff74d4ff"
+    },
+    "purple-50": {
+      "oklch": "97.7% 0.014 308.299",
+      "argb": "fffaf5ff"
+    },
+    "purple-700": {
+      "oklch": "49.6% 0.265 301.924",
+      "argb": "ff8200db"
+    },
+    "purple-950": {
+      "oklch": "29.1% 0.149 302.717",
+      "argb": "ff3c0366"
+    },
+    "purple-300": {
+      "oklch": "82.7% 0.119 306.383",
+      "argb": "ffdab2ff"
+    },
+    "red-50": {
+      "oklch": "97.1% 0.013 17.38",
+      "argb": "fffef2f2"
+    },
+    "red-700": {
+      "oklch": "50.5% 0.213 27.518",
+      "argb": "ffc10007"
+    },
+    "red-950": {
+      "oklch": "25.8% 0.092 26.042",
+      "argb": "ff460809"
+    },
+    "red-300": {
+      "oklch": "80.8% 0.114 19.571",
+      "argb": "ffffa2a2"
+    }
+  }
+}

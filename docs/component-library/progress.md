@@ -18,8 +18,8 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 6 | button | merged | 01a083ac-5fd5-78b1-9263-7e3218a878b6 | codex/ui-button | spinner, tooltip | eb6d8ea0d9417f0edc830c5ce715b52436f12c94 |
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
-| 9 | badge | in_progress | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | — |
-| 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
+| 9 | badge | merged | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | — |
+| 10 | input | review_ready | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
 | 11 | textarea | in_progress | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
 | 13 | radio-group | in_progress | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
@@ -718,7 +718,7 @@ Status: merged. Task: 01a0825a-9fe1-7700-878c-f448801c0851. Branch: codex/ui-lab
 
 ### badge
 
-Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/ui-badge.
+Status: merged. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/ui-badge.
 
 **acceptanceCriteria**
 
@@ -733,7 +733,7 @@ Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/u
 - Public DBadge supports six treatments, static/action/link composition, decorative leading/trailing widgets, custom live colors, disabled callbacks, invalid/name/value/live semantics and owned-or-borrowed focus. Pointer activation transfers keyboard focus; links use Enter and actions use Enter/Space.
 - Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 2.6× configured radius (10.4px at host default 4; reference 26px at 10), using the live website globals override, not rounded-full.
 - Spinner remains the only implementation dependency. Button is baseline only for example controls; Badge imports no unfinished Button code. Six full styleguide sections retain the redesigned documentation shell.
-- Native comparison is pending the coordinator slot and unlocked desktop; automated passing checks and successful debug builds are not review_ready.
+- Native/browser comparison completed under the granted exclusive slot; Badge is review_ready for coordinator review. Slot released, task tab closed and isolated app quit.
 - Ring uses animated exterior-only rounded-rectangle difference, preventing tint in transparent/translucent interiors. Frozen registry and compiled CSS require only a destructive border for idle invalid; 3px ring width applies on focus-visible.
 
 **migrations**
@@ -742,6 +742,7 @@ Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/u
 - Plugin: Chat drawer numeric urgent counts use DBadge with preserved domain calculations and 99+ visual cap/full accessible count. At minimum width with large text, metadata moves below preview to preserve title/lock space.
 - Spinner styleguide temporary badge renderer removed in favor of DBadge and DSpinner; sample busy/direction controls retained.
 - Self-contained native-review fixtures mount real GroupsPage, TopicUnreadBadge, staff UserCardTarget and ChatDrawerChannelsView backed by in-memory stores/API.
+- Native narrow Groups footer overflow corrected: member count wraps in flexible width beside Member/Owner badge. Final native reinspection and narrow RTL regression pass.
 
 **retainedAlternatives**
 
@@ -759,15 +760,18 @@ Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/u
 - Exact final test command: flutter test --no-pub test/d_badge_test.dart test/badge_migrations_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart test/groups_page_test.dart test/group_page_test.dart test/user_card_test.dart test/user_card_target_accessibility_test.dart test/user_card_account_lifecycle_test.dart test/user_menu_message_accessibility_test.dart test/plugin_user_menu_widget_test.dart test/chat_drawer_test.dart test/chat_shell_integration_test.dart test/topic_list_view_lifecycle_test.dart --test-randomize-ordering-seed=792026 --reporter expanded. All 254 pass.
 - Browser corrections pass 39 focused tests, seed 792027, and widget-renderer export test. Radius source scale and bundled SVG paths verified against live computed styles.
 - Exterior ring followup: six light/dark pixel regressions reproduced tint before correction; 46 affected tests including renderer export pass seed 792028. Root/full analysis clean; isolated source-matching bundle rebuilt, deep strict signature verified, restricted entitlement omission confirmed by signed read-back. No UI accessed.
+- Final native review: 59 affected permanent tests pass seed792030 plus updated renderer export; root/full analysis clean. Actual 200% root profile staff/count, compact states, exterior rings, 360px/200% RTL custom palettes, topic counts, Groups and Chat inspected. Final source-matching unique signed bundle and entitlement read-back in evidence/badge/native/build-identity.json. Exclusive native/browser slot released.
+- Coordinator reviewed source/migration changes and native variants, exterior ring, actual200% profile and wrapped Groups/Chat screenshots. Shared imports/exports reconcile with final merged Button without changing the Badge renderer.
+- Coordinator integration with final Button: initial impact run passed272 checks and exposed5 Groups/Chat layout regressions. Desktop/touch Group action heights, touch search height and symmetric Sidebar switch padding were reconciled without changing Badge. Final37 Group checks and1 switcher regression pass; root/full analysis and diff checks clean. Logs: /private/tmp/badge-main-integration-tests.log, /private/tmp/badge-button-groups-integration-final.log, /private/tmp/badge-button-switcher-integration.log, /private/tmp/badge-main-integration-analysis-final.log and /private/tmp/badge-main-integration-analysis-full-final.log. Native Badge source/evidence remains unchanged; these bounded Button app-adapter changes were verified with affected widget tests.
 
 **limitations**
 
-- Awaiting native slot; focused/invalid live-browser and native comparison of the exterior-ring correction remain required before review_ready. Previous browser reference comparison and regenerated widget exports are recorded separately.
-- No iOS/Linux device or spoken VoiceOver verification. Native font underline offset differs from CSS underline-offset:4; custom Tailwind OKLCH examples use clipped 8-bit sRGB conversions.
+- No iOS/Linux device, spoken VoiceOver or authenticated production-flow testing. Native AX text and automated semantics checked; representative assigned macOS scenarios complete.
+- Geist/SF metrics, underline offset and clipped sRGB custom colors differ from wide-gamut CSS. At 200% the existing profile name/action text ellipsizes; its staff/count Badge labels remain visible. Invalid browser states use a clearly identified fixture built from frozen classes and the official compiled stylesheet.
 
 ### input
 
-Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/ui-input.
+Status: review_ready. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/ui-input.
 
 **acceptanceCriteria**
 
@@ -815,11 +819,12 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 - Latest source a1020b6745954e54d72183729bc2f86049a949e6: unique signed /private/tmp/DiscourseInputReview-01a083ad.app refreshed, deep strict signature passes, source/copy kernel SHA256 b034361de32ad1e22d036fc1d4e0334f262b4ce1bc5eeee287751ad748211ba3. Remains unlaunched and awaiting_slot.
 - Semantics correction source 0464e555817ef8dae4fe63b1e8dd48548a2c3bed: editor container prevents editable role from merging into its page; Sidebar adoption inherits it and File Button remains separate. Three boundary regressions plus affected suites pass (369 tests, seed 928374611), root/full analysis clean. Exact-source unique /private/tmp/DiscourseInputReview-01a083ad.app rebuilt and deep strict ad-hoc signed with empty entitlements (no restricted entitlements); source/copy kernel SHA256 53eaa15f083810cdf1e97449df3abd24386bd355754e74795493797a5c13b34b. Unlaunched, awaiting_slot; no UI interaction.
 - Final Button integration source 3201d96b51f86abbb638218eee8d0178ef168938 merges pinned main9d7a49e; all non-Input progress rows and merged Button/Avatar owners preserved. File trigger uses sibling Button extraSmall24px and scoped disabledOpacity1; pixel checks use actual independent label rectangles. Desktop/mobile styleguide test verifies bounded descendant editor and independent functioning Clear search. All371 affected tests (seed928374611), root/full analysis, three pixel and three export tests pass. Unique signed review bundle refreshed with empty entitlements, deep strict verification and matching source/copy kernel SHA256 ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f. Unlaunched awaiting_slot; no CUA.
+- Native macOS review completed on integrated3201d96b kernelffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f: editing/Tab/theme retention, desktop/mobile independent search/Clear search/navigation, actual AddSite/Poll editing, file picker open/cancel, validation/save/reset and secure controlled editing, narrow/200%RTL/Plum rendering. Evidence/input/native contains hashed screenshots/AX. Unique app quit and absent in inventory; desktop slot explicitly released. Example status marked implemented after gate; no behavioral correction required.
+- Post-native status-only source 460c0f21d2afabdc45fb69765c719435a52c3336: seven example tests and rebuild pass; unique bundle refreshed and deep strict signed with empty entitlements. Source/copy kernel 66925e1943f9e996c4162e03d4378fa3de71d32df6cbe6325769e008c499f734; not relaunched after slot release. Native-reviewed behavioral implementation remains unchanged.
 
 **limitations**
 
-- Native editing inspection awaits the coordinator desktop slot. Browser comparison completed from saved evidence; no native app interaction has occurred.
-- No iOS/Linux device or spoken VoiceOver inspection; target-platform widget checks are not device verification.
+- macOS native inspection complete; no physical iOS/Linux or spoken VoiceOver verification. Native file chooser cancellation verified; no file upload or network submission performed.
 
 ### textarea
 
