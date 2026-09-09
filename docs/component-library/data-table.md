@@ -177,5 +177,13 @@ The initial bundle was
 `c27c5234d8c29d43445523b3b711b5ce817457330ae299f36df6809caf9d4fca`.
 
 Final acceptance is pending the corrected footer's brief native check and the
-rendered reusable Tasks controls comparison. No iOS/Linux device or spoken
+rendered reusable Tasks controls comparison. On 2026-09-09 at 17:53 UTC the
+reviewer acquired desktop access, but approved CUA `getApp` repeatedly returned
+`-10005: timeoutReached` for the final bundle's exact path and identifier,
+including after a CUA session reset. `getState` reported that isolated app as
+running; no app binding or accessibility state was returned, so its UI could
+not be inspected or closed through the approved surface. The desktop lease was
+released promptly. No alternative UI automation or security changes were used,
+and no final acceptance or merge is claimed. The final bundle may remain open.
+No iOS/Linux device or spoken
 VoiceOver pass is claimed. All examples use local immutable fixture data.
