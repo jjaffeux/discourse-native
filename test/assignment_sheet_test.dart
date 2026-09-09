@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DTextarea;
+import 'package:discourse_native/discourse_ui.dart';
 
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
@@ -550,13 +550,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final dropdown = tester.widget<DropdownButton<String>>(
-          find.descendant(
-            of: find.byKey(const Key('assignment-status')),
-            matching: find.byType(DropdownButton<String>),
-          ),
+        final dropdown = tester.widget<DNativeSelect<String>>(
+          find.byKey(const Key('assignment-status')),
         );
-        expect(dropdown.isExpanded, isTrue);
+        expect(dropdown.placeholderEnabled, isFalse);
         final label = tester.widget<Text>(find.text(longStatus).first);
         expect(label.maxLines, 1);
         expect(label.overflow, TextOverflow.ellipsis);
@@ -626,15 +623,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final dropdown = tester.widget<DropdownButton<String>>(
-        find.descendant(
-          of: find.byKey(const Key('assignment-status')),
-          matching: find.byType(DropdownButton<String>),
-        ),
+      final dropdown = tester.widget<DNativeSelect<String>>(
+        find.byKey(const Key('assignment-status')),
       );
       expect(dropdown.value, 'Waiting on legacy review');
       expect(
-        dropdown.items?.map((item) => item.value),
+        dropdown.entries.whereType<DNativeSelectOption<String>>().map(
+          (item) => item.value,
+        ),
         contains('Waiting on legacy review'),
       );
 

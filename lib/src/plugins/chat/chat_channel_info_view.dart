@@ -108,23 +108,48 @@ class _ChannelInfoTabs extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final leadingSpace = constraints.maxWidth <= 740 ? 8.0 : 22.0;
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: SizedBox(
-                  height: 58,
-                  child: Row(
-                    key: const ValueKey('chat-channel-info-tabs'),
-                    children: [
-                      SizedBox(width: leadingSpace),
-                      _tab(context, ChatChannelInfoTab.settings, 'Settings'),
-                      _tab(
+            return SizedBox(
+              key: const ValueKey('chat-channel-info-tabs'),
+              width: double.infinity,
+              height: 58,
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(start: leadingSpace),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: DTabs<ChatChannelInfoTab>.controlled(
+                    value: selected,
+                    onChanged: (tab) {
+                      if (tab == null || tab == selected) return;
+                      PluginUiScope.require(
                         context,
-                        ChatChannelInfoTab.members,
-                        channel.isCategoryChannel
-                            ? 'Members (${channel.membershipsCount})'
-                            : 'Members',
+                        chatShellService,
+                      ).openChannelInfo(
+                        siteUrl: siteUrl,
+                        channelId: channel.id,
+                        tab: tab,
+                      );
+                    },
+                    children: [
+                      DTabList<ChatChannelInfoTab>(
+                        variant: DTabListVariant.line,
+                        children: [
+                          const DTabTrigger(
+                            key: ValueKey('chat-channel-info-settings-tab'),
+                            value: ChatChannelInfoTab.settings,
+                            child: Text('Settings'),
+                          ),
+                          DTabTrigger(
+                            key: const ValueKey(
+                              'chat-channel-info-members-tab',
+                            ),
+                            value: ChatChannelInfoTab.members,
+                            child: Text(
+                              channel.isCategoryChannel
+                                  ? 'Members (${channel.membershipsCount})'
+                                  : 'Members',
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -132,48 +157,6 @@ class _ChannelInfoTabs extends StatelessWidget {
               ),
             );
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _tab(BuildContext context, ChatChannelInfoTab tab, String label) {
-    final theme = Theme.of(context);
-    final active = selected == tab;
-    return Semantics(
-      button: true,
-      selected: active,
-      child: InkWell(
-        key: ValueKey('chat-channel-info-${tab.name}-tab'),
-        onTap: active
-            ? null
-            : () => PluginUiScope.require(context, chatShellService)
-                  .openChannelInfo(
-                    siteUrl: siteUrl,
-                    channelId: channel.id,
-                    tab: tab,
-                  ),
-        child: Container(
-          height: 58,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                width: 3,
-                color: active ? theme.colorScheme.primary : Colors.transparent,
-              ),
-            ),
-          ),
-          child: Text(
-            label,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: active
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurface,
-              fontWeight: active ? FontWeight.w500 : FontWeight.normal,
-            ),
-          ),
         ),
       ),
     );
@@ -324,48 +307,55 @@ class _ChannelSettings extends StatelessWidget {
                                     label: 'Push notifications',
                                     description:
                                         'Choose which activity should reach this device.',
-                                    action:
-                                        DropdownButton<
-                                          ChatChannelNotificationLevel
-                                        >(
-                                          key: const ValueKey(
-                                            'chat-channel-notification-setting',
+                                    action: SizedBox(
+                                      width: 170,
+                                      child:
+                                          DNativeSelect<
+                                            ChatChannelNotificationLevel
+                                          >.controlled(
+                                            isExpanded: true,
+                                            placeholderEnabled: false,
+                                            key: const ValueKey(
+                                              'chat-channel-notification-setting',
+                                            ),
+                                            value: membership.notificationLevel,
+                                            onChanged: notificationBusy
+                                                ? null
+                                                : (level) {
+                                                    if (level != null) {
+                                                      unawaited(
+                                                        _changeNotifications(
+                                                          context,
+                                                          notificationLevel:
+                                                              level,
+                                                        ),
+                                                      );
+                                                    }
+                                                  },
+                                            entries: const [
+                                              DNativeSelectOption(
+                                                value:
+                                                    ChatChannelNotificationLevel
+                                                        .never,
+                                                label: 'Never',
+                                              ),
+                                              DNativeSelectOption(
+                                                value:
+                                                    ChatChannelNotificationLevel
+                                                        .mention,
+                                                label: 'Mentions only',
+                                              ),
+                                              DNativeSelectOption(
+                                                value:
+                                                    ChatChannelNotificationLevel
+                                                        .always,
+                                                label: 'All activity',
+                                              ),
+                                            ],
+                                            initialValue:
+                                                membership.notificationLevel,
                                           ),
-                                          value: membership.notificationLevel,
-                                          onChanged: notificationBusy
-                                              ? null
-                                              : (level) {
-                                                  if (level != null) {
-                                                    unawaited(
-                                                      _changeNotifications(
-                                                        context,
-                                                        notificationLevel:
-                                                            level,
-                                                      ),
-                                                    );
-                                                  }
-                                                },
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value:
-                                                  ChatChannelNotificationLevel
-                                                      .never,
-                                              child: Text('Never'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value:
-                                                  ChatChannelNotificationLevel
-                                                      .mention,
-                                              child: Text('Mentions only'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value:
-                                                  ChatChannelNotificationLevel
-                                                      .always,
-                                              child: Text('All activity'),
-                                            ),
-                                          ],
-                                        ),
+                                    ),
                                   ),
                               ],
                             ),

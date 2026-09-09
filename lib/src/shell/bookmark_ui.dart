@@ -830,20 +830,22 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
             ),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<BookmarkAutoDeletePreference>(
-            initialValue: _preference,
+          DNativeSelect<BookmarkAutoDeletePreference>.controlled(
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Afterward'),
-            items: [
+            placeholderEnabled: false,
+            value: _preference,
+            label: 'Afterward',
+            entries: [
               for (final preference in BookmarkAutoDeletePreference.values)
-                DropdownMenuItem(
+                DNativeSelectOption(
                   value: preference,
-                  child: Text(_preferenceLabel(preference)),
+                  label: _preferenceLabel(preference),
                 ),
             ],
             onChanged: _busy
                 ? null
                 : (value) => setState(() => _preference = value!),
+            initialValue: _preference,
           ),
           const SizedBox(height: 20),
           Text('Remind me', style: Theme.of(context).textTheme.titleSmall),
@@ -906,15 +908,18 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: DropdownButtonFormField<_RelativeUnit>(
-                  initialValue: _relativeUnit,
-                  items: [
+                child: DNativeSelect<_RelativeUnit>.controlled(
+                  isExpanded: true,
+                  placeholderEnabled: false,
+                  value: _relativeUnit,
+                  entries: [
                     for (final unit in _RelativeUnit.values)
-                      DropdownMenuItem(value: unit, child: Text(unit.label)),
+                      DNativeSelectOption(value: unit, label: unit.label),
                   ],
                   onChanged: _busy
                       ? null
                       : (value) => setState(() => _relativeUnit = value!),
+                  initialValue: _relativeUnit,
                 ),
               ),
               const SizedBox(width: 8),
