@@ -2,7 +2,7 @@
 
 Reviewer: `01a08621-0e86-7a62-82b9-6a8eca71227f`.
 Original implementation: `43ef3bca0725ed27f452ed141a6eda4bf120072e`.
-Latest source fixes: `dc3d55d4`; current-main integration: `2141e109`.
+Latest source fixes: `1bbdb00a`; current-main integration: `2141e109`.
 
 ## Rendered reference and findings
 
@@ -39,7 +39,7 @@ reconciliation, dismissal focus policy and borrowed-controller disposal.
 ## Verification
 
 After integration onto main `4d79219df5ddc4c51e80defb02a0eb607dd6a3dd`,
-64 focused Navigation Menu, Popover and Combobox component/example tests pass
+69 focused Navigation Menu, Popover and Combobox component/example tests pass
 with seed 860606. Root and full-profile analysis report no issues. Every other
 component row and the workflow match that main revision exactly; the normalized
 progress hash with Navigation Menu removed is
@@ -51,9 +51,18 @@ The rebuilt, ad-hoc signed and deep-strict verified fixture is:
 
 Bundle ID: `org.discourse.navigationmenureview.r43ef3bca`.
 Kernel SHA-256:
-`a2a5548031becc4fd815fa106a2e9b00ee37e3c2a85e327454f92040b3610312`.
-Navigation Menu and its example source are byte-identical to `dc3d55d4`.
+`2c7d7c9417233550384fe7c99ddfb2ac504a221a278f131df2997957cb199d98`.
+Navigation Menu and its example source are byte-identical to `1bbdb00a`.
 The fixture's Popover differs from the integration source only in documentation.
+
+Further failing-before/passing-after regressions cover vertical arrow travel,
+live orientation with an unchanged child and a real RTL destination callback.
+The RTL callback exposed an inactive anchor read during inline-popup closing.
+`1bbdb00a` retains the last inline anchor through exit and unregisters a custom
+Popover anchor at deactivation rather than waiting for disposal. Permanent
+removal and GlobalKey reparenting tests both pass; reparenting retains the open
+popup and tracks its new position. This bounded shared-owner fix was coordinated
+with the Popover reviewer and changes no API, default, Escape or layer policy.
 
 ## Remaining acceptance
 
