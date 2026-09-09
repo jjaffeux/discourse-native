@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
@@ -112,24 +112,20 @@ class _MessageRecipientsDialogState extends State<_MessageRecipientsDialog> {
       width: 400,
       child: Form(
         key: _form,
-        child: TextFormField(
-          style: Theme.of(context).textTheme.bodyMedium,
+        child: DInput(
           key: const ValueKey('new-message-recipients'),
           controller: _recipients,
           autofocus: true,
           autocorrect: false,
-          decoration: const InputDecoration(
-            labelText: 'To',
-            helperText: 'Usernames or groups, separated by commas',
-            helperMaxLines: 2,
-          ),
+          labelText: 'To',
+          helperText: 'Usernames or groups, separated by commas',
           validator: (value) =>
               (value ?? '')
                   .split(',')
                   .every((recipient) => recipient.trim().isEmpty)
               ? 'Choose at least one recipient.'
               : null,
-          onFieldSubmitted: (_) => _continue(),
+          onSubmitted: (_) => _continue(),
         ),
       ),
     ),

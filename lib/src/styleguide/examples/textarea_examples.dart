@@ -18,8 +18,7 @@ final textareaExamples = ComponentExamples(
       'restores the mount snapshot and emits onChanged; equal parent strings '
       'preserve composition. Borrowed editing/focus/scroll/undo owners are never '
       'disposed. DLabel and native Form supply field composition while Field is '
-      'pending; StyleguideAction is a temporary submit action while Button is '
-      'pending. Neither is an invented Field/Button API.',
+      'pending; the completed DButton supplies submit/reset actions.',
   examples: [
     StyleguideExample(
       title: 'Default',
@@ -82,7 +81,7 @@ Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       description:
           'Send an empty message to validate, then enter a message and '
           'send again to save locally. Reset restores the original empty text. '
-          'StyleguideAction supplies the temporary submit action.',
+          'DButton supplies the submit action.',
       states: const ['Submit', 'Validation', 'Save', 'Reset'],
       code: '''// State owns form = GlobalKey<FormState>() and String? saved.
 Form(key: form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -91,13 +90,13 @@ Form(key: form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
       validator: (text) => text!.trim().isEmpty ? 'Enter a message.' : null,
       onSaved: (text) => saved = text),
     const SizedBox(height: 8),
-    StyleguideAction(label: 'Send message', onPressed: () {
+    DButton(label: const Text('Send message'), onPressed: () {
       if (form.currentState!.validate()) {
         form.currentState!.save();
         setState(() {});
       }
     }),
-    StyleguideAction(label: 'Reset', onPressed: () {
+    DButton(label: const Text('Reset'), onPressed: () {
       form.currentState!.reset();
       setState(() => saved = null);
     }),
@@ -137,7 +136,7 @@ Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
   DTextarea(controller: controller, labelText: 'Notes',
     minLines: 2, maxLines: 4, maxLength: 280, showCounter: true,
     readOnly: readOnly),
-  StyleguideAction(label: readOnly ? 'Enable editing' : 'Make read-only',
+  DButton(label: Text(readOnly ? 'Enable editing' : 'Make read-only'),
     onPressed: () => setState(() => readOnly = !readOnly)),
 ])''',
       builder: (_) => const _BoundedExample(),
@@ -212,8 +211,8 @@ class _FormExampleState extends State<_FormExample> {
           onSaved: (text) => _saved = text,
         ),
         const SizedBox(height: 8),
-        StyleguideAction(
-          label: 'Send message',
+        DButton(
+          label: const Text('Send message'),
           onPressed: () {
             if (_form.currentState!.validate()) {
               _form.currentState!.save();
@@ -221,8 +220,8 @@ class _FormExampleState extends State<_FormExample> {
             }
           },
         ),
-        StyleguideAction(
-          label: 'Reset',
+        DButton(
+          label: const Text('Reset'),
           onPressed: () {
             _form.currentState!.reset();
             setState(() => _saved = null);
@@ -262,8 +261,8 @@ class _BoundedExampleState extends State<_BoundedExample> {
         showCounter: true,
         readOnly: _readOnly,
       ),
-      StyleguideAction(
-        label: _readOnly ? 'Enable editing' : 'Make read-only',
+      DButton(
+        label: Text(_readOnly ? 'Enable editing' : 'Make read-only'),
         onPressed: () => setState(() => _readOnly = !_readOnly),
       ),
     ],

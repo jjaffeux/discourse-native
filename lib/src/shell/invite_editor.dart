@@ -139,18 +139,14 @@ class _InviteEditorState extends State<InviteEditor> {
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                style: Theme.of(context).textTheme.bodyMedium,
+              DInput(
                 controller: _email,
                 enabled: !_saving,
                 keyboardType: TextInputType.emailAddress,
                 maxLength: 254,
-                decoration: const InputDecoration(
-                  labelText: 'Email (optional)',
-                  counterText: '',
-                  helperText: 'Leave blank for a shareable link.',
-                  helperMaxLines: 2,
-                ),
+
+                labelText: 'Email (optional)',
+                helperText: 'Leave blank for a shareable link.',
                 onChanged: (_) => setState(() {}),
                 validator: (value) {
                   final email = value?.trim() ?? '';
@@ -161,19 +157,16 @@ class _InviteEditorState extends State<InviteEditor> {
                 },
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                style: Theme.of(context).textTheme.bodyMedium,
+              DInput(
                 controller: _description,
                 enabled: !_saving,
                 maxLength: 100,
-                decoration: const InputDecoration(
-                  labelText: 'Description (optional)',
-                ),
+
+                labelText: 'Description (optional)',
               ),
               if (!_hasEmail) ...[
                 const SizedBox(height: 12),
-                TextFormField(
-                  style: Theme.of(context).textTheme.bodyMedium,
+                DInput(
                   controller: _uses,
                   enabled: !_saving,
                   keyboardType: TextInputType.number,
@@ -181,10 +174,9 @@ class _InviteEditorState extends State<InviteEditor> {
                     FilteringTextInputFormatter.digitsOnly,
                     LengthLimitingTextInputFormatter(7),
                   ],
-                  decoration: InputDecoration(
-                    labelText: 'Maximum uses',
-                    helperText: 'Up to $limit',
-                  ),
+
+                  labelText: 'Maximum uses',
+                  helperText: 'Up to $limit',
                   validator: (value) {
                     final count = int.tryParse(value ?? '');
                     return count == null || count < 1 || count > limit
@@ -194,8 +186,7 @@ class _InviteEditorState extends State<InviteEditor> {
                 ),
               ],
               const SizedBox(height: 12),
-              TextFormField(
-                style: Theme.of(context).textTheme.bodyMedium,
+              DInput(
                 controller: _days,
                 enabled: !_saving,
                 keyboardType: TextInputType.number,
@@ -203,9 +194,8 @@ class _InviteEditorState extends State<InviteEditor> {
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(5),
                 ],
-                decoration: const InputDecoration(
-                  labelText: 'Expires after (days)',
-                ),
+
+                labelText: 'Expires after (days)',
                 validator: (value) {
                   final days = int.tryParse(value ?? '');
                   return days == null || days < 1 || days > 36500
@@ -214,13 +204,10 @@ class _InviteEditorState extends State<InviteEditor> {
                 },
               ),
               if (_hasEmail && _settings.allowEmail) ...[
-                CheckboxListTile(
+                DCheckbox(
                   contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: DLabel(
-                    enabled: !_saving,
-                    child: const Text('Send invitation email'),
-                  ),
+
+                  title: const DLabel(child: Text('Send invitation email')),
                   value: _sendEmail,
                   onChanged: _saving
                       ? null

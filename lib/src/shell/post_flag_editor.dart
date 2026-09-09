@@ -256,8 +256,9 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
-              RadioGroup<PostFlagType>(
+              DRadioGroup<PostFlagType>.controlled(
                 groupValue: selected,
+                enabled: !_saving,
                 onChanged: _saving ? (_) {} : _select,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -270,8 +271,6 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                         description: _description(context, type),
                         siteUrl: widget.siteUrl,
                         enabled: !_saving,
-                        selected: selected == type,
-                        onSelected: () => _select(type),
                       ),
                   ],
                 ),
@@ -306,7 +305,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
               ],
               if (selected?.isIllegal == true) ...[
                 const SizedBox(height: 8),
-                CheckboxListTile(
+                DCheckbox(
                   key: const ValueKey('post-flag-illegal-confirmation'),
                   value: _accurateAndComplete,
                   enabled: !_saving,
@@ -315,11 +314,10 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                       : (value) => setState(
                           () => _accurateAndComplete = value == true,
                         ),
-                  controlAffinity: ListTileControlAffinity.leading,
+
                   contentPadding: EdgeInsets.zero,
-                  title: DLabel(
-                    enabled: !_saving,
-                    child: const Text(
+                  title: const DLabel(
+                    child: Text(
                       'What I’ve written above is accurate and complete',
                     ),
                   ),
@@ -371,8 +369,6 @@ class _FlagReasonRow extends StatelessWidget {
     required this.description,
     required this.siteUrl,
     required this.enabled,
-    required this.selected,
-    required this.onSelected,
   });
 
   final PostFlagType type;
@@ -380,69 +376,27 @@ class _FlagReasonRow extends StatelessWidget {
   final String description;
   final String siteUrl;
   final bool enabled;
-  final bool selected;
-  final VoidCallback onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      container: true,
-      checked: selected,
-      enabled: enabled,
-      child: Material(
-        color: selected
-            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.35)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: enabled ? onSelected : null,
-          borderRadius: BorderRadius.circular(8),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Radio<PostFlagType>(
-                    value: type,
-                    enabled: enabled,
-                    materialTapTargetSize: MaterialTapTargetSize.padded,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 5, right: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (description.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            CookedHtml(
-                              html: description,
-                              siteUrl: siteUrl,
-                              textStyle: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              compactParagraphs: true,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: DRadioGroupItem<PostFlagType>(
+        value: type,
+        enabled: enabled,
+        label: Text(title),
+        description: description.isEmpty
+            ? null
+            : CookedHtml(
+                html: description,
+                siteUrl: siteUrl,
+                textStyle: TextStyle(
+                  fontSize: 14,
+                  height: 20 / 14,
+                  color: DTokens.of(context).mutedForeground,
+                ),
+                compactParagraphs: true,
               ),
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -2,10 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/site_appearance.dart';
+import '../ui/components/d_button.dart';
 import '../ui/components/d_tooltip.dart';
 import '../ui/foundation/tokens.dart';
 import 'color_contrast.dart';
-import 'd_button.dart';
 import 'discourse_typography.dart';
 
 export 'discourse_typography.dart';

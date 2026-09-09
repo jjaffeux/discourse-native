@@ -1,0 +1,19 @@
+{
+  "app": "/private/tmp/discourse-badge-review-bebb9/build/macos/Build/Products/Debug/Badge Review BEBB9.app",
+  "bundleIdentifier": "org.discourse.native.badge.bebb9",
+  "sourceManifestSha256": "6e87a28c8d82f59c3146e12161bdad6263fcf810f07f668b528092264d627c76",
+  "kernelSha256": "f61d47a9c4e5d9e2be1ce0355c30eb398f4bb1e18e21b3e58a50e9b8f264720f",
+  "signatureVerification": "codesign --verify --deep --strict passed after explicit ad-hoc signing",
+  "entitlementsReadBack": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.device.audio-input": true,
+    "com.apple.security.device.camera": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "restrictedEntitlements": "aps-environment and com.apple.developer.* absent; omission only in temporary review runner",
+  "launched": false,
+  "implementationCommit": "08e7042a27dc34f6db11399e26709d622fe14a7a"
+}

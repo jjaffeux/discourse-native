@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner, DTextarea;
+import 'package:discourse_native/discourse_ui.dart';
+
 import 'package:discourse_native/src/data/invites_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -80,7 +81,9 @@ void main() {
   }
 
   Finder field(String label) => find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.labelText == label,
+    (widget) =>
+        (widget is DInput && widget.labelText == label) ||
+        (widget is TextField && widget.decoration?.labelText == label),
   );
 
   test('the invite tab follows the current user permission', () {
