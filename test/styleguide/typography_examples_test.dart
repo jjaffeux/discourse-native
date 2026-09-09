@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/typography_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -90,7 +91,9 @@ void main() {
                 ),
                 child: SingleChildScrollView(
                   child: Builder(
-                    builder: typographyExamples.examples[3].builder,
+                    builder: _example(
+                      'Inline code, rich text and keyboard actions',
+                    ).builder,
                   ),
                 ),
               ),
@@ -120,11 +123,18 @@ void main() {
       await tester.pump();
       expect(FocusManager.instance.primaryFocus, same(focus));
       expect(find.text('Hide details'), findsOneWidget);
-      final code = tester
-          .widget<Text>(find.text('community_guidelines'))
-          .style!;
+      final codeBox =
+          tester
+                  .widget<DecoratedBox>(
+                    find.descendant(
+                      of: find.widgetWithText(DText, 'community_guidelines'),
+                      matching: find.byType(DecoratedBox),
+                    ),
+                  )
+                  .decoration
+              as BoxDecoration;
       expect(
-        code.backgroundColor,
+        codeBox.color,
         DTokens.of(tester.element(find.text('community_guidelines'))).muted,
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
@@ -152,13 +162,20 @@ void main() {
               body: ValueListenableBuilder(
                 valueListenable: theme,
                 builder: (_, value, child) => Theme(data: value, child: child!),
-                child: Builder(builder: typographyExamples.examples[4].builder),
+                child: Builder(
+                  builder: _example(
+                    'Table composition and column alignment',
+                  ).builder,
+                ),
               ),
             ),
           ),
         );
         expect(
-          tester.getSemantics(find.text('Treasury')).getSemanticsData().role,
+          tester
+              .getSemantics(find.text("King's Treasury"))
+              .getSemanticsData()
+              .role,
           SemanticsRole.columnHeader,
         );
         expect(
@@ -166,7 +183,7 @@ void main() {
           SemanticsRole.cell,
         );
         expect(
-          tester.widget<Text>(find.text('Treasury')).textAlign,
+          tester.widget<Text>(find.text("King's Treasury")).textAlign,
           TextAlign.start,
         );
         expect(
@@ -196,4 +213,120 @@ void main() {
       }
     },
   );
+
+  testWidgets('reference demo link follows a tap and exposes link semantics', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Builder(
+                builder: _example('Shadcn reference demo').builder,
+              ),
+            ),
+          ),
+        ),
+      );
+      const sentence =
+          'The king thought long and hard, and finally came up with '
+          'a brilliant plan: he would tax the jokes in the kingdom.';
+      final paragraph = _paragraph(tester, sentence);
+      final start = sentence.indexOf('a brilliant plan');
+      final box = paragraph
+          .getBoxesForSelection(
+            TextSelection(
+              baseOffset: start,
+              extentOffset: start + 'a brilliant plan'.length,
+            ),
+          )
+          .first
+          .toRect();
+      final node = _semanticsWithLabel(tester, sentence, 'a brilliant plan');
+      expect(node.getSemanticsData().flagsCollection.isLink, isTrue);
+      expect(find.text('Link followed: a brilliant plan'), findsNothing);
+      await tester.tapAt(paragraph.localToGlobal(box.center));
+      await tester.pump();
+      expect(find.text('Link followed: a brilliant plan'), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.text('Link followed: a brilliant plan'))
+            .getSemanticsData()
+            .flagsCollection
+            .isLiveRegion,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      handle.dispose();
+    }
+  });
+
+  testWidgets(
+    'RTL reference switches language and document direction from Arabic',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Builder(builder: _example('Shadcn RTL reference').builder),
+            ),
+          ),
+        ),
+      );
+      TextDirection directionOf(String text) =>
+          Directionality.of(tester.element(find.text(text)));
+      const arabic = 'فرض الضرائب على الضحك: سجلات ضريبة النكتة';
+      const english = 'Taxing Laughter: The Joke Tax Chronicles';
+      const hebrew = 'מיסוי הצחוק: כרוניקות מס הבדיחה';
+      expect(directionOf(arabic), TextDirection.rtl);
+      expect(directionOf('English'), TextDirection.ltr);
+      expect(find.text('خزينة الملك'), findsOneWidget);
+      await tester.tap(find.text('English'));
+      await tester.pumpAndSettle();
+      expect(find.text(arabic), findsNothing);
+      expect(directionOf(english), TextDirection.ltr);
+      expect(find.text("King's Treasury"), findsOneWidget);
+      await tester.tap(find.text('עברית'));
+      await tester.pumpAndSettle();
+      expect(directionOf(hebrew), TextDirection.rtl);
+      expect(find.text('אוצר המלך'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
+
+StyleguideExample _example(String title) => typographyExamples.examples
+    .singleWhere((example) => example.title == title);
+
+/// The inline span node with [label] beneath the paragraph showing [text].
+SemanticsNode _semanticsWithLabel(
+  WidgetTester tester,
+  String text,
+  String label,
+) {
+  SemanticsNode? found;
+  void visit(SemanticsNode node) {
+    if (node.label == label) found = node;
+    node.visitChildren((child) {
+      visit(child);
+      return found == null;
+    });
+  }
+
+  visit(tester.getSemantics(_richText(text)));
+  return found!;
+}
+
+Finder _richText(String text) => find
+    .byWidgetPredicate(
+      (widget) => widget is RichText && widget.text.toPlainText() == text,
+    )
+    .last;
+
+RenderParagraph _paragraph(WidgetTester tester, String text) =>
+    tester.renderObject<RenderParagraph>(_richText(text));

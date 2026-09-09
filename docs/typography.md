@@ -82,9 +82,15 @@ networking, focus manager, or selection owner.
 | inlineCode | 14 / 20 | Bundled JetBrains Mono, 600, muted background |
 
 `DText.bodyStyleOf(context)` supplies the reference's inherited 16/24 body text
-for lists, quotes and table compositions. `style` merges after the reference
-style for intentional caller customization. All values remain unscaled; font
-families and semantic colors come from the live theme.
+for lists, quotes and table compositions. `DText.linkStyleOf(context)` supplies
+the demo's inline link treatment (weight 500, primary color and underline) with
+no size, so a span inherits its paragraph or lead metrics; the caller owns the
+span's recognizer, which also gives it link semantics and a pointer cursor.
+`style` merges after the reference style for intentional caller customization.
+Sizes remain unscaled; font families and semantic colors come from the live
+theme. Tracking is the reference's -0.025em of the rendered size: Flutter
+scales font size but not letter spacing, so the inherited scaler is applied to
+the tracking when the style is resolved.
 `headingLevel` can override semantic hierarchy
 without changing visual size: a compact dialog title can use h4 with level 1,
 or a section can use large with level 2. Zero opts out of heading semantics.
@@ -136,8 +142,9 @@ The [Typography reference](https://ui.shadcn.com/docs/components/base/typography
 captured on 2026-09-08 has SHA256
 `3ff202e83d6c90b2521ec471af07cab3c59314028c51ef8d040b3218ec9a9541`.
 Its scope remains h1–h4, p, blockquote, table, list, Inline code, Lead, Large,
-Small, Muted and RTL. The live HTML now redirects to Typeset; that newer system
-is outside this catalogue entry. The official
+Small, Muted and RTL. The live HTML page redirects to Typeset, while the
+Markdown endpoint served the identical frozen content on 2026-09-09; that newer
+system is outside this catalogue entry. The official
 [Typography demo source](https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/new-york-v4/examples/typography-demo.tsx)
 also shows the original composition.
 
@@ -151,8 +158,11 @@ retain native span layout for selection/copy.
 Callers own scroll-to-heading behavior instead of CSS scroll margins. DProse
 translates the reference's sibling margins into explicit Flutter block gaps.
 
-Standalone inline code has a rounded background using DTokens and the reference’s 4.8px horizontal / 3.2px
-vertical padding. Within a
+Standalone inline code has a muted background with the reference’s fixed 4px
+corners and 4.8px horizontal / 3.2px vertical padding. Tailwind’s bare
+`rounded` utility is a 0.25rem compatibility value rather than a step of the
+theme radius scale, so the corners do not follow the site radius. The box is
+painted once; the text carries no second background. Within a
 paragraph, `DText.styleOf(context, DTextVariant.inlineCode)` supplies a rectangular
 span background so code can wrap, select and copy as text. Using a boxed
 WidgetSpan for the code itself would compromise those behaviors. Generic code
@@ -166,8 +176,18 @@ semantics and start/center/end cell alignment. Flutter owns table/row semantics;
 only column-header roles need annotation. Cells wrap to fit the preview instead
 of requiring a minimum-width horizontal scroller. This is a documented native
 composition, not a competing public table engine. The later Table entry owns
-its full reusable API. The complete-article and Arabic RTL examples reuse that
-same sample composition.
+its full reusable API. The reference demo, RTL reference and complete-article
+examples reuse that same sample composition with the reference's start-aligned
+cells and "King's Treasury" / "People's happiness" header.
+
+The styleguide opens with the frozen `TypographyDemo` composition (including
+its primary link and status line after it is followed), the per-section
+examples with their original text, and the frozen RTL example: the demo in
+Arabic by default with the reference's English and Hebrew translations behind
+a language selector whose document sets its own direction. Native
+demonstrations follow: headings, reading text, quotes and nested lists, rich
+text with a keyboard-focusable action and an LTR code island, the table
+composition with mixed alignment, and a complete article.
 
 The core/plugin adoption audit retains control-owned Text styles (button/menu
 labels, form fields, badges and metadata), authored HTML/Markdown/composer
