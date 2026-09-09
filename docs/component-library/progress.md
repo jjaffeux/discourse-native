@@ -77,7 +77,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 38 | native-select | in_progress | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | — |
 | 39 | field | in_progress | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
 | 40 | input-group | planned | — | — | input, textarea, button, kbd, spinner | — |
-| 41 | button-group | review_ready | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
+| 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | planned | — | — | input, dialog, scroll-area | — |
 | 43 | combobox | planned | — | — | input, popover, command | — |
 | 44 | dropdown-menu | planned | — | — | popover, checkbox, radio-group | — |
@@ -2051,7 +2051,7 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/u
 
 ### button-group
 
-Status: review_ready. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/ui-button-group.
+Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/ui-button-group.
 
 **acceptanceCriteria**
 
@@ -2085,12 +2085,17 @@ Status: review_ready. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/
 - Before current-main integration, 109 randomized focused Button Group, Button, Input, Separator, styleguide and production navigation tests passed (seed 3806760654); after merging main 27ddc513, 33 direct component/styleguide/consumer tests passed (random seed recorded in /private/tmp/button-group-post-main-tests.log).
 - Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed before and after current-main integration with no issues. dart format covered lib/test and git diff --check passed.
 - flutter build macos --debug --no-pub succeeded at build/macos/Build/Products/Debug/Discourse.app. This is build/kernel evidence only; the app was not launched and no browser/native/VoiceOver inspection is claimed.
+- Independent reviewer merged implementation handoff e8130ce7405fed927b51e9eeb99fe287086ee15e into codex/review-button-group, then merged current main 4ad311dc1ff28b76812da08fed4de6cb7502c6c4. Frozen Markdown and registry hashes were reverified on 2026-09-09. Corrected the reference mapping to reflect DInput's custom joined-edge decoration.
+- Focused Button Group/styleguide/ContentNavigationControls tests passed after current-main integration: flutter test --no-pub test/d_button_group_test.dart test/styleguide/button_group_examples_test.dart test/content_navigation_controls_test.dart --test-randomize-ordering-seed=random --reporter expanded, 33 passed, seed 3618609876.
+- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed after review integration with no issues. flutter build macos --debug --no-pub passed and produced build/macos/Build/Products/Debug/Discourse.app.
 
 **limitations**
 
 - The styleguide has complete accounted sections, but Input Group, library Dropdown Menu, rich Select and Popover use explicitly labeled local handoff fixtures because those final owners are still pending or in review. Native Select is not substituted. The new Button Group reviewer owns coordinating their final replacements.
 - No shared desktop lease was available during source implementation. Official rendered-page comparison, native macOS interaction/visual inspection, VoiceOver, iOS and Linux device checks remain for the new reviewer.
 - DInput joined-edge painting was source- and widget-tested after replacing its uniform BoxDecoration with an equivalent animated custom decoration, but requires rendered pixel comparison in final review.
+- Current main 4ad311dc still records Input Group, Dropdown Menu and rich Select as planned, and Popover as in_progress under review branch codex/review-popover. Button Group remains in_progress and its styleguide remains baseline until those final public components can replace the local handoff fixtures.
+- The desktop lease was busy during this review continuation, held by Alert with other reviewers already queued. The mistaken queue request under an unrelated reviewer ID was cancelled immediately; no Button Group browser/native/CUA action was performed and no desktop lease is currently held.
 
 ### carousel
 
