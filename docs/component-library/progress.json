@@ -1406,7 +1406,7 @@
       "retainedAlternatives": [
         "Domain online rings, flair, unread/count/recording indicators and UserStatus emoji retain their distinct meaning and geometry; underlying identities migrate.",
         "Video/camera/media/onebox thumbnails, shell/card clips and category swatches are not avatars. Adjacent 20px inbox posters retain their non-overlapping layout.",
-        "Existing fallback text, custom colors and DiscourseAvatarTheme radius values remain application presentation inputs; Button/Dropdown temporary controls remain their pending owners."
+        "Existing fallback text, custom colors and DiscourseAvatarTheme radius values remain application presentation inputs; final Avatar and Direction compositions use accepted DButton/DDropdownMenu owners."
       ],
       "verification": [
         "flutter pub get --enforce-lockfile passed on root with no lock changes.",
@@ -1424,7 +1424,7 @@
       "limitations": [
         "No iOS/Linux device or spoken VoiceOver run. Nested styleguide main native AX tree was sparse; fixture/menu AX and visual/keyboard interaction verified without forcing global semantics.",
         "Reference and native screenshots have different capture/preview dimensions; intrinsic metrics compared at 100% with exact widget geometry tests, not pixel-diff equality. Palette, font and local artwork intentionally use app inputs.",
-        "Button and Dropdown Menu examples use their available temporary controls pending owning catalogue tasks; domain flair/presence and non-avatar media retain documented ownership."
+        "Domain flair/presence and non-avatar media retain documented ownership. Final Avatar/Direction composition evidence is recorded separately in evidence/avatar/final-composition-review.md."
       ],
       "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
       "mergeCommit": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0",
@@ -1458,7 +1458,7 @@
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
         "status": "in_progress",
-        "reviewStatus": "awaiting_manual_unlock",
+        "reviewStatus": "review_ready",
         "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
         "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
         "verification": [
@@ -1474,9 +1474,10 @@
           "trackingCommit": "d647400602824226d70d1328fba2a141195dc559"
         },
         "nativeReview": {
-          "status": "partial_awaiting_manual_unlock",
+          "status": "passed",
           "completed": "Exact r4 native menus, focus/actions, group keyboard actions, light/dark/Forest/Plum, LTR/RTL 360px 200% reduced motion, production fixture states and full styleguide groups inspected; screenshots saved.",
-          "remaining": "Manual Mac unlock; finish displayed snippets and rendered official reference; close own isolated app/tabs; reconcile current main and rerun affected checks before final local merge.",
+          "remaining": "Reconcile current main and rerun affected checks before final local merge.",
+          "completion": "After user-confirmed unlock, both displayed final-owner snippets and actual official light/dark dropdown/group reference were verified. Initial reference theme restored, only own tab closed and own r4 app quit; fresh CUA inventories confirm cleanup.",
           "desktopLease": "released",
           "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
           "bundle": "/private/tmp/Avatar Compositions Final 47e2 r4.app",
@@ -5341,7 +5342,7 @@
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
         "status": "in_progress",
-        "reviewStatus": "awaiting_manual_unlock",
+        "reviewStatus": "review_ready",
         "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
         "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
         "verification": [
@@ -5357,9 +5358,10 @@
           "trackingCommit": "d647400602824226d70d1328fba2a141195dc559"
         },
         "nativeReview": {
-          "status": "partial_awaiting_manual_unlock",
+          "status": "passed",
           "completed": "Exact r4 native menus, focus/actions, group keyboard actions, light/dark/Forest/Plum, LTR/RTL 360px 200% reduced motion, production fixture states and full styleguide groups inspected; screenshots saved.",
-          "remaining": "Manual Mac unlock; finish displayed snippets and rendered official reference; close own isolated app/tabs; reconcile current main and rerun affected checks before final local merge.",
+          "remaining": "Reconcile current main and rerun affected checks before final local merge.",
+          "completion": "After user-confirmed unlock, both displayed final-owner snippets and actual official light/dark dropdown/group reference were verified. Initial reference theme restored, only own tab closed and own r4 app quit; fresh CUA inventories confirm cleanup.",
           "desktopLease": "released",
           "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
           "bundle": "/private/tmp/Avatar Compositions Final 47e2 r4.app",

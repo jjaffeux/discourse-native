@@ -180,7 +180,7 @@ the built Discourse bundle's kernel and the isolated review bundle's kernel:
 
 ## Native/reference acceptance
 
-Partial native pass completed on 2026-09-09 with the exact r4 bundle above.
+Native pass completed across two sessions on 2026-09-09 with the exact r4 bundle above.
 The canonical desktop lease was acquired at 18:28:41 UTC. Approved CUA launched
 the isolated app and exposed its actual fixture controls and screenshots.
 
@@ -228,10 +228,32 @@ unlock bypass, OS settings change or further CUA action was attempted. The
 desktop lease was immediately released. The isolated r4 app remains running;
 cleanup must wait for manual unlock. No browser tab was created by this task.
 
-Remaining acceptance: finish the displayed final-owner snippets, compare the
-actual rendered official reference, then close only this task's app/tabs through
-approved CUA. Preserve this valid partial pass rather than repeating it solely
-because the host locked. Native live-open theme updates, nested dialog Escape
+After the user confirmed manual unlock, a new FIFO lease was acquired at
+18:51:40 UTC. Ordinary CUA app binding, actual AX/screenshot retrieval and
+interactions succeeded. Recovery was relayed to the waiting reviewers.
+
+Both displayed final-owner snippets were verified: Avatar uses the borrowed
+focus node, ghost DButton and grouped 128px DDropdownMenu; Direction places its
+live-label Builder outside DDropdownMenuItem. The official Avatar page was
+opened in one task-created in-app browser tab. Its light and dark open Dropdown
+and three-member-plus-icon group were visually compared with the native captures.
+Read-only DOM measurement found menu width 128px, height 129px, padding 4px,
+radius 10px and four 28px rows, with destructive Log out separated from the
+ordinary group. This supports the structural/metric mapping; theme colors,
+platform font rasterization and local initials/checker artwork remain deliberate
+native adaptations, not pixel-identical portraits or screenshot-scale equality.
+
+- [Displayed Avatar snippet](final-native-avatar-snippet.png).
+- [Official dark dropdown](final-reference-dark-dropdown.png),
+  [official light dropdown](final-reference-light-dropdown.png),
+  [official group with icon](final-reference-group-icon.png).
+
+The reference theme was restored to its initial dark state (verified by the
+document class), the sole created browser tab was closed and the fresh tab list
+was empty. Quit was invoked from the isolated r4 app's own menu; a fresh CUA
+inventory confirmed its identity absent. Other apps were untouched. The desktop
+lease was released before integration work. No further native source change was
+needed. Native live-open theme updates, nested dialog Escape
 and touch hit targets are covered by widget tests, not claimed newly native
 tested. No spoken VoiceOver or iOS/Linux device pass is claimed.
 
@@ -244,5 +266,6 @@ after final current-main reconciliation. Generic Avatar and the exact Dropdown
 implementation remain byte-identical to the inspected source.
 
 The historical `native-review.md` and screenshots remain valid for unchanged
-Avatar presentation/adapters. Neither those temporary-menu captures nor this
-partial pass claim completed final-owner acceptance or authorize the final merge.
+Avatar presentation/adapters. The new final-owner native/reference gate is now
+complete; final current-main reconciliation and affected verification precede
+the local merge.
