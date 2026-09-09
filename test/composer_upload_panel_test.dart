@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/shell/composer_clipboard.dart';
@@ -1256,8 +1257,8 @@ void main() {
       await tester.tap(find.text('Add existing draft images'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(CheckboxListTile).at(0));
-      await tester.tap(find.byType(CheckboxListTile).at(1));
+      await tester.tap(find.byType(DCheckbox).at(0));
+      await tester.tap(find.byType(DCheckbox).at(1));
       await tester.pump();
       await tester.tap(find.text('Add selected'));
       await tester.pumpAndSettle();

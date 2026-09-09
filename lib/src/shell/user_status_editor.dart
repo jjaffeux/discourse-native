@@ -347,7 +347,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                   style: theme.textTheme.bodySmall,
                 ),
               ],
-              CheckboxListTile(
+              DCheckbox(
                 value: _pauseNotifications,
                 onChanged: _busy
                     ? null
@@ -359,11 +359,8 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                         });
                       },
                 contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: DLabel(
-                  enabled: !_busy,
-                  child: const Text('Pause notifications'),
-                ),
+
+                title: const DLabel(child: Text('Pause notifications')),
               ),
               if (preview != null) ...[
                 const SizedBox(height: 12),

@@ -1,0 +1,27 @@
+# Styleguide search accessibility
+
+Native review found that the documentation search field became the semantic parent of the whole page. Its rectangle was 1280×860, and its text-field label included the application title. Native accessibility consequently exposed the search alone outside popup menus.
+
+The baseline search now has an explicit semantic boundary. Its editable role, label and bounds stay local to the search field while navigation and actions remain siblings. The generic Input owner reproduced and corrected the same behavior in its own editor wrapper; that unmerged adoption will be reconciled separately.
+
+Source: `f0a74785453a6cfb73d2e877e16d0e415ec66a31`, branch `codex/component-fidelity-follow-up`. All 31 affected styleguide/access/Sidebar tests pass with seed 909614, including desktop and mobile field bounds and labels. Root/full-profile analysis are clean. Before/after evidence is in `/private/tmp/styleguide-coordinator-semantics-before.log` and `/private/tmp/styleguide-semantics-focused-final.log`.
+
+The refreshed isolated review app is `/private/tmp/DiscourseComponentFidelityB104-f0a74785.app`, ID `org.discourse.native.component-fidelity.b104.f0a74785`. Exact source and kernel evidence is in `/private/tmp/component-fidelity-native-provenance-f0a74785.json`; kernel SHA256 is `4d40db9421fb25e37e9f734d5b6cc98e64aa3cc1d88e5d9b61eae0354966cad8`. The local debug signature retains permitted sandbox/JIT entitlements and omits restricted development identities and push entitlements. Static signature verification and read-back checks pass. Native AX reinspection is pending the serialized desktop slot.
+
+The merged baseline Sidebar input had the same issue in its own preview. Source `5775a7d3793f830c9bf2700dc03f949a58d7fc7f` adds the explicit field boundary and an independent sibling-action regression. All 32 affected styleguide, access and Sidebar tests pass with seed 909618; root/full-profile analysis are clean. Logs: `/private/tmp/styleguide-sidebar-semantics-focused.log` and `/private/tmp/styleguide-sidebar-semantics-analysis{,-full}.log`.
+
+The final review bundle supersedes the earlier one: `/private/tmp/DiscourseComponentFidelityB104-5775a7d3.app`, ID `org.discourse.native.component-fidelity.b104.5775a7d3`, kernel SHA256 `57d35b8e4f386a9bd9dc91c9a667a278753217d73b256bb783894760e6b7969d`. All 1,386 source inputs match the committed source; copied kernel and build dill agree. Signature and permitted-entitlement read-back pass. Provenance: `/private/tmp/component-fidelity-native-provenance-5775a7d3.json`. Native AX confirmation awaits Button releasing the desktop slot.
+
+Native review completed on 2026-09-09 using this exact bundle. Desktop documentation search and Sidebar editing now expose independent navigation/actions in native AX. Filtering and selection worked; 360px preview selection dismissed its modal; the narrow documentation window exposed search/results and opened Card while dismissing navigation. Dark documentation preserved the app preview theme. Four paired native screenshots/AX captures and source/hash observations are recorded in `/Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/native-fidelity-5775a7d3/manifest.json`.
+
+The baseline clear-search suffix remains inside its native TextField node. The pending generic Input adoption places suffix actions outside the editor boundary; its integration review must confirm Clear search independently. This follow-up verifies the page/navigation boundary and does not claim that separate Input adoption is complete.
+
+## Completed Input adoption
+
+The final Input native review confirmed that Clear search is independently
+exposed and works in both desktop and mobile documentation navigation. The
+search editor, navigation and preview controls remain separate native controls.
+`DInput` now owns the editor boundary for the styleguide and Sidebar adapter.
+See `input-reference.md` and `evidence/input/native/manifest.json` for inspected
+source and hashed native evidence. Coordinator integration checks pass with
+the final Button and Badge components; no spoken VoiceOver or iOS/Linux claim.

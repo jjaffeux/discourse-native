@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../plugin_api/notification_feed_host.dart';
 import '../plugin_api/notification_types.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import 'account_activity_loader.dart';
 import 'adaptive_dialog_action.dart';

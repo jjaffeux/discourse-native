@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../models/group.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'choice_menu.dart';
@@ -292,54 +291,63 @@ class _DirectoryControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final types = <String>{...data.typeFilters};
     if (data.type case final selected?) types.add(selected);
-    final search = ValueListenableBuilder<TextEditingValue>(
-      valueListenable: searchController,
-      builder: (context, value, _) => TextField(
-        key: const ValueKey('groups-search'),
-        controller: searchController,
-        focusNode: searchFocus,
-        autofocus: true,
-        onChanged: onSearchChanged,
-        onSubmitted: onSearchSubmitted,
-        textInputAction: TextInputAction.search,
-        style: Theme.of(context).textTheme.labelLarge,
-        decoration: InputDecoration(
-          isDense: true,
-          hintText: 'Search groups',
-          prefixIcon: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: DIcon(DIcons.magnifyingGlass, size: 18),
-          ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 42,
-            minHeight: 37,
-          ),
-          suffixIcon: value.text.isEmpty
-              ? null
-              : DTooltip(
-                  message: 'Clear search',
-                  labelTrigger: true,
-                  child: IconButton(
-                    tooltip: '',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 42),
-                    iconSize: 16,
-                    style: IconButton.styleFrom(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    final touch = switch (Theme.of(context).platform) {
+      TargetPlatform.iOS || TargetPlatform.android => true,
+      _ => false,
+    };
+    final search = ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: touch ? DButton.minimumDimension : 0,
+      ),
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: searchController,
+        builder: (context, value, _) => TextField(
+          key: const ValueKey('groups-search'),
+          controller: searchController,
+          focusNode: searchFocus,
+          autofocus: true,
+          onChanged: onSearchChanged,
+          onSubmitted: onSearchSubmitted,
+          textInputAction: TextInputAction.search,
+          style: Theme.of(context).textTheme.labelLarge,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Search groups',
+            prefixIcon: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: DIcon(DIcons.magnifyingGlass, size: 18),
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 42,
+              minHeight: 37,
+            ),
+            suffixIcon: value.text.isEmpty
+                ? null
+                : DTooltip(
+                    message: 'Clear search',
+                    labelTrigger: true,
+                    child: IconButton(
+                      tooltip: '',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 42),
+                      iconSize: 16,
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () {
+                        searchController.clear();
+                        onSearchSubmitted('');
+                      },
+                      icon: const DIcon(DIcons.xmark, size: 16),
                     ),
-                    onPressed: () {
-                      searchController.clear();
-                      onSearchSubmitted('');
-                    },
-                    icon: const DIcon(DIcons.xmark, size: 16),
                   ),
-                ),
-          suffixIconConstraints: const BoxConstraints(
-            minWidth: 42,
-            minHeight: 37,
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 42,
+              minHeight: 37,
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 9),
+            border: const OutlineInputBorder(),
           ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 9),
-          border: const OutlineInputBorder(),
         ),
       ),
     );
@@ -551,13 +559,15 @@ class _GroupDirectoryCard extends StatelessWidget {
                   children: [
                     const DIcon(DIcons.users, size: 14),
                     const SizedBox(width: 6),
-                    Text(
-                      group.userCount == null
-                          ? 'Members hidden'
-                          : '${group.userCount} members',
-                      style: theme.textTheme.bodySmall,
+                    Expanded(
+                      child: Text(
+                        group.userCount == null
+                            ? 'Members hidden'
+                            : '${group.userCount} members',
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     if (group.isGroupOwner)
                       const _MembershipBadge(label: 'Owner')
                     else if (group.isGroupUser)
@@ -579,16 +589,8 @@ class _MembershipBadge extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: Theme.of(context).shell.selected,
-      borderRadius: BorderRadius.circular(999),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      child: Text(label, style: Theme.of(context).textTheme.labelSmall),
-    ),
-  );
+  Widget build(BuildContext context) =>
+      DBadge(variant: DBadgeVariant.secondary, child: Text(label));
 }
 
 class _DirectoryError extends StatelessWidget {

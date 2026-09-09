@@ -1,0 +1,42 @@
+Window: "Discourse", App: Radio Group Browser Review.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Radio Group Browser Review
+		2 container (settable)
+			3 container (settable) Radio Group review — local data
+			4 button (settable) Styleguide
+			5 button (settable) Light / Dark
+			6 button (settable) RTL
+			7 button (settable) 100 / 200%
+			8 button (settable) Toggle save error
+			9 button (settable) Move posts
+			10 button (settable) Change owner
+			11 text (settable) Search “review” in either real dialog. Other searches show the empty state. All requests use in-memory fakes.
+			12 container (settable) All flags are received by moderators and will be reviewed as soon as possible.
+				13 container (settable)
+					14 radio button (settable, integer) Value: 1, Off-Topic
+This post is not relevant to the discussion.
+					15 radio button (settable, integer) Value: 0, Inappropriate
+Content that does not follow community guidelines.
+					16 radio button (settable, integer) Value: 0, Something Else
+Explain the issue to moderators.
+				17 button (settable) Flag Post
+			18 container (settable) Poll
+				19 container (settable) 0 voters
+Open
+Private voter identities
+Results are not available.
+					20 container (settable)
+						21 radio button (settable, integer) Morning, Value: 0
+						22 radio button (settable, integer) Afternoon, Value: 0
+						23 radio button (settable, integer) Evening — a longer choice that should wrap, Value: 0
+	24 close button
+	25 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	26 minimize button
+27 menu bar
+	28 Radio Group Browser Review
+	29 Edit
+	30 View
+	31 Window
+	32 Help
+
+The focused UI element is 1 container Radio Group Browser Review

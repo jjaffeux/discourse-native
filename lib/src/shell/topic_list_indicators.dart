@@ -14,30 +14,11 @@ class TopicUnreadBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final label = '$count unread ${count == 1 ? 'post' : 'posts'}';
-    return Semantics(
-      container: true,
-      label: label,
-      excludeSemantics: true,
-      child: DTooltip(
-        message: label,
-        excludeFromSemantics: true,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            '$count',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onPrimary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
+    return DTooltip(
+      message: label,
+      excludeFromSemantics: true,
+      child: DBadge(semanticLabel: label, child: Text('$count')),
     );
   }
 }
