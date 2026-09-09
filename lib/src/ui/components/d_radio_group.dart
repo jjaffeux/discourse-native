@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../foundation/tokens.dart';
 import 'd_label.dart';
@@ -7,9 +8,10 @@ import 'd_label.dart';
 ///
 /// The default constructor owns selection initialized by [initialValue]. Use
 /// [DRadioGroup.controlled] when a parent owns [groupValue]. Reset restores
-/// [initialValue] and notifies [onChanged], including in controlled mode.
-/// Children may be laid out freely and compose [DRadioGroupItem] with future
-/// Field widgets. Item values must be distinct within the group.
+/// the mounted [initialValue] and notifies [onChanged]. Controlled reset proposes
+/// that baseline while Form continues to observe the accepted [groupValue].
+/// Children may be laid out freely and compose [DRadioGroupItem] with Field
+/// widgets. Item values must be distinct within the group.
 class DRadioGroup<T> extends FormField<T> {
   DRadioGroup({
     super.key,
@@ -71,12 +73,15 @@ class DRadioGroup<T> extends FormField<T> {
 
 class _DRadioGroupState<T> extends FormFieldState<T> {
   final _items = <Object, ({T value, bool readOnly})>{};
+  final _contentKey = GlobalKey();
+  late final T? _initialValue;
   @override
   DRadioGroup<T> get widget => super.widget as DRadioGroup<T>;
 
   @override
   void initState() {
     super.initState();
+    _initialValue = widget.initialValue;
     if (widget._controlled) setValue(widget.groupValue);
   }
 
@@ -87,10 +92,18 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
   }
 
   @override
+  void didChange(T? value) {
+    // Form observers must never save or validate an unaccepted proposal.
+    super.didChange(widget._controlled ? widget.groupValue : value);
+  }
+
+  @override
   void reset() {
-    super.reset();
-    widget.onChanged?.call(widget.initialValue);
-    if (widget._controlled && mounted) setValue(widget.groupValue);
+    setValue(widget._controlled ? widget.groupValue : _initialValue);
+    // Clear validation/interaction state and notify Form only after restoring
+    // the accepted value. super.reset() would publish the latest initialValue.
+    super.clearError();
+    widget.onChanged?.call(_initialValue);
   }
 
   Widget _build() {
@@ -100,11 +113,13 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
         (widget.readOnly || !widget._controlled || widget.onChanged != null);
     final selection = widget._controlled ? widget.groupValue : value;
     Widget result = _RadioScope<T>(
+      key: _contentKey,
       items: _items,
       readOnly: widget.readOnly,
       required: widget.required,
       enabled: enabled,
       invalid: widget.invalid || hasError,
+      errorText: errorText,
       child: RadioGroup<T>(
         groupValue: selection,
         onChanged: (next) {
@@ -115,7 +130,6 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
           if (!enabled || (item?.readOnly ?? widget.readOnly)) return;
           didChange(next);
           widget.onChanged?.call(next);
-          if (widget._controlled && mounted) setValue(widget.groupValue);
         },
         child: widget.child,
       ),
@@ -168,8 +182,10 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
 
 class _RadioScope<T> extends InheritedWidget {
   const _RadioScope({
+    super.key,
     required this.enabled,
     required this.invalid,
+    required this.errorText,
     required this.readOnly,
     required this.required,
     required this.items,
@@ -177,6 +193,7 @@ class _RadioScope<T> extends InheritedWidget {
   });
   final bool enabled;
   final bool invalid;
+  final String? errorText;
   final bool readOnly;
   final bool required;
   final Map<Object, ({T value, bool readOnly})> items;
@@ -184,6 +201,7 @@ class _RadioScope<T> extends InheritedWidget {
   bool updateShouldNotify(_RadioScope<T> oldWidget) =>
       enabled != oldWidget.enabled ||
       invalid != oldWidget.invalid ||
+      errorText != oldWidget.errorText ||
       readOnly != oldWidget.readOnly ||
       required != oldWidget.required ||
       items != oldWidget.items;
@@ -465,6 +483,10 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
         child: Semantics(
           container: true,
           label: widget.semanticLabel,
+          hint: scope?.errorText,
+          validationResult: invalid
+              ? SemanticsValidationResult.invalid
+              : SemanticsValidationResult.none,
           readOnly: readOnly,
           isRequired: (widget.required ?? scope?.required ?? false)
               ? true
