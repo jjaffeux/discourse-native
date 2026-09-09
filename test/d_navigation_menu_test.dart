@@ -76,6 +76,66 @@ void main() {
     }
   });
 
+  testWidgets(
+    'roving focus reveals offscreen items at 200 percent in LTR and RTL',
+    (tester) async {
+      for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
+        await tester.pumpWidget(
+          _app(
+            MediaQuery(
+              data: const MediaQueryData(
+                size: Size(800, 600),
+                textScaler: TextScaler.linear(2),
+                disableAnimations: true,
+              ),
+              child: Directionality(
+                key: ValueKey(direction),
+                textDirection: direction,
+                child: SizedBox(
+                  key: const ValueKey('menu-viewport'),
+                  width: 240,
+                  child: _menu(onRoute: (_) {}),
+                ),
+              ),
+            ),
+          ),
+        );
+        _menuFocus(tester, 'getting').requestFocus();
+        await tester.pumpAndSettle();
+        final viewport = tester.getRect(
+          find.byKey(const ValueKey('menu-viewport')),
+        );
+        expect(
+          viewport.contains(tester.getCenter(find.text('Documentation'))),
+          isFalse,
+        );
+
+        for (final (key, value, label) in [
+          (
+            direction == TextDirection.ltr
+                ? LogicalKeyboardKey.arrowRight
+                : LogicalKeyboardKey.arrowLeft,
+            'components',
+            'Components',
+          ),
+          (LogicalKeyboardKey.end, 'docs', 'Documentation'),
+          (LogicalKeyboardKey.home, 'getting', 'Getting started'),
+        ]) {
+          await tester.sendKeyEvent(key);
+          await tester.pumpAndSettle();
+          expect(_menuFocus(tester, value).hasFocus, isTrue);
+          expect(
+            viewport.contains(tester.getCenter(find.text(label))),
+            isTrue,
+            reason: '$label must be visible after keyboard traversal',
+          );
+          expect(find.text(label).hitTestable(), findsOneWidget);
+        }
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
   testWidgets('Tab enters the roving list once and then exits', (tester) async {
     final before = FocusNode(debugLabel: 'before menu');
     final after = FocusNode(debugLabel: 'after menu');

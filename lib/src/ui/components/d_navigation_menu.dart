@@ -228,7 +228,18 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
           debugLabel: 'Navigation menu $value',
           skipTraversal: value != _rovingValue,
         )..addListener(() {
-          if (node.hasFocus) _setRovingValue(value);
+          if (!node.hasFocus) return;
+          _setRovingValue(value);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !node.hasFocus) return;
+            final focusContext = node.context;
+            if (focusContext == null) return;
+            Scrollable.ensureVisible(
+              focusContext,
+              duration: DMotion.duration(focusContext, DMotion.exit),
+              alignment: .5,
+            );
+          });
         });
     return node;
   });
@@ -297,6 +308,25 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
     final enabled = _items.where(_isEnabled).toList();
     if (enabled.isEmpty) return;
     _focusFor((first ? enabled.first : enabled.last).value).requestFocus();
+  }
+
+  KeyEventResult _navigateList(T current, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+        event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      final right = event.logicalKey == LogicalKeyboardKey.arrowRight;
+      _moveFrom(
+        current,
+        right == (Directionality.of(context) == TextDirection.ltr) ? 1 : -1,
+      );
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.home ||
+        event.logicalKey == LogicalKeyboardKey.end) {
+      _focusBoundary(event.logicalKey == LogicalKeyboardKey.home);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   void _focusContent({required bool last}) {
@@ -561,7 +591,14 @@ class DNavigationMenuItem<T> extends StatelessWidget {
     );
     final root = scope!.state;
     if (link != null) {
-      return link!._with(focusNode: root._focusFor(value), disabled: disabled);
+      return Focus(
+        canRequestFocus: false,
+        onKeyEvent: (_, event) => root._navigateList(value, event),
+        child: link!._with(
+          focusNode: root._focusFor(value),
+          disabled: disabled,
+        ),
+      );
     }
     return trigger!._build(context, root, this);
   }
@@ -588,22 +625,9 @@ class DNavigationMenuTrigger extends StatelessWidget {
         DNavigationMenuChangeReason.triggerPress,
       ),
       onKeyEvent: (event) {
+        final navigation = root._navigateList(item.value, event);
+        if (navigation == KeyEventResult.handled) return navigation;
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        final direction = Directionality.of(context);
-        if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-            event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-          final right = event.logicalKey == LogicalKeyboardKey.arrowRight;
-          root._moveFrom(
-            item.value,
-            right == (direction == TextDirection.ltr) ? 1 : -1,
-          );
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.home ||
-            event.logicalKey == LogicalKeyboardKey.end) {
-          root._focusBoundary(event.logicalKey == LogicalKeyboardKey.home);
-          return KeyEventResult.handled;
-        }
         if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
             event.logicalKey == LogicalKeyboardKey.arrowUp) {
           root._select(item.value, DNavigationMenuChangeReason.listNavigation);
