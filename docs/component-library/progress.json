@@ -449,7 +449,7 @@
         "No iOS/Linux native device, spoken VoiceOver or automated cross-renderer pixel-diff claim."
       ],
       "implementationCommit": "355aa84f83c5949dd5be13eaaf56dd1032c6241b",
-      "mergeCommit": null,
+      "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94",
       "nativeInspectionStatus": "complete",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native"
     },
@@ -2505,10 +2505,10 @@
       "status": "in_progress",
       "startingMainCommit": "8ea22c643829a10a5031019e2aef4e83956c7a8f",
       "nextComponents": [
-        "radio-group",
-        "switch",
-        "slider",
-        "progress"
+        "popover",
+        "dialog",
+        "toggle",
+        "tabs"
       ],
       "activeTasks": [
         {
@@ -2518,6 +2518,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native",
           "headCommit": "45d85a99e12e9907a8c8d3ed882c8920b52d0f18",
           "status": "exterior_ring_review"
+        },
+        {
+          "component": "input",
+          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+          "branch": "codex/ui-input",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
+          "headCommit": "a7550c39004087bc8509efdbdb8f0b2a82ca779b",
+          "status": "button_integration"
         }
       ],
       "nativeReadyTasks": [
@@ -2633,14 +2641,6 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native",
           "status": "awaiting_browser_and_native_review",
           "headCommit": "58c6b5e2c1630941c83a50642dee8cda09898de5"
-        },
-        {
-          "component": "input",
-          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
-          "branch": "codex/ui-input",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
-          "headCommit": "a7550c39004087bc8509efdbdb8f0b2a82ca779b",
-          "status": "awaiting_native_and_button_reconciliation"
         },
         {
           "component": "item",
