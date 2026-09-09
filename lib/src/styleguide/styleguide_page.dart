@@ -275,11 +275,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   void _focusSearch() {
     final sidebar = _sidebarKey.currentState!;
     if (sidebar.isMobile) {
-      sidebar.setOpenMobile(true);
+      sidebar.setOpenMobile(true, initialFocusNode: _searchFocus);
     } else {
       sidebar.setOpen(true);
+      _searchFocus.requestFocus();
     }
-    _searchFocus.requestFocus();
   }
 
   Widget _sidebar(BuildContext context, bool wide) {

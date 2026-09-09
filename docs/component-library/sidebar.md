@@ -19,7 +19,7 @@ scope remains the 2026-09-08 Sidebar row.
 | sidebar / floating / inset | DSidebarVariant; floating 8px padding, border, small shadow and base radius (`rounded-lg`); inset content radius ×1.4 |
 | offcanvas / icon / none | Zero inline width / icon width / always inline; mobile modal for collapsible modes |
 | physical left/right | Physical panel side; directional text, padding and submenu border |
-| 200ms linear | Desktop width and mobile slide; zero with reduced motion |
+| 200ms transition | Linear desktop width; mobile presentation uses the accepted Sheet transition; zero with reduced motion |
 | header/footer p-2 | 8px fixed slots; callers compose multiple children with 8px gap |
 | content flex-1 overflow | Expanded slot with independent DSidebarContent scroll owner |
 | group p-2; label h-8 px-2 | 8px group padding,32px label minimum,8px horizontal inset |
@@ -37,11 +37,10 @@ scope remains the 2026-09-08 Sidebar row.
 
 At100% labels truncate as upstream; accessibility text can grow menu rows.
 Typography inherits the live font family. Colors are read from DTokens in every
-build, including an already-open route. The native panel has no Material
-surface elevation or stock drawer decoration; a transparent Material only
-supports native text editing/ink descendants. Mobile uses nearest Navigator,
-modal barrier, closed-loop route focus,Escape/outside dismissal and restored
-trigger focus. Provider shortcuts are scoped to its composition, not global
+build, including an already-open route. Mobile composes the accepted DSheet
+owner with an exact 288px default width, its border/shadow and no close button.
+Sheet owns the nearest Navigator, modal barrier, closed-loop route focus,
+Escape/outside dismissal and restored trigger focus. Provider shortcuts are scoped to its composition, not global
 process bindings. Persistence is caller-owned; no browser cookie equivalent is
 silently written. Header/footer remain visible while content scrolls.
 
@@ -59,8 +58,8 @@ DSidebar owns header/footer/rail slots and an expanded child. Content, Group,
 GroupLabel/Action/Content, Menu, MenuItem, MenuButton/Action/Badge/Skeleton,
 MenuSub/Item/Button, Header, Footer, Separator, Input, Trigger, Rail and Inset
 are exported. MenuItem takes optional trailing action/badge and submenu slots.
-Disclosure uses caller state and `expanded` semantics; it is not another
-Collapsible implementation. showOnHover actions reveal on row hover/focus,
+Disclosure composes DCollapsible with caller state and `expanded` semantics.
+showOnHover actions reveal on row hover/focus,
 remain keyboard reachable, and stay visible on narrow surfaces. Null callbacks
 disable actions. Icon menu callers should provide an icon and tooltip or
 semanticLabel to preserve a useful collapsed navigation name.
@@ -71,22 +70,22 @@ The actual registry lists Button,Input,Separator,Sheet,Skeleton,Tooltip and
 use-mobile. Collapsible,Dropdown Menu and Avatar appear in example composition.
 The frozen dependency list is therefore not a literal Flutter build graph.
 
-- Tooltip,Separator,Skeleton are real imports of completed generic components.
-- Native RawDialogRoute/Focus own Sidebar's mobile panel. No DSheet API or
-  general sheet implementation is introduced.
-- DSidebarInput is a small TextField styling adapter, not the complete Input
-  catalogue entry. It delegates text/controller/focus/editing to Flutter.
-- Disclosure is local sample state and ordinary widget composition; a future
-  DCollapsible can be placed in the same slots without changing Sidebar.
-- Trigger/menu actions are Sidebar-specific controls. DButton remains the
-  available baseline for ordinary example recovery actions.
-- Workspace/account example actions report local selection; general Dropdown
-  Menu remains pending, as explicitly stated in the example notes.
+- Tooltip, Separator, Skeleton and Scroll Area are shared generic owners.
+- DSheet owns the mobile panel. Its optional exact side width preserves
+  Sidebar's 18rem geometry; its default Sheet width policy stays unchanged.
+  Sidebar keeps its own bounded content scroll region and fixed header/footer.
+- DSidebarInput delegates to the accepted DInput and retains its styling and
+  controller/focus adapter surface.
+- DCollapsible owns project disclosure, keyboard activation and expanded
+  semantics. The provider hides the complete group-label slot in icon mode,
+  including composed interactive triggers.
+- DDropdownMenu owns the workspace and account menus; selection updates local
+  demo state. DAvatar supplies the account identity, including the 32px
+  large-button icon state. DButton supplies recovery actions.
 
-Recommendation: implementation dependencies are Tooltip,Separator,Skeleton;
-Sheet/Input/Collapsible are pending reference/composition relationships and
-should not block this Flutter component. The coordinator owns dependency/order
-metadata; this task leaves the frozen dependency list unchanged.
+The original Sidebar acceptance remains recorded separately. The final-owner
+composition review is tracked in [sidebar-final-composition.md](sidebar-final-composition.md)
+and `finalCompositionReview`; the frozen catalogue graph is unchanged.
 
 ## Adoption inventory
 
@@ -132,7 +131,8 @@ records the actual macOS inspection and its native-discovered fixes.
 Coordinator integration adds compact button semantic boundaries, verifies the
 actual styleguide navigation, and sets the compact demos' breakpoint to 500px
 while preserving the component default of 768px. The operational progress
-dependencies are Tooltip, Separator and Skeleton; the frozen website reference
+dependencies originally listed Tooltip, Separator and Skeleton. Final-owner
+composition evidence is recorded separately; the frozen website reference
 graph remains unchanged in catalogue.json.
 
 Pointer activation requests focus before calling the action. On iOS/Android,

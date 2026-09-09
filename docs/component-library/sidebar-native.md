@@ -97,8 +97,10 @@ Cmd/Ctrl+B did not produce a visible toggle through the native CUA attempts;
 those exact bindings pass widget tests. Return,Tab and Escape were visibly
 verified. This native shortcut observation remains a review limitation, not a
 claim of successful native shortcut execution. No spoken VoiceOver or iOS/Linux
-device inspection was performed. Sheet/Input/Collapsible/Dropdown Menu remain
-pending catalogue owners as documented in sidebar.md. Live forum/Chat adapters
+device inspection was performed. Sheet/Input/Collapsible/Dropdown Menu were
+pending catalogue owners at this original checkpoint. The later
+[final-owner composition review](sidebar-final-composition.md) supersedes that
+dependency limitation and records its own native verification. Live forum/Chat adapters
 remain intentionally retained; only the coordinator's documentation shell is
 the first app adoption.
 
