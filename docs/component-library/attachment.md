@@ -43,6 +43,8 @@ The public anatomy is `DAttachment`, `DAttachmentMedia`, `DAttachmentContent`, `
 
 `attachment_review_main.dart` mounts both the component examples and real `ComposerUploadQueue`/`ChatUploads` production widgets with local-only data and callbacks. The independent reviewer owns building and inspecting its uniquely identified macOS bundle after integrating the accepted Dialog parent/current main.
 
+Source `259f038d4f5b4acc27ba29f5dc46c2b6544efb0b` built successfully. The copied, unlaunched review artifact is `/private/tmp/DiscourseAttachmentReview39d9-259f038d.app`, bundle ID `org.discourse.native.attachmentreview39d9.r259f038d`, URL scheme `discourse-attachment-review-39d9`. The build and copied kernel agree at SHA256 `19235b03ef7b1892cbfd15e69e3816538c3689fca5d736c269b48231916c747a`. Ad-hoc signed readback contains only JIT, unsigned-executable-memory, and library-validation debug allowances; deep strict verification passed. Exact evidence is `evidence/attachment/build.json`. This proves source/build correspondence, not launch, rendered fidelity, or accessibility behavior.
+
 ## Prepared dependency gate
 
 Source preparation merged exact Dialog review pin `8a80078316381a60f70b4e11adbc919814ca9fbc` from `codex/review-dialog`; parent reviewer task `01a08558-7ac2-79a3-bd49-1be6148f540c`. This is tested prepared source, not accepted main. Attachment's reviewer must wait for Dialog's accepted local-main merge, integrate current main, reconcile the accepted parent, verify overlapping trigger/dialog behavior, and ensure no unaccepted parent revision reaches main through Attachment.

@@ -2379,6 +2379,8 @@ Status: in_progress. Task: 01a085d4-9afd-7082-8081-f8b1f8f66287. Branch: codex/u
 - Frozen 22,086-byte Markdown SHA256 47350990437e1b9c623684cbee001101962dcd7fb9328b162ef07adb03774175 verified; base-nova attachment registry SHA256 f6c6d376067d2734375a607256d59ce6c3ea4e486deda510b31844102033d353 inspected completely.
 - Flutter 3.47.2 dependencies resolved with flutter pub get --enforce-lockfile and no dependency/lockfile edits.
 - 8 component interaction/lifecycle/responsive tests passed with seed 904733; 64 component/composer/chat migration tests passed with seed 904736; 2 exhaustive example tests passed with seed 904737.
+- After integrating accepted Native Select/current main 5a26e571, all 111 Attachment, production fixture, styleguide, Scroll Area, prepared Dialog and consumer regression tests passed with seed 904741; root and profiles/full flutter analyze --no-pub passed with no issues.
+- Exact source 259f038d macOS fixture build passed. Unlaunched unique copy /private/tmp/DiscourseAttachmentReview39d9-259f038d.app uses org.discourse.native.attachmentreview39d9.r259f038d and discourse-attachment-review-39d9; built/copied kernels SHA256 19235b03ef7b1892cbfd15e69e3816538c3689fca5d736c269b48231916c747a. Ad-hoc entitlement readback contains only JIT/unsigned-executable-memory/library-validation allowances and deep strict signature verification passed; evidence/attachment/build.json.
 
 **limitations**
 
