@@ -154,3 +154,10 @@ After all 64 component rows are merged, create a final separate audit task to
 improve shared code, API consistency, composition, themes, accessibility,
 examples and missed app migrations. Review, verify and merge its changes before
 marking the overall goal complete.
+
+
+While macOS is locked, CUA Chrome browser control may still be available. The
+coordinator can grant a separate, serialized browser-only comparison slot.
+Flutter widget-test image exports can support that rendered comparison; record
+fonts, viewport, source and renderer explicitly. Neither browser access nor test
+exports authorize native app actions or satisfy native fixture verification.

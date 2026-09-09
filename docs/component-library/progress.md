@@ -35,11 +35,11 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 23 | empty | planned | — | — | typography | — |
 | 24 | item | planned | — | — | separator | — |
 | 25 | table | planned | — | — | typography | — |
-| 26 | scroll-area | planned | — | — | separator | — |
+| 26 | scroll-area | in_progress | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | — |
 | 27 | collapsible | planned | — | — | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | planned | — | — | button | — |
-| 30 | resizable | planned | — | — | — | — |
+| 30 | resizable | in_progress | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
 | 31 | popover | planned | — | — | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
 | 33 | dialog | planned | — | — | button | — |
@@ -812,6 +812,7 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 - DCheckbox controlled/default constructors and DCheckboxFormField controlled/default integration cover save/reset, validation and external-value ownership. DLabel composes titles with 8px gap; secondary interactive content retains independent focus/semantics.
 - Fixed 16px paint, 14px Lucide Check, 4px radius, token colors and explicit rings. Mixed uses a documented Minus extension pending visual review; pointer/touch targets reserve 40x32/48x48 native space.
 - Six actual-component styleguide examples cover basic, states, group, table, form recovery and RTL/long labels; Label examples migrated. Shared Sidebar shell remains unchanged.
+- Controlled-form follow-up: mutation paths retain the current prop synchronously. Native effective reset baseline is the controlled prop; separately captured reset proposal preserves onChanged and Form notification ordering, while errors and interaction flags clear normally. Parent acceptance syncs in didUpdateWidget without artificial interaction.
 
 **migrations**
 
@@ -831,12 +832,14 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 - Final macOS debug build passed from clean source commit 0df1b03ca000166c1901825b001dbad750b04ce6. Copied unique bundle /private/tmp/DiscourseCheckbox132a-0df1b03c.app (org.discourse.native.checkbox.132a, discourse-checkbox-132a scheme) has matching source/copied kernel SHA256 50658162f62e4a78954bfc3470df11c70cf72e04f308efa777562b3646d9894b; deep strict ad-hoc signature verification passes. No CUA or app launch performed.
 - Additional Topic Inbox run: 98 passed, one compact-title Escape failure. Exact failing case reproduced on pristine base 2e894b5e in a temporary detached worktree; logs /tmp/checkbox-baseline-topic.log and /tmp/checkbox-topic-retry.log. Baseline worktree removed.
 - Final root/full-profile flutter analyze --no-pub passed after all source changes. Source, tree and native bundle provenance are recorded in checkbox-native-provenance.json.
-- Coordinator merged the two stale Avatar assertions into local main in adc25e7b7e6125bae77b32dd247287a53289ddc1. The independently reproduced compact-title Escape failure remains under coordinator triage.
+- Controlled follow-up: all 36 Checkbox/Label component and example tests pass (seed 927315), covering synchronous save/validate in caller/Form callbacks during declined toggles/resets, native reset error/interaction clearing, and later acceptance. Formatting/diff checks pass.
+- Controlled consistency source 7519fc61670d995a80dc027e902f6545105715a2: root/full-profile analysis clean; 36 focused tests pass. Refreshed bundle /private/tmp/DiscourseCheckbox132a-7519fc61.app, identifier org.discourse.native.checkbox.132a.sync and unique discourse-checkbox-132a-sync URL scheme. Source/copied kernel SHA256 e379f6048e80056a2d98aa976da8e850b6191b8a34b3bae299d705e0dcb35940 matches; deep strict ad-hoc signature verification passes. This supersedes the earlier 0df1b03c inspection bundle. No CUA or launch performed.
 
 **limitations**
 
 - Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.
 - Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
+- Coordinator reports base Avatar assertions corrected on main adc25e7b and Tooltip/compact-title Escape fixed separately at c5d37bd1 pending native review; no changes to these owners in this follow-up.
 
 ### radio-group
 
@@ -852,6 +855,35 @@ Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/u
 
 - Label is merged; Field is not an implementation dependency: expose label/description slots, do not implement DField.
 - Button baseline is used for examples; concurrent Checkbox/Input/Button ownership preserved.
+- DRadioGroup uses native RawRadio/RadioGroup focus owners and FormField; controlled rejection/reset preserves the accepted form value.
+- Source metrics, hashes, native hit-target adaptation and API contract documented in docs/component-library/radio-group.md.
+- Poll explicitly opts into toggleable items to preserve withdrawal; normal radio groups do not deselect.
+
+**migrations**
+
+- lib/src/shell/topic_move_posts.dart destination radios
+- lib/src/shell/topic_change_owner.dart user radios
+- lib/src/shell/post_flag_editor.dart reason rows
+- lib/src/plugins/poll/poll_card.dart single-choice/number radios
+- RawRadio focus-owner recognition in shell/keyboard_navigation.dart and plugins/chat/chat_drawer.dart
+
+**retainedAlternatives**
+
+- Poll multiselect belongs to Checkbox; Poll actions to Button; change-owner search fields to Input.
+- Ranked-choice Poll web workflow and menu-item radio semantics remain appropriate domain/menu controls.
+
+**verification**
+
+- 157 focused component, Poll, flag, move/owner ownership, shell keyboard and Chat drawer tests passed with seed 9092026.
+- Local production review fixture search/select check passes for owner and move dialogs.
+- Root and full-profile locked pub get passed without lockfile changes; root and full static analysis clean.
+- Final committed-source macOS fixture build passed at 767e3d49b9d0c2807b42a28a19bafc9f2483d5b8; isolated bundle /private/tmp/discourse-radio-review-35591zqt/Radio Group Review.app; kernel SHA256 623a8ae4684b35c11408691b1c4d3eb88858123527091811845a267ef0bf6cda; source equality (725 files), matching kernels and deep strict ad-hoc signature verified. See docs/component-library/radio-group.md.
+- Final Poll semantics-wrapper refinement and production fixture passed 35 tests with seed 9092026; final root/full static analysis clean. No native app launched.
+
+**limitations**
+
+- Native desktop is locked; no CUA or native/browser inspection performed. All native visual comparison remains awaiting_slot.
+- No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review.
 
 ### switch
 
@@ -870,6 +902,54 @@ Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/u
 - Label is merged. Baseline DButton is used for actions; no dependency on unmerged Button/Checkbox/Input/Field.
 - DSwitch owns Flutter focus/actions/semantics with shadcn artwork; DSwitchTile composes switch with arbitrary wrapping title/subtitle and a single row activation owner.
 - Native accessible hit targets grow transparently to 48px; reference visual bounds remain compact.
+- Official source URLs, SHA256 values, complete metric mapping and native adaptations recorded in docs/component-library/switch.md; frozen Switch Markdown hash matches.
+- Controlled Form edits and reset requests wait for parent acceptance. Rejected/deferred reset retains consistent field value, semantics, validation and save.
+- Choice cards use source 10px inset + 1px border, 8px horizontal/2px description/20px group gaps, selected/hover treatment and a single wrapper focus ring.
+- Native transparent 48px targets; borrowed focus node ownership; reference 150ms cubic(.4,0,.2,1) motion with reduced-motion zero duration.
+
+**migrations**
+
+- lib/src/plugins/chat/chat_channel_info_view.dart
+- lib/src/plugins/chat/chat_drawer.dart
+- lib/src/plugins/discourse_ai/ai_proofreading_plugin.dart
+- lib/src/plugins/local_dates/local_date_composer_sheet.dart
+- lib/src/plugins/poll/poll_composer_sheet.dart
+- lib/src/plugins/voice/voice_diagnostics_view.dart
+- lib/src/plugins/voice/voice_room_editor.dart
+- lib/src/plugins/voice/voice_room_view.dart
+- lib/src/shell/app_settings_page.dart
+- lib/src/shell/group/group_manage_view.dart
+- lib/src/shell/keyboard_navigation.dart
+- lib/src/shell/preferences_page.dart
+- lib/src/styleguide/examples/label_examples.dart
+- lib/src/styleguide/examples/spinner_examples.dart
+- lib/src/styleguide/examples/separator_examples.dart
+
+**retainedAlternatives**
+
+- Stock Switch/SwitchListTile keyboard guard type checks retain compatibility for external callers; no production stock switch renderers remain. DLabel native association test intentionally retains native control coverage.
+- AI proofreading retains the outer existing InkWell/semantic owner; DSwitch small artwork excludes nested focus/pointer/semantics.
+- Unmerged Button/Checkbox/Input/Radio Group/Slider controls and Field are not implemented here.
+
+**verification**
+
+- Locked root and profiles/full dependency resolution passed without SDK/dependency/lockfile changes.
+- Root and profiles/full flutter analyze --no-pub passed with no issues.
+- 327 focused app, component and styleguide tests passed with seed 824192; log /private/tmp/switch-impact-final-tests.log. The whole suite was not run.
+- 17 final Switch tests passed after reference example centering; geometry/travel, pointer/Space/Enter/semantics, disabled/readOnly, controlled state, reset rejection/deferred acceptance, Form save/validation, live palettes, wrapper hover/focus and narrow 200% RTL examples. Log /private/tmp/switch-examples-final-tests.log.
+- Two real-widget local fixture tests passed; Settings persists in memory; actual Preferences, Chat settings, Poll, Local date, Group manage and Voice diagnostics mount without credentials/network. Log /private/tmp/switch-fixture-tests.log.
+- Routed Chat staff threading regression passed: flutter test --no-pub test/chat_shell_integration_test.dart --plain-name "staff toggle threading from routed channel settings"; /private/tmp/switch-chat-tests.log.
+- Formatting of touched Dart files and git diff --check passed.
+- Isolated macOS debug build passed from 404a1748bc0a11faa01f425ee74f920cc8bddb5e: flutter build macos --debug --no-pub -t tool/switch_review_main.dart. The main checkout/running app was untouched.
+- Review bundle /private/tmp/discourse-switch-review-404a1748/Discourse Switch Review.app; bundle ID org.discourse.switch-review; URL scheme discourse-switch-review. Ad-hoc deep strict codesign verification passed. Only the isolated copy removes APS entitlement.
+- Kernel SHA256 3b08262090a788c933ea6f36ecd28644a5998f25aad3b4d9968b2b4347395ee1 matches source build and isolated copy. Tracked lib/test/tool source equality to implementation commit passed. Complete trace: docs/component-library/switch-review-build.json; signature log /private/tmp/discourse-switch-review-404a1748/codesign.log.
+- Final profiles/full flutter analyze --no-pub passed; /private/tmp/switch-full-final-analyze.log.
+
+**limitations**
+
+- Mac locked: no CUA, native launch, reference-browser comparison or desktop inspection performed. nativeInspectionStatus remains awaiting_slot; not review_ready or mergeable.
+- No iOS/Linux device run or spoken VoiceOver claim. Native text wrapping adapts CSS text balancing.
+- Review launcher covers representative migrated production surfaces. Voice room/editor and AI composer are covered by actual-widget regressions; additional native fixture coverage can be completed during review.
 
 ### slider
 
@@ -1166,6 +1246,31 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 - iOS and Linux native device inspection unavailable in this macOS session. Widget tests and platform overrides are not device testing.
 - No VoiceOver audit; some native accessibility snapshots were sparse. Widget tests verify semantic grouping and keyboard/focus behavior. Preferences, Categories, Aggregate, Voice diagnostics and cooked/request fallback migrations have focused test coverage but were not individually inspected natively.
 - Adjacent Button/Input/Badge/Toggle Group visuals remain pending their owners, as documented in the examples. Native inspected build displayed baseline status before the final metadata-only promotion to implemented.
+
+### scroll-area
+
+Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/ui-scroll-area.
+
+**acceptanceCriteria**
+
+- Port base-nova 10px transparent scrollbar track, 1px padding plus 1px transparent leading border and border-colored rounded thumb with live palette/radius and visible viewport keyboard focus.
+- Expose vertical, horizontal and combined viewport/scrollbar/thumb/corner composition with one Flutter scroll owner per axis, owned or borrowed controllers and preserved position across rebuilds.
+- Verify wheel, thumb drag, touch and keyboard scrolling, RTL, visibility, resizing and controller replacement/removal without disposing borrowed resources.
+- Reproduce Tags/Horizontal/RTL reference examples and local combined/lazy composition; preserve styleguide explicit 360/768/1024 widths and state during preview changes.
+- Audit core/plugins, migrate appropriate Sidebar and wide-preview scrollbar ownership, document retained specialized timelines/menus and any additional migrations.
+- Pass focused component/downstream tests, root/full-profile analysis and isolated signed macOS fixture build; remain in_progress awaiting serialized reference/native comparison.
+
+### resizable
+
+Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-resizable.
+
+**acceptanceCriteria**
+
+- Port frozen Base Nova horizontal, vertical, nested and with-handle examples: 1px border divider and centered 4x24px rounded pill, live token colors/radius, visible 1px focus ring with transparent native hit targets.
+- Typed pixel/percentage sizing, stable panel IDs, default/min/max, controlled and imperative layouts, collapse/expand restoration, disabled group/panel/handle, adjacent constraint propagation and dynamic panel insertion/removal. Explicit bounded-layout and infeasible-constraint policy.
+- Keyboard arrows/Home/End/Enter, RTL physical drag and keyboard direction, semantics increase/decrease, mouse/touch cancellation and borrowed controller/focus lifecycle. No Form integration needed for layout geometry.
+- Audit core and plugins; migrate pane persistence adapter and appropriate split handles without changing storage, temporary maximum behavior, responsive modes or async ownership; document retained domain controls.
+- Self-contained production-widget styleguide and local fixture; focused interaction/migration tests, root/full static analysis, pinned SDK/locks, isolated uniquely identified signed macOS debug build. Native/reference comparison remains pending locked-desktop slot.
 
 ### sidebar
 
