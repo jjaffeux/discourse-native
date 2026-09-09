@@ -1,15 +1,16 @@
 {
-  "sourceCommit": "52bbbc175ef076a0fffbb7dc5294d0c0f9455235",
-  "sourceTree": "3f707aee694be03901712bfee8936b90379f281c",
+  "sourceCommit": "cff5dfc2b34035806d29ab551f25b5908515c018",
+  "sourceTree": "8c39340b51e36d069578c5cc3e7687f104ff3b90",
   "sourceCleanAtBuild": true,
   "buildCommand": "flutter build macos --debug --no-pub -t tool/button_group_review_main.dart",
   "sourceBundle": "/Users/joffreyjaffeux/.codex/worktrees/9bb7/discourse-native/build/macos/Build/Products/Debug/Discourse.app",
-  "reviewBundle": "/private/tmp/ButtonGroupReview-52bbbc17.app",
-  "bundleId": "org.discourse.native.buttongroup.52bbbc17",
-  "urlScheme": "discourse-button-group-52bbbc17",
-  "kernelSha256": "02834a404d77b84aa27782d3c6e7fe5706dcf1e1957cabf59d48f48dd1e40483",
+  "reviewBundle": "/private/tmp/ButtonGroupReview-cff5dfc2.app",
+  "bundleId": "org.discourse.native.buttongroup.cff5dfc2",
+  "urlScheme": "discourse-button-group-cff5dfc2",
+  "kernelSha256": "f7fd7af43360515dd2cdba6461d8eaab9822f646e26e6122919fdfac4398bde3",
   "entrypointSha256": "a2039d6c9032058c2f3d6df403fa342a395c391f147ae3dc323cbc839ddc996b",
-  "componentSha256": "93ca1fdc86f1e0d695e64abc457f1d543f2ad04f2036aa1a7e9fc183667549b7",
+  "componentSha256": "8fa3a2da283420f5820b047a683f39d2c34f17abc2bc4fe1a599f53feeba7d89",
+  "buttonSha256": "44b6e6a190152973eba18c5f4d8a61dc492ee7b98d1964b939c4100080d6dba6",
   "examplesSha256": "3da2a237c5434aea0c027f4c46fe500f838f60cfd2cfd8bcb60f9a1bb45dc9de",
   "selectExamplesSha256": "f9cad6b6ab337917a95c96066d07a4376c6576a69457efb0e3191780dd5535f4",
   "inputGroupExamplesSha256": "aa75330394babcb3937baac610de6635eeb7ef59650782d06568479718770dc6",
@@ -26,5 +27,5 @@
   "signatureVerification": "codesign --verify --deep --strict passed",
   "nativeInspectionStatus": "awaiting_slot",
   "desktopLeaseReleased": true,
-  "notes": "The normal Discourse bundle and provisioning were not modified or launched. The isolated copy has a unique identity and restricted ad-hoc debug entitlements. Earlier 412091d0 launch attempts were blocked by the locked Mac. This rebuilt fixture includes the separator/text sizing correction, Input Group scope boundary, Select parent composition and Input Group button-actions example, with four themes, RTL, 100/200% text, 320/440px width and reduced motion."
+  "notes": "The normal Discourse bundle and provisioning were not modified or launched. The isolated copy has a unique identity and restricted ad-hoc debug entitlements. Earlier 412091d0 launch attempts were blocked by the locked Mac. This rebuilt fixture includes separator/text sizing, scoped Input Group geometry, focused-child painting and unclipped joined Button rings, Select parent composition and Input Group button-actions. Controls cover four themes, RTL, 100/200% text, 320/440px width and reduced motion. The focus-ring pixel regression fails without focused-child layering; 88 affected tests and root/full analysis pass."
 }
