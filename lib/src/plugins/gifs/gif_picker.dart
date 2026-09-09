@@ -480,36 +480,17 @@ class _NetworkArtwork extends StatelessWidget {
 
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message, required this.onRetry});
-
   final String message;
   final Future<void> Function() onRetry;
-
   @override
-  Widget build(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.errorContainer,
-    borderRadius: BorderRadius.circular(8),
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Semantics(
-              container: true,
-              liveRegion: true,
-              child: Text(
-                message,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onErrorContainer,
-                ),
-              ),
-            ),
-          ),
-          DButton(
-            label: const Text('Try again'),
-            onPressed: onRetry,
-            variant: DButtonVariant.link,
-          ),
-        ],
+  Widget build(BuildContext context) => DAlert(
+    variant: DAlertVariant.destructive,
+    description: DAlertDescription(child: Text(message)),
+    action: DAlertAction(
+      child: DButton(
+        label: const Text('Try again'),
+        onPressed: onRetry,
+        variant: DButtonVariant.link,
       ),
     ),
   );

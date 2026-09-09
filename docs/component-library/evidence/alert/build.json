@@ -1,0 +1,22 @@
+{
+  "sourceCommit": "5f0418cc6a90faaa88c3df6adee1df232bff081c",
+  "sourceDiff": "",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Review 38df.app",
+  "bundleId": "org.discourse.alertreview38df",
+  "bundleName": "Alert Review 38df",
+  "urlSchemes": [
+    {
+      "CFBundleURLName": "org.discourse.alertreview38df",
+      "CFBundleURLSchemes": [
+        "discourse-alert-review-38df"
+      ]
+    }
+  ],
+  "kernelHashes": {
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/.dart_tool/flutter_build/35fdf180de2d11018ae90516c2a3b90b/app.dill": "e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99",
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99",
+    "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native/build/macos/Build/Products/Debug/Alert Review 38df.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99"
+  },
+  "signatureVerification": "codesign --verify --deep --strict --verbose=2 passed (local ad-hoc)",
+  "nativeInspection": "pending explicit coordinator desktop slot"
+}
