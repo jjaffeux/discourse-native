@@ -1,0 +1,6 @@
+{
+  "background": "oklab(0.704006 0.176798 0.0722319 / 0.2)",
+  "border": "1px solid oklab(0.704006 0.176798 0.0722319 / 0.4)",
+  "focused": true,
+  "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.704006 0.176798 0.0722319 / 0.4) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+}

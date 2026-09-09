@@ -1,10 +1,10 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/site_config.dart';
 import '../plugin_api/composer_syntax.dart';
-import '../theme/d_button.dart';
 import 'composer_quotes.dart';
 import 'markdown_highlight.dart';
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -241,6 +242,12 @@ void main() {
       final semantics = tester.ensureSemantics();
       try {
         await _openSummaryFromMenu(tester);
+
+        final count = tester.getSemantics(
+          find.bySemanticsLabel('Search 2 topics by @reader in Support'),
+        );
+        expect(count.label, 'Search 2 topics by @reader in Support');
+        expect(count.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
         expect(
           find.bySemanticsLabel('read time: 1 day, all time'),

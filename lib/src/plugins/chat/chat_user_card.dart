@@ -1,10 +1,10 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../models/user_card.dart';
 import '../../plugin_api/plugin_data.dart';
 import '../../plugin_api/plugin_scope.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_services.dart';

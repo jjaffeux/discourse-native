@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/site_lifecycle.dart';
 import '../models/post.dart';
-import '../theme/d_button.dart';
 import 'shell_controller.dart';
 import 'shell_sheet.dart';
 

@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
-import '../theme/d_button.dart';
 import 'shell_controller.dart';
 
 const _confirmationPhrase = 'permanently delete';
