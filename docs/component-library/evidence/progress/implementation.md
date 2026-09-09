@@ -180,3 +180,39 @@ unsigned executable memory, debug attachment, network client/server), without
 APNs, application-identifier, team identity or provisioning entitlements. This
 changes only the isolated review copy, never the real app or project signing.
 See updated native-manifest.json for exact source and payload trace.
+
+## Independent review and native acceptance 2026-09-09
+
+Reviewer task `01a08558-73d7-7d01-9b97-39615e28df0e` merged the implementation
+history into `codex/review-progress` and compared the rendered component with
+the official Base UI/base-nova page in the approved in-app browser. The live
+reference measured a 4px, fully rounded track; a 56% composed example measured
+384x36 logical pixels with the track 32px below its root; and its indicator used
+the documented 150ms cubic-bezier(0.4, 0, 0.2, 1) transition. Light and dark
+reference renders were captured and agreed with the frozen registry source.
+
+The exact-source isolated macOS fixture was launched and inspected. Basic and
+label/value examples matched the reference structure and proportions; light,
+dark and Forest palettes updated the semantic track/fill/text colors live.
+The 360px, 200% text, RTL pass kept labels and localized Arabic values readable,
+with the fill anchored to logical start. Unknown progress visibly moved in the
+ordinary state and stayed at logical start with reduced motion. Native Tab focus
+was visible on the controlled example and Return advanced the value. The real
+ComposerUploadQueue advanced 25% to 75%; UpdateDownloadProgress advanced 25% to
+50%; and EventUnavailableCard/BadgesPage correctly removed their loading strips
+when toggled ready. Native accessibility kept labels, status text and adjacent
+actions as independent nodes without adjustable actions on progress itself.
+
+No Progress rendering or behavior defect was found. Acceptance changed only the
+styleguide status/notes from baseline/pending to implemented. Nine component and
+styleguide tests passed after that metadata correction; root and full-profile
+analysis had already passed on the integrated review branch. A refreshed debug
+bundle `/tmp/DiscourseProgressReview6adbb135.app` was built from source commit
+`6adbb135b43143486345f7c3ffa81c4bcbf09430`, with bundle ID
+`org.discourse.native.progress.6adbb135`, URL scheme
+`discourse-progress-6adbb135`, kernel SHA256
+`38e072176e4ed4538d3edea674b6044d6ad7eb7127dc7570edb9a5fb81318d7c` and
+the same restricted-free local debug entitlements. Deep strict signature and
+built/copy kernel equality passed. The metadata-only status correction did not
+invalidate the completed component/native inspection. No iOS/Linux device or
+spoken VoiceOver test was performed.
