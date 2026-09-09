@@ -760,7 +760,10 @@
       ],
       "implementationCommit": "d286e1188bc57c2f2b1a26c3439c69d636606d9b",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
+      "reviewBranch": "codex/review-textarea"
     },
     {
       "id": "checkbox",
@@ -959,7 +962,10 @@
       "implementationCommit": "3243a88cf2a9a1cfee96af7877386379089ab6c5",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_unlock",
-      "browserInspectionStatus": "completed"
+      "browserInspectionStatus": "completed",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
+      "reviewBranch": "codex/review-switch"
     },
     {
       "id": "toggle",
@@ -1051,7 +1057,10 @@
       ],
       "implementationCommit": "6792e34b950b780fbeb93a4aea82c57bd537f2b0",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
+      "reviewBranch": "codex/review-slider"
     },
     {
       "id": "progress",
@@ -1096,7 +1105,10 @@
       ],
       "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
+      "reviewBranch": "codex/review-progress"
     },
     {
       "id": "skeleton",
@@ -1403,7 +1415,10 @@
         "No iOS/Linux device, VoiceOver speech, pixel-parity or native-launch eligibility claim. Review bundle is statically verified only."
       ],
       "implementationCommit": "8bdc0386d7434dc5c440c1e8132b4b95edca7d13",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-ae1d-7d61-a060-dd8cce1380fc",
+      "reviewBranch": "codex/review-empty"
     },
     {
       "id": "item",
@@ -1462,7 +1477,10 @@
         "Mac locked; browser separately denied admin-policy verification. No CUA/browser/native launch, policy retry or workaround attempted during integration."
       ],
       "implementationCommit": "68402409ccc314b6e9b624cf1d86b16531ccdcc4",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-aec4-7591-ac85-682a1eae4290",
+      "reviewBranch": "codex/review-item"
     },
     {
       "id": "table",
@@ -1514,7 +1532,10 @@
         "No VoiceOver or iOS/Linux device inspection, and no visual/pixel parity claim."
       ],
       "implementationCommit": "80c801e69ee94b8f1d02ca71ccb489bc53aec257",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
+      "reviewBranch": "codex/review-table"
     },
     {
       "id": "scroll-area",
@@ -1571,7 +1592,10 @@
       ],
       "implementationCommit": "3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e",
       "mergeCommit": null,
-      "nativeReviewStatus": "awaiting_slot"
+      "nativeReviewStatus": "awaiting_slot",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
+      "reviewBranch": "codex/review-scroll-area"
     },
     {
       "id": "collapsible",
@@ -1614,7 +1638,10 @@
       ],
       "implementationCommit": "39159f39becd55a320da35aab967aaaad2ef6d6f",
       "mergeCommit": null,
-      "nativeReviewStatus": "awaiting_slot"
+      "nativeReviewStatus": "awaiting_slot",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-a79c-7911-8f75-53b3528fc08f",
+      "reviewBranch": "codex/review-collapsible"
     },
     {
       "id": "accordion",
@@ -1688,7 +1715,10 @@
         "awaiting_slot: integration complete; native/reference comparison pending. Mac locked and browser navigation separately denied admin-policy verification. No CUA/browser/native launch or blocker retry attempted. Not review_ready or mergeable."
       ],
       "implementationCommit": "0629571a58e927f480c03de909bdfd4f676cdbd1",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
+      "reviewBranch": "codex/review-resizable"
     },
     {
       "id": "popover",
@@ -1737,7 +1767,10 @@
       "implementationCommit": "b410f9da0227b2b9e0d6518b64277e97d6517b06",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a12a/discourse-native",
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
+      "reviewBranch": "codex/review-popover"
     },
     {
       "id": "hover-card",
@@ -1805,7 +1838,10 @@
       "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+      "reviewBranch": "codex/review-dialog"
     },
     {
       "id": "alert-dialog",
@@ -1923,7 +1959,10 @@
         "No native CUA/app launch. Font-loaded widget screenshots are not device rendering, VoiceOver or OS-popup parity evidence."
       ],
       "implementationCommit": "f9baeaa86c2bd88058ab815687543587aeec5296",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee1b7d91d022",
+      "reviewBranch": "codex/review-native-select"
     },
     {
       "id": "field",
@@ -1977,7 +2016,10 @@
         "send_message_to_thread remains absent from available tool inventory. Progress record and final head/artifact report carry the coordinator handoff."
       ],
       "implementationCommit": "e298291e7c85ce47d24049004504c84208d3d07f",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-7a22-7f53-a798-52669b7ddef5",
+      "reviewBranch": "codex/review-field"
     },
     {
       "id": "input-group",
@@ -2268,7 +2310,10 @@
         "awaiting_slot: native review blocked by locked Mac; browser verification separately denied by admin policy. No CUA/browser/native launch, policy retry or workaround. Rendered comparison and changed production native inspection still required."
       ],
       "implementationCommit": "1efab06cb3b99177278ed941db63ec37f07ce849",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-ae1e-7843-8cff-724c8e877ba5",
+      "reviewBranch": "codex/review-alert"
     },
     {
       "id": "attachment",
@@ -2330,7 +2375,10 @@
       "implementationCommit": "ba156a2ce378787c25fdd4a8910fbf86390c4a8a",
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:30c945fe-66ff-4d13-a4ed-120a945e4aa3",
-      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native"
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
+      "reviewBranch": "codex/review-marker"
     },
     {
       "id": "bubble",
@@ -2432,7 +2480,10 @@
         "No iOS/Linux device or VoiceOver testing; test image geometry is not pixel-parity evidence."
       ],
       "implementationCommit": "1edacc2894f33d4002d02dd37b31baee1e0017b2",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee52e8570ff3",
+      "reviewBranch": "codex/review-chart"
     },
     {
       "id": "data-table",
@@ -2553,32 +2604,12 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T08:43:17.343374+00:00",
+    "updatedAt": "2026-09-09T08:50:35.202597+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Each component reviewer reviews, fixes, verifies and merges directly from the main checkout under the shared main lease; no coordinator approval gate.",
     "nativeInspectionPolicy": "Review tasks acquire the shared desktop lease directly for native/browser actions and release promptly; no coordinator scheduling gate.",
-    "nativeInspectionTaskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-    "nativeInspectionQueue": [
-      "01a083ce-319b-7bc3-a5c9-371087710718",
-      "01a083e1-420b-7711-b8e8-f268576dcc3b",
-      "01a083f3-9a01-7c71-9931-3674b85e81b3",
-      "01a08400-ced8-7f22-a1aa-4955c7d28383",
-      "01a083ce-313e-7f70-a1a8-e645f31235c8",
-      "01a083ce-313a-7362-ada6-57dc14221509",
-      "01a083e2-4063-7c30-89ea-fa664ff9c943",
-      "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
-      "01a08437-208f-7332-b373-192eaada5844",
-      "01a0843e-76da-7911-ac98-49bd6dba8384",
-      "01a08445-7647-7a83-a366-e06252405043",
-      "01a0844a-0669-7780-92e8-33cc4314f64a",
-      "01a08454-55a6-7681-8da9-bec8b23899a4",
-      "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
-      "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
-      "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
-      "01a084fb-b319-7053-8265-8cb4db577932"
-    ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
       "requestedBy": "user",
@@ -2630,146 +2661,162 @@
       "activeTasks": [
         {
           "component": "switch",
-          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-          "branch": "codex/ui-switch",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
+          "taskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
+          "branch": "codex/review-switch",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/904d/discourse-native",
           "headCommit": "b851adbbf69778fd437b296b66492bfee7973125",
-          "status": "native_review"
-        }
-      ],
-      "nativeReadyTasks": [
-        {
-          "component": "table",
-          "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
-          "branch": "codex/ui-table",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native",
-          "headCommit": "b3107cab0c01e2c7abe0de5f7649df99b19414c6",
-          "status": "awaiting_browser_and_native_review"
-        },
-        {
-          "component": "progress",
-          "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
-          "branch": "codex/ui-progress",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cfac/discourse-native",
-          "headCommit": "1c21a43597a31f55b7bab4a325d879dde8bcf9f4",
-          "status": "awaiting_browser_and_native_review"
-        },
-        {
-          "component": "textarea",
-          "taskId": "01a08437-208f-7332-b373-192eaada5844",
-          "branch": "codex/ui-textarea",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
-          "headCommit": "058bb044ddbe72d0a5f9c2eda523cabc510bd39c",
-          "status": "awaiting_browser_and_native_review"
-        },
-        {
-          "component": "native-select",
-          "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
-          "branch": "codex/ui-native-select",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/89bf/discourse-native",
-          "headCommit": "986eb0632633c45a78008372ed49e28eba315098",
-          "status": "awaiting_native_review"
-        },
-        {
-          "component": "chart",
-          "taskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
-          "branch": "codex/ui-chart",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native",
-          "headCommit": "c782a940b95105f1cfc2614fdfc52c5bd1a09b28",
-          "status": "awaiting_native_review"
-        },
-        {
-          "component": "field",
-          "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
-          "branch": "codex/ui-field",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/14b5/discourse-native",
-          "status": "awaiting_browser_native_and_control_reconciliation",
-          "headCommit": "09869a6713a9e2e01b3012515cfc5bbeefcee868"
-        },
-        {
-          "component": "slider",
-          "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
-          "branch": "codex/ui-slider",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native",
-          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f",
-          "headCommit": "bbd35fec5d7fbec5e967edf5f7b03567625b25b2",
-          "status": "awaiting_browser_and_native_review"
-        },
-        {
-          "component": "resizable",
-          "taskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
-          "branch": "codex/ui-resizable",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native",
-          "status": "awaiting_browser_and_native_review",
-          "headCommit": "a7e26a935574c44595c89bc869a0df4c7144ced7"
-        },
-        {
-          "component": "dialog",
-          "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
-          "branch": "codex/ui-dialog",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
-          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
-          "status": "awaiting_browser_and_native_review",
-          "headCommit": "715ab477e807d3ba4f1f8d3492d09036844c7505"
-        },
-        {
-          "component": "marker",
-          "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
-          "branch": "codex/ui-marker",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
-          "headCommit": "c797918bd1446a612a1a3da7c26573169a40bad3",
-          "status": "awaiting_browser_and_native_review"
-        },
-        {
-          "component": "collapsible",
-          "taskId": "01a08445-7647-7a83-a366-e06252405043",
-          "branch": "codex/ui-collapsible",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native",
-          "headCommit": "684faacdbc706f90fddd6ddd8ba47ada6a431495",
-          "status": "awaiting_browser_and_native_review"
-        },
-        {
-          "component": "popover",
-          "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
-          "branch": "codex/ui-popover",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a12a/discourse-native",
-          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
-          "status": "awaiting_browser_native_and_control_reconciliation",
-          "headCommit": "cb7f9e2e474529b1ac2559f1226d47590202e23f"
-        },
-        {
-          "component": "alert",
-          "taskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
-          "branch": "codex/ui-alert",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native",
-          "status": "awaiting_browser_and_native_review",
-          "headCommit": "38002135f93007ea04bc19873bd8bdf2e379f346"
-        },
-        {
-          "component": "empty",
-          "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
-          "branch": "codex/ui-empty",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native",
-          "headCommit": "9d4ebc9eabb5066721a2fe853f74f71fc16f445f",
-          "status": "awaiting_browser_native_and_input_group_reconciliation"
+          "status": "independent_review",
+          "implementationTaskId": "01a083ce-319b-7bc3-a5c9-371087710718"
         },
         {
           "component": "scroll-area",
-          "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
-          "branch": "codex/ui-scroll-area",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
+          "taskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
+          "branch": "codex/review-scroll-area",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c76e/discourse-native",
           "headCommit": "5f4e58a31772cc5edb40a670cab0264e278f93fe",
-          "status": "awaiting_native_review"
+          "status": "independent_review",
+          "implementationTaskId": "01a083e1-420b-7711-b8e8-f268576dcc3b"
+        },
+        {
+          "component": "native-select",
+          "taskId": "01a08558-4ae6-7db2-bdd6-ee1b7d91d022",
+          "branch": "codex/review-native-select",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4d1e/discourse-native",
+          "headCommit": "986eb0632633c45a78008372ed49e28eba315098",
+          "status": "independent_review",
+          "implementationTaskId": "01a083f3-9a01-7c71-9931-3674b85e81b3"
+        },
+        {
+          "component": "chart",
+          "taskId": "01a08558-4ae6-7db2-bdd6-ee52e8570ff3",
+          "branch": "codex/review-chart",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c0d7/discourse-native",
+          "headCommit": "c782a940b95105f1cfc2614fdfc52c5bd1a09b28",
+          "status": "independent_review",
+          "implementationTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383"
+        },
+        {
+          "component": "table",
+          "taskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
+          "branch": "codex/review-table",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fdec/discourse-native",
+          "headCommit": "b3107cab0c01e2c7abe0de5f7649df99b19414c6",
+          "status": "independent_review",
+          "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a"
+        },
+        {
+          "component": "progress",
+          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
+          "branch": "codex/review-progress",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
+          "headCommit": "1c21a43597a31f55b7bab4a325d879dde8bcf9f4",
+          "status": "independent_review",
+          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8"
+        },
+        {
+          "component": "textarea",
+          "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
+          "branch": "codex/review-textarea",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ea56/discourse-native",
+          "headCommit": "058bb044ddbe72d0a5f9c2eda523cabc510bd39c",
+          "status": "independent_review",
+          "implementationTaskId": "01a08437-208f-7332-b373-192eaada5844"
+        },
+        {
+          "component": "field",
+          "taskId": "01a08558-7a22-7f53-a798-52669b7ddef5",
+          "branch": "codex/review-field",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/95bf/discourse-native",
+          "status": "independent_review",
+          "headCommit": "09869a6713a9e2e01b3012515cfc5bbeefcee868",
+          "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97"
+        },
+        {
+          "component": "slider",
+          "taskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
+          "branch": "codex/review-slider",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d2da/discourse-native",
+          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f",
+          "headCommit": "bbd35fec5d7fbec5e967edf5f7b03567625b25b2",
+          "status": "independent_review",
+          "implementationTaskId": "01a083ce-313a-7362-ada6-57dc14221509"
+        },
+        {
+          "component": "resizable",
+          "taskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
+          "branch": "codex/review-resizable",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec10/discourse-native",
+          "status": "independent_review",
+          "headCommit": "a7e26a935574c44595c89bc869a0df4c7144ced7",
+          "implementationTaskId": "01a083e2-4063-7c30-89ea-fa664ff9c943"
+        },
+        {
+          "component": "dialog",
+          "taskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+          "branch": "codex/review-dialog",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/49f1/discourse-native",
+          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
+          "status": "independent_review",
+          "headCommit": "715ab477e807d3ba4f1f8d3492d09036844c7505",
+          "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932"
+        },
+        {
+          "component": "marker",
+          "taskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
+          "branch": "codex/review-marker",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8a02/discourse-native",
+          "headCommit": "c797918bd1446a612a1a3da7c26573169a40bad3",
+          "status": "independent_review",
+          "implementationTaskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4"
+        },
+        {
+          "component": "collapsible",
+          "taskId": "01a08558-a79c-7911-8f75-53b3528fc08f",
+          "branch": "codex/review-collapsible",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c91e/discourse-native",
+          "headCommit": "684faacdbc706f90fddd6ddd8ba47ada6a431495",
+          "status": "independent_review",
+          "implementationTaskId": "01a08445-7647-7a83-a366-e06252405043"
+        },
+        {
+          "component": "popover",
+          "taskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
+          "branch": "codex/review-popover",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/b664/discourse-native",
+          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
+          "status": "independent_review",
+          "headCommit": "cb7f9e2e474529b1ac2559f1226d47590202e23f",
+          "implementationTaskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd"
+        },
+        {
+          "component": "alert",
+          "taskId": "01a08558-ae1e-7843-8cff-724c8e877ba5",
+          "branch": "codex/review-alert",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ae77/discourse-native",
+          "status": "independent_review",
+          "headCommit": "38002135f93007ea04bc19873bd8bdf2e379f346",
+          "implementationTaskId": "01a08454-55a6-7681-8da9-bec8b23899a4"
+        },
+        {
+          "component": "empty",
+          "taskId": "01a08558-ae1d-7d61-a060-dd8cce1380fc",
+          "branch": "codex/review-empty",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ffcf/discourse-native",
+          "headCommit": "9d4ebc9eabb5066721a2fe853f74f71fc16f445f",
+          "status": "independent_review",
+          "implementationTaskId": "01a0843e-76da-7911-ac98-49bd6dba8384"
         },
         {
           "component": "item",
-          "taskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
-          "branch": "codex/ui-item",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native",
+          "taskId": "01a08558-aec4-7591-ac85-682a1eae4290",
+          "branch": "codex/review-item",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d14a/discourse-native",
           "headCommit": "32ce1f96e1a1648bd5f29d8268c8b37855d3e39b",
-          "status": "awaiting_browser_native_and_control_reconciliation"
+          "status": "independent_review",
+          "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
         }
-      ]
+      ],
+      "nativeReadyTasks": []
     },
     "externalWritePolicy": {
       "localCommitsAndMerges": true,
@@ -2900,13 +2947,206 @@
       "remaining": "Independent component reviewers finish reference/native verification and composition follow-ups, then merge locally under shared access leases."
     },
     "reviewPolicy": {
-      "status": "dispatching",
+      "status": "active",
       "backlogCount": 17,
       "ownership": "independent_reviewer",
       "protocol": "docs/component-library/review-and-merge.md",
       "leaseTool": "tool/component_review_lock.py",
       "futureHandoff": "Each implementation creates a new reviewer Codex task that owns completion and local main merge.",
-      "reviewTasks": []
+      "reviewTasks": [
+        {
+          "component": "switch",
+          "title": "Review and merge Switch",
+          "taskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/904d/discourse-native",
+          "branch": "codex/review-switch",
+          "implementationTaskId": "01a083ce-319b-7bc3-a5c9-371087710718",
+          "implementationBranch": "codex/ui-switch",
+          "status": "in_progress"
+        },
+        {
+          "component": "scroll-area",
+          "title": "Review and merge Scroll Area",
+          "taskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c76e/discourse-native",
+          "branch": "codex/review-scroll-area",
+          "implementationTaskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
+          "implementationBranch": "codex/ui-scroll-area",
+          "status": "in_progress"
+        },
+        {
+          "component": "native-select",
+          "title": "Review and merge Native Select",
+          "taskId": "01a08558-4ae6-7db2-bdd6-ee1b7d91d022",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4d1e/discourse-native",
+          "branch": "codex/review-native-select",
+          "implementationTaskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
+          "implementationBranch": "codex/ui-native-select",
+          "status": "in_progress"
+        },
+        {
+          "component": "chart",
+          "title": "Review and merge Chart",
+          "taskId": "01a08558-4ae6-7db2-bdd6-ee52e8570ff3",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c0d7/discourse-native",
+          "branch": "codex/review-chart",
+          "implementationTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
+          "implementationBranch": "codex/ui-chart",
+          "status": "in_progress"
+        },
+        {
+          "component": "table",
+          "title": "Review and merge Table",
+          "taskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fdec/discourse-native",
+          "branch": "codex/review-table",
+          "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
+          "implementationBranch": "codex/ui-table",
+          "status": "in_progress"
+        },
+        {
+          "component": "progress",
+          "title": "Review and merge Progress",
+          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
+          "branch": "codex/review-progress",
+          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+          "implementationBranch": "codex/ui-progress",
+          "status": "in_progress"
+        },
+        {
+          "component": "textarea",
+          "title": "Review and merge Textarea",
+          "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ea56/discourse-native",
+          "branch": "codex/review-textarea",
+          "implementationTaskId": "01a08437-208f-7332-b373-192eaada5844",
+          "implementationBranch": "codex/ui-textarea",
+          "status": "in_progress"
+        },
+        {
+          "component": "field",
+          "title": "Review and merge Field",
+          "taskId": "01a08558-7a22-7f53-a798-52669b7ddef5",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/95bf/discourse-native",
+          "branch": "codex/review-field",
+          "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
+          "implementationBranch": "codex/ui-field",
+          "status": "in_progress"
+        },
+        {
+          "component": "slider",
+          "title": "Review and merge Slider",
+          "taskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d2da/discourse-native",
+          "branch": "codex/review-slider",
+          "implementationTaskId": "01a083ce-313a-7362-ada6-57dc14221509",
+          "implementationBranch": "codex/ui-slider",
+          "status": "in_progress"
+        },
+        {
+          "component": "resizable",
+          "title": "Review and merge Resizable",
+          "taskId": "01a08558-7acd-73d3-a690-2e5ceb920d6c",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ec10/discourse-native",
+          "branch": "codex/review-resizable",
+          "implementationTaskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
+          "implementationBranch": "codex/ui-resizable",
+          "status": "in_progress"
+        },
+        {
+          "component": "dialog",
+          "title": "Review and merge Dialog",
+          "taskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/49f1/discourse-native",
+          "branch": "codex/review-dialog",
+          "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932",
+          "implementationBranch": "codex/ui-dialog",
+          "status": "in_progress"
+        },
+        {
+          "component": "marker",
+          "title": "Review and merge Marker",
+          "taskId": "01a08558-a798-7b71-98a9-94ae87eae13d",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8a02/discourse-native",
+          "branch": "codex/review-marker",
+          "implementationTaskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
+          "implementationBranch": "codex/ui-marker",
+          "status": "in_progress"
+        },
+        {
+          "component": "collapsible",
+          "title": "Review and merge Collapsible",
+          "taskId": "01a08558-a79c-7911-8f75-53b3528fc08f",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c91e/discourse-native",
+          "branch": "codex/review-collapsible",
+          "implementationTaskId": "01a08445-7647-7a83-a366-e06252405043",
+          "implementationBranch": "codex/ui-collapsible",
+          "status": "in_progress"
+        },
+        {
+          "component": "popover",
+          "title": "Review and merge Popover",
+          "taskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/b664/discourse-native",
+          "branch": "codex/review-popover",
+          "implementationTaskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
+          "implementationBranch": "codex/ui-popover",
+          "status": "in_progress"
+        },
+        {
+          "component": "alert",
+          "title": "Review and merge Alert",
+          "taskId": "01a08558-ae1e-7843-8cff-724c8e877ba5",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ae77/discourse-native",
+          "branch": "codex/review-alert",
+          "implementationTaskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
+          "implementationBranch": "codex/ui-alert",
+          "status": "in_progress"
+        },
+        {
+          "component": "empty",
+          "title": "Review and merge Empty",
+          "taskId": "01a08558-ae1d-7d61-a060-dd8cce1380fc",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ffcf/discourse-native",
+          "branch": "codex/review-empty",
+          "implementationTaskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
+          "implementationBranch": "codex/ui-empty",
+          "status": "in_progress"
+        },
+        {
+          "component": "item",
+          "title": "Review and merge Item",
+          "taskId": "01a08558-aec4-7591-ac85-682a1eae4290",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d14a/discourse-native",
+          "branch": "codex/review-item",
+          "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
+          "implementationBranch": "codex/ui-item",
+          "status": "in_progress"
+        }
+      ],
+      "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks."
+    },
+    "resourceCoordination": {
+      "main": "Shared main lease; reviewer owns local merge.",
+      "desktop": "Shared desktop lease for browser and native review; live owner is in Git common directory, not cached here."
     }
   },
   "visualFidelity": {
@@ -3105,6 +3345,18 @@
       "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
       "dependency": "native-select",
       "requirement": "After Native Select source lands, verify DNativeSelect in DPopover: select a non-focused popup entry beyond parent bounds without closing parent, then menu-first/Popover-second Escape. Current multi-entry native MenuAnchor regression passes; do not claim DNativeSelect composition has run."
+    },
+    "reviewPrerequisites": {
+      "input-group": {
+        "status": "waiting_for_textarea_merge",
+        "requestedBy": "01a08558-ae1d-7d61-a060-dd8cce1380fc",
+        "nextAction": "Dispatch Input Group implementation from main after Textarea lands; implementer creates its own final reviewer. Required for Empty composition."
+      },
+      "dropdown-menu": {
+        "status": "waiting_for_popover_merge",
+        "requestedBy": "01a08558-aec4-7591-ac85-682a1eae4290",
+        "nextAction": "Dispatch Dropdown Menu implementation from main after Popover lands; implementer creates its own final reviewer. Required for Item and Table compositions."
+      }
     }
   }
 }
