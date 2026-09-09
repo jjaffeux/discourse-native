@@ -18,7 +18,7 @@ Local snapshots are under `reference/`, with the existing shadcn MIT license.
 | [Lucide bookmark](https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/bookmark.svg) | `1d5023760db81f21c3b5a63f012ef540acc01932731c733e4645012a876d39f4` |
 | [Lucide arrow-up-right](https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/arrow-up-right.svg) | `50b2503b9d11881142255466b7e3461d022b919735841c321d72003ac9959fe1` |
 
-The example icons preserve these SVG paths, 24-unit view boxes, 2-unit strokes,
+The upstream SVG snapshots above are retained as provenance. Live browser inspection found older bundled badge-check and bookmark paths; the examples now preserve the live bundled paths recorded in evidence/badge/reference-light-metrics.json, 24-unit view boxes, 2-unit strokes,
 round joins and caps. Attribution is in `licenses/lucide.txt`. Generic DBadge
 accepts arbitrary child artwork; app callers retain their existing DIcon symbols.
 
@@ -33,7 +33,7 @@ CSS pixels map to Flutter logical pixels at a 16px rem root and 100% text scale.
 | text-xs, font-medium | DiscourseTypography.xs 12px, explicit 16px leading, weight 500, zero tracking; host font family |
 | px-2, icon-side p-1.5 | 8px logical text-side inset, 6px icon-side inset; border adds 1px |
 | gap-1, svg size-3 | 4px gaps, fixed 12px fitted decorative icon/spinner slots |
-| rounded-4xl | 32px at default host radius 4; 8× host radius, clamped by Flutter at small dimensions. This is a finite 2rem radius, not rounded-full; tall labels need not be perfect capsules |
+| rounded-4xl | 2.6× host radius (10.4px at host default 4; 26px at reference radius 10), clamped by Flutter at small dimensions; tall labels need not be perfect capsules |
 | border, border-transparent | Always-present 1px border; outline uses DTokens.border |
 | default | primary / primaryForeground; interactive hover at 80% background opacity |
 | secondary | muted / foreground, matching the existing host secondary mapping; interactive hover at 80% opacity |
@@ -137,3 +137,36 @@ its lock icon by 3px. In narrow large-text rows, Chat now places the existing
 count/time metadata below the preview, leaving room for the title and lock.
 Normal rows retain their trailing metadata column. The existing real-shell
 regression now also asserts usable title width and the count's lower position.
+
+## Browser comparison (2026-09-09)
+
+The coordinator granted a browser-only slot while the Mac remained locked.
+Chrome captures and computed-style records are in `evidence/badge/`, alongside
+actual Flutter widget-test renderer exports. The saved harness loads macOS system
+fonts and uses the macOS target platform; it is not a running macOS app. Neutral
+comparison fixtures use radius 10 and reference gray focus/muted-foreground
+colors without modifying shared tokens. SF versus Geist glyph widths and
+anti-aliasing remain intentional host differences. Matched 638×288 exports show
+20px compact bounds, directional 12px artwork, and corresponding light/dark
+variants, custom colors, spinner and RTL layouts. Settled hover and keyboard
+focus are captured separately. The website exposes five static variants and a
+default-styled link; the separate link variant is checked against source and
+Flutter exports, not falsely claimed as a live page example.
+
+The official website `apps/v4/app/globals.css` overrides the Tailwind radius
+scale: sm=.6×, md=.8×, lg=1×, xl=1.4×, 2xl=1.8×, 3xl=2.2×,
+4xl=2.6×. The live base radius is .625rem (10px), yielding 26px for Badge.
+The registry only names rounded-4xl; base-nova style.json contains no radius
+values. Tailwind's default 2rem value is superseded by the website override.
+Full source snapshots, URLs, hashes and compiled-style evidence are preserved
+in `reference-radius-stylesheets.json`, `reference-website-globals.css` and
+`reference-base-nova-style.json`. This correction affects only Badge. Shared
+component radius mappings require their owners' separate audit: additive and
+multiplicative small-radius formulas can coincide at 10 and diverge elsewhere.
+
+Four host-palette large RTL exports and actual migration fixtures were also
+rendered. The profile overlay export confirms staff/count composition; its
+route inherits default text scaling, so it does not establish 200% overlay
+coverage. The native checklist remains pending. The reference dark theme was
+restored, no viewport override was applied, the sole task tab was closed, and
+the browser slot was explicitly released.

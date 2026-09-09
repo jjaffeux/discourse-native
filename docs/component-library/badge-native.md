@@ -1,10 +1,9 @@
 # Badge native review checkpoint
 
 Status: **awaiting an explicit coordinator inspection slot and an unlocked Mac**.
-No CUA, native launch, reference-browser rendering inspection, screenshots, or
-native interaction checks have been performed by this Badge task. Source
-inspection and widget tests do not establish rendered visual fidelity. This
-component is not `review_ready` yet.
+Browser-only reference inspection and widget-renderer comparison are complete;
+see `badge.md` and `evidence/badge/`. No native launch or native interaction
+checks were performed. This component is not `review_ready` yet.
 
 ## Prepared app
 
@@ -22,8 +21,8 @@ component is not `review_ready` yet.
   user's running application are unchanged.
 - All `lib/**/*.dart`, `tool/component_review/*.dart` and `test/support/*.dart`
   bytes match the current checkout. Sorted path + NUL + content manifest SHA256:
-  `cfa95741429cdc8d41f8c68b011927bed293621cbbddfa95cf47c62117b4e7f7`.
-- Built kernel SHA256: `e564fcb3597e0a99ec28338ae5458732de1467dd79f2deb2ad0642afb5effc95`.
+  `de4845384d03b98c2b256b14c0c3f8c0fad05be958ff607c891701a0371934e8`.
+- Built kernel SHA256: `67aa39c270c5d327475f7b1d3e510b4e8dbe5ceff410366afff2a45958aa5d49`.
 
 ## Pending inspection plan
 
@@ -62,5 +61,11 @@ release it explicitly.
   touch hit testing, large RTL labels, 0/1/4/12 host radii at 300%, local navigation,
   loading completion/restart and sample state retention.
 - iOS target-platform widget checks are not iOS device testing. No iOS/Linux
-  device run, VoiceOver speech, screenshot comparison or native focus success is
+  device run, VoiceOver speech or native focus success is
   claimed at this checkpoint.
+
+- Browser followup: 39 focused tests pass, seed 792027
+  (`/private/tmp/badge-browser-fix-tests.log`); actual widget export harness passes
+  (`/private/tmp/badge-export.log`). Reference screenshots and test-renderer
+  images are clearly distinguished in `evidence/badge/`. The signed isolated
+  bundle was rebuilt after the radius and SVG corrections, without launching.

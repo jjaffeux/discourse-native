@@ -165,7 +165,7 @@ class _DBadgeState extends State<DBadge> {
     final destructiveRing =
         widget.invalid || widget.variant == DBadgeVariant.destructive;
     final ringColor = destructiveRing ? tokens.destructive : tokens.focusRing;
-    final radius = BorderRadius.circular(tokens.radius * 8);
+    final radius = BorderRadius.circular(tokens.radius * 2.6);
     final border = widget.invalid
         ? tokens.destructive
         : focus

@@ -255,7 +255,7 @@ void main() {
         );
         expect(
           _decoration(tester).borderRadius,
-          BorderRadius.circular(radius * 8),
+          BorderRadius.circular(radius * 2.6),
         );
         expect(
           tester
