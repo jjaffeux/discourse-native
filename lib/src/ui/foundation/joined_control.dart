@@ -11,18 +11,27 @@ class DJoinedControlScope extends InheritedWidget {
     required this.first,
     required this.last,
     required super.child,
-  });
+  }) : _boundary = false;
+
+  /// Stops an ancestor group's geometry from leaking into detached content.
+  const DJoinedControlScope.boundary({super.key, required super.child})
+    : axis = Axis.horizontal,
+      first = true,
+      last = true,
+      _boundary = true;
 
   final Axis axis;
   final bool first;
   final bool last;
+  final bool _boundary;
 
   bool get omitsLeadingBorder => !first;
 
-  static DJoinedControlScope? maybeOf(BuildContext context) =>
-      LookupBoundary.dependOnInheritedWidgetOfExactType<DJoinedControlScope>(
-        context,
-      );
+  static DJoinedControlScope? maybeOf(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<DJoinedControlScope>();
+    return scope?._boundary == true ? null : scope;
+  }
 
   BorderRadius resolveRadius(
     BorderRadiusGeometry radius,
@@ -53,5 +62,6 @@ class DJoinedControlScope extends InheritedWidget {
   bool updateShouldNotify(DJoinedControlScope oldWidget) =>
       axis != oldWidget.axis ||
       first != oldWidget.first ||
-      last != oldWidget.last;
+      last != oldWidget.last ||
+      _boundary != oldWidget._boundary;
 }

@@ -165,19 +165,31 @@ DButtonGroup(children: [
         'Controlled value',
         'Numeric input',
       ],
-      code: '''// Replace currencyMenu with DSelect when the rich Select owner merges.
+      code:
+          '''// Replace currencyMenu with DSelect when the rich Select owner merges.
 DButtonGroup(children: [currencyMenu, amountInput, sendButton])''',
       builder: (_) => const _CurrencyFixture(),
     ),
     StyleguideExample(
-      title: 'Popover composition handoff',
+      title: 'Popover composition',
       description:
-          'The Copilot split trigger opens a local anchored card without network '
-          'work. Final review replaces it with DPopover after its reviewer merges.',
-      states: const ['Pending Popover owner', 'Anchored content', 'Focus'],
+          'The Copilot split trigger opens the library Popover without network '
+          'work. Popup content stays outside the joined control geometry.',
+      states: const ['Popover', 'Anchored content', 'Focus restoration'],
       code: '''DButtonGroup(children: [
   DButton(label: Text('Copilot'), onPressed: startCopilot),
-  popoverTrigger,
+  DPopover(
+    child: DPopoverTrigger(builder: (_, state) =>
+      DButton.iconOnly(
+        hasPopup: true,
+        expanded: state.open,
+        tooltip: 'Open Copilot task form',
+        icon: Icon(Icons.keyboard_arrow_down),
+        onPressed: state.toggle,
+      ),
+    ),
+    content: DPopoverContent(child: taskForm),
+  ),
 ])''',
       builder: (_) => const _PopoverFixture(),
     ),
@@ -551,30 +563,28 @@ class _PopoverFixture extends StatelessWidget {
         label: const Text('Copilot'),
         onPressed: () {},
       ),
-      MenuAnchor(
-        menuChildren: const [
-          SizedBox(
-            width: 280,
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Start a new task with Copilot'),
-                  SizedBox(height: 4),
-                  Text('Describe your task in natural language.'),
-                ],
+      DPopover(
+        content: const DPopoverContent(
+          semanticLabel: 'Copilot task form',
+          child: DPopoverHeader(
+            children: [
+              DPopoverTitle(child: Text('Start a new task with Copilot')),
+              DPopoverDescription(
+                child: Text('Describe your task in natural language.'),
               ),
-            ),
+            ],
           ),
-        ],
-        builder: (context, menu, child) => DButton.iconOnly(
-          variant: DButtonVariant.outline,
-          hasPopup: true,
-          expanded: menu.isOpen,
-          icon: const Icon(Icons.keyboard_arrow_down),
-          tooltip: 'Open Copilot task form',
-          onPressed: menu.isOpen ? menu.close : menu.open,
+        ),
+        child: DPopoverTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            variant: DButtonVariant.outline,
+            hasPopup: true,
+            expanded: state.open,
+            icon: const Icon(Icons.keyboard_arrow_down),
+            tooltip: 'Open Copilot task form',
+            focusNode: state.focusNode,
+            onPressed: state.toggle,
+          ),
         ),
       ),
     ],

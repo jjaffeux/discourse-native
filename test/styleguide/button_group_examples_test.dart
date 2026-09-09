@@ -3,6 +3,7 @@ import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/button_group_examples.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -18,7 +19,7 @@ void main() {
       'Input Group composition',
       'Dropdown menu',
       'Rich Select composition handoff',
-      'Popover composition handoff',
+      'Popover composition',
       'RTL',
     ]);
     expect(
@@ -103,6 +104,26 @@ void main() {
     expect(find.byType(DInputGroupInput), findsOneWidget);
     expect(find.byType(DInputGroupButton), findsOneWidget);
   });
+
+  testWidgets(
+    'popover fixture uses the public overlay and restores its trigger',
+    (tester) async {
+      await _pump(tester, 9);
+      final trigger = find.byTooltip('Open Copilot task form');
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(find.text('Start a new task with Copilot'), findsOneWidget);
+      expect(find.byType(DPopoverContent), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DPopoverContent), findsNothing);
+      expect(
+        Focus.of(tester.element(find.byType(FilledButton).last)).hasFocus,
+        isTrue,
+      );
+    },
+  );
 }
 
 Future<void> _pump(

@@ -321,21 +321,22 @@ void main() {
       DButtonGroup(
         children: [
           const DButton(label: Text('Follow'), onPressed: _noop),
-          MenuAnchor(
-            menuChildren: const [
-              LookupBoundary(
-                child: DButton(
-                  key: ValueKey('overlay-action'),
-                  label: Text('Overlay action'),
-                  onPressed: _noop,
-                ),
+          DPopover(
+            content: const DPopoverContent(
+              child: DButton(
+                key: ValueKey('overlay-action'),
+                label: Text('Overlay action'),
+                onPressed: _noop,
               ),
-            ],
-            builder: (context, menu, child) => DButton.iconOnly(
-              icon: const Icon(Icons.keyboard_arrow_down),
-              tooltip: 'More',
-              onPressed: menu.open,
-              variant: DButtonVariant.outline,
+            ),
+            child: DPopoverTrigger(
+              builder: (context, state) => DButton.iconOnly(
+                icon: const Icon(Icons.keyboard_arrow_down),
+                tooltip: 'More',
+                focusNode: state.focusNode,
+                onPressed: state.toggle,
+                variant: DButtonVariant.outline,
+              ),
             ),
           ),
         ],
