@@ -8,11 +8,13 @@ networking adapters and production migrations remain unchanged.
 
 ## Source and acceptance scope
 
-Native fixture source: `fda8a23dce3ac0d5e73ce6346744907b87e89ff2`, prepared
+Native fixture source: `03d5a976417dc8e0c1f33d97a2290c87ccf45537`, prepared
 from accepted local main `7b09b62dc83b4c56665794be0548a659e0ed8c32` by merging
 the reviewed branch into a new candidate based on main. Main was not merged
-into the worktree. The subsequent test-only brace lint correction does not
-change any library, example or fixture source.
+into the worktree. Automated runtime verification was completed at
+`fda8a23dce3ac0d5e73ce6346744907b87e89ff2`; subsequent changes only correct a
+test brace lint and the displayed Direction usage snippet. The final native
+bundle was rebuilt to include that exact snippet source as well.
 
 Accepted final owners are Button
 `eb6d8ea0d9417f0edc830c5ce715b52436f12c94` and Dropdown Menu
@@ -126,9 +128,9 @@ with local pending/error/PNG responses. All actions mutate only local sample sta
 Controls expose light/dark/Forest/Plum, 360px, 200%, RTL and reduced motion; the
 actual full styleguide remains reachable from the same executable.
 
-Review bundle: `/private/tmp/Avatar Compositions Final 47e2 r2.app`.
-Identity: `org.discourse.avatarcompositions.final.47e2.r2`;
-scheme: `discourse-avatar-compositions-final-47e2-r2`.
+Review bundle: `/private/tmp/Avatar Compositions Final 47e2 r3.app`.
+Identity: `org.discourse.avatarcompositions.final.47e2.r3`;
+scheme: `discourse-avatar-compositions-final-47e2-r3`.
 The built bundle was copied and only that copy's identity/signature was changed.
 Its embedded provisioning profile was moved out of the copy. The copied bundle
 is ad-hoc signed without push/team/application-identity entitlements; readback
@@ -138,12 +140,12 @@ passed. No real app provisioning or OS settings were changed.
 
 SHA256 agreement across `.dart_tool/flutter_build/ecc69156f4b154d909a8d39094049b93/app.dill`,
 the built Discourse bundle's kernel and the isolated review bundle's kernel:
-`6d358f1f6cc33cb53c14be6dfe9fbce03c108cc3e4b96819ad50c7cdd864ec07`.
+`cd0479edad24bc77d41a636385863272b37b36747e5d7565589d75262c8b5538`.
 
 | Source | SHA256 |
 | --- | --- |
 | Avatar examples | `c1dcb12521a7c8e5224b3c7982306b4037baf28069fce699ce6eb814fe7bd97e` |
-| Direction examples | `d2d9d99fbf4989c75743be7b6291ccd24aee68c674f8f1ad1d7b3a99a14e865b` |
+| Direction examples | `7a965dc38afd194d1555cf042f74ab0d4f9a1adb168bcb72b38601abb5b9ee13` |
 | Generic Avatar | `732bc8917c8e8086fa359000de0ff4de90b07047ff4be51e79418074e5a9eac0` |
 | Dropdown Menu | `bcc8a7d9bef188047f711197835c5bfbdb225606a565e85f05030ae6aa03bf22` |
 | Native fixture | `f95ece9b388b140b04b6a1383b20b93aa1ed27197e4f42c8956143b114269f3b` |
