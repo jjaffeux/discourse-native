@@ -70,8 +70,47 @@ lockfiles remain byte-identical.
   [Build provenance](evidence/sidebar/final-composition-build.json) records
   the source, bundle, source hashes, kernel and local-debug entitlements.
 
-The required current browser/native composition inspection is pending the
-canonical FIFO desktop lease. Earlier Sidebar native evidence remains in
-[sidebar-native.md](sidebar-native.md); it does not establish acceptance of
-the changed mobile and final-owner compositions. No new native result is
-claimed yet.
+## Final rendered and native inspection
+
+On 2026-09-09, this reviewer inspected the official base-nova embedded demo
+(`/view/base-nova/sidebar-demo`) and the exact isolated bundle above under the
+canonical desktop lease. Browser screenshots showed expanded dark/light
+navigation, workspace/account dropdowns and the collapsed icon rail with a
+round Avatar. The reference outer widths are 256px expanded and 48px collapsed
+(observed inner widths 255px and 47px). Different capture sizes and application
+fonts/palettes preclude a pixel-diff equality claim.
+
+Native screenshots and interactions in this task verified:
+
+- All six retained examples, neutral Light/Dark and the Forest site palette.
+  Controlled inset toggles to its local Collapsed feedback; documentation
+  retains compact rows; failure/Retry restores ready navigation with the final
+  workspace/Input and Avatar footer intact.
+- Workspace selection changes the trigger and local feedback. Account menus
+  render beside the panel; Escape restores the trigger and Return reopens it,
+  including in the collapsed floating rail. The 32px Avatar fits without the
+  reproduced overflow; no collapsed Projects disclosure target remains.
+- Projects collapses by pointer and expands with Space. Content scrolling
+  leaves the workspace/search header and account footer fixed.
+- At 360px, RTL, 200% text and reduced motion, the physical-right Sheet keeps
+  the 288px panel contract. Workspace/account menus open vertically and remain
+  visible. Workspace selection leaves the Sheet open. Escape closes the popup
+  first, then the Sheet; Return reopens the Sheet from restored toggle focus.
+  Enlarged content scrolls independently and selecting Home closes the Sheet.
+- Resizing the actual styleguide window below its mobile breakpoint opens
+  its real documentation navigation through Browse components. Literal typed
+  search filters to Sidebar, and selecting the result closes the Sheet.
+
+The earlier [native record](sidebar-native.md) explicitly reports the same
+native synthetic-modifier limitation observed again here: Cmd/Ctrl+B and
+Cmd/Ctrl+K did not produce a visible response through CUA. These bindings and
+mobile search initial focus pass automated tests; they are not claimed as
+native-verified. Return, Escape, Space, pointer actions and literal typing
+worked. No spoken VoiceOver, iOS/Android/Linux device, authenticated account
+flow, full-suite or comprehensive native accessibility claim is made.
+
+The reference tab was closed, original browser theme restored, and the isolated
+Sidebar app quit through its native menu; absence from the running-app list
+was verified. The desktop lease was released. Final-owner composition review
+is accepted with these explicit evidence limits; the original Sidebar merge
+remains unchanged.

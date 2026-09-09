@@ -4203,9 +4203,9 @@
       "decisions": [
         "Full mapping, API and dependency boundary: docs/component-library/sidebar.md. Official base-nova registry hash 02b1ea430fb246da062048f0161a01d1b34a2c787f6974958c9b20a3142120a6.",
         "Provider exposes controlled/uncontrolled desktop and separate mobile state, configurable bounded-width breakpoint and scoped Cmd/Ctrl+B. Native modal route owns focus/dismissal; site colors/fonts/radius update live.",
-        "Operational Flutter dependencies are the completed Tooltip, Separator and Skeleton components. Sheet/Input/Collapsible remain pending catalogue owners; native modal/TextField and local disclosure composition do not claim those tasks complete. The frozen website dependency graph stays unchanged in catalogue.json.",
+        "At the original acceptance, Sheet/Input/Collapsible owners were pending. This historical boundary is superseded by the accepted finalCompositionReview using Sheet, Input, Collapsible, Dropdown Menu and Avatar. The frozen website dependency graph stays unchanged in catalogue.json.",
         "Native review fixed floating icon2px overflow by painting its border outside layout and gave the mobile shortcut subtree initial focus. Pointer actions own keyboard focus; iOS/Android48px hit areas preserve compact visuals; leaving mobile clears obsolete openMobile. Public API remains stable.",
-        "Required final compositions are assigned to Finish and review Sidebar compositions (01a086cd-3f9c-75b0-bda3-7d495758a941). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge."
+        "Final compositions were independently completed and accepted by Finish and review Sidebar compositions (01a086cd-3f9c-75b0-bda3-7d495758a941); fixes, reference/native evidence and the separate follow-up merge are tracked in finalCompositionReview. The original component merge remains accepted."
       ],
       "migrations": [
         "Public barrel export and six independent sidebar_examples.dart examples registered.",
@@ -4225,7 +4225,7 @@
       "limitations": [
         "Native CUA Cmd/Ctrl+B attempts did not visibly toggle; exact bindings pass widget tests. Return,Tab and Escape visibly verified. No spoken VoiceOver or iOS/Linux device run.",
         "Reference/native capture dimensions differ; intrinsic metrics and visual comparison,not pixel-diff equality. Sample labels/caller icons and app font/palette differ.",
-        "The documentation shell is the first verified adoption. Live forum/Chat adapters remain retained; pending Sheet/Input/Collapsible/Dropdown Menu owners are not declared complete."
+        "The documentation shell remains the verified adoption; live forum/Chat domain adapters are retained. The original pending-owner limitation is superseded by finalCompositionReview."
       ],
       "implementationCommit": "47aabf60e65dff047cdf80dd6e29203a93fb8012",
       "mergeCommit": "93bfcf65f64868c92340f9aec8236d77585c3cd8",
@@ -4272,12 +4272,12 @@
           "sha256": "a48b885e4d6f0d8d1cb143ef436b80b90ebcf5e548347d455f6b201dcb637971"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "awaiting_native_review",
+        "status": "accepted",
         "sourceCommit": "63e2ee17ce344f1586a80b11b3ba74433fc6792c",
         "candidateCommit": "6e57eda0815568c5a8176bb22dc8030209e8223f",
         "evidence": "docs/component-library/sidebar-final-composition.md",
         "nativeBuild": "docs/component-library/evidence/sidebar/final-composition-build.json",
-        "verification": "32 focused Sidebar/Sheet/example checks, 15 real styleguide widget regressions and the corrected catalogue metadata test pass. Root/full analysis and isolated macOS build pass. Browser/native composition inspection is pending the desktop FIFO lease."
+        "verification": "32 focused Sidebar/Sheet/example checks, 15 real styleguide widget regressions and the corrected catalogue metadata test pass. Root/full analysis and isolated macOS build pass. Official rendered reference and exact-source native final-owner compositions accepted; synthetic modifier shortcuts remain automated-only evidence as documented. Own app/tab cleaned up and desktop released."
       }
     },
     {
@@ -5369,12 +5369,12 @@
           "sha256": "a48b885e4d6f0d8d1cb143ef436b80b90ebcf5e548347d455f6b201dcb637971"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "awaiting_native_review",
+        "status": "accepted",
         "sourceCommit": "63e2ee17ce344f1586a80b11b3ba74433fc6792c",
         "candidateCommit": "6e57eda0815568c5a8176bb22dc8030209e8223f",
         "evidence": "docs/component-library/sidebar-final-composition.md",
         "nativeBuild": "docs/component-library/evidence/sidebar/final-composition-build.json",
-        "verification": "32 focused Sidebar/Sheet/example checks, 15 real styleguide widget regressions and the corrected catalogue metadata test pass. Root/full analysis and isolated macOS build pass. Browser/native composition inspection is pending the desktop FIFO lease."
+        "verification": "32 focused Sidebar/Sheet/example checks, 15 real styleguide widget regressions and the corrected catalogue metadata test pass. Root/full analysis and isolated macOS build pass. Official rendered reference and exact-source native final-owner compositions accepted; synthetic modifier shortcuts remain automated-only evidence as documented. Own app/tab cleaned up and desktop released."
       },
       {
         "component": "radio-group",
