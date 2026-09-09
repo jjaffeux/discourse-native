@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**28 of 64 components are merged locally.** 13 existing components are in progress; 23 are planned.
+**28 of 64 components are merged locally.** 14 existing components are in progress; 22 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -26,7 +26,8 @@ Branch preparation does not mark a component merged or visually verified.
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | input-group | Implementation and checks | — | — |
-| button-group | Implementation and checks | — | — |
+| button-group | independent review | 407de2e2 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
+| dropdown-menu | Implementation and checks | — | — |
 | carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
 
@@ -77,7 +78,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | planned | — | — | input, dialog, scroll-area | — |
 | 43 | combobox | planned | — | — | input, popover, command | — |
-| 44 | dropdown-menu | planned | — | — | popover, checkbox, radio-group | — |
+| 44 | dropdown-menu | in_progress | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
 | 45 | context-menu | planned | — | — | dropdown-menu | — |
 | 46 | menubar | planned | — | — | dropdown-menu | — |
 | 47 | navigation-menu | planned | — | — | popover | — |
@@ -2109,6 +2110,7 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 - Focused Button Group/styleguide/ContentNavigationControls tests passed after current-main integration: flutter test --no-pub test/d_button_group_test.dart test/styleguide/button_group_examples_test.dart test/content_navigation_controls_test.dart --test-randomize-ordering-seed=random --reporter expanded, 33 passed, seed 3618609876.
 - Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed after review integration with no issues. flutter build macos --debug --no-pub passed and produced build/macos/Build/Products/Debug/Discourse.app.
 - After merging current main fb790fcd, the focused Button Group/styleguide/ContentNavigationControls test set passed again: 33 passed, seed 182403803. Root and profiles/full flutter analyze --no-pub passed with no issues, git diff --check passed, and flutter build macos --debug --no-pub rebuilt build/macos/Build/Products/Debug/Discourse.app.
+- Created the persisted reviewer task `Review and merge Button Group` (`01a0859e-170c-7821-b0fd-9ff24a9bfaac`) in isolated worktree `/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native` on `codex/review-button-group`; it owns dependency reconciliation, remaining rendered/native review, fixes, verification and the final local-main merge.
 
 **limitations**
 
@@ -2117,6 +2119,14 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 - DInput joined-edge painting was source- and widget-tested after replacing its uniform BoxDecoration with an equivalent animated custom decoration, but requires rendered pixel comparison in final review.
 - Current main fb790fcd records Input Group as in_progress under task 01a085af-d606-7281-ac25-34c83adc855e on codex/ui-input-group, after dispatch commit af91afb9. Dropdown Menu and rich Select remain planned, and Popover remains in_progress under review branch codex/review-popover. Button Group remains in_progress and its styleguide remains baseline until those final public components can replace the local handoff fixtures.
 - The desktop lease was busy during this review continuation, held by Alert with other reviewers already queued. The mistaken queue request under an unrelated reviewer ID was cancelled immediately; no Button Group browser/native/CUA action was performed and no desktop lease is currently held.
+
+### dropdown-menu
+
+Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dropdown-menu.
+
+**decisions**
+
+- Dropdown Menu source implementation is owned by task 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Button Group final composition must wait for the committed accepted DDropdownMenu API SHA and replace only the explicitly labeled Dropdown Menu handoff fixture.
 
 ### carousel
 
