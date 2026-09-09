@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**41 of 64 components are merged locally.** 23 existing components are in progress; 0 are planned.
+**42 of 64 components are merged locally.** 22 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -38,7 +38,6 @@ Branch preparation does not mark a component merged or visually verified.
 | message-scroller | independent review | 1e49e130 | 01a08639-b066-7882-85f5-a7729bfd111b |
 | data-table | independent review | 679db98d | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
 | input-otp | Implementation and checks | — | — |
-| questionnaire | accepted | b7fcd56e | 01a08633-c9ed-7062-86c4-16b0835eb303 |
 
 ## Component implementation
 
@@ -107,7 +106,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
 | 63 | input-otp | in_progress | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | — |
-| 64 | questionnaire | implemented | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | — |
+| 64 | questionnaire | merged | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | 4217ffe98a37c61510d464f21cfef87c563e82f1 |
 
 ## Decisions and evidence
 
@@ -2936,7 +2935,7 @@ Status: in_progress. Task: 01a08606-ca44-78f3-98f2-d147200278ef. Branch: codex/u
 
 ### questionnaire
 
-Status: implemented. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-questionnaire.
+Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-questionnaire.
 
 **acceptanceCriteria**
 
@@ -2979,6 +2978,7 @@ Status: implemented. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 - The exact-source uniquely identified macOS fixture was built, ad-hoc signed and deep/strict verified. Native inspection exercised the three-step flow, empty validation, radio and checkbox keyboard behavior, disabled shortcut mapping, ordinary freeform editing, progress/action changes and the public example geometry. The final kernel SHA-256 was 77e51f8523b54537b4ad78eddd62f7d4a49b95b5c611d001ee4642329245261c.
 - Independent-review root and profiles/full flutter analyze --no-pub were clean; locked pub resolution, touched formatting and git diff --check passed. Accepted source commit after latest-main reconciliation: b7fcd56ecb661ce320e305e6263373f090741d4f.
 - After reconciliation onto local main 28723e4fe98560a35b897be1e2b70b38c67c1a4a, 129 combined Questionnaire and composed-owner tests passed with randomized seed 847291; root and profiles/full analysis remained clean.
+- The accepted candidate was merged from the repository's main checkout with no-fast-forward merge commit 4217ffe98a37c61510d464f21cfef87c563e82f1. No remote push or release action was performed.
 
 **limitations**
 

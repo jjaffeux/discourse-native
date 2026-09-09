@@ -3839,12 +3839,12 @@
     },
     {
       "id": "questionnaire",
-      "status": "implemented",
+      "status": "merged",
       "taskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
       "branch": "codex/ui-questionnaire",
       "reviewTaskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
       "reviewBranch": "codex/review-questionnaire",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "dependencies": [
         "field",
         "button",
@@ -3890,7 +3890,8 @@
         "Independent review added direct regressions and corrections for editable-field shortcut suppression with active-IME guarding, focus transfer after shortcut selection while disabled choices consume no slot, freeform Enter navigation, and logical RTL slide direction. Final focused Questionnaire coverage passed 23 tests; 139 composed Field/Input/Button/Progress/Card/Dialog/Native Select owner regressions passed.",
         "The exact-source uniquely identified macOS fixture was built, ad-hoc signed and deep/strict verified. Native inspection exercised the three-step flow, empty validation, radio and checkbox keyboard behavior, disabled shortcut mapping, ordinary freeform editing, progress/action changes and the public example geometry. The final kernel SHA-256 was 77e51f8523b54537b4ad78eddd62f7d4a49b95b5c611d001ee4642329245261c.",
         "Independent-review root and profiles/full flutter analyze --no-pub were clean; locked pub resolution, touched formatting and git diff --check passed. Accepted source commit after latest-main reconciliation: b7fcd56ecb661ce320e305e6263373f090741d4f.",
-        "After reconciliation onto local main 28723e4fe98560a35b897be1e2b70b38c67c1a4a, 129 combined Questionnaire and composed-owner tests passed with randomized seed 847291; root and profiles/full analysis remained clean."
+        "After reconciliation onto local main 28723e4fe98560a35b897be1e2b70b38c67c1a4a, 129 combined Questionnaire and composed-owner tests passed with randomized seed 847291; root and profiles/full analysis remained clean.",
+        "The accepted candidate was merged from the repository's main checkout with no-fast-forward merge commit 4217ffe98a37c61510d464f21cfef87c563e82f1. No remote push or release action was performed."
       ],
       "limitations": [
         "Official browser comparison and native macOS inspection are complete. Native IME composition itself was not synthesized; active-composition behavior is covered by a direct widget regression.",
@@ -3898,9 +3899,8 @@
       ],
       "implementationCommit": "3cedb9ad6c72ae9fc8eab26df7dd757704aeb111",
       "reviewCommit": "b7fcd56ecb661ce320e305e6263373f090741d4f",
-      "mergeCommit": null,
+      "mergeCommit": "4217ffe98a37c61510d464f21cfef87c563e82f1",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6d37/discourse-native",
-      "queueStage": "ready_for_merge",
       "implementationBrief": "Implement the full reference Questionnaire state machine and API, including Composition, Multiple Selection, Freeform Answer, Explicit Skip, Shortcuts, Custom Validation, Controlled, Resume, Conditional Items, Navigation State, Custom Progress, Animated Items, Card, Dialog, Accessibility and Unstyled modes. Correctly own typed answers, item identity, conditional visibility, visited/navigation/progress state, skipped-vs-empty answers, async validation cancellation, controlled acceptance, reset and serializable/resumable state. Preserve focus/keyboard shortcuts/announcements and readable transitions with reduced motion/narrow/RTL/large text. Use final Field/Button/Progress/Card/Dialog/Native Select owners and keep persistence/network/domain branching adapters outside generic widgets. Audit core/plugin surveys/onboarding/stepped forms; migrate appropriate real flows without altering required questions, permission or validation rules. Implement the reference behavior fully even if no current app usage exists, documenting the audit. Add meaningful state-transition, resume/conditional/backtracking/async-validation and real-consumer regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/questionnaire",
@@ -4236,17 +4236,6 @@
           "implementationTaskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
           "implementationBranch": "codex/ui-calendar",
           "headCommit": "4b86c11a85bec38911cc3f5558c9ba315eee3043"
-        },
-        {
-          "component": "questionnaire",
-          "taskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
-          "branch": "codex/review-questionnaire",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6384/discourse-native",
-          "status": "accepted",
-          "implementationTaskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
-          "implementationBranch": "codex/ui-questionnaire",
-          "headCommit": "b7fcd56ecb661ce320e305e6263373f090741d4f",
-          "phase": "ready_for_merge"
         },
         {
           "component": "message-scroller",
@@ -4706,18 +4695,6 @@
           "implementationBranch": "codex/ui-calendar",
           "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
           "status": "in_progress"
-        },
-        {
-          "component": "questionnaire",
-          "title": "Review and merge Questionnaire",
-          "taskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
-          "hostId": "local",
-          "branch": "codex/review-questionnaire",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6384/discourse-native",
-          "implementationTaskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
-          "implementationBranch": "codex/ui-questionnaire",
-          "implementationCommit": "3cedb9ad6c72ae9fc8eab26df7dd757704aeb111",
-          "status": "accepted"
         },
         {
           "component": "message-scroller",
