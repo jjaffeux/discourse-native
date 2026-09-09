@@ -1668,10 +1668,11 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 - Final focused tests: d_resizable_test, styleguide/resizable_examples_test, resizable_pane_test, panel_width_controller_headless_test, users_page_test, chat_thread_workspace_test passed (88 tests), including radius-zero, coarse targets, RTL collapsed-edge drag and all migrations.
 - Final root and full-profile flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed. Four extracted self-contained usage programs passed Dart analysis.
 - Isolated local-data native fixture built successfully from source 7ba6dd15a5134b195d8b9fb5fda6e457e8005eb0. Copied /tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app has unique name/ID/URL scheme; build app.dill and original/copied kernels share SHA256 564d2ae4fcee4c667fbd4aa80521d3454cef17195e76723758130b1398918b1b. Deep strict signature verification passed. See docs/component-library/resizable-native.md and evidence/resizable logs.
+- Integrated pinned main e612ad7b; source 0629571a58e927f480c03de909bdfd4f676cdbd1. 180 focused tests and root/full analysis pass. Unique isolated bundle /tmp/discourse-resizable-integration-0629571a/ResizableIntegration.app; kernel 2ffa27d7519d1edc17b8d8da3f204814298a298c4ae4b3c5cb10b76526f46840. Explicit restricted-free ad-hoc entitlement readback equals signing plist, allow-jit=true; deep strict signature passes. See resizable-native.md and evidence/resizable/integration.
 
 **limitations**
 
-- awaiting_slot: Mac locked; no browser/CUA/app launch performed. Native/reference-rendered light/dark/custom palette, large-text/RTL comparisons, real fixture inspection and VoiceOver/device behavior still pending. Not review_ready or mergeable.
+- awaiting_slot: integration complete; native/reference comparison pending. Mac locked and browser navigation separately denied admin-policy verification. No CUA/browser/native launch or blocker retry attempted. Not review_ready or mergeable.
 
 ### popover
 

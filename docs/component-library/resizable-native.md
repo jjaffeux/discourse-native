@@ -1,3 +1,37 @@
+# Current integrated review bundle
+
+Supersedes the older bundle/evidence below. Integration only; **awaiting_slot**.
+
+- Pinned main merged: `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7`.
+- Exact source/merge commit: `0629571a58e927f480c03de909bdfd4f676cdbd1`.
+- Bundle: `/tmp/discourse-resizable-integration-0629571a/ResizableIntegration.app`.
+- Name: Resizable Integration 0629571a; ID:
+  `org.discourse.native.resizable.integration0629571a`; URL scheme:
+  `resizable-integration-0629571a`.
+- Entrypoint: `lib/resizable_review_main.dart`. Existing Runner debug scheme
+  built in this isolated checkout; copied bundle alone receives unique identity.
+- Kernel SHA256 (app.dill, built bundle and copied bundle identical):
+  `2ffa27d7519d1edc17b8d8da3f204814298a298c4ae4b3c5cb10b76526f46840`.
+- Explicit ad-hoc signing uses the preserved `integration/debug.entitlements`.
+  Signed readback exactly equals that plist: sandbox, allow-jit, network
+  client/server, user-selected read/write, audio-input and camera are true.
+  No APS, team/application identity or `com.apple.developer.*` entitlements.
+  Deep strict signature verification passes; launch eligibility remains untested.
+- 180 focused tests pass (component/styleguide/pane/controller/Users/Chat plus
+  Topic Inbox and Group ownership). Root/full-profile analysis clean; touched
+  formatting and diff checks pass. Production runners, pins and lockfiles equal
+  pinned main. All non-Resizable progress rows exactly match pinned main.
+- Current Button export resolves the existing styleguide usage to final Button;
+  no unmerged owner or substitute input was added. Current main Group/Sidebar/
+  Topic Inbox changes are retained; resize constraint/collapse owner unchanged.
+- Evidence: `evidence/resizable/integration/`. Subsequent commits are metadata only.
+
+No CUA, browser navigation, native launch or blocker retries were attempted.
+Mac remains locked; browser navigation is separately denied by admin-policy
+verification. Park until coordinator explicitly resumes browser/native review.
+
+---
+
 # Resizable native review handoff
 
 Status: **awaiting_slot**, in_progress. No native app or browser was launched.
