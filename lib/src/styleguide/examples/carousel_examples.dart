@@ -164,7 +164,7 @@ class _CarouselDemo extends StatelessWidget {
       child: DCard(
         child: DCardContent(
           child: SizedBox(
-            height: 158,
+            height: 126,
             child: Center(
               child: Text(
                 label,
