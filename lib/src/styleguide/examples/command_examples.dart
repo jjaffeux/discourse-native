@@ -14,10 +14,13 @@ final commandExamples = ComponentExamples(
       'and keyboard navigation; DCommandDialog composes the shared DDialog owner. '
       'Search uses case-insensitive ranked matching across value and keywords, '
       'or accepts a custom score/filtering opt-out for server-owned results. '
-      'Arrow and Ctrl-N/P/J/K navigation keeps the text editor focused, Return '
-      'activates, and highlights scroll into view. Borrowed command, text, focus '
-      'and scroll controllers are never disposed. Because Flutter cannot inspect '
-      'arbitrary child text, non-string values should provide searchValue. '
+      'Arrow, Home/End, modified-arrow and Ctrl-N/P/J/K navigation keeps the '
+      'text editor focused; IME composition suppresses command bindings, Return '
+      'activates after commit, and highlights scroll into view. Separators hide '
+      'while filtering unless alwaysRender is set, and loading states can expose '
+      'progress. Borrowed command, text, focus and scroll controllers are never '
+      'disposed. Because Flutter cannot inspect arbitrary child text, non-string '
+      'values should provide searchValue. '
       'The existing anchored shell action menu now uses these public rows while '
       'retaining its distinct overlay placement and route-result adapter.',
   examples: [
@@ -49,7 +52,13 @@ final commandExamples = ComponentExamples(
       description:
           'Aliases participate in ranking; disabling local filtering supports externally supplied asynchronous results.',
       code: _customCode,
-      states: const ['Keywords', 'Custom score', 'Loading', 'Dynamic results'],
+      states: const [
+        'Keywords',
+        'Custom score',
+        'Loading',
+        'Progress semantics',
+        'Dynamic results',
+      ],
       builder: (_) => const SizedBox(width: 384, child: _CustomCommand()),
     ),
     StyleguideExample(
@@ -260,7 +269,10 @@ class _CustomCommandState extends State<_CustomCommand> {
             const DCommandInput<String>(placeholder: 'Search settings...'),
             DCommandList<String>(
               children: [
-                const DCommandLoading(child: Text('Fetching settings…')),
+                const DCommandLoading(
+                  semanticLabel: 'Fetching settings',
+                  child: Text('Fetching settings…'),
+                ),
                 const DCommandEmpty(child: Text('No matching settings.')),
                 DCommandGroup<String>(
                   heading: const Text('Settings'),

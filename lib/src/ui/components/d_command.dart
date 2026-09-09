@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsRole;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -28,6 +30,7 @@ class DCommandController<T> extends ChangeNotifier {
   bool _disposed = false;
   Object? _attachment;
   List<_DCommandEntry<T>> _entries = const [];
+  final Set<Object> _composingInputs = {};
   ValueChanged<T>? _activate;
   ValueChanged<String>? _queryRequest;
   ValueChanged<T?>? _valueRequest;
@@ -82,6 +85,7 @@ class DCommandController<T> extends ChangeNotifier {
     _valueRequest = null;
     _activate = null;
     _entries = const [];
+    _composingInputs.clear();
   }
 
   void _setQuery(String query) {
@@ -100,19 +104,17 @@ class DCommandController<T> extends ChangeNotifier {
     _entries = entries;
   }
 
-  void _move(int delta, {required bool loop}) {
-    if (_entries.isEmpty) return;
-    var index = _entries.indexWhere((entry) => entry.value == _value);
-    if (index < 0) {
-      index = delta < 0 ? _entries.length : -1;
-    }
-    var next = index + delta;
-    if (loop) {
-      next %= _entries.length;
+  bool get _isComposing => _composingInputs.isNotEmpty;
+
+  void _setInputComposing(Object input, bool composing) {
+    if (composing) {
+      _composingInputs.add(input);
     } else {
-      next = next.clamp(0, _entries.length - 1);
+      _composingInputs.remove(input);
     }
-    final entry = _entries[next];
+  }
+
+  void _selectEntry(_DCommandEntry<T> entry) {
     _valueRequest?.call(entry.value);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = entry.key.currentContext;
@@ -129,11 +131,54 @@ class DCommandController<T> extends ChangeNotifier {
     });
   }
 
+  void _move(int delta, {required bool loop}) {
+    if (_entries.isEmpty) return;
+    var index = _entries.indexWhere((entry) => entry.value == _value);
+    if (index < 0) {
+      index = delta < 0 ? _entries.length : -1;
+    }
+    var next = index + delta;
+    if (loop) {
+      next %= _entries.length;
+    } else {
+      next = next.clamp(0, _entries.length - 1);
+    }
+    _selectEntry(_entries[next]);
+  }
+
+  void _moveToBoundary({required bool last}) {
+    if (_entries.isEmpty) return;
+    _selectEntry(last ? _entries.last : _entries.first);
+  }
+
+  void _moveGroup(int delta, {required bool loop}) {
+    final currentIndex = _entries.indexWhere((entry) => entry.value == _value);
+    if (currentIndex < 0 || _entries[currentIndex].group == null) {
+      _move(delta, loop: loop);
+      return;
+    }
+    final groups = <Object>[];
+    for (final entry in _entries) {
+      final group = entry.group;
+      if (group != null && !groups.contains(group)) groups.add(group);
+    }
+    final currentGroup = groups.indexOf(_entries[currentIndex].group!);
+    final targetGroup = currentGroup + delta;
+    if (targetGroup < 0 || targetGroup >= groups.length) {
+      _move(delta, loop: loop);
+      return;
+    }
+    _selectEntry(
+      _entries.firstWhere((entry) => entry.group == groups[targetGroup]),
+    );
+  }
+
   @override
   void dispose() {
     _disposed = true;
     _attachment = null;
     _entries = const [];
+    _composingInputs.clear();
     super.dispose();
   }
 }
@@ -261,6 +306,7 @@ class _DCommandState<T> extends State<DCommand<T>> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    if (_controller._isComposing) return KeyEventResult.ignored;
     final keyboard = HardwareKeyboard.instance;
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.arrowDown ||
@@ -268,7 +314,13 @@ class _DCommandState<T> extends State<DCommand<T>> {
             keyboard.isControlPressed &&
             (key == LogicalKeyboardKey.keyN ||
                 key == LogicalKeyboardKey.keyJ))) {
-      _controller._move(1, loop: widget.loop);
+      if (keyboard.isMetaPressed) {
+        _controller._moveToBoundary(last: true);
+      } else if (keyboard.isAltPressed) {
+        _controller._moveGroup(1, loop: widget.loop);
+      } else {
+        _controller._move(1, loop: widget.loop);
+      }
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowUp ||
@@ -276,7 +328,21 @@ class _DCommandState<T> extends State<DCommand<T>> {
             keyboard.isControlPressed &&
             (key == LogicalKeyboardKey.keyP ||
                 key == LogicalKeyboardKey.keyK))) {
-      _controller._move(-1, loop: widget.loop);
+      if (keyboard.isMetaPressed) {
+        _controller._moveToBoundary(last: false);
+      } else if (keyboard.isAltPressed) {
+        _controller._moveGroup(-1, loop: widget.loop);
+      } else {
+        _controller._move(-1, loop: widget.loop);
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.home) {
+      _controller._moveToBoundary(last: false);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.end) {
+      _controller._moveToBoundary(last: true);
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.enter ||
@@ -349,7 +415,11 @@ double _defaultCommandFilter(
 ) {
   final needle = query.trim().toLowerCase();
   if (needle.isEmpty) return 1;
-  final haystack = '$value ${keywords.join(' ')}'.toLowerCase();
+  if (value.toLowerCase() == needle) return 1;
+  final haystack = [
+    value,
+    ...keywords,
+  ].where((part) => part.isNotEmpty).join(' ').toLowerCase();
   if (haystack == needle) return 1;
   if (haystack.startsWith(needle)) return .9;
   if (haystack.contains(needle)) return .7;
@@ -413,7 +483,9 @@ class DCommandInput<T> extends StatefulWidget {
 }
 
 class _DCommandInputState<T> extends State<DCommandInput<T>> {
+  final Object _attachment = Object();
   TextEditingController? _owned;
+  DCommandController<T>? _commandController;
   bool _syncing = false;
   TextEditingController get _editing => widget.controller ?? _owned!;
 
@@ -427,7 +499,13 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final query = _DCommandScope.of<T>(context).controller.query;
+    final controller = _DCommandScope.of<T>(context).controller;
+    if (!identical(controller, _commandController)) {
+      _commandController?._setInputComposing(_attachment, false);
+      _commandController = controller;
+    }
+    _syncComposing();
+    final query = controller.query;
     if (_editing.text != query) _replace(query);
   }
 
@@ -455,12 +533,24 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
       selection: TextSelection.collapsed(offset: text.length),
     );
     _syncing = false;
+    _syncComposing();
   }
 
   void _changed() {
     if (!_syncing && mounted) {
-      _DCommandScope.of<T>(context).controller.updateQuery(_editing.text);
+      _syncComposing();
+      final controller = _commandController!;
+      if (_editing.text != controller.query) {
+        controller.updateQuery(_editing.text);
+      }
     }
+  }
+
+  void _syncComposing() {
+    _commandController?._setInputComposing(
+      _attachment,
+      _editing.value.isComposingRangeValid,
+    );
   }
 
   @override
@@ -503,6 +593,7 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
 
   @override
   void dispose() {
+    _commandController?._setInputComposing(_attachment, false);
     _editing.removeListener(_changed);
     _owned?.dispose();
     super.dispose();
@@ -565,7 +656,13 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
       final score =
           !scope.shouldFilter || query.trim().isEmpty || item.forceMount
           ? 1.0
-          : scope.filter(item.effectiveSearchValue, query, item.keywords);
+          : scope.filter(
+              item.effectiveSearchValue.trim(),
+              query,
+              item.keywords
+                  .map((keyword) => keyword.trim())
+                  .toList(growable: false),
+            );
       if (score > 0) {
         result.add(_DScoredItem(item, score, order));
       }
@@ -599,7 +696,9 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
             final items = _score([child], scope);
             if (items.isNotEmpty) resultNodes.add(_DItemNode(items.single));
           } else if (child is DCommandSeparator<T>) {
-            resultNodes.add(_DSeparatorNode(child));
+            if (child.alwaysRender || scope.controller.query.isEmpty) {
+              resultNodes.add(_DSeparatorNode(child));
+            }
           } else if (child is DCommandEmpty) {
             emptyNodes.add(child);
           } else if (child is DCommandLoading) {
@@ -627,6 +726,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
         }
         final entries = <_DCommandEntry<T>>[];
         for (final node in resultNodes) {
+          final group = node is _DGroupNode<T> ? node.group : null;
           for (final scored in node.items) {
             final identity = scored.item.identity;
             final key = _itemKeys.putIfAbsent(identity, GlobalKey.new);
@@ -636,6 +736,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
                 enabled: scored.item.enabled,
                 onSelected: scored.item.onSelected,
                 key: key,
+                group: group,
               ),
             );
           }
@@ -802,11 +903,13 @@ class _DCommandEntry<T> {
     required this.enabled,
     required this.onSelected,
     required this.key,
+    required this.group,
   });
   final T value;
   final bool enabled;
   final ValueChanged<T>? onSelected;
   final GlobalKey key;
+  final Object? group;
 }
 
 /// A labelled result group. Filtering hides empty groups unless [forceMount].
@@ -1046,8 +1149,11 @@ class _DCommandItemVisualScope extends InheritedWidget {
 
 /// A separator between visible command sections.
 class DCommandSeparator<T> extends StatelessWidget {
-  const DCommandSeparator({super.key, this.color});
+  const DCommandSeparator({super.key, this.color, this.alwaysRender = false});
   final Color? color;
+
+  /// Keeps the separator visible while a non-empty query is filtering results.
+  final bool alwaysRender;
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
@@ -1076,11 +1182,27 @@ class DCommandEmpty extends StatelessWidget {
 
 /// Rendered while the root's externally owned asynchronous load is active.
 class DCommandLoading extends StatelessWidget {
-  const DCommandLoading({super.key, required this.child});
+  const DCommandLoading({
+    super.key,
+    required this.child,
+    this.progress,
+    this.semanticLabel = 'Loading…',
+  }) : assert(progress == null || (progress >= 0 && progress <= 100));
   final Widget child;
+  final double? progress;
+  final String semanticLabel;
   @override
   Widget build(BuildContext context) => Semantics(
+    container: true,
+    role: progress == null
+        ? SemanticsRole.loadingSpinner
+        : SemanticsRole.progressBar,
     liveRegion: true,
+    label: semanticLabel,
+    value: progress == null ? null : '${progress!.round()}',
+    minValue: progress == null ? null : '0',
+    maxValue: progress == null ? null : '100',
+    excludeSemantics: true,
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: DSpacing.lg),
       child: Center(child: child),
