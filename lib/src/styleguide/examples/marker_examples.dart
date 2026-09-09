@@ -5,11 +5,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../styleguide_example.dart';
 
 final markerExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'Conversation notes, live status, actions and labeled boundaries.',
   notes:
-      'Source implementation complete; rendered reference and native review pending. '
+      'Source, rendered reference and native macOS review complete. '
       '14/20 text, 16px decorative icons, 8px gap, 1px borders and 12px separator gaps. '
       'Status is opt-in with liveRegion; actions use explicit button/link semantics and caller callbacks. '
       'Native touch actions have 48px bounds; large labels wrap. No Form value is owned. '
