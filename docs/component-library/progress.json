@@ -405,7 +405,8 @@
         "Implement base-nova variants and all four text/icon sizes; directional composition, invalid/expanded/popup states and link-only navigation semantics.",
         "Preserve caller-owned loading/Futures, rich semantic names, borrowed focus nodes and shared Tooltip/Spinner.",
         "Reference sources and hashes, native adaptations and pending rendered comparison recorded in docs/component-library/button.md.",
-        "Coordinator touch-target correction: small legacy inset surfaces keep 32px paint/40px desktop targets but clamp iOS/Android targets to 48px independently."
+        "Coordinator touch-target correction: small legacy inset surfaces keep 32px paint/40px desktop targets but clamp iOS/Android targets to 48px independently.",
+        "Browser/export comparison corrected Small leading to22.4px, dark input-token alpha multiplication, leading loading padding, and responsive Size composition; added exact Arabic reference composition."
       ],
       "migrations": [
         "All existing direct Button imports migrated to discourse_ui.dart; obsolete theme/d_button.dart removed.",
@@ -427,13 +428,16 @@
         "Final real PollCard review-fixture macOS debug build passed. Bundle /private/tmp/DiscourseButtonReview-3a88.app has unique org.discourse.native.button-review.3a88 identity and URL scheme; deep strict ad-hoc signature passes. Source files byte-verified against pre-build manifest; kernel SHA256 4eb63551ff6daaaf3f3d15c58f2ebb2f5c0f3f4fb01e559a666cdffff4309f4e.",
         "All seven Button examples also passed the 260px/200%/RTL/reduced-motion layout test in Light, Dark, Forest and Plum. Example async and navigation tests pass.",
         "Reproduced 40px small inset touch-target defect, then passed 27 Button/Chat-header/topic-creation tests including flat/flatClose/explicit inset semantic bounds and edge activation on macOS/iOS/Android profiles. Root and full-profile analysis clean. Logs /private/tmp/button-inset-*.log.",
-        "Corrected source byte-verified and rebuilt in /private/tmp/DiscourseButtonReview-3a88-v2.app (unique org.discourse.native.button-review.3a88.v2 ID/scheme); deep strict signature passes. Kernel SHA256 b229b90dee48bcda90cefc31e8a9f4ee398673f7400a8da4b9f3566ede5fbc26. V2 supersedes the earlier unlaunched review bundle."
+        "Corrected source byte-verified and rebuilt in /private/tmp/DiscourseButtonReview-3a88-v2.app (unique org.discourse.native.button-review.3a88.v2 ID/scheme); deep strict signature passes. Kernel SHA256 b229b90dee48bcda90cefc31e8a9f4ee398673f7400a8da4b9f3566ede5fbc26. V2 supersedes the earlier unlaunched review bundle.",
+        "Actual CUA Chrome reference comparison completed at1270x847 and360x700 against exact current Flutter widget-test exports, including six variants, all sizes/icons/loading, settled hover/focus and Arabic RTL. Evidence/metrics/harness in docs/component-library/evidence/button; detailed findings in button-rendered-comparison.md. Browser viewport reset, original dark theme restored and tab closed.",
+        "After rendered-comparison fixes,218 Button/styleguide/adoption/PollCard/UserSummary tests passed;11 final focused tests passed after Arabic example; root/full-profile analysis and font-loaded export harness pass.",
+        "Compared implementation 6db474b8c16529a28d77a168d9ac9dc4fb885647 rebuilt and source-byte-verified in unlaunched /private/tmp/DiscourseButtonReview-3a88-v3.app; unique V3 ID/scheme and deep strict signature pass. Kernel SHA256 9e8e0376cc234c8be9299212620d118ca2a27b7b7ce3737b432318d8eb20ba9d. V3 supersedes earlier native review bundles."
       ],
       "limitations": [
-        "Native official-reference comparison and real app fixture inspection pending Mac unlock and explicit coordinator desktop slot. Do not mark review_ready.",
+        "Actual native production-fixture verification remains pending Mac unlock and coordinator native slot. Browser-versus-widget-export comparison is complete but does not satisfy the native gate; do not mark review_ready.",
         "No iOS/Linux native device, spoken VoiceOver or automated cross-renderer pixel-diff claim."
       ],
-      "implementationCommit": "50442c4e",
+      "implementationCommit": "6db474b8c16529a28d77a168d9ac9dc4fb885647",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },
@@ -897,21 +901,49 @@
         "label"
       ],
       "acceptanceCriteria": [
-        "Match base-nova 4px track, 16px thumb, borders, focus and disabled styling using live tokens; record source hashes and native comparison.",
+        "Match base-nova 4px track, 12px thumb, borders, focus and disabled styling using live tokens; record source hashes and native comparison.",
         "Single/range/multiple controlled sliders, vertical/RTL, pointer capture and track jumps, overlap selection, keyboard arrows/Home/End/Page and per-thumb semantics.",
         "Validate min/max/step and thumb ordering; Form save/reset/validation; safe cancellation, removal and controlled updates.",
         "Migrate video seeking, topic position, Voice volume and Skeleton/AspectRatio controls; preserve domain callbacks and keyboard ownership.",
-        "Focused component and migration tests, root/full analysis, isolated traceable macOS bundle and offline production-widget fixture; native inspection awaits coordinator slot."
+        "Focused component and migration tests, root/full analysis, isolated traceable macOS bundle and offline production-widget fixture; native inspection awaits coordinator slot.",
+        "API follow-up: push/swap/none collision policies, accepted swap focus and semantic identity through RTL/vertical/spacing and parent rejection/clamping; absolute default largeStep=10; explicit native completion callback distinction."
       ],
       "decisions": [
         "Label is merged; compose baseline DButton for example actions. No dependency on pending Button/Input/Checkbox.",
-        "Slider owns interactive video seek and volume controls; noninteractive buffered progress remains part of the seek track, not a standalone Progress component."
+        "Slider owns interactive video seek and volume controls; noninteractive buffered progress remains part of the seek track, not a standalone Progress component.",
+        "Reference registry SHA256 646bcd7913417b786bbf7578484f851bf89c81a62f70ef9c4f3522e2af80a951; official examples pinned to 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048. Full source URLs/hashes and metric mapping in docs/component-library/slider.md and references/slider/sources.json.",
+        "Public DSlider scalar, DMultiSlider ordered range/multiple input and matching Form fields. Parent controlled values own paint, semantics and save/reset; commits report accepted values after parent frame.",
+        "Reference pointer push collisions plus optional stop; keyboard preserves neighbour bounds and thumb tab order. Primary-pointer capture cancels on configuration changes/removal. 12px thumb and 4px track retain 48px transparent targets.",
+        "Coordinator API follow-up implemented swap and none (stop alias), absolute 10-unit largeStep default, explicit sorted traversal and accepted-swap focus reconciliation; native onChangeEnd intentionally also completes unchanged accepted interactions.",
+        "Video seek values are milliseconds, so the application explicitly opts into largeStep=duration/10; generic largeStep remains 10 units. Production Page Up seek from 60s to 72s on a 120s clip is regression-tested."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "migrations": [
+        "lib/src/shell/inline_video.dart: live buffered seek track, duration-zero disabling and unchanged session seek callback.",
+        "lib/src/shell/topic_progress.dart: TopicPositionSlider preserves integer post selection and editor route/lifecycle/busy ownership.",
+        "lib/src/plugins/voice/voice_room_view.dart: only participant volume block and VoiceParticipantVolumeSlider adapter; preserve local persistence/media calls and 0.1 steps. Coordinate adjacent Switch hunks.",
+        "Skeleton and Aspect Ratio example sliders preserve geometry semantics and step sizes.",
+        "Reading and Chat keyboard guards recognize DMultiSlider input."
+      ],
+      "retainedAlternatives": [
+        "Read-only progress and resizable/viewport semantics belong to other catalogue components. Material slider type guards retained for external consumers. No concrete Material Slider controls remain in core/bundled plugin app source."
+      ],
+      "verification": [
+        "Flutter 3.47.2 unchanged. Root and profiles/full flutter pub get --enforce-lockfile pass; lockfiles unchanged.",
+        "Root and profiles/full flutter analyze --no-pub: no issues. Touched Dart format and git diff --check pass.",
+        "217 focused tests passed with seed 4982 across test/d_slider_test.dart, test/d_slider_controlled_test.dart, test/slider_migrations_test.dart, test/styleguide/slider_examples_test.dart, test/inline_video_test.dart, test/topic_progress_test.dart, test/topic_progress_lifecycle_test.dart, test/voice_room_view_test.dart, test/keyboard_navigation_test.dart, test/chat_drawer_test.dart, and Skeleton/AspectRatio example suites. Final accepted-commit frame safeguard rechecked with all 14 slider interaction/controlled tests passing.",
+        "tool/slider_review_main.dart mounts real production TopicPositionSlider, VoiceParticipantVolumeSlider and InlineVideoPlaybackSurface with local playback session; native app not launched.",
+        "Initial source commit 3813f11df01e4a1db8d7b45fe0457d8f904f4d49 built via flutter build macos --debug --no-pub -t tool/slider_review_main.dart; root/full analysis remain clean. Source equality git diff check passed for lib/tool/macos/manifests/locks.",
+        "Isolated review bundle /private/tmp/DiscourseSliderReview-01a083ce.app; bundle ID org.discourse.native.slider.01a083ce; URL scheme discourse-slider-review-01a083ce. Source and copied kernels match SHA256 1aae7dca646a7e21939f7c334e1fc16d29412d9a8869651b977b61baa0dbd6a0. codesign --verify --deep --strict passes. Credits stamps source 3813f11df01e, unmodified. Evidence: docs/component-library/evidence/slider/native-preparation-r1.json. Bundle has not been launched.",
+        "API follow-up: 100 affected component/controlled/swap/production-fixture/example/reading-keyboard/Chat regressions passed; all 9 final swap-focused tests passed, including multi-thumb RTL/vertical borrowed focus, parent reject/clamp/external update, spacing, Form save/reset, absolute largeStep and unchanged native completion. Root/full static analysis and touched formatting pass.",
+        "Media large-step adaptation: all 36 production slider-fixture and inline-video tests pass.",
+        "API follow-up bundle /private/tmp/DiscourseSliderReview-01a083ce-r2.app built from be5f02ff2df29fc42b97ecb36fee30ef6df24d1c; ID org.discourse.native.slider.01a083ce.r2; scheme discourse-slider-review-01a083ce-r2. Source/copy kernel SHA256 6349ee6787314d4f9383576ac85d65e68435eb3d440bbef9762e2a7cec40988c; clean source equality and Credits stamp; codesign --verify --deep --strict passes. Current evidence docs/component-library/evidence/slider/native-preparation.json. Never launched."
+      ],
+      "limitations": [
+        "Mac locked; no native desktop/reference-browser inspection performed. Awaiting coordinator slot; no visual/native parity claim.",
+        "Native bundle is prepared but unlaunched; status remains in_progress / awaiting_slot. Source examples remain baseline until the actual native/reference comparison gate passes.",
+        "API follow-up source, automated checks and refreshed r2 bundle complete; no native/CUA/reference-browser, iOS/Linux device or VoiceOver speech inspection performed. Remains in_progress / awaiting_slot."
+      ],
+      "implementationCommit": "be5f02ff2df29fc42b97ecb36fee30ef6df24d1c",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },
@@ -2049,7 +2081,8 @@
       "01a083ce-313b-7da0-aa51-3687fd556604",
       "01a083ce-319b-7bc3-a5c9-371087710718",
       "01a083ad-91cf-7e91-9083-a861d5c4fa28",
-      "01a083e1-420b-7711-b8e8-f268576dcc3b"
+      "01a083e1-420b-7711-b8e8-f268576dcc3b",
+      "01a083ce-313a-7362-ada6-57dc14221509"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -2106,25 +2139,10 @@
       ],
       "activeTasks": [
         {
-          "component": "slider",
-          "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
-          "branch": "codex/ui-slider",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native",
-          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f"
-        },
-        {
           "component": "resizable",
           "taskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
           "branch": "codex/ui-resizable",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native"
-        },
-        {
-          "component": "button",
-          "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
-          "branch": "codex/ui-button",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native",
-          "headCommit": "2ed3a9a6bebda93f4d8d56838dc026885fa5377a",
-          "status": "browser_and_test_renderer_review"
         },
         {
           "component": "radio-group",
@@ -2133,17 +2151,17 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5b3e/discourse-native",
           "headCommit": "796d303d4586ef1e36ea1b9aa1a30a151c9e4548",
           "status": "source_api_review"
-        }
-      ],
-      "nativeReadyTasks": [
+        },
         {
           "component": "badge",
           "taskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
           "branch": "codex/ui-badge",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native",
           "headCommit": "86bae370725c2f7db22bda5a7f999690ef1336bd",
-          "status": "awaiting_native_review"
-        },
+          "status": "browser_and_test_renderer_review"
+        }
+      ],
+      "nativeReadyTasks": [
         {
           "component": "input",
           "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
@@ -2183,6 +2201,31 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
           "headCommit": "0372b16053c4ff09b1189f298b82da268aecde6a",
           "status": "awaiting_native_review"
+        },
+        {
+          "component": "button",
+          "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+          "branch": "codex/ui-button",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native",
+          "headCommit": "fdaacadce43864d6e623af6beef6833b9a4af23e",
+          "status": "awaiting_native_review"
+        },
+        {
+          "component": "slider",
+          "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
+          "branch": "codex/ui-slider",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native",
+          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f",
+          "headCommit": "a6b58ac8d0ea176e4e225449e14713c6761002d3",
+          "status": "awaiting_native_review"
+        }
+      ],
+      "pendingTaskSetup": [
+        {
+          "component": "native-select",
+          "clientThreadId": "client-new-thread:a9ce85a6-49b0-49d9-8272-61e7ae77b239",
+          "branch": "codex/ui-native-select",
+          "baseCommit": "f979ad1e1b0e659cf40d3e5d9d44ded92556e392"
         }
       ]
     },
@@ -2201,7 +2244,7 @@
     },
     "pendingCoordinatorNativeReview": "Final styleguide preview scrollbar screenshot/drag plus title-tooltip Escape correction through the isolated Title Review B104 fixture after Mac unlock.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": null,
+    "browserInspectionTaskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
@@ -2212,7 +2255,7 @@
       "slider": {
         "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
         "issue": "Complete referenced swap collision policy and absolute default largeStep 10; document native onChangeEnd distinction from changed-only onValueCommitted.",
-        "status": "in_progress"
+        "status": "resolved_awaiting_native_review"
       },
       "resizable": {
         "taskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",

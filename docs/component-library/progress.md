@@ -540,6 +540,7 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Preserve caller-owned loading/Futures, rich semantic names, borrowed focus nodes and shared Tooltip/Spinner.
 - Reference sources and hashes, native adaptations and pending rendered comparison recorded in docs/component-library/button.md.
 - Coordinator touch-target correction: small legacy inset surfaces keep 32px paint/40px desktop targets but clamp iOS/Android targets to 48px independently.
+- Browser/export comparison corrected Small leading to22.4px, dark input-token alpha multiplication, leading loading padding, and responsive Size composition; added exact Arabic reference composition.
 
 **migrations**
 
@@ -565,10 +566,13 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - All seven Button examples also passed the 260px/200%/RTL/reduced-motion layout test in Light, Dark, Forest and Plum. Example async and navigation tests pass.
 - Reproduced 40px small inset touch-target defect, then passed 27 Button/Chat-header/topic-creation tests including flat/flatClose/explicit inset semantic bounds and edge activation on macOS/iOS/Android profiles. Root and full-profile analysis clean. Logs /private/tmp/button-inset-*.log.
 - Corrected source byte-verified and rebuilt in /private/tmp/DiscourseButtonReview-3a88-v2.app (unique org.discourse.native.button-review.3a88.v2 ID/scheme); deep strict signature passes. Kernel SHA256 b229b90dee48bcda90cefc31e8a9f4ee398673f7400a8da4b9f3566ede5fbc26. V2 supersedes the earlier unlaunched review bundle.
+- Actual CUA Chrome reference comparison completed at1270x847 and360x700 against exact current Flutter widget-test exports, including six variants, all sizes/icons/loading, settled hover/focus and Arabic RTL. Evidence/metrics/harness in docs/component-library/evidence/button; detailed findings in button-rendered-comparison.md. Browser viewport reset, original dark theme restored and tab closed.
+- After rendered-comparison fixes,218 Button/styleguide/adoption/PollCard/UserSummary tests passed;11 final focused tests passed after Arabic example; root/full-profile analysis and font-loaded export harness pass.
+- Compared implementation 6db474b8c16529a28d77a168d9ac9dc4fb885647 rebuilt and source-byte-verified in unlaunched /private/tmp/DiscourseButtonReview-3a88-v3.app; unique V3 ID/scheme and deep strict signature pass. Kernel SHA256 9e8e0376cc234c8be9299212620d118ca2a27b7b7ce3737b432318d8eb20ba9d. V3 supersedes earlier native review bundles.
 
 **limitations**
 
-- Native official-reference comparison and real app fixture inspection pending Mac unlock and explicit coordinator desktop slot. Do not mark review_ready.
+- Actual native production-fixture verification remains pending Mac unlock and coordinator native slot. Browser-versus-widget-export comparison is complete but does not satisfy the native gate; do not mark review_ready.
 - No iOS/Linux native device, spoken VoiceOver or automated cross-renderer pixel-diff claim.
 
 ### separator
@@ -958,16 +962,52 @@ Status: in_progress. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match base-nova 4px track, 16px thumb, borders, focus and disabled styling using live tokens; record source hashes and native comparison.
+- Match base-nova 4px track, 12px thumb, borders, focus and disabled styling using live tokens; record source hashes and native comparison.
 - Single/range/multiple controlled sliders, vertical/RTL, pointer capture and track jumps, overlap selection, keyboard arrows/Home/End/Page and per-thumb semantics.
 - Validate min/max/step and thumb ordering; Form save/reset/validation; safe cancellation, removal and controlled updates.
 - Migrate video seeking, topic position, Voice volume and Skeleton/AspectRatio controls; preserve domain callbacks and keyboard ownership.
 - Focused component and migration tests, root/full analysis, isolated traceable macOS bundle and offline production-widget fixture; native inspection awaits coordinator slot.
+- API follow-up: push/swap/none collision policies, accepted swap focus and semantic identity through RTL/vertical/spacing and parent rejection/clamping; absolute default largeStep=10; explicit native completion callback distinction.
 
 **decisions**
 
 - Label is merged; compose baseline DButton for example actions. No dependency on pending Button/Input/Checkbox.
 - Slider owns interactive video seek and volume controls; noninteractive buffered progress remains part of the seek track, not a standalone Progress component.
+- Reference registry SHA256 646bcd7913417b786bbf7578484f851bf89c81a62f70ef9c4f3522e2af80a951; official examples pinned to 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048. Full source URLs/hashes and metric mapping in docs/component-library/slider.md and references/slider/sources.json.
+- Public DSlider scalar, DMultiSlider ordered range/multiple input and matching Form fields. Parent controlled values own paint, semantics and save/reset; commits report accepted values after parent frame.
+- Reference pointer push collisions plus optional stop; keyboard preserves neighbour bounds and thumb tab order. Primary-pointer capture cancels on configuration changes/removal. 12px thumb and 4px track retain 48px transparent targets.
+- Coordinator API follow-up implemented swap and none (stop alias), absolute 10-unit largeStep default, explicit sorted traversal and accepted-swap focus reconciliation; native onChangeEnd intentionally also completes unchanged accepted interactions.
+- Video seek values are milliseconds, so the application explicitly opts into largeStep=duration/10; generic largeStep remains 10 units. Production Page Up seek from 60s to 72s on a 120s clip is regression-tested.
+
+**migrations**
+
+- lib/src/shell/inline_video.dart: live buffered seek track, duration-zero disabling and unchanged session seek callback.
+- lib/src/shell/topic_progress.dart: TopicPositionSlider preserves integer post selection and editor route/lifecycle/busy ownership.
+- lib/src/plugins/voice/voice_room_view.dart: only participant volume block and VoiceParticipantVolumeSlider adapter; preserve local persistence/media calls and 0.1 steps. Coordinate adjacent Switch hunks.
+- Skeleton and Aspect Ratio example sliders preserve geometry semantics and step sizes.
+- Reading and Chat keyboard guards recognize DMultiSlider input.
+
+**retainedAlternatives**
+
+- Read-only progress and resizable/viewport semantics belong to other catalogue components. Material slider type guards retained for external consumers. No concrete Material Slider controls remain in core/bundled plugin app source.
+
+**verification**
+
+- Flutter 3.47.2 unchanged. Root and profiles/full flutter pub get --enforce-lockfile pass; lockfiles unchanged.
+- Root and profiles/full flutter analyze --no-pub: no issues. Touched Dart format and git diff --check pass.
+- 217 focused tests passed with seed 4982 across test/d_slider_test.dart, test/d_slider_controlled_test.dart, test/slider_migrations_test.dart, test/styleguide/slider_examples_test.dart, test/inline_video_test.dart, test/topic_progress_test.dart, test/topic_progress_lifecycle_test.dart, test/voice_room_view_test.dart, test/keyboard_navigation_test.dart, test/chat_drawer_test.dart, and Skeleton/AspectRatio example suites. Final accepted-commit frame safeguard rechecked with all 14 slider interaction/controlled tests passing.
+- tool/slider_review_main.dart mounts real production TopicPositionSlider, VoiceParticipantVolumeSlider and InlineVideoPlaybackSurface with local playback session; native app not launched.
+- Initial source commit 3813f11df01e4a1db8d7b45fe0457d8f904f4d49 built via flutter build macos --debug --no-pub -t tool/slider_review_main.dart; root/full analysis remain clean. Source equality git diff check passed for lib/tool/macos/manifests/locks.
+- Isolated review bundle /private/tmp/DiscourseSliderReview-01a083ce.app; bundle ID org.discourse.native.slider.01a083ce; URL scheme discourse-slider-review-01a083ce. Source and copied kernels match SHA256 1aae7dca646a7e21939f7c334e1fc16d29412d9a8869651b977b61baa0dbd6a0. codesign --verify --deep --strict passes. Credits stamps source 3813f11df01e, unmodified. Evidence: docs/component-library/evidence/slider/native-preparation-r1.json. Bundle has not been launched.
+- API follow-up: 100 affected component/controlled/swap/production-fixture/example/reading-keyboard/Chat regressions passed; all 9 final swap-focused tests passed, including multi-thumb RTL/vertical borrowed focus, parent reject/clamp/external update, spacing, Form save/reset, absolute largeStep and unchanged native completion. Root/full static analysis and touched formatting pass.
+- Media large-step adaptation: all 36 production slider-fixture and inline-video tests pass.
+- API follow-up bundle /private/tmp/DiscourseSliderReview-01a083ce-r2.app built from be5f02ff2df29fc42b97ecb36fee30ef6df24d1c; ID org.discourse.native.slider.01a083ce.r2; scheme discourse-slider-review-01a083ce-r2. Source/copy kernel SHA256 6349ee6787314d4f9383576ac85d65e68435eb3d440bbef9762e2a7cec40988c; clean source equality and Credits stamp; codesign --verify --deep --strict passes. Current evidence docs/component-library/evidence/slider/native-preparation.json. Never launched.
+
+**limitations**
+
+- Mac locked; no native desktop/reference-browser inspection performed. Awaiting coordinator slot; no visual/native parity claim.
+- Native bundle is prepared but unlaunched; status remains in_progress / awaiting_slot. Source examples remain baseline until the actual native/reference comparison gate passes.
+- API follow-up source, automated checks and refreshed r2 bundle complete; no native/CUA/reference-browser, iOS/Linux device or VoiceOver speech inspection performed. Remains in_progress / awaiting_slot.
 
 ### progress
 
