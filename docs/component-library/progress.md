@@ -1447,7 +1447,7 @@ Status: merged. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-ava
 - Default groups preserve per-avatar sizes/dimensions and infer count size; explicit group size propagates badge/fallback metrics consistently. Standalone counts retain intrinsic 32px geometry.
 - Above-100% text scaling reserves larger enum-sized boxes to fit initials and avoid ready/fallback geometry shifts; fixed app frames and explicit dimensions retain layout contracts. Narrow groups wrap.
 - Exact Lucide plus SVG and full ISC/Feather MIT license recorded. Explicit badge icon slot hides arbitrary SVG/widget icons at sm; standalone GroupCount owns its 2px background ring.
-- Required final compositions are assigned to Finish and review Avatar compositions (01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge.
+- Final Avatar and Direction compositions independently reviewed with accepted DButton/DDropdownMenu owners, grouped/destructive reference menus and independent group actions. Native/reference verification and 147 latest-main focused tests pass; the original Avatar merge remains accepted.
 
 **migrations**
 
@@ -1459,7 +1459,7 @@ Status: merged. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-ava
 
 - Domain online rings, flair, unread/count/recording indicators and UserStatus emoji retain their distinct meaning and geometry; underlying identities migrate.
 - Video/camera/media/onebox thumbnails, shell/card clips and category swatches are not avatars. Adjacent 20px inbox posters retain their non-overlapping layout.
-- Existing fallback text, custom colors and DiscourseAvatarTheme radius values remain application presentation inputs; Button/Dropdown temporary controls remain their pending owners.
+- Existing fallback text, custom colors and DiscourseAvatarTheme radius values remain application presentation inputs; final Avatar and Direction compositions use accepted DButton/DDropdownMenu owners.
 
 **verification**
 
@@ -1474,12 +1474,13 @@ Status: merged. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-ava
 - Final implemented registration: 12 Avatar/styleguide-page tests passed with seed 9082026; touched-file format check, git diff --check and unrelated-row preservation check passed.
 - Coordinator reviewed final clean Avatar HEAD c5da5fd6ee548d415c496be27052c314d391f39b, generic image stream/fallback ownership, mixed group sizing, exact plus artwork and rings, app media adapters and migrations. Independently inspected the saved official light badge comparison, native light badges, Forest 360px/200% RTL groups and actual dark RTL 200% ForumIcon/AvatarImage fixture. Native inspection and app closure are complete; only the example status changed afterward. Merge retains all prior component owners and the Tooltip rail surface, token radius and fitted monogram while adopting its DAvatar frame.
 - Coordinator combined-main verification: all 593 focused library/styleguide, image/media/cache, shell/rail/forum, topic, Chat, Voice, Assign and Events cases passed, seed 342701054; log /private/tmp/component-avatar-integration-tests.log. All 41 touched Dart files pass formatting; flutter analyze --no-pub is clean (6.8s), log /private/tmp/component-avatar-integration-analysis.log; git diff --check passes. Generic Avatar, examples and AvatarImage/ForumIcon adapters exactly match the reviewed branch. All changed app source retains the prior Spinner, Tooltip, Skeleton, Aspect Ratio and Label owners, including Tooltip rail geometry and fitted monograms.
+- Final-owner follow-up: source-exact native/reference verification completed, own UI cleanup confirmed, all 147 focused tests and root/full analysis pass on reconciled candidate 90f3e019. Evidence: docs/component-library/evidence/avatar/final-composition-review.md.
 
 **limitations**
 
 - No iOS/Linux device or spoken VoiceOver run. Nested styleguide main native AX tree was sparse; fixture/menu AX and visual/keyboard interaction verified without forcing global semantics.
 - Reference and native screenshots have different capture/preview dimensions; intrinsic metrics compared at 100% with exact widget geometry tests, not pixel-diff equality. Palette, font and local artwork intentionally use app inputs.
-- Button and Dropdown Menu examples use their available temporary controls pending owning catalogue tasks; domain flair/presence and non-avatar media retain documented ownership.
+- Domain flair/presence and non-avatar media retain documented ownership. Final Avatar/Direction composition evidence is recorded separately in evidence/avatar/final-composition-review.md.
 
 ### card
 

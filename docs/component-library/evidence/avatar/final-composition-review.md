@@ -269,3 +269,20 @@ The historical `native-review.md` and screenshots remain valid for unchanged
 Avatar presentation/adapters. The new final-owner native/reference gate is now
 complete; final current-main reconciliation and affected verification precede
 the local merge.
+
+## Final integration verification
+
+Candidate `90f3e019c46d017eb1bad4273f958d31df279cf9` was prepared from accepted
+main `3178784b6487b13f6f7dfd39d1998f7f715fa6ac`, then merged the reviewed Avatar
+history into it. No main-to-worktree merge was used. The Avatar and Direction
+examples, generic Avatar, Dropdown Menu and native fixture are byte-identical
+to inspected source `3b202d5e`; Button/Popover scope adaptations are assessed
+above. Latest-main records for every other component/workflow owner are retained.
+
+On this reconciled candidate, all 147 focused tests passed with seed `9082026`:
+the 13 suites listed earlier (Avatar UI/examples, Direction examples, Dropdown,
+Button, Popover, Dialog, Dropdown examples, styleguide page, Button adoption,
+Input Group examples, Item examples and Table). Root analysis passed in 7.9s;
+full-profile analysis passed in 2.7s. A read-only Git connectivity check also
+passed after a transient pack-index message during the successful merge.
+No dependency lock, Flutter pin or runner configuration changed in this review.
