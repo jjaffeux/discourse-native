@@ -1,0 +1,6 @@
+The following is a diff from the previous accessibility tree for Window: "Discourse" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+~				43 radio button (settable, integer) Value: 0, Destination topic
+Topic #9
+~				44 radio button (settable, integer) Value: 1, Another destination with a longer title
+Topic #10
+The focused UI element is 1 container Radio Group Final Compositions

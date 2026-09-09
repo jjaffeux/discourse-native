@@ -1,0 +1,42 @@
+Shuffling test order with --test-randomize-ordering-seed=9092026
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_drawer_test.dart: swipe area opens only its attached controller
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:00 +6: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:00 +7: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:00 +8: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:00 +9: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:00 +10: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:01 +11: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:01 +12: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:01 +13: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:01 +14: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/drawer_examples_test.dart: all Drawer examples open at narrow 200 percent RTL
+00:01 +15: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:01 +16: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:01 +17: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:01 +18: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:01 +19: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:01 +20: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:01 +21: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:01 +22: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:01 +23: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:01 +24: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search reveals a collapsed desktop Sidebar without resetting the preview
+00:01 +25: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search finds documented capabilities and reports no matches
+00:01 +26: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Direction examples use the preview provider and retain edits
+00:02 +27: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: mobile Sidebar selection closes navigation and retains search
+00:02 +28: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: the styleguide accounts for every frozen catalogue entry
+00:02 +29: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:03 +30: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:03 +31: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Escape invokes the styleguide close action from keyboard focus
+00:03 +32: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: documentation theme and code disclosure preserve the app preview
+00:03 +33: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: Accordion preview reserves its large-text content height
+00:04 +34: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search and navigation fit 320.0px at 200% system text
+00:04 +35: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search accessibility is bounded to the field on desktop and mobile
+00:04 +36: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: resizing across the navigation breakpoint keeps the active sample
+00:05 +37: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: mobile search shortcut opens Sidebar and focuses its search field
+00:05 +38: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/styleguide_page_test.dart: search and navigation fit 1200.0px at 200% system text
+00:05 +39: All tests passed!

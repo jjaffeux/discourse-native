@@ -1,0 +1,242 @@
+Shuffling test order with --test-randomize-ordering-seed=9092026
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: arrows wrap and skip disabled options in TextDirection.ltr
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: Form error is associated with each radio and clears live
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: input role and opacity remain distinct from card border in live themes
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: arrows wrap and skip disabled options in TextDirection.rtl
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: read-only controlled Form accepts parent changes reset and required validation
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: composition labels activate the radio Form owner exactly once
+00:01 +6: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: all real examples fit narrow large-text RTL and touch bounds
+00:01 +7: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: validation error clears after selection and reset notifies owner
+00:01 +8: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: borrowed focus survives replacement and disposal
+00:01 +9: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: final fields preserve three uniquely named radio semantics owners
+00:01 +10: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: all snippets are runnable and match their actual example source
+00:01 +11: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: item overrides inherit live group props without stale access after removal
+00:01 +12: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: label activation updates and reset restores initial selection
+00:01 +13: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: read-only controlled value without callback remains focusable
+00:01 +14: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: desktop rows follow content height and preserve eight-pixel gaps
+00:01 +15: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: mounted reset baseline and synchronous Form values (controlled: true)
+00:01 +16: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: frozen examples use final Label and Field compositions with one radio owner
+00:01 +17: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: card focus paints outer rings without darkening translucent content
+00:01 +18: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: controlled reset preserves accepted value until parent accepts
+00:02 +19: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: read-only preserves focus and blocks pointer keyboard and semantics selection
+00:02 +20: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: radio focus blocks application reading shortcuts and Tab leaves group
+00:02 +21: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: controlled rejection does not change selection or saved value
+00:02 +22: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: mounted reset baseline and synchronous Form values (controlled: false)
+00:02 +23: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: live palette keeps selection and exact radio geometry
+00:02 +24: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/d_radio_group_test.dart: disabled group and item reject taps and expose radio semantics
+00:06 +25: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: choice card activates once from label or control and keeps one keyboard owner
+00:06 +26: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: disabled fieldset blocks label and control interaction without disposing focus
+00:06 +27: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/ui/d_field_test.dart: label focuses the borrowed editor and metadata preserves editing semantics
+00:06 +28: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:06 +29: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:06 +30: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:06 +31: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:06 +32: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +33: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +34: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +35: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +36: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +37: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +38: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +39: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +40: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +41: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +42: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +43: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +44: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +45: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +46: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +47: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +48: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +49: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +50: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +51: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +52: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +53: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +54: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +55: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +56: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +57: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +58: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +59: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +60: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +61: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +62: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +63: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +64: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +65: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +66: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +67: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +68: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:07 +69: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:08 +70: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:08 +71: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:08 +72: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:08 +73: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/radio_group_review_fixture_test.dart: local production fixture opens owner and move radio results
+00:08 +74: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +75: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +76: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +77: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +78: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +79: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +80: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +81: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +82: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +83: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +84: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +85: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +86: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +87: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +88: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +89: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +90: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +91: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +92: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +93: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +94: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +95: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +96: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +97: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +98: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +99: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +100: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +101: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +102: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +103: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +104: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +105: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +106: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +107: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +108: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +109: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +110: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +111: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +112: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +113: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +114: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:08 +115: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:09 +116: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:09 +117: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:09 +118: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:09 +119: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:09 +120: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:09 +121: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:09 +122: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:09 +123: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/styleguide/label_examples_test.dart: styleguide preview controls preserve Label state and reset clears it
+00:09 +124: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:09 +125: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:09 +126: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:09 +127: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:09 +128: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:09 +129: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:09 +130: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:09 +131: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:10 +132: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:10 +133: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:10 +134: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:10 +135: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another topic
+00:11 +136: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post search cannot adopt a replacement account
+00:11 +137: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:11 +138: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:11 +139: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:11 +140: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:11 +141: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:11 +142: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:12 +143: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:12 +144: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:12 +145: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:12 +146: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks permission after credentials and allows retry
+00:12 +147: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: selected-post rechecks mixed authors after credentials
+00:12 +148: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 O reads, replies, returns, and selects the next topic
+00:13 +149: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 O reads, replies, returns, and selects the next topic
+00:13 +150: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 O reads, replies, returns, and selects the next topic
+00:13 +151: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 O reads, replies, returns, and selects the next topic
+00:13 +152: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 O reads, replies, returns, and selects the next topic
+00:13 +153: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 O reads, replies, returns, and selects the next topic
+00:13 +154: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks topic membership after credentials and allows retry
+00:13 +155: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: post flag rejects the opening account after disconnect and reconnect
+00:14 +156: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: post flag rejects the opening account after disconnect and reconnect
+00:14 +157: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a refreshed list preserves topic identity and does not skip a removed row
+00:14 +158: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic controller never returns a retired destination
+00:14 +159: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post refresh completion cannot update a replacement session
+00:14 +160: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: post message keeps its opening target after visiting another topic
+00:14 +161: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 Enter reads, replies, returns, and selects the next topic
+00:14 +162: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 Enter reads, replies, returns, and selects the next topic
+00:15 +163: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 Enter reads, replies, returns, and selects the next topic
+00:15 +164: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 Enter reads, replies, returns, and selects the next topic
+00:15 +165: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1440.0 Enter reads, replies, returns, and selects the next topic
+00:15 +166: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message keeps its opening target after visiting another forum
+00:15 +167: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rejects account replacement at response
+00:15 +168: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rejects account replacement at response
+00:15 +169: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page cannot move the cursor in another tab (variant: TargetPlatform.linux)
+00:15 +170: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page cannot move the cursor in another tab (variant: TargetPlatform.linux)
+00:15 +171: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page cannot move the cursor in another tab (variant: TargetPlatform.linux)
+00:15 +172: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page cannot move the cursor in another tab (variant: TargetPlatform.linux)
+00:16 +173: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page cannot move the cursor in another tab (variant: TargetPlatform.linux)
+00:16 +174: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: post message rejects the opening account after reconnect
+00:16 +175: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post rechecks original permission before submit
+00:16 +176: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rechecks stored post after credentials and allows retry
+00:16 +177: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page respects focus search
+00:16 +178: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: post message keeps its opening target after visiting another forum
+00:16 +179: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post dialog rejects a replacement account
+00:16 +180: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: nonregular first post still allows only existing-topic moves
+00:16 +181: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: manual post scrolling clears the reply target
+00:17 +182: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: manual post scrolling clears the reply target
+00:17 +183: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post dialog keeps its target across colliding forums
+00:17 +184: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rejects account replacement at refresh
+00:17 +185: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rejects account replacement at refresh
+00:17 +186: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: typing and modal focus suspend navigation and help
+00:17 +187: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: typing and modal focus suspend navigation and help
+00:17 +188: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message rejects the opening account after reconnect
+00:17 +189: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/post_flag_editor_ownership_test.dart: topic message rejects the opening account after reconnect
+00:17 +190: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rechecks topic membership after credentials and allows retry
+00:17 +191: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1000.0 Enter reads, replies, returns, and selects the next topic
+00:17 +192: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1000.0 Enter reads, replies, returns, and selects the next topic
+00:18 +193: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1000.0 Enter reads, replies, returns, and selects the next topic
+00:18 +194: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1000.0 Enter reads, replies, returns, and selects the next topic
+00:18 +195: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1000.0 Enter reads, replies, returns, and selects the next topic
+00:18 +196: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post dialog retains the topic after same-site navigation
+00:18 +197: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic keeps default and creatable categories
+00:18 +198: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: list J/K shortcuts pause for search and dialogs
+00:18 +199: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: list J/K shortcuts pause for search and dialogs
+00:18 +200: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rejects account replacement at credentials
+00:18 +201: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rejects account replacement at credentials
+00:18 +202: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic rejects account replacement at credentials
+00:19 +203: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post rechecks original stored topic before submit
+00:19 +204: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page respects open topic
+00:19 +205: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page respects open topic
+00:19 +206: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page respects open topic
+00:19 +207: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic controller never returns a retired destination
+00:19 +208: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post rechecks original topic membership before submit
+00:19 +209: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: topic selection reaches virtualized rows and continues into the next page
+00:19 +210: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: topic selection reaches virtualized rows and continues into the next page
+00:19 +211: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic keeps the opening site and selection at submit
+00:20 +212: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post preserves errors, retries and refreshes on success
+00:20 +213: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post preserves errors, retries and refreshes on success
+00:20 +214: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: search rechecks move permission after credentials
+00:20 +215: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1000.0 O reads, replies, returns, and selects the next topic
+00:20 +216: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: 1000.0 O reads, replies, returns, and selects the next topic
+00:20 +217: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rejects account replacement at response
+00:20 +218: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rejects account replacement at response
+00:20 +219: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: each tab restores its own list cursor (variant: TargetPlatform.macOS)
+00:20 +220: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: each tab restores its own list cursor (variant: TargetPlatform.macOS)
+00:20 +221: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: search retains its opening account across error
+00:21 +222: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post rechecks original permission after credentials
+00:21 +223: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page respects finish
+00:21 +224: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: a pending page respects finish
+00:21 +225: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: single-post rechecks original stored post before submit
+00:21 +226: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rejects account replacement at before submit
+00:21 +227: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/keyboard_navigation_test.dart: list and reader commands keep independent selections in split view
+00:21 +228: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: selected-post dialog rejects a replacement account
+00:21 +229: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rechecks permission after credentials and allows retry
+00:21 +230: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rechecks permission after credentials and allows retry
+00:21 +231: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_change_owner_ownership_test.dart: selected-post refresh completion cannot update a replacement session
+00:22 +232: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: search retains its opening account across credentials
+00:22 +233: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: existing topic retries a server failure with the same form
+00:22 +234: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rechecks post type after credentials and allows retry
+00:22 +235: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: search retains its opening account across debounce
+00:22 +236: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic retries a server failure with the same form
+00:23 +237: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic rechecks stored post after credentials and allows retry
+00:23 +238: /Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native/test/topic_move_posts_ownership_test.dart: new topic keeps the opening site and selection at submit
+00:23 +239: All tests passed!

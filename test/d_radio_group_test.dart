@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'dart:ui' show SemanticsAction, SemanticsActionEvent, PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/styleguide/examples/radio_group_examples.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,7 +26,178 @@ const choices = Column(
     DRadioGroupItem(value: 'c', label: Text('Charlie')),
   ],
 );
+
+List<SemanticsData> radioSemantics(WidgetTester tester) {
+  final radios = <SemanticsData>[];
+  void visit(SemanticsNode node) {
+    if (!node.isMergedIntoParent &&
+        node.getSemanticsData().flagsCollection.isInMutuallyExclusiveGroup) {
+      radios.add(node.getSemanticsData());
+    }
+    node.visitChildren((child) {
+      visit(child);
+      return true;
+    });
+  }
+
+  visit(tester.getSemantics(find.byType(DRadioGroup<String>)));
+  return radios;
+}
+
 void main() {
+  test('all snippets are runnable and match their actual example source', () {
+    final source = File(
+      'lib/src/styleguide/examples/radio_group_examples.dart',
+    ).readAsStringSync();
+    final reference = source.indexOf('class _Reference extends');
+    final form = source.indexOf('class _FormPreview extends');
+    final readOnly = source.indexOf('class _ReadOnlyPreview extends');
+    for (final example in radioGroupExamples.examples) {
+      final implementation = switch (example.title) {
+        'Read-only and required' => source.substring(readOnly),
+        'Controlled form and dynamic options' => source.substring(
+          form,
+          readOnly,
+        ),
+        _ => source.substring(reference, form),
+      };
+      expect(example.code, contains('void main() => runApp('));
+      expect(example.code, endsWith(implementation), reason: example.title);
+    }
+  });
+
+  for (final controlled in [false, true]) {
+    testWidgets(
+      'mounted reset baseline and synchronous Form values (controlled: $controlled)',
+      (tester) async {
+        final form = GlobalKey<FormState>();
+        final field = GlobalKey<FormFieldState<String>>();
+        final requests = <String?>[];
+        final observed = <String?>[];
+        var initial = 'a';
+        String? accepted = 'a';
+        String? saved;
+        late StateSetter update;
+        void observe() {
+          form.currentState!.save();
+          observed.add(saved);
+          expect(form.currentState!.validate(), isTrue);
+        }
+
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                void changed(String? value) {
+                  requests.add(value);
+                  observe();
+                }
+
+                String? validate(String? value) =>
+                    controlled && value != accepted
+                    ? 'Unaccepted proposal'
+                    : null;
+                return Form(
+                  key: form,
+                  onChanged: observe,
+                  child: controlled
+                      ? DRadioGroup<String>.controlled(
+                          key: field,
+                          initialValue: initial,
+                          groupValue: accepted,
+                          onChanged: changed,
+                          onSaved: (value) => saved = value,
+                          validator: validate,
+                          child: choices,
+                        )
+                      : DRadioGroup<String>(
+                          key: field,
+                          initialValue: initial,
+                          onChanged: changed,
+                          onSaved: (value) => saved = value,
+                          validator: validate,
+                          child: choices,
+                        ),
+                );
+              },
+            ),
+          ),
+        );
+        await tester.tap(find.text('Charlie'));
+        await tester.pump();
+        expect(requests, ['c']);
+        expect(observed, everyElement(controlled ? 'a' : 'c'));
+        expect(field.currentState!.hasInteractedByUser, isTrue);
+
+        update(() {
+          initial = 'b';
+          accepted = 'c';
+        });
+        await tester.pump();
+        observed.clear();
+        form.currentState!.reset();
+        expect(requests, ['c', 'a']);
+        expect(observed, everyElement(controlled ? 'c' : 'a'));
+        expect(field.currentState!.hasInteractedByUser, isFalse);
+        expect(field.currentState!.hasError, isFalse);
+        await tester.pump();
+        form.currentState!.save();
+        expect(saved, controlled ? 'c' : 'a');
+      },
+    );
+  }
+
+  testWidgets('Form error is associated with each radio and clears live', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final form = GlobalKey<FormState>();
+    await tester.pumpWidget(
+      host(
+        Form(
+          key: form,
+          child: DRadioGroup<String>(
+            required: true,
+            validator: (value) => value == null ? 'Choose one' : null,
+            child: choices,
+          ),
+        ),
+      ),
+    );
+    final radio = find.byType(RawRadio<String>).first;
+    final focus = tester.widget<RawRadio<String>>(radio).focusNode;
+    final state = tester.state(find.byType(DRadioGroupItem<String>).first);
+    focus.requestFocus();
+    await tester.pump();
+    expect(form.currentState!.validate(), isFalse);
+    await tester.pumpAndSettle();
+    expect(
+      tester.state(find.byType(DRadioGroupItem<String>).first),
+      same(state),
+    );
+    expect(focus.hasFocus, isTrue);
+    var node = radioSemantics(
+      tester,
+    ).singleWhere((node) => node.label == 'Alpha');
+    expect(node.label, 'Alpha');
+    expect(node.hint, contains('Choose one'));
+    expect(node.validationResult, SemanticsValidationResult.invalid);
+    await tester.tap(find.text('Alpha'));
+    await tester.pump();
+    expect(form.currentState!.validate(), isTrue);
+    await tester.pumpAndSettle();
+    expect(
+      tester.state(find.byType(DRadioGroupItem<String>).first),
+      same(state),
+    );
+    expect(focus.hasFocus, isTrue);
+    node = radioSemantics(tester).singleWhere((node) => node.label == 'Alpha');
+    expect(node.hint, isNot(contains('Choose one')));
+    expect(node.validationResult, SemanticsValidationResult.none);
+    semantics.dispose();
+  });
+
   testWidgets(
     'desktop rows follow content height and preserve eight-pixel gaps',
     (tester) async {
@@ -39,25 +212,29 @@ void main() {
             theme: ThemeData(platform: TargetPlatform.macOS),
           ),
         );
-        final rows = find.byType(RawRadio<String>);
+        final rows = title == 'Default'
+            ? find.byType(RawRadio<String>)
+            : find.byType(DField);
         expect(rows, findsNWidgets(3));
         final bounds = [
           for (final e in rows.evaluate())
             tester.getRect(find.byWidget(e.widget)),
         ];
         for (var i = 1; i < bounds.length; i++) {
-          expect(bounds[i].top - bounds[i - 1].bottom, closeTo(8, 0.001));
+          expect(
+            bounds[i].top - bounds[i - 1].bottom,
+            closeTo(8, 0.001),
+            reason: '$title row $i: $bounds',
+          );
         }
         if (title == 'Default') {
           expect(bounds.first.height, 16);
           expect(bounds.last.bottom - bounds.first.top, 64);
         } else {
-          final content = tester.getSize(
-            find
-                .descendant(of: rows.first, matching: find.byType(DLabel))
-                .first,
-          );
-          if (title == 'Fieldset') expect(bounds.first.height, content.height);
+          final content = tester.getSize(find.byType(DFieldLabel).first);
+          if (title == 'Fieldset') {
+            expect(bounds.first.height, content.height);
+          }
           if (title == 'Description') {
             expect(bounds.first.height, greaterThan(content.height));
           }
@@ -65,6 +242,213 @@ void main() {
       }
     },
   );
+  testWidgets('composition labels activate the radio Form owner exactly once', (
+    tester,
+  ) async {
+    for (final (title, label) in [
+      ('Description', 'Compact'),
+      ('Choice Card', 'Pro'),
+    ]) {
+      var changes = 0;
+      await tester.pumpWidget(
+        host(
+          Form(
+            key: ValueKey(title),
+            onChanged: () => changes++,
+            child: Builder(
+              builder: radioGroupExamples.examples
+                  .singleWhere((example) => example.title == title)
+                  .builder,
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text(label));
+      await tester.pump();
+      expect(changes, 1, reason: title);
+      await tester.tap(find.text(label));
+      await tester.pump();
+      expect(changes, 1, reason: '$title selecting the active item is a no-op');
+    }
+  });
+
+  testWidgets(
+    'frozen examples use final Label and Field compositions with one radio owner',
+    (tester) async {
+      Future<void> show(String title) async {
+        final example = radioGroupExamples.examples.singleWhere(
+          (example) => example.title == title,
+        );
+        await tester.pumpWidget(
+          host(
+            Builder(builder: example.builder),
+            theme: ThemeData(platform: TargetPlatform.macOS),
+          ),
+        );
+        await tester.pump();
+        expect(find.byType(RawRadio<String>), findsNWidgets(3), reason: title);
+      }
+
+      await show('Default');
+      expect(
+        tester
+            .widgetList<DRadioGroupItem<String>>(
+              find.byType(DRadioGroupItem<String>),
+            )
+            .every((item) => item.label is DLabel),
+        true,
+      );
+
+      for (final title in [
+        'Description',
+        'Choice Card',
+        'Fieldset',
+        'Disabled',
+        'Invalid',
+        'RTL',
+      ]) {
+        await show(title);
+        expect(find.byType(DField), findsNWidgets(3), reason: title);
+        expect(find.byType(DFieldControl), findsNWidgets(3), reason: title);
+        expect(
+          tester
+              .widgetList<DRadioGroupItem<String>>(
+                find.byType(DRadioGroupItem<String>),
+              )
+              .every((item) => item.label == null && !item.card),
+          true,
+          reason: '$title keeps the radio as the sole interaction owner',
+        );
+      }
+
+      await show('Description');
+      await tester.tap(find.text('Compact'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>))
+            .groupValue,
+        'compact',
+      );
+
+      await show('Choice Card');
+      expect(
+        tester
+            .widgetList<DFieldLabel>(find.byType(DFieldLabel))
+            .where((label) => label.choice),
+        hasLength(3),
+      );
+      await tester.tap(find.text('Pro'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>))
+            .groupValue,
+        'pro',
+      );
+
+      await show('Fieldset');
+      expect(find.byType(DFieldSet), findsOneWidget);
+      expect(find.byType(DFieldLegend), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byType(DFieldDescription)).dy -
+            tester.getBottomLeft(find.byType(DFieldLegend)).dy,
+        2,
+      );
+      expect(
+        tester.getTopLeft(find.byType(DField).first).dy -
+            tester.getBottomLeft(find.byType(DFieldDescription)).dy,
+        12,
+      );
+
+      await show('Disabled');
+      await tester.tap(find.text('Disabled'), warnIfMissed: false);
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>))
+            .groupValue,
+        'option2',
+      );
+      await tester.tap(find.text('Option 3'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>))
+            .groupValue,
+        'option3',
+      );
+
+      await show('Invalid');
+      expect(
+        tester
+            .widgetList<DField>(find.byType(DField))
+            .every((field) => field.invalid),
+        true,
+      );
+
+      await show('RTL');
+      expect(
+        Directionality.of(tester.element(find.byType(DField).first)),
+        TextDirection.rtl,
+      );
+    },
+  );
+  testWidgets(
+    'final fields preserve three uniquely named radio semantics owners',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        for (final title in [
+          'Description',
+          'Choice Card',
+          'Fieldset',
+          'Disabled',
+          'Invalid',
+          'RTL',
+        ]) {
+          await tester.pumpWidget(
+            host(
+              Builder(
+                builder: radioGroupExamples.examples
+                    .singleWhere((example) => example.title == title)
+                    .builder,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final nodes = radioSemantics(tester);
+          final labels = tester
+              .widgetList<DFieldControl>(find.byType(DFieldControl))
+              .map((field) => field.label)
+              .toList();
+          expect(nodes, hasLength(3), reason: title);
+          expect(
+            nodes.map((node) => node.label),
+            unorderedEquals(labels),
+            reason: title,
+          );
+          if (title == 'Invalid') {
+            expect(
+              nodes.map((node) => node.validationResult),
+              everyElement(SemanticsValidationResult.invalid),
+            );
+          }
+          if (title == 'Disabled') {
+            expect(
+              nodes
+                  .singleWhere((node) => node.label == 'Disabled')
+                  .hasAction(SemanticsAction.tap),
+              isFalse,
+            );
+          }
+        }
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
   testWidgets(
     'card focus paints outer rings without darkening translucent content',
     (tester) async {
