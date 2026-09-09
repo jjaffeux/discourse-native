@@ -455,7 +455,7 @@ class _RtlCalendar extends StatelessWidget {
       weekdayLabelBuilder: (_, date) =>
           const ['اث', 'ثل', 'أر', 'خم', 'جم', 'سب', 'أح'][date.weekday - 1],
       dateSemanticLabelBuilder: (_, date) =>
-          '${_number(date.day)} سبتمبر ${_number(date.year)}',
+          '${_number(date.day)} ${_months[date.month - 1]} ${_number(date.year)}',
     ),
     width: 320,
   );

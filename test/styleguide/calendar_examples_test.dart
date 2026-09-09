@@ -114,4 +114,22 @@ void main() {
     expect(find.bySemanticsLabel('August 30, 2026, \$120'), findsOneWidget);
     expect(find.bySemanticsLabel('October 1, 2026, \$100'), findsOneWidget);
   });
+
+  testWidgets('RTL outside days announce their actual Arabic month', (
+    tester,
+  ) async {
+    final rtl = calendarExamples.examples.singleWhere(
+      (example) => example.title == 'RTL',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: Builder(builder: rtl.builder)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('٣٠ أغسطس ٢٠٢٦'), findsOneWidget);
+    expect(find.bySemanticsLabel('١ أكتوبر ٢٠٢٦'), findsOneWidget);
+  });
 }
