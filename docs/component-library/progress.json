@@ -1038,7 +1038,7 @@
     },
     {
       "id": "toggle-group",
-      "status": "review_ready",
+      "status": "in_progress",
       "taskId": "01a085ce-ca89-7af3-8375-946721be90c6",
       "branch": "codex/ui-toggle-group",
       "dependencies": [
@@ -2164,7 +2164,7 @@
     },
     {
       "id": "select",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a085bb-1d11-7f52-a7bd-667348469087",
       "branch": "codex/ui-select",
       "dependencies": [
