@@ -1,5 +1,8 @@
 # Kbd reference mapping
 
+The 2026-09-09 source audit in [audit/kbd.md](audit/kbd.md) supersedes the
+example and composition notes below; the measurements still apply.
+
 The visual specification is the official [Base UI Kbd page](https://ui.shadcn.com/docs/components/base/kbd)
 and its [base-nova registry source](https://ui.shadcn.com/r/styles/base-nova/kbd.json),
 read on 2026-09-08. The frozen page hash remains
