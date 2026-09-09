@@ -688,25 +688,11 @@ class _BadgeCount extends StatelessWidget {
   final int count;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: theme.shell.panel,
-        border: Border.all(color: theme.shell.divider),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const DIcon(DIcons.certificate, size: 16),
-          const SizedBox(width: 5),
-          Text('$count badges', style: theme.textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DBadge(
+    variant: DBadgeVariant.outline,
+    leading: const DIcon(DIcons.certificate, size: 12),
+    child: Text('$count badges'),
+  );
 }
 
 class _Badge extends StatelessWidget {
@@ -716,17 +702,9 @@ class _Badge extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DBadge(
+    backgroundColor: color.withValues(alpha: 0.18),
+    foregroundColor: color,
+    child: Text(label),
+  );
 }

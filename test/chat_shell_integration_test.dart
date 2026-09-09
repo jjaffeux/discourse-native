@@ -691,6 +691,17 @@ void _registerChatShellTests() {
           await shell.appSettings.setTextScale(AppTextScale.percent200);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
+          final row = find.byKey(const ValueKey('chat-drawer-channel-9'));
+          final title = find.descendant(
+            of: row,
+            matching: find.text('customer-projects-managers-with-a-long-name'),
+          );
+          final count = find.descendant(of: row, matching: find.text('99+'));
+          expect(tester.getSize(title).width, greaterThan(50));
+          expect(
+            tester.getTopLeft(count).dy,
+            greaterThan(tester.getBottomLeft(title).dy),
+          );
           expect(
             find.byKey(const ValueKey('chat-drawer-preview-9')),
             findsOneWidget,

@@ -498,11 +498,9 @@ class _UsersPageState extends State<UsersPage> {
                 shrinkWrap: true,
                 children: [
                   for (final column in columns)
-                    CheckboxListTile(
+                    DCheckbox(
                       key: ValueKey('users-column-${column.id}'),
                       value: draft.contains(column.id),
-                      dense: true,
-                      controlAffinity: ListTileControlAffinity.leading,
                       title: Text(column.label),
                       onChanged: (visible) => updateDialog(() {
                         if (visible == true) {
@@ -574,19 +572,12 @@ class _UsersPageState extends State<UsersPage> {
                       Row(
                         children: [
                           Expanded(
-                            child: CheckboxListTile(
+                            child: DCheckbox(
                               key: ValueKey(
                                 'users-manage-column-${draft[index].id}',
                               ),
                               value: draft[index].enabled,
-                              dense: true,
-                              visualDensity: VisualDensity.compact,
-                              minTileHeight: 48,
-                              minVerticalPadding: 6,
-                              horizontalTitleGap: 12,
                               contentPadding: EdgeInsets.zero,
-                              controlAffinity: ListTileControlAffinity.leading,
-                              titleAlignment: ListTileTitleAlignment.center,
                               title: Text(
                                 draft[index].label,
                                 maxLines: 1,

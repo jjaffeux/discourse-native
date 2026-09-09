@@ -173,7 +173,10 @@ void main() {
           expect(tester.takeException(), isNull);
         }
       },
-      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      variant: TargetPlatformVariant({
+        TargetPlatform.macOS,
+        if (width <= 700) TargetPlatform.iOS,
+      }),
     );
   }
 

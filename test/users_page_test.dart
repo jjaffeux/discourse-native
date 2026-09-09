@@ -679,7 +679,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('users-table')),
-          matching: find.byType(Checkbox),
+          matching: find.byType(DCheckbox),
         ),
         findsNothing,
       );
@@ -1154,13 +1154,10 @@ void main() {
             .maxHeight,
         600,
       );
-      final solutionsTile = tester.widget<CheckboxListTile>(
+      final solutionsTile = tester.widget<DCheckbox>(
         find.byKey(const ValueKey('users-manage-column-9')),
       );
       expect(solutionsTile.value, isFalse);
-      expect(solutionsTile.visualDensity, VisualDensity.compact);
-      expect(solutionsTile.minTileHeight, 48);
-      expect(solutionsTile.minVerticalPadding, 6);
       expect(solutionsTile.contentPadding, EdgeInsets.zero);
 
       final firstUp = find.byKey(const ValueKey('users-column-up-1'));

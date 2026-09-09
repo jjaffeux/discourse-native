@@ -94,13 +94,14 @@ void main() {
     expect(find.text('Flag Post'), findsOneWidget);
     expect(_submit(tester).onPressed, isNotNull);
     final reasonSemantics = tester.getSemantics(
-      find.byKey(const ValueKey('post-flag-reason-3')),
+      find.bySemanticsLabel(RegExp('Off-Topic')),
     );
     expect(
       reasonSemantics,
       matchesSemantics(
         isChecked: true,
         hasCheckedState: true,
+        isInMutuallyExclusiveGroup: true,
         hasEnabledState: true,
         isEnabled: true,
         isFocusable: true,
@@ -108,8 +109,8 @@ void main() {
         hasFocusAction: true,
       ),
     );
-    expect(reasonSemantics.label, contains('Off-Topic'));
-    expect(reasonSemantics.label, contains('not relevant'));
+    expect(reasonSemantics.getSemanticsData().label, contains('Off-Topic'));
+    expect(reasonSemantics.getSemanticsData().label, contains('not relevant'));
 
     await tester.tap(find.byKey(const ValueKey('post-flag-submit')));
     await tester.pump();
@@ -256,7 +257,7 @@ void main() {
     expect(_submit(tester).onPressed, isNull);
     expect(
       tester
-          .widget<Radio<PostFlagType>>(find.byType(Radio<PostFlagType>))
+          .widget<RawRadio<PostFlagType>>(find.byType(RawRadio<PostFlagType>))
           .enabled,
       isFalse,
     );

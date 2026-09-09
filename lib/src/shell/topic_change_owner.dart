@@ -145,18 +145,15 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
               '@$_oldUsername to another account.',
             ),
             const SizedBox(height: 14),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               key: const ValueKey('topic-change-owner-search'),
               controller: _search,
               autofocus: true,
               enabled: !_saving,
               onChanged: _scheduleSearch,
-              decoration: const InputDecoration(
-                labelText: 'Search users',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
+
+              labelText: 'Search users',
+              prefix: const Icon(Icons.search),
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -170,8 +167,9 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
                             : 'No users found.',
                       ),
                     )
-                  : RadioGroup<FoundUser>(
+                  : DRadioGroup<FoundUser>.controlled(
                       groupValue: _selected,
+                      enabled: !_saving,
                       onChanged: _saving
                           ? (_) {}
                           : (value) => setState(() => _selected = value),
@@ -179,12 +177,12 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
                         key: const ValueKey('topic-change-owner-results'),
                         children: [
                           for (final user in _users)
-                            RadioListTile<FoundUser>(
+                            DRadioGroupItem<FoundUser>(
                               key: ValueKey(
                                 'topic-change-owner-user-${user.username}',
                               ),
                               value: user,
-                              secondary: DAvatar.frame(
+                              trailing: DAvatar.frame(
                                 child: SizedBox.square(
                                   dimension: 32,
                                   child: AvatarImage(
@@ -204,8 +202,8 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
                                   ),
                                 ),
                               ),
-                              title: Text(user.name ?? user.username),
-                              subtitle: user.name == null
+                              label: Text(user.name ?? user.username),
+                              description: user.name == null
                                   ? null
                                   : Text('@${user.username}'),
                             ),

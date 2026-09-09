@@ -359,26 +359,23 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
 
   Widget _field(String name) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 6),
-    child: TextField(
-      style: Theme.of(context).textTheme.bodyMedium,
+    child: DInput(
       controller: _fields[name],
-      decoration: InputDecoration(
-        labelText: _textFields[name] ?? name,
-        hintText: {'start', 'end', 'recurrence-until'}.contains(name)
-            ? (_booleans['all-day']! ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm')
-            : null,
-        suffixIcon: {'start', 'end', 'recurrence-until'}.contains(name)
-            ? DTooltip(
-                message: 'Choose date and time',
-                labelTrigger: true,
-                child: IconButton(
-                  tooltip: '',
-                  icon: const Icon(Icons.calendar_today),
-                  onPressed: () => _chooseDate(name),
-                ),
-              )
-            : null,
-      ),
+      labelText: _textFields[name] ?? name,
+      hintText: {'start', 'end', 'recurrence-until'}.contains(name)
+          ? (_booleans['all-day']! ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm')
+          : null,
+      suffix: {'start', 'end', 'recurrence-until'}.contains(name)
+          ? DTooltip(
+              message: 'Choose date and time',
+              labelTrigger: true,
+              child: IconButton(
+                tooltip: '',
+                icon: const Icon(Icons.calendar_today),
+                onPressed: () => _chooseDate(name),
+              ),
+            )
+          : null,
       keyboardType: name == 'max-attendees'
           ? TextInputType.number
           : TextInputType.text,
@@ -426,7 +423,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             _field('name'),
             _field('start'),
             _field('end'),
-            CheckboxListTile(
+            DCheckbox(
               contentPadding: EdgeInsets.zero,
               title: const DLabel(child: Text('All day')),
               value: _booleans['all-day'],
@@ -505,7 +502,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   if (!_textFields.containsKey(name)) _field(name),
                 for (final entry in _booleanFields.entries)
                   if (entry.key != 'all-day')
-                    CheckboxListTile(
+                    DCheckbox(
                       contentPadding: EdgeInsets.zero,
                       title: DLabel(child: Text(entry.value)),
                       value: _booleans[entry.key],

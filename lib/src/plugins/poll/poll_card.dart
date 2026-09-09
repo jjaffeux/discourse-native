@@ -300,6 +300,18 @@ class _PollCardState extends State<PollCard> {
     }
   }
 
+  Widget _selectionGroup({required Widget child}) => _isMultiple
+      ? child
+      : DRadioGroup<String>.controlled(
+          groupValue: _selection.firstOrNull,
+          enabled: _canVote,
+          onChanged: (value) {
+            final next = value ?? _selection.firstOrNull;
+            if (next != null) unawaited(_chooseSingle(next));
+          },
+          child: child,
+        );
+
   @override
   Widget build(BuildContext context) {
     final restriction = _voteRestriction;
@@ -354,29 +366,43 @@ class _PollCardState extends State<PollCard> {
                             style: Theme.of(context).textTheme.labelLarge,
                           ),
                         ),
-                      for (var index = 0; index < _poll.options.length; index++)
-                        _PollOptionRow(
-                          key: ValueKey<String>(
-                            'poll-${_poll.name}-option-${_poll.options[index].id}',
-                          ),
-                          option: _poll.options[index],
-                          selected: _selection.contains(
-                            _poll.options[index].id,
-                          ),
-                          multiple: _isMultiple,
-                          canSelect:
-                              _canVote &&
-                              (!_isMultiple ||
-                                  _selection.contains(
-                                    _poll.options[index].id,
-                                  ) ||
-                                  _selection.length < _multipleMax),
-                          percentage: percentages?[index],
-                          siteUrl: widget.siteUrl,
-                          onTap: _isMultiple
-                              ? () => _toggleMultiple(_poll.options[index].id)
-                              : () => _chooseSingle(_poll.options[index].id),
+                      _selectionGroup(
+                        child: Column(
+                          children: [
+                            for (
+                              var index = 0;
+                              index < _poll.options.length;
+                              index++
+                            )
+                              _PollOptionRow(
+                                key: ValueKey<String>(
+                                  'poll-${_poll.name}-option-${_poll.options[index].id}',
+                                ),
+                                option: _poll.options[index],
+                                selected: _selection.contains(
+                                  _poll.options[index].id,
+                                ),
+                                multiple: _isMultiple,
+                                canSelect:
+                                    _canVote &&
+                                    (!_isMultiple ||
+                                        _selection.contains(
+                                          _poll.options[index].id,
+                                        ) ||
+                                        _selection.length < _multipleMax),
+                                percentage: percentages?[index],
+                                siteUrl: widget.siteUrl,
+                                onTap: _isMultiple
+                                    ? () => _toggleMultiple(
+                                        _poll.options[index].id,
+                                      )
+                                    : () => _chooseSingle(
+                                        _poll.options[index].id,
+                                      ),
+                              ),
+                          ],
                         ),
+                      ),
                     ],
                     if (_isMultiple &&
                         _poll.supportsNativeVoting &&
@@ -572,81 +598,78 @@ class _PollOptionRow extends StatelessWidget {
         ? ''
         : ', ${votes == 1 ? '1 vote' : '$votes votes'}, $percentage percent';
 
-    return Semantics(
-      container: true,
-      button: canSelect,
-      enabled: canSelect,
-      selected: selected,
-      label: '$plain$resultLabel',
-      child: InkWell(
-        onTap: canSelect ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
-        child: ExcludeSemantics(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 44),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 7),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: Icon(
-                        multiple
-                            ? (selected
-                                  ? Icons.check_box
-                                  : Icons.check_box_outline_blank)
-                            : (selected
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_unchecked),
-                        size: 22,
-                        color: selected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+    if (!multiple) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: DRadioGroupItem<String>(
+          value: option.id,
+          toggleable: true,
+          enabled: canSelect,
+          semanticLabel: '$plain$resultLabel',
+          label: ExcludeSemantics(
+            child: CookedHtml(
+              html: option.html,
+              siteUrl: siteUrl,
+              textStyle: TextStyle(
+                fontSize: 14,
+                height: 20 / 14,
+                color: DTokens.of(context).foreground,
+              ),
+            ),
+          ),
+          description: votes == null || percentage == null
+              ? null
+              : ExcludeSemantics(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Wrap(
+                        spacing: 6,
                         children: [
-                          CookedHtml(
-                            html: option.html,
-                            siteUrl: siteUrl,
-                            textStyle: Theme.of(context).textTheme.bodyLarge,
-                          ),
-                          if (votes != null && percentage != null) ...[
-                            const SizedBox(height: 5),
-                            Row(
-                              children: [
-                                Text(
-                                  votes == 1 ? '1 vote' : '$votes votes',
-                                  style: Theme.of(context).textTheme.bodyLarge
-                                      ?.copyWith(color: whisper),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '$percentage%',
-                                  style: Theme.of(context).textTheme.bodyLarge
-                                      ?.copyWith(color: whisper),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            _ResultBar(percentage: percentage!),
-                          ],
+                          Text(votes == 1 ? '1 vote' : '$votes votes'),
+                          Text('$percentage%'),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      _ResultBar(percentage: percentage!),
+                    ],
+                  ),
                 ),
-              ),
+        ),
+      );
+    }
+
+    return DCheckbox(
+      value: selected,
+      onChanged: canSelect ? (_) => onTap() : null,
+      semanticLabel: '$plain$resultLabel',
+      contentPadding: const EdgeInsets.symmetric(vertical: 7),
+      title: ExcludeSemantics(
+        child: IgnorePointer(
+          child: ExcludeFocus(
+            child: CookedHtml(
+              html: option.html,
+              siteUrl: siteUrl,
+              textStyle: theme.textTheme.bodyLarge,
             ),
           ),
         ),
       ),
+      subtitle: votes == null || percentage == null
+          ? null
+          : ExcludeSemantics(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '${votes == 1 ? '1 vote' : '$votes votes'}, $percentage%',
+                    style: theme.textTheme.bodyLarge?.copyWith(color: whisper),
+                  ),
+                  const SizedBox(height: 4),
+                  _ResultBar(percentage: percentage!),
+                ],
+              ),
+            ),
     );
   }
 }
