@@ -2,7 +2,7 @@
 
 Reviewer: `01a08621-0e86-7a62-82b9-6a8eca71227f`.
 Original implementation: `43ef3bca0725ed27f452ed141a6eda4bf120072e`.
-Latest source fixes: `1bbdb00a`; current-main integration: `3c11feff`.
+Latest source fixes: `1bbdb00a`; current-main integration: `f1bb59ce`.
 
 ## Rendered reference and findings
 
@@ -57,6 +57,12 @@ The fixture's Popover differs from the integration source only in documentation.
 It includes the accepted Button Group popup boundary and byte-identical
 joined-control foundation, reconciled in `3c11feff`.
 
+Reconciliation `f1bb59ce` onto main `3178784b` leaves Navigation Menu, Popover
+and the examples unchanged, so the source-specific test/build evidence remains
+valid. Root/full-profile analysis passed again. All other progress rows and
+workflow match that main revision (normalized hash with Navigation Menu removed:
+`b06ac1979bec82649e0877f5f7e88b8bf3205d8c0aa86be998cd6df9a679141c`).
+
 Further failing-before/passing-after regressions cover vertical arrow travel,
 live orientation with an unchanged child and a real RTL destination callback.
 The RTL callback exposed an inactive anchor read during inline-popup closing.
@@ -66,17 +72,38 @@ removal and GlobalKey reparenting tests both pass; reparenting retains the open
 popup and tracks its new position. This bounded shared-owner fix was coordinated
 with the Popover reviewer and changes no API, default, Escape or layer policy.
 
-## Remaining acceptance
+## Corrected native acceptance
 
-The corrected fixture still needs native verification of trigger visuals,
-panel switching/activation, keyboard dismissal/focus, controlled/dynamic/
-disabled examples, inline RTL, and narrow 200% reduced-motion/custom palettes.
-The desktop lease was released during the final rebuild. While this reviewer
-waited in FIFO, the preceding Avatar reviewer reported that approved CUA now
-said the Mac was locked and automatic unlock failed. Avatar released its lease;
-Navigation Menu withdrew its waiting request without attempting a bypass.
-The old Navigation Menu app had already been quit through its native menu by
-the explicitly authorized Button Group reviewer, and its reference tab is closed.
-Manual unlock is needed before a fresh corrected native pass. No corrected
-native acceptance or final merge is claimed by this checkpoint. iOS, Linux and
-spoken VoiceOver have not been run.
+After the user's unlock confirmation and Avatar's ordinary-CUA recovery report,
+this reviewer acquired desktop lease `8caace62449840aa979e9d23c07e9aae` at
+2026-09-09 18:55:09 UTC. A fresh normal CUA session launched the exact-source
+fixture above. Actual native AX states and screenshots verified:
+
+- Dark/current and light Basic panels: active trigger background/upward chevron,
+  left-aligned full-width links, compact popup and distinct icon-link symbols.
+- Getting started → Introduction, With Icon → Done and the direct Documentation
+  link update destination output; panel destinations dismiss the popup.
+- Components exposes its two-column content. Logical arrow traversal and Down
+  enter the first content link; Escape closes and visibly restores focus to
+  Components. The current-page example highlights Documentation and routes to
+  Examples, closing its popup and reporting `/examples`.
+- Disabled does not open; Dynamic opens under parent control. Remove dynamic
+  removes the open entry and popup; Restore dynamic restores the entry.
+- Forest palette at 360 px, 200% text, RTL and reduced motion: the inline Arabic
+  popup remains bounded and activates Introduction without the former inactive
+  anchor exception. Basic Home/End reveal both the first trigger and offscreen
+  Documentation link with visible focus. Down/Tab/Tab scroll the constrained
+  popup to Typography; Return activates it and Reset clears the output.
+
+The official rendered Arabic RTL example was also opened with ArrowDown and
+inspected: right-aligned trigger order, upward chevron, right-aligned content and
+focused-link highlight agree with the platform adaptation. This supplements
+the earlier settled light/dark and icon-panel reference comparison.
+
+Both temporary reference tabs are closed. The corrected native app was quit
+through its own native menu; a scoped process check found no running fixture.
+Desktop lease released before main integration. All review acceptance gates
+are satisfied for the recorded source and representative native scenarios.
+iOS/Linux devices and spoken VoiceOver were not run. Hover timing, controlled
+rejection, vertical/live orientation and anchor reparenting are covered by
+focused widget regressions rather than separate native scenarios.

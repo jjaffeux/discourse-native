@@ -70,7 +70,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 44 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
 | 45 | context-menu | merged | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | 7583852aefa06a1a086708b064a0df53c4fff560 |
 | 46 | menubar | merged | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | 5ac59a926eab9a8a6890486e5bb37e65ce0f54a5 |
-| 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
+| 47 | navigation-menu | review_ready | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
 | 48 | breadcrumb | merged | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | a1e23695ccd80b2a48e74fd8a92c3823fb528dac |
 | 49 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
 | 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
@@ -2740,7 +2740,7 @@ Status: merged. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/ui-men
 
 ### navigation-menu
 
-Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-navigation-menu.
+Status: review_ready. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-navigation-menu.
 
 **acceptanceCriteria**
 
@@ -2778,11 +2778,13 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 - After latest-main integration 2141e109 onto 4d79219d, all 64 Navigation Menu/Popover/Combobox focused tests passed with seed 860606 and root/full-profile analysis passed. Rebuilt/signed/deep-strict verified fixture kernel a2a5548031becc4fd815fa106a2e9b00ee37e3c2a85e327454f92040b3610312 has byte-identical Navigation Menu/example sources. Desktop released during rebuild, then rejoined FIFO for corrected native acceptance.
 - 1bbdb00a completes vertical/live orientation and functional RTL routing. An RTL route-close regression exposed inactive custom-anchor layout; retaining the inline exit anchor and unregistering DPopoverAnchor on deactivate fixes it. Permanent removal and GlobalKey reparenting regressions pass, coordinated with Popover reviewer. All 69 focused tests pass seed 860606, root/full-profile analysis clean. Latest exact-source build/signature verification passed; kernel 2c7d7c9417233550384fe7c99ddfb2ac504a221a278f131df2997957cb199d98.
 - Integration 3c11feff onto main 2b9797fe preserves accepted Button Group popup-boundary behavior and every other progress row/workflow exactly. All 98 affected Navigation Menu/Popover/Combobox/Button Group tests pass seed 860606; root/full-profile analysis clean. Updated fixture built/signed/deep-strict verified, kernel ca1ab6d1d9dfe4e36f3c8551e2bd82931821ef5c0f3d9d5fb6007c65b9c32464. Navigation Menu/example/joined-control source is byte-identical; Popover differs only in documentation.
-- Button Group reviewer confirmed native-menu cleanup of the old isolated Navigation Menu app. Before the corrected pass reached its FIFO turn, Avatar reviewer reported approved CUA Mac-locked/automatic-unlock-failed and released desktop. Navigation Menu cancelled its own waiting request; manual unlock is required before corrected native acceptance.
+- Button Group reviewer confirmed native-menu cleanup of the old isolated Navigation Menu app. Before the corrected pass reached its FIFO turn, Avatar reviewer reported approved CUA Mac-locked/automatic-unlock-failed and released desktop. Navigation Menu cancelled its own waiting request; manual unlock was required before corrected native acceptance.
+- After user unlock and ordinary-CUA recovery, corrected native acceptance passed under own desktop lease acquired 2026-09-09 18:55:09 UTC: dark/light/Forest visuals; live trigger/chevron state; rich/direct/current-page routes and dismissal; keyboard content entry/Escape focus restoration; disabled/dynamic removal/restoration; inline RTL route-close; 360px/200% RTL reduced motion; Home/End focused-item reveal; lower-popup Tab reachability, activation and reset. Official rendered RTL comparison also passed. Exact scenario/fixture evidence: docs/component-library/navigation-menu-review.md. Own app quit via native menu and reference tabs closed; desktop released.
+- Current-main reconciliation f1bb59ce onto 3178784b changes no Navigation Menu, Popover or example behavior from the verified source. Root/full-profile analysis passed again; every other component row/workflow was preserved exactly. Independent review accepted for local-main integration.
 
 **limitations**
 
-- Official rendered comparison and initial native inspection succeeded after the earlier locked-Mac attempts. Corrected native acceptance remains pending after real visual/lifecycle fixes. The preceding Avatar reviewer reported that the Mac locked again and approved automatic unlock failed; Navigation Menu withdrew its FIFO request. Manual unlock is required. No corrected native acceptance or merge is claimed yet.
+- Native acceptance covers representative desktop pointer/keyboard, theme, large-text and RTL cases. Hover timing, controlled rejection, vertical/live orientation and anchor reparenting are verified by focused widget regressions rather than separate native scenarios.
 - No iOS or Linux device run or spoken VoiceOver pass was performed. Widget tests, analysis and build/signature evidence are not native inspection.
 
 ### breadcrumb

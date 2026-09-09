@@ -3244,7 +3244,7 @@
     },
     {
       "id": "navigation-menu",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
       "branch": "codex/ui-navigation-menu",
       "dependencies": [
@@ -3283,10 +3283,12 @@
         "After latest-main integration 2141e109 onto 4d79219d, all 64 Navigation Menu/Popover/Combobox focused tests passed with seed 860606 and root/full-profile analysis passed. Rebuilt/signed/deep-strict verified fixture kernel a2a5548031becc4fd815fa106a2e9b00ee37e3c2a85e327454f92040b3610312 has byte-identical Navigation Menu/example sources. Desktop released during rebuild, then rejoined FIFO for corrected native acceptance.",
         "1bbdb00a completes vertical/live orientation and functional RTL routing. An RTL route-close regression exposed inactive custom-anchor layout; retaining the inline exit anchor and unregistering DPopoverAnchor on deactivate fixes it. Permanent removal and GlobalKey reparenting regressions pass, coordinated with Popover reviewer. All 69 focused tests pass seed 860606, root/full-profile analysis clean. Latest exact-source build/signature verification passed; kernel 2c7d7c9417233550384fe7c99ddfb2ac504a221a278f131df2997957cb199d98.",
         "Integration 3c11feff onto main 2b9797fe preserves accepted Button Group popup-boundary behavior and every other progress row/workflow exactly. All 98 affected Navigation Menu/Popover/Combobox/Button Group tests pass seed 860606; root/full-profile analysis clean. Updated fixture built/signed/deep-strict verified, kernel ca1ab6d1d9dfe4e36f3c8551e2bd82931821ef5c0f3d9d5fb6007c65b9c32464. Navigation Menu/example/joined-control source is byte-identical; Popover differs only in documentation.",
-        "Button Group reviewer confirmed native-menu cleanup of the old isolated Navigation Menu app. Before the corrected pass reached its FIFO turn, Avatar reviewer reported approved CUA Mac-locked/automatic-unlock-failed and released desktop. Navigation Menu cancelled its own waiting request; manual unlock is required before corrected native acceptance."
+        "Button Group reviewer confirmed native-menu cleanup of the old isolated Navigation Menu app. Before the corrected pass reached its FIFO turn, Avatar reviewer reported approved CUA Mac-locked/automatic-unlock-failed and released desktop. Navigation Menu cancelled its own waiting request; manual unlock was required before corrected native acceptance.",
+        "After user unlock and ordinary-CUA recovery, corrected native acceptance passed under own desktop lease acquired 2026-09-09 18:55:09 UTC: dark/light/Forest visuals; live trigger/chevron state; rich/direct/current-page routes and dismissal; keyboard content entry/Escape focus restoration; disabled/dynamic removal/restoration; inline RTL route-close; 360px/200% RTL reduced motion; Home/End focused-item reveal; lower-popup Tab reachability, activation and reset. Official rendered RTL comparison also passed. Exact scenario/fixture evidence: docs/component-library/navigation-menu-review.md. Own app quit via native menu and reference tabs closed; desktop released.",
+        "Current-main reconciliation f1bb59ce onto 3178784b changes no Navigation Menu, Popover or example behavior from the verified source. Root/full-profile analysis passed again; every other component row/workflow was preserved exactly. Independent review accepted for local-main integration."
       ],
       "limitations": [
-        "Official rendered comparison and initial native inspection succeeded after the earlier locked-Mac attempts. Corrected native acceptance remains pending after real visual/lifecycle fixes. The preceding Avatar reviewer reported that the Mac locked again and approved automatic unlock failed; Navigation Menu withdrew its FIFO request. Manual unlock is required. No corrected native acceptance or merge is claimed yet.",
+        "Native acceptance covers representative desktop pointer/keyboard, theme, large-text and RTL cases. Hover timing, controlled rejection, vertical/live orientation and anchor reparenting are verified by focused widget regressions rather than separate native scenarios.",
         "No iOS or Linux device run or spoken VoiceOver pass was performed. Widget tests, analysis and build/signature evidence are not native inspection."
       ],
       "implementationCommit": "43ef3bca0725ed27f452ed141a6eda4bf120072e",
@@ -3315,7 +3317,7 @@
       "reviewBranch": "codex/review-navigation-menu",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/9fda/discourse-native",
       "reviewHandoffCommit": "57ee83934cd11d941b816bb1c59260e7515427b8",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "accepted",
       "implementationHandoffVerification": {
         "focusedTests": "31 focused Navigation Menu/styleguide/Popover tests passed with seed860606, reported by the implementation owner.",
         "analysis": "Root and profiles/full analysis clean at source handoff.",
