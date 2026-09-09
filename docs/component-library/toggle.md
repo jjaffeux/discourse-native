@@ -82,3 +82,30 @@ styleguide and Voice-control inspection, any resulting fixes, status promotion,
 latest-main reconciliation and the final local-main merge.
 Reviewer task: `01a08579-4e43-7ce2-9919-546137c84a24` on
 `codex/review-toggle`.
+
+## Independent reviewer verification
+
+The reviewer compared the official live Base UI examples in light and dark and
+confirmed the documented 28/32/36px surfaces, 14/16px icons, 4px gap, 8px
+radius, outline/muted states, disabled opacity and RTL ordering. The rendered
+Lucide examples retain symmetric 10px horizontal padding: their icons do not
+carry the registry's optional `data-icon` annotation. A temporary source-only
+interpretation that reduced the icon edge was therefore reverted before
+acceptance.
+
+The exact `d39eb0f3` source was built as an isolated, ad-hoc-signed macOS app.
+Its copied and original kernels both have SHA-256
+`3eea3bb75a19aeab195e3ced4e91c3d6b2d01fe5fc46aad6fb9dc49d75334529`.
+The native pass exercised the real Voice mute, deafen, camera, screen-share,
+raise-hand and recording adapters in both directions, retained Media settings
+as a momentary action, and covered every styleguide example in light, dark,
+Forest, Plum, RTL and 200% text. Disabled controls remained inert;
+controlled/uncontrolled state and external updates behaved correctly; Space
+and Return activated focused toggles.
+
+After latest-main integration, 81 focused Toggle, Voice and fixture tests passed
+with seed `9052032`. Root and `profiles/full` analysis, locked dependency
+resolution and `git diff --check` also passed. No physical iOS/Linux run or
+spoken VoiceOver verification was performed, and no pixel-equality claim is
+made. Full bundle provenance is recorded under
+`docs/component-library/evidence/toggle/native-d39eb0f3/`.

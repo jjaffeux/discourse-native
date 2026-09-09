@@ -6,9 +6,9 @@ import 'toggle_reference_icons.dart';
 
 final toggleExamples = ComponentExamples(
   description: 'A two-state button that can be either on or off.',
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   notes:
-      'Source implementation is complete; the reviewer owns rendered/native acceptance and status promotion. '
+      'Independent browser and native review accepted the production component and Voice adapters. '
       'DToggle accepts controlled pressed/onPressedChanged state or internally owned initialPressed state. '
       'Borrowed focus nodes are never disposed. Space, Enter, pointer and native semantics toggle the value; '
       'disabled controls do not enter traversal or activate. Visual surfaces are 28/32/36px with 48px touch '
