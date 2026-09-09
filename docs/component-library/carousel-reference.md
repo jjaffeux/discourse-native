@@ -30,19 +30,21 @@ hover, press, focus, disabled and touch-target behavior.
 | `setApi`, select and scroll events | borrowed `DCarouselController`, `onSelected`, `onScrollStart`, `onScrollEnd`, and observable index/count/enabled/progress state |
 | autoplay plugin | `DCarouselAutoplay` with delay, play-on-init, stop-on-interaction, mouse-enter and focus behavior plus `play`, `stop`, and `reset` |
 | RTL direction option and flipped arrows | inherited `Directionality` controls page direction, logical control placement, key direction and chevron artwork |
+| carousel region and slide group semantics | a labeled `DCarousel` is a `SemanticsRole.region`; each snap is a separately labeled semantics container |
 
 The native API deliberately supports the behavior that can be implemented
 faithfully by Flutter paging. It does not pretend to accept Embla's DOM-specific
 watch callbacks, CSS containment, or free-drag options. A controller supplied
 by a caller is borrowed. `plugins` are borrowed and detached; `ownedPlugins`
 are detached and disposed by the carousel. Internally created controllers are
-owned and disposed by the carousel. Theme, text scale and size changes rebuild
-geometry without replacing selected logical state. Reduced motion converts
-animated selection to a jump and suppresses autoplay. Looping is backed by a
-high, item-count-aligned virtual page so previous, next, drag and autoplay cross
-either logical boundary by one physical snap rather than traversing intervening
-slides. The public controller continues to report finite logical indices and
-progress.
+owned and disposed by the carousel. Borrowed autoplay plugins clear transient
+focus and hover pause state when attached to a new host. Theme, text scale and
+size changes rebuild geometry without replacing selected logical state. Reduced
+motion converts animated selection to a jump and suppresses autoplay. Looping
+is backed by a high, item-count-aligned virtual page so previous, next, drag and
+autoplay cross either logical boundary by one physical snap rather than
+traversing intervening slides. The public controller continues to report finite
+logical indices and progress.
 
 The Flutter hit-test tree cannot activate a child painted beyond its parent's
 bounds. `navigationInsets` therefore reserves the same `48px` offset in the
@@ -71,9 +73,9 @@ appropriate generic adoption.
 
 ## Prepared verification
 
-- `flutter test --no-pub test/d_carousel_test.dart --test-randomize-ordering-seed=940219`: 10 passed.
+- `flutter test --no-pub test/d_carousel_test.dart --test-randomize-ordering-seed=940219`: 11 passed.
 - `flutter test --no-pub test/image_grid_test.dart --test-randomize-ordering-seed=940219`: 33 passed.
-- `flutter test --no-pub test/styleguide/styleguide_access_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=940219`: 17 passed.
+- `flutter test --no-pub test/styleguide/styleguide_access_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=940219`: 18 passed.
 - Root `flutter analyze --no-pub`: clean.
 - `profiles/full`: locked dependency resolution and `flutter analyze --no-pub`: clean.
 - `flutter build macos --debug --no-pub -t lib/styleguide_main.dart`: built `build/macos/Build/Products/Debug/Discourse.app`.

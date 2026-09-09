@@ -1,4 +1,4 @@
-import 'dart:ui' show PointerDeviceKind;
+import 'dart:ui' show PointerDeviceKind, SemanticsRole;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
@@ -137,6 +137,10 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpWidget(host(carousel(controller: controller)));
     expect(find.bySemanticsLabel('Highlights'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Highlights')).role,
+      SemanticsRole.region,
+    );
     expect(
       tester.getSemantics(find.text('Slide 1')).label,
       contains('Slide 1 of 3'),
@@ -388,6 +392,50 @@ void main() {
     expect(plugin.disposed, isFalse);
     plugin.dispose();
     controller.dispose();
+  });
+
+  testWidgets('borrowed autoplay clears host pause state when reattached', (
+    tester,
+  ) async {
+    final firstController = DCarouselController();
+    final secondController = DCarouselController();
+    final firstFocus = FocusNode();
+    final autoplay = DCarouselAutoplay(
+      delay: const Duration(milliseconds: 300),
+      stopOnMouseEnter: true,
+    );
+    addTearDown(firstController.dispose);
+    addTearDown(secondController.dispose);
+    addTearDown(firstFocus.dispose);
+    addTearDown(autoplay.dispose);
+
+    await tester.pumpWidget(
+      host(
+        carousel(
+          controller: firstController,
+          plugins: [autoplay],
+          focusNode: firstFocus,
+        ),
+      ),
+    );
+    firstFocus.requestFocus();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(
+      location: tester.getCenter(
+        find.byKey(const ValueKey('d-carousel-viewport')),
+      ),
+    );
+    await tester.pump();
+
+    await tester.pumpWidget(const SizedBox());
+    await mouse.removePointer();
+    await tester.pumpWidget(
+      host(carousel(controller: secondController, plugins: [autoplay])),
+    );
+    await tester.pump(const Duration(milliseconds: 301));
+    await tester.pump(DMotion.change);
+
+    expect(secondController.selectedIndex, 1);
   });
 }
 
