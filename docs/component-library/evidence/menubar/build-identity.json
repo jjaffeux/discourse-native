@@ -1,0 +1,35 @@
+{
+  "component": "menubar",
+  "sourceCommit": "430b46a0690a23613ca795b3a95a6f64da9b590e",
+  "branch": "codex/review-menubar-final",
+  "flutter": "3.47.2",
+  "target": "lib/styleguide_main.dart",
+  "buildCommand": "flutter build macos --debug -t lib/styleguide_main.dart --no-pub",
+  "buildResult": "passed",
+  "fixturePath": "/private/tmp/discourse-menubar-review-430b.2BbJSL/Discourse Menubar Review 430b.app",
+  "bundleIdentifier": "org.discourse.menubarreview.430b",
+  "kernelSha256": "ba40288f9634cf77a0a19a2caeff110ea22a327362bbb7462821ac31ec0a09c8",
+  "signature": {
+    "kind": "ad-hoc",
+    "deepStrictVerification": "passed",
+    "mainEntitlements": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.cs.allow-jit": true,
+      "com.apple.security.get-task-allow": true
+    },
+    "signedExecutableCount": 7,
+    "restrictedEntitlementExecutableCount": 0,
+    "restrictedKeysChecked": [
+      "com.apple.application-identifier",
+      "com.apple.developer.team-identifier",
+      "com.apple.developer.aps-environment"
+    ]
+  },
+  "sourceScope": "The fixture mounts the production styleguide and registered real DMenubar examples from the exact source commit. The copied bundle only changes its Info.plist identity and ad-hoc signature; repository runner identities and entitlements are unchanged.",
+  "inspection": {
+    "launched": false,
+    "officialBrowserCompared": "light completed; dark still required",
+    "nativeMacosInspected": false,
+    "note": "Earlier exact-source native passes inspected command/checkbox/radio/submenu/typeahead/Escape/Home/End behavior, dark/light/Plum, 360px/200% text, reduced motion, Arabic RTL and dark destructive icons. The 67aa23ab pass exposed remaining RTL anchor clipping and double-mirrored submenu chevrons. Source 430b46a0 fixes both; nested-Navigator regressions fail before and pass after. This rebuilt fixture is queued for focused native confirmation; it is not yet accepted."
+  }
+}

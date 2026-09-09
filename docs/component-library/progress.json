@@ -3079,19 +3079,41 @@
         "dropdown-menu"
       ],
       "acceptanceCriteria": [
-        "Match the frozen Base UI/base-nova Menubar complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
-        "Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.",
-        "Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.",
-        "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
+        "Match the frozen Base UI/base-nova Menubar composition and full demo, Checkbox, Radio, Submenu, With Icons and RTL examples with recorded primary-source geometry, styling and behavior mapping.",
+        "Compose the accepted Dropdown Menu owner with distinct top-level roving focus, directional/Home/End navigation, Enter/Space/ArrowDown opening, pointer and keyboard menu switching, local typeahead, submenu boundaries and reliable focus restoration.",
+        "Support item, checkbox, radio, destructive, disabled, icon, shortcut, inset and nested states with native semantics, touch/pointer interaction, narrow/200% text, RTL, reduced motion and live host palette/font/radius updates while overlays are open.",
+        "Audit core and plugin in-app horizontal menu strips, migrate only faithful command-menu matches, retain operating-system menus and route tabs with specific rationale, and keep networking/business logic outside the generic widget.",
+        "Pass focused component/styleguide/adoption regressions, formatting and static analysis; create a separate Menubar reviewer that owns final dependency reconciliation, official rendered browser/native acceptance and local main merge."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
-        "Verified independent reviewer Review and merge Menubar (01a08628-7042-7173-a37d-7f1f04eade66) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
+        "Prepared source d273c27e788bb3991c773c7432e0b8c927715651 was reconciled with accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787. Independent Menubar review subsequently found and fixed shared popup-focus and RTL-chevron defects; the new corrections still require their focused native confirmation.",
+        "DMenubar owns only persistent top-level coordination: one active menu, logical arrow/Home/End roving focus, Enter/Space/open-direction entry, pointer hover switching and final trigger restoration. DDropdownMenu remains the popup/item/typeahead/submenu lifecycle owner.",
+        "Use a 32px minimum root with internal horizontal scrolling only when narrow or scaled layouts cannot fit persistent triggers. Keyboard focus centers newly focused triggers in the viewport in both LTR and RTL, preserving source geometry without a RenderFlex overflow or an undiscoverable off-screen command.",
+        "Keep Base UI's browser modal implementation detail with the shared Dropdown Menu lifecycle rather than expose an inert boolean; keep operating-system application menus outside this generic in-app widget.",
+        "Independent review retains the source-exact 24px trigger and 32px bar on macOS/Linux, while iOS uses a 48px minimum trigger hit surface so persistent commands remain touch-accessible.",
+        "Use accepted Popover.focusContentOnOpen=false for Dropdown Menu, whose content already owns first-enabled-item focus. Restrict item reveal to the popup viewport so embedded Navigator overlays do not scroll enclosing pages or menubar strips."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "migrations": [
+        "No production migration: the audited core/plugin app currently has no persistent row of multiple independent command-menu triggers. The complete component is registered with six real styleguide compositions."
+      ],
+      "retainedAlternatives": [
+        "Composer/topic/post/instance/user/diagnostics/forum-tab/emoji/event/chat/poll/voice MenuAnchor and PopupMenuButton surfaces are single-trigger dropdown/context actions, not menubars.",
+        "Diagnostics, move-posts, settings, update-channel and event-calendar SegmentedButton surfaces remain mutually exclusive mode/filter selectors.",
+        "Forum/group/chat information tabs and route navigation remain tabs/navigation; the event calendar period controls remain a responsive immediate-action toolbar.",
+        "Native macOS/iOS/Linux application menus remain platform-shell owned and were not changed."
+      ],
+      "verification": [
+        "Frozen Markdown fetched byte-for-byte at 8ae4486c307453e61359a37284084facbfbc6495ed0dabdc47ad991a06f734ae; base-nova registry response SHA-256 265f030bd11d52072325f749bfd2c8070a9a1cc48098aa3fb245b2460801e6cd. Exact geometry/behavior/API mapping is recorded in docs/component-library/menubar.md.",
+        "63 combined randomized tests pass on correction 430b46a0690a23613ca795b3a95a6f64da9b590e with seed 1320190751: Menubar, Dropdown Menu, Popover, Table and both menu styleguide suites. Coverage includes controlled/default-open coordination, borrowed controllers, iOS touch bounds, pointer/keyboard switching, checked/radio/disabled states, nested Escape, typeahead, focus restoration, live palettes, large text and RTL.",
+        "Nested-Navigator regressions reproduce both native focus failures before the correction: popup focus moved an enclosing page by 86px and an opened RTL Profiles trigger to x=-275. Popup-local scrolling plus a single menu-owned autofocus path fix both; logical trigger reveal is checked before and after opening/wrapping at 200% text in LTR and RTL.",
+        "RTL submenu regression confirms one directional Material chevron glyph, avoiding the native-observed double mirror. Native Context Menu review independently reproduced the same inherited arrow defect.",
+        "flutter pub get --enforce-lockfile previously passed at root and profiles/full with unchanged Flutter 3.47.2 and lockfiles. Current root and full-profile flutter analyze --no-pub pass; formatting and git diff --check are clean.",
+        "Official light rendered reference and earlier exact-source native fixtures were inspected for compact geometry, File/Edit/View/Profiles switching, checkbox/radio retention, nested Share/Escape, typeahead Print, Home/End, light/dark/Plum, 360px/200%, reduced motion, Arabic RTL and dark destructive icons. The 67aa23ab fixture exposed the remaining RTL clipping and mirrored arrow; final corrected native inspection and official dark comparison remain required.",
+        "Source 430b46a0690a23613ca795b3a95a6f64da9b590e builds the real debug macOS styleguide. Fixture /private/tmp/discourse-menubar-review-430b.2BbJSL/Discourse Menubar Review 430b.app; bundle org.discourse.menubarreview.430b; kernel SHA-256 ba40288f9634cf77a0a19a2caeff110ea22a327362bbb7462821ac31ec0a09c8. Deep strict ad-hoc verification passes, only sandbox/allow-jit/get-task-allow main entitlements, and 0 of 7 signed executables contain application/team/APS identifiers. Repository runner signing/provisioning is unchanged."
+      ],
+      "limitations": [
+        "Corrected source 430b46a0 is queued for focused native confirmation of enlarged RTL anchor reveal and submenu direction, plus remaining official dark comparison. iOS/Linux device behavior and spoken VoiceOver remain unverified."
+      ],
       "implementationCommit": "3aef780c8aa4ad042d464c1c6cdf9c419e996c58",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8f35/discourse-native",
@@ -3105,17 +3127,17 @@
       "dependencyOwners": [
         {
           "id": "dropdown-menu",
-          "status": "in_progress",
+          "status": "merged",
           "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
           "branch": "codex/ui-dropdown-menu",
           "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
           "reviewBranch": "codex/review-dropdown-menu",
           "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
-          "mergeCommit": null
+          "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
         }
       ],
       "reviewTaskId": "01a08628-7042-7173-a37d-7f1f04eade66",
-      "reviewBranch": "codex/review-menubar",
+      "reviewBranch": "codex/review-menubar-current",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native",
       "reviewHandoffCommit": "10b63f75edad20793fd83e5b2c8e15504e602a9a",
       "reviewStatus": "in_progress",
@@ -3124,6 +3146,25 @@
         "analysis": "Root and profiles/full analysis pass with unchanged SDK and lockfile hashes.",
         "native": "Source3aef780c macOS fixture builds and signature/kernel provenance is recorded. Official browser comparison and actual native inspection remain unperformed.",
         "dependency": "Final local merge requires the accepted Dropdown Menu revision and verification of its final corrections."
+      },
+      "preparedDependencies": [
+        {
+          "id": "dropdown-menu",
+          "branch": "codex/review-dropdown-menu-candidate",
+          "commit": "d273c27e788bb3991c773c7432e0b8c927715651",
+          "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
+          "evidence": "Reviewer reports exact candidate has 47 focused Dropdown/Popover/Table/styleguide tests passing with seed 826145 and clean root/full analysis. Public Menu, Trigger, Content, Item, Checkbox, Radio, Label, Separator, Shortcut and Sub APIs are stable at this pin; official browser/native acceptance is still pending.",
+          "mergeGate": "Cleared: Dropdown Menu is accepted on local main and reconciled into the latest-main Menubar candidate.",
+          "acceptedMergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
+        }
+      ],
+      "reviewBlocker": {
+        "status": "awaiting_desktop_slot",
+        "reportedByTask": "01a08628-7042-7173-a37d-7f1f04eade66",
+        "observation": "The 67aa23ab native pass found inherited popup focus scrolling in embedded Navigators and a double-mirrored RTL submenu arrow. Both have fail-before/pass-after regressions in source 430b46a0; the exact rebuilt fixture is queued for focused confirmation.",
+        "requiredAction": "Acquire the FIFO desktop lease, confirm open-menu trigger visibility at 360px/200% in LTR/RTL plus the Arabic submenu arrow and keyboard direction, finish the official dark comparison, then accept and merge from latest main.",
+        "preparedReviewCommit": "430b46a0690a23613ca795b3a95a6f64da9b590e",
+        "preparedBundle": "/private/tmp/discourse-menubar-review-430b.2BbJSL/Discourse Menubar Review 430b.app"
       }
     },
     {

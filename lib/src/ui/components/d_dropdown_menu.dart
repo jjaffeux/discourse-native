@@ -53,6 +53,8 @@ class DDropdownMenu extends StatelessWidget {
       onOpenChange: onOpenChange,
       onOpenChangeComplete: onOpenChangeComplete,
       restoreFocus: restoreFocus,
+      // Menu content owns first-enabled-item focus and popup-local scrolling.
+      focusContentOnOpen: false,
       content: DPopoverContent(
         semanticLabel: content.semanticLabel,
         side: content.side,
@@ -187,9 +189,12 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final itemContext = items[index % items.length].node.context;
-      if (itemContext != null) {
-        Scrollable.ensureVisible(
-          itemContext,
+      final target = itemContext?.findRenderObject();
+      if (itemContext != null && target != null && target.attached) {
+        // OverlayPortal preserves ancestors, including the trigger's scroll
+        // views. Only the popup viewport should move when its items get focus.
+        Scrollable.maybeOf(itemContext)?.position.ensureVisible(
+          target,
           alignment: 0.5,
           duration: DMotion.duration(context, DMotion.exit),
         );
@@ -1007,10 +1012,8 @@ class _DirectionalChevron extends StatelessWidget {
   const _DirectionalChevron();
 
   @override
-  Widget build(BuildContext context) {
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-    return Icon(rtl ? Icons.chevron_left : Icons.chevron_right, size: 16);
-  }
+  Widget build(BuildContext context) =>
+      const Icon(Icons.chevron_right, size: 16);
 }
 
 String _plainText(Widget widget) => widget is Text ? widget.data ?? '' : '';
