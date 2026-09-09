@@ -2621,7 +2621,7 @@
         }
       ],
       "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
-      "reviewBranch": "codex/review-dropdown-menu-final2",
+      "reviewBranch": "codex/review-dropdown-menu-final3",
       "reviewStatus": "in_progress",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
       "reviewHandoffCommit": "48599440787a16d27c00d1b399d021f385113be5",
@@ -2706,16 +2706,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Menubar (01a08628-7042-7173-a37d-7f1f04eade66) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "3aef780c8aa4ad042d464c1c6cdf9c419e996c58",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8f35/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement the full reference Menubar composition and Checkbox, Radio, Submenu, With Icons and RTL examples. Compose final Dropdown Menu primitives with a menubar's distinct top-level roving focus, arrow/Home/End behavior, opening/switching menus by keyboard and pointer, submenu boundaries, typeahead and focus restoration. Support selected/checked/radio/destructive/disabled/shortcut state and live overlay tokens; keep native application/OS menu-bar integration outside the generic in-app widget. Audit appropriate core/plugin in-app menu strips and migrate actual matches; do not change operating-system menus or replace route tabs merely because they are horizontal. Coordinate shared menu logic and app-file ownership with Context Menu and Dropdown Menu reviewers; keep each documented public API complete.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/menubar",
@@ -2733,7 +2734,18 @@
           "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
           "mergeCommit": null
         }
-      ]
+      ],
+      "reviewTaskId": "01a08628-7042-7173-a37d-7f1f04eade66",
+      "reviewBranch": "codex/review-menubar",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native",
+      "reviewHandoffCommit": "58149a8d26f70675a5f5812dfd17290e7891a129",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Source record reports14 randomized component/styleguide tests passing with seed1320190751, including six frozen groups, keyboard/RTL, state, live themes, narrow/200% and reduced motion.",
+        "analysis": "Root and profiles/full analysis pass with unchanged SDK and lockfile hashes.",
+        "native": "Source3aef780c macOS fixture builds and signature/kernel provenance is recorded. Official browser comparison and actual native inspection remain unperformed.",
+        "dependency": "Final local merge requires the accepted Dropdown Menu revision and verification of its final corrections."
+      }
     },
     {
       "id": "navigation-menu",
@@ -3328,16 +3340,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Message (01a08627-8995-7b43-9c06-8a219d472681) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "1fd4d49aff7fe0b19cb7b6874e5e8610931531c4",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/dee9/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement full Message, Group, Avatar, Content, Header and Footer API with Avatar, Group, Header/Footer, Actions, Attachment and accessibility/status-update examples. Compose final Attachment, Avatar, Bubble, Marker and Button components rather than duplicating their rendering/logic. Keep arbitrary rich content, timestamps, sender/status metadata and actions generic, preserving independent native action labels and appropriate live-status announcements. Handle grouping/alignment/spacing, avatar stacking/availability, deleted/failed/pending/retry or other documented states, keyboard/touch, RTL/narrow/large text and live themes. Audit core/plugin chat/message presentation and migrate suitable actual widgets while leaving delivery/fetching/permissions/network/model transformations with app adapters. Coordinate Attachment reviewer 01a085f6-d243-7d73-8a4a-c1a1225d3a8f and Bubble implementer 01a085d9-7909-7fd0-b1b8-30a76c6ab2af; agree the Message API with the separately queued Message Scroller owner. Do independent planning/audit while waiting for a tested Bubble pin; no placeholder-owned final compositions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/message",
@@ -3385,7 +3398,17 @@
           "implementationCommit": "ba156a2ce378787c25fdd4a8910fbf86390c4a8a",
           "mergeCommit": "fc92f4e69042191eff5d39d52c1355a6d6a87da7"
         }
-      ]
+      ],
+      "reviewTaskId": "01a08627-8995-7b43-9c06-8a219d472681",
+      "reviewBranch": "codex/review-message",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8953/discourse-native",
+      "reviewHandoffCommit": "93729c14aef376f9212c1bae009f9c9791369fe8",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Implementation owner reports81 combined focused checks passing, including Message examples and ChatMessageTile adoption.",
+        "analysis": "Root and profiles/full analysis pass at handoff.",
+        "acceptance": "Bubble/Attachment remain prepared-only dependencies. Independent reviewer owns final accepted-parent reconciliation, fixes, first official browser/native acceptance and local main merge."
+      }
     },
     {
       "id": "message-scroller",
@@ -3794,7 +3817,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T12:32:23+00:00",
+    "updatedAt": "2026-09-09T12:35:46+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -3953,14 +3976,6 @@
           "phase": "reference_and_dependency_preparation"
         },
         {
-          "component": "message",
-          "taskId": "01a08606-ca30-7bc1-8e27-693690217969",
-          "branch": "codex/ui-message",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/dee9/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
           "component": "drawer",
           "taskId": "01a08606-5dd1-75a2-9dbb-a652188d7bd5",
           "branch": "codex/ui-drawer",
@@ -4009,14 +4024,6 @@
           "phase": "reference_and_dependency_preparation"
         },
         {
-          "component": "menubar",
-          "taskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
-          "branch": "codex/ui-menubar",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8f35/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
           "component": "hover-card",
           "taskId": "01a08619-dc41-7213-a887-5afb891b99da",
           "branch": "codex/review-hover-card",
@@ -4055,6 +4062,26 @@
           "implementationTaskId": "01a08606-c290-7772-8b90-e5358efa6752",
           "implementationBranch": "codex/ui-breadcrumb",
           "headCommit": "cd9c542d249935a089f50f6f0c997c609eba10ed"
+        },
+        {
+          "component": "message",
+          "taskId": "01a08627-8995-7b43-9c06-8a219d472681",
+          "branch": "codex/review-message",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8953/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-ca30-7bc1-8e27-693690217969",
+          "implementationBranch": "codex/ui-message",
+          "headCommit": "93729c14aef376f9212c1bae009f9c9791369fe8"
+        },
+        {
+          "component": "menubar",
+          "taskId": "01a08628-7042-7173-a37d-7f1f04eade66",
+          "branch": "codex/review-menubar",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
+          "implementationBranch": "codex/ui-menubar",
+          "headCommit": "58149a8d26f70675a5f5812dfd17290e7891a129"
         }
       ],
       "nativeReadyTasks": []
@@ -4399,6 +4426,30 @@
           "implementationTaskId": "01a08606-c290-7772-8b90-e5358efa6752",
           "implementationBranch": "codex/ui-breadcrumb",
           "implementationCommit": "cb039ee3072c993c80af945d4be6cda73ff32f80",
+          "status": "in_progress"
+        },
+        {
+          "component": "message",
+          "title": "Review and merge Message",
+          "taskId": "01a08627-8995-7b43-9c06-8a219d472681",
+          "hostId": "local",
+          "branch": "codex/review-message",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8953/discourse-native",
+          "implementationTaskId": "01a08606-ca30-7bc1-8e27-693690217969",
+          "implementationBranch": "codex/ui-message",
+          "implementationCommit": "1fd4d49aff7fe0b19cb7b6874e5e8610931531c4",
+          "status": "in_progress"
+        },
+        {
+          "component": "menubar",
+          "title": "Review and merge Menubar",
+          "taskId": "01a08628-7042-7173-a37d-7f1f04eade66",
+          "hostId": "local",
+          "branch": "codex/review-menubar",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native",
+          "implementationTaskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
+          "implementationBranch": "codex/ui-menubar",
+          "implementationCommit": "3aef780c8aa4ad042d464c1c6cdf9c419e996c58",
           "status": "in_progress"
         }
       ],
