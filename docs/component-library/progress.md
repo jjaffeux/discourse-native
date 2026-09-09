@@ -2110,13 +2110,14 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 - Independent reviewer merged implementation handoff e8130ce7405fed927b51e9eeb99fe287086ee15e into codex/review-button-group, then merged current main 4ad311dc1ff28b76812da08fed4de6cb7502c6c4. Frozen Markdown and registry hashes were reverified on 2026-09-09. Corrected the reference mapping to reflect DInput's custom joined-edge decoration.
 - Focused Button Group/styleguide/ContentNavigationControls tests passed after current-main integration: flutter test --no-pub test/d_button_group_test.dart test/styleguide/button_group_examples_test.dart test/content_navigation_controls_test.dart --test-randomize-ordering-seed=random --reporter expanded, 33 passed, seed 3618609876.
 - Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed after review integration with no issues. flutter build macos --debug --no-pub passed and produced build/macos/Build/Products/Debug/Discourse.app.
+- After merging current main fb790fcd, the focused Button Group/styleguide/ContentNavigationControls test set passed again: 33 passed, seed 182403803. Root and profiles/full flutter analyze --no-pub passed with no issues, git diff --check passed, and flutter build macos --debug --no-pub rebuilt build/macos/Build/Products/Debug/Discourse.app.
 
 **limitations**
 
 - The styleguide has complete accounted sections, but Input Group, library Dropdown Menu, rich Select and Popover use explicitly labeled local handoff fixtures because those final owners are still pending or in review. Native Select is not substituted. The new Button Group reviewer owns coordinating their final replacements.
 - No shared desktop lease was available during source implementation. Official rendered-page comparison, native macOS interaction/visual inspection, VoiceOver, iOS and Linux device checks remain for the new reviewer.
 - DInput joined-edge painting was source- and widget-tested after replacing its uniform BoxDecoration with an equivalent animated custom decoration, but requires rendered pixel comparison in final review.
-- Current main 4ad311dc still records Input Group, Dropdown Menu and rich Select as planned, and Popover as in_progress under review branch codex/review-popover. Button Group remains in_progress and its styleguide remains baseline until those final public components can replace the local handoff fixtures.
+- Current main fb790fcd records Input Group as in_progress under task 01a085af-d606-7281-ac25-34c83adc855e on codex/ui-input-group, after dispatch commit af91afb9. Dropdown Menu and rich Select remain planned, and Popover remains in_progress under review branch codex/review-popover. Button Group remains in_progress and its styleguide remains baseline until those final public components can replace the local handoff fixtures.
 - The desktop lease was busy during this review continuation, held by Alert with other reviewers already queued. The mistaken queue request under an unrelated reviewer ID was cancelled immediately; no Button Group browser/native/CUA action was performed and no desktop lease is currently held.
 
 ### carousel
