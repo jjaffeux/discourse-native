@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../styleguide_example.dart';
 
@@ -137,28 +138,38 @@ const _loginCode = """DCard(spacing: spacing, children: [
     action: DCardAction(child: DButton(onPressed: signUp,
       variant: DButtonVariant.link, label: Text('Sign Up'))),
   ),
-  DCardContent(child: Form(key: formKey, child: Column(children: [
+  DCardContent(child: Form(key: formKey, child: Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch, children: [
     DField(children: [
       DFieldLabel(focusNode: emailFocus, excludeSemantics: true,
+        style: TextStyle(height: 1),
         child: Text('Email')),
       DFieldControl(label: 'Email', required: true, child: DInput(
         focusNode: emailFocus, keyboardType: TextInputType.emailAddress,
+        textInputAction: TextInputAction.next,
+        onSubmitted: (_) => passwordFocus.requestFocus(),
         hintText: 'm@example.com', isRequired: true, validator: validateEmail)),
     ]),
+    SizedBox(height: 24),
     DField(children: [
       Wrap(alignment: WrapAlignment.spaceBetween, children: [
         DFieldLabel(focusNode: passwordFocus, excludeSemantics: true,
+          style: TextStyle(height: 1),
           child: Text('Password')),
         DButton(onPressed: recover, isLink: true,
           variant: DButtonVariant.link, label: Text('Forgot your password?')),
       ]),
       DFieldControl(label: 'Password', required: true, child: DInput(
         focusNode: passwordFocus, obscureText: true, isRequired: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => submit(),
         validator: validatePassword)),
     ]),
   ]))),
-], footer: DCardFooter(child: Column(children: [
+], footer: DCardFooter(child: Column(
+  crossAxisAlignment: CrossAxisAlignment.stretch, children: [
   DButton(onPressed: submit, variant: DButtonVariant.primary, label: Text('Login')),
+  SizedBox(height: 8),
   DButton(onPressed: google, variant: DButtonVariant.outline,
     label: Text('Login with Google')),
 ])))""";
@@ -234,6 +245,10 @@ class _LoginState extends State<_Login> {
   }
 
   void _notice(String value) => setState(() => _status = value);
+
+  void _submit() =>
+      _notice(_form.currentState!.validate() ? 'Signed in locally' : '');
+
   @override
   Widget build(BuildContext context) {
     final ar = widget.arabic;
@@ -274,11 +289,7 @@ class _LoginState extends State<_Login> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _button(ar ? 'تسجيل الدخول' : 'Login', () {
-                    if (_form.currentState!.validate()) {
-                      _notice('Signed in locally');
-                    }
-                  }),
+                  _button(ar ? 'تسجيل الدخول' : 'Login', _submit),
                   const SizedBox(height: 8),
                   _button(
                     ar ? 'تسجيل الدخول باستخدام Google' : 'Login with Google',
@@ -321,6 +332,7 @@ class _LoginState extends State<_Login> {
                           DFieldLabel(
                             focusNode: _emailFocus,
                             excludeSemantics: true,
+                            style: const TextStyle(height: 1),
                             child: Text(ar ? 'البريد الإلكتروني' : 'Email'),
                           ),
                           DFieldControl(
@@ -330,6 +342,8 @@ class _LoginState extends State<_Login> {
                               controller: _email,
                               focusNode: _emailFocus,
                               keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              onSubmitted: (_) => _passwordFocus.requestFocus(),
                               hintText: 'm@example.com',
                               isRequired: true,
                               validator: (value) =>
@@ -350,6 +364,7 @@ class _LoginState extends State<_Login> {
                               DFieldLabel(
                                 focusNode: _passwordFocus,
                                 excludeSemantics: true,
+                                style: const TextStyle(height: 1),
                                 child: Text(ar ? 'كلمة المرور' : 'Password'),
                               ),
                               _button(
@@ -370,6 +385,8 @@ class _LoginState extends State<_Login> {
                               focusNode: _passwordFocus,
                               obscureText: true,
                               isRequired: true,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _submit(),
                               validator: (value) =>
                                   value != null && value.isNotEmpty
                                   ? null
@@ -460,10 +477,24 @@ class _ReportsState extends State<_Reports> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.chevron_right,
-                              size: 16,
-                              color: DTokens.of(context).mutedForeground,
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              // Lucide/Feather chevron-right. License retained
+                              // in reference/empty/LICENSE.lucide.
+                              child: SvgPicture.string(
+                                '<svg xmlns="http://www.w3.org/2000/svg" '
+                                'viewBox="0 0 24 24" fill="none" '
+                                'stroke="currentColor" stroke-width="2" '
+                                'stroke-linecap="round" stroke-linejoin="round">'
+                                '<path d="m9 18 6-6-6-6"/></svg>',
+                                width: 16,
+                                height: 16,
+                                excludeFromSemantics: true,
+                                colorFilter: ColorFilter.mode(
+                                  DTokens.of(context).mutedForeground,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(child: Text(text)),

@@ -73,6 +73,50 @@ void main() {
   });
 
   testWidgets(
+    'login labels focus editors and keyboard actions validate the same form',
+    (tester) async {
+      final login = cardExamples.examples.singleWhere(
+        (example) => example.title == 'Login',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: Builder(builder: login.builder)),
+        ),
+      );
+
+      await tester.tap(find.text('Email'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField).first)
+            .focusNode!
+            .hasFocus,
+        true,
+      );
+      await tester.enterText(find.byType(TextField).first, 'local@example.com');
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField).last)
+            .focusNode!
+            .hasFocus,
+        true,
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(find.text('Enter a password'), findsOneWidget);
+      expect(find.text('Signed in locally'), findsNothing);
+
+      await tester.enterText(find.byType(TextField).last, 'local-only');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(find.text('Signed in locally'), findsOneWidget);
+      expect(find.text('Enter a password'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'login draft selection and focus survive narrow scaled RTL reflow',
     (tester) async {
       var width = 384.0;

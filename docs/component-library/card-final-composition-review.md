@@ -21,9 +21,14 @@ SHA-256 remains
 - Toggle Group `b77f25c9ac779f324dd3853590df0ce0dd27eaa9`: controlled outline small
   16/20/24/32px spacing choice with required selection and native roving focus.
 
-Flutter keeps submission in the local button callback because HTML's
-`type="submit"` has no native Flutter equivalent. The actual `Form` remains the
-validation owner. No production account or networking surface was added.
+Flutter shares one local submission callback between the Login button and the
+password editor's Done/Return action. Email's Next action focuses Password.
+The actual `Form` remains the validation owner. Associated labels override
+Field's leading to preserve the frozen Label's 14px line height. The report
+list retains the original Lucide/Feather chevron path and 2px top inset (source:
+https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevron-right.svg;
+license: `reference/empty/LICENSE.lucide`). No production account or networking
+surface was added.
 
 ## Source and automated verification
 
