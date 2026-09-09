@@ -3,13 +3,21 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
 
 /// Pointer collision policy for ordered thumbs. Keyboard movement always stops
 /// at neighbours to preserve each independently focused thumb's bounds.
-enum DSliderThumbCollisionBehavior { push, stop }
+enum DSliderThumbCollisionBehavior {
+  push,
+  swap,
+  none;
+
+  /// Compatibility spelling for [none].
+  static const stop = none;
+}
 
 /// A controlled, single-value base-nova slider. A null callback disables input.
 ///
@@ -41,13 +49,16 @@ class DSlider extends StatelessWidget {
   final double min;
   final double max;
   final double? step;
+
+  /// Absolute Page/Shift+arrow increment; defaults to 10 units.
   final double? largeStep;
   final ValueChanged<double>? onChanged;
   final ValueChanged<double>? onChangeStart;
 
   /// Called after the next parent frame with the accepted controlled value.
   /// Rejected proposals therefore commit the unchanged value. Configuration
-  /// changes or removal cancel pending commits.
+  /// changes or removal cancel pending commits. This is a native interaction
+  /// completion hook, unlike Base UI onValueCommitted (accepted changes only).
   final ValueChanged<double>? onChangeEnd;
   final VoidCallback? onChangeCancel;
   final Axis orientation;
@@ -88,8 +99,9 @@ class DSlider extends StatelessWidget {
 /// A controlled slider with any positive number of ordered thumbs.
 ///
 /// Pointer input pushes neighbours by default, matching Base UI. Set
-/// [thumbCollisionBehavior] to stop to clamp instead. Identity and tab order
-/// remain stable. Equal
+/// [thumbCollisionBehavior] can instead swap or stop at neighbours. Labels and
+/// focus nodes describe sorted slots. On an accepted swap, focus follows the
+/// dragged value to its new slot; rejected proposals never move focus. Equal
 /// values are allowed; a track press selects the nearest thumb, preferring the
 /// last focused thumb on ties. At a shared position, drag direction selects the
 /// outer thumb so both ends can be separated. Tab reaches each thumb separately.
@@ -155,6 +167,8 @@ class DMultiSlider extends StatefulWidget {
   final double min;
   final double max;
   final double? step;
+
+  /// Absolute Page/Shift+arrow increment; defaults to 10 units.
   final double? largeStep;
   final int minStepsBetweenValues;
   final DSliderThumbCollisionBehavior thumbCollisionBehavior;
@@ -163,6 +177,7 @@ class DMultiSlider extends StatefulWidget {
 
   /// Reports accepted parent values after its next frame, never a rejected
   /// proposal. A configuration change or removal cancels a pending commit.
+  /// Unlike Base UI onValueCommitted, this also completes unchanged interactions.
   final ValueChanged<List<double>>? onChangeEnd;
   final VoidCallback? onChangeCancel;
   final Axis orientation;
@@ -182,6 +197,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
   int? _active;
   int? _pointer;
   int _configuration = 0;
+  ({List<double> before, int source, int target})? _pendingSwap;
   double? _pressValue;
   List<int> _overlapping = [];
   bool get _enabled => widget.onChanged != null && widget.max > widget.min;
@@ -220,6 +236,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
         !listEquals(oldWidget.focusNodes, widget.focusNodes) ||
         oldWidget.orientation != widget.orientation) {
       // Configuration changes invalidate capture without committing stale input.
+      _pendingSwap = null;
       _configuration++;
       final wasActive = _active != null;
       _active = null;
@@ -230,6 +247,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
         });
       }
     }
+    _reconcileSwap();
     _lastThumb = _lastThumb.clamp(0, widget.values.length - 1);
   }
 
@@ -276,6 +294,11 @@ class _DMultiSliderState extends State<DMultiSlider> {
     final next = List<double>.of(_values);
     if (widget.thumbCollisionBehavior == DSliderThumbCollisionBehavior.stop) {
       next[index] = _constrain(value, index);
+    } else if (widget.thumbCollisionBehavior ==
+        DSliderThumbCollisionBehavior.swap) {
+      final proposal = _swapProposal(index, value);
+      next.setAll(0, proposal.values);
+      _pendingSwap = (before: _values, source: index, target: proposal.index);
     } else {
       final gap = widget.minStepsBetweenValues * (widget.step ?? 0);
       if (widget.step case final step?) {
@@ -295,8 +318,65 @@ class _DMultiSliderState extends State<DMultiSlider> {
         next[i] = math.max(next[i], next[i - 1] + gap);
       }
     }
-    if (listEquals(next, _values)) return;
+    if (listEquals(next, _values)) {
+      _pendingSwap = null;
+      return;
+    }
     widget.onChanged?.call(List.unmodifiable(next));
+  }
+
+  ({List<double> values, int index}) _swapProposal(int index, double value) {
+    final remaining = List<double>.of(_values)..removeAt(index);
+    final gap = widget.minStepsBetweenValues * (widget.step ?? 0);
+    if (widget.step case final step?) {
+      value = double.parse(
+        (widget.min + ((value - widget.min) / step).round() * step)
+            .toStringAsPrecision(15),
+      );
+    }
+    // Choose the nearest legal insertion interval. Unlike push, swapping never
+    // changes the other thumbs, including when minimum spacing leaves a gap.
+    var selected = index;
+    var selectedValue = _values[index];
+    var distance = double.infinity;
+    for (var slot = 0; slot <= remaining.length; slot++) {
+      final low = slot == 0 ? widget.min : remaining[slot - 1] + gap;
+      final high = slot == remaining.length
+          ? widget.max
+          : remaining[slot] - gap;
+      if (low > high) continue;
+      final candidate = value.clamp(low, high);
+      final difference = (candidate - value).abs();
+      if (difference < distance || (difference == distance && slot == index)) {
+        selected = slot;
+        selectedValue = candidate;
+        distance = difference;
+      }
+    }
+    remaining.insert(selected, selectedValue);
+    return (values: remaining, index: selected);
+  }
+
+  void _reconcileSwap() {
+    final pending = _pendingSwap;
+    _pendingSwap = null;
+    if (pending == null || listEquals(pending.before, _values)) return;
+    final untouched = List<double>.of(pending.before)..removeAt(pending.source);
+    final candidates = <int>[];
+    for (var i = 0; i < _values.length; i++) {
+      final remaining = List<double>.of(_values)..removeAt(i);
+      if (listEquals(remaining, untouched)) candidates.add(i);
+    }
+    // A parent changing several values at once supplies no thumb identity.
+    // Keep the current sorted slot rather than guessing from proximity.
+    if (candidates.isEmpty) return;
+    final accepted = candidates.contains(pending.target)
+        ? pending.target
+        : candidates.first;
+    final retainFocus = _node(pending.source).hasFocus;
+    if (_active != null) _active = accepted;
+    _lastThumb = accepted;
+    if (retainFocus) _node(accepted).requestFocus();
   }
 
   void _start(Offset point, double extent) {
@@ -343,6 +423,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
       _pointer = null;
     });
     if (cancel) {
+      _pendingSwap = null;
       widget.onChangeCancel?.call();
     } else {
       _commitAccepted();
@@ -375,7 +456,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
   KeyEventResult _key(int index, KeyEvent event) {
     if (!_enabled || event is KeyUpEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
-    final large = widget.largeStep ?? _increment * 10;
+    final large = widget.largeStep ?? 10;
     final delta = HardwareKeyboard.instance.isShiftPressed ? large : _increment;
     double? value;
     if (key == LogicalKeyboardKey.home) value = widget.min;
@@ -402,154 +483,171 @@ class _DMultiSliderState extends State<DMultiSlider> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final extent = _vertical
-            ? (constraints.hasBoundedHeight ? constraints.maxHeight : 160.0)
-            : (constraints.hasBoundedWidth ? constraints.maxWidth : 200.0);
-        final size = _vertical ? Size(48, extent) : Size(extent, 48);
-        String format(double value, int i) =>
-            widget.semanticFormatter?.call(value, i) ??
-            double.parse(value.toStringAsFixed(6)).toString();
-        return SizedBox.fromSize(
-          size: size,
-          child: MouseRegion(
-            cursor: _enabled
-                ? SystemMouseCursors.click
-                : SystemMouseCursors.basic,
-            child: RawGestureDetector(
-              gestures: _enabled
-                  ? {
-                      EagerGestureRecognizer:
-                          GestureRecognizerFactoryWithHandlers<
-                            EagerGestureRecognizer
-                          >(EagerGestureRecognizer.new, (_) {}),
-                    }
-                  : {},
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: (event) {
-                  if (!_enabled ||
-                      _pointer != null ||
-                      event.buttons != kPrimaryButton) {
-                    return;
-                  }
-                  _pointer = event.pointer;
-                  _start(event.localPosition, extent);
-                },
-                onPointerMove: (event) {
-                  if (event.pointer == _pointer) {
-                    _move(event.localPosition, extent);
-                  }
-                },
-                onPointerUp: (event) {
-                  if (event.pointer != _pointer) return;
-                  _pointer = null;
-                  _finish();
-                },
-                onPointerCancel: (event) {
-                  if (event.pointer != _pointer) return;
-                  _pointer = null;
-                  _finish(cancel: true);
-                },
-                child: Opacity(
-                  opacity: _enabled ? 1 : 0.5,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _SliderTrack(
-                            vertical: _vertical,
-                            start: _position(
-                              _values.length == 1 ? widget.min : _values.first,
-                              extent,
-                            ),
-                            end: _position(_values.last, extent),
-                            buffered: widget.secondaryTrackValue == null
-                                ? null
-                                : _position(
-                                    widget.secondaryTrackValue!.clamp(
-                                      widget.min,
-                                      widget.max,
-                                    ),
-                                    extent,
-                                  ),
-                            origin: _position(widget.min, extent),
-                            muted: tokens.muted,
-                            primary: tokens.primary,
-                          ),
-                        ),
-                      ),
-                      for (var i = 0; i < _values.length; i++)
-                        Positioned(
-                          left: _vertical
-                              ? 0
-                              : (_position(_values[i], extent) - 24).clamp(
-                                  0,
-                                  math.max(0, extent - 48),
-                                ),
-                          top: _vertical
-                              ? (_position(_values[i], extent) - 24).clamp(
-                                  0,
-                                  math.max(0, extent - 48),
-                                )
-                              : 0,
-                          width: _vertical ? 48 : math.min(48, extent),
-                          height: _vertical ? math.min(48, extent) : 48,
-                          child: Semantics(
-                            container: true,
-                            slider: true,
-                            enabled: _enabled,
-                            label:
-                                widget.semanticLabels?[i] ?? 'Value ${i + 1}',
-                            value: format(_values[i], i),
-                            increasedValue: format(
-                              _constrain(_values[i] + _increment, i),
-                              i,
-                            ),
-                            decreasedValue: format(
-                              _constrain(_values[i] - _increment, i),
-                              i,
-                            ),
-                            onIncrease: _enabled
-                                ? () => _discrete(i, _values[i] + _increment)
-                                : null,
-                            onDecrease: _enabled
-                                ? () => _discrete(i, _values[i] - _increment)
-                                : null,
-                            child: Focus(
-                              focusNode: _node(i),
-                              autofocus: widget.autofocus && i == 0,
-                              canRequestFocus: _enabled,
-                              skipTraversal: !_enabled,
-                              onKeyEvent: (_, event) => _key(i, event),
-                              onFocusChange: (focused) {
-                                if (focused) _lastThumb = i;
-                              },
-                              child: _SliderThumb(
-                                node: _node(i),
-                                active: _active == i,
-                                enabled: _enabled,
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final extent = _vertical
+                ? (constraints.hasBoundedHeight ? constraints.maxHeight : 160.0)
+                : (constraints.hasBoundedWidth ? constraints.maxWidth : 200.0);
+            final size = _vertical ? Size(48, extent) : Size(extent, 48);
+            String format(double value, int i) =>
+                widget.semanticFormatter?.call(value, i) ??
+                double.parse(value.toStringAsFixed(6)).toString();
+            return SizedBox.fromSize(
+              size: size,
+              child: MouseRegion(
+                cursor: _enabled
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                child: RawGestureDetector(
+                  gestures: _enabled
+                      ? {
+                          EagerGestureRecognizer:
+                              GestureRecognizerFactoryWithHandlers<
+                                EagerGestureRecognizer
+                              >(EagerGestureRecognizer.new, (_) {}),
+                        }
+                      : {},
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: (event) {
+                      if (!_enabled ||
+                          _pointer != null ||
+                          event.buttons != kPrimaryButton) {
+                        return;
+                      }
+                      _pointer = event.pointer;
+                      _start(event.localPosition, extent);
+                    },
+                    onPointerMove: (event) {
+                      if (event.pointer == _pointer) {
+                        _move(event.localPosition, extent);
+                      }
+                    },
+                    onPointerUp: (event) {
+                      if (event.pointer != _pointer) return;
+                      _pointer = null;
+                      _finish();
+                    },
+                    onPointerCancel: (event) {
+                      if (event.pointer != _pointer) return;
+                      _pointer = null;
+                      _finish(cancel: true);
+                    },
+                    child: Opacity(
+                      opacity: _enabled ? 1 : 0.5,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _SliderTrack(
                                 vertical: _vertical,
-                                offset:
-                                    _position(_values[i], extent) -
-                                    (_position(_values[i], extent) - 24).clamp(
-                                      0,
-                                      math.max(0, extent - 48),
-                                    ),
+                                start: _position(
+                                  _values.length == 1
+                                      ? widget.min
+                                      : _values.first,
+                                  extent,
+                                ),
+                                end: _position(_values.last, extent),
+                                buffered: widget.secondaryTrackValue == null
+                                    ? null
+                                    : _position(
+                                        widget.secondaryTrackValue!.clamp(
+                                          widget.min,
+                                          widget.max,
+                                        ),
+                                        extent,
+                                      ),
+                                origin: _position(widget.min, extent),
+                                muted: tokens.muted,
+                                primary: tokens.primary,
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                          for (var i = 0; i < _values.length; i++)
+                            Positioned(
+                              left: _vertical
+                                  ? 0
+                                  : (_position(_values[i], extent) - 24).clamp(
+                                      0,
+                                      math.max(0, extent - 48),
+                                    ),
+                              top: _vertical
+                                  ? (_position(_values[i], extent) - 24).clamp(
+                                      0,
+                                      math.max(0, extent - 48),
+                                    )
+                                  : 0,
+                              width: _vertical ? 48 : math.min(48, extent),
+                              height: _vertical ? math.min(48, extent) : 48,
+                              child: Semantics(
+                                container: true,
+                                sortKey: OrdinalSortKey(i.toDouble()),
+                                slider: true,
+                                enabled: _enabled,
+                                label:
+                                    widget.semanticLabels?[i] ??
+                                    'Value ${i + 1}',
+                                value: format(_values[i], i),
+                                increasedValue: format(
+                                  _constrain(_values[i] + _increment, i),
+                                  i,
+                                ),
+                                decreasedValue: format(
+                                  _constrain(_values[i] - _increment, i),
+                                  i,
+                                ),
+                                onIncrease: _enabled
+                                    ? () =>
+                                          _discrete(i, _values[i] + _increment)
+                                    : null,
+                                onDecrease: _enabled
+                                    ? () =>
+                                          _discrete(i, _values[i] - _increment)
+                                    : null,
+                                child: FocusTraversalOrder(
+                                  order: NumericFocusOrder(i.toDouble()),
+                                  child: Focus(
+                                    focusNode: _node(i),
+                                    autofocus: widget.autofocus && i == 0,
+                                    canRequestFocus: _enabled,
+                                    skipTraversal: !_enabled,
+                                    onKeyEvent: (_, event) => _key(i, event),
+                                    onFocusChange: (focused) {
+                                      if (focused) _lastThumb = i;
+                                    },
+                                    child: _SliderThumb(
+                                      node: _node(i),
+                                      active: _active == i,
+                                      enabled: _enabled,
+                                      vertical: _vertical,
+                                      offset:
+                                          _position(_values[i], extent) -
+                                          (_position(_values[i], extent) - 24)
+                                              .clamp(
+                                                0,
+                                                math.max(0, extent - 48),
+                                              ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -685,6 +783,7 @@ class DSliderField extends FormField<double> {
     double min = 0,
     double max = 100,
     double? step = 1,
+    double? largeStep,
     String? semanticLabel,
     ValueChanged<double>? onChanged,
     super.enabled,
@@ -702,6 +801,7 @@ class DSliderField extends FormField<double> {
                min: min,
                max: max,
                step: step,
+               largeStep: largeStep,
                semanticLabel: semanticLabel,
                onChanged: field.widget.enabled
                    ? (value) {
@@ -750,6 +850,9 @@ class DMultiSliderField extends FormField<List<double>> {
     double min = 0,
     double max = 100,
     double? step = 1,
+    double? largeStep,
+    DSliderThumbCollisionBehavior thumbCollisionBehavior =
+        DSliderThumbCollisionBehavior.push,
     int minStepsBetweenValues = 0,
     List<String>? semanticLabels,
     ValueChanged<List<double>>? onChanged,
@@ -768,6 +871,8 @@ class DMultiSliderField extends FormField<List<double>> {
                min: min,
                max: max,
                step: step,
+               largeStep: largeStep,
+               thumbCollisionBehavior: thumbCollisionBehavior,
                minStepsBetweenValues: minStepsBetweenValues,
                semanticLabels: semanticLabels,
                onChanged: field.widget.enabled

@@ -848,6 +848,7 @@ Status: in_progress. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/u
 - Validate min/max/step and thumb ordering; Form save/reset/validation; safe cancellation, removal and controlled updates.
 - Migrate video seeking, topic position, Voice volume and Skeleton/AspectRatio controls; preserve domain callbacks and keyboard ownership.
 - Focused component and migration tests, root/full analysis, isolated traceable macOS bundle and offline production-widget fixture; native inspection awaits coordinator slot.
+- API follow-up: push/swap/none collision policies, accepted swap focus and semantic identity through RTL/vertical/spacing and parent rejection/clamping; absolute default largeStep=10; explicit native completion callback distinction.
 
 **decisions**
 
@@ -856,6 +857,7 @@ Status: in_progress. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/u
 - Reference registry SHA256 646bcd7913417b786bbf7578484f851bf89c81a62f70ef9c4f3522e2af80a951; official examples pinned to 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048. Full source URLs/hashes and metric mapping in docs/component-library/slider.md and references/slider/sources.json.
 - Public DSlider scalar, DMultiSlider ordered range/multiple input and matching Form fields. Parent controlled values own paint, semantics and save/reset; commits report accepted values after parent frame.
 - Reference pointer push collisions plus optional stop; keyboard preserves neighbour bounds and thumb tab order. Primary-pointer capture cancels on configuration changes/removal. 12px thumb and 4px track retain 48px transparent targets.
+- Coordinator API follow-up implemented swap and none (stop alias), absolute 10-unit largeStep default, explicit sorted traversal and accepted-swap focus reconciliation; native onChangeEnd intentionally also completes unchanged accepted interactions.
 
 **migrations**
 
@@ -877,12 +879,13 @@ Status: in_progress. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/u
 - tool/slider_review_main.dart mounts real production TopicPositionSlider, VoiceParticipantVolumeSlider and InlineVideoPlaybackSurface with local playback session; native app not launched.
 - Final source commit 3813f11df01e4a1db8d7b45fe0457d8f904f4d49 built via flutter build macos --debug --no-pub -t tool/slider_review_main.dart; root/full analysis remain clean. Source equality git diff check passed for lib/tool/macos/manifests/locks.
 - Isolated review bundle /private/tmp/DiscourseSliderReview-01a083ce.app; bundle ID org.discourse.native.slider.01a083ce; URL scheme discourse-slider-review-01a083ce. Source and copied kernels match SHA256 1aae7dca646a7e21939f7c334e1fc16d29412d9a8869651b977b61baa0dbd6a0. codesign --verify --deep --strict passes. Credits stamps source 3813f11df01e, unmodified. Evidence: docs/component-library/evidence/slider/native-preparation.json. Bundle has not been launched.
+- API follow-up: 100 affected component/controlled/swap/production-fixture/example/reading-keyboard/Chat regressions passed; all 9 final swap-focused tests passed, including multi-thumb RTL/vertical borrowed focus, parent reject/clamp/external update, spacing, Form save/reset, absolute largeStep and unchanged native completion. Root/full static analysis and touched formatting pass.
 
 **limitations**
 
 - Mac locked; no native desktop/reference-browser inspection performed. Awaiting coordinator slot; no visual/native parity claim.
-- No iOS/Linux device or VoiceOver speech verification. Swap collision is not exposed; stable ordered native focus with default push and optional stop is documented.
 - Native bundle is prepared but unlaunched; status remains in_progress / awaiting_slot. Source examples remain baseline until the actual native/reference comparison gate passes.
+- Follow-up source changes pending automated checks and refreshed isolated bundle; native slot still unavailable.
 
 ### skeleton
 

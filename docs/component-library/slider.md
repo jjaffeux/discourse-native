@@ -49,17 +49,27 @@ snaps proposals relative to `min`; `step:null` supplies continuous pointer input
 and a keyboard increment of 1% of the range. Off-grid controlled values are
 accepted for live playback and custom site geometry. A final non-divisible
 endpoint is clamped to the bound. Decimal step arithmetic is normalized to 15
-significant digits before callbacks. `largeStep` defaults to ten increments.
+significant digits before callbacks. `largeStep` defaults to an absolute 10 units, matching Base UI; an explicit
+value overrides it. Both Form field adapters expose this option.
 
 Every thumb is a Tab stop with an individual semantic name/value/increase/
 decrease action. Arrows move one step; Shift+arrows and Page keys move a large
 step; Home/End move to legal bounds. Horizontal RTL reverses left/right;
 vertical increases upward. Keyboard movement stops at neighbours. Pointer
-movement pushes neighbours by default, matching Base UI, or clamps with
-`DSliderThumbCollisionBehavior.stop`. Stable ordered identities suit native
-focus and semantics; swap collision is not an exposed Flutter API or a frozen
-example requirement. Equal thumbs can separate in either direction: drag
-selects the outer thumb in that direction, and keyboard accesses each thumb.
+movement pushes neighbours by default, matching Base UI. The `swap` policy
+moves the dragged value into its nearest legal insertion interval without
+changing other values; `none` clamps at neighbours (`stop` is a compatibility
+alias). Minimum spacing remains valid even while crossing several thumbs.
+
+Labels and borrowed focus nodes describe sorted slots. When a parent accepts
+a swap, including clamping only the dragged value, focus follows that value to
+its accepted slot. Rejected proposals do not move focus or visible values. If
+the parent replaces several values at once, the numeric list supplies no stable
+value identity; the active sorted slot is retained rather than guessed. Tab and
+semantic order explicitly follow sorted slots in both RTL and vertical layouts.
+Equal thumbs can separate in either direction: drag selects the outer thumb
+in that direction, and keyboard accesses each thumb. DMultiSliderField exposes
+the same collision policies.
 
 Pointer capture accepts a single primary pointer, supports track jumps, retains
 capture outside bounds and cancels on pointer cancellation or Escape. The
@@ -75,7 +85,10 @@ drag. Rejected proposals do not appear; clamped or external updates render on
 the next parent frame. `onChangeStart` gets the accepted starting values;
 `onChanged` receives immutable proposals; `onChangeEnd` runs after the next
 parent frame and reports accepted values. Configuration change or removal
-suppresses pending commits. Cancellation does not undo changes already accepted
+suppresses pending commits. This native lifecycle callback also completes an
+unchanged accepted interaction, so callers can finish interaction cleanup.
+It intentionally differs from Base UI `onValueCommitted`, which fires only
+for accepted changes. Cancellation does not undo changes already accepted
 by a caller, and invokes only `onChangeCancel`. Controlled Form fields mark
 interaction without storing rejected proposals; save/reset use the supplied
 value. Uncontrolled fields reset to their initial value.

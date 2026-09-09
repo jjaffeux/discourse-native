@@ -79,7 +79,7 @@ void main() {
       expect(value, 35);
       await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
       await tester.pump();
-      expect(value, 85);
+      expect(value, 45);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);

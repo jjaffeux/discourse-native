@@ -171,42 +171,40 @@ void main() {
       expect(() => b.addListener(() {}), returnsNormally);
     },
   );
-  testWidgets(
-    'pointer push preserves minimum gaps and stop policy keeps neighbours fixed',
-    (tester) async {
-      for (final policy in DSliderThumbCollisionBehavior.values) {
-        var values = <double>[20, 40, 60];
-        await tester.pumpWidget(
-          host(
-            StatefulBuilder(
-              builder: (context, setState) => DMultiSlider(
-                values: values,
-                step: 5,
-                minStepsBetweenValues: 2,
-                thumbCollisionBehavior: policy,
-                onChanged: (v) => setState(() => values = v),
-              ),
+  testWidgets('pointer collision policies preserve minimum gaps', (
+    tester,
+  ) async {
+    for (final policy in DSliderThumbCollisionBehavior.values) {
+      var values = <double>[20, 40, 60];
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) => DMultiSlider(
+              values: values,
+              step: 5,
+              minStepsBetweenValues: 2,
+              thumbCollisionBehavior: policy,
+              onChanged: (v) => setState(() => values = v),
             ),
           ),
-        );
-        final rect = tester.getRect(find.byType(DMultiSlider));
-        final gesture = await tester.startGesture(
-          Offset(rect.left + 46, rect.center.dy),
-        );
-        await tester.pump();
-        await gesture.moveTo(Offset(rect.right + 100, rect.center.dy));
-        await tester.pump();
-        await gesture.up();
-        await tester.pump();
-        expect(
-          values,
-          policy == DSliderThumbCollisionBehavior.push
-              ? [80, 90, 100]
-              : [30, 40, 60],
-        );
-      }
-    },
-  );
+        ),
+      );
+      final rect = tester.getRect(find.byType(DMultiSlider));
+      final gesture = await tester.startGesture(
+        Offset(rect.left + 46, rect.center.dy),
+      );
+      await tester.pump();
+      await gesture.moveTo(Offset(rect.right + 100, rect.center.dy));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+      expect(values, switch (policy) {
+        DSliderThumbCollisionBehavior.push => [80, 90, 100],
+        DSliderThumbCollisionBehavior.swap => [40, 60, 100],
+        DSliderThumbCollisionBehavior.none => [30, 40, 60],
+      });
+    }
+  });
 
   testWidgets(
     'horizontal RTL track jumps reverse and secondary pointers cannot steal capture',

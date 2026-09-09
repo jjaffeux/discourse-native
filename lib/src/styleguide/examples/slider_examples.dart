@@ -11,7 +11,7 @@ final sliderExamples = ComponentExamples(
       'DMultiSlider accepts two values for a range or any positive thumb count. '
       'Values are ordered; pointer input pushes neighbours and keyboard input stops at them. Each thumb is a Tab stop '
       'with its own semantic label. Arrows step; Shift+arrows and Page keys step '
-      'ten times; Home/End select bounds. Horizontal direction follows RTL, '
+      'by 10 units by default (largeStep overrides this); Home/End select bounds. Horizontal direction follows RTL, '
       'vertical increases upward. step:null enables continuous pointer input. '
       'A null callback disables input. DSliderField and DMultiSliderField support '
       'Form validation, save, reset and external updates. The base-nova 12px '
@@ -70,6 +70,21 @@ DMultiSlider(
                 rtl: example.$5,
                 temperature: example.$1 == 'Controlled',
               ),
+      ),
+    for (final policy in DSliderThumbCollisionBehavior.values)
+      StyleguideExample(
+        title: 'Collision: ${policy.name}',
+        description:
+            'Drag one thumb through the others. A 10-unit minimum gap stays valid. '
+            'Swap follows the accepted value into its new semantic and focus slot.',
+        code:
+            '''DMultiSlider(values: values, step: 5, minStepsBetweenValues: 2,
+  thumbCollisionBehavior: DSliderThumbCollisionBehavior.${policy.name},
+  semanticLabels: const ['Low', 'Middle', 'High'],
+  onChanged: (next) => setState(() => values = next),
+)''',
+        states: [policy.name, 'Minimum spacing', 'Controlled acceptance'],
+        builder: (_) => _CollisionDemo(policy: policy),
       ),
     StyleguideExample(
       title: 'Form',
@@ -304,3 +319,52 @@ SizedBox(width: 84, height: 160, child: Stack(children: [
     child: DSlider(value: second, orientation: Axis.vertical,
       semanticLabel: 'Second value', onChanged: (v) => setState(() => second = v))),
 ]))''';
+
+class _CollisionDemo extends StatefulWidget {
+  const _CollisionDemo({required this.policy});
+  final DSliderThumbCollisionBehavior policy;
+  @override
+  State<_CollisionDemo> createState() => _CollisionDemoState();
+}
+
+class _CollisionDemoState extends State<_CollisionDemo> {
+  List<double> _values = [20, 40, 60];
+  bool _accept = true;
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 320),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(_values.map((v) => v.round()).join(', ')),
+        DMultiSlider(
+          values: _values,
+          step: 5,
+          minStepsBetweenValues: 2,
+          thumbCollisionBehavior: widget.policy,
+          semanticLabels: const ['Low', 'Middle', 'High'],
+          onChanged: (next) {
+            if (_accept) setState(() => _values = next);
+          },
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            DButton(
+              label: Text(
+                _accept ? 'Reject proposals' : 'Accept proposals',
+                maxLines: 3,
+              ),
+              onPressed: () => setState(() => _accept = !_accept),
+            ),
+            DButton(
+              label: const Text('Reset'),
+              onPressed: () => setState(() => _values = [20, 40, 60]),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
