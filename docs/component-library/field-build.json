@@ -1,0 +1,36 @@
+{
+  "sourceCommit": "5aa4e377b7399a22dca17263ec62dae20c290090",
+  "buildCheckout": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/discourse-field-review-pwz3brs9",
+  "originalBundle": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/discourse-field-review-pwz3brs9/build/macos/Build/Products/Debug/Field Review.app",
+  "copiedBundle": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/field-ready-5aa4e377-7yhdcp9f/Field Review.app",
+  "bundleIdentifier": "org.discourse.field.review",
+  "urlSchemes": [
+    "discourse-field-review"
+  ],
+  "executable": "Field Review",
+  "buildCommand": "flutter build macos --debug --no-pub -t tool/field_review_main.dart",
+  "buildLog": "/tmp/field-native-final-build.log",
+  "sourceEquality": {
+    "matchingTrackedFiles": 2367,
+    "comparedTrackedFiles": 2371,
+    "exceptions": [
+      "macos/Runner.xcodeproj/project.pbxproj",
+      "macos/Runner/Configs/AppInfo.xcconfig",
+      "macos/Runner/Info.plist",
+      "macos/Runner/DebugProfile.entitlements"
+    ],
+    "exceptionReason": "Temporary native runner app name, bundle ID/Debug override, URL scheme, local ad-hoc signing and removal of unused push entitlement only; all Dart/native dependencies and pins otherwise byte-equal to the source commit Git blobs. Symlink targets also compared."
+  },
+  "kernelRelativePath": "Contents/Frameworks/App.framework/Resources/flutter_assets/kernel_blob.bin",
+  "originalKernelSHA256": "d6ef9893a7290ce61a299edf769a5ddb11dca5de802b631aebb590e0a7e419c7",
+  "copiedKernelSHA256": "d6ef9893a7290ce61a299edf769a5ddb11dca5de802b631aebb590e0a7e419c7",
+  "signatureVerification": "codesign --verify --deep --strict --verbose=2: passed; valid on disk; satisfies its Designated Requirement. /tmp/field-signature-final.log",
+  "signingAdaptation": "Initial copied root signature reported modified Contents/Resources/Credits.rtf (build-generated About stamp). Nested frameworks verified. Final build uses unique Debug bundle ID and ad-hoc signing, without Apple provisioning. The temporary Debug entitlement omits unused APS capability; production entitlements are untouched. Re-signed only copied root ad hoc preserving entitlements, flags and runtime; kernel unchanged. /tmp/field-signature-before.log",
+  "pins": {
+    ".fvmrc": "e786cee62ee9a4ba93d72741ae82e7e5ba6df4099c1b524118f594431ce9f90e",
+    "pubspec.lock": "0578c0af15fb2492ebfa24bddd7e17b3e51b11a8f81a398ca51d478672815ea2",
+    "packages/discourse_voice/pubspec.lock": "a453128993e78a192954bd5fa48dc4a02731b87612b9562f836353349b20b4b9",
+    "profiles/full/pubspec.lock": "c1b711d05ed2d13c2da85b0962fe872a5a172866a1adcd7ee8805eb98fd779f0"
+  },
+  "inspectionStatus": "awaiting_slot; not launched; reference-rendered comparison/native inspection pending"
+}

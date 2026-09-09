@@ -149,3 +149,23 @@ Preferences are explicitly in-memory before creating ShellController. No account
 credentials, real network transport or voice session are required. The fixture
 provides light/dark, RTL and 100/200% controls. It has not been launched while the
 Mac is locked; no device or VoiceOver outcome is inferred from widget tests.
+
+## Final source verification
+
+Source commit: `5aa4e377b7399a22dca17263ec62dae20c290090`.
+
+- Root `flutter analyze --no-pub`: clean, final log `/tmp/field-final-analysis.log`.
+- Full profile `flutter analyze --no-pub`: clean, `/tmp/field-full-final-analysis.log`.
+- Final component/styleguide/Preferences/Voice run: **103 passed**, random seed
+  `1870857252`; `/tmp/field-final-tests.log`. This includes 18 Field/example tests.
+- Earlier downstream run including Label, Separator and plugin boundaries:
+  **132 passed**, seed `734624525`; `/tmp/field-downstream-tests.log`.
+- The focused ring pixel check verifies interior pixels are unchanged by focus
+  and translucent selected colors retain multiplicative alpha through a live
+  palette change. This is a Flutter renderer regression, not reference parity.
+- All 11 touched Dart files are formatted; Flutter 3.47.2 and all lockfiles/pins
+  remain unchanged. Temporary build dependency resolution used enforced locks.
+
+Exact temporary build identity, source equality, original/copied kernel SHA256
+and deep strict signature evidence are recorded in [field-build.json](field-build.json).
+The fixture was never launched. Native/reference review remains **awaiting_slot**.
