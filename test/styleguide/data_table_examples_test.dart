@@ -83,6 +83,56 @@ void main() {
     expect(find.text('\$242.00'), findsNothing);
   });
 
+  testWidgets('advanced pagination changes page and page size', (tester) async {
+    await _show(
+      tester,
+      'Sorting, filtering, visibility, selection, and actions',
+    );
+    expect(find.text('ken99@example.com'), findsOneWidget);
+    expect(find.text('lina@example.com'), findsNothing);
+    final next = find.byWidgetPredicate(
+      (widget) =>
+          widget is DButton && widget.semanticLabel == 'Go to next page',
+    );
+    final vertical = find
+        .byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        )
+        .first;
+    await tester.scrollUntilVisible(next.first, 300, scrollable: vertical);
+    await tester.tap(next.first);
+    await tester.pumpAndSettle();
+    expect(find.text('ken99@example.com'), findsNothing);
+    expect(find.text('lina@example.com'), findsOneWidget);
+    expect(find.text('Page 2 of 2'), findsOneWidget);
+
+    final pageSize = find.byWidgetPredicate((widget) => widget is DSelect<int>);
+    await tester.scrollUntilVisible(pageSize, 300, scrollable: vertical);
+    await tester.tap(pageSize);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('20').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Page 1 of 1'), findsOneWidget);
+    expect(find.text('ken99@example.com'), findsOneWidget);
+    expect(find.text('lina@example.com'), findsOneWidget);
+  });
+
+  testWidgets('row action menu targets the stable payment ID', (tester) async {
+    await _show(
+      tester,
+      'Sorting, filtering, visibility, selection, and actions',
+    );
+    await tester.tap(find.byTooltip('Open menu for ken99@example.com'));
+    await tester.pumpAndSettle();
+    expect(find.text('Copy payment ID'), findsOneWidget);
+    await tester.tap(find.text('Copy payment ID'));
+    await tester.pumpAndSettle();
+    expect(find.text('Opened m5gr84i9'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('dynamic example keeps selection with row ID after reorder', (
     tester,
   ) async {
@@ -111,7 +161,9 @@ Future<void> _show(WidgetTester tester, String title) async {
     MaterialApp(
       theme: AppTheme.light,
       home: Scaffold(
-        body: SizedBox(width: 700, child: Builder(builder: example.builder)),
+        body: SingleChildScrollView(
+          child: SizedBox(width: 700, child: Builder(builder: example.builder)),
+        ),
       ),
     ),
   );

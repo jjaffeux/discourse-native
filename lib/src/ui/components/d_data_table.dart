@@ -10,7 +10,9 @@ import 'd_button.dart';
 import 'd_checkbox.dart';
 import 'd_dropdown_menu.dart';
 import 'd_input.dart';
+import 'd_pagination.dart';
 import 'd_popover.dart';
+import 'd_select.dart';
 import 'd_table.dart';
 
 enum DDataTableSortDirection { ascending, descending }
@@ -166,7 +168,11 @@ class DDataTableController extends ChangeNotifier {
 
   void setPageSize(int pageSize) {
     if (pageSize <= 0) throw ArgumentError.value(pageSize, 'pageSize');
-    value = _value.copyWith(pageSize: pageSize, page: 1);
+    final firstVisibleItem = (_value.page - 1) * _value.pageSize;
+    value = _value.copyWith(
+      pageSize: pageSize,
+      page: firstVisibleItem ~/ pageSize + 1,
+    );
   }
 }
 
@@ -466,10 +472,9 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   _DDataTableView<T> _view(DDataTableState state) {
     if (widget.operationMode == DDataTableOperationMode.manual) {
       final count = widget.rowCount ?? widget.data.length;
-      final pages = math.max(
-        1,
-        widget.pageCount ?? (count == 0 ? 1 : (count / state.pageSize).ceil()),
-      );
+      final pages =
+          widget.pageCount ??
+          (count == 0 ? 0 : (count / state.pageSize).ceil());
       return _DDataTableView(
         pageRows: List.unmodifiable(widget.data),
         metrics: DDataTableMetrics(
@@ -496,10 +501,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
       });
       sorted = [for (final entry in indexed) entry.$2];
     }
-    final pages = math.max(
-      1,
-      sorted.isEmpty ? 1 : (sorted.length / state.pageSize).ceil(),
-    );
+    final pages = sorted.isEmpty ? 0 : (sorted.length / state.pageSize).ceil();
     final start = math.min((state.page - 1) * state.pageSize, sorted.length);
     final end = math.min(start + state.pageSize, sorted.length);
     return _DDataTableView(
@@ -931,6 +933,183 @@ class DDataTableSelectionSummary extends StatelessWidget {
       height: 20 / 14,
     ),
   );
+}
+
+/// The reusable Tasks-style Data Table footer: selection summary, page size,
+/// current page, and first/previous/next/last outline controls.
+///
+/// Pass this from [DDataTable.footerBuilder] so [metrics] are derived from the
+/// exact filtered model. Page and page-size callbacks may update a shared
+/// [DDataTableController] or request an external server query.
+class DDataTablePagination extends StatelessWidget {
+  DDataTablePagination({
+    super.key,
+    required this.metrics,
+    required this.onPageChanged,
+    required this.onPageSizeChanged,
+    List<int> pageSizeOptions = const [10, 20, 25, 30, 40, 50],
+    this.rowsPerPageLabel = 'Rows per page',
+    this.pageLabel,
+    this.selectionLabel,
+    this.paginationLabel = 'Table pagination',
+    this.previousLabel = 'Previous',
+    this.nextLabel = 'Next',
+    this.enabled = true,
+  }) : assert(pageSizeOptions.isNotEmpty),
+       assert(pageSizeOptions.isEmpty || pageSizeOptions.first > 0),
+       pageSizeOptions = List.unmodifiable(pageSizeOptions);
+
+  final DDataTableMetrics metrics;
+  final ValueChanged<int>? onPageChanged;
+  final ValueChanged<int>? onPageSizeChanged;
+  final List<int> pageSizeOptions;
+  final String rowsPerPageLabel;
+  final String Function(int page, int pageCount)? pageLabel;
+  final String Function(int selected, int total)? selectionLabel;
+  final String paginationLabel;
+  final String previousLabel;
+  final String nextLabel;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    assert(
+      pageSizeOptions.toSet().length == pageSizeOptions.length &&
+          pageSizeOptions.every((size) => size > 0),
+      'Data table page sizes must be positive and unique.',
+    );
+    final state = metrics.state;
+    final choices = pageSizeOptions.contains(state.pageSize)
+        ? pageSizeOptions
+        : ([...pageSizeOptions, state.pageSize]..sort());
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final directionHeight = switch (Theme.of(context).platform) {
+      TargetPlatform.iOS || TargetPlatform.android => 48.0,
+      _ => 32.0,
+    };
+    final pageSizeHeight = math.max(
+      directionHeight,
+      MediaQuery.textScalerOf(context).scale(14) * (20 / 14) + 6,
+    );
+
+    Widget rowsPerPage() => Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          rowsPerPageLabel,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontSize: 14,
+            height: 20 / 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        SizedBox(
+          width: 70,
+          height: pageSizeHeight,
+          child: DSelect<int>.controlled(
+            value: state.pageSize,
+            onChanged: enabled && onPageSizeChanged != null
+                ? (value) {
+                    if (value != null) onPageSizeChanged!(value);
+                  }
+                : null,
+            entries: [
+              for (final size in choices)
+                DSelectOption<int>(
+                  value: size,
+                  label: '$size',
+                  child: Text('$size'),
+                ),
+            ],
+            semanticLabel: rowsPerPageLabel,
+            size: DSelectSize.small,
+            width: 70,
+            side: DPopoverSide.top,
+          ),
+        ),
+      ],
+    );
+
+    Widget pageStatus() => SizedBox(
+      width: 100,
+      child: Text(
+        pageLabel?.call(state.page, metrics.pageCount) ??
+            'Page ${state.page} of ${metrics.pageCount}',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontSize: 14,
+          height: 20 / 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+
+    Widget navigation({required bool showFirstLast}) => SizedBox(
+      width: showFirstLast ? directionHeight * 4 + 6 : directionHeight * 2 + 2,
+      height: directionHeight,
+      child: DPaginationNavigation.controlled(
+        page: state.page,
+        pageCount: metrics.pageCount,
+        pageSize: state.pageSize,
+        onPageChanged: enabled ? onPageChanged : null,
+        showPageNumbers: false,
+        showFirstLast: showFirstLast,
+        showDirectionText: false,
+        directionVariant: DButtonVariant.outline,
+        semanticLabel: paginationLabel,
+        previousText: previousLabel,
+        nextText: nextLabel,
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide =
+              constraints.hasBoundedWidth &&
+              constraints.maxWidth >= 720 * scale.clamp(1, 1.5);
+          final selection = DDataTableSelectionSummary(
+            selectedCount: metrics.selectedFilteredRowCount,
+            totalCount: metrics.filteredRowCount,
+            builder: selectionLabel,
+          );
+          if (!wide) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                selection,
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    rowsPerPage(),
+                    pageStatus(),
+                    navigation(showFirstLast: false),
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: selection),
+              rowsPerPage(),
+              const SizedBox(width: 24),
+              pageStatus(),
+              const SizedBox(width: 16),
+              navigation(showFirstLast: true),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _DownArrowIcon extends StatelessWidget {

@@ -201,9 +201,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: Scaffold(
+        home: const Scaffold(
           body: MediaQuery(
-            data: const MediaQueryData(
+            data: MediaQueryData(
               size: Size(240, 568),
               textScaler: TextScaler.linear(2),
             ),

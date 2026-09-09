@@ -8,7 +8,7 @@ final dataTableExamples = ComponentExamples(
   description:
       'A typed, headless-friendly table with sorting, filtering, visibility, stable selection, row actions, and local or server-controlled state.',
   notes:
-      'Ports the frozen Base UI/base-nova Data Table guide without bringing a web TanStack dependency into Flutter. Columns define stable IDs, typed cell formatting and optional compare/filter functions; rows define stable IDs separately from their display order. DTable remains the semantic presentation owner while Checkbox, Input, Dropdown Menu, Button and Badge retain their independent interactions. The reusable Pagination owner is still being integrated, so this page remains baseline until the independent browser/native review gate is complete.',
+      'Ports the frozen Base UI/base-nova Data Table guide without bringing a web TanStack dependency into Flutter. Columns define stable IDs, typed cell formatting and optional compare/filter functions; rows define stable IDs separately from their display order. DTable remains the semantic presentation owner while Checkbox, Input, Dropdown Menu, Button, Badge, Pagination and Select retain their independent interactions. Prepared Pagination and Dropdown Menu pins are integrated only for isolated verification, so this page remains baseline until dependency acceptance and the independent browser/native review gate are complete.',
   examples: [
     StyleguideExample(
       title: 'Basic table and cell formatting',
@@ -94,6 +94,52 @@ const _payments = <_Payment>[
     amount: 721,
     status: _PaymentStatus.failed,
     email: 'carmella@example.com',
+  ),
+];
+
+const _extendedPayments = <_Payment>[
+  ..._payments,
+  (
+    id: 'j8p6e3x1',
+    amount: 128,
+    status: _PaymentStatus.pending,
+    email: 'nora@example.com',
+  ),
+  (
+    id: 'v4m2r7k9',
+    amount: 490,
+    status: _PaymentStatus.processing,
+    email: 'liam@example.com',
+  ),
+  (
+    id: 'q2a7s5d8',
+    amount: 605,
+    status: _PaymentStatus.success,
+    email: 'yara@example.com',
+  ),
+  (
+    id: 'f6g1h9l3',
+    amount: 274,
+    status: _PaymentStatus.failed,
+    email: 'omar@example.com',
+  ),
+  (
+    id: 'c9b4n2w7',
+    amount: 955,
+    status: _PaymentStatus.success,
+    email: 'sara@example.com',
+  ),
+  (
+    id: 't5u8i1o6',
+    amount: 346,
+    status: _PaymentStatus.pending,
+    email: 'noah@example.com',
+  ),
+  (
+    id: 'r3e7y9p2',
+    amount: 780,
+    status: _PaymentStatus.processing,
+    email: 'lina@example.com',
   ),
 ];
 
@@ -257,12 +303,6 @@ class _DataTableInteractiveExampleState
       }),
     );
     final filter = _controller.value.filters['email'] ?? '';
-    final filtered = _payments
-        .where((row) => row.email.toLowerCase().contains(filter.toLowerCase()))
-        .toList(growable: false);
-    final selected = filtered
-        .where((row) => _controller.value.selectedRowIds.contains(row.id))
-        .length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -295,7 +335,7 @@ class _DataTableInteractiveExampleState
         ),
         const SizedBox(height: 16),
         DDataTable<_Payment>(
-          data: _payments,
+          data: _extendedPayments,
           columns: columns,
           rowId: (row) => row.id,
           controller: _controller,
@@ -305,14 +345,21 @@ class _DataTableInteractiveExampleState
               t('Select ${row.email}', 'تحديد ${row.email}'),
           semanticLabel: t('Payments', 'المدفوعات'),
           minimumWidth: 620,
-        ),
-        const SizedBox(height: 16),
-        DDataTableSelectionSummary(
-          selectedCount: selected,
-          totalCount: filtered.length,
-          builder: arabic
-              ? (selected, total) => '$selected من $total صف(وف) محدد.'
-              : null,
+          footerBuilder: (context, metrics) => DDataTablePagination(
+            metrics: metrics,
+            rowsPerPageLabel: t('Rows per page', 'صفوف لكل صفحة'),
+            pageLabel: arabic
+                ? (page, pages) => 'الصفحة $page من $pages'
+                : null,
+            selectionLabel: arabic
+                ? (selected, total) => '$selected من $total صف(وف) محدد.'
+                : null,
+            paginationLabel: t('Table pagination', 'ترقيم صفحات الجدول'),
+            previousLabel: t('Previous', 'السابق'),
+            nextLabel: t('Next', 'التالي'),
+            onPageChanged: _controller.setPage,
+            onPageSizeChanged: _controller.setPageSize,
+          ),
         ),
         if (_status.isNotEmpty) ...[
           const SizedBox(height: 8),

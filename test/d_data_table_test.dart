@@ -93,6 +93,10 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Select abe@example.com'));
     await tester.pump();
     expect(controller.value.selectedRowIds, {'b'});
+    expect(
+      tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
+      isNull,
+    );
 
     controller.setSort('email', DDataTableSortDirection.ascending);
     await tester.pump();
@@ -194,6 +198,57 @@ void main() {
     expect(find.text('zara@example.com'), findsOneWidget);
   });
 
+  testWidgets('footer receives exact local and manual pagination metrics', (
+    tester,
+  ) async {
+    final controller = DDataTableController(
+      initialState: DDataTableState(
+        selectedRowIds: const {'a', 'c'},
+        pageSize: 2,
+      ),
+    );
+    addTearDown(controller.dispose);
+    DDataTableMetrics? metrics;
+    await _pump(
+      tester,
+      DDataTable<_Payment>(
+        data: _payments,
+        columns: _columns(),
+        rowId: (row) => row.id,
+        controller: controller,
+        footerBuilder: (context, value) {
+          metrics = value;
+          return Text('Page ${value.state.page} of ${value.pageCount}');
+        },
+      ),
+    );
+    expect(find.text('Page 1 of 2'), findsOneWidget);
+    expect(metrics?.filteredRowCount, 3);
+    expect(metrics?.selectedFilteredRowCount, 2);
+
+    await _pump(
+      tester,
+      DDataTable<_Payment>(
+        data: [_payments.last],
+        columns: _columns(),
+        rowId: (row) => row.id,
+        operationMode: DDataTableOperationMode.manual,
+        rowCount: 21,
+        pageCount: 3,
+        selectedFilteredRowCount: 7,
+        state: DDataTableState(page: 2, pageSize: 10),
+        onStateChanged: (_) {},
+        footerBuilder: (context, value) {
+          metrics = value;
+          return Text('Page ${value.state.page} of ${value.pageCount}');
+        },
+      ),
+    );
+    expect(find.text('Page 2 of 3'), findsOneWidget);
+    expect(metrics?.filteredRowCount, 21);
+    expect(metrics?.selectedFilteredRowCount, 7);
+  });
+
   testWidgets('column menu toggles repeatedly and all-hidden stays valid', (
     tester,
   ) async {
@@ -228,6 +283,52 @@ void main() {
     await tester.tap(find.byType(DDropdownMenuCheckboxItem).last);
     await tester.pump();
     expect(hidden, {'email', 'amount'});
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('advanced footer reuses outline Pagination and Select owners', (
+    tester,
+  ) async {
+    var page = 2;
+    var pageSize = 10;
+    Widget footer({required bool narrow}) => MediaQuery(
+      data: MediaQueryData(
+        size: Size(narrow ? 240 : 1000, 700),
+        textScaler: TextScaler.linear(narrow ? 2 : 1),
+      ),
+      child: DDataTablePagination(
+        metrics: DDataTableMetrics(
+          state: DDataTableState(page: page, pageSize: pageSize),
+          pageCount: 3,
+          filteredRowCount: 21,
+          selectedFilteredRowCount: 2,
+        ),
+        onPageChanged: (value) => page = value,
+        onPageSizeChanged: (value) => pageSize = value,
+      ),
+    );
+
+    await _pump(tester, footer(narrow: false), width: 1000);
+    final directionButtons = tester
+        .widgetList<DButton>(find.byType(DButton))
+        .where((button) => button.semanticLabel?.startsWith('Go to ') == true)
+        .toList();
+    expect(directionButtons, hasLength(4));
+    expect(
+      directionButtons.every(
+        (button) => button.variant == DButtonVariant.outline,
+      ),
+      isTrue,
+    );
+    expect(find.byType(DSelect<int>), findsOneWidget);
+    expect(find.text('2 of 21 row(s) selected.'), findsOneWidget);
+
+    await _pump(tester, footer(narrow: true), width: 240);
+    final narrowButtons = tester
+        .widgetList<DButton>(find.byType(DButton))
+        .where((button) => button.semanticLabel?.startsWith('Go to ') == true)
+        .toList();
+    expect(narrowButtons, hasLength(2));
     expect(tester.takeException(), isNull);
   });
 

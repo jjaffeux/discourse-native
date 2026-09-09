@@ -50,10 +50,10 @@ headless composition guide, not another registry renderer.
   Input editing/IME/Form semantics. Row actions remain caller-authored
   Dropdown Menu cells, so opening or activating one never turns the row into a
   competing control.
-- `DDataTableSelectionSummary` uses 14/20 muted text. The advanced reusable
-  pagination composition will use the independently owned Pagination and Select
-  widgets when their accepted pins are available; no temporary renderer is
-  shipped by this task.
+- `DDataTableSelectionSummary` uses 14/20 muted text. The advanced
+  `DDataTablePagination` composes the prepared real Pagination and Select owners:
+  a 70px page-size Select, 100px page count, 32px outline first/previous/next/
+  last controls and responsive wrapping. No temporary renderer is shipped.
 - All padding and alignment are directional. DTable provides natural-width
   horizontal scrolling at narrow widths and enlarged intrinsic row heights at
   200% text. Colors, fonts, radii and reduced-motion behavior resolve live from
@@ -81,9 +81,13 @@ with self-contained immutable payments.
 The implementation branch may use prepared Dropdown Menu source
 `codex/review-dropdown-menu-candidate@d273c27e788bb3991c773c7432e0b8c927715651`
 for isolated work only. Dropdown Menu still requires its own acceptance and main
-merge. Pagination is owned by task `01a08606-c9d5-7741-bfe0-e4ff531ff9b7` on
-`codex/ui-pagination`; integrate only its committed tested source, then require
-its accepted main merge before Data Table can merge.
+merge. Pagination is pinned from task
+`01a08606-c9d5-7741-bfe0-e4ff531ff9b7` at
+`codex/ui-pagination@cd69ff21400192e6a141a675ffb7ec6a7199526c` after 10
+focused and 71 combined dependency/styleguide tests plus clean root/full
+analysis. It includes prepared Select/Field ancestry. Require accepted
+Pagination, Select, Field and Dropdown Menu revisions from current main before
+Data Table can merge.
 
 The independent Data Table reviewer must compare the exact official rendered
 payment table and reusable Tasks controls against an exact-source macOS fixture
