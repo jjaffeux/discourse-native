@@ -2359,7 +2359,8 @@
         "flutter test --no-pub test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_table_test.dart --test-randomize-ordering-seed=826145 passed 23 tests before the sibling non-overlap addition; the component suite then passed 14 tests with the same seed.",
         "Focused coverage proves pointer/Return/Space open and first enabled focus, arrow/Home/End traversal, repeating typeahead, controlled checkbox/radio retention, deepest Escape, RTL submenu arrows, sibling submenu non-overlap, outside focus behavior, controlled open requests, live theme/text scale, desktop/iOS geometry, semantics and Table focus/action regression.",
         "After integrating current main 6b8ec8f8, 42 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145; root and profiles/full flutter analyze --no-pub and git diff --check passed.",
-        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed after current-main integration; compiled kernel SHA256 is 5b8111208021b3a52ba1237e83017feeca049c96905d9809239dad0da18143d9. This is build/kernel evidence only, not a native launch claim."
+        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed after current-main integration; compiled kernel SHA256 is 5b8111208021b3a52ba1237e83017feeca049c96905d9809239dad0da18143d9. This is build/kernel evidence only, not a native launch claim.",
+        "Created independent reviewer task Review and merge Dropdown Menu (01a085cf-f401-7813-80da-7c687de8a5d5) in worktree /Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native on codex/review-dropdown-menu. It owns remaining review/fixes, accepted-Popover reconciliation, native/reference acceptance and final local-main merge."
       ],
       "limitations": [
         "Official rendered reference comparison and native macOS interaction/visual inspection remain for the new Dropdown Menu reviewer under the shared desktop lease; no iOS/Linux device or spoken VoiceOver run is claimed.",
@@ -2367,8 +2368,8 @@
       ],
       "implementationCommit": "a78b3615",
       "mergeCommit": null,
-      "reviewStatus": "pending_dispatch",
-      "reviewTaskId": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
       "reviewBranch": "codex/review-dropdown-menu",
       "preparedDependencies": [
         {

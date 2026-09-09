@@ -27,7 +27,7 @@ Branch preparation does not mark a component merged or visually verified.
 | input-group | Implementation and checks | — | — |
 | button-group | independent review | a0cca310 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
 | command | Implementation and checks | — | — |
-| dropdown-menu | Implementation and checks | — | — |
+| dropdown-menu | Implementation and checks | — | 01a085cf-f401-7813-80da-7c687de8a5d5 |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
 
 ## Component implementation
@@ -2213,6 +2213,7 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 - Focused coverage proves pointer/Return/Space open and first enabled focus, arrow/Home/End traversal, repeating typeahead, controlled checkbox/radio retention, deepest Escape, RTL submenu arrows, sibling submenu non-overlap, outside focus behavior, controlled open requests, live theme/text scale, desktop/iOS geometry, semantics and Table focus/action regression.
 - After integrating current main 6b8ec8f8, 42 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145; root and profiles/full flutter analyze --no-pub and git diff --check passed.
 - flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed after current-main integration; compiled kernel SHA256 is 5b8111208021b3a52ba1237e83017feeca049c96905d9809239dad0da18143d9. This is build/kernel evidence only, not a native launch claim.
+- Created independent reviewer task Review and merge Dropdown Menu (01a085cf-f401-7813-80da-7c687de8a5d5) in worktree /Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native on codex/review-dropdown-menu. It owns remaining review/fixes, accepted-Popover reconciliation, native/reference acceptance and final local-main merge.
 
 **limitations**
 

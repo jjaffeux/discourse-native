@@ -3,6 +3,8 @@
 Create a new Codex task titled `Review and merge Dropdown Menu` from latest
 local main in an isolated worktree.
 
+Created reviewer task: `01a085cf-f401-7813-80da-7c687de8a5d5`
+
 ## Reviewer prompt
 
 Review and merge the Dropdown Menu component for the Discourse Native shadcn
