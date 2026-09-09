@@ -359,13 +359,20 @@ class DAlertDialogFooter extends StatelessWidget {
     final wide = MediaQuery.sizeOf(context).width >= 640;
     Widget actions;
     if (small) {
-      actions = Row(
-        children: [
-          for (var index = 0; index < children.length; index++) ...[
-            if (index > 0) const SizedBox(width: DSpacing.sm),
-            Expanded(child: children[index]),
-          ],
-        ],
+      actions = LayoutBuilder(
+        builder: (context, constraints) {
+          final columnWidth = constraints.maxWidth > DSpacing.sm
+              ? (constraints.maxWidth - DSpacing.sm) / 2
+              : 0.0;
+          return Wrap(
+            spacing: DSpacing.sm,
+            runSpacing: DSpacing.sm,
+            children: [
+              for (final child in children)
+                SizedBox(width: columnWidth, child: child),
+            ],
+          );
+        },
       );
     } else if (wide) {
       actions = Row(

@@ -143,6 +143,49 @@ void main() {
     },
   );
 
+  testWidgets('small footer keeps a two-column grid for extra actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        DAlertDialog<void>(
+          trigger: DAlertDialogTrigger(
+            builder: (_, open) =>
+                TextButton(onPressed: open, child: const Text('Open alert')),
+          ),
+          content: const DAlertDialogContent(
+            size: DAlertDialogSize.small,
+            children: [
+              DAlertDialogHeader(
+                title: Text('Choose an action'),
+                description: Text('Three actions exercise the reference grid.'),
+              ),
+              DAlertDialogFooter(
+                children: [
+                  DAlertDialogAction<void>(label: Text('First')),
+                  DAlertDialogAction<void>(label: Text('Second')),
+                  DAlertDialogAction<void>(label: Text('Third')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open alert'));
+    await tester.pumpAndSettle();
+
+    Finder button(String label) =>
+        find.ancestor(of: find.text(label), matching: find.byType(DButton));
+    final first = tester.getRect(button('First'));
+    final second = tester.getRect(button('Second'));
+    final third = tester.getRect(button('Third'));
+    expect(first.top, second.top);
+    expect(third.top, greaterThan(first.bottom));
+    expect(first.width, closeTo(third.width, 1));
+    expect(first.left, closeTo(third.left, 1));
+  });
+
   testWidgets(
     'narrow regular footer reverses visually but cancel focuses first',
     (tester) async {
