@@ -15,3 +15,13 @@ The final review bundle supersedes the earlier one: `/private/tmp/DiscourseCompo
 Native review completed on 2026-09-09 using this exact bundle. Desktop documentation search and Sidebar editing now expose independent navigation/actions in native AX. Filtering and selection worked; 360px preview selection dismissed its modal; the narrow documentation window exposed search/results and opened Card while dismissing navigation. Dark documentation preserved the app preview theme. Four paired native screenshots/AX captures and source/hash observations are recorded in `/Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/native-fidelity-5775a7d3/manifest.json`.
 
 The baseline clear-search suffix remains inside its native TextField node. The pending generic Input adoption places suffix actions outside the editor boundary; its integration review must confirm Clear search independently. This follow-up verifies the page/navigation boundary and does not claim that separate Input adoption is complete.
+
+## Completed Input adoption
+
+The final Input native review confirmed that Clear search is independently
+exposed and works in both desktop and mobile documentation navigation. The
+search editor, navigation and preview controls remain separate native controls.
+`DInput` now owns the editor boundary for the styleguide and Sidebar adapter.
+See `input-reference.md` and `evidence/input/native/manifest.json` for inspected
+source and hashed native evidence. Coordinator integration checks pass with
+the final Button and Badge components; no spoken VoiceOver or iOS/Linux claim.

@@ -81,8 +81,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final startDate = find.byWidgetPredicate(
-        (widget) =>
-            widget is TextField && widget.decoration?.labelText == 'Start date',
+        (widget) => widget is DInput && widget.labelText == 'Start date',
         description: 'Start date field',
       );
       await tester.enterText(startDate, 'not-a-date');

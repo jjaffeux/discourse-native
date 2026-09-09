@@ -1,0 +1,793 @@
+import 'dart:ui' show SemanticsAction, SemanticsActionEvent, PointerDeviceKind;
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/keyboard_navigation.dart';
+import 'package:discourse_native/src/styleguide/examples/radio_group_examples.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+Widget host(
+  Widget child, {
+  TextDirection direction = TextDirection.ltr,
+  ThemeData? theme,
+}) => MaterialApp(
+  theme: theme,
+  home: Scaffold(
+    body: Directionality(textDirection: direction, child: child),
+  ),
+);
+const choices = Column(
+  children: [
+    DRadioGroupItem(value: 'a', label: Text('Alpha')),
+    DRadioGroupItem(value: 'b', label: Text('Beta'), enabled: false),
+    DRadioGroupItem(value: 'c', label: Text('Charlie')),
+  ],
+);
+void main() {
+  testWidgets(
+    'desktop rows follow content height and preserve eight-pixel gaps',
+    (tester) async {
+      for (final title in ['Default', 'Description', 'Fieldset']) {
+        await tester.pumpWidget(
+          host(
+            Builder(
+              builder: radioGroupExamples.examples
+                  .singleWhere((e) => e.title == title)
+                  .builder,
+            ),
+            theme: ThemeData(platform: TargetPlatform.macOS),
+          ),
+        );
+        final rows = find.byType(RawRadio<String>);
+        expect(rows, findsNWidgets(3));
+        final bounds = [
+          for (final e in rows.evaluate())
+            tester.getRect(find.byWidget(e.widget)),
+        ];
+        for (var i = 1; i < bounds.length; i++) {
+          expect(bounds[i].top - bounds[i - 1].bottom, closeTo(8, 0.001));
+        }
+        if (title == 'Default') {
+          expect(bounds.first.height, 16);
+          expect(bounds.last.bottom - bounds.first.top, 64);
+        } else {
+          final content = tester.getSize(
+            find
+                .descendant(of: rows.first, matching: find.byType(DLabel))
+                .first,
+          );
+          if (title == 'Fieldset') expect(bounds.first.height, content.height);
+          if (title == 'Description') {
+            expect(bounds.first.height, greaterThan(content.height));
+          }
+        }
+      }
+    },
+  );
+  testWidgets(
+    'card focus paints outer rings without darkening translucent content',
+    (tester) async {
+      final node = FocusNode();
+      addTearDown(node.dispose);
+      await tester.pumpWidget(
+        host(
+          DRadioGroup<String>(
+            initialValue: 'a',
+            child: DRadioGroupItem(
+              value: 'a',
+              label: const Text('Plan'),
+              description: const Text('Description'),
+              card: true,
+              focusNode: node,
+            ),
+          ),
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      final containers = tester.widgetList<Container>(find.byType(Container));
+      final rings = containers
+          .where((c) => c.foregroundDecoration is BoxDecoration)
+          .toList();
+      expect(rings.length, 2);
+      for (final ring in rings) {
+        final decoration = ring.foregroundDecoration! as BoxDecoration;
+        expect(
+          decoration.border!.top.strokeAlign,
+          BorderSide.strokeAlignOutside,
+        );
+        expect(decoration.border!.top.width, 3);
+        expect((ring.decoration! as BoxDecoration).boxShadow, isNull);
+      }
+      final card = rings.singleWhere(
+        (c) => (c.decoration! as BoxDecoration).shape == BoxShape.rectangle,
+      );
+      expect(
+        (card.decoration! as BoxDecoration).color!.a,
+        closeTo(0.05, 0.001),
+      );
+      final label = tester.element(find.text('Plan'));
+      expect(DefaultTextStyle.of(label).style.height, 20 / 14);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'input role and opacity remain distinct from card border in live themes',
+    (tester) async {
+      final base = ThemeData(platform: TargetPlatform.macOS);
+      final colors = base.colorScheme.copyWith(
+        outlineVariant: const Color(0x80443322),
+        primary: const Color(0x80665544),
+      );
+      final tokens = DTokens.fromTheme(base).copyWith(
+        colors: colors,
+        border: const Color(0xff112233),
+        muted: const Color(0x80887766),
+        radius: 7,
+      );
+      for (final dark in [false, true]) {
+        await tester.pumpWidget(
+          host(
+            DRadioGroup<String>(
+              initialValue: 'a',
+              child: const Column(
+                children: [
+                  DRadioGroupItem(
+                    value: 'a',
+                    card: true,
+                    label: Text('Selected'),
+                    description: Text('Description'),
+                  ),
+                  DRadioGroupItem(value: 'b', label: Text('Unselected')),
+                ],
+              ),
+            ),
+            theme: base.copyWith(
+              brightness: dark ? Brightness.dark : Brightness.light,
+              extensions: [tokens],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final containers = tester.widgetList<Container>(find.byType(Container));
+        final circle = containers
+            .where(
+              (c) =>
+                  c.decoration is BoxDecoration &&
+                  (c.decoration! as BoxDecoration).shape == BoxShape.circle &&
+                  (c.decoration! as BoxDecoration).border?.top.color ==
+                      colors.outlineVariant,
+            )
+            .single;
+        final fill = (circle.decoration! as BoxDecoration).color!;
+        expect(
+          fill.a,
+          closeTo(dark ? colors.outlineVariant.a * 0.3 : 0, 0.001),
+        );
+        final card = containers
+            .where(
+              (c) =>
+                  c.decoration is BoxDecoration &&
+                  (c.decoration! as BoxDecoration).borderRadius != null,
+            )
+            .single;
+        final decoration = card.decoration! as BoxDecoration;
+        expect(card.padding, const EdgeInsets.all(10));
+        expect(decoration.borderRadius, BorderRadius.circular(7));
+        expect(
+          decoration.border!.top.color.a,
+          closeTo(colors.primary.a * (dark ? 0.2 : 0.3), 0.001),
+        );
+        expect(
+          decoration.color!.a,
+          closeTo(colors.primary.a * (dark ? 0.1 : 0.05), 0.001),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(find.text('Selected')));
+        await tester.pump();
+        final hovered = tester.widget<Container>(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Container &&
+                w.decoration is BoxDecoration &&
+                (w.decoration! as BoxDecoration).borderRadius != null,
+          ),
+        );
+        expect(
+          (hovered.decoration! as BoxDecoration).color,
+          tokens.muted.withValues(alpha: tokens.muted.a * 0.5),
+        );
+        await mouse.removePointer();
+        await tester.pump();
+      }
+    },
+  );
+
+  testWidgets(
+    'read-only preserves focus and blocks pointer keyboard and semantics selection',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final first = FocusNode();
+      final second = FocusNode();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      var changes = 0;
+      await tester.pumpWidget(
+        host(
+          DRadioGroup<String>(
+            initialValue: 'a',
+            readOnly: true,
+            onChanged: (_) => changes++,
+            child: Column(
+              children: [
+                DRadioGroupItem(
+                  value: 'a',
+                  label: const Text('Alpha'),
+                  focusNode: first,
+                  toggleable: true,
+                ),
+                DRadioGroupItem(
+                  value: 'b',
+                  label: const Text('Beta'),
+                  focusNode: second,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Beta'));
+      await tester.pump();
+      await tester.tap(find.text('Alpha'));
+      await tester.pump();
+      first.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(second.hasFocus, true);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      final node = tester.getSemantics(find.byType(RawRadio<String>).last);
+      expect(
+        node,
+        isSemantics(isReadOnly: true, isEnabled: true, isFocusable: true),
+      );
+      tester.binding.performSemanticsAction(
+        SemanticsActionEvent(
+          viewId: tester.view.viewId,
+          nodeId: node.id,
+          type: SemanticsAction.tap,
+        ),
+      );
+      await tester.pump();
+      expect(changes, 0);
+      expect(
+        tester.getSemantics(find.byType(RawRadio<String>).first),
+        isSemantics(isChecked: true),
+      );
+      semantics.dispose();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'item overrides inherit live group props without stale access after removal',
+    (tester) async {
+      var readOnly = true;
+      var showOverride = true;
+      String? selected = 'a';
+      late StateSetter update;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return DRadioGroup<String>.controlled(
+                groupValue: selected,
+                readOnly: readOnly,
+                onChanged: (value) => setState(() => selected = value),
+                child: Column(
+                  children: [
+                    const DRadioGroupItem(value: 'a', label: Text('Inherited')),
+                    if (showOverride)
+                      const DRadioGroupItem(
+                        value: 'b',
+                        label: Text('Editable override'),
+                        readOnly: false,
+                      ),
+                    const DRadioGroupItem(
+                      value: 'c',
+                      label: Text('Read-only override'),
+                      readOnly: true,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(selected, 'b');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(selected, 'b');
+      await tester.tap(find.text('Editable override'));
+      await tester.pump();
+      expect(selected, 'b');
+      await tester.tap(find.text('Inherited'));
+      await tester.pump();
+      expect(selected, 'b');
+      update(() {
+        readOnly = false;
+        showOverride = false;
+      });
+      await tester.pump();
+      await tester.tap(find.text('Inherited'));
+      await tester.pump();
+      expect(selected, 'a');
+      await tester.tap(find.text('Read-only override'));
+      await tester.pump();
+      expect(selected, 'a');
+      update(() => readOnly = true);
+      await tester.pump();
+      await tester.tap(find.text('Inherited'));
+      await tester.pump();
+      expect(selected, 'a');
+    },
+  );
+  testWidgets(
+    'read-only controlled Form accepts parent changes reset and required validation',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final form = GlobalKey<FormState>();
+      String? accepted;
+      String? saved;
+      String? resetRequest = 'untouched';
+      late StateSetter update;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return Form(
+                key: form,
+                child: DRadioGroup<String>.controlled(
+                  groupValue: accepted,
+                  readOnly: true,
+                  required: true,
+                  onChanged: (value) => resetRequest = value,
+                  onSaved: (value) => saved = value,
+                  validator: (value) =>
+                      value == null ? 'A choice is required.' : null,
+                  child: const Column(
+                    children: [
+                      DRadioGroupItem(
+                        value: 'a',
+                        label: Text('Required choice'),
+                      ),
+                      DRadioGroupItem(
+                        value: 'b',
+                        label: Text('Optional announcement'),
+                        required: false,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      expect(form.currentState!.validate(), false);
+      await tester.pump();
+      expect(find.text('A choice is required.'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byType(RawRadio<String>).first),
+        isSemantics(isRequired: true, isReadOnly: true),
+      );
+      expect(
+        tester.getSemantics(find.byType(RawRadio<String>).last),
+        isSemantics(isRequired: false),
+      );
+      update(() => accepted = 'b');
+      await tester.pump();
+      expect(form.currentState!.validate(), true);
+      form.currentState!.save();
+      expect(saved, 'b');
+      form.currentState!.reset();
+      await tester.pump();
+      expect(resetRequest, isNull);
+      form.currentState!.save();
+      expect(saved, 'b');
+      semantics.dispose();
+    },
+  );
+  testWidgets('read-only controlled value without callback remains focusable', (
+    tester,
+  ) async {
+    final node = FocusNode();
+    addTearDown(node.dispose);
+    await tester.pumpWidget(
+      host(
+        DRadioGroup<String>.controlled(
+          groupValue: 'a',
+          onChanged: null,
+          readOnly: true,
+          child: DRadioGroupItem(
+            value: 'a',
+            label: const Text('Alpha'),
+            focusNode: node,
+          ),
+        ),
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(node.hasFocus, true);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('label activation updates and reset restores initial selection', (
+    tester,
+  ) async {
+    final form = GlobalKey<FormState>();
+    String? saved;
+    await tester.pumpWidget(
+      host(
+        Form(
+          key: form,
+          child: DRadioGroup<String>(
+            initialValue: 'a',
+            onSaved: (v) => saved = v,
+            child: choices,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Charlie'));
+    await tester.pump();
+    form.currentState!.save();
+    expect(saved, 'c');
+    form.currentState!.reset();
+    await tester.pump();
+    form.currentState!.save();
+    expect(saved, 'a');
+  });
+  testWidgets('controlled rejection does not change selection or saved value', (
+    tester,
+  ) async {
+    final form = GlobalKey<FormState>();
+    String? request;
+    String? saved;
+    await tester.pumpWidget(
+      host(
+        Form(
+          key: form,
+          child: DRadioGroup<String>.controlled(
+            groupValue: 'a',
+            onChanged: (v) => request = v,
+            onSaved: (v) => saved = v,
+            child: choices,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Charlie'));
+    await tester.pump();
+    form.currentState!.save();
+    expect(request, 'c');
+    expect(saved, 'a');
+  });
+  testWidgets(
+    'controlled reset preserves accepted value until parent accepts',
+    (tester) async {
+      final form = GlobalKey<FormState>();
+      String? accepted = 'c';
+      String? requested;
+      String? saved;
+      late StateSetter update;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return Form(
+                key: form,
+                child: DRadioGroup<String>.controlled(
+                  groupValue: accepted,
+                  initialValue: 'a',
+                  onChanged: (value) => requested = value,
+                  onSaved: (value) => saved = value,
+                  validator: (value) => value == accepted ? null : 'Mismatch',
+                  child: choices,
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      form.currentState!.reset();
+      await tester.pump();
+      expect(requested, 'a');
+      form.currentState!.save();
+      expect(saved, 'c');
+      expect(form.currentState!.validate(), true);
+      update(() => accepted = requested);
+      await tester.pump();
+      form.currentState!.save();
+      expect(saved, 'a');
+      expect(form.currentState!.validate(), true);
+    },
+  );
+  for (final direction in TextDirection.values) {
+    testWidgets('arrows wrap and skip disabled options in $direction', (
+      tester,
+    ) async {
+      String? selected;
+      await tester.pumpWidget(
+        host(
+          DRadioGroup<String>(
+            initialValue: 'a',
+            onChanged: (v) => selected = v,
+            child: choices,
+          ),
+          direction: direction,
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(selected, 'c');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(selected, 'a');
+      await tester.sendKeyEvent(
+        direction == TextDirection.rtl
+            ? LogicalKeyboardKey.arrowLeft
+            : LogicalKeyboardKey.arrowRight,
+      );
+      await tester.pump();
+      expect(selected, 'c');
+    });
+  }
+  testWidgets(
+    'validation error clears after selection and reset notifies owner',
+    (tester) async {
+      final form = GlobalKey<FormState>();
+      String? value;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) => Form(
+              key: form,
+              child: DRadioGroup<String>.controlled(
+                groupValue: value,
+                onChanged: (v) => setState(() => value = v),
+                validator: (v) => v == null ? 'Choose one' : null,
+                child: choices,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(form.currentState!.validate(), false);
+      await tester.pump();
+      expect(find.text('Choose one'), findsOneWidget);
+      await tester.tap(find.text('Alpha'));
+      await tester.pump();
+      expect(form.currentState!.validate(), true);
+      await tester.pump();
+      expect(find.text('Choose one'), findsNothing);
+      form.currentState!.reset();
+      await tester.pump();
+      expect(value, isNull);
+    },
+  );
+  testWidgets(
+    'disabled group and item reject taps and expose radio semantics',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+
+      String? value;
+      await tester.pumpWidget(
+        host(
+          DRadioGroup<String>(
+            enabled: false,
+            initialValue: 'a',
+            onChanged: (v) => value = v,
+            child: choices,
+          ),
+        ),
+      );
+      await tester.tap(find.text('Charlie'));
+      await tester.pump();
+      expect(value, isNull);
+      expect(
+        tester.getSemantics(find.byType(RawRadio<String>).first),
+        matchesSemantics(
+          hasCheckedState: true,
+          isChecked: true,
+          hasEnabledState: true,
+          isEnabled: false,
+          isInMutuallyExclusiveGroup: true,
+          label: 'Alpha',
+          textDirection: TextDirection.ltr,
+        ),
+      );
+      semantics.dispose();
+    },
+  );
+  testWidgets('live palette keeps selection and exact radio geometry', (
+    tester,
+  ) async {
+    final form = GlobalKey<FormState>();
+    String? saved;
+    var theme = ThemeData(
+      platform: TargetPlatform.macOS,
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+    );
+    Widget build() => host(
+      Form(
+        key: form,
+        child: DRadioGroup<String>(
+          initialValue: 'a',
+          onSaved: (value) => saved = value,
+          child: choices,
+        ),
+      ),
+      theme: theme,
+    );
+    await tester.pumpWidget(build());
+    await tester.tap(find.text('Charlie'));
+    await tester.pump();
+    theme = ThemeData(
+      platform: TargetPlatform.macOS,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.purple,
+        brightness: Brightness.dark,
+      ),
+    );
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    form.currentState!.save();
+    expect(saved, 'c');
+    final circles = find.byWidgetPredicate(
+      (widget) =>
+          widget is Container &&
+          widget.decoration is BoxDecoration &&
+          (widget.decoration! as BoxDecoration).shape == BoxShape.circle,
+    );
+    expect(circles, findsNWidgets(4));
+    expect(
+      circles
+          .evaluate()
+          .map((element) => tester.getSize(find.byWidget(element.widget)))
+          .where((size) => size == const Size(16, 16))
+          .length,
+      3,
+    );
+    final selected = tester
+        .widgetList<Container>(circles)
+        .where(
+          (widget) =>
+              (widget.decoration! as BoxDecoration).color ==
+              theme.colorScheme.primary,
+        );
+    expect(selected.length, 1);
+    final dot = circles.evaluate().where(
+      (element) =>
+          tester.getSize(find.byWidget(element.widget)) == const Size(8, 8),
+    );
+    expect(dot.length, 1);
+  });
+  testWidgets(
+    'radio focus blocks application reading shortcuts and Tab leaves group',
+    (tester) async {
+      final node = FocusNode();
+      final after = FocusNode();
+      addTearDown(node.dispose);
+      addTearDown(after.dispose);
+      late BuildContext reading;
+      await tester.pumpWidget(
+        host(
+          Builder(
+            builder: (context) {
+              reading = context;
+              return Column(
+                children: [
+                  DRadioGroup<String>(
+                    child: Column(
+                      children: [
+                        DRadioGroupItem(
+                          value: 'a',
+                          label: const Text('Alpha'),
+                          focusNode: node,
+                        ),
+                        const DRadioGroupItem(value: 'b', label: Text('Beta')),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    focusNode: after,
+                    onPressed: () {},
+                    child: const Text('After'),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      );
+      node.requestFocus();
+      await tester.pump();
+      expect(navigationShortcutsAllowed(reading), false);
+      expect(navigationShortcutsAllowed(reading, activation: true), false);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(after.hasFocus, true);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets('borrowed focus survives replacement and disposal', (
+    tester,
+  ) async {
+    final first = FocusNode();
+    final second = FocusNode();
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    Widget build(FocusNode node) => host(
+      DRadioGroup<String>(
+        child: DRadioGroupItem(
+          value: 'a',
+          label: const Text('Alpha'),
+          focusNode: node,
+        ),
+      ),
+    );
+    await tester.pumpWidget(build(first));
+    await tester.pumpWidget(build(second));
+    second.requestFocus();
+    await tester.pump();
+    expect(second.hasFocus, true);
+    await tester.pumpWidget(const SizedBox());
+    first.addListener(() {});
+    second.addListener(() {});
+  });
+  testWidgets('all real examples fit narrow large-text RTL and touch bounds', (
+    tester,
+  ) async {
+    for (final example in radioGroupExamples.examples) {
+      await tester.pumpWidget(
+        host(
+          MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: SingleChildScrollView(
+              child: SizedBox(
+                width: 260,
+                child: Builder(builder: example.builder),
+              ),
+            ),
+          ),
+          direction: TextDirection.rtl,
+          theme: ThemeData(platform: TargetPlatform.iOS),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: example.title);
+      for (final element in find.byType(RawRadio<String>).evaluate()) {
+        expect(
+          tester.getSize(find.byWidget(element.widget)).height,
+          greaterThanOrEqualTo(48),
+        );
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+}

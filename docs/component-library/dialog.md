@@ -65,8 +65,8 @@ route. Nested calls use normal Navigator stacking rather than a second overlay
 owner.
 
 No Form state is invented. Fields, validation, save/reset and async persistence
-remain with the caller. The frozen profile examples visibly use `DLabel` and
-native `TextFormField` until the separately owned Input and Field branches merge;
+remain with the caller. The frozen profile examples use the merged shared
+`DInput` owner; richer Field composition remains with its separate catalogue task,
 their editable semantics remain field-sized and footer/close buttons remain
 independent controls.
 
@@ -102,5 +102,5 @@ Retained alternatives are narrow rather than unfinished Dialog copies:
   targets.
 
 Input and Field own the future visual replacement of the temporary native fields
-in examples and migrated forms. No substitute Input/Field public owner is added
+in examples and migrated forms. No substitute Field public owner is added
 here.

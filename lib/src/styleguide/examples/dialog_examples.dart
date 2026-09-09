@@ -13,9 +13,9 @@ final dialogExamples = ComponentExamples(
       'The public parts reproduce the frozen base-nova Dialog composition. '
       'Routes use the nearest Navigator unless useRootNavigator is requested, '
       'return typed results, trap and restore focus, and retain live preview '
-      'theme, direction, text scale and reduced-motion updates. TextFormField '
-      'and DLabel are temporary native composition while Input and Field are '
-      'owned by their in-progress catalogue tasks. Dialog owns neither form '
+      'theme, direction, text scale and reduced-motion updates. Forms compose '
+      'the shared DInput owner while richer Field layouts remain separately '
+      'owned by their catalogue task. Dialog owns neither form '
       'validation nor asynchronous persistence.',
   examples: [
     StyleguideExample(
@@ -224,25 +224,19 @@ class _ProfileDialogState extends State<_ProfileDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    DLabel(child: Text(ar ? 'الاسم' : 'Name')),
-                    const SizedBox(height: 8),
-                    TextFormField(
+                    DInput(
                       controller: _name,
-                      decoration: InputDecoration(
-                        hintText: ar ? 'الاسم' : 'Name',
-                      ),
+                      labelText: ar ? 'الاسم' : 'Name',
+                      hintText: ar ? 'الاسم' : 'Name',
                       validator: (value) => (value?.trim().isEmpty ?? true)
                           ? (ar ? 'الاسم مطلوب' : 'Name is required')
                           : null,
                     ),
                     const SizedBox(height: 16),
-                    DLabel(child: Text(ar ? 'اسم المستخدم' : 'Username')),
-                    const SizedBox(height: 8),
-                    TextFormField(
+                    DInput(
                       controller: _username,
-                      decoration: InputDecoration(
-                        hintText: ar ? 'اسم المستخدم' : 'Username',
-                      ),
+                      labelText: ar ? 'اسم المستخدم' : 'Username',
+                      hintText: ar ? 'اسم المستخدم' : 'Username',
                     ),
                   ],
                 ),
@@ -298,12 +292,10 @@ class _CustomCloseDialog extends StatelessWidget {
             ),
           ],
         ),
-        const TextField(
+        DInput(
           readOnly: true,
-          decoration: InputDecoration(
-            labelText: 'Link',
-            hintText: 'https://ui.shadcn.com/docs/installation',
-          ),
+          labelText: 'Link',
+          initialValue: 'https://ui.shadcn.com/docs/installation',
         ),
         DDialogFooter(
           children: [

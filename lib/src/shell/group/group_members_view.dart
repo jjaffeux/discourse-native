@@ -617,14 +617,8 @@ class _MemberBadge extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.secondaryContainer,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Text(label, style: Theme.of(context).textTheme.labelSmall),
-  );
+  Widget build(BuildContext context) =>
+      DBadge(variant: DBadgeVariant.secondary, child: Text(label));
 }
 
 class _MobileMemberFact extends StatelessWidget {
@@ -836,7 +830,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
           ),
           const SizedBox(height: 10),
           if (controller.queryIsEmail)
-            CheckboxListTile(
+            DCheckbox(
               key: ValueKey('add-email-$email'),
               contentPadding: EdgeInsets.zero,
               value: controller.selectedEmails.contains(email),
@@ -852,7 +846,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
               itemCount: controller.results.length,
               itemBuilder: (context, index) {
                 final user = controller.results[index];
-                return CheckboxListTile(
+                return DCheckbox(
                   key: ValueKey('add-user-${user.username}'),
                   contentPadding: EdgeInsets.zero,
                   value: controller.selectedUsernames.contains(user.username),

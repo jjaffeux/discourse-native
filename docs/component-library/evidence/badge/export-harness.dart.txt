@@ -1,0 +1,393 @@
+import '../tool/component_review/badge_fixtures.dart';
+import '../tool/component_review/badge_main.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/styleguide/examples/badge_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+const output = String.fromEnvironment(
+  'BADGE_EXPORT_DIR',
+  defaultValue:
+      '/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native/docs/component-library/evidence/badge',
+);
+ThemeData neutral(bool dark) {
+  final base = dark ? AppTheme.dark : AppTheme.light;
+  final bg = Color(dark ? 0xff0a0a0a : 0xffffffff);
+  final fg = Color(dark ? 0xfffafafa : 0xff000000);
+  final muted = Color(dark ? 0xff262626 : 0xfff5f5f5);
+  final colors = base.colorScheme.copyWith(
+    surface: bg,
+    onSurface: fg,
+    primary: Color(dark ? 0xffe5e5e5 : 0xff000000),
+    onPrimary: Color(dark ? 0xff171717 : 0xfffafafa),
+    outlineVariant: dark ? const Color(0x1affffff) : const Color(0xffe5e5e5),
+    error: Color(dark ? 0xffff6467 : 0xffe7000b),
+  );
+  return base.copyWith(
+    colorScheme: colors,
+    scaffoldBackgroundColor: bg,
+    extensions: [
+      ...base.extensions.values.where((x) => x is! DTokens),
+      ReferenceTokens(
+        colors: colors,
+        background: bg,
+        surface: bg,
+        muted: muted,
+        border: dark ? const Color(0x1affffff) : const Color(0xffe5e5e5),
+        hover: muted,
+        selected: muted,
+        selectedForeground: fg,
+        radius: 10,
+      ),
+    ],
+  );
+}
+
+class ReferenceTokens extends DTokens {
+  const ReferenceTokens({
+    required super.colors,
+    required super.background,
+    required super.surface,
+    required super.muted,
+    required super.border,
+    required super.hover,
+    required super.selected,
+    required super.selectedForeground,
+    super.radius,
+  });
+  @override
+  Color get focusRing => colors.brightness == Brightness.dark
+      ? const Color(0xff737373)
+      : const Color(0xffa1a1a1);
+  @override
+  Color get mutedForeground => colors.brightness == Brightness.dark
+      ? const Color(0xffa1a1a1)
+      : const Color(0xff737373);
+}
+
+Widget arrow() => Builder(
+  builder: (context) => SvgPicture.string(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>',
+    width: 12,
+    height: 12,
+    colorFilter: ColorFilter.mode(
+      IconTheme.of(context).color!,
+      BlendMode.srcIn,
+    ),
+  ),
+);
+void main() {
+  testWidgets('export exact Badge examples for browser comparison', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      for (final family in [
+        '.AppleSystemUIFont',
+        'Roboto',
+        'SF Pro Text',
+        'SF Pro Display',
+      ]) {
+        await (FontLoader(family)..addFont(
+              Future.value(
+                ByteData.sublistView(
+                  File('/System/Library/Fonts/SFNS.ttf').readAsBytesSync(),
+                ),
+              ),
+            ))
+            .load();
+      }
+      await (FontLoader('Review Arabic')..addFont(
+            Future.value(
+              ByteData.sublistView(
+                File('/System/Library/Fonts/SFArabic.ttf').readAsBytesSync(),
+              ),
+            ),
+          ))
+          .load();
+      await (FontLoader('MaterialIcons')..addFont(
+            Future.value(
+              ByteData.sublistView(
+                File(
+                  '/opt/homebrew/share/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+                ).readAsBytesSync(),
+              ),
+            ),
+          ))
+          .load();
+    });
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final measurements = <String, Object>{};
+    Future<void> capture(
+      String name,
+      ThemeData theme,
+      Widget child, {
+      bool rtl = false,
+      double scale = 1,
+      double width = 638,
+      double height = 288,
+      String? activate,
+      bool focus = false,
+      bool hover = false,
+      ShellController? shell,
+    }) async {
+      if (const bool.fromEnvironment('BADGE_RING_ONLY') &&
+          !name.contains('-ring-'))
+        return;
+      tester.view.physicalSize = Size(width, height);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: key,
+          child: MaterialApp(
+            builder: (context, child) => shell == null
+                ? child!
+                : ShellScope(controller: shell, child: child!),
+            debugShowCheckedModeBanner: false,
+            theme: theme.copyWith(
+              textTheme: theme.textTheme.apply(
+                fontFamilyFallback: ['Review Arabic'],
+              ),
+            ),
+            home: Scaffold(
+              body: MediaQuery(
+                data: MediaQueryData(
+                  size: Size(width, height),
+                  textScaler: TextScaler.linear(scale),
+                  disableAnimations: true,
+                ),
+                child: Directionality(
+                  textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+                  child: Center(child: child),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (activate != null) {
+        await tester.tap(find.text(activate));
+        await tester.pumpAndSettle();
+        expect(find.text('123 badges'), findsOneWidget);
+      }
+      if (focus) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+      }
+      final mouse = hover
+          ? await tester.createGesture(kind: PointerDeviceKind.mouse)
+          : null;
+      if (mouse != null) {
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(find.byType(DBadge).first));
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull, reason: name);
+      measurements[name] = [
+        for (final element in find.byType(DBadge).evaluate())
+          {
+            'size': tester
+                .getSize(find.byElementPredicate((e) => identical(e, element)))
+                .toString(),
+            'variant': (element.widget as DBadge).variant.name,
+            'text': (element.widget as DBadge).child is Text
+                ? ((element.widget as DBadge).child as Text).data
+                : null,
+            'radius': DTokens.of(element).radius * 2.6,
+            'visualHeight': tester
+                .getSize(
+                  find
+                      .descendant(
+                        of: find.byElementPredicate(
+                          (e) => identical(e, element),
+                        ),
+                        matching: find.byType(AnimatedContainer),
+                      )
+                      .first,
+                )
+                .height,
+          },
+      ];
+      await tester.runAsync(() async {
+        final boundary =
+            key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final image = await boundary.toImage(pixelRatio: 1);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        File('$output/$name.png').writeAsBytesSync(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+      await mouse?.removePointer();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+    }
+
+    for (final dark in [false, true]) {
+      final prefix = dark ? 'dark' : 'light';
+      for (final variant in [
+        DBadgeVariant.ghost,
+        DBadgeVariant.outline,
+        DBadgeVariant.destructive,
+      ]) {
+        for (final (state, invalid, focused) in [
+          ('idle', false, false),
+          ('focus', false, true),
+          ('invalid-idle', true, false),
+          ('invalid-focus', true, true),
+        ]) {
+          await capture(
+            'flutter-neutral-$prefix-ring-${variant.name}-$state',
+            neutral(dark),
+            DBadge.action(
+              variant: variant,
+              invalid: invalid,
+              onPressed: () {},
+              child: Text(variant.name),
+            ),
+            focus: focused,
+          );
+        }
+      }
+
+      for (final index in [0, 1, 2, 3, 4, 5]) {
+        final example = badgeExamples.examples[index];
+        await capture(
+          'flutter-neutral-$prefix-$index',
+          neutral(dark),
+          Builder(builder: example.builder),
+        );
+      }
+      await capture(
+        'flutter-neutral-$prefix-reference-variants',
+        neutral(dark),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final (v, label) in [
+              (DBadgeVariant.primary, 'Default'),
+              (DBadgeVariant.secondary, 'Secondary'),
+              (DBadgeVariant.destructive, 'Destructive'),
+              (DBadgeVariant.outline, 'Outline'),
+              (DBadgeVariant.ghost, 'Ghost'),
+            ])
+              DBadge(variant: v, child: Text(label)),
+          ],
+        ),
+      );
+      await capture(
+        'flutter-neutral-$prefix-ghost-hover',
+        neutral(dark),
+        const DBadge(variant: DBadgeVariant.ghost, child: Text('Ghost')),
+        hover: true,
+      );
+      await capture(
+        'flutter-neutral-$prefix-link-focus',
+        neutral(dark),
+        DBadge.link(
+          onPressed: () {},
+          trailing: arrow(),
+          child: const Text('Open Link'),
+        ),
+        focus: true,
+      );
+      await capture(
+        'flutter-neutral-$prefix-link-hover',
+        neutral(dark),
+        DBadge.link(
+          onPressed: () {},
+          trailing: arrow(),
+          child: const Text('Open Link'),
+        ),
+        hover: true,
+      );
+      await capture(
+        'flutter-neutral-$prefix-text-link-hover',
+        neutral(dark),
+        DBadge.link(
+          variant: DBadgeVariant.link,
+          onPressed: () {},
+          child: const Text('Link'),
+        ),
+        hover: true,
+      );
+    }
+    for (final theme in [
+      StyleguideTheme.light,
+      StyleguideTheme.dark,
+      StyleguideTheme.forest,
+      StyleguideTheme.plum,
+    ]) {
+      for (final index in [0, 3, 5]) {
+        final example = badgeExamples.examples[index];
+        await capture(
+          'flutter-${theme.name}-$index-rtl200',
+          theme.resolve(AppTheme.light),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Builder(builder: example.builder),
+          ),
+          rtl: true,
+          scale: 2,
+          width: 360,
+          height: 600,
+        );
+      }
+    }
+    final fixtureController = await createBadgeFixtureController();
+    try {
+      await capture(
+        'flutter-migrations-plum-rtl200',
+        StyleguideTheme.plum.resolve(AppTheme.light),
+        BadgeMigrationFixtures(controller: fixtureController),
+        shell: fixtureController,
+        rtl: true,
+        scale: 2,
+        width: 360,
+        height: 1000,
+      );
+      await capture(
+        'flutter-profile-plum-rtl200',
+        StyleguideTheme.plum.resolve(AppTheme.light),
+        BadgeMigrationFixtures(controller: fixtureController),
+        shell: fixtureController,
+        rtl: true,
+        scale: 2,
+        width: 360,
+        height: 1000,
+        activate: 'Open staff profile',
+      );
+      await capture(
+        'flutter-profile-root200-plum',
+        AppTheme.light,
+        BadgeReviewApp(
+          controller: fixtureController,
+          largeProfile: true,
+          onReturn: () {},
+        ),
+        shell: fixtureController,
+        width: 1144,
+        height: 768,
+        activate: 'Open staff profile',
+      );
+    } finally {
+      fixtureController.dispose();
+    }
+    File('$output/flutter-metrics.json').writeAsStringSync(
+      const JsonEncoder.withIndent('  ').convert(measurements),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+}

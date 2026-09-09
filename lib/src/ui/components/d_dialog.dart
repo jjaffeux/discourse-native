@@ -42,6 +42,8 @@ class DDialogController<T> extends ChangeNotifier {
 
   bool _open;
   bool _busy = false;
+  bool _disposed = false;
+  int _openSession = 0;
   Object? _attachment;
   void Function()? _requestOpen;
   void Function(T? result, DDialogChangeReason reason)? _requestClose;
@@ -59,6 +61,7 @@ class DDialogController<T> extends ChangeNotifier {
     final current = _submission;
     if (current != null) return current;
     final attachment = _attachment;
+    final openSession = _openSession;
     final completer = Completer<T?>();
     _submission = completer.future;
     _busy = true;
@@ -66,7 +69,12 @@ class DDialogController<T> extends ChangeNotifier {
     Future<T>.sync(operation)
         .then(
           (result) {
-            if (_attachment == attachment && _open) close(result);
+            if (!_disposed &&
+                _attachment == attachment &&
+                _open &&
+                _openSession == openSession) {
+              close(result);
+            }
             completer.complete(result);
           },
           onError: (Object error, StackTrace stackTrace) {
@@ -77,7 +85,7 @@ class DDialogController<T> extends ChangeNotifier {
           if (_submission == completer.future) {
             _submission = null;
             _busy = false;
-            notifyListeners();
+            if (!_disposed) notifyListeners();
           }
         })
         .ignore();
@@ -104,7 +112,17 @@ class DDialogController<T> extends ChangeNotifier {
   void _setOpen(bool value) {
     if (_open == value) return;
     _open = value;
-    notifyListeners();
+    if (value) _openSession++;
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _attachment = null;
+    _requestOpen = null;
+    _requestClose = null;
+    super.dispose();
   }
 }
 
@@ -183,6 +201,7 @@ class _DDialogState<T> extends State<DDialog<T>> {
     _controller =
         widget.controller ?? DDialogController<T>(initiallyOpen: _internalOpen);
     _attachController();
+    _controller._setOpen(_desiredOpen);
     if (_desiredOpen) _scheduleSync();
   }
 

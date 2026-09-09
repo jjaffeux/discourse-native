@@ -86,8 +86,7 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          style: Theme.of(context).textTheme.bodyMedium,
+        DInput(
           key: const ValueKey('chat-thread-title-field'),
           controller: _title,
           autofocus: true,
@@ -96,11 +95,8 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => unawaited(_save()),
-          decoration: const InputDecoration(
-            labelText: 'Title',
-            hintText: 'Give this thread a title',
-            border: OutlineInputBorder(),
-          ),
+          labelText: 'Title',
+          hintText: 'Give this thread a title',
         ),
         if (_error case final error?) ...[
           const SizedBox(height: 8),

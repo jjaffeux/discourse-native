@@ -298,6 +298,46 @@ void main() {
     expect(find.text('Example dialog'), findsOneWidget);
   });
 
+  testWidgets('late submit result cannot close a later open session', (
+    tester,
+  ) async {
+    final controller = DDialogController<String>();
+    final gate = Completer<String>();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(_host(_dialog<String>(controller: controller)));
+    controller.open();
+    await tester.pumpAndSettle();
+    final submission = controller.submit(() => gate.future);
+    controller.close();
+    await tester.pumpAndSettle();
+    controller.open();
+    await tester.pumpAndSettle();
+
+    gate.complete('stale result');
+    expect(await submission, 'stale result');
+    await tester.pumpAndSettle();
+
+    expect(controller.isOpen, isTrue);
+    expect(controller.isBusy, isFalse);
+    expect(find.text('Example dialog'), findsOneWidget);
+  });
+
+  testWidgets('submit completion is safe after controller disposal', (
+    tester,
+  ) async {
+    final controller = DDialogController<String>();
+    final gate = Completer<String>();
+    final submission = controller.submit(() => gate.future);
+    controller.dispose();
+
+    gate.complete('saved');
+    expect(await submission, 'saved');
+    await tester.pump();
+
+    expect(controller.isBusy, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('widget removal detaches a borrowed controller and route', (
     tester,
   ) async {

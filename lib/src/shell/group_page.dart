@@ -397,7 +397,10 @@ class _GroupHeader extends StatelessWidget {
 
     final canDelete = isAdmin && !group.automatic && onDeleteGroup != null;
     const overflowButtonSize = DButtonSize.small;
-    final actionButtonHeight = DButton.iconOnlyDimensionFor(overflowButtonSize);
+    final actionButtonHeight = switch (theme.platform) {
+      TargetPlatform.iOS || TargetPlatform.android => DButton.minimumDimension,
+      _ => DButton.iconOnlyDimensionFor(overflowButtonSize),
+    };
 
     return Material(
       color: theme.colorScheme.surface,
@@ -465,6 +468,7 @@ class _GroupHeader extends StatelessWidget {
                       icon: const DIcon(DIcons.ellipsis, size: 16),
                       tooltip: 'More group actions',
                       size: overflowButtonSize,
+                      insetSurface: true,
                       onPressed: openMenu,
                     ),
                   ),

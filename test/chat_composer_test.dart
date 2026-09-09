@@ -772,7 +772,7 @@ void main() {
         find.byKey(const ValueKey('composer-link-dialog')),
         findsOneWidget,
       );
-      final anchor = tester.widget<TextField>(
+      final anchor = tester.widget<DInput>(
         find.byKey(const ValueKey('composer-link-anchor')),
       );
       expect(anchor.controller!.text, 'format');

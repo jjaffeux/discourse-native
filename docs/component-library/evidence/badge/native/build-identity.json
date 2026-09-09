@@ -1,0 +1,19 @@
+{
+  "app": "/private/tmp/discourse-badge-review-bebb9/build/macos/Build/Products/Debug/Badge Review BEBB9.app",
+  "bundleIdentifier": "org.discourse.native.badge.bebb9",
+  "sourceManifestSha256": "9e7f5ecfb0b95d9cd469d0bb0f274775f50f8506a2d6cc063d6c14bc87dfc4a8",
+  "kernelSha256": "2b970ca82bac65b866bf7dc06211a9e1014eb170c58476e0df4ae169b4ff861e",
+  "signatureVerification": "codesign --verify --deep --strict passed after explicit ad-hoc signing",
+  "entitlementsReadBack": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.device.audio-input": true,
+    "com.apple.security.device.camera": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "restrictedEntitlements": "aps-environment and com.apple.developer.* absent; omission only in temporary review runner",
+  "nativeReview": "Launched and inspected. Final Groups wrapping correction rechecked in this kernel; app quit through its own menu and desktop slot explicitly released.",
+  "implementationCommit": "8631acd9042cb562cd1ad98cec4db9f0a81fc3c0"
+}
