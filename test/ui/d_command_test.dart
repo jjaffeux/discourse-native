@@ -337,7 +337,16 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.bySemanticsLabel('Find an action'), findsOneWidget);
+    final inputSemantics = find.ancestor(
+      of: find.byType(TextField),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics && widget.properties.label == 'Find an action',
+      ),
+    );
+    expect(inputSemantics, findsOneWidget);
+    final inputData = tester.getSemantics(inputSemantics).getSemanticsData();
+    expect(inputData.hasFlag(SemanticsFlag.isTextField), isTrue);
     expect(find.bySemanticsLabel('Open your profile'), findsOneWidget);
   });
 

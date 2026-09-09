@@ -478,23 +478,21 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: DSpacing.xs),
-          child: Semantics(
-            label: widget.semanticLabel,
-            child: DInput(
-              controller: _editing,
-              focusNode: widget.focusNode,
-              hintText: widget.placeholder,
-              autofocus: widget.autofocus,
-              enabled: widget.enabled,
-              autocorrect: false,
-              enableSuggestions: false,
-              textInputAction: TextInputAction.search,
-              suffix: ExcludeSemantics(
-                child: DIcon(
-                  DIcons.magnifyingGlass,
-                  size: 16,
-                  color: DTokens.of(context).mutedForeground,
-                ),
+          child: DInput(
+            controller: _editing,
+            focusNode: widget.focusNode,
+            semanticLabel: widget.semanticLabel,
+            hintText: widget.placeholder,
+            autofocus: widget.autofocus,
+            enabled: widget.enabled,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.search,
+            suffix: ExcludeSemantics(
+              child: DIcon(
+                DIcons.magnifyingGlass,
+                size: 16,
+                color: DTokens.of(context).mutedForeground,
               ),
             ),
           ),
