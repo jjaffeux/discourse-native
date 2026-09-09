@@ -6,7 +6,7 @@ scroll-area-render-review.md. This record establishes native build readiness onl
 
 ## Final build provenance
 
-Source commit: `ad0647a4d46b756b87d5b9c5c0ca526e26cb2e17`. After temporary runner files were restored, the worktree was exactly clean.
+Source commit: `3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e`. After temporary runner files were restored, the worktree was exactly clean.
 Production Dart, fixture, assets, macOS runner and dependency inputs equal that
 commit. This later provenance update changes only documentation.
 
@@ -24,7 +24,7 @@ with org.discourse.native.dev; the final built Info.plist identifier was correct
 to the unique review ID before signing. The main checkout build was untouched.
 
 Build App.framework and copied bundle App.framework kernel_blob.bin bytes are
-equal. SHA256 for both: `cb549143dbb2b4307b93a606c34e0090c8d9026ab36684d07c2b710c01ac6579`.
+equal. SHA256 for both: `1361361d520ac8cb0e836ed7581c2e4713c6777a666fc625977f382feda4acc0`.
 
 `codesign --force --deep --sign - --timestamp=none` completed locally, followed by
 `codesign --verify --deep --strict --verbose=2`: valid on disk and satisfies its
@@ -102,3 +102,20 @@ is present. Nested code was deep ad-hoc signed; the top-level app was then signe
 with the explicit minimal review entitlements. Evidence logs:
 /tmp/scroll-area-sign-verify.log, /tmp/scroll-area-entitlements-readback.plist.
 No CUA/browser/native use during this preparation. Ready and parked awaiting_slot.
+
+## Final17-component baseline refresh
+
+Merged pinnede612ad7b47413fa890b35ae3b55a6f6d37b08cf7 without conflicts.
+Every non-Scroll-Area progress row matches pinned main; final Checkbox and
+Topic Inbox reconciliation are retained.114 targeted integration tests pass
+(seed4102292575): Scroll Area, its examples, styleguide page, Checkbox examples,
+Topic Inbox and keyboard navigation. Root/full-profile analysis clean.
+Unchanged source/browser/rendered comparisons were not repeated.
+
+The source/hash at the top now identifies this final merge build. Runner identity
+was restored and the entire worktree was clean before recording provenance.
+Pins and lockfiles are unchanged. Unique effective app identifier corrected
+before explicit ad-hoc signing; deep strict verification and exact sandbox/JIT/
+network-only entitlement read-back pass again. No APS/team/application IDs.
+No browser/CUA/native launch or alternate verification route was attempted.
+Mac lock/browser-policy blockers remain; ready and parked awaiting_slot.
