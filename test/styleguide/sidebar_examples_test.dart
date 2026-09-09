@@ -1,6 +1,9 @@
+import 'dart:ui' show Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/sidebar_examples.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -36,6 +39,13 @@ void main() {
           await tester.tap(find.byType(DSidebarTrigger));
           await tester.pump();
           await tester.pump();
+          expect(find.byType(DSheetContent), findsOneWidget);
+          expect(find.byType(DInput), findsOneWidget);
+          if (example.title != 'Loading and recovery') {
+            expect(find.byType(DCollapsible), findsOneWidget);
+          }
+          expect(find.byType(DDropdownMenu), findsNWidgets(2));
+          expect(find.byType(DAvatar), findsOneWidget);
           expect(
             tester.takeException(),
             isNull,
@@ -52,4 +62,150 @@ void main() {
       }
     },
   );
+
+  testWidgets('final owner compositions remain interactive', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(builder: sidebarExamples.examples.first.builder),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Switch workspace, Acme Inc'));
+    await tester.pumpAndSettle();
+    expect(find.text('Stark Industries'), findsOneWidget);
+    await tester.tap(find.text('Stark Industries'));
+    await tester.pumpAndSettle();
+    expect(find.text('Stark Industries workspace selected'), findsOneWidget);
+
+    final projects = find.byType(DCollapsibleTrigger);
+    await tester.scrollUntilVisible(
+      projects,
+      160,
+      scrollable: find
+          .descendant(
+            of: find.byType(DSidebarContent),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(
+      tester.getSemantics(projects).flagsCollection.isExpanded,
+      Tristate.isTrue,
+    );
+    await tester.tap(projects);
+    await tester.pumpAndSettle();
+    expect(find.text('Design'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Open Alex Morgan account menu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Profile'), findsOneWidget);
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    expect(find.text('Profile selected'), findsOneWidget);
+  });
+
+  testWidgets(
+    'icon collapse keeps the account menu usable without hidden focus',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(900, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Builder(builder: sidebarExamples.examples[1].builder),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DSidebarTrigger));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DCollapsibleTrigger), findsNothing);
+      final account = find.byWidgetPredicate(
+        (widget) =>
+            widget is DSidebarMenuButton &&
+            widget.semanticLabel == 'Open Alex Morgan account menu',
+      );
+      final accountRect = tester.getRect(account);
+      expect(accountRect.size, const Size(32, 32));
+      expect(tester.getRect(find.byType(DAvatar)), accountRect);
+      final focus = tester.widget<DSidebarMenuButton>(account).focusNode!;
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('Profile'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Profile'), findsNothing);
+      expect(focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('mobile dropdown dismissal stays inside the Sidebar Sheet', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(360, 640),
+              textScaler: TextScaler.linear(2),
+              disableAnimations: true,
+            ),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Builder(builder: sidebarExamples.examples[4].builder),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(DSidebarTrigger));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.byType(DSheetContent)).right, 360);
+    await tester.tap(find.bySemanticsLabel('Switch workspace, Acme Inc'));
+    await tester.pumpAndSettle();
+    final menu = tester.getRect(find.byType(DDropdownMenuContent));
+    expect(menu.left, greaterThanOrEqualTo(0));
+    expect(menu.right, lessThanOrEqualTo(360));
+    await tester.tap(find.text('Stark Industries'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Switch workspace, Stark Industries'),
+      findsOneWidget,
+    );
+    await tester.tap(find.bySemanticsLabel('Open Alex Morgan account menu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Profile'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Profile'), findsNothing);
+    expect(find.byType(DSheetContent), findsOneWidget);
+    final account = tester.widget<DSidebarMenuButton>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DSidebarMenuButton &&
+            widget.semanticLabel == 'Open Alex Morgan account menu',
+      ),
+    );
+    expect(account.focusNode!.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
+    expect(find.text('Stark Industries workspace selected'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
