@@ -303,12 +303,12 @@ class _FocusOutline extends CustomPainter {
           ..strokeWidth = 1,
       );
     }
-    canvas.drawRRect(
-      borderRRect.inflate(1 + ringWidth / 2),
+    canvas.drawDRRect(
+      borderRRect.inflate(ringWidth),
+      borderRRect,
       Paint()
         ..color = color.withValues(alpha: color.a * ringOpacity)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = ringWidth,
+        ..style = PaintingStyle.fill,
     );
   }
 
