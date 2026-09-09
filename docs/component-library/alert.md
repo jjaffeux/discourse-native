@@ -132,3 +132,45 @@ build framework kernel and bundle-copied kernel all have SHA256
 Exact paths and identity assertions are in `evidence/alert/build.json`.
 The bundle resides only under this isolated checkout's build directory. It has
 not been launched. Native review is pending, and this source is not merge-ready.
+
+## Pinned-main integration checkpoint
+
+Merged `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` into this component branch;
+source merge commit `1efab06cb3b99177278ed941db63ec37f07ce849`. Every existing
+component owner is byte-identical to pinned main. All non-Alert progress rows
+are preserved. Group/Sidebar/Topic Inbox coordinator fixes remain; overlapping
+changes retain only the intended Alert inline adapters. The final Button owner
+now renders the reference action at `DButtonSize.extraSmall`, with independent
+button semantics/callbacks and native hit bounds. Tests verify local toggling.
+
+Integration verification: 129 focused tests passed across Alert/styleguide,
+Composer tag notice, topic feed lifecycle, categories/tags/groups/group,
+aggregate, revisions, GIF picker, drafts, activity pagination and Button adoption.
+After adding the extra-small action regression, both styleguide tests passed.
+Root/full-profile analysis and enforced resolution passed. Pins, lockfiles and
+production runner files remain unchanged. Touched formatting and diff checks
+passed. No full-suite claim.
+
+Latest isolated bundle:
+`build/macos/Build/Products/Debug/Alert Integration Review 38df.app` under this
+worktree, ID `org.discourse.alertintegration38df`, URL scheme
+`discourse-alert-integration-38df`. Built from the exact source merge commit via
+`flutter build macos --debug --no-pub -t tool/alert_review_main.dart` with only
+temporary unique runner identity and disabled Xcode signing. Runner files were
+restored; no lib/tool/source differences remained at verification.
+
+Ad-hoc signing uses only `com.apple.security.cs.allow-jit`,
+`com.apple.security.cs.allow-unsigned-executable-memory`, `get-task-allow`, and
+network client/server. Signed entitlement readback was checked on the app,
+its executables/dylibs and bundled frameworks: no restricted application, team,
+APNs or other identities; no embedded provisioning profile.
+`codesign --verify --deep --strict --verbose=2` passed.
+Source `app.dill`, framework kernel and app-copied kernel SHA256:
+`43527a2e8cdda4ec7f3e8ed7079ac9ecab5bef98560d03cd866bbbbfcff2ddb8`.
+Full paths, signed readbacks and signature output are recorded in
+`evidence/alert/integration-build.json`; this supersedes the earlier bundle.
+
+Still `in_progress` / `awaiting_slot`: Mac locked and browser separately denied
+admin-policy verification. No CUA/browser/native launch, policy retry or
+workaround occurred. Actual reference-rendered comparison and native inspection
+remain required before review_ready or merge.
