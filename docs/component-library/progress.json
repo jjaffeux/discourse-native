@@ -2642,7 +2642,7 @@
     },
     {
       "id": "dropdown-menu",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
       "branch": "codex/ui-dropdown-menu",
       "dependencies": [
@@ -2658,13 +2658,32 @@
         "Pass focused component/consumer tests and root/full-profile analysis; create a new reviewer for all remaining official browser/native acceptance, dependency composition and final local main merge. The accepted Popover main revision is a required final merge gate."
       ],
       "decisions": [
-        "Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.",
+        "Implemented DDropdownMenu on the exact tested Popover review pin so menu overlays share Popover placement, collision, lifecycle, outside dismissal, reduced-motion and trigger-focus behavior instead of adding a native MenuAnchor owner.",
+        "Recorded the verified frozen Markdown SHA256 3a8ab9398fa074c3cdf023e31bc9368a3b6bafb0b0f146a326eb2c76808ba7fa and observed base-nova registry SHA256 335c59dba30145f434a9cc9ccb0438a3c5e2afe857fc11b029de1ecb415224d7 with measured mapping in docs/component-library/dropdown-menu.md.",
+        "Checkbox and radio items default to closeOnSelect false for repeated local editing; ordinary actions default to closing the full menu chain.",
+        "Submenus compose nested DDropdownMenu instances with one active sibling owner, shared close-all scope, inline-end placement, RTL mirrored chevron/directional keys and submenu-local Escape handling.",
         "Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "migrations": [
+        "Added the public Dropdown Menu API export in package:discourse_native/discourse_ui.dart and registered all thirteen frozen interactive styleguide examples.",
+        "Migrated TableActionsExample from temporary DButton + native MenuAnchor/MenuItemButton to DButton + DDropdownMenu, preserving local edit/duplicate/delete behavior, expanded row highlighting, 32px trigger geometry and trigger focus restoration."
+      ],
+      "retainedAlternatives": [
+        "Generic ChoiceMenuAnchor/CommandMenuAnchor, category/tag/search adapters and rich chat/action menus remain specialized because they own search, async busy state, permissions, rich domain rows or additional keyboard behavior; docs/component-library/dropdown-menu.md records the audit rather than claiming these are migrated.",
+        "Independent review inspected the available diagnostics, bookmarks, emoji, Events, Voice and composer fixtures. Their remaining PopupMenuButton call sites preserve multi-select state, per-row async identity, rich previews, callback snapshots, permissions or platform-owned editor behavior and remain explicit adapter follow-ups; third-party package examples are outside the product owner.",
+        "Public icon slots accept caller widgets. Styleguide outline icons demonstrate the exact 16px slot geometry; production app icon vocabulary remains caller-owned while the internal check indicator is component-owned."
+      ],
+      "verification": [
+        "Frozen Markdown was downloaded and reproduced the required SHA256 exactly; official page, registry source and Base UI behavior API were inspected and mapped.",
+        "Focused coverage proves pointer/Return/Space open and first enabled focus, arrow/Home/End traversal, repeating typeahead, controlled checkbox/radio retention, deepest Escape, RTL submenu arrows, sibling submenu non-overlap, outside focus behavior, controlled open requests, live theme/text scale, desktop/iOS geometry, semantics and Table edit/duplicate/delete focus/action regressions.",
+        "After reconciling the accepted Popover implementation from current main, 48 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145, including overlay lifecycle, custom-anchor tracking and ancestor-shortcut Escape precedence.",
+        "The exact 05d9f78f review candidate passed clean root and profiles/full static analysis, a debug macOS styleguide build, deep strict code signing and a copied-kernel SHA256 match of a6ee5d5cd0bb1142547fdc3045276559fd19afac0aadf9d52a61f1e5fc489e8e.",
+        "Official Base Nova rendered comparison covered dark and light Composition geometry, states, separators, shortcuts and submenu affordance. Native macOS interaction covered Return/Space entry, arrows, End, typeahead, checkbox/radio retained-open selection, nested deepest Escape, trigger restoration, outside dismissal and app-switch lifecycle dismissal.",
+        "Native styleguide inspection covered light, Forest and Plum palettes, 200% text with bounded scrolling, 360 px layout, reduced motion and RTL Arabic content with mirrored submenu affordance. The Table Actions adoption performed Edit and Duplicate callbacks with row mutation, status feedback, expanded-row highlighting and restored trigger focus; Delete remains covered by the focused consumer test."
+      ],
+      "limitations": [
+        "No iOS/Linux device, spoken VoiceOver session or pixel-identical screenshot claim is made; those platforms remain covered by widget behavior and geometry tests rather than this macOS acceptance pass."
+      ],
       "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
       "mergeCommit": null,
       "preparedDependencies": [
@@ -2679,25 +2698,10 @@
         }
       ],
       "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
-      "reviewBranch": "codex/review-dropdown-menu",
-      "reviewStatus": "in_progress",
+      "reviewBranch": "codex/review-dropdown-menu-accepted",
+      "reviewStatus": "accepted",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
-      "reviewHandoffCommit": "48599440787a16d27c00d1b399d021f385113be5",
-      "reviewBlocker": {
-        "status": "blocked_mac_locked",
-        "recordedAt": "2026-09-09T12:23:20+00:00",
-        "reportedByTask": "01a085cf-f401-7813-80da-7c687de8a5d5",
-        "observation": "Two Dropdown Menu reviewer attempts on the approved CUA surface found the Mac locked and automatic unlock unavailable. The reviewer released desktop immediately; no native app/browser inspection occurred on either attempt.",
-        "requiredAction": "Manual Mac unlock. Resume approved visual verification once the host is actually unlocked; do not change OS security or provisioning. Source review, implementation, tests and builds may continue.",
-        "dependentMergeImpact": [
-          "dropdown-menu",
-          "input-group",
-          "button-group"
-        ],
-        "preparedSourceCommit": "dd0ad309c5a7ecc7d4af2c1f566bd8c5678a3f18",
-        "preparedBundle": "/private/tmp/dropdown-menu-review-dd0a.qRppAc/Dropdown Menu Review dd0a.app",
-        "verification": "Reviewer reports47 focused tests (seed826145), clean root/full analysis, deep/strict signed bundle and matching built/copied kernel55eb9f8f5408bd77b4d74bf8e79d26670eeb588e236f992dcd121b3aaf70303d. First successful final browser/native acceptance remains required."
-      }
+      "reviewHandoffCommit": "48599440787a16d27c00d1b399d021f385113be5"
     },
     {
       "id": "context-menu",
@@ -4289,20 +4293,11 @@
     "nativeInspectionBlocker": {
       "reason": "mac_locked",
       "observedAt": "2026-09-09T07:44:57.141232+00:00",
-      "status": "blocked_mac_locked",
+      "status": "resolved",
       "userUnlockRequested": true,
       "latestResult": "Switch CUA app selection twice reported: The Mac is locked and automatic unlock could not unlock it. Native review not performed; Switch explicitly released its slot in switch-native-handoff.md.",
       "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds continue; browser reference navigation is separately blocked.",
-      "resolution": "After the user unlock update, fresh native Switch CUA inspection succeeded. Coordinator viewed actual size-default-focus.png and matching accessibility tree from3243a88c, including on/off switch states in the updated styleguide.",
-      "recordedAt": "2026-09-09T12:23:20+00:00",
-      "reportedByTask": "01a085cf-f401-7813-80da-7c687de8a5d5",
-      "observation": "Two Dropdown Menu reviewer attempts on the approved CUA surface found the Mac locked and automatic unlock unavailable. The reviewer released desktop immediately; no native app/browser inspection occurred on either attempt.",
-      "requiredAction": "Manual Mac unlock. Resume approved visual verification once the host is actually unlocked; do not change OS security or provisioning. Source review, implementation, tests and builds may continue.",
-      "dependentMergeImpact": [
-        "dropdown-menu",
-        "input-group",
-        "button-group"
-      ]
+      "resolution": "After the user unlock update, fresh native Switch CUA inspection succeeded. Coordinator viewed actual size-default-focus.png and matching accessibility tree from3243a88c, including on/off switch states in the updated styleguide. Dropdown Menu later completed its official browser and native macOS acceptance on the unlocked host."
     },
     "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Use up to five running source implementation tasks as accepted dependencies or recorded prepared parent sources become available. Each implementer creates an independent reviewer that owns remaining acceptance and local merge. Prepared source does not satisfy rendered/native or accepted-parent gates. Desktop inspection uses the FIFO lease; main-checkout mutations use the separate exclusive main lease.",
