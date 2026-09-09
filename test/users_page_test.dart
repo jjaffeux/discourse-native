@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -9,7 +9,6 @@ import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/user_directory_controller.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -6,19 +6,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('button sizes keep the same control typography', () {
-    for (final size in DButtonSize.values) {
-      expect(DButton.fontSizeFor(size), DiscourseTypography.sm);
-    }
-  });
-
-  testWidgets('button sizes change spacing while keeping control typography', (
-    tester,
-  ) async {
-    for (final size in DButtonSize.values) {
+  testWidgets('reference text sizes retain compact surfaces', (tester) async {
+    for (final (size, height, font) in [
+      (DButtonSize.extraSmall, 24.0, 12.0),
+      (DButtonSize.small, 28.0, 12.8),
+      (DButtonSize.regular, 32.0, 14.0),
+      (DButtonSize.large, 36.0, 14.0),
+    ]) {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light,
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: Center(
               child: DButton(
@@ -30,31 +27,17 @@ void main() {
           ),
         ),
       );
-
-      final spacingUnit = switch (size) {
-        DButtonSize.small => 14.0,
-        DButtonSize.regular => 16.0,
-        DButtonSize.large => 18.0,
-      };
       final rendered = find.byType(FilledButton);
-      final style = tester.widget<FilledButton>(rendered).style!;
-
+      expect(tester.getSize(rendered).height, height);
+      expect(DButton.fontSizeFor(size), font);
       expect(
-        style.padding!.resolve({}),
-        EdgeInsets.symmetric(
-          horizontal: spacingUnit * 0.65 + 1,
-          vertical: spacingUnit * 0.5 + 1,
-        ),
-      );
-      expect(style.minimumSize!.resolve({}), Size.zero);
-      expect(style.textStyle!.resolve({})?.fontSize, 14);
-      expect(
-        style.textStyle!.resolve({})?.height,
-        DiscourseTypography.lineHeightSmall,
-      );
-      expect(
-        tester.getSize(rendered).height,
-        moreOrLessEquals(20 + spacingUnit + 2, epsilon: 0.5),
+        tester
+            .widget<FilledButton>(rendered)
+            .style!
+            .textStyle!
+            .resolve({})!
+            .fontSize,
+        font,
       );
     }
   });
@@ -107,7 +90,7 @@ void main() {
       expect(shape, isA<RoundedRectangleBorder>());
       expect(
         (shape! as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(radius),
+        BorderRadius.circular(size == DButtonSize.small ? 2 : 4),
       );
       expect(
         style.backgroundColor!.resolve({WidgetState.hovered}),
@@ -405,16 +388,9 @@ void main() {
           expect(presses, expectedPresses);
 
           if (loading) {
-            const spinnerSize = 16.0;
             final rendered = find.byType(FilledButton);
-            expect(
-              tester.getSize(rendered).width,
-              moreOrLessEquals(spinnerSize + 16 * 1.3 + 2),
-            );
-            expect(
-              tester.getSize(rendered).height,
-              moreOrLessEquals(spinnerSize + 16 + 2),
-            );
+            expect(tester.getSize(rendered).width, moreOrLessEquals(48));
+            expect(tester.getSize(rendered).height, moreOrLessEquals(48));
             expect(rendered, paintsExactlyCountTimes(#drawParagraph, 0));
             expect(find.byType(DSpinner), findsOneWidget);
           }
@@ -559,7 +535,7 @@ void main() {
           );
           expect(
             tester.getSize(find.byType(FilledButton)),
-            const Size.square(DButton.minimumDimension),
+            const Size.square(48),
           );
         }
       }

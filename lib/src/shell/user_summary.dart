@@ -861,9 +861,10 @@ class _CategoryCount extends StatelessWidget {
         : Semantics(
             button: true,
             label: semanticLabel,
-            child: TextButton(
+            child: DButton(
+              variant: DButtonVariant.link,
               onPressed: onTap,
-              child: ExcludeSemantics(child: Text('$count')),
+              label: ExcludeSemantics(child: Text('$count')),
             ),
           ),
   );

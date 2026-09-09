@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_card.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -569,7 +570,7 @@ void main() {
             await tester.tap(option);
             await tester.pumpAndSettle();
             final cast = find.byKey(const ValueKey('poll-poll-cast'));
-            expect(tester.widget<FilledButton>(cast).onPressed, isNotNull);
+            expect(tester.widget<DButton>(cast).onPressed, isNotNull);
             expect(
               find.text(removing ? 'Remove votes' : 'Cast votes'),
               findsOneWidget,

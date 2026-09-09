@@ -15,7 +15,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 3 | spinner | merged | 01a08213-9960-79f1-8d90-9626f24a4b5a | codex/ui-spinner | — | 07a085c175c57c3e6b4868fd700885f8bfe5212c |
 | 4 | kbd | merged | 01a0821b-27cc-7013-affb-99cae203b2a8 | codex/ui-kbd | typography | 8d0936ff13346650682f3b04e55b612074bd3f66 |
 | 5 | tooltip | merged | 01a0829c-ba0d-7282-a010-7e26f190dd4f | codex/ui-tooltip | kbd | f0aee9adc5f0d64adfd9aa5e285830e2a143a1e7 |
-| 6 | button | planned | — | — | spinner, tooltip | — |
+| 6 | button | in_progress | 01a083ac-5fd5-78b1-9263-7e3218a878b6 | codex/ui-button | spinner, tooltip | — |
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | planned | — | — | spinner | — |
@@ -519,6 +519,51 @@ Status: merged. Task: 01a0829c-ba0d-7282-a010-7e26f190dd4f. Branch: codex/ui-too
 - Authenticated app/plugin sessions were not opened. Native inspection used actual widgets with in-memory services; other migrations and Voice action wiring are covered by focused owner tests. The fake Voice port does not display a native mute-state change.
 - Native rich-content pointer/wheel access and outer-scroll dismissal were inspected; deliberately overflowing popup-content scrolling and long press/touch gestures were verified in widget tests, not on touch hardware.
 - The configured host font/palette/radius intentionally supply the reference theme variables, so glyph widths/colors can differ from Geist/neutral defaults. The composed DButton visual treatment remains its separate baseline catalogue task.
+
+### button
+
+Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/ui-button.
+
+**acceptanceCriteria**
+
+- Match base-nova default, outline, secondary, ghost, destructive and link surfaces and all four text/icon sizes, directional icons, rounded and spinner compositions.
+- Preserve compatibility variants, rich labels, tooltip shortcuts, loading names, caller-owned async operations, disabled activation, borrowed focus nodes and accessible touch targets.
+- Adopt public owner in core/plugins and appropriate native-button exceptions; exercise actual components in interactive examples without changing Sidebar shell.
+- Verify root/full-profile analysis and focused component/adoption/downstream tests; compare official and isolated native light/dark/custom/RTL/200% states before review_ready.
+
+**decisions**
+
+- Sole public renderer moved to ui/components/d_button.dart; keep compatibility theme/variants and native shell inset targets.
+- Implement base-nova variants and all four text/icon sizes; directional composition, invalid/expanded/popup states and link-only navigation semantics.
+- Preserve caller-owned loading/Futures, rich semantic names, borrowed focus nodes and shared Tooltip/Spinner.
+- Reference sources and hashes, native adaptations and pending rendered comparison recorded in docs/component-library/button.md.
+
+**migrations**
+
+- All existing direct Button imports migrated to discourse_ui.dart; obsolete theme/d_button.dart removed.
+- PollCard cast-votes, vote-on-web and connect-account buttons adopt DButton; existing ownership/permission/deadline behavior retained.
+- StyleguideAction uses actual DButton ghost/outline controls without changing DSidebar shell ownership.
+- UserSummary numeric count actions use DButtonVariant.link and retain destination callbacks/names.
+
+**retainedAlternatives**
+
+- Adoption guard records remaining calendar, selection-strip, composer, option-grid, topic and shell-account controls; their specific geometry/composition belongs to upcoming owners.
+- CupertinoDialogAction remains inside native Cupertino alert composition pending Dialog/Alert Dialog.
+- Button Group/Dropdown Menu are separate pending catalogue entries; joined Button example demonstrates compatible radius composition only.
+
+**verification**
+
+- Frozen Button Markdown SHA256 exactly matches catalogue; official base-nova registry and reference SVG artwork captured with hashes.
+- Root and full-profile locked pub resolution passed without lockfile or SDK changes.
+- 222 focused impact tests passed: Button/adoption/PollCard/styleguide/affected creation, Chat, upload, account-menu and post-action accessibility. Log /private/tmp/button-final-impact.log.
+- 35 final focused Button/reference/examples/UserSummary tests passed. Log /private/tmp/button-last-tests.log.
+- Root and full-profile flutter analyze --no-pub passed without diagnostics.
+- Standalone styleguide and real PollCard review-fixture macOS debug builds passed; final source manifest and unique bundle preparation in progress.
+
+**limitations**
+
+- Native official-reference comparison and real app fixture inspection pending Mac unlock and explicit coordinator desktop slot. Do not mark review_ready.
+- No iOS/Linux native device, spoken VoiceOver or automated cross-renderer pixel-diff claim.
 
 ### separator
 
