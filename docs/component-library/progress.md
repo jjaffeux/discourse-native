@@ -63,7 +63,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 28 | accordion | in_progress | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | — |
 | 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
-| 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
+| 31 | popover | review_ready | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
 | 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
 | 34 | alert-dialog | planned | — | — | dialog | — |
@@ -1917,7 +1917,7 @@ Status: merged. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-res
 
 ### popover
 
-Status: in_progress. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-popover.
+Status: review_ready. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-popover.
 
 **acceptanceCriteria**
 
@@ -1937,6 +1937,8 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/u
 - Base UI collision behavior maps to explicit side/align flip, shift and none policies inside a safe-area or caller Rect. A paint-transform tracker requests overlay layout only when the trigger/custom anchor moves or resizes; bounded content scrolls when collision space or accessible text makes it taller than the available side.
 - Keyboard opening focuses the first nested control; touch opening focuses the popup scope to avoid summoning an editor. Escape, outside/trigger/close press, lifecycle loss, controller action and trigger removal dismiss safely and restore trigger/previous focus. The named explicit semantic container does not merge independently interactive descendants.
 - Nested dismissal is layered: the latest open DPopover owns outside pointers, descendant MenuController scopes close before their parent, and outsidePress never schedules trigger restoration over the newly clicked focus owner. This preserves nested Popover/MenuAnchor composition and prevents one physical pointer from cascading through registered layers.
+- Independent review corrected controlled lifecycle synchronization in 8281dda2: lifecycle loss reports its reason, hides without restoring focus into an inactive view, and reconciles a still-true controlled open value on resume.
+- Native styleguide review found that an ancestor Escape shortcut could shadow the local DismissIntent. d9ecd110 makes the topmost Popover layer own Escape directly while retaining descendant-menu-first dismissal and trigger focus restoration.
 
 **migrations**
 
@@ -1946,20 +1948,23 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/u
 
 - showAnchoredPicker category/tag/time-range/assignment pickers, ChoiceMenuAnchor, CommandMenuAnchor, MenuAnchor, PopupMenuButton, Select, Combobox, Hover Card, navigation menus, dialogs and Tooltip remain specialized owners for selection/command keyboard models, search/large lists, result futures, modal or hover behavior. Their shared collision needs are deferred until their catalogue owners exist.
 - With Form now uses the merged DInput owner inside Flutter Form. Rich Field label/description/error layout remains with the separate in-progress Field owner; no substitute Field API was created.
-- DNativeSelect composition remains an integration follow-up after its owner branch lands. The equivalent public multi-entry MenuAnchor regression already verifies selection outside the parent rectangle and layered Escape behavior without importing or cherry-picking that owner.
+- DNativeSelect remains the specialized plain-selection owner. After its accepted main merge, 6a608c56 verified a non-focused option outside the Popover bounds without dismissing the parent, followed by Native Select-first and Popover-second Escape dismissal.
 
 **verification**
 
 - Frozen page, base-nova registry and Base UI API fetches matched the recorded SHA256 values; docs/component-library/popover.md records CSS-to-Flutter geometry, typography, colors, radius, shadow, motion, state and native adaptations.
 - flutter pub get --enforce-lockfile at root and profiles/full completed with Flutter 3.47.2; the incidental root dependency-classification rewrite was reverted and all pins/lockfiles are byte-unchanged.
 - flutter analyze --no-pub at root and profiles/full passed with no issues. Touched Dart formatting and git diff --check passed.
-- Final reconciled focused/downstream run passed 99 tests with seed 826145 across d_popover, Popover examples, the whole styleguide page, DButton adoption and the full TopicInbox file. The dedicated Popover suite now covers 13 cases, including nested Popover, multi-entry MenuAnchor selection outside the parent rectangle, layered Escape, non-cascading pointers and outside-field focus retention.
-- The three inherited Android compact-geometry failures originally reproduced at base commit 9d7a49e797dff14c908369315d035a1437d49c07; after the coordinator's pinned-main fixes were reconciled, the complete TopicInbox file passes in the final 99-test run.
-- Exact-source isolated macOS debug fixture built from b410f9da0227b2b9e0d6518b64277e97d6517b06, mounting the actual TopicInboxHeader adoption and full component styleguide with local fakes. /private/tmp/Popover Review b410f9da.app has unique ID org.discourse.popover.review.b410f9da and URL scheme discourse-popover-b410f9da; source/copied kernel SHA256 values match at 3c39aa89bf6e4bdd19f08b9d628125474e3e5c4de96fcbe568522de62d724831. Deep strict ad-hoc signature and read-back of only sandbox/JIT/network client+server/user-selected files/audio/camera entitlements passed; TeamIdentifier is absent. Bundle was not launched.
+- Final reconciled focused/downstream run passed 102 tests with seed 826145 across d_popover, Popover examples, the whole styleguide page, DButton adoption and the full TopicInbox file. The dedicated Popover suite covers 16 cases, including controlled lifecycle resynchronization, ancestor-shortcut Escape ownership, nested Popover/MenuAnchor, real DNativeSelect selection outside the parent rectangle, layered Escape, non-cascading pointers and outside-field focus retention.
+- The three inherited Android compact-geometry failures originally reproduced at base commit 9d7a49e797dff14c908369315d035a1437d49c07; after the coordinator's pinned-main fixes were reconciled, the complete TopicInbox file passes in the final 102-test run.
+- Official Base Nova Popover Basic was inspected live in light and dark documentation themes. The native mapping preserves the compact surface, title/description hierarchy, outline trigger, foreground ring and shadow; host font rasterization differs from the browser's Geist rendering.
+- The final isolated macOS debug fixture at /private/tmp/discourse-popover-review-85d07f90/build/macos/Build/Products/Debug/Popover Review 85d07f90.app uses unique ID org.discourse.popover.review.85d07f90. Current Popover and TopicInboxHeader source hashes match the fixture; kernel SHA256 is cdb5be91cff62cf7e2822b1a3883b266a92a424312d09aa131efa4659283c3c5. Deep strict Apple-development signature verification passed with sandbox/JIT/network client+server/user-selected files/audio/camera entitlements.
+- Native macOS inspection passed the actual TopicInboxHeader Details adoption: the named Local topic details container exposes independent description, text field and Save locally controls; pointer open, outside dismissal and Escape work. Final styleguide Basic visibly renders the expected compact surface and independent AX controls; Escape closes beneath the page-level shortcut and restores the trigger focus ring.
 
 **limitations**
 
-- awaiting_slot: no desktop slot was granted. No CUA/browser/native app launch, reference-rendered comparison, VoiceOver speech, or iOS/Linux device inspection was performed. Status remains in_progress and is not mergeable until the queued native/reference review completes.
+- No spoken VoiceOver session or iOS/Linux device inspection was performed.
+- Browser Geist and native host-font rasterization differ; review establishes geometry, styling, interaction and accessibility structure rather than pixel equality.
 
 ### dialog
 

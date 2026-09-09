@@ -53,6 +53,11 @@ without restoring focus into an inactive view. On resume, a still-true
 controlled `open` value is reconciled and shown again; an owner that accepted
 the close request remains closed.
 
+Independent native review also found that an ancestor `CallbackShortcuts`
+Escape binding could shadow the popup's local `DismissIntent`. The topmost
+Popover layer now handles Escape directly: an open descendant menu closes
+first, otherwise the Popover closes and restores its trigger or prior focus.
+
 ## Examples and application audit
 
 The styleguide reproduces Basic, start/center/end Align, With Form, and RTL
@@ -84,6 +89,15 @@ Widget tests cover controlled/uncontrolled state, imperative lifecycle, distinct
 dismissal reasons, keyboard and touch focus entry, restoration, independent
 semantics, live theme, exact default gap/alignment, RTL, collision flip, narrow
 large text, reduced motion, anchor movement, safe removal, styleguide examples,
-native Form behavior, and the real topic-header migration's live data/navigation
-dismissal. Native and reference-rendered inspection remains queued for the
-serialized desktop slot; widget tests do not claim VoiceOver or device parity.
+native Form behavior, real DNativeSelect layering, ancestor-shortcut Escape
+ownership, and the real topic-header migration's live data/navigation dismissal.
+
+The live official Base Nova Basic surface was inspected in light and dark.
+Native macOS inspection covered the exact production TopicInboxHeader adoption
+and final styleguide Basic surface, including independent AX descendants,
+outside dismissal, Escape, and restored trigger focus. The final unique fixture
+kernel SHA256 is
+`cdb5be91cff62cf7e2822b1a3883b266a92a424312d09aa131efa4659283c3c5`;
+deep strict signature verification passed. No spoken VoiceOver session or
+iOS/Linux device inspection was performed, and browser/native font rasterization
+is not treated as pixel equality.
