@@ -105,7 +105,7 @@ scrolling, removal during callbacks, and async completion ownership.
 ## Verification and workflow
 
 The user resumed the remaining catalogue on 2026-09-09 after the Sidebar and
-styleguide review. Work is local only: commits and coordinator merges into local
+styleguide review. Work is local only: commits and reviewer-owned merges into local
 main are authorized. Do not push or perform other GitHub writes. Do not change
 anything in App Store Connect or perform release/submission work. Public source
 and documentation reads remain available.
@@ -125,16 +125,20 @@ without changing account data. Record the actual surfaces inspected alongside
 the styleguide examples. Report exactly which platforms and interactions
 were run; widget tests with target-platform overrides are not device testing.
 
-The user authorized concurrent component tasks on 2026-09-08. Keep up to four
-independent implementation tasks running. Committed tasks waiting only for native
-review end their turns and remain in the recorded review queue, freeing a source
-implementation slot. They remain in_progress until the visual/native gate passes;
-queued work is not mergeable. Each component gets a separate Codex
-task and isolated worktree from latest local main, with its implementation
-dependencies already merged. Implementers commit on `codex/ui-<component>`
-and report to the coordinator; they do not merge. Reviews and merges remain
-serialized. Reconcile shared exports, example registrations, app migrations and
-progress metadata against previously merged components during coordinator review.
+The user authorized concurrent component tasks on 2026-09-08, and on
+2026-09-09 requested a new review-and-merge Codex task for each existing
+unmerged item. Each future implementation must also create a new reviewer
+task. The reviewer owns fixes, verification, integration and local main merge
+without returning to the coordinator for approval. Follow the committed
+[review and merge procedure](review-and-merge.md), including shared desktop
+and main-checkout leases. The 17 backlog reviewers run independently; keep
+up to four new implementation tasks running as dependencies become available.
+Each component implementation uses its own isolated worktree from latest main
+and `codex/ui-<component>` branch. Preserve original implementation task and
+branch history alongside the reviewer task and branch in progress. Source
+preparation alone does not satisfy reference/native acceptance or mark a row
+merged. Reconcile shared exports, examples, app migrations and progress against
+previously merged owners in the reviewer's own worktree.
 
 For isolated ad-hoc macOS review bundles, omit restricted push/team/application
 identity entitlements and read back the permitted debug entitlements. Preserve
@@ -142,12 +146,11 @@ required local debug capabilities; do not change the real app's provisioning or
 OS security settings. Static strict signature verification does not by itself
 prove launch eligibility; record the actual launch and source/kernel evidence.
 
-Builds, analysis and widget tests can run concurrently. Native UI inspections
-share desktop focus: after preparing code and checks, notify the coordinator
-that native inspection is ready and wait for an inspection slot before using
-CUA. Continue other independent work while waiting. Release the slot by reporting
-inspection completion or a blocking permission request to the coordinator.
-The coordinator reviews, fixes or requests fixes, then merges with `--no-ff`
+Builds, analysis and widget tests can run concurrently in separate worktrees.
+Native and browser actions share one desktop lease; acquire it directly using
+`tool/component_review_lock.py`, finish the review and release it without a
+coordinator gate. Main-checkout mutations use a separate exclusive `main`
+lease. The reviewer fixes issues and merges with `--no-ff`
 **from `/Users/joffreyjaffeux/Code/discourse-native` on main**. Preserve unrelated
 changes. Never merge main into a component branch as the final project merge.
 
@@ -159,8 +162,8 @@ and outcomes, limitations, implementation commit, then merge commit. Regenerate
 update. A merge SHA must be recorded in a follow-up commit because a commit
 cannot embed its own final SHA. Start a dependent task only after local main
 contains its dependencies and their progress updates; independent tasks may
-start while other components are still in progress. Each implementer edits only
-its assigned progress row; the coordinator preserves all other rows on merge.
+start while other components are still in progress. Each implementer and reviewer edits only
+its assigned progress row; the reviewer preserves all other rows on merge.
 
 After all 64 component rows are merged, create a final separate audit task to
 improve shared code, API consistency, composition, themes, accessibility,
@@ -168,8 +171,8 @@ examples and missed app migrations. Review, verify and merge its changes before
 marking the overall goal complete.
 
 
-While macOS is locked, CUA Chrome browser control may still be available. The
-coordinator can grant a separate, serialized browser-only comparison slot.
-Flutter widget-test image exports can support that rendered comparison; record
-fonts, viewport, source and renderer explicitly. Neither browser access nor test
-exports authorize native app actions or satisfy native fixture verification.
+Flutter widget-test image exports can support rendered reference comparison;
+record fonts, viewport, source and renderer explicitly. They do not replace
+native fixture verification. Use approved browser/native tools under the
+shared desktop lease, and report actual permission or policy blockers without
+bypassing them.
