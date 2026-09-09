@@ -223,4 +223,39 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a large-text stack scrolls within a narrow viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = DToastController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: DToaster(controller: controller, child: const SizedBox.expand()),
+      ),
+    );
+    for (var index = 1; index <= 3; index++) {
+      controller.add(
+        DToastOptions(
+          description: 'Notice $index; only the newest three remain.',
+          duration: null,
+        ),
+      );
+    }
+    await tester.pump();
+
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.textContaining('Notice 3'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

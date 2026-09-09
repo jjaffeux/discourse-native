@@ -590,22 +590,28 @@ class _DToastViewportState extends State<_DToastViewport> {
                     child: Semantics(
                       container: true,
                       label: 'Notifications',
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        verticalDirection: top
-                            ? VerticalDirection.down
-                            : VerticalDirection.up,
-                        children: [
-                          for (final entry in ordered)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: _DToastCard(
-                                key: ValueKey((entry.id, entry.revision)),
-                                entry: entry,
-                                controller: widget.controller,
+                      child: SingleChildScrollView(
+                        primary: false,
+                        reverse: !top,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          verticalDirection: top
+                              ? VerticalDirection.down
+                              : VerticalDirection.up,
+                          children: [
+                            for (final entry in ordered)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: _DToastCard(
+                                  key: ValueKey((entry.id, entry.revision)),
+                                  entry: entry,
+                                  controller: widget.controller,
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
