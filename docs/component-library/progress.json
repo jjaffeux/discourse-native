@@ -850,7 +850,8 @@
         "Current Base UI Radio API captured; readOnly guards native selection callbacks, required flags announce semantics while caller Form validator enforces requirements and localization.",
         "Field composition source correction: input uses outlineVariant and alpha modifiers multiply existing alpha; choice cards use captured FieldLabel/Field 10px padding, base-radius lg, selected alpha, hover/focus and 8px/2px content geometry. No DField implementation.",
         "Live browser correction: both card/radio focus rings, 20px card title, reference widths/selections and invalid-label colors. Outside foreground rings preserve translucent fills; evidence documents host font, focus token, hit target and disabled-opacity adaptations.",
-        "Removed discretionary desktop minimum: intrinsic labeled rows now match Default64px, Description142px and Fieldset73px with8px gaps; touch alone retains48px. Measurements document fractional SF line-height and width differences from browser."
+        "Removed discretionary desktop minimum: intrinsic labeled rows now match Default64px, Description142px and Fieldset73px with8px gaps; touch alone retains48px. Measurements document fractional SF line-height and width differences from browser.",
+        "Required final compositions are assigned to Finish and review Radio Group compositions (01a086cd-3f9c-75b0-bda3-7d80f6e4604d). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge."
       ],
       "migrations": [
         "lib/src/shell/topic_move_posts.dart destination radios",
@@ -885,7 +886,34 @@
       "implementationCommit": "99126e23b169f72ffde2975adb1da77fd5f966cb",
       "mergeCommit": "62e7d25adeb8c125faca2a6476cbb800660a2025",
       "nativeInspectionStatus": "completed",
-      "reviewedBranchHead": "218cb991b2db573ab7d1d2be44312f5a1d8cd71f"
+      "reviewedBranchHead": "218cb991b2db573ab7d1d2be44312f5a1d8cd71f",
+      "finalCompositionReview": {
+        "title": "Finish and review Radio Group compositions",
+        "taskId": "01a086cd-3f9c-75b0-bda3-7d80f6e4604d",
+        "branch": "codex/review-radio-group-compositions",
+        "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native",
+        "acceptedComponentMerge": "62e7d25adeb8c125faca2a6476cbb800660a2025",
+        "implementationTaskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+        "implementationCommit": "99126e23b169f72ffde2975adb1da77fd5f966cb",
+        "requiredOwners": [
+          {
+            "id": "field",
+            "status": "merged",
+            "mergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
+          },
+          {
+            "id": "label",
+            "status": "merged",
+            "mergeCommit": "9bbc2806020646451fd1c283d347283fe4e45f67"
+          }
+        ],
+        "reference": {
+          "url": "https://ui.shadcn.com/docs/components/base/radio-group",
+          "sha256": "e00939e01c108da6492bdf9a3d9ccf34bbb284e3dce26260dcf44dc4ef4219f6"
+        },
+        "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
+        "status": "in_progress"
+      }
     },
     {
       "id": "switch",
@@ -1364,7 +1392,8 @@
         "Six public generic components retain app-independent presentation. ImageProvider stream ownership handles loading/error/ready and stale frames; AvatarImage remains the application networking/decoding adapter.",
         "Default groups preserve per-avatar sizes/dimensions and infer count size; explicit group size propagates badge/fallback metrics consistently. Standalone counts retain intrinsic 32px geometry.",
         "Above-100% text scaling reserves larger enum-sized boxes to fit initials and avoid ready/fallback geometry shifts; fixed app frames and explicit dimensions retain layout contracts. Narrow groups wrap.",
-        "Exact Lucide plus SVG and full ISC/Feather MIT license recorded. Explicit badge icon slot hides arbitrary SVG/widget icons at sm; standalone GroupCount owns its 2px background ring."
+        "Exact Lucide plus SVG and full ISC/Feather MIT license recorded. Explicit badge icon slot hides arbitrary SVG/widget icons at sm; standalone GroupCount owns its 2px background ring.",
+        "Required final compositions are assigned to Finish and review Avatar compositions (01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge."
       ],
       "migrations": [
         "Core topic/post/group/user/composer/quote/reaction/search identities; Chat, Voice, Assign and Events avatar owners now use DAvatar.frame. Four CircleAvatar fallbacks removed.",
@@ -1399,7 +1428,34 @@
       "clientThreadId": "client-new-thread:e0bb64b3-4828-4026-85b8-af933a41a275",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/32e1/discourse-native",
       "baseCommit": "f10bbbc9879d55551d4aaef5d17d51871778e105",
-      "nativeInspectionStatus": "completed"
+      "nativeInspectionStatus": "completed",
+      "finalCompositionReview": {
+        "title": "Finish and review Avatar compositions",
+        "taskId": "01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4",
+        "branch": "codex/review-avatar-compositions",
+        "worktree": "/Users/joffreyjaffeux/.codex/worktrees/47e2/discourse-native",
+        "acceptedComponentMerge": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0",
+        "implementationTaskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
+        "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
+        "requiredOwners": [
+          {
+            "id": "button",
+            "status": "merged",
+            "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94"
+          },
+          {
+            "id": "dropdown-menu",
+            "status": "merged",
+            "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
+          }
+        ],
+        "reference": {
+          "url": "https://ui.shadcn.com/docs/components/base/avatar",
+          "sha256": "921178487423ff56f4de4aa29b09541733b59359ae746fe63a8b765ae8b153d9"
+        },
+        "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
+        "status": "in_progress"
+      }
     },
     {
       "id": "card",
@@ -1421,7 +1477,8 @@
         "Passive DCard with Header/Title/Description/Action/Content/Footer; 16/12px spacing, shared override, 1px foreground/10 outer ring, live radius \u00d71.4, explicit typography and native Material ink without elevation or action. Semantic container preserves existing grouping.",
         "Direct footer children and explicit footer slot remove bottom padding. Leading/trailing edge slots clip images; edgeToEdge and joinNext express shared-spacing negative margins. Header reflows below 240px or above 150% text using stable Flex topology, preserving child element/focus.",
         "Eight runnable local-state examples reproduce reference compositions before application states. Adjacent Button link/outline/secondary/submit, Input email/password visuals, Badge and Toggle Group remain explicitly pending owners. Bundled package image has no network fallback.",
-        "Examples reuse already-merged Label, Aspect Ratio and Skeleton; the frozen catalogue dependency remains typography."
+        "Examples reuse already-merged Label, Aspect Ratio and Skeleton; the frozen catalogue dependency remains typography.",
+        "Required final compositions are assigned to Finish and review Card compositions (01a086cd-3f9c-75b0-bda3-7d65d96604a0). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge."
       ],
       "migrations": [
         "Core Groups directory, compact members, activity and requests; Preferences, Badge and Category directories; Aggregate passive panels. Existing navigation, permission, callbacks, fields and state ownership preserved.",
@@ -1453,7 +1510,54 @@
       "clientThreadId": "client-new-thread:9ce651a0-9d90-4b15-a53d-3ce86e3821a4",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5995/discourse-native",
       "baseCommit": "f23ee956e2197452d3aab40e98933543e5eeb5f2",
-      "nativeInspectionStatus": "completed"
+      "nativeInspectionStatus": "completed",
+      "finalCompositionReview": {
+        "title": "Finish and review Card compositions",
+        "taskId": "01a086cd-3f9c-75b0-bda3-7d65d96604a0",
+        "branch": "codex/review-card-compositions",
+        "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cf56/discourse-native",
+        "acceptedComponentMerge": "a73f465ac86105fdda35f5b56f8b491da4b3936d",
+        "implementationTaskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
+        "implementationCommit": "4c0dcc6b4fea696768722afae8837d80fbd43b40",
+        "requiredOwners": [
+          {
+            "id": "button",
+            "status": "merged",
+            "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94"
+          },
+          {
+            "id": "input",
+            "status": "merged",
+            "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
+          },
+          {
+            "id": "badge",
+            "status": "merged",
+            "mergeCommit": "916580e72e11de6a6b7872c41d5c4d92e27e9635"
+          },
+          {
+            "id": "toggle-group",
+            "status": "merged",
+            "mergeCommit": "b77f25c9ac779f324dd3853590df0ce0dd27eaa9"
+          },
+          {
+            "id": "label",
+            "status": "merged",
+            "mergeCommit": "9bbc2806020646451fd1c283d347283fe4e45f67"
+          },
+          {
+            "id": "field",
+            "status": "merged",
+            "mergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
+          }
+        ],
+        "reference": {
+          "url": "https://ui.shadcn.com/docs/components/base/card",
+          "sha256": "718dec761e0ad426b53d4673d206ab6dbfbbff5757f9714b883a04126f75db3e"
+        },
+        "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
+        "status": "in_progress"
+      }
     },
     {
       "id": "empty",
@@ -4034,7 +4138,8 @@
         "Full mapping, API and dependency boundary: docs/component-library/sidebar.md. Official base-nova registry hash 02b1ea430fb246da062048f0161a01d1b34a2c787f6974958c9b20a3142120a6.",
         "Provider exposes controlled/uncontrolled desktop and separate mobile state, configurable bounded-width breakpoint and scoped Cmd/Ctrl+B. Native modal route owns focus/dismissal; site colors/fonts/radius update live.",
         "Operational Flutter dependencies are the completed Tooltip, Separator and Skeleton components. Sheet/Input/Collapsible remain pending catalogue owners; native modal/TextField and local disclosure composition do not claim those tasks complete. The frozen website dependency graph stays unchanged in catalogue.json.",
-        "Native review fixed floating icon2px overflow by painting its border outside layout and gave the mobile shortcut subtree initial focus. Pointer actions own keyboard focus; iOS/Android48px hit areas preserve compact visuals; leaving mobile clears obsolete openMobile. Public API remains stable."
+        "Native review fixed floating icon2px overflow by painting its border outside layout and gave the mobile shortcut subtree initial focus. Pointer actions own keyboard focus; iOS/Android48px hit areas preserve compact visuals; leaving mobile clears obsolete openMobile. Public API remains stable.",
+        "Required final compositions are assigned to Finish and review Sidebar compositions (01a086cd-3f9c-75b0-bda3-7d495758a941). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge."
       ],
       "migrations": [
         "Public barrel export and six independent sidebar_examples.dart examples registered.",
@@ -4060,7 +4165,49 @@
       "mergeCommit": "93bfcf65f64868c92340f9aec8236d77585c3cd8",
       "nativeInspectionStatus": "completed",
       "coordinatorReviewCommit": "6d8c63edcbcd8372408a4a5ec8ccc9d8479e5bbb",
-      "adoptionMergeCommit": "0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5"
+      "adoptionMergeCommit": "0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5",
+      "finalCompositionReview": {
+        "title": "Finish and review Sidebar compositions",
+        "taskId": "01a086cd-3f9c-75b0-bda3-7d495758a941",
+        "branch": "codex/review-sidebar-compositions",
+        "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8375/discourse-native",
+        "acceptedComponentMerge": "93bfcf65f64868c92340f9aec8236d77585c3cd8",
+        "implementationTaskId": "01a08352-7665-7f90-a637-75478a83ea53",
+        "implementationCommit": "47aabf60e65dff047cdf80dd6e29203a93fb8012",
+        "requiredOwners": [
+          {
+            "id": "sheet",
+            "status": "merged",
+            "mergeCommit": "b67f0068104b922ec0e80170643eddced6e27c37"
+          },
+          {
+            "id": "input",
+            "status": "merged",
+            "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
+          },
+          {
+            "id": "collapsible",
+            "status": "merged",
+            "mergeCommit": "985b4efdf4dd5e4502c98d4c2c0332df8e344982"
+          },
+          {
+            "id": "dropdown-menu",
+            "status": "merged",
+            "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
+          },
+          {
+            "id": "avatar",
+            "status": "merged",
+            "mergeCommit": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0"
+          }
+        ],
+        "reference": {
+          "url": "https://ui.shadcn.com/docs/components/base/sidebar",
+          "sha256": "a48b885e4d6f0d8d1cb143ef436b80b90ebcf5e548347d455f6b201dcb637971"
+        },
+        "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
+        "status": "in_progress"
+      }
     },
     {
       "id": "input-otp",
@@ -4277,10 +4424,11 @@
     "branch": null,
     "decisions": [],
     "verification": [],
-    "mergeCommit": null
+    "mergeCommit": null,
+    "finalCompositionReviewGate": "All 64 catalogue components and every required finalCompositionReview must be accepted and merged before the final whole-library audit or goal completion."
   },
   "workflow": {
-    "updatedAt": "2026-09-09T14:57:08+00:00",
+    "updatedAt": "2026-09-09T15:42:53+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -4514,6 +4662,42 @@
           "implementationTaskId": "01a08606-ca30-7bc1-8e27-69575273d443",
           "implementationBranch": "codex/ui-date-picker",
           "headCommit": "bb6072283237d82ff9d95eeef62b5938f0940cf2"
+        },
+        {
+          "component": "card",
+          "taskId": "01a086cd-3f9c-75b0-bda3-7d65d96604a0",
+          "branch": "codex/review-card-compositions",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cf56/discourse-native",
+          "status": "final_composition_review",
+          "implementationTaskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
+          "implementationBranch": "codex/ui-card"
+        },
+        {
+          "component": "avatar",
+          "taskId": "01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4",
+          "branch": "codex/review-avatar-compositions",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/47e2/discourse-native",
+          "status": "final_composition_review",
+          "implementationTaskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
+          "implementationBranch": "codex/ui-avatar"
+        },
+        {
+          "component": "sidebar",
+          "taskId": "01a086cd-3f9c-75b0-bda3-7d495758a941",
+          "branch": "codex/review-sidebar-compositions",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8375/discourse-native",
+          "status": "final_composition_review",
+          "implementationTaskId": "01a08352-7665-7f90-a637-75478a83ea53",
+          "implementationBranch": "codex/ui-sidebar"
+        },
+        {
+          "component": "radio-group",
+          "taskId": "01a086cd-3f9c-75b0-bda3-7d80f6e4604d",
+          "branch": "codex/review-radio-group-compositions",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native",
+          "status": "final_composition_review",
+          "implementationTaskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+          "implementationBranch": "codex/ui-radio-group"
         }
       ],
       "nativeReadyTasks": []
@@ -4968,6 +5152,54 @@
           "implementationBranch": "codex/ui-date-picker",
           "implementationCommit": "f980b6f5c7e0e0a0fe2888f6f3c1a1f4f563421e",
           "status": "in_progress"
+        },
+        {
+          "component": "card",
+          "title": "Finish and review Card compositions",
+          "taskId": "01a086cd-3f9c-75b0-bda3-7d65d96604a0",
+          "hostId": "local",
+          "branch": "codex/review-card-compositions",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cf56/discourse-native",
+          "implementationTaskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
+          "implementationBranch": "codex/ui-card",
+          "implementationCommit": "4c0dcc6b4fea696768722afae8837d80fbd43b40",
+          "status": "final_composition_review"
+        },
+        {
+          "component": "avatar",
+          "title": "Finish and review Avatar compositions",
+          "taskId": "01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4",
+          "hostId": "local",
+          "branch": "codex/review-avatar-compositions",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/47e2/discourse-native",
+          "implementationTaskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
+          "implementationBranch": "codex/ui-avatar",
+          "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
+          "status": "final_composition_review"
+        },
+        {
+          "component": "sidebar",
+          "title": "Finish and review Sidebar compositions",
+          "taskId": "01a086cd-3f9c-75b0-bda3-7d495758a941",
+          "hostId": "local",
+          "branch": "codex/review-sidebar-compositions",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8375/discourse-native",
+          "implementationTaskId": "01a08352-7665-7f90-a637-75478a83ea53",
+          "implementationBranch": "codex/ui-sidebar",
+          "implementationCommit": "47aabf60e65dff047cdf80dd6e29203a93fb8012",
+          "status": "final_composition_review"
+        },
+        {
+          "component": "radio-group",
+          "title": "Finish and review Radio Group compositions",
+          "taskId": "01a086cd-3f9c-75b0-bda3-7d80f6e4604d",
+          "hostId": "local",
+          "branch": "codex/review-radio-group-compositions",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native",
+          "implementationTaskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+          "implementationBranch": "codex/ui-radio-group",
+          "implementationCommit": "99126e23b169f72ffde2975adb1da77fd5f966cb",
+          "status": "final_composition_review"
         }
       ],
       "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks.",
@@ -5017,7 +5249,156 @@
       "previousSourceTaskCap": 5,
       "admissionPolicy": "All remaining components have their own tasks now. Begin independent reference/API/app audit and source preparation as parent APIs permit; coordinate dependencies directly. Native/browser and main writes remain leased and serial. Each implementation creates its own independent reviewer/merge owner.",
       "finalAudit": "Keep the separate final audit planned until all 64 components and required compositions are implemented, accepted and merged locally."
-    }
+    },
+    "finalCompositionReviews": [
+      {
+        "component": "card",
+        "title": "Finish and review Card compositions",
+        "taskId": "01a086cd-3f9c-75b0-bda3-7d65d96604a0",
+        "branch": "codex/review-card-compositions",
+        "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cf56/discourse-native",
+        "acceptedComponentMerge": "a73f465ac86105fdda35f5b56f8b491da4b3936d",
+        "implementationTaskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
+        "implementationCommit": "4c0dcc6b4fea696768722afae8837d80fbd43b40",
+        "requiredOwners": [
+          {
+            "id": "button",
+            "status": "merged",
+            "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94"
+          },
+          {
+            "id": "input",
+            "status": "merged",
+            "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
+          },
+          {
+            "id": "badge",
+            "status": "merged",
+            "mergeCommit": "916580e72e11de6a6b7872c41d5c4d92e27e9635"
+          },
+          {
+            "id": "toggle-group",
+            "status": "merged",
+            "mergeCommit": "b77f25c9ac779f324dd3853590df0ce0dd27eaa9"
+          },
+          {
+            "id": "label",
+            "status": "merged",
+            "mergeCommit": "9bbc2806020646451fd1c283d347283fe4e45f67"
+          },
+          {
+            "id": "field",
+            "status": "merged",
+            "mergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
+          }
+        ],
+        "reference": {
+          "url": "https://ui.shadcn.com/docs/components/base/card",
+          "sha256": "718dec761e0ad426b53d4673d206ab6dbfbbff5757f9714b883a04126f75db3e"
+        },
+        "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
+        "status": "in_progress"
+      },
+      {
+        "component": "avatar",
+        "title": "Finish and review Avatar compositions",
+        "taskId": "01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4",
+        "branch": "codex/review-avatar-compositions",
+        "worktree": "/Users/joffreyjaffeux/.codex/worktrees/47e2/discourse-native",
+        "acceptedComponentMerge": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0",
+        "implementationTaskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
+        "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
+        "requiredOwners": [
+          {
+            "id": "button",
+            "status": "merged",
+            "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94"
+          },
+          {
+            "id": "dropdown-menu",
+            "status": "merged",
+            "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
+          }
+        ],
+        "reference": {
+          "url": "https://ui.shadcn.com/docs/components/base/avatar",
+          "sha256": "921178487423ff56f4de4aa29b09541733b59359ae746fe63a8b765ae8b153d9"
+        },
+        "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
+        "status": "in_progress"
+      },
+      {
+        "component": "sidebar",
+        "title": "Finish and review Sidebar compositions",
+        "taskId": "01a086cd-3f9c-75b0-bda3-7d495758a941",
+        "branch": "codex/review-sidebar-compositions",
+        "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8375/discourse-native",
+        "acceptedComponentMerge": "93bfcf65f64868c92340f9aec8236d77585c3cd8",
+        "implementationTaskId": "01a08352-7665-7f90-a637-75478a83ea53",
+        "implementationCommit": "47aabf60e65dff047cdf80dd6e29203a93fb8012",
+        "requiredOwners": [
+          {
+            "id": "sheet",
+            "status": "merged",
+            "mergeCommit": "b67f0068104b922ec0e80170643eddced6e27c37"
+          },
+          {
+            "id": "input",
+            "status": "merged",
+            "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
+          },
+          {
+            "id": "collapsible",
+            "status": "merged",
+            "mergeCommit": "985b4efdf4dd5e4502c98d4c2c0332df8e344982"
+          },
+          {
+            "id": "dropdown-menu",
+            "status": "merged",
+            "mergeCommit": "5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787"
+          },
+          {
+            "id": "avatar",
+            "status": "merged",
+            "mergeCommit": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0"
+          }
+        ],
+        "reference": {
+          "url": "https://ui.shadcn.com/docs/components/base/sidebar",
+          "sha256": "a48b885e4d6f0d8d1cb143ef436b80b90ebcf5e548347d455f6b201dcb637971"
+        },
+        "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
+        "status": "in_progress"
+      },
+      {
+        "component": "radio-group",
+        "title": "Finish and review Radio Group compositions",
+        "taskId": "01a086cd-3f9c-75b0-bda3-7d80f6e4604d",
+        "branch": "codex/review-radio-group-compositions",
+        "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native",
+        "acceptedComponentMerge": "62e7d25adeb8c125faca2a6476cbb800660a2025",
+        "implementationTaskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+        "implementationCommit": "99126e23b169f72ffde2975adb1da77fd5f966cb",
+        "requiredOwners": [
+          {
+            "id": "field",
+            "status": "merged",
+            "mergeCommit": "5cd7f3694498e4e09e3c114639baca834b56705e"
+          },
+          {
+            "id": "label",
+            "status": "merged",
+            "mergeCommit": "9bbc2806020646451fd1c283d347283fe4e45f67"
+          }
+        ],
+        "reference": {
+          "url": "https://ui.shadcn.com/docs/components/base/radio-group",
+          "sha256": "e00939e01c108da6492bdf9a3d9ccf34bbb284e3dce26260dcf44dc4ef4219f6"
+        },
+        "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
+        "status": "in_progress"
+      }
+    ]
   },
   "visualFidelity": {
     "status": "merged",

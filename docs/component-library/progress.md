@@ -978,6 +978,7 @@ Status: merged. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/ui-rad
 - Field composition source correction: input uses outlineVariant and alpha modifiers multiply existing alpha; choice cards use captured FieldLabel/Field 10px padding, base-radius lg, selected alpha, hover/focus and 8px/2px content geometry. No DField implementation.
 - Live browser correction: both card/radio focus rings, 20px card title, reference widths/selections and invalid-label colors. Outside foreground rings preserve translucent fills; evidence documents host font, focus token, hit target and disabled-opacity adaptations.
 - Removed discretionary desktop minimum: intrinsic labeled rows now match Default64px, Description142px and Fieldset73px with8px gaps; touch alone retains48px. Measurements document fractional SF line-height and width differences from browser.
+- Required final compositions are assigned to Finish and review Radio Group compositions (01a086cd-3f9c-75b0-bda3-7d80f6e4604d). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge.
 
 **migrations**
 
@@ -1450,6 +1451,7 @@ Status: merged. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-ava
 - Default groups preserve per-avatar sizes/dimensions and infer count size; explicit group size propagates badge/fallback metrics consistently. Standalone counts retain intrinsic 32px geometry.
 - Above-100% text scaling reserves larger enum-sized boxes to fit initials and avoid ready/fallback geometry shifts; fixed app frames and explicit dimensions retain layout contracts. Narrow groups wrap.
 - Exact Lucide plus SVG and full ISC/Feather MIT license recorded. Explicit badge icon slot hides arbitrary SVG/widget icons at sm; standalone GroupCount owns its 2px background ring.
+- Required final compositions are assigned to Finish and review Avatar compositions (01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge.
 
 **migrations**
 
@@ -1502,6 +1504,7 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 - Direct footer children and explicit footer slot remove bottom padding. Leading/trailing edge slots clip images; edgeToEdge and joinNext express shared-spacing negative margins. Header reflows below 240px or above 150% text using stable Flex topology, preserving child element/focus.
 - Eight runnable local-state examples reproduce reference compositions before application states. Adjacent Button link/outline/secondary/submit, Input email/password visuals, Badge and Toggle Group remain explicitly pending owners. Bundled package image has no network fallback.
 - Examples reuse already-merged Label, Aspect Ratio and Skeleton; the frozen catalogue dependency remains typography.
+- Required final compositions are assigned to Finish and review Card compositions (01a086cd-3f9c-75b0-bda3-7d65d96604a0). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge.
 
 **migrations**
 
@@ -3175,6 +3178,7 @@ Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sid
 - Provider exposes controlled/uncontrolled desktop and separate mobile state, configurable bounded-width breakpoint and scoped Cmd/Ctrl+B. Native modal route owns focus/dismissal; site colors/fonts/radius update live.
 - Operational Flutter dependencies are the completed Tooltip, Separator and Skeleton components. Sheet/Input/Collapsible remain pending catalogue owners; native modal/TextField and local disclosure composition do not claim those tasks complete. The frozen website dependency graph stays unchanged in catalogue.json.
 - Native review fixed floating icon2px overflow by painting its border outside layout and gave the mobile shortcut subtree initial focus. Pointer actions own keyboard focus; iOS/Android48px hit areas preserve compact visuals; leaving mobile clears obsolete openMobile. Public API remains stable.
+- Required final compositions are assigned to Finish and review Sidebar compositions (01a086cd-3f9c-75b0-bda3-7d495758a941). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge.
 
 **migrations**
 
