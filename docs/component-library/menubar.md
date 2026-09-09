@@ -146,5 +146,14 @@ The exact `e3104c9a` fixture passed the focused native macOS correction check:
 Only the owned isolated app and reference tab were closed, and the desktop
 lease was released. Promotion to implemented changes status/acceptance text
 only, not the inspected runtime. Native iOS/Linux devices and spoken VoiceOver
-were not tested. The shared Dropdown follow-up must reach accepted local main
-through its owner before the final Menubar merge.
+were not tested.
+
+The Dropdown owner accepted the shared follow-up in local-main merge
+`85f9265bf2593a7edc0693582b7eadf1c6645b8d`, recorded at `d6474006`.
+Fresh Menubar candidate `c29732d5` starts from that main pin and passes all 64
+focused tests again plus clean root/full-profile analysis. Its Menubar and
+Dropdown runtime are identical to the native-inspected source. Main's accepted
+Popover joined-control boundary only isolates grouped-control metadata; the
+ungrouped Menubar behavior is unchanged. The styleguide overlap only changes
+sidebar search focus. All other component rows and workflow metadata were
+verified identical to the candidate's main base.

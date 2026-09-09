@@ -3164,7 +3164,8 @@
         "Official rendered light and dark references were compared with native default/File and dark With Icons/More states. Earlier exact-source native passes cover File/Edit/View/Profiles switching, checkbox/radio retention, nested Share/Escape, typeahead Print, Home/End, light/dark/Plum, Arabic RTL and destructive icons. Final corrected e3104c9a native pass confirms fully visible open/wrapped LTR+RTL triggers at 360px/200%/reduced motion, popup-only scrolling to Print, Plum large-text RTL, left-pointing Arabic chevron and logical Left/Right submenu navigation.",
         "Source e3104c9ae1547b90629f85d6e7a7bb97c863f6c7 builds the real debug macOS styleguide with the exact combined Dropdown source from prepared follow-up 7110ef80. Fixture /private/tmp/discourse-menubar-review-e310.IoqW0P/Discourse Menubar Review e310.app; bundle org.discourse.menubarreview.e310; kernel SHA-256 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318. Deep strict ad-hoc verification passes, only sandbox/allow-jit/get-task-allow main entitlements, and 0 of 7 signed executables contain application/team/APS identifiers. Repository runner signing/provisioning is unchanged.",
         "Affected-consumer validation: Context Menu dfd02ea4 in a disposable checkout fails the two new regressions on its old parent (62px host scroll and double-mirrored RTL glyph). All 11 Context Menu tests pass with seed 826145 on combined Dropdown blob b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6, preserving Avatar live-registration order; the temporary checkout was removed.",
-        "Exact native source e3104c9a accepted; subsequent styleguide promotion changes only status and acceptance text, not runtime behavior. Owned app and official-reference tab closed; desktop lease released."
+        "Exact native source e3104c9a accepted; subsequent styleguide promotion changes only status and acceptance text, not runtime behavior. Owned app and official-reference tab closed; desktop lease released.",
+        "Latest-main candidate c29732d5 based on accepted Dropdown follow-up main pin d6474006 passes all 64 focused tests again with seed 1320190751 and clean root/full-profile analysis. DMenubar and shared Dropdown runtime match native-inspected e3104c9a; example changes are status/text only. Main's additional Popover joined-control boundary does not affect ungrouped menu rendering/focus, and styleguide changes only affect its sidebar search focus."
       ],
       "limitations": [
         "Native iOS/Linux device behavior and spoken VoiceOver remain unverified."
@@ -3192,10 +3193,10 @@
         }
       ],
       "reviewTaskId": "01a08628-7042-7173-a37d-7f1f04eade66",
-      "reviewBranch": "codex/review-menubar-current",
+      "reviewBranch": "codex/review-menubar-accepted",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/65ee/discourse-native",
       "reviewHandoffCommit": "10b63f75edad20793fd83e5b2c8e15504e602a9a",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "accepted",
       "implementationHandoffVerification": {
         "focusedTests": "Source record reports14 randomized component/styleguide tests passing with seed1320190751, including six frozen groups, keyboard/RTL, state, live themes, narrow/200% and reduced motion.",
         "analysis": "Root and profiles/full analysis pass with unchanged SDK and lockfile hashes.",
@@ -3215,19 +3216,13 @@
             "commit": "7110ef80",
             "branch": "codex/review-dropdown-menu-followup",
             "integratedReviewCommit": "e3104c9ae1547b90629f85d6e7a7bb97c863f6c7",
-            "status": "awaiting_parent_main_acceptance",
-            "scope": "Native acceptance passed on exact combined source, including Avatar live-registration order. Final Menubar merge waits for the Dropdown owner's accepted local-main checkpoint."
+            "status": "merged",
+            "scope": "Accepted by the Dropdown owner on local main, preserving Avatar live-registration order and verified popup-local focus and RTL glyph fixes. Reconciled into the latest-main Menubar candidate.",
+            "acceptedMergeCommit": "85f9265bf2593a7edc0693582b7eadf1c6645b8d",
+            "acceptedMainPin": "d647400602824226d70d1328fba2a141195dc559"
           }
         }
-      ],
-      "reviewBlocker": {
-        "status": "awaiting_parent_main_acceptance",
-        "reportedByTask": "01a08628-7042-7173-a37d-7f1f04eade66",
-        "observation": "Corrected combined exact fixture passed focused native and official dark reference checks; 64 combined tests and 11 Context consumer tests pass.",
-        "requiredAction": "Receive the Dropdown owner's accepted local-main pin, prepare a fresh latest-main candidate, reconcile overlap and merge locally from the main checkout.",
-        "preparedReviewCommit": "e3104c9ae1547b90629f85d6e7a7bb97c863f6c7",
-        "preparedBundle": "/private/tmp/discourse-menubar-review-e310.IoqW0P/Discourse Menubar Review e310.app"
-      }
+      ]
     },
     {
       "id": "navigation-menu",
