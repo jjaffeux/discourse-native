@@ -1,9 +1,9 @@
 {
-  "sourceCommit": "420aca87",
+  "sourceCommit": "0792b3eca67ce32ef3461758571a33e09202fa5f",
   "entrypoint": "tool/context_menu_review_main.dart",
-  "bundle": "/private/tmp/context-menu-native.xfutKb/Context Menu Native.app",
-  "bundleIdentifier": "org.discourse.native.contextmenu.native",
-  "kernelSha256": "b81534a1995d412ed0cf6a6e27148005a29138f9a612c695a4dac41a31b4547f",
+  "bundle": "/private/tmp/context-menu-native.xfutKb/Context Menu Accepted.app",
+  "bundleIdentifier": "org.discourse.native.contextmenu.accepted",
+  "kernelSha256": "4fa70255585e2ff883e88025fa887859e137707a478bfa08e45b5ceb3a622b21",
   "verification": [
     "flutter build macos --debug --target tool/context_menu_review_main.dart --no-pub passed",
     "Built and copied kernels have matching SHA256",
@@ -11,6 +11,7 @@
     "Read-back entitlements contain sandbox, allow-jit, network client and network server only",
     "64 focused Context Menu, Dropdown Menu, Popover, styleguide, InstanceActions accessibility and modal lifecycle tests passed with seed 826145",
     "21 ordering/removing-site integration regressions passed with seed 826145",
+    "After accepted Alert Dialog reconciliation, 26 affected rail, keyboard/semantics and controller-lifecycle regressions passed with seed 826145",
     "Root and profiles/full flutter analyze --no-pub report no issues"
   ],
   "fixture": "Production InstanceRail with three in-memory forums, visible forum-order feedback, all Context Menu examples and local theme/platform controls",
