@@ -99,3 +99,26 @@ merge. Bundle provenance and final automated verification are recorded below.
 
 - `examples.tsx`: `abb4e0ca3f42884001666c790aa061c31f6e1ae01c1451d80ed8c6f699f55ea0`
 - `radio-group.json`: `874b30662ba338d06362491b663cae9198281a4bc385b6be6425f2de442384d7`
+
+## Final automated verification and bundle
+
+- Source commit: `767e3d49b9d0c2807b42a28a19bafc9f2483d5b8`; tree `54784dc4837233044b568082ded1f7c5d1ca863c`.
+- 157 focused tests passed (`test/d_radio_group_test.dart`, Poll, flag editor,
+  move/owner ownership, flag ownership, keyboard navigation and Chat drawer),
+  seed `9092026`; log `/tmp/radio-verified-tests.log`.
+- Final Poll wrapper refinement and real-dialog fixture passed 35 tests, same
+  seed; log `/tmp/radio-final-poll-fixture.log`. This keeps multiselect outside
+  radio semantics. No full suite was run.
+- Root/full locked pub get, final root/full analysis, touched-code formatting
+  and diff whitespace checks passed. Lockfiles and SDK pin did not change.
+- Committed-source macOS debug build: `flutter build macos --debug --no-pub
+  --target tool/radio_group_review_main.dart`; log `/tmp/radio-committed-build.log`.
+- Isolated bundle: `/private/tmp/discourse-radio-review-35591zqt/Radio Group Review.app`.
+- Bundle ID `org.discourse.radio-group-review`; URL scheme `discourse-radio-group-review`.
+- SHA256 kernel: `623a8ae4684b35c11408691b1c4d3eb88858123527091811845a267ef0bf6cda`.
+- Source and copied bundle kernels match. 725 tracked library/fixture/support
+  files byte-match the source commit. Subsequent commit changes documentation only.
+- `codesign --verify --deep --strict --verbose=2` passed after ad-hoc signing.
+  Only the copied bundle's display name, bundle ID and scheme were changed.
+- Main checkout/build and running application were untouched. Bundle was not
+  launched; native inspection remains awaiting the coordinator desktop slot.

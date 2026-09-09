@@ -873,7 +873,8 @@ Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/u
 - 157 focused component, Poll, flag, move/owner ownership, shell keyboard and Chat drawer tests passed with seed 9092026.
 - Local production review fixture search/select check passes for owner and move dialogs.
 - Root and full-profile locked pub get passed without lockfile changes; root and full static analysis clean.
-- Initial macOS debug fixture build passed; final committed-source review bundle provenance pending below.
+- Final committed-source macOS fixture build passed at 767e3d49b9d0c2807b42a28a19bafc9f2483d5b8; isolated bundle /private/tmp/discourse-radio-review-35591zqt/Radio Group Review.app; kernel SHA256 623a8ae4684b35c11408691b1c4d3eb88858123527091811845a267ef0bf6cda; source equality (725 files), matching kernels and deep strict ad-hoc signature verified. See docs/component-library/radio-group.md.
+- Final Poll semantics-wrapper refinement and production fixture passed 35 tests with seed 9092026; final root/full static analysis clean. No native app launched.
 
 **limitations**
 
