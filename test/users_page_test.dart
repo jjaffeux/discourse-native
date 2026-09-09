@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart' show DAvatar, DSpinner;
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -671,10 +671,10 @@ void main() {
       );
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
       expect(find.byKey(const ValueKey('user-avatar-sam')), findsOneWidget);
-      final avatarClip = tester.widget<ClipRRect>(
+      final avatar = tester.widget<DAvatar>(
         find.byKey(const ValueKey('user-avatar-sam')),
       );
-      expect(avatarClip.borderRadius, BorderRadius.circular(16));
+      expect(avatar.borderRadius, BorderRadius.circular(16));
       expect(find.byKey(const ValueKey('users-select-all')), findsNothing);
       expect(find.byKey(const ValueKey('user-select-sam')), findsNothing);
       expect(
@@ -1205,10 +1205,10 @@ void main() {
       theme: theme,
     );
 
-    final avatarClip = tester.widget<ClipRRect>(
+    final avatar = tester.widget<DAvatar>(
       find.byKey(const ValueKey('user-avatar-sam')),
     );
-    expect(avatarClip.borderRadius, BorderRadius.circular(5));
+    expect(avatar.borderRadius, BorderRadius.circular(5));
   });
 
   testWidgets('Matrix loads the next page automatically near the end', (
