@@ -127,8 +127,7 @@ uses were searched under core and every bundled plugin.
 - The first native build found a missing ephemeral generated Swift package.
   `flutter build macos --debug --no-pub --config-only -t
   tool/component_fixtures/checkbox.dart` generated it, then the debug build
-  succeeded. A final source-provenance rebuild and uniquely identified copied
-  bundle are being prepared. No app was launched.
+  succeeded. Final clean-source rebuild from `0df1b03ca000166c1901825b001dbad750b04ce6` passed. Unique copied bundle: `/private/tmp/DiscourseCheckbox132a-0df1b03c.app`, identifier `org.discourse.native.checkbox.132a`, URL scheme `discourse-checkbox-132a`. Source and copied kernels match SHA256 `50658162f62e4a78954bfc3470df11c70cf72e04f308efa777562b3646d9894b`; deep strict ad-hoc signature verification passes. See `checkbox-native-provenance.json`. No app was launched.
 - Native reference comparison, pointer/keyboard interactions, representative
   theme checks and real production fixtures remain uninspected pending the
   coordinator's desktop slot. No iOS/Linux device or VoiceOver claim is made.

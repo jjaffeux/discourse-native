@@ -685,8 +685,9 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 - 392 focused tests passed with seed 734129, including two temporary stale Avatar-test cast corrections; those Avatar-only corrections were reverted for coordinator ownership, leaving the two known base Users test failures. No checkbox migration failures remain.
 - Root and full-profile flutter analyze --no-pub clean; both locked pub get runs succeeded without dependency changes.
 - Final Checkbox/Label focused tests: 34 passed (seed 927315), including readOnly, pointer focus transfer, mixed activation and caller-declined controlled-form updates. Bordered notification composition then passed all seven Checkbox example tests.
-- Initial isolated macOS debug build succeeded after config-only regenerated missing ephemeral Swift package. Final source-provenance rebuild and copied unique bundle being prepared; no CUA performed.
+- Final macOS debug build passed from clean source commit 0df1b03ca000166c1901825b001dbad750b04ce6. Copied unique bundle /private/tmp/DiscourseCheckbox132a-0df1b03c.app (org.discourse.native.checkbox.132a, discourse-checkbox-132a scheme) has matching source/copied kernel SHA256 50658162f62e4a78954bfc3470df11c70cf72e04f308efa777562b3646d9894b; deep strict ad-hoc signature verification passes. No CUA or app launch performed.
 - Additional Topic Inbox run: 98 passed, one compact-title Escape failure. Exact failing case reproduced on pristine base 2e894b5e in a temporary detached worktree; logs /tmp/checkbox-baseline-topic.log and /tmp/checkbox-topic-retry.log. Baseline worktree removed.
+- Final root/full-profile flutter analyze --no-pub passed after all source changes. Source, tree and native bundle provenance are recorded in checkbox-native-provenance.json.
 
 **limitations**
 
