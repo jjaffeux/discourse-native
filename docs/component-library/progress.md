@@ -84,7 +84,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
 | 48 | breadcrumb | in_progress | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | — |
-| 49 | pagination | in_progress | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | — |
+| 49 | pagination | review_ready | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | — |
 | 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
 | 51 | date-picker | in_progress | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
@@ -2646,19 +2646,52 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 
 ### pagination
 
-Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/ui-pagination.
+Status: review_ready. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/ui-pagination.
 
 **acceptanceCriteria**
 
-- Match the frozen Base UI/base-nova Pagination complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
-- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
-- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
-- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+- Match the frozen Base UI/base-nova Pagination anatomy and measured 32px ghost/outline link surfaces, 2px item gap, directional previous/next labels and 16px chevron/ellipsis artwork across default, Simple, Icons Only, routing/link and Arabic RTL examples.
+- Provide explicit typed controlled, locally owned and borrowed DPaginationController APIs for one-based page, page count and page size; keep callbacks caller-owned and clamp safely across empty, single-page and dynamic total/page-size changes.
+- Implement accurate first/last/previous/next/page/ellipsis window behavior with current-page and disabled native semantics, visible focus, keyboard/touch activation, logical RTL icons, narrow/200%-text wrapping and live theme/font/radius/reduced-motion support.
+- Complete the final Field/Select rows-per-page composition from the accepted owner APIs; expose a stable compact embedded API to Data Table while leaving server queries, loading, caching and URL state in adapters.
+- Audit core and bundled plugins for bounded-page consumers, migrate only appropriate numbered paging and retain cursor/infinite-scroll surfaces with explicit rationale; cover dynamic boundaries, keyboard/semantics and any migrated consumer regressions.
+- Record exact frozen/reference sources and mapping, format touched files, pass focused component/styleguide/adoption tests and root/full-profile analysis, prepare source-exact macOS fixtures, then create a separate reviewer for official rendered/native acceptance, fixes and local main merge after accepted Select reconciliation.
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
-- Verified independent reviewer Review and merge Pagination (01a08629-4841-73d0-a5a6-c723f253b4b0) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Frozen Markdown hash bc07e7b5e3df7090f895a93d49a3484e828e8560c17600ab3cbd1cb92313c3f9 exactly matches catalogue; current base-nova registry raw/source hashes and complete documented examples are committed under reference/pagination.
+- DPagination exposes the full explicit anatomy while DPaginationNavigation provides local, controlled or borrowed-controller bounded state. Pages remain one-based; pageCount zero is represented by page one with hasPages false and disabled movement.
+- DPaginationController coalesces dynamic updates, clamps changed totals and preserves the first visible item across page-size changes by default. Server requests, loading, caches and route/query synchronization remain caller-owned.
+- The default ghost/outline current-page treatment and 32px geometry compose the accepted DButton. Direction controls expose directionVariant so Data Table can select the official outline surface without duplicating behavior or artwork.
+- Narrow layouts retain the reference's sub-640px direction-label hiding and use horizontal scrolling rather than overflow; custom 16px round-cap chevrons and dots follow logical RTL direction.
+- Prepared Select source 7d474deffdb0cdda5f13f83ceaf1b4bfff6a6581 was byte-compared after acceptance and exactly matches accepted local main 94a65e00. Accepted Field source was integrated from merge 5cd7f369 without merging newer main into this worktree.
+- Independent review found and fixed cross-axis expansion inside bounded footer layouts by shrink-wrapping DPagination's inner alignment; the regression mounts a 240x568 Wrap at 200% text. The review fixture's 216px control was also corrected to update MediaQuery and exercise the actual sub-640px branch.
+
+**migrations**
+
+- Exported the single Pagination owner from discourse_ui.dart and registered six actual-component examples: Default, Simple, Icons Only with final Field/Select rows-per-page composition, routing links, dynamic/controller edges and Arabic RTL.
+- Shared the exact tested public API/commit cd69ff21400192e6a141a675ffb7ec6a7199526c with Data Table task 01a08606-ca45-73b1-9be1-7486d4e3fe1d, including directionVariant outline composition.
+
+**retainedAlternatives**
+
+- Topic/category/aggregate/search/account/draft/user/group/invite/badge/assignment lists append cursor or offset pages and preserve accumulated reading flow; numbered replacement paging would be a behavior regression.
+- Chat browse/search/thread/member and GIF results retain automatic or explicit Load more continuation for the same reason. Topic post navigation and Carousel/Lightbox PageView are position navigation, not bounded result pagination.
+- No current production surface is an appropriate bounded numbered-page consumer. Data Table is the first prepared consumer; its manual/server paging adapter remains outside this generic component.
+
+**verification**
+
+- 11 randomized Pagination tests passed with seed 391447: controller count/size clamping, empty/single boundaries, exact 32px link geometry, ellipsis windows, controlled/local/controller ownership, borrowed lifecycle, keyboard and RTL link activation, current/disabled semantics, outline embedded controls, bounded-footer shrink-wrapping and all examples at 216px/200% text.
+- 74 combined Pagination, accepted Select/Popover/Field and styleguide-page tests passed with seed 391447.
+- Root and profiles/full flutter analyze --no-pub pass with no diagnostics after final API changes. Touched Dart is formatted, git diff --check passes, root flutter pub get --enforce-lockfile passed and no lockfile or SDK pin changed.
+- Accepted dependency source equality confirmed: d_select.dart 8597a6cbd6b901279580c327acfaf3da37b8802a5c31fd8774c1f17c567047f1, d_popover.dart db383c502d7067fc93863998a7635738d11b97df0c6dc8bdbf52feab38b36806 and d_field.dart b72c1a6b7c58755c45914c46b6fbaa154dd2dcee0ea164c6f5549e0ed8ae1f19 exactly match accepted local main 94a65e00.
+- The independent reviewer compared the live official light/dark Default, Simple, Icons Only/Select and Arabic RTL examples. Measured geometry was 32px controls, 2px gaps, 10px radius, 500-weight 14/20 typography, logical Previous/Next padding and unchanged dark geometry, matching the Flutter mapping.
+- The source-exact macOS fixture exercised pointer and keyboard activation, visible focus, current/disabled AX semantics, page-size 25-to-50 Select propagation, routing to /topics?page=3, total clamping 250-to-63, single/empty states, light/dark/Forest palettes, Arabic RTL, constrained 216px content, 200% text and reduced motion. Inspected reviewer commit eb2fe331 fixture SHA-256 9f6812dcbb4dce9ed6a6db93f00a06d5492fd3305b3729403896f7c14ecadd0f; build/copied kernel SHA-256 5af1cf6aceafa49a34c923a0a351e5b8f4e08ed37c9f73f25010366dcea19d39; isolated ad-hoc identity org.discourse.pagination.review.eb2fe331 verified without team identity. The harness-only MediaQuery correction was rebuilt and signature-verified at 6a3fbe6a (fixture 7edba68232f0e62a6818943eed2d2cd922569e66013a0f21f795188732b42865; kernel 3ae4143ca55457e0701e1882a81a6adfefde3319b29d06ee82d9f417d4402ead), while the true sub-640 behavior is covered by the widget suite.
+
+**limitations**
+
+- Native acceptance covered macOS only; no iOS/Linux device or spoken VoiceOver pass was performed.
+- No authenticated production surface was opened. The repository audit found no appropriate existing bounded-page consumer; Data Table is the first prepared consumer and retains its own server/manual paging adapter.
+- After the Mac auto-locked, the corrected review-harness bundle could not be relaunched. The unchanged Pagination implementation had already completed native inspection; only the harness toggle's corrected MediaQuery simulation remained covered by analyzer/build/signature verification and the sub-640 widget regression.
 
 ### calendar
 
@@ -3156,3 +3189,4 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+
