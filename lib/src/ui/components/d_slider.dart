@@ -368,6 +368,8 @@ class _DMultiSliderState extends State<DMultiSlider> {
         widget.onChangeEnd?.call(List.unmodifiable(widget.values));
       }
     });
+    // A rejected proposal or an endpoint key may not rebuild the parent.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   KeyEventResult _key(int index, KeyEvent event) {
