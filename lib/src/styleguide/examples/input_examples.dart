@@ -17,11 +17,14 @@ final inputExamples = ComponentExamples(
       'and status controls. File selection uses the native host picker and '
       'returns display names; it never uploads data. Reference base-nova: '
       '32px minimum height, 14/20px desktop type, 10px horizontal inset and '
-      '3px focus/invalid ring. Large text grows naturally.',
+      '3px focus/invalid ring. The full box takes the text cursor and focuses '
+      'from its inset; the ring appears immediately while colors ease. Large '
+      'text grows naturally.',
   examples: [
     StyleguideExample(
       title: 'Basic',
-      description: 'Enter text, select it, and use native copy and paste.',
+      description:
+          'Click anywhere in the box to enter text, select it, and use native copy and paste.',
       code: "DInput(hintText: 'Enter text')",
       builder: (_) => DInput(hintText: 'Enter text'),
       states: const ['Default', 'Focus', 'Selection', 'IME'],

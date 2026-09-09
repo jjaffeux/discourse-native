@@ -24,7 +24,9 @@ import 'd_label.dart';
 /// label. [semanticLabel] names the native editor without adding a visible
 /// label. Rich field layouts belong to Field; [prefix] and [suffix] are simple
 /// inline slots for application search/status controls, not Input Group's API.
-/// Multiline editing belongs to Textarea. Use [DFileInput] for file selection.
+/// The box is editable edge to edge: its padding takes the text cursor and a
+/// press there focuses the editor. Multiline editing belongs to Textarea. Use
+/// [DFileInput] for file selection.
 class DInput extends FormField<String> {
   DInput({
     super.key,
@@ -335,7 +337,10 @@ class _DInputState extends FormFieldState<String> {
             child: ExcludeSemantics(
               child: DLabel(
                 enabled: input.enabled,
-                style: const TextStyle(height: 19.25 / 14),
+                style: TextStyle(
+                  height: 19.25 / 14,
+                  color: isInvalid ? t.destructive : null,
+                ),
                 child: Text(input.labelText!),
               ),
             ),
@@ -380,17 +385,24 @@ class _InputHitTarget extends StatelessWidget {
   final bool touch;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => touch
-      ? GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          excludeFromSemantics: true,
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: DSpacing.touchTarget),
-            child: Align(heightFactor: 1, child: child),
-          ),
-        )
-      : child;
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.translucent,
+    excludeFromSemantics: true,
+    onTap: onTap,
+    child: MouseRegion(
+      cursor: onTap == null
+          ? SystemMouseCursors.forbidden
+          : SystemMouseCursors.text,
+      child: touch
+          ? ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: DSpacing.touchTarget,
+              ),
+              child: Align(heightFactor: 1, child: child),
+            )
+          : child,
+    ),
+  );
 }
 
 class _InputSurface extends StatelessWidget {
@@ -423,43 +435,52 @@ class _InputSurface extends StatelessWidget {
         : t.colors.outlineVariant;
     final ring = invalid
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .4 : .2))
-        : t.focusRing.withValues(alpha: t.focusRing.a * .5);
+        : focused
+        ? t.focusRing.withValues(alpha: t.focusRing.a * .5)
+        : null;
     return Opacity(
       opacity: enabled || !fadeDisabled ? 1 : .5,
       child: IgnorePointer(
         ignoring: !enabled,
-        child: AnimatedContainer(
-          duration: DMotion.duration(
-            context,
-            const Duration(milliseconds: 150),
-          ),
-          constraints: const BoxConstraints(minHeight: 32),
-          padding: EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: verticalPadding,
-          ),
-          decoration: _InputSurfaceDecoration(
-            backgroundColor: dark
-                ? t.colors.outlineVariant.withValues(
-                    alpha: t.colors.outlineVariant.a * (enabled ? .3 : .8),
-                  )
-                : enabled
-                ? Colors.transparent
-                : t.colors.outlineVariant.withValues(
-                    alpha: t.colors.outlineVariant.a * .5,
-                  ),
-            borderRadius: borderRadius ?? BorderRadius.circular(t.radius),
-            borderColor: border,
-            joinedAxis: joinedAxis,
-            omitLeadingBorder: omitLeadingBorder,
-          ),
-          foregroundDecoration: _InputRingDecoration(
-            color: invalid || focused ? ring : ring.withValues(alpha: 0),
-            radius: borderRadius ?? BorderRadius.circular(t.radius),
-          ),
-          child: IconTheme.merge(
-            data: IconThemeData(size: 16, color: t.mutedForeground),
-            child: child,
+        // transition-colors eases the border and fill; the ring is a box
+        // shadow outside that property list, so it paints at once.
+        child: CustomPaint(
+          foregroundPainter: ring == null
+              ? null
+              : _InputRing(
+                  color: ring,
+                  radius: borderRadius ?? BorderRadius.circular(t.radius),
+                ),
+          child: AnimatedContainer(
+            duration: DMotion.duration(
+              context,
+              const Duration(milliseconds: 150),
+            ),
+            curve: Curves.fastOutSlowIn,
+            constraints: const BoxConstraints(minHeight: 32),
+            padding: EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: verticalPadding,
+            ),
+            decoration: _InputSurfaceDecoration(
+              backgroundColor: dark
+                  ? t.colors.outlineVariant.withValues(
+                      alpha: t.colors.outlineVariant.a * (enabled ? .3 : .8),
+                    )
+                  : enabled
+                  ? Colors.transparent
+                  : t.colors.outlineVariant.withValues(
+                      alpha: t.colors.outlineVariant.a * .5,
+                    ),
+              borderRadius: borderRadius ?? BorderRadius.circular(t.radius),
+              borderColor: border,
+              joinedAxis: joinedAxis,
+              omitLeadingBorder: omitLeadingBorder,
+            ),
+            child: IconTheme.merge(
+              data: IconThemeData(size: 16, color: t.mutedForeground),
+              child: child,
+            ),
           ),
         ),
       ),
@@ -552,44 +573,21 @@ class _InputSurfacePainter extends BoxPainter {
   }
 }
 
-/// Paint only the exterior annulus: a spread shadow would also tint the
-/// translucent input fill. Keeping a Decoration preserves color interpolation.
-class _InputRingDecoration extends Decoration {
-  const _InputRingDecoration({required this.color, required this.radius});
+/// Paints only the exterior annulus: a spread shadow would also tint the
+/// translucent input fill behind the text.
+class _InputRing extends CustomPainter {
+  const _InputRing({required this.color, required this.radius});
   final Color color;
   final BorderRadius radius;
   @override
-  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
-      _InputRingPainter(this);
-  @override
-  Decoration? lerpFrom(Decoration? a, double t) => a is _InputRingDecoration
-      ? _InputRingDecoration(
-          color: Color.lerp(a.color, color, t)!,
-          radius: BorderRadius.lerp(a.radius, radius, t)!,
-        )
-      : super.lerpFrom(a, t);
-  @override
-  Decoration? lerpTo(Decoration? b, double t) => b is _InputRingDecoration
-      ? _InputRingDecoration(
-          color: Color.lerp(color, b.color, t)!,
-          radius: BorderRadius.lerp(radius, b.radius, t)!,
-        )
-      : super.lerpTo(b, t);
-}
-
-class _InputRingPainter extends BoxPainter {
-  _InputRingPainter(this.decoration);
-  final _InputRingDecoration decoration;
-  @override
-  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
-    final rect = offset & configuration.size!;
-    final inner = decoration.radius.toRRect(rect);
-    canvas.drawDRRect(
-      inner.inflate(3),
-      inner,
-      Paint()..color = decoration.color,
-    );
+  void paint(Canvas canvas, Size size) {
+    final inner = radius.toRRect(Offset.zero & size);
+    canvas.drawDRRect(inner.inflate(3), inner, Paint()..color = color);
   }
+
+  @override
+  bool shouldRepaint(_InputRing oldDelegate) =>
+      color != oldDelegate.color || radius != oldDelegate.radius;
 }
 
 /// Native file input. The host owns the picker and file handles; this field
