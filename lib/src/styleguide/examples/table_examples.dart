@@ -13,8 +13,8 @@ final tableExamples = ComponentExamples(
       'are immutable composition values, cells and caption are widgets. Import '
       'package:discourse_native/discourse_ui.dart. Tables do not add sorting, '
       'pagination or selection controls: those belong to Data Table and callers. '
-      'Actions compose DButton and a focus-restoring native MenuAnchor pending '
-      'Dropdown Menu. All examples use local data. Natural-width content '
+      'Actions compose the shared DButton and DDropdownMenu owners. All '
+      'examples use local data. Natural-width content '
       'scrolls horizontally; explicit columns can opt into wrapping. Child controls '
       'own keyboard focus, Form state, touch targets and menu restoration.',
   examples: [
@@ -221,48 +221,56 @@ class _TableActionsExampleState extends State<TableActionsExample> {
                   DTableCell(child: Text(product.$3)),
                   DTableCell(
                     alignment: AlignmentDirectional.centerEnd,
-                    child: MenuAnchor(
-                      childFocusNode: _focusNode(product.$1),
-                      onOpen: () => setState(() => _expanded = product.$1),
-                      onClose: () => setState(() => _expanded = null),
-                      menuChildren: [
-                        for (final action in ['Edit', 'Duplicate', 'Delete'])
-                          MenuItemButton(
-                            autofocus: action == 'Edit',
-                            onPressed: () => setState(() {
-                              final index = _products.indexWhere(
-                                (p) => p.$1 == product.$1,
-                              );
-                              if (action == 'Edit') {
-                                _products[index] = (
-                                  product.$1,
-                                  '${product.$2} (edited)',
-                                  product.$3,
+                    child: DDropdownMenu(
+                      onOpenChange: (open, _) =>
+                          setState(() => _expanded = open ? product.$1 : null),
+                      content: DDropdownMenuContent(
+                        semanticLabel: 'Actions for ${product.$2}',
+                        width: 144,
+                        children: [
+                          for (final action in ['Edit', 'Duplicate', 'Delete'])
+                            DDropdownMenuItem(
+                              variant: action == 'Delete'
+                                  ? DDropdownMenuItemVariant.destructive
+                                  : DDropdownMenuItemVariant.standard,
+                              onPressed: () => setState(() {
+                                final index = _products.indexWhere(
+                                  (p) => p.$1 == product.$1,
                                 );
-                              }
-                              if (action == 'Duplicate') {
-                                _products.insert(index + 1, (
-                                  _nextId++,
-                                  '${product.$2} (copy)',
-                                  product.$3,
-                                ));
-                              }
-                              if (action == 'Delete') _products.removeAt(index);
-                              _status = '$action: ${product.$2}';
-                            }),
-                            child: Text(action),
-                          ),
-                      ],
-                      builder: (context, controller, child) => DButton.iconOnly(
-                        variant: DButtonVariant.ghost,
-                        size: DButtonSize.regular,
-                        hasPopup: true,
-                        tooltip: 'Open menu for ${product.$2}',
-                        icon: const Icon(Icons.more_horiz),
+                                if (action == 'Edit') {
+                                  _products[index] = (
+                                    product.$1,
+                                    '${product.$2} (edited)',
+                                    product.$3,
+                                  );
+                                }
+                                if (action == 'Duplicate') {
+                                  _products.insert(index + 1, (
+                                    _nextId++,
+                                    '${product.$2} (copy)',
+                                    product.$3,
+                                  ));
+                                }
+                                if (action == 'Delete') {
+                                  _products.removeAt(index);
+                                }
+                                _status = '$action: ${product.$2}';
+                              }),
+                              child: Text(action),
+                            ),
+                        ],
+                      ),
+                      child: DDropdownMenuTrigger(
                         focusNode: _focusNode(product.$1),
-                        onPressed: () => controller.isOpen
-                            ? controller.close()
-                            : controller.open(),
+                        builder: (context, trigger) => DButton.iconOnly(
+                          variant: DButtonVariant.ghost,
+                          size: DButtonSize.regular,
+                          hasPopup: true,
+                          tooltip: 'Open menu for ${product.$2}',
+                          icon: const Icon(Icons.more_horiz),
+                          focusNode: trigger.focusNode,
+                          onPressed: trigger.toggle,
+                        ),
                       ),
                     ),
                   ),
@@ -403,22 +411,20 @@ class _ProductTableState extends State<ProductTable> {
     body: DTableBody(rows: [for (final p in products)
       DTableRow(key: ValueKey(p.$1), expanded: expanded == p.$1, cells: [
         DTableCell(child: Text(p.$2)), DTableCell(child: Text(p.$3)),
-        DTableCell(alignment: AlignmentDirectional.centerEnd, child: MenuAnchor(
-          childFocusNode: focusNode(p.$1),
-          onOpen: () => setState(() => expanded = p.$1),
-          onClose: () => setState(() => expanded = null),
-          menuChildren: [for (final action in ['Edit', 'Duplicate', 'Delete'])
-            MenuItemButton(autofocus: action == 'Edit', onPressed: () => setState(() {
+        DTableCell(alignment: AlignmentDirectional.centerEnd, child: DDropdownMenu(
+          onOpenChange: (open, _) => setState(() => expanded = open ? p.$1 : null),
+          content: DDropdownMenuContent(children: [for (final action in ['Edit', 'Duplicate', 'Delete'])
+            DDropdownMenuItem(onPressed: () => setState(() {
               final i = products.indexWhere((item) => item.$1 == p.$1);
               if (action == 'Edit') products[i] = (p.$1, '${p.$2} (edited)', p.$3);
               if (action == 'Duplicate') products.insert(i + 1, (nextId++, '${p.$2} (copy)', p.$3));
               if (action == 'Delete') products.removeAt(i);
             }), child: Text(action)),
-          ],
-          builder: (context, menu, child) => DButton(
-            focusNode: focusNode(p.$1),
-            onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-            label: Text('Open menu for ${p.$2}')),
+          ]),
+          child: DDropdownMenuTrigger(focusNode: focusNode(p.$1),
+            builder: (context, menu) => DButton(
+              focusNode: menu.focusNode, onPressed: menu.toggle,
+              label: Text('Open menu for ${p.$2}'))),
         )),
       ]),
       if (products.isEmpty) const DTableRow(cells: [DTableCell(columnSpan: 3, child: Text('No products'))]),

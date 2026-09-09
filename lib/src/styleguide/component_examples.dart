@@ -7,6 +7,7 @@ import 'examples/card_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/dropdown_menu_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
@@ -43,6 +44,7 @@ final componentExamples = <String, ComponentExamples>{
   'avatar': avatarExamples,
   'badge': badgeExamples,
   'direction': directionExamples,
+  'dropdown-menu': dropdownMenuExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
