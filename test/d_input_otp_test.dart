@@ -9,8 +9,9 @@ Widget host(
   TextDirection direction = TextDirection.ltr,
   double textScale = 1,
   TargetPlatform platform = TargetPlatform.macOS,
+  ThemeData? theme,
 }) => MaterialApp(
-  theme: ThemeData(platform: platform),
+  theme: theme ?? ThemeData(platform: platform),
   home: MediaQuery(
     data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
     child: Directionality(
@@ -375,6 +376,50 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('live font and radius changes preserve value and focus', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: '1');
+    final focus = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focus.dispose);
+    final base = ThemeData(platform: TargetPlatform.macOS);
+    final firstTokens = DTokens.fromTheme(base).copyWith(radius: 6);
+    final secondTokens = firstTokens.copyWith(radius: 12);
+
+    ThemeData themed(String family, DTokens tokens) => base.copyWith(
+      textTheme: base.textTheme.apply(fontFamily: family),
+      extensions: [tokens],
+    );
+
+    Widget sample(ThemeData theme) => host(
+      DInputOTP(maxLength: 4, controller: controller, focusNode: focus),
+      theme: theme,
+    );
+
+    await tester.pumpWidget(sample(themed('First family', firstTokens)));
+    focus.requestFocus();
+    await tester.pump();
+    await tester.pumpWidget(sample(themed('Second family', secondTokens)));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(controller.text, '1');
+    expect(focus.hasFocus, isTrue);
+    final slot = tester.widget<AnimatedContainer>(
+      find.byType(AnimatedContainer).first,
+    );
+    final decoration = slot.decoration! as BoxDecoration;
+    expect(
+      decoration.borderRadius,
+      const BorderRadius.horizontal(left: Radius.circular(12)),
+    );
+    final glyph = find.descendant(
+      of: find.byType(DInputOTPSlot).first,
+      matching: find.text('1'),
+    );
+    expect(tester.widget<Text>(glyph).style!.fontFamily, 'Second family');
+  });
 
   testWidgets('custom composition keeps one editor and separator semantics', (
     tester,

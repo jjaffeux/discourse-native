@@ -510,15 +510,18 @@ class DInputOTPSlot extends StatelessWidget {
     this.width = 32,
     this.height = 32,
     this.fontSize = DiscourseTypography.sm,
+    this.lineHeight,
   }) : assert(index >= 0),
        assert(width > 0),
-       assert(height > 0);
+       assert(height > 0),
+       assert(lineHeight == null || lineHeight > 0);
 
   final int index;
   final bool invalid;
   final double width;
   final double height;
   final double fontSize;
+  final double? lineHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -563,8 +566,9 @@ class DInputOTPSlot extends StatelessWidget {
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .4 : .2))
         : t.focusRing.withValues(alpha: t.focusRing.a * .5);
     final scaler = MediaQuery.textScalerOf(context);
-    final lineHeight = scaler.scale(fontSize * (20 / 14));
-    final effectiveHeight = math.max(height, lineHeight + 12);
+    final resolvedLineHeight = lineHeight ?? fontSize * (20 / 14);
+    final scaledLineHeight = scaler.scale(resolvedLineHeight);
+    final effectiveHeight = math.max(height, scaledLineHeight + 12);
     // A Latin OTP glyph is roughly .6em wide. Preserve the 32/44px source
     // widths until the scaled glyph would actually collide with its inset.
     final effectiveWidth = math.max(width, scaler.scale(fontSize * .6) + 12);
@@ -602,7 +606,7 @@ class DInputOTPSlot extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 color: t.foreground,
                 fontSize: fontSize,
-                height: 20 / fontSize,
+                height: resolvedLineHeight / fontSize,
                 fontWeight: FontWeight.w400,
                 letterSpacing: 0,
               ),

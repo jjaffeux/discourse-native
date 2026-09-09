@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final inputOTPExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'An accessible one-time-code editor projected into composable visual slots.',
   notes:
@@ -12,8 +12,8 @@ final inputOTPExamples = ComponentExamples(
       'autofill. Groups, slots and separators only project its state. The API '
       'supports local, controlled or borrowed-controller ownership, character '
       'patterns, paste transforms, completion, Form validation/save/reset, '
-      'disabled and invalid states. Source verification is complete; status '
-      'remains baseline until the independent rendered/native review.',
+      'disabled and invalid states. The independent review measured the live '
+      'Base UI render and verified the isolated macOS fixture.',
   examples: [
     StyleguideExample(
       title: 'Default',
@@ -374,18 +374,21 @@ class _OTPFormExampleState extends State<_OTPFormExample> {
                               width: 44,
                               height: 48,
                               fontSize: 20,
+                              lineHeight: 28,
                             ),
                             DInputOTPSlot(
                               index: 1,
                               width: 44,
                               height: 48,
                               fontSize: 20,
+                              lineHeight: 28,
                             ),
                             DInputOTPSlot(
                               index: 2,
                               width: 44,
                               height: 48,
                               fontSize: 20,
+                              lineHeight: 28,
                             ),
                           ],
                         ),
@@ -399,18 +402,21 @@ class _OTPFormExampleState extends State<_OTPFormExample> {
                               width: 44,
                               height: 48,
                               fontSize: 20,
+                              lineHeight: 28,
                             ),
                             DInputOTPSlot(
                               index: 4,
                               width: 44,
                               height: 48,
                               fontSize: 20,
+                              lineHeight: 28,
                             ),
                             DInputOTPSlot(
                               index: 5,
                               width: 44,
                               height: 48,
                               fontSize: 20,
+                              lineHeight: 28,
                             ),
                           ],
                         ),

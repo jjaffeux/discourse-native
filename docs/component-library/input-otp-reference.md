@@ -31,7 +31,7 @@ Captured **2026-09-09** for the catalogue frozen on 2026-09-08.
 | invalid destructive border/ring | Destructive border; outside-only three-pixel annulus at 20% light / 40% dark multiplied alpha. |
 | caret `h-4 w-px`, 1000ms cycle | 1×16 caret with a 500ms reverse half-cycle; remains visible under reduced motion. |
 | separator 16px Minus icon | 16×16 custom-painted round-capped two-pixel minus; no Material icon metrics. |
-| Form slots `w-11 h-12 text-xl`, separator `mx-2` | 44×48 slots, 20px text, eight-pixel separator insets. A horizontal viewport preserves exact geometry below its 296px intrinsic width. |
+| Form slots `w-11 h-12 text-xl`, separator `mx-2` | 44×48 slots, 20px text with measured 28px leading, eight-pixel separator insets. A horizontal viewport preserves exact geometry below its 296px intrinsic width. |
 
 Focus and invalid rings are painted only outside their surface; no spread shadow
 tints the translucent dark fill. Colors, font family and radius are read during
@@ -84,6 +84,27 @@ errors in their domain owner.
 - Focused tests cover paste, pattern, completion, selection/deletion, controlled
   updates, borrowed lifecycle, autofill configuration, Form validation/save/reset,
   disabled behavior, semantics, pointer slot selection, RTL and 200% text.
-- Actual official browser render comparison and first native macOS inspection
-  remain mandatory for the independent reviewer. No iOS/Linux device or spoken
-  VoiceOver claim is made.
+- Independent browser inspection measured the live Base UI default slot at
+  32×32, 14/20 text, 1px border and 10px radius, the focused 3px ring, and the
+  Form slot at 44×48 with 20/28 text. The measured Form leading corrected the
+  earlier 20px Flutter line box; the exact 296px composition remains horizontally
+  reachable at the narrow preset.
+- The exact isolated macOS bundle at
+  `/private/tmp/input-otp-review-final/Input OTP Review.app` used identifier
+  `org.discourse.native.inputotp.review.final`; its built/copied kernel SHA-256
+  was `a589040ad9cae4432da1bae0daa73bf0e37fb5c372fa11389f2e196a88c37c20`.
+  Deep strict ad-hoc signing and the restricted-free debug entitlement readback
+  passed.
+- Native macOS inspection verified literal typing with transform/pattern
+  filtering, completion and Return submission counters, keyboard range
+  replacement, Backspace/Delete, visible validation, save/reset and resend,
+  one editable AX node per OTP composition, an inert disabled composition, and
+  the native Paste context menu. Light, dark, Forest and Plum palettes, 6/12px
+  host radii, LTR/RTL, 100/200 percent text, 448/320px width, reduced-motion
+  caret and the horizontally scrollable Form code were inspected.
+- The CUA native paste helper changed only its accessibility proxy value and did
+  not enter Flutter's TextInputFormatter/controller callback path. Paste
+  transform/filter order remains verified by focused widget tests; no native
+  paste-success claim is made. The proxy artifact was cleared by normal literal
+  typing and did not affect the visible Flutter value owner.
+- No iOS/Linux device or spoken VoiceOver claim is made.

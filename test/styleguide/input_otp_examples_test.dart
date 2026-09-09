@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('registers every frozen documented composition', () {
     expect(componentExamples['input-otp'], same(inputOTPExamples));
-    expect(inputOTPExamples.status, ComponentStatus.baseline);
+    expect(inputOTPExamples.status, ComponentStatus.implemented);
     expect(
       inputOTPExamples.examples.map((example) => example.title),
       containsAll([
@@ -88,6 +88,11 @@ void main() {
         ),
       ),
     );
+    final largeSlots = tester.widgetList<DInputOTPSlot>(
+      find.byType(DInputOTPSlot),
+    );
+    expect(largeSlots, hasLength(6));
+    expect(largeSlots.every((slot) => slot.lineHeight == 28), isTrue);
     await tester.tap(find.widgetWithText(DButton, 'Verify'));
     await tester.pump();
     expect(find.text('Enter all six digits'), findsOneWidget);

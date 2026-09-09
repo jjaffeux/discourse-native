@@ -25,6 +25,9 @@ class _InputOTPReviewState extends State<_InputOTPReview> {
   bool _rtl = false;
   bool _reducedMotion = false;
   double _width = 448;
+  String _probeValue = '';
+  int _probeCompletions = 0;
+  int _probeSubmissions = 0;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -95,6 +98,40 @@ class _InputOTPReviewState extends State<_InputOTPReview> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Text(
+                      'Native interaction probe',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    DInputOTP(
+                      maxLength: 6,
+                      value: _probeValue,
+                      pattern: dInputOTPAlphanumeric,
+                      keyboardType: TextInputType.text,
+                      inputTransformer: (value) => value.toUpperCase(),
+                      semanticLabel: 'Native interaction probe',
+                      onChanged: (value) => setState(() => _probeValue = value),
+                      onCompleted: (_) => setState(() => _probeCompletions++),
+                      onSubmitted: (_) => setState(() => _probeSubmissions++),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        DButton(
+                          label: const Text('Clear probe'),
+                          size: DButtonSize.extraSmall,
+                          variant: DButtonVariant.outline,
+                          onPressed: () => setState(() => _probeValue = ''),
+                        ),
+                        Text(
+                          'Value: ${_probeValue.isEmpty ? 'empty' : _probeValue}; '
+                          'completed: $_probeCompletions; submitted: $_probeSubmissions',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
                     for (final example in inputOTPExamples.examples) ...[
                       Text(
                         example.title,
