@@ -1155,7 +1155,8 @@ class _RenderPopover extends RenderShiftedBox {
     }
     var dx = offset.dx;
     var dy = offset.dy;
-    if (config.sideCollision == DPopoverCollision.shift) {
+    if (config.sideCollision == DPopoverCollision.shift ||
+        (customPlacement && config.sideCollision != DPopoverCollision.none)) {
       if (placedVertical) {
         dy = dy.clamp(
           boundary.top,

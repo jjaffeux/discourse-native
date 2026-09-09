@@ -62,6 +62,49 @@ void main() {
     }
   });
 
+  testWidgets('open options inherit live theme changes', (tester) async {
+    final dark = ValueNotifier(false);
+    final optionKey = GlobalKey();
+    addTearDown(dark.dispose);
+    await tester.pumpWidget(
+      ValueListenableBuilder<bool>(
+        valueListenable: dark,
+        builder: (context, value, child) => MaterialApp(
+          theme: value ? AppTheme.dark : AppTheme.light,
+          home: Scaffold(
+            body: Center(
+              child: DSelect<String>(
+                initialValue: 'apple',
+                semanticLabel: 'Fruit',
+                entries: [
+                  DSelectOption(
+                    value: 'apple',
+                    label: 'Apple',
+                    child: SizedBox(key: optionKey, child: const Text('Apple')),
+                  ),
+                ],
+                onChanged: _noopString,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Apple'));
+    await tester.pumpAndSettle();
+    final lightBackground = DTokens.of(optionKey.currentContext!).background;
+
+    dark.value = true;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DPopoverContent), findsOneWidget);
+    expect(
+      DTokens.of(optionKey.currentContext!).background,
+      isNot(lightBackground),
+    );
+  });
+
   testWidgets(
     'keyboard opens, highlights with typeahead, selects and restores focus',
     (tester) async {
