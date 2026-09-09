@@ -23,7 +23,7 @@ Branch preparation does not mark a component merged or visually verified.
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
 | select | Implementation and checks | — | — |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
-| input-group | Implementation and checks | — | — |
+| input-group | Implementation and checks | — | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
 | button-group | independent review | — | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
 | command | Implementation and checks | — | — |
 | dropdown-menu | Implementation and checks | — | — |
@@ -2136,12 +2136,48 @@ Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/u
 - Reproduce the frozen Base UI/base-nova Input Group documented composition, addon alignments, icon/text/button/Kbd/Dropdown/Spinner/Textarea/custom-input/RTL examples and complete public API; record source hashes and visual/behavior mapping.
 - Compose final shared DInput, DTextarea, DButton, DKbd and DSpinner owners with unified surfaces, precise focus/error geometry, independent addon actions, bounded native editor semantics and preserved controller/Form/focus/IME lifecycle.
 - Support live host palettes/font/radius, keyboard and touch, narrow/scaled/RTL layouts and reduced motion; demonstrate every documented state and required final-owner composition.
+- Expose the joined input/action geometry required by Button Group so its local Input Group handoff fixture can be replaced without reducing example coverage, preserving independent input and button semantics, focus, actions, RTL and scaling.
 - Audit and migrate appropriate core/plugin compound fields and existing prototype compositions, preserving domain behavior; coordinate Empty, Field and Button Group directly and document retained alternatives.
 - Run meaningful focused component/consumer tests and root/full-profile analysis, prepare source-exact production fixtures, then create a new reviewer to complete official browser/native acceptance and local main merge. Every prepared dependency must first be accepted and merged in main.
 
 **decisions**
 
-- Source preparation may overlap Textarea final review using pinned committed source; acceptance and final main merge remain gated on the accepted parent revision. The implementer creates its own independent review/merge task.
+- Prepared source initially included Textarea review commit 4ca5aaa85681ced6dd2668a8158b7551ee176f73; current main including accepted Textarea merge 6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3 was integrated before handoff.
+- DInputGroup owns only the joined border/fill/focus-within/invalid surface. DInputGroupInput subclasses DInput and DInputGroupTextarea subclasses DTextarea; DInputGroupControlScope suppresses standalone surfaces while preserving editor/Form/controller/focus/IME owners.
+- DInput and DTextarea gained a non-visual semanticLabel for grouped controls so accessible names do not require visible labels. Standalone labels, helpers, validation and existing app migrations remain unchanged.
+- DInputGroupAddon supports inline-start, inline-end, block-start and block-end logical alignment. Addon taps focus the control, while nested DInputGroupButton instances retain independent DButton actions and semantics.
+- DInputGroupButton composes DButton with input-group xs/icon-xs/sm/icon-sm sizing and host-radius-minus-3 button radius, exposing the public composition needed by Button Group's handoff fixture.
+- Independent review found that reading FocusNode.hasFocus without subscribing left the shared exterior ring stale. DInputGroup now owns only a listener subscription for each reported node, repaints on focus changes and removes subscriptions on replacement/disposal. Group-level enabled=false now dims and excludes focus/pointer/editing for composed controls.
+- Grouped DInput/DTextarea contribute only their native editor to the joined surface. Standalone label/helper/error/counter presentation is suppressed inside the border; the accepted Field owner supplies supporting content outside, while Form validation still reports the group's invalid state without changing its height.
+
+**migrations**
+
+- Registered public barrel export and nine actual Input Group styleguide examples.
+- Spinner's former local Input Group validation example now composes public DInputGroup/DInputGroupInput/DInputGroupTextarea/DInputGroupButton while preserving inline spinner, block footer, validation, disabled and local send behavior.
+- Empty's accepted functional search example now composes DInputGroup/DInputGroupInput/addons while preserving its Form validation, save, submit and local result behavior.
+- Button Group's local handoff fixture is in its separate worktree and must be replaced by that reviewer after this implementation commit/reviewer ID are available.
+
+**retainedAlternatives**
+
+- Dropdown, Popover and Field examples use local non-overlay stand-ins where adjacent owners are still unmerged; no duplicate overlay/menu/Form owner is introduced.
+- Rich Chat/post composer editors remain specialized production owners until their catalogue Input Group/Bubble/Message composer migrations are audited by the relevant owners.
+
+**verification**
+
+- Focused implementation, Spinner and accepted Empty reconciliation passed: flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart test/styleguide/spinner_examples_test.dart test/styleguide/empty_examples_test.dart --test-randomize-ordering-seed=497094161 (30 tests). Coverage includes compact 32px inline geometry, touch hit bounds, custom-control invalid reporting, block textarea footer, Form save/reset/validation, independent editor/button semantics/actions, narrow 320px RTL at 200% text across Light/Dark/Forest/Plum, Spinner compositions, and Empty search validation/submission.
+- Affected Input/Textarea regression set passed: flutter test --no-pub test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart --test-randomize-ordering-seed=3777303596 (38 tests).
+- Migrated Chat search consumers passed full-file verification: flutter test --no-pub test/chat_navigation_test.dart test/chat_shell_integration_test.dart --test-randomize-ordering-seed=79316425 (172 tests).
+- Root flutter analyze --no-pub passed; profiles/full flutter analyze --no-pub passed; git diff --check passed.
+- Independent review focus/disabled fixes: 32 Input Group/Spinner/Empty tests passed with seed 723193665; 38 Input/Textarea regression tests passed with seed 3041037913; all 172 chat_navigation + chat_shell_integration tests passed with seed 4069762123. A follow-up 10-test Input Group run passed with seed 405269569 after making the full mobile 48px wrapper tappable outside its centered 32px artwork. Root analysis passed clean in 14.2s and locked full-profile analysis passed clean in 1.5s; formatting and git diff --check passed.
+- tool/input_group_review_main.dart analyzes clean and mounts the real offline application, styleguide, and three migrated Chat search surfaces using only in-memory fakes for source-exact macOS inspection.
+- The isolated offline macOS fixture built successfully from clean component source 40798af67b0e2eed1cbd97fcc7d29c854065983d (tree d73ac320a706c7ed22ec5ea7299d1be4d6e6499c). Source and copied kernel SHA256 both equal 32fbfcb5bf9a4ace77e72775b43497cf8d73a7728f0b1deba988ab2f5de02d3e. /private/tmp/InputGroupReview-40798af6.app uses unique ID org.discourse.native.inputgroup.40798af6 and scheme discourse-input-group-40798af6; deep strict ad-hoc signature and restricted-free entitlement readback passed. Evidence: evidence/input-group/native-preparation.json. The bundle is queued and has not yet been launched.
+- After suppressing standalone supporting blocks inside the joined surface, 38 Input Group/Input/Textarea tests passed with seed 1200028115. The regression verifies Form invalid semantics without interior error text or height change.
+
+**limitations**
+
+- Official browser-rendered comparison and native macOS inspection have not been performed in this implementation task.
+- Final acceptance must reconcile accepted-main Field, Button Group, Dropdown Menu and Popover owner compositions without reducing either owner's frozen examples; direct handoffs were sent to their implementation/review tasks.
+- No iOS/Linux device or spoken VoiceOver verification.
 
 ### button-group
 
