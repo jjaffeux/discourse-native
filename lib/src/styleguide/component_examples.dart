@@ -3,6 +3,7 @@ import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
 import 'examples/button_examples.dart';
+import 'examples/button_group_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
@@ -69,6 +70,7 @@ final componentExamples = <String, ComponentExamples>{
   'tabs': tabsExamples,
   'toggle': toggleExamples,
   'button': buttonExamples,
+  'button-group': buttonGroupExamples,
   'tooltip': tooltipExamples,
   'select': baselineSelectExamples,
 };

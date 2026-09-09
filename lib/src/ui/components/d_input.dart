@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_label.dart';
@@ -209,6 +210,13 @@ class _DInputState extends FormFieldState<String> {
 
   Widget _build() {
     final t = DTokens.of(context);
+    final joined = DJoinedControlScope.maybeOf(context);
+    final radius =
+        joined?.resolveRadius(
+          BorderRadius.circular(t.radius),
+          Directionality.of(context),
+        ) ??
+        BorderRadius.circular(t.radius);
     final error = input.errorText ?? errorText;
     final isInvalid = input.invalid || error != null;
     final touch = switch (Theme.of(context).platform) {
@@ -248,6 +256,9 @@ class _DInputState extends FormFieldState<String> {
             enabled: input.enabled,
             invalid: isInvalid,
             focused: _focus.hasFocus,
+            borderRadius: radius,
+            joinedAxis: joined?.axis,
+            omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
             child: TextFieldTapRegion(
               child: Row(
                 children: [
@@ -366,11 +377,17 @@ class _InputSurface extends StatelessWidget {
     required this.enabled,
     required this.invalid,
     required this.focused,
+    this.borderRadius,
+    this.joinedAxis,
+    this.omitLeadingBorder = false,
     this.verticalPadding = 5,
     this.fadeDisabled = true,
   });
   final Widget child;
   final bool enabled, invalid, focused;
+  final BorderRadius? borderRadius;
+  final Axis? joinedAxis;
+  final bool omitLeadingBorder;
   final double verticalPadding;
   final bool fadeDisabled;
   @override
@@ -399,8 +416,8 @@ class _InputSurface extends StatelessWidget {
             horizontal: 10,
             vertical: verticalPadding,
           ),
-          decoration: BoxDecoration(
-            color: dark
+          decoration: _InputSurfaceDecoration(
+            backgroundColor: dark
                 ? t.colors.outlineVariant.withValues(
                     alpha: t.colors.outlineVariant.a * (enabled ? .3 : .8),
                   )
@@ -409,12 +426,14 @@ class _InputSurface extends StatelessWidget {
                 : t.colors.outlineVariant.withValues(
                     alpha: t.colors.outlineVariant.a * .5,
                   ),
-            borderRadius: BorderRadius.circular(t.radius),
-            border: Border.all(color: border),
+            borderRadius: borderRadius ?? BorderRadius.circular(t.radius),
+            borderColor: border,
+            joinedAxis: joinedAxis,
+            omitLeadingBorder: omitLeadingBorder,
           ),
           foregroundDecoration: _InputRingDecoration(
             color: invalid || focused ? ring : ring.withValues(alpha: 0),
-            radius: t.radius,
+            radius: borderRadius ?? BorderRadius.circular(t.radius),
           ),
           child: IconTheme.merge(
             data: IconThemeData(size: 16, color: t.mutedForeground),
@@ -426,12 +445,97 @@ class _InputSurface extends StatelessWidget {
   }
 }
 
+class _InputSurfaceDecoration extends Decoration {
+  const _InputSurfaceDecoration({
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.borderRadius,
+    required this.joinedAxis,
+    required this.omitLeadingBorder,
+  });
+
+  final Color backgroundColor;
+  final Color borderColor;
+  final BorderRadius borderRadius;
+  final Axis? joinedAxis;
+  final bool omitLeadingBorder;
+
+  @override
+  EdgeInsetsGeometry get padding => const EdgeInsets.all(1);
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _InputSurfacePainter(this);
+
+  @override
+  Decoration? lerpFrom(Decoration? a, double t) => a is _InputSurfaceDecoration
+      ? _InputSurfaceDecoration(
+          backgroundColor: Color.lerp(a.backgroundColor, backgroundColor, t)!,
+          borderColor: Color.lerp(a.borderColor, borderColor, t)!,
+          borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
+          joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
+          omitLeadingBorder: t < .5 ? a.omitLeadingBorder : omitLeadingBorder,
+        )
+      : super.lerpFrom(a, t);
+
+  @override
+  Decoration? lerpTo(Decoration? b, double t) =>
+      b is _InputSurfaceDecoration ? b.lerpFrom(this, t) : super.lerpTo(b, t);
+}
+
+class _InputSurfacePainter extends BoxPainter {
+  const _InputSurfacePainter(this.decoration);
+  final _InputSurfaceDecoration decoration;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final rect = offset & configuration.size!;
+    final rrect = decoration.borderRadius.toRRect(rect);
+    canvas.drawRRect(rrect, Paint()..color = decoration.backgroundColor);
+    final outline = rrect.deflate(.5);
+    final borderPaint = Paint()
+      ..color = decoration.borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    if (!decoration.omitLeadingBorder || decoration.joinedAxis == null) {
+      canvas.drawRRect(outline, borderPaint);
+      return;
+    }
+    final direction = configuration.textDirection ?? TextDirection.ltr;
+    final clip = switch (decoration.joinedAxis!) {
+      Axis.vertical => Rect.fromLTRB(
+        rect.left - 1,
+        rect.top + 1.01,
+        rect.right + 1,
+        rect.bottom + 1,
+      ),
+      Axis.horizontal when direction == TextDirection.rtl => Rect.fromLTRB(
+        rect.left - 1,
+        rect.top - 1,
+        rect.right - 1.01,
+        rect.bottom + 1,
+      ),
+      Axis.horizontal => Rect.fromLTRB(
+        rect.left + 1.01,
+        rect.top - 1,
+        rect.right + 1,
+        rect.bottom + 1,
+      ),
+    };
+    canvas
+      ..save()
+      ..clipRect(clip)
+      ..drawRRect(outline, borderPaint)
+      ..restore();
+  }
+}
+
 /// Paint only the exterior annulus: a spread shadow would also tint the
 /// translucent input fill. Keeping a Decoration preserves color interpolation.
 class _InputRingDecoration extends Decoration {
   const _InputRingDecoration({required this.color, required this.radius});
   final Color color;
-  final double radius;
+  final BorderRadius radius;
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
       _InputRingPainter(this);
@@ -439,14 +543,14 @@ class _InputRingDecoration extends Decoration {
   Decoration? lerpFrom(Decoration? a, double t) => a is _InputRingDecoration
       ? _InputRingDecoration(
           color: Color.lerp(a.color, color, t)!,
-          radius: a.radius + (radius - a.radius) * t,
+          radius: BorderRadius.lerp(a.radius, radius, t)!,
         )
       : super.lerpFrom(a, t);
   @override
   Decoration? lerpTo(Decoration? b, double t) => b is _InputRingDecoration
       ? _InputRingDecoration(
           color: Color.lerp(color, b.color, t)!,
-          radius: radius + (b.radius - radius) * t,
+          radius: BorderRadius.lerp(radius, b.radius, t)!,
         )
       : super.lerpTo(b, t);
 }
@@ -457,10 +561,7 @@ class _InputRingPainter extends BoxPainter {
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     final rect = offset & configuration.size!;
-    final inner = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(decoration.radius),
-    );
+    final inner = decoration.radius.toRRect(rect);
     canvas.drawDRRect(
       inner.inflate(3),
       inner,
