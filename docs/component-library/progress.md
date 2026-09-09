@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**17 of 64 components are merged locally.** 17 existing components are in progress; 30 are planned.
+**18 of 64 components are merged locally.** 16 existing components are in progress; 30 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -19,7 +19,6 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
 | textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
-| switch | independent review | b851adbb | 01a08558-4ae6-7db2-bdd6-ee3d564e1835 |
 | slider | independent review | bbd35fec | 01a08558-7a1d-7451-8024-e357bd0861e8 |
 | progress | independent review | 1c21a435 | 01a08558-73d7-7d01-9b97-39615e28df0e |
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
@@ -53,7 +52,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 11 | textarea | in_progress | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
 | 12 | checkbox | merged | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | 13466a062d19c247905ccc65adc615c8d0d6273d |
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
-| 14 | switch | review_ready | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | — |
+| 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | in_progress | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | — |
@@ -1018,7 +1017,7 @@ Status: merged. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/ui-rad
 
 ### switch
 
-Status: review_ready. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-switch.
+Status: merged. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-switch.
 
 **acceptanceCriteria**
 

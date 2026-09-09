@@ -882,7 +882,7 @@
     },
     {
       "id": "switch",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
       "branch": "codex/ui-switch",
       "dependencies": [
@@ -962,12 +962,13 @@
         "Native rejected/deferred controlled Form reset remains widget-test coverage; native fixture verified external controlled update and ordinary Form reset. Voice confirmation dismissed without recording. Inspected bundle retains baseline badge; status-only promotion does not alter controls."
       ],
       "implementationCommit": "3243a88cf2a9a1cfee96af7877386379089ab6c5",
-      "mergeCommit": null,
+      "mergeCommit": "e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d",
       "nativeInspectionStatus": "completed",
       "browserInspectionStatus": "completed",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
-      "reviewBranch": "codex/review-switch"
+      "reviewBranch": "codex/review-switch",
+      "reviewedBranchHead": "d3059c1b1d2c1597942f4b8f7325d557bdd3027b"
     },
     {
       "id": "toggle",
@@ -2664,15 +2665,6 @@
       "nextComponents": [],
       "activeTasks": [
         {
-          "component": "switch",
-          "taskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
-          "branch": "codex/review-switch",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/904d/discourse-native",
-          "headCommit": "b851adbbf69778fd437b296b66492bfee7973125",
-          "status": "independent_review",
-          "implementationTaskId": "01a083ce-319b-7bc3-a5c9-371087710718"
-        },
-        {
           "component": "scroll-area",
           "taskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
           "branch": "codex/review-scroll-area",
@@ -2884,7 +2876,8 @@
       },
       "switch": {
         "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-        "status": "resolved_awaiting_native_review",
+        "status": "resolved_and_merged",
+        "mergeCommit": "e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d",
         "issue": "After the completed source/browser corrections, Radio actual exports identified BoxShadow rings tinting translucent interiors. Switch still uses BoxShadow for track and card rings; its dark invalid export shows a red-filled unchecked track. Verify against reference-dark-invalid and replace rings with exterior-only strokes, preserving observed dual ring geometry and actual input fill. Also remove or narrowly adapt the unconditional 48px DSwitchTile content minimum on pointer platforms; its whole label row is clickable and native touch targets do not justify much taller desktop reference examples. Preserve touch48 and necessary app-adapter spacing."
       },
       "native-select": {
@@ -2958,17 +2951,6 @@
       "leaseTool": "tool/component_review_lock.py",
       "futureHandoff": "Each implementation creates a new reviewer Codex task that owns completion and local main merge.",
       "reviewTasks": [
-        {
-          "component": "switch",
-          "title": "Review and merge Switch",
-          "taskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/904d/discourse-native",
-          "branch": "codex/review-switch",
-          "implementationTaskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-          "implementationBranch": "codex/ui-switch",
-          "status": "in_progress"
-        },
         {
           "component": "scroll-area",
           "title": "Review and merge Scroll Area",
