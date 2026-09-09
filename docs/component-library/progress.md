@@ -569,6 +569,7 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Actual CUA Chrome reference comparison completed at1270x847 and360x700 against exact current Flutter widget-test exports, including six variants, all sizes/icons/loading, settled hover/focus and Arabic RTL. Evidence/metrics/harness in docs/component-library/evidence/button; detailed findings in button-rendered-comparison.md. Browser viewport reset, original dark theme restored and tab closed.
 - After rendered-comparison fixes,218 Button/styleguide/adoption/PollCard/UserSummary tests passed;11 final focused tests passed after Arabic example; root/full-profile analysis and font-loaded export harness pass.
 - Compared implementation 6db474b8c16529a28d77a168d9ac9dc4fb885647 rebuilt and source-byte-verified in unlaunched /private/tmp/DiscourseButtonReview-3a88-v3.app; unique V3 ID/scheme and deep strict signature pass. Kernel SHA256 9e8e0376cc234c8be9299212620d118ca2a27b7b7ce3737b432318d8eb20ba9d. V3 supersedes earlier native review bundles.
+- Coordinator inspected the saved actual dark reference Size screenshot and final neutral-dark and Plum 360px/200%/RTL Flutter exports at source 6db474b8. Compact surface/icon sizes and grouped layout agree with recorded metrics; font width/rasterizer and native-runtime caveats remain explicit. This is source/rendered review, not native acceptance or merge approval.
 
 **limitations**
 
