@@ -735,7 +735,7 @@
       ],
       "implementationCommit": "0df1b03ca000166c1901825b001dbad750b04ce6",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "source_review_follow_up"
     },
     {
       "id": "radio-group",
@@ -867,13 +867,29 @@
         "Pass focused regressions, root/full analysis and isolated traceable macOS build; require exclusive rendered/native review before review_ready."
       ],
       "decisions": [
-        "Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot."
+        "Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.",
+        "Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.",
+        "Range is 0\u2013100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.",
+        "Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "migrations": [
+        "15 linear indicator sites across 14 core/Chat/Assign/Events files; retain fractional upload/update max:1, thin strip geometry, domain colors and async ownership. See implementation.md for exact audit.",
+        "Extracted real read-only UpdateDownloadProgress for update sheet and offline fixture; fixture also mounts ComposerUploadQueue with in-memory uploader, EventUnavailableCard and BadgesPage."
+      ],
+      "retainedAlternatives": [
+        "DSpinner, group/skeleton activity, poll result bars, topic progress and media timelines retain different semantics; other bundled plugins contain no matching linear indicator.",
+        "Vendored video_player_avfoundation example source unchanged. Slider integration pending its separate task; Button/Input/Badge overlapping edits require coordinator reconciliation."
+      ],
+      "verification": [
+        "Root/full locked pub get and root/full analyze --no-pub pass; no lockfile/pin/dependency/runner source changes.",
+        "302 focused tests passed, seed 9092026; after timing/typography/example refinements 10 component/example/fixture cases passed again. Commands and logs recorded in implementation.md.",
+        "Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034."
+      ],
+      "limitations": [
+        "No native/reference rendered comparison or CUA use before exclusive desktop slot; not review_ready. No iOS/Linux device or spoken VoiceOver verification.",
+        "Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only."
+      ],
+      "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },
@@ -1930,7 +1946,7 @@
       "01a083ac-5fd5-78b1-9263-7e3218a878b6",
       "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
       "01a083ad-3168-7c01-b35a-7271f9fe6326",
-      "01a083ad-91cf-7e91-9083-a861d5c4fa28"
+      "01a083ce-313e-7f70-a1a8-e645f31235c8"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -2008,11 +2024,13 @@
           "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f"
         },
         {
-          "component": "progress",
-          "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
-          "branch": "codex/ui-progress",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cfac/discourse-native",
-          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f"
+          "component": "checkbox",
+          "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
+          "branch": "codex/ui-checkbox",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/132a/discourse-native",
+          "headCommit": "cf63e6f7d2b25510c16961d182ba539a2246c949",
+          "status": "coordinator_source_review",
+          "reviewIssue": "Keep controlled Form save/validation consistent immediately after rejected changes and resets, before another frame."
         }
       ],
       "nativeReadyTasks": [
@@ -2041,11 +2059,11 @@
           "status": "awaiting_native_review"
         },
         {
-          "component": "checkbox",
-          "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
-          "branch": "codex/ui-checkbox",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/132a/discourse-native",
-          "headCommit": "cf63e6f7d2b25510c16961d182ba539a2246c949",
+          "component": "progress",
+          "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+          "branch": "codex/ui-progress",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cfac/discourse-native",
+          "headCommit": "c296e0e1a4e39438351f0a672496d8538f0c3e29",
           "status": "awaiting_native_review"
         }
       ]
