@@ -410,4 +410,32 @@ void main() {
     expect(outside.getSemanticsData().flagsCollection.isTextField, isFalse);
     handle.dispose();
   });
+
+  testWidgets('custom control uses addon-aware joined padding', (tester) async {
+    const controlKey = ValueKey('custom-control');
+    await tester.pumpWidget(
+      host(
+        DInputGroup(
+          children: [
+            const DInputGroupAddon(child: Text('@')),
+            DInputGroupControl(
+              builder: (context, focusNode) =>
+                  const SizedBox(key: controlKey, height: 20),
+            ),
+            const DInputGroupAddon(
+              alignment: DInputGroupAddonAlignment.inlineEnd,
+              child: Text('.com'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final padding = tester.widget<Padding>(
+      find
+          .ancestor(of: find.byKey(controlKey), matching: find.byType(Padding))
+          .first,
+    );
+    expect(padding.padding, const EdgeInsets.fromLTRB(6, 5, 6, 5));
+  });
 }

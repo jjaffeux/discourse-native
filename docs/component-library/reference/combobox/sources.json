@@ -1,0 +1,17 @@
+{
+  "capturedAt": "2026-09-09",
+  "frozenDocumentation": {
+    "url": "https://ui.shadcn.com/docs/components/base/combobox.md",
+    "sha256": "1999428362ac7386c7770217e5b48e1a44c2b414005f9721ef68b9366e9ef0f2"
+  },
+  "baseNovaRegistry": {
+    "url": "https://ui.shadcn.com/r/styles/base-nova/combobox.json",
+    "sha256": "d4b9231b00428269f6fa42bf3e26714f15c69245f35b62d1bbae6d1a4853d314",
+    "sourcePath": "registry/base-nova/ui/combobox.tsx",
+    "dependencies": ["button", "input-group"]
+  },
+  "baseUiApi": {
+    "url": "https://base-ui.com/react/components/combobox.md",
+    "sha256": "0ef20214794c6e06ddae5f448fa37f598f2e5ff92e0602993ad31eeffa68ca27"
+  }
+}

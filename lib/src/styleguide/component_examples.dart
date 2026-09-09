@@ -12,6 +12,7 @@ import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
+import 'examples/combobox_examples.dart';
 import 'examples/command_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
@@ -60,6 +61,7 @@ final componentExamples = <String, ComponentExamples>{
   'textarea': textareaExamples,
   'input-group': inputGroupExamples,
   'collapsible': collapsibleExamples,
+  'combobox': comboboxExamples,
   'command': commandExamples,
   'input': inputExamples,
   'radio-group': radioGroupExamples,
