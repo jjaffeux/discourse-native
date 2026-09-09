@@ -63,17 +63,19 @@ The styleguide registers nine actual examples:
 - Inline/block alignments.
 - Text addons.
 - Button actions / Button Group handoff.
-- Kbd and spinner.
+- Kbd, dropdown, and spinner.
 - Textarea footer.
 - Custom input.
 - Form validation and reset.
 - RTL.
 
 Empty's functional search example now uses the final Input Group while
-preserving its Form validation, save, submission and local state. Dropdown,
-Popover and Field overlays remain separate catalogue owners. Their
-Input Group examples use local non-overlay stand-ins until those owners merge;
-this avoids importing unmerged branches or duplicating overlay components.
+preserving its Form validation, save, submission and local state. The Form
+example composes the accepted Field owner around the group without wrapping its
+multiple independently interactive children in `DFieldControl`. The keyboard
+example composes the accepted Dropdown Menu and Popover lifecycle directly;
+the editor retains its value and focus ownership while the menu trigger retains
+its own focus, expanded semantics and actions.
 
 ## Verification
 
@@ -96,21 +98,22 @@ The regression suite checks the actual parent decoration replacement on focus,
 the disabled editor state/opacity/focus exclusion, and listener lifecycle through
 the existing focus-node replacement and teardown coverage.
 
-- `flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart test/styleguide/spinner_examples_test.dart test/styleguide/empty_examples_test.dart --test-randomize-ordering-seed=497094161` passed: 30 tests.
-- `flutter test --no-pub test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart --test-randomize-ordering-seed=3777303596` passed: 38 tests.
-- `flutter test --no-pub test/chat_navigation_test.dart test/chat_shell_integration_test.dart --test-randomize-ordering-seed=79316425` passed: 172 tests.
+- The final affected matrix covering Input Group, Input, Textarea, Field,
+  Dropdown Menu, Popover, Spinner, Empty and all three Chat search migrations
+  passed 290 tests with randomization seed `314159265`.
+- The accepted Input API reconciliation and Chat consumers separately passed
+  210 tests with randomization seed `42424242`; obsolete `editorKey` usage was
+  replaced by ordinary widget keys without changing editor ownership.
 - `flutter analyze --no-pub` passed.
 - `cd profiles/full && flutter analyze --no-pub` passed.
 - `git diff --check` passed.
 
-Noted but not modified: `test/d_spinner_test.dart` currently fails an isolated
-loading-button color expectation unrelated to the Input Group/Spinner styleguide
-fixture replacement.
-
 Official light/dark browser comparison and exact-bundle native macOS inspection
-are recorded in `evidence/input-group/native-review.md`. The final dependency
-reconciliation must re-run affected verification and then perform the local
-main merge under the review protocol.
+are recorded in `evidence/input-group/native-review.md`. The accepted Field and
+Dropdown Menu reconciliation changed only catalogue composition around the
+unchanged inspected Input Group/editor behavior; their final-owner behavior and
+the composition are covered by the affected widget matrix, so the source-exact
+native pass remains valid under the review protocol.
 
 The independent reviewer added `tool/input_group_review_main.dart`, an isolated
 offline entry point that mounts the real application, accepted styleguide and
@@ -119,12 +122,14 @@ account or network request and is the source-exact macOS inspection target.
 
 ## Coordination
 
-Textarea dependency:
+Accepted dependencies:
 
-- Prepared review source included in this branch: `4ca5aaa85681ced6dd2668a8158b7551ee176f73`.
-- Textarea reviewer: `01a08558-7a1f-7ba0-b3be-a27b46bc2b42`.
-- Final Input Group acceptance is gated on the accepted Textarea main revision,
-  not only this prepared source pin.
+- Textarea is accepted on main at `6fbecbcefe1cac3fcbe15f8b9af20fa0569682d3`.
+- Field is accepted at `5cd7f3694498e4e09e3c114639baca834b56705e`
+  with tracking commit `1001ed005ade4aec0d5f5346473054fb976d2260`.
+- Dropdown Menu is accepted at `5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787`
+  with tracking commit `a5ad2b5883e7b16e1ef3535f8836b5a86581c2bd`.
+- Popover is accepted at `dc6ab75f` with tracking commit `365e093a`.
 
 Button Group dependency:
 
