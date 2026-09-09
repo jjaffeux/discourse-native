@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final scrollAreaExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Native scrolling with compact, themed draggable scrollbars.',
   notes:
-      'Browser reference and widget exports reviewed; native comparison is queued. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork uses the live border token.',
+      'Browser reference, widget exports and the isolated macOS fixture were reviewed. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork uses the live border token.',
   examples: [
     StyleguideExample(
       title: 'Tags',

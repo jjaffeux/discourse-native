@@ -1,8 +1,31 @@
-# Scroll Area native queue — awaiting_slot
+# Scroll Area native review
 
-No native desktop slot has been granted. The Mac remains locked; no native app
-was launched or inspected. Browser-only review was completed and released; see
-scroll-area-render-review.md. This record establishes native build readiness only.
+The independent reviewer launched and inspected the exact-source isolated macOS
+bundle on 2026-09-09 under the shared desktop lease. Browser-only comparison had
+already completed; see scroll-area-render-review.md.
+
+## Independent native acceptance
+
+- Tags matched the recorded 192×288 composition in light and dark themes; the
+  RTL example put its compact scrollbar on the leading (left) edge.
+- Native wheel scrolling and vertical thumb dragging reached both ends. The
+  horizontal photograph example rendered the bundled 150×200 images and its
+  bottom thumb dragged between the first and last artwork.
+- Combined overflow rendered independent vertical and horizontal thumbs with a
+  transparent 10px corner. Its editable child remained independently exposed in
+  the native accessibility tree.
+- The real migrated Sidebar and Code fixtures scrolled on their retained native
+  viewports. Alerts and Diagnostics rendered their ready states; Diagnostics
+  showed independently exposed controls and unclipped rows after the main-owned
+  row-sizing fix.
+- The accessibility tree exposed fixture navigation, styleguide navigation,
+  images and the combined example text field as separate controls/content.
+
+The reviewer closed the isolated window and released the desktop lease. No
+VoiceOver session, iOS/Linux device, touch-device, or native trackpad claim is
+made. Keyboard behavior, resize/controller replacement, reduced motion and
+large-text variants remain covered by the focused widget and rendered-export
+evidence below rather than being relabeled as native device checks.
 
 ## Final build provenance
 

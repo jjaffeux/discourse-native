@@ -72,8 +72,9 @@ bounded thumbs on their existing viewport edges and preserved content layouts.
   rendering of the real widgets, not authenticated production state or platform
   services. Some large-text long content extends below the captured window and
   remains in its existing scroll owner.
-- No native trackpad, VoiceOver, device, or pixel-parity claim is made. The Mac
-  remained locked. Keep in_progress / awaiting_slot until native inspection.
+- No native trackpad, VoiceOver, device, or pixel-parity claim is made from this
+  browser/render pass. The later isolated macOS acceptance is recorded in
+  scroll-area-native.md.
 
 The export runner reports fixture rendering errors explicitly as artifacts;
 its success is not a claim that every production large-text layout passed.

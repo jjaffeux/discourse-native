@@ -1,4 +1,4 @@
-# Scroll Area port — native review pending
+# Scroll Area port
 
 Frozen scope: 2026-09-08 Base UI/base-nova Scroll Area. Current official registry,
 Markdown examples, and Base UI Thumb/Scrollbar/Viewport/constants sources were
@@ -28,8 +28,9 @@ bundled with attribution, without runtime network requests. Host font family,
 palette and radius stay live; the reference determines explicit text metrics.
 
 Browser/render-export comparison is recorded in scroll-area-render-review.md.
-Native visual inspection still awaits a desktop slot; widget exports are not
-native screenshots.
+The independent review launched the exact-source isolated macOS bundle and
+accepted the native rendering and interaction described in
+scroll-area-native.md; widget exports remain supporting, not native, evidence.
 
 ## API and native adaptations
 
@@ -109,6 +110,6 @@ large-text RTL examples and migrated production behavior. Root and full-profile
 analysis and enforced lockfile resolution are required. See progress row and
 scroll-area-native.md for final commands/build provenance.
 
-The component stays in_progress and its styleguide status remains baseline until
-actual reference-rendered comparison and native inspection pass. No iOS/Linux
-device, VoiceOver or pixel-parity claim is made from widget tests.
+The styleguide entry is implemented after the reference-rendered and isolated
+macOS native reviews passed. No iOS/Linux device, VoiceOver or pixel-parity
+claim is made from widget tests.
