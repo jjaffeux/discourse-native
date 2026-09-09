@@ -180,6 +180,32 @@ void main() {
     expect(find.text('October 2026'), findsOneWidget);
   });
 
+  testWidgets('controlled displayed month updates caption and grid together', (
+    tester,
+  ) async {
+    late StateSetter rebuild;
+    var month = september;
+    await pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          rebuild = setState;
+          return DCalendar(
+            displayedMonth: month,
+            captionLayout: DCalendarCaptionLayout.dropdown,
+          );
+        },
+      ),
+    );
+
+    rebuild(() => month = DCalendarDate(2026, 12, 1));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dec'), findsOneWidget);
+    expect(find.bySemanticsLabel('Tuesday, December 1, 2026'), findsOneWidget);
+    expect(find.bySemanticsLabel('Tuesday, September 1, 2026'), findsNothing);
+  });
+
   testWidgets('controller clears selection and replacement adopts new state', (
     tester,
   ) async {

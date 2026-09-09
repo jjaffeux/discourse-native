@@ -704,7 +704,14 @@ class _DCalendarState extends State<DCalendar> {
     final next = DCalendarDate(value.year, value.month, 1);
     if (!_canShow(next)) return;
     final changed = next != _month;
-    if (widget.displayedMonth == null) setState(() => _month = next);
+    if (widget.displayedMonth == null) {
+      setState(() => _month = next);
+    } else if (!notify) {
+      // A controlled value is only adopted when its owner rebuilds. Keeping the
+      // internal month in sync here also updates captions and navigation bounds,
+      // not only the underlying Kalender page.
+      _month = next;
+    }
     _controller._sync(displayedMonth: next);
     _syncPages(next);
     if (changed && notify) widget.onDisplayedMonthChanged?.call(next);
