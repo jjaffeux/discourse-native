@@ -1406,25 +1406,47 @@ void _registerShellNavigationTests() {
       await pumpShell(tester, desktop);
 
       final add = find.byKey(const ValueKey('add-instance-rail-button'));
+      final outline = find.byKey(const ValueKey('add-instance-rail-outline'));
       final firstForum = find.byKey(ValueKey(twoSites.first.url));
       final lastForum = find.byKey(ValueKey(twoSites.last.url));
+      final theme = Theme.of(tester.element(add));
 
       final button = tester.widget<DButton>(add);
-      expect(button.variant, DButtonVariant.outline);
+      expect(button.variant, DButtonVariant.ghost);
       expect(button.insetSurface, isTrue);
       expect(button.size, DButtonSize.small);
+      expect(button.borderRadius, BorderRadius.circular(10));
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);
       expect(
         tester.getCenter(lastForum).dy - tester.getCenter(firstForum).dy,
         44,
       );
       expect(tester.getCenter(add).dy - tester.getCenter(lastForum).dy, 44);
+      expect(tester.getSize(outline), const Size.square(32));
+      expect(
+        outline,
+        paints
+          ..path(
+            color: theme.shell.marker.withValues(alpha: 0.35),
+            strokeWidth: 1.5,
+            style: PaintingStyle.stroke,
+          )
+          ..path(
+            color: theme.shell.marker.withValues(alpha: 0.35),
+            strokeWidth: 1.5,
+            style: PaintingStyle.stroke,
+          ),
+      );
 
       final plus = tester.widget<DIcon>(
         find.descendant(of: add, matching: find.dIcon(DIcons.plus)),
       );
       expect(plus.size, 16);
-      expect(plus.color, isNull);
+      expect(plus.color, theme.shell.marker);
+      expect(
+        find.descendant(of: lastForum, matching: find.byType(DAvatar)),
+        findsNothing,
+      );
       final data = tester.getSemantics(add).getSemanticsData();
       expect(data.label, 'Add a Discourse site');
       expect(data.flagsCollection.isButton, isTrue);
