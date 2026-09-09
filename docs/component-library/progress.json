@@ -2056,12 +2056,12 @@
     },
     {
       "id": "sheet",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
       "branch": "codex/ui-sheet",
       "reviewTaskId": "01a0862f-b27f-76d2-a441-8a77594aedc8",
       "reviewBranch": "codex/review-sheet",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "dependencies": [
         "dialog"
       ],
@@ -2104,6 +2104,7 @@
         "Independent review compared the actual current ui.shadcn.com Base Sheet in Chrome at 1024x768 and 320x640 in light, dark and RTL. It confirmed all four physical sides, 75%/384px side sizing, half-height top/bottom panels, 16px padding, 16/24px medium title, 14/20px description, 28px close at a 12px corner inset, one-pixel edge borders, black/10 backdrop, shadow, and 200ms edge travel. Current live RTL places the close at logical end, while this frozen contract intentionally retains physical right as required by the recorded acceptance criteria.",
         "Independent review corrections a186d44e, 2f3377fe and ca13c40b keep capped top/bottom sheets reachable above a keyboard, expose the complete Voice loading/empty/ready/load-older/send lifecycle, align title geometry and documented examples with the actual rendered reference, and remove the footer action from No Close Button. A randomized combined Sheet/Dialog/styleguide/Voice run passed all 36 tests with seed 42969643; root and profiles/full analysis passed without diagnostics.",
         "After accepted Drawer merge 3e75cd97 and follow-up 2da829fc, the final randomized Dialog/Drawer/Sheet/styleguide/Voice integration gate passed all 121 tests with seed 895818677. Root analysis passed without diagnostics in 14.3s, profiles/full analysis passed without diagnostics in 2.9s, and git diff --check passed.",
+        "After Calendar completed on main at 17b1be15, the final Sheet/Dialog/styleguide integration rerun passed all 37 tests with seed 3461778030 and root analysis passed without diagnostics in 16.8s. The Sheet merge preserves Calendar and every other accepted concurrent component.",
         "Exact reviewed source ca13c40b built as /private/tmp/discourse-sheet-review-ca13c40b/Sheet Review ca13c40b.app with identifier org.discourse.native.sheet.ca13c40b, kernel SHA-256 28b9a4b4113d641673fea889d7644f6c6a1a884681740816d084afe5f5f51b20, a strict deep ad-hoc signature, and exactly the seven permitted debug entitlements. Native macOS inspection confirmed the default typed edit/save result, all four sides, independent fields, fixed corner and footer controls, no-close composition, outside-click and Escape dismissal, physical-left Arabic panel with the required physical-right close, and accessible labels/actions."
       ],
       "limitations": [
@@ -2111,13 +2112,13 @@
         "The current live reference moves its RTL close button to logical end, differing from the frozen explicit Sheet contract that requires physical top/right. Drag/snap/detent behavior intentionally remains outside Sheet and with Drawer."
       ],
       "implementationCommit": "b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a",
-      "mergeCommit": null,
+      "mergeCommit": "b67f0068104b922ec0e80170643eddced6e27c37",
       "reviewBuildSource": "ca13c40b49ff50aa5b73f6225aa94f9428a46fda",
       "bundle": "/private/tmp/discourse-sheet-review-ca13c40b/Sheet Review ca13c40b.app",
       "kernelSHA256": "28b9a4b4113d641673fea889d7644f6c6a1a884681740816d084afe5f5f51b20",
       "nativeInspectionStatus": "completed",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9bc6/discourse-native",
-      "queueStage": "independent_review_complete",
+      "queueStage": "merged",
       "implementationBrief": "Implement the complete Sheet anatomy and side/dismissal API, including top/bottom/left/right or logical sides, No Close Button and RTL examples. Reuse accepted Dialog route/session/focus/dismissal ownership and live caller-scoped theme. Match shadcn size, border, close-button, header/footer and motion rather than inheriting a Material bottom-sheet appearance. Preserve controlled/local/controller lifecycle, nested overlays, typed results, outside/Escape/back policies, focus entry/restoration, safe areas, keyboard insets and scroll/narrow/scaled behavior. Audit actual core/plugin side and bottom panels, and coordinate adoption ownership with the separately queued Drawer task so neither overwrites the other's callers. Drawer owns its gesture/snap semantics; Sheet remains its documented component. Add focused route/focus/dismissal/live-theme/adoption regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/sheet",

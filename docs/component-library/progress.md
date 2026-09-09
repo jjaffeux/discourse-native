@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**48 of 64 components are merged locally.** 16 existing components are in progress; 0 are planned.
+**49 of 64 components are merged locally.** 15 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -18,7 +18,6 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | alert-dialog | Implementation and checks | — | — |
-| sheet | independent review | 88e3e8c2 | 01a0862f-b27f-76d2-a441-8a77594aedc8 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | combobox | independent review | 55dcf257 | 01a08628-7889-7dd2-a93c-c854fcdf1e9a |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
@@ -70,7 +69,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 31 | hover-card | merged | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | de39686f2a5d75651ef37268edb44adb6376cd7c |
 | 32 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 33 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
-| 34 | sheet | review_ready | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
+| 34 | sheet | merged | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | b67f0068104b922ec0e80170643eddced6e27c37 |
 | 35 | drawer | merged | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | 3e75cd97e91d04e2719c8adda5e669ed5dc9e3c1 |
 | 36 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
 | 37 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
@@ -2051,7 +2050,7 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 
 ### sheet
 
-Status: review_ready. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/ui-sheet.
+Status: merged. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/ui-sheet.
 
 **acceptanceCriteria**
 
@@ -2097,6 +2096,7 @@ Status: review_ready. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/
 - Independent review compared the actual current ui.shadcn.com Base Sheet in Chrome at 1024x768 and 320x640 in light, dark and RTL. It confirmed all four physical sides, 75%/384px side sizing, half-height top/bottom panels, 16px padding, 16/24px medium title, 14/20px description, 28px close at a 12px corner inset, one-pixel edge borders, black/10 backdrop, shadow, and 200ms edge travel. Current live RTL places the close at logical end, while this frozen contract intentionally retains physical right as required by the recorded acceptance criteria.
 - Independent review corrections a186d44e, 2f3377fe and ca13c40b keep capped top/bottom sheets reachable above a keyboard, expose the complete Voice loading/empty/ready/load-older/send lifecycle, align title geometry and documented examples with the actual rendered reference, and remove the footer action from No Close Button. A randomized combined Sheet/Dialog/styleguide/Voice run passed all 36 tests with seed 42969643; root and profiles/full analysis passed without diagnostics.
 - After accepted Drawer merge 3e75cd97 and follow-up 2da829fc, the final randomized Dialog/Drawer/Sheet/styleguide/Voice integration gate passed all 121 tests with seed 895818677. Root analysis passed without diagnostics in 14.3s, profiles/full analysis passed without diagnostics in 2.9s, and git diff --check passed.
+- After Calendar completed on main at 17b1be15, the final Sheet/Dialog/styleguide integration rerun passed all 37 tests with seed 3461778030 and root analysis passed without diagnostics in 16.8s. The Sheet merge preserves Calendar and every other accepted concurrent component.
 - Exact reviewed source ca13c40b built as /private/tmp/discourse-sheet-review-ca13c40b/Sheet Review ca13c40b.app with identifier org.discourse.native.sheet.ca13c40b, kernel SHA-256 28b9a4b4113d641673fea889d7644f6c6a1a884681740816d084afe5f5f51b20, a strict deep ad-hoc signature, and exactly the seven permitted debug entitlements. Native macOS inspection confirmed the default typed edit/save result, all four sides, independent fields, fixed corner and footer controls, no-close composition, outside-click and Escape dismissal, physical-left Arabic panel with the required physical-right close, and accessible labels/actions.
 
 **limitations**
