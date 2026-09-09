@@ -18,6 +18,7 @@ import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
+import 'examples/message_examples.dart';
 import 'examples/native_select_examples.dart';
 import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
@@ -58,6 +59,7 @@ final componentExamples = <String, ComponentExamples>{
   'avatar': avatarExamples,
   'badge': badgeExamples,
   'bubble': bubbleExamples,
+  'dialog': dialogExamples,
   'direction': directionExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
@@ -67,6 +69,7 @@ final componentExamples = <String, ComponentExamples>{
   'native-select': nativeSelectExamples,
   'progress': progressExamples,
   'marker': markerExamples,
+  'message': messageExamples,
   'popover': popoverExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
