@@ -1,6 +1,7 @@
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/card_examples.dart';
+import 'examples/checkbox_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/kbd_examples.dart';
@@ -15,6 +16,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'checkbox': checkboxExamples,
   'card': cardExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,

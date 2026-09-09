@@ -426,7 +426,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             _field('name'),
             _field('start'),
             _field('end'),
-            CheckboxListTile(
+            DCheckbox(
               contentPadding: EdgeInsets.zero,
               title: const DLabel(child: Text('All day')),
               value: _booleans['all-day'],
@@ -505,7 +505,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   if (!_textFields.containsKey(name)) _field(name),
                 for (final entry in _booleanFields.entries)
                   if (entry.key != 'all-day')
-                    CheckboxListTile(
+                    DCheckbox(
                       contentPadding: EdgeInsets.zero,
                       title: DLabel(child: Text(entry.value)),
                       value: _booleans[entry.key],

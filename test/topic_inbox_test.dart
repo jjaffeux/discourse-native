@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -631,7 +632,7 @@ void main() {
             find.byKey(const ValueKey('topic-header-edit-tags')),
             findsNothing,
           );
-          expect(find.byType(Checkbox), findsNothing);
+          expect(find.byType(DCheckbox), findsNothing);
           await tester.tap(
             find.byKey(
               const ValueKey(('topic-header-tag-option', 'region-27')),
@@ -1701,7 +1702,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('# region-27'), findsOneWidget);
-    expect(find.byType(Checkbox), findsNothing);
+    expect(find.byType(DCheckbox), findsNothing);
     expect(setup.api.topicTagsUpdated, isEmpty);
     expect(setup.controller.currentTopic!.tags, hasLength(27));
     expect(tester.takeException(), isNull);

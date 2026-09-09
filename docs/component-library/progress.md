@@ -21,7 +21,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 9 | badge | planned | — | — | spinner | — |
 | 10 | input | planned | — | — | label | — |
 | 11 | textarea | planned | — | — | label | — |
-| 12 | checkbox | planned | — | — | label | — |
+| 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
 | 13 | radio-group | planned | — | — | label | — |
 | 14 | switch | planned | — | — | label | — |
 | 15 | toggle | planned | — | — | button | — |
@@ -649,6 +649,50 @@ Status: merged. Task: 01a0825a-9fe1-7700-878c-f448801c0851. Branch: codex/ui-lab
 - iOS and Linux are uninspected on devices. A wireless iPhone was detected but has not been run. No new native platform dependency is introduced.
 - The macOS styleguide route exposed only its native search field through the CUA accessibility snapshot. Preview semantics are verified by widget tests; production dialog/view snapshots exposed the named control states. VoiceOver speech was not run.
 - Checkbox/Switch/TextFormField and baseline DButton visuals in Label examples are temporary until their catalogue tasks implement the reference controls. This task completes Label only and does not exempt those components or FieldDemo from shadcn fidelity.
+
+### checkbox
+
+Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/ui-checkbox.
+
+**acceptanceCriteria**
+
+- Match frozen Checkbox sections and base-nova 16px control, check/mixed artwork, borders, radius, focus and invalid states; record source hashes and rendered comparison.
+- Provide controlled/default state, native Focus/Space/semantics and FormField validation/save/reset with borrowed focus lifecycle, RTL, scaling, reduced motion and live palettes.
+- Migrate matching core/plugin checkboxes and multi-selection owners preserving permission, tri-state, callbacks and labels; document retained alternatives.
+- Provide actual interactive styleguide variants, group/table/form/error and narrow/200%/RTL/theme examples, preserving Sidebar shell.
+- Pass formatting, root/full-profile analysis and focused component/form/semantics/migration tests; inspect isolated native fixtures only in coordinator desktop slot before review_ready.
+
+**decisions**
+
+- Frozen Checkbox Markdown hash matches catalogue; base-nova Checkbox/Field and Base UI CheckboxRoot sources captured with hashes in checkbox.md.
+- Native FocusableActionDetector/Actions/Shortcuts/Semantics own interaction; pointer activation takes focus, mixed activates to checked without three-step cycling, and readOnly remains focusable without mutation. Borrowed focus nodes are not disposed.
+- DCheckbox controlled/default constructors and DCheckboxFormField controlled/default integration cover save/reset, validation and external-value ownership. DLabel composes titles with 8px gap; secondary interactive content retains independent focus/semantics.
+- Fixed 16px paint, 14px Lucide Check, 4px radius, token colors and explicit rings. Mixed uses a documented Minus extension pending visual review; pointer/touch targets reserve 40x32/48x48 native space.
+- Six actual-component styleguide examples cover basic, states, group, table, form recovery and RTL/long labels; Label examples migrated. Shared Sidebar shell remains unchanged.
+
+**migrations**
+
+- Core User Status, Invites, Post Flag, Topic Move, Users column visibility/reorder, Composer gallery, Group member selection, Topic post selection and Aggregate included forums.
+- Plugins Local Dates, Events, Voice privacy, Chat message selection and Poll multiple-choice rows. Bare selection controls gain accessible names; native shortcut guards recognize DCheckbox.
+- All application Checkbox/ListTile and manual check_box rendering migrated; imports/callbacks/permissions preserved. Poll button regions reserved for concurrent Button task.
+
+**retainedAlternatives**
+
+- Poll single-choice radio rows, switches/radios/segmented controls, menu checkmarks/status icons/reactions retain their distinct owners. Native Checkbox keyboard guards remain for third-party controls.
+
+**verification**
+
+- 392 focused tests passed with seed 734129, including two temporary stale Avatar-test cast corrections; those Avatar-only corrections were reverted for coordinator ownership, leaving the two known base Users test failures. No checkbox migration failures remain.
+- Root and full-profile flutter analyze --no-pub clean; both locked pub get runs succeeded without dependency changes.
+- Final Checkbox/Label focused tests: 34 passed (seed 927315), including readOnly, pointer focus transfer, mixed activation and caller-declined controlled-form updates. Bordered notification composition then passed all seven Checkbox example tests.
+- Initial isolated macOS debug build succeeded after config-only regenerated missing ephemeral Swift package. Final source-provenance rebuild and copied unique bundle being prepared; no CUA performed.
+- Additional Topic Inbox run: 98 passed, one compact-title Escape failure. Exact failing case reproduced on pristine base 2e894b5e in a temporary detached worktree; logs /tmp/checkbox-baseline-topic.log and /tmp/checkbox-topic-retry.log. Baseline worktree removed.
+
+**limitations**
+
+- Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.
+- Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
+- Known base tests pending coordinator: two Users Avatar ClipRRect casts and compact-title Escape restoration. No changes to those unrelated production owners.
 
 ### skeleton
 

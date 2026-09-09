@@ -3936,8 +3936,9 @@ class _PostTileState extends State<_PostTile> {
               Row(
                 children: [
                   if (selection.enabled) ...[
-                    Checkbox(
+                    DCheckbox(
                       key: ValueKey('topic-post-select-${post.id}'),
+                      semanticLabel: 'Select post by ${post.username}',
                       value: selection.selected,
                       onChanged: selection.busy
                           ? null

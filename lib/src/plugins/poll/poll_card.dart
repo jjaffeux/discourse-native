@@ -569,6 +569,43 @@ class _PollOptionRow extends StatelessWidget {
         ? ''
         : ', ${votes == 1 ? '1 vote' : '$votes votes'}, $percentage percent';
 
+    if (multiple) {
+      return DCheckbox(
+        value: selected,
+        onChanged: canSelect ? (_) => onTap() : null,
+        semanticLabel: '$plain$resultLabel',
+        contentPadding: const EdgeInsets.symmetric(vertical: 7),
+        title: ExcludeSemantics(
+          child: IgnorePointer(
+            child: ExcludeFocus(
+              child: CookedHtml(
+                html: option.html,
+                siteUrl: siteUrl,
+                textStyle: theme.textTheme.bodyLarge,
+              ),
+            ),
+          ),
+        ),
+        subtitle: votes == null || percentage == null
+            ? null
+            : ExcludeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${votes == 1 ? '1 vote' : '$votes votes'}, $percentage%',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: whisper,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _ResultBar(percentage: percentage!),
+                  ],
+                ),
+              ),
+      );
+    }
+
     return Semantics(
       container: true,
       button: canSelect,
@@ -591,13 +628,9 @@ class _PollOptionRow extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 1),
                       child: Icon(
-                        multiple
-                            ? (selected
-                                  ? Icons.check_box
-                                  : Icons.check_box_outline_blank)
-                            : (selected
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_unchecked),
+                        selected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
                         size: 22,
                         color: selected
                             ? Theme.of(context).colorScheme.primary

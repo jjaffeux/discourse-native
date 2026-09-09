@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../discourse_ui.dart' show DDirection, DSeparator;
+import '../../../discourse_ui.dart' show DCheckbox, DDirection, DSeparator;
 import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
 import '../../plugin_api/plugin_scope.dart';
@@ -218,6 +218,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
         widget is EditableText ||
         widget is ButtonStyleButton ||
         widget is IconButton ||
+        widget is DCheckbox ||
         widget is Checkbox ||
         widget is Radio ||
         widget is Switch ||

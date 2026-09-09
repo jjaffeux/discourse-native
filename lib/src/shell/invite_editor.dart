@@ -214,13 +214,10 @@ class _InviteEditorState extends State<InviteEditor> {
                 },
               ),
               if (_hasEmail && _settings.allowEmail) ...[
-                CheckboxListTile(
+                DCheckbox(
                   contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: DLabel(
-                    enabled: !_saving,
-                    child: const Text('Send invitation email'),
-                  ),
+
+                  title: const DLabel(child: Text('Send invitation email')),
                   value: _sendEmail,
                   onChanged: _saving
                       ? null

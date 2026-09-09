@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_card.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -580,11 +581,11 @@ void main() {
             expect(find.text('This poll is closed.'), findsOneWidget);
             expect(cast, findsNothing);
             expect(find.textContaining('Choose between'), findsNothing);
-            final ink = find.descendant(
+            final checkbox = find.descendant(
               of: option,
-              matching: find.byType(InkWell),
+              matching: find.byType(DCheckbox),
             );
-            expect(tester.widget<InkWell>(ink).onTap, isNull);
+            expect(tester.widget<DCheckbox>(checkbox).onChanged, isNull);
             expect(writes, 0);
             await deadline.expectIdle();
           });
