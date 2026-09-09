@@ -43,7 +43,7 @@ CSS pixels map to Flutter logical pixels at a 16px rem root and 100% text scale.
 | link | transparent / primary; underline on hover, no default underline |
 | focus-visible | 1px focusRing border with an outer 3px ring at 50% opacity; destructive ring at 20% light / 40% dark |
 | aria-invalid | destructive border; ring color 20% light / 40% dark, with 3px width only during focus-visible; invalid semantics |
-| transition-all | 150ms easeInOut for decoration; disabled when reduced motion is enabled |
+| transition-all | 150ms `cubic-bezier(.4, 0, .2, 1)` for decoration; disabled when reduced motion is enabled |
 | overflow-hidden | Rounded clipping of content inside the decoration; outer focus ring remains visible |
 
 The reference's fixed height/nowrap can cut off native large text. Labels wrap
@@ -56,7 +56,10 @@ font underline placement is retained. No stock Material Chip is used.
 ## Composition and interaction
 
 - `DBadge(child: ...)` is static, has no focus or activation owner, and can be
-  placed inside another control without adding a nested target.
+  placed inside another control without adding a nested target. Its text stays
+  selectable inside an enclosing SelectionArea, as the reference span has no
+  `select-none`. Only ghost and link paint a hover treatment on a static badge;
+  other static variants do not track the pointer and never rebuild under it.
 - `DBadge.action(onPressed: ...)` has button semantics, Enter and Space activation.
   `DBadge.link(onPressed: ..., url: ...)` has link semantics and Enter activation;
   URL is optional accessibility metadata and navigation belongs to the caller.

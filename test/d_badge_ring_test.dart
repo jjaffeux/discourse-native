@@ -157,7 +157,10 @@ void main() {
           );
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
-          await tester.pump(const Duration(milliseconds: 75));
+          // The 150ms cubic-bezier(.4, 0, .2, 1) transition is ~45% complete
+          // at 50ms, so the ring is 1-2px wide and the second exterior pixel
+          // is only partly covered.
+          await tester.pump(const Duration(milliseconds: 50));
           final halfway = await pixels();
           expect(halfway[0], idle[0]);
           await tester.pumpAndSettle();

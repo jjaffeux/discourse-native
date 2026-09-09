@@ -82,7 +82,7 @@ void main() {
     },
   );
   testWidgets(
-    'language switch changes direction and retains state through palette changes',
+    'language cycle covers the documented Arabic, English and Hebrew directions and retains state through palette changes',
     (tester) async {
       await _pump(tester, 5);
       expect(find.text('متحقق'), findsOneWidget);
@@ -95,6 +95,18 @@ void main() {
         Directionality.of(tester.element(find.text('Verified'))),
         TextDirection.ltr,
       );
+      await tester.tap(find.text('Use Hebrew'));
+      await tester.pump();
+      expect(find.text('מאומת'), findsOneWidget);
+      expect(find.text('סימנייה'), findsOneWidget);
+      expect(
+        Directionality.of(tester.element(find.text('מאומת'))),
+        TextDirection.rtl,
+      );
+      await tester.tap(find.text('Use Arabic'));
+      await tester.pump();
+      expect(find.text('متحقق'), findsOneWidget);
+      expect(find.text('إشارة مرجعية'), findsOneWidget);
     },
   );
 }
