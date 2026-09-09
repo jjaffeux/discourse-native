@@ -1,16 +1,13 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DAvatar;
-
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/anchored_picker.dart';
 import '../../shell/avatar_image.dart';
-import '../../shell/select.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_services.dart';

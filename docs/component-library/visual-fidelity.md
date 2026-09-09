@@ -47,6 +47,19 @@ currently gives them equal colors. CSS opacity modifiers multiply existing
 alpha: use `color.withValues(alpha: color.a * factor)`. Replacing alpha can make
 a translucent input background substantially brighter than the reference.
 
+Focus and invalid rings must paint outside the control. A Flutter `BoxShadow`
+with only `spreadRadius` also paints behind transparent or translucent content,
+which can tint an entire field/card/viewport. Use an exterior border stroke or
+equivalent outside-only painting, keeping the source ring width and radius.
+The Radio rendered comparison exposed this difference; inspect unchecked and
+translucent states as well as opaque selected surfaces.
+
+Keep desktop labeled rows as compact as the measured reference. An associated
+row already gives its indicator a larger clickable area; do not impose a
+standalone indicator's padded height or a 48px touch minimum on pointer layouts.
+Retain 48px touch bounds where required. Preserve any separately justified app
+row spacing in the app adapter rather than changing all generic examples.
+
 Use proven Flutter focus, semantics, keyboard, scrolling, selection and overlay
 owners. Style their visuals to match shadcn. Platform-specific spinner artwork,
 Material field outlines, or native switch shapes are not automatic substitutes

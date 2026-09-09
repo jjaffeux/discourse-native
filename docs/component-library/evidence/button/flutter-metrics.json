@@ -1,0 +1,1148 @@
+{
+  "flutter-neutral-light-primary": [
+    {
+      "size": "Size(67.1, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-outline": [
+    {
+      "size": "Size(70.5, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-secondary": [
+    {
+      "size": "Size(94.2, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-ghost": [
+    {
+      "size": "Size(62.2, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-destructive": [
+    {
+      "size": "Size(99.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-link": [
+    {
+      "size": "Size(50.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-outline-focus": [
+    {
+      "size": "Size(70.5, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-destructive-focus": [
+    {
+      "size": "Size(99.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-link-hover": [
+    {
+      "size": "Size(50.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-size": [
+    {
+      "size": "Size(82.8, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(55.8, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(70.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(60.2, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-neutral-light-with": [
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(123.2, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(72.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(100.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-neutral-light-spinner": [
+    {
+      "size": "Size(116.6, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(129.5, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(99.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-light-rtl": [
+    {
+      "size": "Size(31.9, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(52.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(73.6, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(120.2, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-primary": [
+    {
+      "size": "Size(67.1, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-outline": [
+    {
+      "size": "Size(70.5, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-secondary": [
+    {
+      "size": "Size(94.2, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-ghost": [
+    {
+      "size": "Size(62.2, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-destructive": [
+    {
+      "size": "Size(99.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-link": [
+    {
+      "size": "Size(50.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-outline-focus": [
+    {
+      "size": "Size(70.5, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-destructive-focus": [
+    {
+      "size": "Size(99.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-link-hover": [
+    {
+      "size": "Size(50.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-size": [
+    {
+      "size": "Size(82.8, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(55.8, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(70.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(60.2, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-neutral-dark-with": [
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(123.2, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(72.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(100.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-neutral-dark-spinner": [
+    {
+      "size": "Size(116.6, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(129.5, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(99.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-neutral-dark-rtl": [
+    {
+      "size": "Size(31.9, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(52.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(73.6, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(120.2, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-light-variants-rtl200": [
+    {
+      "size": "Size(112.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(114.0, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(163.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(98.7, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(174.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(69.3, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-light-size-rtl200": [
+    {
+      "size": "Size(147.6, 34.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(89.6, 47.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(119.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(98.4, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-light-rich-rtl200": [
+    {
+      "size": "Size(220.0, 122.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(232.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(239.3, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(105.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    }
+  ],
+  "flutter-light-rtl-rtl200": [
+    {
+      "size": "Size(41.8, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(83.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(105.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(198.4, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-dark-variants-rtl200": [
+    {
+      "size": "Size(112.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(114.0, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(163.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(98.7, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(174.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(69.3, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-dark-size-rtl200": [
+    {
+      "size": "Size(147.6, 34.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(89.6, 47.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(119.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(98.4, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-dark-rich-rtl200": [
+    {
+      "size": "Size(220.0, 122.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(232.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(239.3, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(105.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    }
+  ],
+  "flutter-dark-rtl-rtl200": [
+    {
+      "size": "Size(41.8, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(83.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(105.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(198.4, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-forest-variants-rtl200": [
+    {
+      "size": "Size(112.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(114.0, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(163.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(98.7, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(174.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(69.3, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-forest-size-rtl200": [
+    {
+      "size": "Size(147.6, 34.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(89.6, 47.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(119.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(98.4, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-forest-rich-rtl200": [
+    {
+      "size": "Size(220.0, 122.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(232.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(239.3, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(105.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    }
+  ],
+  "flutter-forest-rtl-rtl200": [
+    {
+      "size": "Size(41.8, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(83.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(105.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(198.4, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-plum-variants-rtl200": [
+    {
+      "size": "Size(112.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(114.0, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(163.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(98.7, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(174.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(69.3, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-plum-size-rtl200": [
+    {
+      "size": "Size(147.6, 34.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(89.6, 47.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(119.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(98.4, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-plum-rich-rtl200": [
+    {
+      "size": "Size(220.0, 122.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(232.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(239.3, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(105.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    }
+  ],
+  "flutter-plum-rtl-rtl200": [
+    {
+      "size": "Size(41.8, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(83.6, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(105.2, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(198.4, 42.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 11.0, 1.0)"
+    }
+  ],
+  "flutter-radius-light-4": [
+    {
+      "size": "Size(82.8, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(55.8, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(70.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(60.2, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-radius-forest-14": [
+    {
+      "size": "Size(82.8, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(55.8, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(70.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(60.2, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ],
+  "flutter-radius-plum-20": [
+    {
+      "size": "Size(82.8, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsetsDirectional(9.0, 1.0, 9.0, 1.0)"
+    },
+    {
+      "size": "Size(24.0, 24.0)",
+      "fontSize": 12.0,
+      "leading": 1.3333333333333333,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(55.8, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(28.0, 28.0)",
+      "fontSize": 12.8,
+      "leading": 1.7499999999999998,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(70.8, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(32.0, 32.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    },
+    {
+      "size": "Size(60.2, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsetsDirectional(11.0, 1.0, 11.0, 1.0)"
+    },
+    {
+      "size": "Size(36.0, 36.0)",
+      "fontSize": 14.0,
+      "leading": 1.4285714285714286,
+      "padding": "EdgeInsets.zero"
+    }
+  ]
+}
