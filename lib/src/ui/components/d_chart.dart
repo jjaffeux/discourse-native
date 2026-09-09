@@ -17,6 +17,29 @@ class DChartConfigEntry {
   final WidgetBuilder? icon;
 }
 
+/// Resolves chart-series colors from the live host palette.
+///
+/// Discourse palettes may intentionally map Material's primary, secondary and
+/// tertiary roles to the same site accent. In that case the second series uses
+/// a palette-relative tone so adjacent data remains distinguishable without a
+/// fixed light/dark swatch.
+abstract final class DChartColors {
+  static Color series(BuildContext context, int index) {
+    if (index < 0) throw RangeError.range(index, 0, null, 'index');
+    final tokens = DTokens.of(context);
+    final primary = tokens.primary;
+    if (index == 0) return primary;
+    final candidate = switch (index % 3) {
+      1 => tokens.colors.tertiary,
+      2 => tokens.colors.secondary,
+      _ => primary,
+    };
+    if (candidate.toARGB32() != primary.toARGB32()) return candidate;
+    final target = index.isOdd ? tokens.background : tokens.foreground;
+    return Color.lerp(primary, target, .38)!;
+  }
+}
+
 /// A local chart configuration scope. Compose any drawing widget inside it;
 /// it does not take ownership of data, controllers or application state.
 class DChartContainer extends InheritedWidget {

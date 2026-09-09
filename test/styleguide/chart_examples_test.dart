@@ -1,9 +1,33 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/chart_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('series remain distinct in single-accent site palettes', (
+    tester,
+  ) async {
+    for (final theme in [StyleguideTheme.forest, StyleguideTheme.plum]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme.resolve(AppTheme.light),
+          home: Scaffold(
+            body: Builder(builder: chartExamples.examples.first.builder),
+          ),
+        ),
+      );
+      final scope = tester.widget<DChartContainer>(
+        find.byType(DChartContainer),
+      );
+      final context = tester.element(find.byType(DChartContainer));
+      final desktop = scope.config['desktop']!.color!(context);
+      final mobile = scope.config['mobile']!.color!(context);
+      expect(mobile, isNot(desktop), reason: theme.label);
+    }
+  });
+
   testWidgets('all Chart examples render at narrow 200 percent RTL', (
     tester,
   ) async {

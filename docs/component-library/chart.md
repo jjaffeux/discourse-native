@@ -105,8 +105,10 @@ Rendered comparison was subsequently completed in the browser-only slot; see [br
   not applicable. Callers may include the chart in a Form without adding a fake
   field or changing the form's state.
 - Config callbacks support explicit light/dark branches and all host palette
-  changes. The examples use host primary/tertiary in place of reference blue or
-  chart-1/chart-2 swatches. The supplied palette takes precedence as required.
+  changes. `DChartColors.series` uses live primary/tertiary roles and derives a
+  palette-relative tone when a single-accent site maps those roles identically,
+  keeping series distinguishable without fixed light/dark swatches. The supplied
+  palette takes precedence as required.
 - Generic grid/cursor styling covers the documented bar owner. Polar/radial/
   reference-line CSS selectors in the registry are renderer-specific styling;
   there are no exposed but unimplemented polar or line-plot APIs.
