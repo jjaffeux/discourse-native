@@ -266,3 +266,16 @@ with SF versus Geist shaping. A regression checks intrinsic desktop row height,
 Default64px total and8px gaps, alongside the existing48px touch checks.
 
 Final focused impact suite:165 tests passed, seed9092026; `/tmp/radio-browser-regressions.log`. Font-loaded export run passed; root/full analyses checked separately.
+
+### Latest browser-corrected review bundle (supersedes all previous bundles)
+
+- Source commit `99126e23b169f72ffde2975adb1da77fd5f966cb`. Root/full static analysis clean;
+  formatting and diff checks pass. 165 focused tests passed with seed 9092026.
+- Committed-source macOS debug build passed; `/tmp/radio-browser-build.log`.
+- Bundle `/private/tmp/discourse-radio-browser-review-zpdismeb/Radio Group Browser Review.app`.
+- ID `org.discourse.radio-group-browser-review`; scheme `discourse-radio-group-browser-review`.
+- Kernel SHA256 `2f72ac9df88df5dd329edafa55d2dced9a1c5e8961564768713b00484914ad11`; original/copied kernels match.
+- 725 library/fixture/support files byte-match the source commit. Deep strict
+  ad-hoc signature verification passes; only copied bundle identity changed.
+- Main checkout/build and running app untouched. Bundle not launched.
+  Native inspection remains awaiting_slot. This provenance update changes docs only.

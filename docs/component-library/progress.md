@@ -886,6 +886,7 @@ Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/u
 - Latest source-corrected fixture /private/tmp/discourse-radio-field-review-a2j2_677/Radio Group Field Review.app from 9ece5376b01fad2157af34ca2dd7914ba833e880; kernel 16336ff6c32757e9362121e5d6763a2e35e65d98df43ae4fed546aaf055e15b6; 725 source files byte-match, original/copied kernels equal, deep strict signature passes. No launch; native awaiting_slot.
 - Serialized official light/dark browser comparison completed and slot released; 22 font-loaded widget/production fixture PNGs and reproduction harness preserved in evidence/radio-group. Export plus component run passed 18 tests.
 - Final desktop geometry correction:165 focused tests pass seed9092026, including18 component tests and retained touch bounds; measured font-loaded export run passes.
+- Latest browser-corrected bundle /private/tmp/discourse-radio-browser-review-zpdismeb/Radio Group Browser Review.app from 99126e23b169f72ffde2975adb1da77fd5f966cb; kernel 2f72ac9df88df5dd329edafa55d2dced9a1c5e8961564768713b00484914ad11; 725 source files byte-match, kernels equal and deep strict signature passes. Root/full analyses clean. Native not launched, awaiting_slot.
 
 **limitations**
 
