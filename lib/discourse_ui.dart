@@ -28,6 +28,7 @@ export 'src/ui/components/d_field.dart';
 export 'src/ui/components/d_hover_card.dart';
 export 'src/ui/components/d_input.dart';
 export 'src/ui/components/d_input_group.dart';
+export 'src/ui/components/d_input_otp.dart';
 export 'src/ui/components/d_item.dart';
 export 'src/ui/components/d_kbd.dart';
 export 'src/ui/components/d_label.dart';
