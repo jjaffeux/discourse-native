@@ -30,7 +30,7 @@ Branch preparation does not mark a component merged or visually verified.
 | menubar | independent review | 58149a8d | 01a08628-7042-7173-a37d-7f1f04eade66 |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
-| pagination | Implementation and checks | — | — |
+| pagination | Implementation and checks | — | 01a08629-4841-73d0-a5a6-c723f253b4b0 |
 | calendar | Implementation and checks | — | — |
 | date-picker | Implementation and checks | — | — |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
@@ -2470,14 +2470,45 @@ Status: in_progress. Task: 01a08606-c9d5-7741-bfe0-e4ff531ff9b7. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match the frozen Base UI/base-nova Pagination complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
-- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
-- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
-- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+- Match the frozen Base UI/base-nova Pagination anatomy and measured 32px ghost/outline link surfaces, 2px item gap, directional previous/next labels and 16px chevron/ellipsis artwork across default, Simple, Icons Only, routing/link and Arabic RTL examples.
+- Provide explicit typed controlled, locally owned and borrowed DPaginationController APIs for one-based page, page count and page size; keep callbacks caller-owned and clamp safely across empty, single-page and dynamic total/page-size changes.
+- Implement accurate first/last/previous/next/page/ellipsis window behavior with current-page and disabled native semantics, visible focus, keyboard/touch activation, logical RTL icons, narrow/200%-text wrapping and live theme/font/radius/reduced-motion support.
+- Complete the final Field/Select rows-per-page composition from the accepted owner APIs; expose a stable compact embedded API to Data Table while leaving server queries, loading, caching and URL state in adapters.
+- Audit core and bundled plugins for bounded-page consumers, migrate only appropriate numbered paging and retain cursor/infinite-scroll surfaces with explicit rationale; cover dynamic boundaries, keyboard/semantics and any migrated consumer regressions.
+- Record exact frozen/reference sources and mapping, format touched files, pass focused component/styleguide/adoption tests and root/full-profile analysis, prepare source-exact macOS fixtures, then create a separate reviewer for official rendered/native acceptance, fixes and local main merge after accepted Select reconciliation.
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Frozen Markdown hash bc07e7b5e3df7090f895a93d49a3484e828e8560c17600ab3cbd1cb92313c3f9 exactly matches catalogue; current base-nova registry raw/source hashes and complete documented examples are committed under reference/pagination.
+- DPagination exposes the full explicit anatomy while DPaginationNavigation provides local, controlled or borrowed-controller bounded state. Pages remain one-based; pageCount zero is represented by page one with hasPages false and disabled movement.
+- DPaginationController coalesces dynamic updates, clamps changed totals and preserves the first visible item across page-size changes by default. Server requests, loading, caches and route/query synchronization remain caller-owned.
+- The default ghost/outline current-page treatment and 32px geometry compose the accepted DButton. Direction controls expose directionVariant so Data Table can select the official outline surface without duplicating behavior or artwork.
+- Narrow layouts retain the reference's sub-640px direction-label hiding and use horizontal scrolling rather than overflow; custom 16px round-cap chevrons and dots follow logical RTL direction.
+- Prepared Select source 7d474deffdb0cdda5f13f83ceaf1b4bfff6a6581 was byte-compared after acceptance and exactly matches accepted local main 94a65e00. Accepted Field source was integrated from merge 5cd7f369 without merging newer main into this worktree.
+
+**migrations**
+
+- Exported the single Pagination owner from discourse_ui.dart and registered six actual-component examples: Default, Simple, Icons Only with final Field/Select rows-per-page composition, routing links, dynamic/controller edges and Arabic RTL.
+- Shared the exact tested public API/commit cd69ff21400192e6a141a675ffb7ec6a7199526c with Data Table task 01a08606-ca45-73b1-9be1-7486d4e3fe1d, including directionVariant outline composition.
+
+**retainedAlternatives**
+
+- Topic/category/aggregate/search/account/draft/user/group/invite/badge/assignment lists append cursor or offset pages and preserve accumulated reading flow; numbered replacement paging would be a behavior regression.
+- Chat browse/search/thread/member and GIF results retain automatic or explicit Load more continuation for the same reason. Topic post navigation and Carousel/Lightbox PageView are position navigation, not bounded result pagination.
+- No current production surface is an appropriate bounded numbered-page consumer. Data Table is the first prepared consumer; its manual/server paging adapter remains outside this generic component.
+
+**verification**
+
+- 10 randomized Pagination tests passed with seed 391447: controller count/size clamping, empty/single boundaries, exact 32px link geometry, ellipsis windows, controlled/local/controller ownership, borrowed lifecycle, keyboard and RTL link activation, current/disabled semantics, outline embedded controls and all examples at 216px/200% text.
+- 71 combined Pagination, accepted Select/Field and styleguide-page tests passed with seed 391447; the earlier 55 focused Pagination/Select/Field set also passed.
+- Root and profiles/full flutter analyze --no-pub pass with no diagnostics after final API changes. Touched Dart is formatted, git diff --check passes, root flutter pub get --enforce-lockfile passed and no lockfile or SDK pin changed.
+- Accepted dependency source equality confirmed: d_select.dart 8597a6cbd6b901279580c327acfaf3da37b8802a5c31fd8774c1f17c567047f1, d_popover.dart db383c502d7067fc93863998a7635738d11b97df0c6dc8bdbf52feab38b36806 and d_field.dart b72c1a6b7c58755c45914c46b6fbaa154dd2dcee0ea164c6f5549e0ed8ae1f19 exactly match accepted local main 94a65e00.
+- tool/pagination_review_main.dart is a local-data real-widget fixture with live Light/Dark/Forest/Plum, RTL, 100/200% text, reduced motion and 216/640px controls. An implementation build was started without desktop access but interrupted after Xcode remained in package/build setup for over six minutes while multiple other isolated builds were active; no successful bundle or launch is claimed.
+
+**limitations**
+
+- Official rendered browser comparison and actual native macOS inspection are intentionally pending for the new independent reviewer; no iOS/Linux device or spoken VoiceOver claim.
+- The prepared macOS build did not complete under concurrent Xcode toolchain contention and was explicitly interrupted; the fixture source is committed but there is no implementation-stage artifact/signature/kernel claim.
 
 ### calendar
 
@@ -2888,3 +2919,4 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+
