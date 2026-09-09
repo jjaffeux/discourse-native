@@ -22,7 +22,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
 | 11 | textarea | planned | — | — | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
-| 13 | radio-group | in_progress | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
+| 13 | radio-group | review_ready | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
 | 14 | switch | planned | — | — | label | — |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
@@ -839,7 +839,7 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 
 ### radio-group
 
-Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/ui-radio-group.
+Status: review_ready. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/ui-radio-group.
 
 **acceptanceCriteria**
 
@@ -887,11 +887,12 @@ Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/u
 - Serialized official light/dark browser comparison completed and slot released; 22 font-loaded widget/production fixture PNGs and reproduction harness preserved in evidence/radio-group. Export plus component run passed 18 tests.
 - Final desktop geometry correction:165 focused tests pass seed9092026, including18 component tests and retained touch bounds; measured font-loaded export run passes.
 - Latest browser-corrected bundle /private/tmp/discourse-radio-browser-review-zpdismeb/Radio Group Browser Review.app from 99126e23b169f72ffde2975adb1da77fd5f966cb; kernel 2f72ac9df88df5dd329edafa55d2dced9a1c5e8961564768713b00484914ad11; 725 source files byte-match, kernels equal and deep strict signature passes. Root/full analyses clean. Native not launched, awaiting_slot.
+- Native review completed on source99126e23: all9 registered examples, Poll/flag and real owner/move dialogs; keyboard/disabled/readOnly/validation/save/reset, dual focus light/dark, Forest/Plum360pxRTL200%.18 screenshots and AX evidence in native-review.md. No component defect. Isolated copy local-only re-sign verified; app quit and desktop slot RELEASED.
 
 **limitations**
 
-- Browser comparison and font-loaded widget exports completed; native desktop remains locked and native visual inspection awaiting_slot.
-- No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review.
+- No iOS/Linux device or VoiceOver speech verification.
+- Old styleguide shell omits preview controls from native AX; production fixture exposes radio semantics. Coordinator owns merged shell reconciliation. Host SF/font metrics, focus token and disabled opacity differences remain documented.
 
 ### skeleton
 

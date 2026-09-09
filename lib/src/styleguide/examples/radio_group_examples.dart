@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final radioGroupExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Select one option from a group of choices.',
   notes:
-      'Implementation awaiting rendered/native review. A 16px radio with an 8px dot, 1px border and 3px focus/invalid ring follows base-nova. '
-      'Label rows use 12px gaps and 14px labels; pointer hit bounds are at least 40×32, touch bounds 48×48. '
+      'A 16px radio with an 8px dot, 1px border and 3px focus/invalid ring follows base-nova. '
+      'Label rows use 12px gaps and 14px labels; desktop rows follow intrinsic content height; touch bounds are at least 48×48. '
       'Use DRadioGroup for local initialValue or DRadioGroup.controlled for parent-owned groupValue. '
       'Both integrate with Form validator/onSaved/reset. readOnly preserves focus and blocks selection; nullable item overrides inherit it. required announces the requirement while validator owns enforcement and error text. Tab enters once, arrows wrap and skip disabled items; Space selects. '
       'Label, description and card slots compose presentation without implementing the pending Field component. '
