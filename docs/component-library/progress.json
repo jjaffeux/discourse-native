@@ -912,8 +912,8 @@
           "sha256": "e00939e01c108da6492bdf9a3d9ccf34bbb284e3dce26260dcf44dc4ef4219f6"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "review_ready",
-        "reviewStatus": "review_ready",
+        "status": "merged",
+        "reviewStatus": "merged",
         "sourceCommit": "3169db0954aa8e387ec316d1414a5a0d0cb5a919",
         "compositionCommit": "bf601efd95699327c196229a30c44e7da1b58475",
         "reviewFixCommit": "28418a2d1a1b6bfb1037218f66cda4642414aa49",
@@ -930,7 +930,12 @@
         "limitations": [
           "SF/Geist width and fractional-leading differences, including a two-line SF Fieldset description at the frozen 320px width, are documented; live host palette/focus/radius tokens and whole-row disabled opacity remain accepted adaptations.",
           "No spoken VoiceOver, iOS or Linux device pass. Native dialog overlays retain their actual scale/direction inheritance; 200% RTL applies to the underlying fixture."
-        ]
+        ],
+        "mergeCommit": "1f3b73293a842e65a5b7675e99496322c7595589",
+        "reviewedBranchHead": "bef32b012c34a5f2c05a8143543caee705a239fc",
+        "integratedMainCommit": "1770316fcc06f665747d6598f43dde1d093f4420",
+        "mergedAt": "2026-09-09",
+        "integrationVerification": "52 affected Radio/Field/real-fixture/styleguide tests pass again, seed 9092026; final root/full analysis clean. Inspected Radio/Field/Label/example/adopter/fixture/package inputs unchanged from native source 3169db09. All other progress records preserved; own desktop lease released and isolated app stopped."
       }
     },
     {
@@ -4758,15 +4763,6 @@
           "status": "final_composition_review",
           "implementationTaskId": "01a08352-7665-7f90-a637-75478a83ea53",
           "implementationBranch": "codex/ui-sidebar"
-        },
-        {
-          "component": "radio-group",
-          "taskId": "01a086cd-3f9c-75b0-bda3-7d80f6e4604d",
-          "branch": "codex/review-radio-group-compositions",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native",
-          "status": "final_composition_review",
-          "implementationTaskId": "01a083ce-313b-7da0-aa51-3687fd556604",
-          "implementationBranch": "codex/ui-radio-group"
         }
       ],
       "nativeReadyTasks": []
@@ -5197,18 +5193,6 @@
           "implementationBranch": "codex/ui-sidebar",
           "implementationCommit": "47aabf60e65dff047cdf80dd6e29203a93fb8012",
           "status": "final_composition_review"
-        },
-        {
-          "component": "radio-group",
-          "title": "Finish and review Radio Group compositions",
-          "taskId": "01a086cd-3f9c-75b0-bda3-7d80f6e4604d",
-          "hostId": "local",
-          "branch": "codex/review-radio-group-compositions",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7f44/discourse-native",
-          "implementationTaskId": "01a083ce-313b-7da0-aa51-3687fd556604",
-          "implementationBranch": "codex/ui-radio-group",
-          "implementationCommit": "99126e23b169f72ffde2975adb1da77fd5f966cb",
-          "status": "final_composition_review"
         }
       ],
       "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks.",
@@ -5405,8 +5389,8 @@
           "sha256": "e00939e01c108da6492bdf9a3d9ccf34bbb284e3dce26260dcf44dc4ef4219f6"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "review_ready",
-        "reviewStatus": "review_ready",
+        "status": "merged",
+        "reviewStatus": "merged",
         "sourceCommit": "3169db0954aa8e387ec316d1414a5a0d0cb5a919",
         "compositionCommit": "bf601efd95699327c196229a30c44e7da1b58475",
         "reviewFixCommit": "28418a2d1a1b6bfb1037218f66cda4642414aa49",
@@ -5423,7 +5407,12 @@
         "limitations": [
           "SF/Geist width and fractional-leading differences, including a two-line SF Fieldset description at the frozen 320px width, are documented; live host palette/focus/radius tokens and whole-row disabled opacity remain accepted adaptations.",
           "No spoken VoiceOver, iOS or Linux device pass. Native dialog overlays retain their actual scale/direction inheritance; 200% RTL applies to the underlying fixture."
-        ]
+        ],
+        "mergeCommit": "1f3b73293a842e65a5b7675e99496322c7595589",
+        "reviewedBranchHead": "bef32b012c34a5f2c05a8143543caee705a239fc",
+        "integratedMainCommit": "1770316fcc06f665747d6598f43dde1d093f4420",
+        "mergedAt": "2026-09-09",
+        "integrationVerification": "52 affected Radio/Field/real-fixture/styleguide tests pass again, seed 9092026; final root/full analysis clean. Inspected Radio/Field/Label/example/adopter/fixture/package inputs unchanged from native source 3169db09. All other progress records preserved; own desktop lease released and isolated app stopped."
       }
     ]
   },

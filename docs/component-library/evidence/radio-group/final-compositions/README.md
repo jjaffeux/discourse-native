@@ -1,7 +1,8 @@
 # Radio Group final compositions — 2026-09-09
 
 Status: source, automated, official rendered-reference and native macOS review
-accepted on 2026-09-09. Desktop lease released; local integration is pending.
+accepted on 2026-09-09; merged locally as
+`1f3b73293a842e65a5b7675e99496322c7595589`. Desktop lease released.
 
 ## Provenance
 
@@ -151,9 +152,10 @@ submission. The dialogs inherit their actual overlay theme/scale behavior; the
 The temporary reference tab was closed and its viewport override reset. The
 desktop lease was released to the next queued reviewer. The isolated app's
 quit shortcut was affected by the active AZERTY layout; the next lease holder
-received its exact bundle/process identity for approved-CUA cleanup. A later
-read-only process check confirmed the isolated executable had stopped. This
-was an input/cleanup incident, not a component crash or a production app mutation.
+received its exact bundle/process identity for approved-CUA cleanup. The Card
+reviewer confirmed native application-menu Quit and an absent bundle in CUA's
+app inventory; a read-only process check also confirmed the executable stopped.
+This was an input/cleanup incident, not a component crash or a production app mutation.
 No VoiceOver speech, iOS device, Linux or cross-platform native claim is made.
 
 ## Latest-main integration
@@ -176,4 +178,9 @@ candidate, seed `9092026` (`integration-tests.log`); these are a subset of the
 278 distinct affected tests above, not 52 additional tests. Final root/full
 analysis is clean (`integration-analyze-*.log`); generated snippets and diff
 checks pass. No second native run is claimed or needed for unchanged behavior.
-The final local main merge remains pending.
+The final no-fast-forward merge was performed from the main checkout on `main`:
+`1f3b73293a842e65a5b7675e99496322c7595589`, reviewed branch head
+`bef32b012c34a5f2c05a8143543caee705a239fc`. Both separate final-composition
+records are merged; only this task's active queue entries were removed. The
+original component merge remains `62e7d25adeb8c125faca2a6476cbb800660a2025`.
+No push or remote/release operation was performed.

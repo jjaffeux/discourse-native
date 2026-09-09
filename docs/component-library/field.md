@@ -48,6 +48,8 @@ DFieldContent, not a change to generic FieldSet sibling spacing. Original Field
 acceptance and owner pins remain intact. See
 [Radio final-composition evidence](evidence/radio-group/final-compositions/README.md)
 for the follow-up's acceptance status.
+The correction is accepted and merged through Radio final-composition merge
+`1f3b73293a842e65a5b7675e99496322c7595589`.
 
 ## Historical implementation record
 

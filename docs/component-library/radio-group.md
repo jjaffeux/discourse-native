@@ -15,7 +15,10 @@ the isolated macOS build pass. Fresh official-browser and native macOS review
 accepted all seven final examples in light/dark, custom 360px/200% RTL and
 reduced-motion previews, radio/card keyboard behavior, Form validation/reset,
 and the real local-fake Poll, flag, change-owner and move-post surfaces. The
-desktop lease is released; local integration is pending.
+desktop lease is released. The follow-up is merged locally as
+`1f3b73293a842e65a5b7675e99496322c7595589`; 52 affected integration tests and
+final root/full analysis pass on the latest-main candidate, with inspected
+Radio/Field/adopter behavior unchanged.
 
 See [final-composition evidence](evidence/radio-group/final-compositions/README.md)
 for source pins, bounded shared-owner corrections, geometry and limitations.
