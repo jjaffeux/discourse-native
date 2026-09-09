@@ -1443,9 +1443,10 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 **decisions**
 
 - Typed DNativeSelectOption/OptGroup, single DNativeSelect FormField adapter and Flutter MenuAnchor/MenuItemButton owner; no rich custom Select dependency.
-- Default content width measures widest text plus 42px; apps use isExpanded. 32/28px heights, input token/multiplicative alpha, proportional radii, exterior-only focus ring and exact Lucide chevron documented with hashed sources.
+- Default content width measures widest text plus 44px including borders and a scaled em for grouped options; apps use isExpanded. 32/28px heights, input token/multiplicative alpha, proportional radii, exterior-only focus ring and exact Lucide chevron documented with hashed sources.
 - Controlled Form callbacks/validation/reset always see accepted props synchronously; uncontrolled defaults freeze at mount. Nonnullable app choices disable the placeholder and retain initial reset values.
 - Live menu palette/direction/text scale without dismissal; immediate transitions; type-ahead supports prefix and repeated-character cycling with disabled/headings skipped and no timers.
+- Expired/blurred/reset type-ahead sessions restart from current accepted selection; repeated-letter proposals can cycle while a controlled parent declines.
 
 **migrations**
 
@@ -1463,11 +1464,13 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 - 323 selected component, fixture, styleguide and production migration tests passed; routed Chat notification integration test also passed.
 - Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.
 - Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch.
+- 2026-09-09 correction: 155 impact tests and 2 manual font-loaded render tests passed. Official light/dark/disabled/invalid/focus/groups/RTL/narrow browser capture compared with registered examples; production fixture renders captured in both app themes. See native-select-review.md and reference/native-select-review/manifest.json.
+- Corrected source d2e500f95d25f9901f74b37d0784aeb1e1ebf071 rebuilt into the unique ad-hoc verified review app; all four kernels match 47fabe4db51b73135427cc6ab941765ad04b53c4433693b36b29babf03691efc.
 
 **limitations**
 
-- awaiting_slot: Mac locked; reference-rendered and native visual inspection remains required before review_ready or merge.
-- No CUA/app launch; widget platform overrides and native fixture tests are not device/VoiceOver/pixel-parity evidence.
+- awaiting_slot: browser slot released with original dark theme and viewport restored; native app/device/VoiceOver inspection remains required before review_ready or merge.
+- No native CUA/app launch. Font-loaded widget screenshots are not device rendering, VoiceOver or OS-popup parity evidence.
 
 ### marker
 
