@@ -19,7 +19,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | merged | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | 916580e72e11de6a6b7872c41d5c4d92e27e9635 |
-| 10 | input | review_ready | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
+| 10 | input | merged | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | 7df72ef294826616e8ba24c31c6129d8e9041fec |
 | 11 | textarea | in_progress | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
 | 13 | radio-group | in_progress | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
@@ -771,7 +771,7 @@ Status: merged. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/ui-bad
 
 ### input
 
-Status: review_ready. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/ui-input.
+Status: merged. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/ui-input.
 
 **acceptanceCriteria**
 
@@ -821,6 +821,7 @@ Status: review_ready. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/
 - Final Button integration source 3201d96b51f86abbb638218eee8d0178ef168938 merges pinned main9d7a49e; all non-Input progress rows and merged Button/Avatar owners preserved. File trigger uses sibling Button extraSmall24px and scoped disabledOpacity1; pixel checks use actual independent label rectangles. Desktop/mobile styleguide test verifies bounded descendant editor and independent functioning Clear search. All371 affected tests (seed928374611), root/full analysis, three pixel and three export tests pass. Unique signed review bundle refreshed with empty entitlements, deep strict verification and matching source/copy kernel SHA256 ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f. Unlaunched awaiting_slot; no CUA.
 - Native macOS review completed on integrated3201d96b kernelffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f: editing/Tab/theme retention, desktop/mobile independent search/Clear search/navigation, actual AddSite/Poll editing, file picker open/cancel, validation/save/reset and secure controlled editing, narrow/200%RTL/Plum rendering. Evidence/input/native contains hashed screenshots/AX. Unique app quit and absent in inventory; desktop slot explicitly released. Example status marked implemented after gate; no behavioral correction required.
 - Post-native status-only source 460c0f21d2afabdc45fb69765c719435a52c3336: seven example tests and rebuild pass; unique bundle refreshed and deep strict signed with empty entitlements. Source/copy kernel 66925e1943f9e996c4162e03d4378fa3de71d32df6cbe6325769e008c499f734; not relaunched after slot release. Native-reviewed behavioral implementation remains unchanged.
+- Coordinator reviewed native real Add Site/Poll editing, independent desktop/mobile search Clear action, file Button and narrow200% RTL form evidence. Merge into main required only regenerated progress Markdown; final Badge/Button exports and app alignment changes were preserved. All146 focused integration checks pass seed909623, including Input/pixel/examples, Sidebar/styleguide, Add Site, Poll, Group layout, Button adoption and Badge migrations. Root/full analysis clean; git diff --check passes. Logs: /private/tmp/input-main-integration-tests.log, /private/tmp/input-main-integration-analysis.log, /private/tmp/input-main-integration-analysis-full.log.
 
 **limitations**
 

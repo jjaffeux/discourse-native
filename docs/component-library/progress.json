@@ -650,7 +650,7 @@
     },
     {
       "id": "input",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
       "branch": "codex/ui-input",
       "dependencies": [
@@ -699,14 +699,16 @@
         "Semantics correction source 0464e555817ef8dae4fe63b1e8dd48548a2c3bed: editor container prevents editable role from merging into its page; Sidebar adoption inherits it and File Button remains separate. Three boundary regressions plus affected suites pass (369 tests, seed 928374611), root/full analysis clean. Exact-source unique /private/tmp/DiscourseInputReview-01a083ad.app rebuilt and deep strict ad-hoc signed with empty entitlements (no restricted entitlements); source/copy kernel SHA256 53eaa15f083810cdf1e97449df3abd24386bd355754e74795493797a5c13b34b. Unlaunched, awaiting_slot; no UI interaction.",
         "Final Button integration source 3201d96b51f86abbb638218eee8d0178ef168938 merges pinned main9d7a49e; all non-Input progress rows and merged Button/Avatar owners preserved. File trigger uses sibling Button extraSmall24px and scoped disabledOpacity1; pixel checks use actual independent label rectangles. Desktop/mobile styleguide test verifies bounded descendant editor and independent functioning Clear search. All371 affected tests (seed928374611), root/full analysis, three pixel and three export tests pass. Unique signed review bundle refreshed with empty entitlements, deep strict verification and matching source/copy kernel SHA256 ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f. Unlaunched awaiting_slot; no CUA.",
         "Native macOS review completed on integrated3201d96b kernelffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f: editing/Tab/theme retention, desktop/mobile independent search/Clear search/navigation, actual AddSite/Poll editing, file picker open/cancel, validation/save/reset and secure controlled editing, narrow/200%RTL/Plum rendering. Evidence/input/native contains hashed screenshots/AX. Unique app quit and absent in inventory; desktop slot explicitly released. Example status marked implemented after gate; no behavioral correction required.",
-        "Post-native status-only source 460c0f21d2afabdc45fb69765c719435a52c3336: seven example tests and rebuild pass; unique bundle refreshed and deep strict signed with empty entitlements. Source/copy kernel 66925e1943f9e996c4162e03d4378fa3de71d32df6cbe6325769e008c499f734; not relaunched after slot release. Native-reviewed behavioral implementation remains unchanged."
+        "Post-native status-only source 460c0f21d2afabdc45fb69765c719435a52c3336: seven example tests and rebuild pass; unique bundle refreshed and deep strict signed with empty entitlements. Source/copy kernel 66925e1943f9e996c4162e03d4378fa3de71d32df6cbe6325769e008c499f734; not relaunched after slot release. Native-reviewed behavioral implementation remains unchanged.",
+        "Coordinator reviewed native real Add Site/Poll editing, independent desktop/mobile search Clear action, file Button and narrow200% RTL form evidence. Merge into main required only regenerated progress Markdown; final Badge/Button exports and app alignment changes were preserved. All146 focused integration checks pass seed909623, including Input/pixel/examples, Sidebar/styleguide, Add Site, Poll, Group layout, Button adoption and Badge migrations. Root/full analysis clean; git diff --check passes. Logs: /private/tmp/input-main-integration-tests.log, /private/tmp/input-main-integration-analysis.log, /private/tmp/input-main-integration-analysis-full.log."
       ],
       "limitations": [
         "macOS native inspection complete; no physical iOS/Linux or spoken VoiceOver verification. Native file chooser cancellation verified; no file upload or network submission performed."
       ],
       "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
-      "mergeCommit": null,
-      "nativeInspectionStatus": "completed"
+      "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec",
+      "nativeInspectionStatus": "completed",
+      "reviewedBranchHead": "da302a2df59ad7c8c8bf518a27dc109060f6d283"
     },
     {
       "id": "textarea",
@@ -2558,14 +2560,6 @@
       ],
       "nativeReadyTasks": [
         {
-          "component": "input",
-          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
-          "branch": "codex/ui-input",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
-          "headCommit": "da302a2df59ad7c8c8bf518a27dc109060f6d283",
-          "status": "awaiting_local_merge"
-        },
-        {
           "component": "progress",
           "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
           "branch": "codex/ui-progress",
@@ -2978,13 +2972,14 @@
         "Original native AX behavior and widget semantics dump reproduced.",
         "31 styleguide access/page/Sidebar tests passed seed909614; includes desktop/mobile search semantic bounds and label. Root/full analysis clean.",
         "Refreshed exact-source unique macOS build,1386 source files match; app.dill/built/copied kernels match; strict signature and restricted-entitlement exclusion verified.",
-        "Native desktop and narrow documentation search/navigation and 360px Sidebar modal all verified; exact-source screenshots/AX in native-fidelity-5775a7d3/manifest.json. All32 affected tests/root/full analysis pass."
+        "Native desktop and narrow documentation search/navigation and 360px Sidebar modal all verified; exact-source screenshots/AX in native-fidelity-5775a7d3/manifest.json. All32 affected tests/root/full analysis pass.",
+        "Input final integration natively confirmed independent functioning Clear search on desktop and mobile, with navigation/preview siblings exposed. Reviewed source3201d96b and evidence/input/native/manifest.json are recorded in Input. Generic DInput now owns the bounded editor semantics."
       ],
       "bundle": "/private/tmp/DiscourseComponentFidelityB104-5775a7d3.app",
       "kernelSHA256": "57d35b8e4f386a9bd9dc91c9a667a278753217d73b256bb783894760e6b7969d",
       "reviewDocument": "docs/component-library/styleguide-accessibility-follow-up.md",
       "limitations": [
-        "Generic Input owns the independent Clear search suffix; its final integration tests pass and native confirmation is queued. No spoken VoiceOver or iOS/Linux device claim."
+        "No spoken VoiceOver or iOS/Linux device claim."
       ],
       "mergeCommit": "be0e96446270b1a063a72081be3ffa0b6d8c6bc5"
     }
