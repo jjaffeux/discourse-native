@@ -147,10 +147,190 @@ void main() {
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      expect(value, 'blueberry');
-      expect(find.text('Blueberry'), findsOneWidget);
+      expect(value, 'banana');
+      expect(find.text('Banana'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'closed trigger typeahead commits enabled matches without opening',
+    (tester) async {
+      String? value;
+      DSelectChangeReason? reason;
+      await _mount(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) => DSelect<String>.controlled(
+            value: value,
+            semanticLabel: 'Fruit',
+            entries: const [
+              DSelectOption(
+                value: 'apricot',
+                label: 'Apricot',
+                enabled: false,
+                child: Text('Apricot'),
+              ),
+              DSelectOption(
+                value: 'apple',
+                label: 'Apple',
+                child: Text('Apple'),
+              ),
+              DSelectOption(
+                value: 'avocado',
+                label: 'Avocado',
+                child: Text('Avocado'),
+              ),
+            ],
+            onChanged: (next) => setState(() => value = next),
+            onChangedWithReason: (next, nextReason) => reason = nextReason,
+          ),
+        ),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.pump();
+      expect(value, 'apple');
+      expect(find.byType(DPopoverContent), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.pump();
+      expect(value, 'avocado');
+      expect(reason, DSelectChangeReason.keyboard);
+      expect(find.byType(DPopoverContent), findsNothing);
+    },
+  );
+
+  testWidgets('trigger arrow keys open at the first and last enabled item', (
+    tester,
+  ) async {
+    String? value;
+    late StateSetter update;
+    await _mount(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return DSelect<String>.controlled(
+            value: value,
+            semanticLabel: 'Fruit',
+            entries: const [
+              DSelectOption(
+                value: 'apple',
+                label: 'Apple',
+                child: Text('Apple'),
+              ),
+              DSelectOption(
+                value: 'banana',
+                label: 'Banana',
+                enabled: false,
+                child: Text('Banana'),
+              ),
+              DSelectOption(
+                value: 'grapes',
+                label: 'Grapes',
+                child: Text('Grapes'),
+              ),
+            ],
+            onChanged: (next) => setState(() => value = next),
+          );
+        },
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'DSelect option 0');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(value, 'apple');
+
+    update(() => value = null);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(value, 'grapes');
+  });
+
+  testWidgets('space remains part of an active popup typeahead query', (
+    tester,
+  ) async {
+    String? value = 'paris';
+    await _mount(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) => DSelect<String>.controlled(
+          value: value,
+          semanticLabel: 'City',
+          entries: const [
+            DSelectOption(value: 'paris', label: 'Paris', child: Text('Paris')),
+            DSelectOption(
+              value: 'new-delhi',
+              label: 'New Delhi',
+              child: Text('New Delhi'),
+            ),
+            DSelectOption(
+              value: 'new-york',
+              label: 'New York',
+              child: Text('New York'),
+            ),
+          ],
+          onChanged: (next) => setState(() => value = next),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Paris'));
+    await tester.pumpAndSettle();
+    for (final key in [
+      LogicalKeyboardKey.keyN,
+      LogicalKeyboardKey.keyE,
+      LogicalKeyboardKey.keyW,
+      LogicalKeyboardKey.space,
+      LogicalKeyboardKey.keyY,
+    ]) {
+      await tester.sendKeyEvent(key);
+    }
+    await tester.pump();
+
+    expect(value, 'paris');
+    expect(find.byType(DPopoverContent), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(value, 'new-york');
+  });
+
+  testWidgets('read-only closed trigger ignores typeahead commits', (
+    tester,
+  ) async {
+    var value = 'apple';
+    await _mount(
+      tester,
+      DSelect<String>.controlled(
+        value: value,
+        readOnly: true,
+        semanticLabel: 'Fruit',
+        entries: const [
+          DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
+          DSelectOption(
+            value: 'banana',
+            label: 'Banana',
+            child: Text('Banana'),
+          ),
+        ],
+        onChanged: (next) => value = next ?? value,
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.pump();
+    expect(value, 'apple');
+    expect(find.byType(DPopoverContent), findsNothing);
+  });
 
   testWidgets('disabled item and disabled trigger ignore activation', (
     tester,

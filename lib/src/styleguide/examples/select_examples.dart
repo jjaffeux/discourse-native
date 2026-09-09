@@ -15,7 +15,9 @@ final selectExamples = ComponentExamples(
       'lifecycle, 4px side offset, collision handling, 144px minimum popup '
       'width, 8px radius, foreground/10 ring and shadow. Groups, labels, '
       'separators, disabled options, scrollable lists, RTL and Form validation '
-      'are implemented. Pointer/keyboard openings align the selected item with '
+      'are implemented. Focused closed triggers support native-style typeahead '
+      'selection; open typeahead supports multi-word labels without treating '
+      'Space as activation. Pointer/keyboard openings align the selected item with '
       'the trigger when there is enough viewport space; touch openings use '
       'ordinary edge placement. Legacy DropdownMenuItem callers route through '
       'the same rendering owner.',
@@ -24,7 +26,12 @@ final selectExamples = ComponentExamples(
       title: 'Default',
       description:
           'A controlled select with the documented fruit placeholder item.',
-      states: const ['Controlled', 'Placeholder', 'Keyboard'],
+      states: const [
+        'Controlled',
+        'Placeholder',
+        'Keyboard',
+        'Closed typeahead',
+      ],
       code: '''DSelect<String>(
   value: fruit,
   entries: const [
