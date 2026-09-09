@@ -24,10 +24,30 @@ void main() {
             );
             await tester.pumpAndSettle();
           }
-          final search = find.byKey(const ValueKey('styleguide-search'));
+          final search = find.descendant(
+            of: find.byKey(const ValueKey('styleguide-search')),
+            matching: find.byType(TextField),
+          );
           expect(tester.getSemantics(search).rect.size, tester.getSize(search));
           expect(tester.getSemantics(search).label, 'Search components...');
           expect(find.bySemanticsLabel('Foundations'), findsWidgets);
+          await tester.enterText(search, 'Input');
+          await tester.pumpAndSettle();
+          final clear = find.bySemanticsLabel('Clear search');
+          expect(clear, findsOneWidget);
+          final clearNode = tester.getSemantics(clear);
+          expect(clearNode.getSemanticsData().flagsCollection.isButton, isTrue);
+          var ancestor = clearNode.parent;
+          while (ancestor != null) {
+            expect(
+              ancestor.getSemanticsData().flagsCollection.isTextField,
+              isFalse,
+            );
+            ancestor = ancestor.parent;
+          }
+          await tester.tap(clear);
+          await tester.pumpAndSettle();
+          expect(tester.widget<TextField>(search).controller!.text, isEmpty);
         }
       } finally {
         semantics.dispose();
@@ -396,7 +416,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<TextField>(find.byKey(const ValueKey('styleguide-search')))
+          .widget<DInput>(find.byKey(const ValueKey('styleguide-search')))
           .controller!
           .text,
       'avatar',
@@ -419,7 +439,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pumpAndSettle();
-      final search = tester.widget<TextField>(
+      final search = tester.widget<DInput>(
         find.byKey(const ValueKey('styleguide-search')),
       );
       expect(search.focusNode!.hasFocus, true);

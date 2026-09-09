@@ -145,18 +145,15 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
               '@$_oldUsername to another account.',
             ),
             const SizedBox(height: 14),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               key: const ValueKey('topic-change-owner-search'),
               controller: _search,
               autofocus: true,
               enabled: !_saving,
               onChanged: _scheduleSearch,
-              decoration: const InputDecoration(
-                labelText: 'Search users',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
+
+              labelText: 'Search users',
+              prefix: const Icon(Icons.search),
             ),
             const SizedBox(height: 8),
             Expanded(

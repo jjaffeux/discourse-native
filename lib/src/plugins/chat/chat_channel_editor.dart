@@ -101,31 +101,25 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               key: const ValueKey('chat-channel-title-input'),
               controller: _name,
               autofocus: true,
               enabled: !_saving,
               onChanged: (_) => setState(() => _error = null),
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
-              ),
+
+              labelText: 'Name',
             ),
             const SizedBox(height: 12),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               key: const ValueKey('chat-channel-slug-input'),
               controller: _slug,
               enabled: !_saving,
               maxLength: 100,
               onChanged: (_) => setState(() => _error = null),
-              decoration: const InputDecoration(
-                labelText: 'Slug',
-                helperText: 'Used in the channel URL',
-                border: OutlineInputBorder(),
-              ),
+
+              labelText: 'Slug',
+              helperText: 'Used in the channel URL',
             ),
             const SizedBox(height: 12),
             TextField(
@@ -140,7 +134,6 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
               decoration: const InputDecoration(
                 labelText: 'Description',
                 alignLabelWithHint: true,
-                border: OutlineInputBorder(),
               ),
             ),
             if (_error case final error?)

@@ -113,17 +113,13 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
             const SizedBox(height: 14),
             const Text('Type “$_confirmationPhrase” to confirm.'),
             const SizedBox(height: 8),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               key: const ValueKey('post-permanent-delete-confirmation'),
               controller: _confirmation,
               autofocus: true,
               enabled: !_saving,
               onChanged: (_) => setState(() => _error = null),
-              decoration: const InputDecoration(
-                hintText: _confirmationPhrase,
-                border: OutlineInputBorder(),
-              ),
+              hintText: _confirmationPhrase,
             ),
             if (_error case final error?) ...[
               const SizedBox(height: 8),

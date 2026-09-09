@@ -250,63 +250,25 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   }
 
   Widget _searchField(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return Semantics(
-      // Keep the editable role local: otherwise it can merge into the page
-      // node and hide its sibling controls from native accessibility clients.
-      container: true,
-      child: TextField(
-        key: const ValueKey('styleguide-search'),
-        controller: _search,
-        focusNode: _searchFocus,
-        style: styleguideText(context, size: 13, height: 18),
-        decoration: InputDecoration(
-          hintText: 'Search components...',
-          hintStyle: styleguideText(context, size: 13, height: 18, muted: true),
-          isDense: true,
-          filled: true,
-          fillColor: tokens.muted,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 9,
-          ),
-          prefixIcon: Icon(
-            Icons.search,
-            size: 16,
-            color: tokens.mutedForeground,
-          ),
-          prefixIconConstraints: const BoxConstraints(minWidth: 34),
-          suffixIconConstraints: const BoxConstraints(
-            minWidth: 32,
-            minHeight: 32,
-          ),
-          suffixIcon: _search.text.isEmpty
-              ? null
-              : StyleguideAction(
-                  label: 'Clear search',
-                  icon: Icons.close,
-                  iconOnly: true,
-                  onPressed: () => setState(_search.clear),
-                ),
-          border: OutlineInputBorder(
-            borderRadius: tokens.borderRadius,
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: tokens.borderRadius,
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: tokens.borderRadius,
-            borderSide: BorderSide(color: tokens.foreground),
-          ),
-        ),
-        onTap: () {
-          final sidebar = _sidebarKey.currentState!;
-          if (!sidebar.isMobile && !sidebar.open) sidebar.setOpen(true);
-        },
-        onChanged: (_) => setState(() {}),
-      ),
+    return DInput(
+      key: const ValueKey('styleguide-search'),
+      controller: _search,
+      focusNode: _searchFocus,
+      hintText: 'Search components...',
+      prefix: const Icon(Icons.search, size: 16),
+      suffix: _search.text.isEmpty
+          ? null
+          : StyleguideAction(
+              label: 'Clear search',
+              icon: Icons.close,
+              iconOnly: true,
+              onPressed: () => setState(_search.clear),
+            ),
+      onTap: () {
+        final sidebar = _sidebarKey.currentState!;
+        if (!sidebar.isMobile && !sidebar.open) sidebar.setOpen(true);
+      },
+      onChanged: (_) => setState(() {}),
     );
   }
 
