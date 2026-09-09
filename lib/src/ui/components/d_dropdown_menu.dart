@@ -543,7 +543,9 @@ class DDropdownMenuCheckboxItem extends StatelessWidget {
     focusNode: focusNode,
     inset: inset,
     leading: leading,
-    trailing: trailing ?? (checked ? const _CheckIcon() : null),
+    // The reference reserves its absolute indicator column even while the
+    // choice is unchecked, so labels do not reflow when state changes.
+    trailing: trailing ?? _CheckIndicator(checked: checked),
     checked: checked,
     onActivate: () {
       onChanged?.call(!checked);
@@ -615,7 +617,7 @@ class DDropdownMenuRadioItem<T> extends StatelessWidget {
       focusNode: focusNode,
       inset: inset,
       leading: leading,
-      trailing: trailing ?? (checked ? const _CheckIcon() : null),
+      trailing: trailing ?? _CheckIndicator(checked: checked),
       checked: checked,
       inMutuallyExclusiveGroup: true,
       onActivate: () {
@@ -743,7 +745,12 @@ class _DDropdownMenuSubState extends State<DDropdownMenuSub> {
             }
             return KeyEventResult.ignored;
           },
-          onActivate: trigger.toggle,
+          // Pointer hover may already have opened this submenu before the
+          // ensuing press is delivered. A press activates the submenu; it
+          // must not toggle that hover-open state closed again.
+          onActivate: () {
+            if (!trigger.open) trigger.openPopover();
+          },
           preserveSubmenuOnFocus: true,
           child: widget.trigger,
         ),
@@ -920,9 +927,9 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
       child: Opacity(
         opacity: widget.enabled ? 1 : 0.5,
         child: MouseRegion(
-          cursor: widget.enabled
-              ? SystemMouseCursors.click
-              : SystemMouseCursors.basic,
+          // Menus use the platform's default cursor (shadcn `cursor-default`),
+          // while hover/focus styling communicates the active row.
+          cursor: SystemMouseCursors.basic,
           onEnter: (_) {
             if (!widget.enabled) return;
             if (!widget.preserveSubmenuOnFocus) {
@@ -980,6 +987,18 @@ class _CheckIcon extends StatelessWidget {
   Widget build(BuildContext context) => CustomPaint(
     size: const Size.square(16),
     painter: _CheckPainter(IconTheme.of(context).color ?? Colors.black),
+  );
+}
+
+class _CheckIndicator extends StatelessWidget {
+  const _CheckIndicator({required this.checked});
+
+  final bool checked;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: 16,
+    child: checked ? const _CheckIcon() : null,
   );
 }
 

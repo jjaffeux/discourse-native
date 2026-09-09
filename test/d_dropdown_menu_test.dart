@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -216,6 +218,19 @@ void main() {
     expect(find.text('Bottom'), findsOneWidget);
   });
 
+  testWidgets('choice rows reserve indicator space across state changes', (
+    tester,
+  ) async {
+    await pumpMenu(tester, child: const _ChoiceHarness());
+    await open(tester);
+    final uncheckedWidth = tester.getSize(find.text('Panel')).width;
+
+    await tester.tap(find.text('Panel'));
+    await tester.pump();
+
+    expect(tester.getSize(find.text('Panel')).width, uncheckedWidth);
+  });
+
   testWidgets(
     'nested submenu opens directionally and deepest Escape closes first',
     (tester) async {
@@ -243,6 +258,24 @@ void main() {
       expect(find.text('Invite users'), findsNothing);
     },
   );
+
+  testWidgets('clicking a hover-open submenu keeps it open', (tester) async {
+    await pumpMenu(tester, child: const _SubmenuHarness());
+    await open(tester);
+    final trigger = find.text('Invite users');
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+
+    await mouse.moveTo(tester.getCenter(trigger));
+    await tester.pumpAndSettle();
+    expect(find.text('Email'), findsOneWidget);
+
+    await mouse.down(tester.getCenter(trigger));
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect(find.text('Email'), findsOneWidget);
+  });
 
   testWidgets('nested Escape wins over an ancestor shortcut', (tester) async {
     var ancestorEscapes = 0;
@@ -484,6 +517,22 @@ void main() {
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
+  });
+
+  testWidgets('desktop items retain the reference default cursor', (
+    tester,
+  ) async {
+    await pumpMenu(tester);
+    await open(tester);
+    final regions = tester.widgetList<MouseRegion>(
+      find.ancestor(
+        of: find.text('Profile'),
+        matching: find.byType(MouseRegion),
+      ),
+    );
+    final itemRegion = regions.firstWhere((region) => region.onEnter != null);
+
+    expect(itemRegion.cursor, SystemMouseCursors.basic);
   });
 
   testWidgets('iOS rows expose 48px touch bounds without changing typography', (
