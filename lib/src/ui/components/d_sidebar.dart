@@ -10,6 +10,24 @@ import 'd_separator.dart';
 import 'd_skeleton.dart';
 import 'd_tooltip.dart';
 
+bool _touchPlatform(BuildContext context) =>
+    switch (Theme.of(context).platform) {
+      TargetPlatform.iOS || TargetPlatform.android => true,
+      _ => false,
+    };
+
+class _SidebarTouchTarget extends StatelessWidget {
+  const _SidebarTouchTarget({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => _touchPlatform(context)
+      ? ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: Align(heightFactor: 1, child: child),
+        )
+      : child;
+}
+
 enum DSidebarSide { left, right }
 
 enum DSidebarVariant { sidebar, floating, inset }
@@ -181,6 +199,10 @@ class _DSidebarState extends State<DSidebar> {
         final route = _route!;
         _route = null;
         route.navigator?.removeRoute(route);
+        if (!provider.isMobile ||
+            widget.collapsible == DSidebarCollapsible.none) {
+          provider.setOpenMobile(false);
+        }
       } else if (shouldOpen && _route == null) {
         _returnFocus = FocusManager.instance.primaryFocus;
         final route = RawDialogRoute<void>(
@@ -216,18 +238,29 @@ class _DSidebarState extends State<DSidebar> {
                                 LogicalKeyboardKey.escape,
                               ): () =>
                                   provider.setOpenMobile(false),
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyB,
+                                meta: true,
+                              ): provider.toggleSidebar,
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyB,
+                                control: true,
+                              ): provider.toggleSidebar,
                             },
-                            child: Align(
-                              alignment: widget.side == DSidebarSide.left
-                                  ? Alignment.centerLeft
-                                  : Alignment.centerRight,
-                              child: SizedBox(
-                                width: math.min(
-                                  widget.mobileWidth,
-                                  MediaQuery.sizeOf(routeContext).width,
-                                ),
-                                child: SafeArea(
-                                  child: _panel(context, false, mobile: true),
+                            child: Focus(
+                              autofocus: true,
+                              child: Align(
+                                alignment: widget.side == DSidebarSide.left
+                                    ? Alignment.centerLeft
+                                    : Alignment.centerRight,
+                                child: SizedBox(
+                                  width: math.min(
+                                    widget.mobileWidth,
+                                    MediaQuery.sizeOf(routeContext).width,
+                                  ),
+                                  child: SafeArea(
+                                    child: _panel(context, false, mobile: true),
+                                  ),
                                 ),
                               ),
                             ),
@@ -294,7 +327,7 @@ class _DSidebarState extends State<DSidebar> {
               borderRadius: floating
                   ? BorderRadius.circular(t.radius * 1.2)
                   : null,
-              border: floating ? Border.all(color: t.border) : null,
+
               boxShadow: floating
                   ? [
                       BoxShadow(
@@ -305,6 +338,12 @@ class _DSidebarState extends State<DSidebar> {
                     ]
                   : null,
             ),
+            foregroundDecoration: floating
+                ? BoxDecoration(
+                    border: Border.all(color: t.border),
+                    borderRadius: BorderRadius.circular(t.radius * 1.2),
+                  )
+                : null,
             child: DefaultTextStyle(
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 color: t.foreground,
@@ -538,7 +577,9 @@ class _DSidebarMenuItemState extends State<DSidebarMenuItem> {
           reveal: hover || focus,
           trailing: icon
               ? 0
-              : (widget.action != null ? 28 : 0) +
+              : (widget.action != null
+                        ? (_touchPlatform(context) ? 48 : 28)
+                        : 0) +
                     (widget.badge != null ? 28 : 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -606,6 +647,19 @@ class DSidebarMenuButton extends StatefulWidget {
 
 class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
   bool hover = false, focus = false, pressed = false;
+  final _ownedFocus = FocusNode();
+  FocusNode get _focusNode => widget.focusNode ?? _ownedFocus;
+  void _activate() {
+    _focusNode.requestFocus();
+    widget.onPressed?.call();
+  }
+
+  @override
+  void dispose() {
+    _ownedFocus.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = DTokens.of(context);
@@ -628,7 +682,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
       label: widget.semanticLabel ?? (iconOnly ? widget.tooltip : null),
       child: FocusableActionDetector(
         enabled: enabled,
-        focusNode: widget.focusNode,
+        focusNode: _focusNode,
         autofocus: widget.autofocus,
         onShowFocusHighlight: (v) => setState(() => focus = v),
         onShowHoverHighlight: (v) => setState(() => hover = v),
@@ -645,82 +699,86 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
         },
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: widget.onPressed,
+          onTap: widget.onPressed == null ? null : _activate,
           onTapDown: enabled ? (_) => setState(() => pressed = true) : null,
           onTapCancel: () => setState(() => pressed = false),
           onTapUp: (_) => setState(() => pressed = false),
-          child: Opacity(
-            opacity: enabled ? 1 : .5,
-            child: Container(
-              constraints: BoxConstraints(minHeight: iconOnly ? 32 : minHeight),
-              padding: EdgeInsetsDirectional.only(
-                start: 8,
-                end: 8 + (_ItemScope.of(context)?.trailing ?? 0),
-                top: iconOnly ? 8 : 4,
-                bottom: iconOnly ? 8 : 4,
-              ),
-              decoration: BoxDecoration(
-                color: active
-                    ? t.hover
-                    : widget.variant == DSidebarMenuButtonVariant.outline
-                    ? t.background
-                    : null,
-                borderRadius: BorderRadius.circular(t.radius * .8),
-              ),
-              foregroundDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(t.radius * .8),
-                border: focus
-                    ? Border.all(color: t.focusRing, width: 2)
-                    : widget.variant == DSidebarMenuButtonVariant.outline
-                    ? Border.all(color: t.border)
-                    : null,
-              ),
-              child: IconTheme(
-                data: IconThemeData(size: 16, color: t.foreground),
-                child: DefaultTextStyle(
-                  maxLines:
-                      iconOnly ||
-                          MediaQuery.textScalerOf(context).scale(14) <= 14
-                      ? 1
+          child: _SidebarTouchTarget(
+            child: Opacity(
+              opacity: enabled ? 1 : .5,
+              child: Container(
+                constraints: BoxConstraints(
+                  minHeight: iconOnly ? 32 : minHeight,
+                ),
+                padding: EdgeInsetsDirectional.only(
+                  start: 8,
+                  end: 8 + (_ItemScope.of(context)?.trailing ?? 0),
+                  top: iconOnly ? 8 : 4,
+                  bottom: iconOnly ? 8 : 4,
+                ),
+                decoration: BoxDecoration(
+                  color: active
+                      ? t.hover
+                      : widget.variant == DSidebarMenuButtonVariant.outline
+                      ? t.background
                       : null,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                    fontSize: fontSize,
-                    height: (fontSize == 12 ? 16 : 20) / fontSize,
-                    color: t.foreground,
-                    fontWeight: widget.isActive
-                        ? FontWeight.w500
-                        : FontWeight.w400,
-                  ),
-                  child: Row(
-                    children: [
-                      if (widget.icon != null)
-                        ExcludeSemantics(
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: widget.icon,
+                  borderRadius: BorderRadius.circular(t.radius * .8),
+                ),
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(t.radius * .8),
+                  border: focus
+                      ? Border.all(color: t.focusRing, width: 2)
+                      : widget.variant == DSidebarMenuButtonVariant.outline
+                      ? Border.all(color: t.border)
+                      : null,
+                ),
+                child: IconTheme(
+                  data: IconThemeData(size: 16, color: t.foreground),
+                  child: DefaultTextStyle(
+                    maxLines:
+                        iconOnly ||
+                            MediaQuery.textScalerOf(context).scale(14) <= 14
+                        ? 1
+                        : null,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                      fontSize: fontSize,
+                      height: (fontSize == 12 ? 16 : 20) / fontSize,
+                      color: t.foreground,
+                      fontWeight: widget.isActive
+                          ? FontWeight.w500
+                          : FontWeight.w400,
+                    ),
+                    child: Row(
+                      children: [
+                        if (widget.icon != null)
+                          ExcludeSemantics(
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: widget.icon,
+                            ),
                           ),
-                        ),
-                      if (!iconOnly) ...[
-                        if (widget.icon != null) const SizedBox(width: 8),
-                        Flexible(
-                          child: ExcludeSemantics(
-                            excluding: widget.semanticLabel != null,
-                            child: widget.child,
+                        if (!iconOnly) ...[
+                          if (widget.icon != null) const SizedBox(width: 8),
+                          Flexible(
+                            child: ExcludeSemantics(
+                              excluding: widget.semanticLabel != null,
+                              child: widget.child,
+                            ),
                           ),
-                        ),
+                        ],
+                        if (iconOnly && widget.icon == null)
+                          Expanded(
+                            child: ExcludeSemantics(
+                              excluding:
+                                  widget.semanticLabel != null ||
+                                  widget.tooltip != null,
+                              child: widget.child,
+                            ),
+                          ),
                       ],
-                      if (iconOnly && widget.icon == null)
-                        Expanded(
-                          child: ExcludeSemantics(
-                            excluding:
-                                widget.semanticLabel != null ||
-                                widget.tooltip != null,
-                            child: widget.child,
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -758,6 +816,18 @@ class DSidebarMenuAction extends StatefulWidget {
 
 class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
   bool focus = false, hover = false;
+  final _focusNode = FocusNode();
+  void _activate() {
+    _focusNode.requestFocus();
+    widget.onPressed?.call();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_PanelScope.iconOf(context)) return const SizedBox.shrink();
@@ -769,6 +839,7 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
         MediaQuery.sizeOf(context).width < 768;
     final t = DTokens.of(context);
     return FocusableActionDetector(
+      focusNode: _focusNode,
       enabled: widget.onPressed != null,
       onShowFocusHighlight: (v) => setState(() => focus = v),
       onShowHoverHighlight: (v) => setState(() => hover = v),
@@ -786,26 +857,28 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
         label: widget.semanticLabel,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: widget.onPressed,
-          child: Opacity(
-            opacity: reveal ? (widget.onPressed != null ? 1 : .5) : 0,
-            child: Container(
-              width: 20,
-              height: 20,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: hover ? t.hover : null,
-                borderRadius: BorderRadius.circular(t.radius * .8),
-              ),
-              foregroundDecoration: focus
-                  ? BoxDecoration(
-                      border: Border.all(color: t.focusRing, width: 2),
-                      borderRadius: BorderRadius.circular(t.radius * .8),
-                    )
-                  : null,
-              child: IconTheme(
-                data: IconThemeData(size: 16, color: t.foreground),
-                child: widget.child,
+          onTap: widget.onPressed == null ? null : _activate,
+          child: _SidebarTouchTarget(
+            child: Opacity(
+              opacity: reveal ? (widget.onPressed != null ? 1 : .5) : 0,
+              child: Container(
+                width: 20,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: hover ? t.hover : null,
+                  borderRadius: BorderRadius.circular(t.radius * .8),
+                ),
+                foregroundDecoration: focus
+                    ? BoxDecoration(
+                        border: Border.all(color: t.focusRing, width: 2),
+                        borderRadius: BorderRadius.circular(t.radius * .8),
+                      )
+                    : null,
+                child: IconTheme(
+                  data: IconThemeData(size: 16, color: t.foreground),
+                  child: widget.child,
+                ),
               ),
             ),
           ),
@@ -942,7 +1015,7 @@ class DSidebarTrigger extends StatelessWidget {
   final FocusNode? focusNode;
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 32,
+    width: _touchPlatform(context) ? 48 : 32,
     child: DSidebarMenuButton(
       semanticLabel: semanticLabel,
       focusNode: focusNode,

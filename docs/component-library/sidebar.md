@@ -122,5 +122,14 @@ physical-right modal, Escape/outside dismissal, focus restoration, selected
 semantics,30px geometry,live open-route theme changes, removal,all six examples
 at360px RTL200%,and existing styleguide registration/theme-state behavior.
 
-Native comparison and final analysis are recorded separately after inspection.
-No iOS/Linux device or spoken VoiceOver verification is implied by widget tests.
+Final implementation checkpoint: `47aabf60e65dff047cdf80dd6e29203a93fb8012`.
+Final21 focused tests pass; root/full analysis and formatting are clean.
+[Native comparison, build provenance, cleanup and limitations](sidebar-native.md)
+records the actual macOS inspection and its native-discovered fixes.
+
+Pointer activation requests focus before calling the action. On iOS/Android,
+menu/trigger/action hit areas have48px minimum bounds around compact visuals.
+Leaving the mobile breakpoint clears openMobile, so returning does not reopen
+an obsolete panel. Initial modal focus enters its shortcut subtree, making
+Escape effective immediately. Menu/Content use the registry's gap-0; submenu
+spacing is4px. Floating borders are painted without consuming icon width.
