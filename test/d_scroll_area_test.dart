@@ -317,8 +317,9 @@ void main() {
       ]) {
         await tester.sendKeyDownEvent(modifier);
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-        if (modifier != LogicalKeyboardKey.shiftLeft)
+        if (modifier != LogicalKeyboardKey.shiftLeft) {
           await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        }
         await tester.sendKeyUpEvent(modifier);
       }
       await tester.pumpAndSettle();

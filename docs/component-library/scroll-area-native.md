@@ -5,9 +5,9 @@ was launched or inspected. This record establishes build readiness only.
 
 ## Final build provenance
 
-Source commit: `f3ad79ca78f2552771803e8722fd72e5774644ec`. The worktree was exactly clean after the
-temporary runner files were restored. Subsequent commits update documentation
-only; production Dart, fixture, assets and dependency inputs equal that commit.
+Source commit: `5ccd42497c6db763d5e37f3ffb5a5d89f5111209`. After temporary runner files were restored, production Dart, fixture, assets,
+macOS runner and dependency inputs exactly equal that commit (`git diff` checked).
+The only pending non-documentation change was a brace-only test lint correction.
 
 Command: `flutter build macos --debug --no-pub -t lib/scroll_area_review_main.dart`.
 Build succeeded; log `/tmp/scroll-area-macos-build.log`.
@@ -23,7 +23,7 @@ with org.discourse.native.dev; the final built Info.plist identifier was correct
 to the unique review ID before signing. The main checkout build was untouched.
 
 Build App.framework and copied bundle App.framework kernel_blob.bin bytes are
-equal. SHA256 for both: `30b1bbf47c38d205a897ae8c36d25ba2a0203a39bd57d451f1a0157f9b00c00f`.
+equal. SHA256 for both: `042805352d6b28602593333032112aad0aa7b45e17eadb65cd35671894251d63`.
 
 `codesign --force --deep --sign - --timestamp=none` completed locally, followed by
 `codesign --verify --deep --strict --verbose=2`: valid on disk and satisfies its
@@ -54,3 +54,13 @@ Record screenshots, actual native outcomes and fixes before review_ready.
 
 No pixel parity, VoiceOver, iOS/Linux device behavior, native trackpad behavior
 or production-screen visual acceptance has yet been established.
+
+## Keyboard follow-up
+
+Root Tab entry now depends on enabled-axis overflow, matching the captured Base
+UI tabindex condition. Content and viewport-size changes preserve descendant
+editing/focus and do not forcibly blur a previously focused root. Space pages
+down, Shift+Space up; unrelated modified keys bubble to ancestor handlers.
+35 component/Sidebar/styleguide tests pass, including actual traversal and child
+key handling. Root/full-profile analysis are clean. The signed fixture above
+was rebuilt after these executable changes; native review remains awaiting_slot.
