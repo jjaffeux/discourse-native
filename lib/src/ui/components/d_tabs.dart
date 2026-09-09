@@ -656,11 +656,9 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
             alpha: tokens.colors.outlineVariant.a * .3,
           )
         : tokens.background;
-    final foreground = enabled
-        ? selected || _hovered
-              ? tokens.foreground
-              : tokens.foreground.withValues(alpha: .6)
-        : tokens.foreground.withValues(alpha: .3);
+    final foreground = selected || _hovered
+        ? tokens.foreground
+        : tokens.foreground.withValues(alpha: .6);
 
     final surface = AnimatedContainer(
       duration: DMotion.duration(context, DMotion.change),
@@ -720,6 +718,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         child: artwork,
       );
     }
+    if (!enabled) artwork = Opacity(opacity: .5, child: artwork);
 
     return Semantics(
       button: true,
@@ -741,27 +740,26 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           if (focused) root.state.highlight(this);
           if (focused && list.activateOnFocus) root.state.select(widget.value);
         },
-        shortcuts: const {
-          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-          SingleActivator(LogicalKeyboardKey.arrowLeft): _MoveTabFocusIntent(
-            LogicalKeyboardKey.arrowLeft,
-          ),
-          SingleActivator(LogicalKeyboardKey.arrowRight): _MoveTabFocusIntent(
-            LogicalKeyboardKey.arrowRight,
-          ),
-          SingleActivator(LogicalKeyboardKey.arrowUp): _MoveTabFocusIntent(
-            LogicalKeyboardKey.arrowUp,
-          ),
-          SingleActivator(LogicalKeyboardKey.arrowDown): _MoveTabFocusIntent(
-            LogicalKeyboardKey.arrowDown,
-          ),
-          SingleActivator(LogicalKeyboardKey.home): _MoveTabFocusIntent(
-            LogicalKeyboardKey.home,
-          ),
-          SingleActivator(LogicalKeyboardKey.end): _MoveTabFocusIntent(
-            LogicalKeyboardKey.end,
-          ),
+        shortcuts: {
+          const SingleActivator(LogicalKeyboardKey.enter):
+              const ActivateIntent(),
+          const SingleActivator(LogicalKeyboardKey.space):
+              const ActivateIntent(),
+          if (root.orientation == Axis.horizontal) ...{
+            const SingleActivator(LogicalKeyboardKey.arrowLeft):
+                const _MoveTabFocusIntent(LogicalKeyboardKey.arrowLeft),
+            const SingleActivator(LogicalKeyboardKey.arrowRight):
+                const _MoveTabFocusIntent(LogicalKeyboardKey.arrowRight),
+          } else ...{
+            const SingleActivator(LogicalKeyboardKey.arrowUp):
+                const _MoveTabFocusIntent(LogicalKeyboardKey.arrowUp),
+            const SingleActivator(LogicalKeyboardKey.arrowDown):
+                const _MoveTabFocusIntent(LogicalKeyboardKey.arrowDown),
+          },
+          const SingleActivator(LogicalKeyboardKey.home):
+              const _MoveTabFocusIntent(LogicalKeyboardKey.home),
+          const SingleActivator(LogicalKeyboardKey.end):
+              const _MoveTabFocusIntent(LogicalKeyboardKey.end),
         },
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(

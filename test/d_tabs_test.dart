@@ -125,6 +125,44 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('disabled opacity applies to the complete trigger artwork', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      const DTabs<String>.controlled(
+        value: 'two',
+        children: [
+          DTabList<String>(
+            children: [
+              DTabTrigger(value: 'one', child: Text('One')),
+              DTabTrigger(value: 'two', enabled: false, child: Text('Two')),
+            ],
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    final disabled = find.byType(DTabTrigger<String>).last;
+    final opacity = find.descendant(
+      of: disabled,
+      matching: find.byType(Opacity),
+    );
+    expect(opacity, findsOneWidget);
+    expect(tester.widget<Opacity>(opacity).opacity, .5);
+    final decoration =
+        tester
+                .widget<AnimatedContainer>(
+                  find.descendant(
+                    of: disabled,
+                    matching: find.byType(AnimatedContainer),
+                  ),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(decoration.color, isNot(Colors.transparent));
+  });
+
   testWidgets('controlled selection waits for its parent', (tester) async {
     var value = 'one';
     var calls = 0;
