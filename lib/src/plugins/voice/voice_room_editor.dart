@@ -95,17 +95,17 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               minLines: 2,
               maxLines: 5,
             ),
-            SwitchListTile.adaptive(
+            DSwitchTile(
               value: _isPublic,
               onChanged: (value) => setState(() => _isPublic = value),
               title: const DLabel(child: Text('Public room')),
             ),
-            SwitchListTile.adaptive(
+            DSwitchTile(
               value: _stage,
               onChanged: (value) => setState(() => _stage = value),
               title: const DLabel(child: Text('Stage room')),
             ),
-            SwitchListTile.adaptive(
+            DSwitchTile(
               value: _video,
               onChanged: (value) => setState(() => _video = value),
               title: const DLabel(child: Text('Allow video')),
@@ -145,7 +145,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               decoration: const InputDecoration(labelText: 'Chat idle minutes'),
             ),
             if (_room?.livekitEnabled != null)
-              SwitchListTile.adaptive(
+              DSwitchTile(
                 value: _livekit,
                 onChanged: (value) => setState(() => _livekit = value),
                 title: const DLabel(child: Text('Use LiveKit')),

@@ -23,7 +23,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 11 | textarea | planned | — | — | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
 | 13 | radio-group | planned | — | — | label | — |
-| 14 | switch | planned | — | — | label | — |
+| 14 | switch | in_progress | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | — |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | planned | — | — | label | — |
@@ -836,6 +836,68 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 
 - Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.
 - Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
+
+### switch
+
+Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-switch.
+
+**acceptanceCriteria**
+
+- Match base-nova 32×18.4/16 and 24×14/12 track/thumb geometry, 1px inset, directional 14/10px travel, semantic colors, focus/error rings, disabled opacity and 150ms motion.
+- Provide controlled and uncontrolled switch, read-only and disabled behavior, focus/keyboard/touch/semantics, FormField validation/save/reset and live controlled updates.
+- Reproduce default, description, choice-card, disabled, invalid, sizes and RTL examples without implementing pending Field.
+- Migrate core and bundled plugin switches preserving async, permission and persistence owners; cover real local-data fixtures and focused regressions.
+- Run focused tests and root/full analysis, build isolated signed review bundle; remain in_progress until actual reference/native inspection.
+
+**decisions**
+
+- Label is merged. Baseline DButton is used for actions; no dependency on unmerged Button/Checkbox/Input/Field.
+- DSwitch owns Flutter focus/actions/semantics with shadcn artwork; DSwitchTile composes switch with arbitrary wrapping title/subtitle and a single row activation owner.
+- Native accessible hit targets grow transparently to 48px; reference visual bounds remain compact.
+- Official source URLs, SHA256 values, complete metric mapping and native adaptations recorded in docs/component-library/switch.md; frozen Switch Markdown hash matches.
+- Controlled Form edits and reset requests wait for parent acceptance. Rejected/deferred reset retains consistent field value, semantics, validation and save.
+- Choice cards use source 10px inset + 1px border, 8px horizontal/2px description/20px group gaps, selected/hover treatment and a single wrapper focus ring.
+- Native transparent 48px targets; borrowed focus node ownership; reference 150ms cubic(.4,0,.2,1) motion with reduced-motion zero duration.
+
+**migrations**
+
+- lib/src/plugins/chat/chat_channel_info_view.dart
+- lib/src/plugins/chat/chat_drawer.dart
+- lib/src/plugins/discourse_ai/ai_proofreading_plugin.dart
+- lib/src/plugins/local_dates/local_date_composer_sheet.dart
+- lib/src/plugins/poll/poll_composer_sheet.dart
+- lib/src/plugins/voice/voice_diagnostics_view.dart
+- lib/src/plugins/voice/voice_room_editor.dart
+- lib/src/plugins/voice/voice_room_view.dart
+- lib/src/shell/app_settings_page.dart
+- lib/src/shell/group/group_manage_view.dart
+- lib/src/shell/keyboard_navigation.dart
+- lib/src/shell/preferences_page.dart
+- lib/src/styleguide/examples/label_examples.dart
+- lib/src/styleguide/examples/spinner_examples.dart
+- lib/src/styleguide/examples/separator_examples.dart
+
+**retainedAlternatives**
+
+- Stock Switch/SwitchListTile keyboard guard type checks retain compatibility for external callers; no production stock switch renderers remain. DLabel native association test intentionally retains native control coverage.
+- AI proofreading retains the outer existing InkWell/semantic owner; DSwitch small artwork excludes nested focus/pointer/semantics.
+- Unmerged Button/Checkbox/Input/Radio Group/Slider controls and Field are not implemented here.
+
+**verification**
+
+- Locked root and profiles/full dependency resolution passed without SDK/dependency/lockfile changes.
+- Root and profiles/full flutter analyze --no-pub passed with no issues.
+- 327 focused app, component and styleguide tests passed with seed 824192; log /private/tmp/switch-impact-final-tests.log. The whole suite was not run.
+- 17 final Switch tests passed after reference example centering; geometry/travel, pointer/Space/Enter/semantics, disabled/readOnly, controlled state, reset rejection/deferred acceptance, Form save/validation, live palettes, wrapper hover/focus and narrow 200% RTL examples. Log /private/tmp/switch-examples-final-tests.log.
+- Two real-widget local fixture tests passed; Settings persists in memory; actual Preferences, Chat settings, Poll, Local date, Group manage and Voice diagnostics mount without credentials/network. Log /private/tmp/switch-fixture-tests.log.
+- Routed Chat staff threading regression passed: flutter test --no-pub test/chat_shell_integration_test.dart --plain-name "staff toggle threading from routed channel settings"; /private/tmp/switch-chat-tests.log.
+- Formatting of touched Dart files and git diff --check passed.
+
+**limitations**
+
+- Mac locked: no CUA, native launch, reference-browser comparison or desktop inspection performed. nativeInspectionStatus remains awaiting_slot; not review_ready or mergeable.
+- No iOS/Linux device run or spoken VoiceOver claim. Native text wrapping adapts CSS text balancing.
+- Review launcher covers representative migrated production surfaces. Voice room/editor and AI composer are covered by actual-widget regressions; additional native fixture coverage can be completed during review.
 
 ### skeleton
 

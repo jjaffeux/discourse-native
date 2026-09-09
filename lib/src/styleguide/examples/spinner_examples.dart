@@ -244,19 +244,19 @@ class _SpinnerAppearanceState extends State<_SpinnerAppearance> {
             ),
         ],
       ),
-      SwitchListTile.adaptive(
+      DSwitchTile(
         contentPadding: EdgeInsets.zero,
         title: const Text('Custom artwork'),
         value: _custom,
         onChanged: (value) => setState(() => _custom = value),
       ),
-      SwitchListTile.adaptive(
+      DSwitchTile(
         contentPadding: EdgeInsets.zero,
         title: const Text('Accent color'),
         value: _accent,
         onChanged: (value) => setState(() => _accent = value),
       ),
-      SwitchListTile.adaptive(
+      DSwitchTile(
         contentPadding: EdgeInsets.zero,
         title: const Text('Animate sample'),
         value: _animate,
@@ -443,13 +443,13 @@ class _SpinnerBadgesState extends State<_SpinnerBadges> {
               ),
           ],
         ),
-        SwitchListTile.adaptive(
+        DSwitchTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Activity in progress'),
           value: _busy,
           onChanged: (value) => setState(() => _busy = value),
         ),
-        SwitchListTile.adaptive(
+        DSwitchTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Spinner at inline end'),
           value: _trailing,

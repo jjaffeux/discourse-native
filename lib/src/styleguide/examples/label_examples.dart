@@ -13,7 +13,7 @@ final labelExamples = ComponentExamples(
       'The host supplies the font family, text scaler and live foreground tokens. '
       'Native control slots own association, activation, focus and combined '
       'semantics; a standalone DLabel is ordinary text. Keep interactive links '
-      'outside a list tile. Current Checkbox, Switch and TextFormField visuals '
+      'outside a list tile. Current Checkbox and TextFormField visuals '
       'are temporary while their catalogue components and Field are pending. '
       'Those tasks will port the shadcn visuals and retain native behavior. '
       'The larger reference FieldDemo belongs to Field; its neighboring '
@@ -185,7 +185,7 @@ class _ControlPreviewState extends State<_ControlPreview> {
           child: const Text('Accept terms and conditions'),
         ),
       ),
-      SwitchListTile.adaptive(
+      DSwitchTile(
         key: const ValueKey('label-enable'),
         contentPadding: EdgeInsets.zero,
         title: const DLabel(child: Text('Enable terms control')),

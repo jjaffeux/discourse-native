@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -52,7 +53,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -4935,7 +4935,7 @@ void _registerChatShellTests() {
         expect(find.text('Staff'), findsNothing);
         expect(find.text('Leave this channel'), findsOneWidget);
         expect(threadingSwitch, findsOneWidget);
-        expect(tester.widget<Switch>(threadingSwitch).value, isFalse);
+        expect(tester.widget<DSwitch>(threadingSwitch).value, isFalse);
 
         await tester.tap(threadingSwitch);
         await tester.pumpAndSettle();
@@ -4945,7 +4945,7 @@ void _registerChatShellTests() {
         ]);
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.chat.channel(site, 9)?.threadingEnabled, isTrue);
-        expect(tester.widget<Switch>(threadingSwitch).value, isTrue);
+        expect(tester.widget<DSwitch>(threadingSwitch).value, isTrue);
       });
 
       testWidgets('staff close an open category channel after confirmation', (

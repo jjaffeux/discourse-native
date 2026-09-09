@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -38,6 +39,8 @@ bool navigationShortcutsAllowed(
       widget is CheckboxListTile ||
       widget is Radio<Object?> ||
       widget is RadioListTile<Object?> ||
+      widget is DSwitch ||
+      widget is DSwitchTile ||
       widget is Switch ||
       widget is SwitchListTile ||
       widget is Slider ||

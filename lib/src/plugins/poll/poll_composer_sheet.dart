@@ -239,7 +239,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
           const SizedBox(height: 20),
           _resultsField(),
           const SizedBox(height: 8),
-          SwitchListTile.adaptive(
+          DSwitchTile(
             contentPadding: EdgeInsets.zero,
             title: const DLabel(child: Text('Public voter identities')),
             subtitle: const Text(
@@ -248,7 +248,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
             value: _publicVoters,
             onChanged: (value) => setState(() => _publicVoters = value),
           ),
-          SwitchListTile.adaptive(
+          DSwitchTile(
             contentPadding: EdgeInsets.zero,
             title: const DLabel(child: Text('Automatic close')),
             value: _automaticClose,
