@@ -30,7 +30,8 @@
       "Coordinator rebuilt the real repository-root macOS app after Label and Aspect Ratio integration: flutter build macos --debug --no-pub succeeded at main 4b5bd8b7d6fecb5a11d01732e8fe7ff7bbba0b98 with all seven currently merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app. Log: /private/tmp/discourse-main-label-aspect-build.log. The real account app was not launched; this verifies compilation and bundling, and does not diagnose the user-reported startup problem.",
       "Coordinator built the real repository-root macOS app after Spinner, Tooltip and Avatar integration: flutter build macos --debug --no-pub succeeded at main 6976336acc1cf7dd1a44da5bfa4ba7dbdf3dd799 (ten merged catalogue components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-avatar-tooltip-spinner-build.log. Full-profile flutter pub get --enforce-lockfile and flutter analyze --no-pub also passed, with no lockfile/pin changes and analysis clean in 2.4s. This is compilation/bundling verification only; the real account app was not launched and the user-reported startup issue remains unverified.",
       "Final four-component batch checkpoint: the real repository-root macOS app built successfully with flutter build macos --debug --no-pub at main ea58497479e75efce7a86ebe95c784cd3c974846, containing all eleven merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-four-component-batch-build.log. Coordinator verified all four reviewed branch heads are ancestors of main, their merge commits have two parents, public components/examples are present and marked implemented, and the native inspection owner/queue are empty. All requested batch work is complete; work is paused for user review. This build does not diagnose the user-reported startup issue; the real account app was not launched.",
-      "After final Button, Badge and Input integration, the real repository-root macOS app builds successfully with flutter build macos --debug --no-pub at main e5bee6d59479627082aaa2c95015df0282738383 (15 merged components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-input-badge-build.log. Compilation/bundling verified only; the account app was not launched and the user-reported startup issue remains unverified."
+      "After final Button, Badge and Input integration, the real repository-root macOS app builds successfully with flutter build macos --debug --no-pub at main e5bee6d59479627082aaa2c95015df0282738383 (15 merged components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-input-badge-build.log. Compilation/bundling verified only; the account app was not launched and the user-reported startup issue remains unverified.",
+      "Real macOS app rebuilt successfully after final Radio Group and Checkbox integration at source main1532aaa2 (17 merged components). Artifact /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-checkbox-radio-build.log. Only progress metadata changed during the build. This verifies compilation and bundling; the account app was not launched."
     ],
     "mergeCommit": "1b130d3323f9b7619bdead025fd76a57be402a97",
     "acceptanceCriteria": [
@@ -730,7 +731,8 @@
         "Frozen docs match SHA256; primary registry/example/Field sources and CSS-to-Flutter mapping preserved in textarea.md and reference/textarea/.",
         "DTextarea is a standalone FormField/native TextField owner; same-string updates preserve selection/composition and reset restores mount text. No unmerged Input/Field/Button dependency.",
         "Match 64px content-growing surface, 11x9px border-box text insets, explicit 14/20 desktop and 16/24 touch metrics, host radius, outlineVariant input role, multiplied alpha and exterior-only 3px rings.",
-        "Seven actual examples cover all frozen compositions plus native Form/reset, controlled ownership and bounded read-only editing. Field uses DLabel/native composition; Button composition uses existing StyleguideAction until pending owners merge."
+        "Seven actual examples cover all frozen compositions plus native Form/reset, controlled ownership and bounded read-only editing. Field uses DLabel/native composition; Button composition uses existing StyleguideAction until pending owners merge.",
+        "Merged pinned main e612ad7b in d286e118; final owners and all non-Textarea progress rows preserved. Textarea examples now compose final DButton; adjacent DInput adapters reconciled without changing rich composer boundaries."
       ],
       "migrations": [
         "14 ordinary multiline core/plugin call sites migrated: invitations/group request/template/bio, post flag/notice/fast edit, Assign note, Chat description, Events description, Voice description/flag/simple room chat.",
@@ -748,16 +750,17 @@
         "Final pointer-state refinement: all 12 component/visual/example tests and root/full-profile analysis pass.",
         "Isolated /private/tmp/DiscourseTextareaReview-01a08437.app has unique org.discourse.native.textarea.01a08437 identifier and discourse-textarea-review-01a08437 scheme. Source/copy kernel SHA256 both add8ac7965e911c3e129d7ed80b33913983d13f7e161f9257a83232effc23650; deep strict ad-hoc signature verification passes. Bundle remains unlaunched awaiting_slot.",
         "AX correction c2d7026f isolates editor Semantics container; reproduced oversized unadorned editor before fix. Exact bounds and independent actions/heading tests pass for single/Column/Row with required/invalid/error metadata. 60 focused checks and final 12 component tests pass; root/full analysis clean.",
-        "Refreshed unlaunched /private/tmp/DiscourseTextareaReview-01a08437-AX.app from c2d7026f production source. Source/copy kernel SHA256 be9603f36ffc05f2b2a1f7473cf99eec79f07852c369e93ae0ccf140df37e3fa. Unique .ax identifier/scheme; restricted APS/team/application entitlements absent by readback; deep strict ad-hoc signature passes. Awaiting serialized UI slot."
+        "Refreshed unlaunched /private/tmp/DiscourseTextareaReview-01a08437-AX.app from c2d7026f production source. Source/copy kernel SHA256 be9603f36ffc05f2b2a1f7473cf99eec79f07852c369e93ae0ccf140df37e3fa. Unique .ax identifier/scheme; restricted APS/team/application entitlements absent by readback; deep strict ad-hoc signature passes. Awaiting serialized UI slot.",
+        "Pinned-main integration: 221 focused tests pass, root/full-profile analysis and enforced-lockfile resolution pass; no SDK/lockfile changes.",
+        "Unlaunched source-exact /private/tmp/DiscourseTextareaReview-d286e118.app from d286e1188bc57c2f2b1a26c3439c69d636606d9b, unique identity/scheme. Source/copied kernel SHA256 2b33e2ae6338e5aa17e889731b44b50e459cdc497d37216643f6aa1f45093faf; deep strict signature and signed entitlement readback pass with debug/JIT allowed and APS/team/application identities absent."
       ],
       "limitations": [
         "No desktop/browser use: native Mac locked and no serialized slot granted. Actual reference-rendered comparison and native fixture/styleguide inspection remain required.",
         "No iOS/Linux device or spoken VoiceOver verification; widget tests and exported renders do not claim device/pixel parity."
       ],
-      "implementationCommit": "c2d7026fbc912aed6d1fa92c5c1c4a4ea6f887ef",
+      "implementationCommit": "d286e1188bc57c2f2b1a26c3439c69d636606d9b",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot",
-      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native"
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "checkbox",
@@ -1065,7 +1068,8 @@
         "Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.",
         "Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.",
         "Range is 0\u2013100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.",
-        "Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review."
+        "Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review.",
+        "Pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 integrated; final Button/Badge/Input/Radio/Checkbox and shared application fixes preserved. DButton example actions now use merged Button."
       ],
       "migrations": [
         "15 linear indicator sites across 14 core/Chat/Assign/Events files; retain fractional upload/update max:1, thin strip geometry, domain colors and async ownership. See implementation.md for exact audit.",
@@ -1078,11 +1082,13 @@
       "verification": [
         "Root/full locked pub get and root/full analyze --no-pub pass; no lockfile/pin/dependency/runner source changes.",
         "302 focused tests passed, seed 9092026; after timing/typography/example refinements 10 component/example/fixture cases passed again. Commands and logs recorded in implementation.md.",
-        "Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034."
+        "Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034.",
+        "Pinned-main integration: 142 focused tests pass seed9092026; root/full analysis clean. Refreshed /tmp/DiscourseProgressc8r2.app matches source a2984ddb589533370262b77270dab688e8b0a4bc and all built Flutter assets. Kernel d7ec6e8f4046cdc6db93fb6546d22ac5c64d69faa2325b95082db0623e85808b. Deep strict ad-hoc signature and exact restricted-free entitlement readback pass; details in native-manifest.json."
       ],
       "limitations": [
         "No native/reference rendered comparison or CUA use before exclusive desktop slot; not review_ready. No iOS/Linux device or spoken VoiceOver verification.",
-        "Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only."
+        "Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only.",
+        "Browser-only reference slot released immediately: first navigation denied because admin-enforced browser security policy could not be verified. No retry/workaround, website theme unchanged, native access not attempted. Rendered comparison remains pending."
       ],
       "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
       "mergeCommit": null,
@@ -1483,14 +1489,18 @@
         "Native review fixture entrypoint tool/table_review.dart prepared; build provenance follows after source commit.",
         "flutter build macos --debug --no-pub -t tool/table_review.dart: passed in isolated checkout; copied /tmp/table-review-7328/Table Review 7328.app, ID org.discourse.tablereview7328, URL scheme discourse-table-review-7328.",
         "Build source f98c86e983088205647b11c97c6027ce706ad8dd; tracked lib/fixture/pin/root-lock bytes unchanged, temporary runner edits restored. Copied kernel equals original build kernel SHA256 8f46827b04e593cd6fa1f05daea14e315b1a00c42a60f4cf5291ea4b622a6e79.",
-        "Copied Info.plist ID corrected after debug configuration override; ad-hoc codesign and codesign --verify --deep --strict passed. Detailed build log/provenance/signature in /tmp/table-review-7328/. Native app has not been launched."
+        "Copied Info.plist ID corrected after debug configuration override; ad-hoc codesign and codesign --verify --deep --strict passed. Detailed build log/provenance/signature in /tmp/table-review-7328/. Native app has not been launched.",
+        "Integration: merged pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; all non-Table progress rows preserved exactly. Table examples now compose merged DButton; retained custom spans/semantics, AlertTables/Skeleton adapters and Users boundary.",
+        "Integration root/full enforced-lockfile resolution and analysis passed. 50 focused Table/AlertTables/Skeleton/styleguide tests passed seed 9092026; final trigger-size follow-up: all 7 DTable tests passed.",
+        "Superseding native artifact source 80c801e69ee94b8f1d02ca71ccb489bc53aec257, /tmp/table-review-7328/Table Review 7328.app; final ID org.discourse.tablereview7328 and URL scheme discourse-table-review-7328 verified. Copied kernel equals built SHA256 ec4e523c98e3978b530bf4adda8f52ce452864c006d8d9bb3d54f0c392c54e4a.",
+        "Ad-hoc debug entitlement read-back equals only allow-jit, allow-unsigned-executable-memory and disable-library-validation; no restricted entitlements. Deep strict signature verification passed; tracked source/fixture/pin/lock equality passed and runner edits restored. App not launched; awaiting_slot."
       ],
       "limitations": [
         "awaiting_slot: native Mac locked; no browser/native inspection authorization. Actual reference-rendered comparison and native styleguide + AlertTables fixture inspection remain required; status stays in_progress.",
-        "Actions temporarily compose existing StyleguideAction/DButton and native MenuAnchor until Button/Dropdown Menu owners merge.",
+        "Actions temporarily compose merged DButton and native MenuAnchor until Dropdown Menu merges.",
         "No VoiceOver or iOS/Linux device inspection, and no visual/pixel parity claim."
       ],
-      "implementationCommit": "f98c86e983088205647b11c97c6027ce706ad8dd",
+      "implementationCommit": "80c801e69ee94b8f1d02ca71ccb489bc53aec257",
       "mergeCommit": null
     },
     {
@@ -1859,13 +1869,15 @@
         "Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.",
         "Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch.",
         "2026-09-09 correction: 155 impact tests and 2 manual font-loaded render tests passed. Official light/dark/disabled/invalid/focus/groups/RTL/narrow browser capture compared with registered examples; production fixture renders captured in both app themes. See native-select-review.md and reference/native-select-review/manifest.json.",
-        "Corrected source d2e500f95d25f9901f74b37d0784aeb1e1ebf071 rebuilt into the unique ad-hoc verified review app; all four kernels match 47fabe4db51b73135427cc6ab941765ad04b53c4433693b36b29babf03691efc."
+        "Corrected source d2e500f95d25f9901f74b37d0784aeb1e1ebf071 rebuilt into the unique ad-hoc verified review app; all four kernels match 47fabe4db51b73135427cc6ab941765ad04b53c4433693b36b29babf03691efc.",
+        "Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; final shared component implementations and all other progress rows preserved. 327 integration tests passed initially; sole obsolete 100px post-action test fixture resized to120px for final touch targets, all24 bookmark tests then passed. Root/full analysis clean.",
+        "Merge-queue bundle rebuilt from f9baeaa86c2bd88058ab815687543587aeec5296 with matching four-kernel hash bb7dca4c9c8906921f677cc834ff2b2bbe1990f4e29009a3b8144cedf1de8a37; restricted-free debug entitlements verified by signed read-back and strict deep signature."
       ],
       "limitations": [
         "awaiting_slot: browser slot released with original dark theme and viewport restored; native app/device/VoiceOver inspection remains required before review_ready or merge.",
         "No native CUA/app launch. Font-loaded widget screenshots are not device rendering, VoiceOver or OS-popup parity evidence."
       ],
-      "implementationCommit": "d2e500f95d25f9901f74b37d0784aeb1e1ebf071",
+      "implementationCommit": "f9baeaa86c2bd88058ab815687543587aeec5296",
       "mergeCommit": null
     },
     {
@@ -2578,19 +2590,19 @@
           "status": "implementation"
         },
         {
-          "component": "progress",
-          "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
-          "branch": "codex/ui-progress",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cfac/discourse-native",
-          "headCommit": "c296e0e1a4e39438351f0a672496d8538f0c3e29",
-          "status": "main_integration_and_browser_review"
+          "component": "field",
+          "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
+          "branch": "codex/ui-field",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/14b5/discourse-native",
+          "status": "main_integration_preparation",
+          "headCommit": "f3956645"
         },
         {
-          "component": "table",
-          "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
-          "branch": "codex/ui-table",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native",
-          "headCommit": "32cc5ca1666a0f13e92024a10d9a9aec208a8858",
+          "component": "chart",
+          "taskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
+          "branch": "codex/ui-chart",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native",
+          "headCommit": "53aae77ed4bdaddaa15c1094e4f754011608bd0f",
           "status": "main_integration_preparation"
         }
       ],
@@ -2637,28 +2649,12 @@
           "status": "awaiting_browser_and_native_review"
         },
         {
-          "component": "native-select",
-          "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
-          "branch": "codex/ui-native-select",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/89bf/discourse-native",
-          "headCommit": "fb3f5f1f175c151dfaf72b9a61d18766de9f2821",
-          "status": "awaiting_native_review"
-        },
-        {
           "component": "empty",
           "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
           "branch": "codex/ui-empty",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native",
           "headCommit": "403d88880e977dda279b9180445a5f6b7d74f9aa",
           "status": "awaiting_browser_native_and_input_group_reconciliation"
-        },
-        {
-          "component": "chart",
-          "taskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
-          "branch": "codex/ui-chart",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native",
-          "headCommit": "53aae77ed4bdaddaa15c1094e4f754011608bd0f",
-          "status": "awaiting_native_review"
         },
         {
           "component": "collapsible",
@@ -2685,19 +2681,35 @@
           "status": "awaiting_browser_native_and_dependency_reconciliation"
         },
         {
-          "component": "field",
-          "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
-          "branch": "codex/ui-field",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/14b5/discourse-native",
-          "status": "awaiting_browser_native_and_dependency_reconciliation",
-          "headCommit": "f3956645"
+          "component": "table",
+          "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
+          "branch": "codex/ui-table",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native",
+          "headCommit": "b3107cab0c01e2c7abe0de5f7649df99b19414c6",
+          "status": "awaiting_browser_and_native_review"
+        },
+        {
+          "component": "progress",
+          "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+          "branch": "codex/ui-progress",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cfac/discourse-native",
+          "headCommit": "1c21a43597a31f55b7bab4a325d879dde8bcf9f4",
+          "status": "awaiting_browser_and_native_review"
         },
         {
           "component": "textarea",
           "taskId": "01a08437-208f-7332-b373-192eaada5844",
           "branch": "codex/ui-textarea",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
-          "headCommit": "7cdcf022595f2330940c482e4df4b5d403599090",
+          "headCommit": "058bb044ddbe72d0a5f9c2eda523cabc510bd39c",
+          "status": "awaiting_browser_and_native_review"
+        },
+        {
+          "component": "native-select",
+          "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
+          "branch": "codex/ui-native-select",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/89bf/discourse-native",
+          "headCommit": "986eb0632633c45a78008372ed49e28eba315098",
           "status": "awaiting_native_review"
         }
       ]
@@ -2714,12 +2726,12 @@
       "status": "active",
       "userUnlockRequested": true,
       "latestResult": "Switch CUA app selection twice reported: The Mac is locked and automatic unlock could not unlock it. Native review not performed; Switch explicitly released its slot in switch-native-handoff.md.",
-      "unaffectedWork": "Local reviewed merges, source reconciliation, focused tests and builds continue. Browser-only reference work can continue if the browser bridge remains available."
+      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds continue; browser reference navigation is separately blocked."
     },
     "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
     "browserInspectionTaskId": null,
-    "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
+    "browserInspectionPolicy": "Coordinator grants one serialized browser inspection slot at a time after access is restored. Browser navigation currently denied because admin-enforced security policy could not be verified; no retry or alternate route while blocked.",
     "pendingSourceReviews": {
       "radio-group": {
         "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
@@ -2774,6 +2786,16 @@
         "taskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
         "status": "resolved_awaiting_native_review",
         "issue": "Coordinator scratch regression /private/tmp/chart_coordinator_escape_test.dart fails: first Escape dismisses selected chart inspection, but second Escape still gets consumed with no selection and cannot reach the containing dialog. Return ignored when no chart state is active; verify during browser comparison."
+      },
+      "dialog": {
+        "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
+        "status": "under_review",
+        "issue": "Verify asynchronous submit ownership across close/reopen of the same mounted root, and completion after owned controller disposal; late work must not close another opening or notify disposed controller."
+      },
+      "popover": {
+        "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
+        "status": "under_review",
+        "issue": "Verify nested popover/menu Escape ownership, pointer interactions inside descendant portal surfaces, and outside-click focus retention; global early key/pointer handlers must not dismiss parent before children or steal destination focus."
       }
     },
     "integrationPreparation": {
