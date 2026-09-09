@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**28 of 64 components are merged locally.** 13 existing components are in progress; 23 are planned.
+**28 of 64 components are merged locally.** 14 existing components are in progress; 22 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -26,7 +26,8 @@ Branch preparation does not mark a component merged or visually verified.
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | input-group | Implementation and checks | — | — |
-| button-group | Implementation and checks | — | — |
+| button-group | independent review | a0cca310 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
+| dropdown-menu | Implementation and checks | — | — |
 | carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
 
@@ -77,7 +78,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | planned | — | — | input, dialog, scroll-area | — |
 | 43 | combobox | planned | — | — | input, popover, command | — |
-| 44 | dropdown-menu | planned | — | — | popover, checkbox, radio-group | — |
+| 44 | dropdown-menu | in_progress | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
 | 45 | context-menu | planned | — | — | dropdown-menu | — |
 | 46 | menubar | planned | — | — | dropdown-menu | — |
 | 47 | navigation-menu | planned | — | — | popover | — |
@@ -2084,6 +2085,50 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 
 - Button and Separator dependencies are merged.
 - Field, Input Group, Dropdown Menu, Select and Popover compositions must reconcile with their final owners; track outstanding compositions and coordinate directly, without duplicating components or reducing the frozen examples.
+- DButtonGroup is a passive semantic/layout boundary for independent controls. It owns no selection, roving focus or toolbar shortcuts; each child retains its callback, state, focus and native role.
+- A narrowly scoped DJoinedControlScope is installed per direct child. DButton and DInput consume only joined-edge geometry; nested groups replace the scope and overlays receive no broad Theme or radius override.
+- DButtonGroupExpanded is the explicit finite-width Flutter flex adaptation for the reference input:flex-1 selector. The styleguide remains baseline until the reviewer replaces four dependency-aware fixtures with final owning components.
+
+**migrations**
+
+- ContentNavigationControls now uses a labeled DButtonGroup for Back, Forward and Refresh while preserving keys, shortcuts, enabled guards, refresh lifecycle and shell callbacks.
+
+**retainedAlternatives**
+
+- Forum/preferences/topic tab rows remain navigation or selection controls, not independent Button Groups.
+- Radio, checkbox, switch and toggle rows retain their selection owners; Button Group does not absorb Toggle Group semantics.
+- Dialog/sheet action rows retain spaced or wrapping presentation because joining cancel and destructive confirmation changes narrow modal behavior.
+- Inline-video alternative link actions remain wrapping links, and composer controls remain overflow-aware toolbars pending their dedicated component owners.
+
+**verification**
+
+- Frozen Markdown downloaded and SHA-256 verified exactly as 9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda. Base registry source and all twelve linked Base examples were inspected; source mapping and concrete acceptance criteria are recorded in docs/component-library/button-group-reference.md.
+- Before current-main integration, 109 randomized focused Button Group, Button, Input, Separator, styleguide and production navigation tests passed (seed 3806760654); after merging main 27ddc513, 33 direct component/styleguide/consumer tests passed (random seed recorded in /private/tmp/button-group-post-main-tests.log).
+- Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed before and after current-main integration with no issues. dart format covered lib/test and git diff --check passed.
+- flutter build macos --debug --no-pub succeeded at build/macos/Build/Products/Debug/Discourse.app. This is build/kernel evidence only; the app was not launched and no browser/native/VoiceOver inspection is claimed.
+- Created the persisted reviewer task `Review and merge Button Group` (`01a0859e-170c-7821-b0fd-9ff24a9bfaac`) in isolated worktree `/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native` on `codex/review-button-group`; it owns dependency reconciliation, remaining rendered/native review, fixes, verification and the final local-main merge.
+
+**limitations**
+
+- The styleguide has complete accounted sections, but Input Group, library Dropdown Menu, rich Select and Popover use explicitly labeled local handoff fixtures because those final owners are still pending or in review. Native Select is not substituted. The new Button Group reviewer owns coordinating their final replacements.
+- No shared desktop lease was available during source implementation. Official rendered-page comparison, native macOS interaction/visual inspection, VoiceOver, iOS and Linux device checks remain for the new reviewer.
+- DInput joined-edge painting was source- and widget-tested after replacing its uniform BoxDecoration with an equivalent animated custom decoration, but requires rendered pixel comparison in final review.
+
+### dropdown-menu
+
+Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dropdown-menu.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova Dropdown Menu API and Composition, Basic, Submenu, Shortcuts, Icons, Checkbox/Radio variants, Destructive, Avatar, Complex and RTL examples with recorded primary-source visual/behavior mapping.
+- Preserve full native menu focus entry, roving/typeahead/Home/End navigation, selection and nested submenu behavior, deepest Escape, trigger restoration, outside pointer dismissal, positioning/scrolling and overlay lifecycle through the final shared owners.
+- Support live host palette/font/radius, disabled/destructive/checked states, keyboard/touch semantics, narrow/scaled/RTL layouts and reduced motion; provide every documented interactive example.
+- Audit and migrate appropriate core/plugin popup actions and temporary Table/Item/Button Group/Input Group compositions, preserving callbacks, permissions, async ownership and accepted keyboard regression behavior.
+- Pass focused component/consumer tests and root/full-profile analysis; create a new reviewer for all remaining official browser/native acceptance, dependency composition and final local main merge. The accepted Popover main revision is a required final merge gate.
+
+**decisions**
+
+- Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
 
 ### carousel
 
