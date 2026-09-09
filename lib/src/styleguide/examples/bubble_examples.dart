@@ -7,8 +7,7 @@ import '../styleguide_example.dart';
 
 final bubbleExamples = ComponentExamples(
   status: ComponentStatus.planned,
-  description:
-      'Conversational surfaces with alignment, grouping, reactions and interactive content.',
+  description: 'Conversational surfaces with alignment, grouping, reactions and interactive content.',
   notes:
       'Source-ready for independent review. The frozen base-nova surface maps '
       '12px horizontal and 8px vertical padding, 14px/22.75px text, host-relative '
@@ -18,14 +17,13 @@ final bubbleExamples = ComponentExamples(
       'button labels, counts, selected, disabled, busy and failure states. '
       'Bubble owns no author, timestamp, transport, Markdown, attachment or '
       'timeline state. Interactive content owns an internal FocusNode unless a '
-      'borrowed node is supplied. Toast feedback remains a reviewer composition '
-      'obligation after the accepted Toast dependency lands; these source examples '
-      'report local action state without creating another notifier.',
+      'borrowed node is supplied. Action and reaction feedback composes the '
+      'accepted local DToast owner; the visible result also keeps deterministic '
+      'example state.',
   examples: [
     StyleguideExample(
       title: 'Composition',
-      description:
-          'The frozen conversation demo combines end-aligned primary bubbles, a muted group and descriptive reactions.',
+      description: 'The frozen conversation demo combines end-aligned primary bubbles, a muted group and descriptive reactions.',
       states: const ['Primary', 'Muted', 'Group', 'Reactions'],
       code: '''DBubble(
   align: DBubbleAlign.end,
@@ -40,8 +38,7 @@ DBubbleGroup(children: [
     ),
     StyleguideExample(
       title: 'Variants',
-      description:
-          'All seven Bubble-owned treatments. Child Button variants are intentionally not added to Bubble.',
+      description: 'All seven Bubble-owned treatments. Child Button variants are intentionally not added to Bubble.',
       states: const [
         'Primary',
         'Secondary',
@@ -59,8 +56,7 @@ DBubble(variant: DBubbleVariant.ghost,
     ),
     StyleguideExample(
       title: 'Alignment and groups',
-      description:
-          'Logical start/end mirrors in RTL. Consecutive messages retain the compact 8px group gap.',
+      description: 'Logical start/end mirrors in RTL. Consecutive messages retain the compact 8px group gap.',
       states: const ['Start', 'End', 'RTL', 'Grouped'],
       code: '''DBubbleGroup(children: const [
   DBubble(align: DBubbleAlign.end,
@@ -72,8 +68,7 @@ DBubble(variant: DBubbleVariant.ghost,
     ),
     StyleguideExample(
       title: 'Links and buttons',
-      description:
-          'Tab then Return activates links; Return or Space activates buttons. The local result proves the callback without a substitute notification system.',
+      description: 'Tab then Return activates links; Return or Space activates buttons. The local result proves the callback without a substitute notification system.',
       states: const ['Button', 'Link', 'Focus', 'Hover', 'Pressed'],
       code: '''DBubble(variant: DBubbleVariant.tinted, align: DBubbleAlign.end,
   children: [DBubbleContent(
@@ -86,8 +81,7 @@ DBubble(variant: DBubbleVariant.ghost,
     ),
     StyleguideExample(
       title: 'Reactions',
-      description:
-          'Static rows announce once. Independent controls show count, selection, disabled, busy and failed states beyond color.',
+      description: 'Static rows announce once. Independent controls show count, selection, disabled, busy and failed states beyond color.',
       states: const [
         'Top',
         'Bottom',
@@ -110,8 +104,7 @@ DBubbleReactions(interactive: true, children: [
     ),
     StyleguideExample(
       title: 'Show more / Collapsible',
-      description:
-          'The accepted disclosure owner controls long content and restores focus. Reduced motion removes its optional transition.',
+      description: 'The accepted disclosure owner controls long content and restores focus. Reduced motion removes its optional transition.',
       states: const ['Collapsed', 'Expanded', 'Keyboard', 'Reduced motion'],
       code: '''DCollapsible(
   open: open,
@@ -127,8 +120,7 @@ DBubbleReactions(interactive: true, children: [
     ),
     StyleguideExample(
       title: 'Tooltip',
-      description:
-          'A separately actionable read receipt keeps its label while hover or focus reveals metadata.',
+      description: 'A separately actionable read receipt keeps its label while hover or focus reveals metadata.',
       states: const ['Hover', 'Focus', 'Read metadata'],
       code: '''DBubbleReactions(interactive: true, children: [
   DTooltip(message: 'Read on Jan 5, 2026 at 4:32 PM',
@@ -139,8 +131,7 @@ DBubbleReactions(interactive: true, children: [
     ),
     StyleguideExample(
       title: 'Popover',
-      description:
-          'The prepared Popover owner reveals a full failure message, restores focus and dismisses on Escape or outside press.',
+      description: 'The prepared Popover owner reveals a full failure message, restores focus and dismisses on Escape or outside press.',
       states: const ['Error text', 'Popover', 'Focus restoration', 'Escape'],
       code: '''DPopover(
   content: const DPopoverContent(
@@ -156,11 +147,9 @@ DBubbleReactions(interactive: true, children: [
     ),
     StyleguideExample(
       title: 'Narrow, scaled and RTL',
-      description:
-          'Long rich content wraps at 80% on a narrow row; ghost content uses the full row. Preview at 200% and RTL.',
+      description: 'Long rich content wraps at 80% on a narrow row; ghost content uses the full row. Preview at 200% and RTL.',
       states: const ['Long content', '80% width', 'Ghost', '200% text', 'RTL'],
-      code:
-          '''Directionality(textDirection: TextDirection.rtl, child: Column(children: [
+      code: '''Directionality(textDirection: TextDirection.rtl, child: Column(children: [
   DBubble(align: DBubbleAlign.end, children: const [
     DBubbleContent(child: Text('رسالة طويلة تلتف داخل المساحة المتاحة.')),
   ]),
@@ -392,7 +381,10 @@ class _ActionsDemo extends StatefulWidget {
 class _ActionsDemoState extends State<_ActionsDemo> {
   String result = 'No action selected';
 
-  void choose(String value) => setState(() => result = value);
+  void choose(BuildContext context, String value) {
+    DToast.show(context, 'You selected: $value');
+    setState(() => result = value);
+  }
 
   @override
   Widget build(BuildContext context) => _Frame(
@@ -417,7 +409,7 @@ class _ActionsDemoState extends State<_ActionsDemo> {
                 children: [
                   DBubbleContent(
                     action: DBubbleContentAction.button,
-                    onPressed: () => choose(label),
+                    onPressed: () => choose(context, label),
                     child: Text(label),
                   ),
                 ],
@@ -428,7 +420,7 @@ class _ActionsDemoState extends State<_ActionsDemo> {
               children: [
                 DBubbleContent(
                   action: DBubbleContentAction.link,
-                  onPressed: () => choose('Help center link'),
+                  onPressed: () => choose(context, 'Help center link'),
                   semanticHint: 'Opens local example content',
                   child: const Text('Open the help center'),
                 ),
@@ -475,6 +467,11 @@ class _ReactionDemoState extends State<_ReactionDemo> {
       count += selected ? 1 : -1;
       saving = false;
     });
+    DToast.show(
+      context,
+      selected ? 'Thumbs up reaction added.' : 'Thumbs up reaction removed.',
+      type: DToastType.success,
+    );
   }
 
   @override
@@ -545,7 +542,16 @@ class _ReactionDemoState extends State<_ReactionDemo> {
                 DButton(
                   size: DButtonSize.extraSmall,
                   variant: DButtonVariant.ghost,
-                  onPressed: () => setState(() => failed = !failed),
+                  onPressed: () {
+                    setState(() => failed = !failed);
+                    if (failed) {
+                      DToast.show(
+                        context,
+                        'Could not update the reaction.',
+                        type: DToastType.error,
+                      );
+                    }
+                  },
                   invalid: failed,
                   semanticLabel: failed
                       ? 'Retry failed reaction'

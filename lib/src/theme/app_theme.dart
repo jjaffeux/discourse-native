@@ -766,11 +766,6 @@ abstract final class AppTheme {
         unselectedLabelStyle: textTheme.labelLarge,
       ),
       chipTheme: ChipThemeData(labelStyle: textTheme.labelMedium),
-      snackBarTheme: SnackBarThemeData(
-        contentTextStyle: textTheme.bodyMedium?.copyWith(
-          color: resolvedColorScheme.onInverseSurface,
-        ),
-      ),
       tooltipTheme: TooltipThemeData(
         constraints: DTooltip.defaultConstraints,
         padding: DTooltip.defaultPadding,

@@ -195,9 +195,7 @@ class _TopicShareBodyState extends State<_TopicShareBody> {
   }
 
   void _notice(String message) {
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(message)));
+    DToast.show(context, message);
   }
 
   Future<void> _copy() async {

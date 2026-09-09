@@ -48,22 +48,21 @@ class _UserMenuButtonState extends State<UserMenuButton> {
 
   Future<void> _connect() async {
     final controller = ShellScope.read(context);
-    final messenger = ScaffoldMessenger.of(context);
-
     await controller.connectCurrentInstance();
 
     if (!mounted || !identical(ShellScope.read(context), controller)) return;
     final error = controller.connectError;
     if (error == null) return;
-    messenger.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
   }
 
   Future<void> _signUp(String siteUrl) async {
-    final messenger = ScaffoldMessenger.of(context);
     final opened = await openExternalLink('$siteUrl/signup');
     if (!mounted || opened) return;
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Could not open the sign-up page.')),
+    DToast.show(
+      context,
+      'Could not open the sign-up page.',
+      type: DToastType.error,
     );
   }
 

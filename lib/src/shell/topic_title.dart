@@ -183,9 +183,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     }
 
     setState(() => _saving = false);
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focus.requestFocus();
     });

@@ -78,16 +78,16 @@ The documented Show More example composes accepted `DCollapsible` state and
 focus restoration. Tooltip uses accepted `DTooltip`. Popover source preparation
 uses review pin `d99562f0f6973c9dc3f566eea02d9b00c6de4f7b` from
 `codex/review-popover`, reviewer `01a08558-ae1e-7843-8cff-7221a399ea5c`.
-That pin includes implementation `b410f9da`, lifecycle fix `8281dda2`, and its
-recorded 100-test source evidence, but is not claimed accepted. Bubble's reviewer
-must wait for Popover's accepted local-main merge, integrate current main and
-verify overlap before Bubble can merge.
+That pin included implementation `b410f9da` and lifecycle fix `8281dda2`.
+Current main now contains accepted Popover merge
+`dc6ab75fe99f2af8b401bae60285fdbe65e8012a`; reconciliation produced no Bubble
+API/source overlap and the accepted Popover checks pass in the combined suite.
 
 The frozen link/button and reaction demos use Sonner only to report an action.
-The source-ready examples expose a local live result rather than inventing a
-second notifier. Toast reviewer `01a08592-b1eb-7ad2-bebb-3ddea00f2702` owns the
-actual DToast surface; Bubble review must reconcile and complete the final Toast
-composition after that accepted owner lands.
+Current main contains accepted Toast merge
+`d454c8f62fb4ab8718b3a32b2743556f2f78609d`; Bubble examples now compose that
+local DToast scope for action/success/error feedback and retain a deterministic
+visible result for testing. No second notifier is introduced.
 
 ## Application audit
 

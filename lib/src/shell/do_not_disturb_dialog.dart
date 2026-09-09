@@ -96,17 +96,18 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
   Future<void> _openSchedule() async {
     if (!_canAct) return;
     _openingSchedule = true;
-    final messenger = ScaffoldMessenger.of(context);
+    final toast = DToast.maybeOf(context);
     final ownsAccount = widget.ownsAccount;
     Navigator.of(context).pop();
     final username = Uri.encodeComponent(widget.username);
     final opened = await openExternalLink(
       '${widget.siteUrl}/u/$username/preferences/notifications',
     );
-    if (!opened && messenger.mounted && ownsAccount()) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Could not open notification preferences.'),
+    if (!opened && toast?.isDisposed == false && ownsAccount()) {
+      toast!.add(
+        const DToastOptions(
+          description: 'Could not open notification preferences.',
+          type: DToastType.error,
         ),
       );
     }

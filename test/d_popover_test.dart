@@ -35,6 +35,32 @@ void main() {
     },
   );
 
+  testWidgets('topmost popover owns Escape ahead of ancestor shortcuts', (
+    tester,
+  ) async {
+    var ancestorEscapes = 0;
+    await tester.pumpWidget(
+      _app(
+        CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): () {
+              ancestorEscapes += 1;
+            },
+          },
+          child: const _TestPopover(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Popover title'), findsNothing);
+    expect(ancestorEscapes, 0);
+  });
+
   testWidgets('touch opening does not summon the nested text editor', (
     tester,
   ) async {
@@ -118,6 +144,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Parent content'), findsOneWidget);
     expect(find.text('Selected: second'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Parent content'), findsNothing);
+  });
+
+  testWidgets('nested Native Select owns choices and Escape before parent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const _NativeSelectPopoverTest()));
+    await tester.tap(find.text('Open parent'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('First choice'));
+    await tester.pumpAndSettle();
+
+    final parentRect = tester.getRect(find.byType(DPopoverContent));
+    final outsideChoiceRect = tester.getRect(find.text('Outside choice'));
+    expect(parentRect.overlaps(outsideChoiceRect), isFalse);
+
+    await tester.tap(find.text('Outside choice'));
+    await tester.pumpAndSettle();
+    expect(find.text('Parent content'), findsOneWidget);
+    expect(find.text('Outside choice'), findsOneWidget);
+
+    await tester.tap(find.text('Outside choice'));
+    await tester.pumpAndSettle();
+    expect(find.text('First choice'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('First choice'), findsNothing);
+    expect(find.text('Parent content'), findsOneWidget);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.escape);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
@@ -315,6 +374,35 @@ void main() {
     expect(popup.right, lessThanOrEqualTo(505));
   });
 
+  testWidgets('custom placement receives geometry and remains collision-safe', (
+    tester,
+  ) async {
+    DPopoverPlacement? placement;
+    await tester.pumpWidget(
+      _app(
+        _TestPopover(
+          placementResolver: (value) {
+            placement = value;
+            return const Offset(-1000, -1000);
+          },
+        ),
+        size: const Size(320, 240),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(placement, isNotNull);
+    expect(placement!.target, isNot(Rect.zero));
+    expect(placement!.contentSize, isNot(Size.zero));
+    expect(placement!.defaultOffset, isNot(const Offset(-1000, -1000)));
+    expect(placement!.direction, TextDirection.ltr);
+    final popup = tester.getRect(find.byType(DPopoverContent));
+    expect(popup.left, greaterThanOrEqualTo(placement!.boundary.left));
+    expect(popup.top, greaterThanOrEqualTo(placement!.boundary.top));
+  });
+
   testWidgets('custom anchor moves while the open overlay tracks it', (
     tester,
   ) async {
@@ -413,6 +501,7 @@ class _TestPopover extends StatelessWidget {
     this.align = DPopoverAlign.center,
     this.width = 220,
     this.collisionBoundary,
+    this.placementResolver,
   });
 
   final bool? open;
@@ -422,6 +511,7 @@ class _TestPopover extends StatelessWidget {
   final DPopoverAlign align;
   final double width;
   final Rect? collisionBoundary;
+  final DPopoverPlacementResolver? placementResolver;
 
   @override
   Widget build(BuildContext context) => DPopover(
@@ -435,6 +525,7 @@ class _TestPopover extends StatelessWidget {
       width: width,
       align: align,
       collisionBoundary: collisionBoundary,
+      placementResolver: placementResolver,
       semanticLabel: 'Test popover',
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -550,6 +641,50 @@ class _MenuPopoverTestState extends State<_MenuPopoverTest> {
             ),
           ),
           Text('Selected: $_selected'),
+        ],
+      ),
+    ),
+    child: DPopoverTrigger(
+      builder: (context, trigger) => DButton(
+        label: const Text('Open parent'),
+        focusNode: trigger.focusNode,
+        hasPopup: true,
+        expanded: trigger.open,
+        onPressed: trigger.toggle,
+      ),
+    ),
+  );
+}
+
+class _NativeSelectPopoverTest extends StatefulWidget {
+  const _NativeSelectPopoverTest();
+
+  @override
+  State<_NativeSelectPopoverTest> createState() =>
+      _NativeSelectPopoverTestState();
+}
+
+class _NativeSelectPopoverTestState extends State<_NativeSelectPopoverTest> {
+  String _selected = 'first';
+
+  @override
+  Widget build(BuildContext context) => DPopover(
+    content: DPopoverContent(
+      width: 220,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Parent content'),
+          DNativeSelect<String>.controlled(
+            value: _selected,
+            entries: const [
+              DNativeSelectOption(value: 'first', label: 'First choice'),
+              DNativeSelectOption(value: 'outside', label: 'Outside choice'),
+            ],
+            onChanged: (value) {
+              if (value != null) setState(() => _selected = value);
+            },
+          ),
         ],
       ),
     ),

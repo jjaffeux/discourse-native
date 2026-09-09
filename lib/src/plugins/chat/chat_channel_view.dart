@@ -442,10 +442,10 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     );
     if (!mounted || !context.mounted) return;
     if (created == null) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Could not start this thread. Try again.'),
-        ),
+      DToast.show(
+        context,
+        'Could not start this thread. Try again.',
+        type: DToastType.error,
       );
       return;
     }
@@ -1527,9 +1527,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     if (!mounted) return;
     setState(() => _copying = false);
     if (notice != null) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(notice)));
+      DToast.show(context, notice);
     }
   }
 
@@ -1559,9 +1557,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     if (!mounted) return;
     setState(() => _quoting = false);
     if (notice != null) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(notice)));
+      DToast.show(context, notice);
     }
   }
 
@@ -1645,9 +1641,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     if (!mounted) return;
     setState(() => _moving = false);
     if (result.error case final error?) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      DToast.show(context, error, type: DToastType.error);
       return;
     }
     if (result.move case final move?) {
@@ -1701,9 +1695,11 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     );
     if (!mounted) return;
     setState(() => _deleting = false);
-    ScaffoldMessenger.maybeOf(
+    DToast.show(
       context,
-    )?.showSnackBar(SnackBar(content: Text(error ?? 'Messages deleted.')));
+      error ?? 'Messages deleted.',
+      type: error == null ? DToastType.success : DToastType.error,
+    );
   }
 
   @override

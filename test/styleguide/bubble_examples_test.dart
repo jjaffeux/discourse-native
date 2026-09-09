@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/bubble_examples.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,12 +15,14 @@ void main() {
       child: Directionality(
         textDirection: direction,
         child: Scaffold(
-          body: SingleChildScrollView(
-            child: SizedBox(
-              width: width,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Builder(builder: builder),
+          body: DToaster(
+            child: SingleChildScrollView(
+              child: SizedBox(
+                width: width,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Builder(builder: builder),
+                ),
               ),
             ),
           ),

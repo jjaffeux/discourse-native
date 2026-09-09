@@ -1,3 +1,4 @@
+import 'examples/accordion_examples.dart';
 import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
@@ -9,8 +10,11 @@ import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
+import 'examples/command_examples.dart';
+import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/empty_examples.dart';
+import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
@@ -22,6 +26,7 @@ import 'examples/progress_examples.dart';
 import 'examples/radio_group_examples.dart';
 import 'examples/resizable_examples.dart';
 import 'examples/scroll_area_examples.dart';
+import 'examples/select_examples.dart';
 import 'examples/separator_examples.dart';
 import 'examples/sidebar_examples.dart';
 import 'examples/skeleton_examples.dart';
@@ -31,6 +36,7 @@ import 'examples/switch_examples.dart';
 import 'examples/table_examples.dart';
 import 'examples/tabs_examples.dart';
 import 'examples/textarea_examples.dart';
+import 'examples/toast_examples.dart';
 import 'examples/toggle_examples.dart';
 import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
@@ -38,10 +44,12 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'accordion': accordionExamples,
   'alert': alertExamples,
   'table': tableExamples,
   'textarea': textareaExamples,
   'collapsible': collapsibleExamples,
+  'command': commandExamples,
   'input': inputExamples,
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
@@ -56,12 +64,14 @@ final componentExamples = <String, ComponentExamples>{
   'badge': badgeExamples,
   'bubble': bubbleExamples,
   'direction': directionExamples,
+  'dialog': dialogExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'label': labelExamples,
   'native-select': nativeSelectExamples,
+  'field': fieldExamples,
   'progress': progressExamples,
   'marker': markerExamples,
   'popover': popoverExamples,
@@ -72,7 +82,8 @@ final componentExamples = <String, ComponentExamples>{
   'switch': switchExamples,
   'tabs': tabsExamples,
   'toggle': toggleExamples,
+  'toast': toastExamples,
   'button': buttonExamples,
   'tooltip': tooltipExamples,
-  'select': baselineSelectExamples,
+  'select': selectExamples,
 };

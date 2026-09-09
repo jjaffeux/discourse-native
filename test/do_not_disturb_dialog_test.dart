@@ -302,6 +302,8 @@ Future<void> _pump(WidgetTester tester, ShellController shell) =>
       ShellScope(
         controller: shell,
         child: MaterialApp(
+          builder: (context, child) =>
+              DToaster(position: DToastPosition.topEnd, child: child!),
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(

@@ -84,7 +84,7 @@ class _SwitchReviewAppState extends State<SwitchReviewApp> {
         ).copyWith(textScaler: TextScaler.linear(_large ? 2 : 1)),
         child: Directionality(
           textDirection: _rtl ? TextDirection.rtl : TextDirection.ltr,
-          child: child!,
+          child: DToaster(child: child!),
         ),
       ),
       home: Builder(
@@ -167,10 +167,10 @@ class _SwitchReviewAppState extends State<SwitchReviewApp> {
                     isPublished: false,
                   );
                   if (context.mounted && result != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Local poll: ${result.type.name}'),
-                      ),
+                    DToast.show(
+                      context,
+                      'Local poll: ${result.type.name}',
+                      type: DToastType.success,
                     );
                   }
                 },
@@ -189,10 +189,10 @@ class _SwitchReviewAppState extends State<SwitchReviewApp> {
                     siteFormats: const [],
                   );
                   if (context.mounted && result != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Local date: ${result.type.name}'),
-                      ),
+                    DToast.show(
+                      context,
+                      'Local date: ${result.type.name}',
+                      type: DToastType.success,
                     );
                   }
                 },
@@ -258,9 +258,10 @@ class _GroupFixtureState extends State<_GroupFixture> {
         smtpEnabled: true,
       ),
       onSelectRoute: (route) => setState(() => _route = route),
-      onOpenMember: (context, member) => ScaffoldMessenger.of(
+      onOpenMember: (context, member) => DToast.show(
         context,
-      ).showSnackBar(SnackBar(content: Text(member.username))),
+        member.username,
+      ),
       onSaveManage: (update) async {
         setState(
           () => _saved =

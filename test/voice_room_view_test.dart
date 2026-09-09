@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
@@ -1237,17 +1238,37 @@ void main() {
           ),
         );
 
-        final save = find.widgetWithText(FilledButton, 'Save');
-        expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+        final description = find.byType(DTextarea);
+        final descriptionEditable = find.descendant(
+          of: description,
+          matching: find.byType(EditableText),
+        );
+        expect(tester.getSemantics(descriptionEditable).label, 'Description');
+        await tester.tap(find.text('Description'));
+        await tester.pump();
+        expect(
+          tester.widget<EditableText>(descriptionEditable).focusNode.hasFocus,
+          isTrue,
+        );
+        expect(
+          tester
+              .getSemantics(descriptionEditable)
+              .getSemanticsData()
+              .hasAction(SemanticsAction.setText),
+          isTrue,
+        );
+
+        final save = find.widgetWithText(DButton, 'Save');
+        expect(tester.widget<DButton>(save).onPressed, isNotNull);
 
         await tester.enterText(nameField, '   ');
         await tester.pump();
-        expect(tester.widget<FilledButton>(save).onPressed, isNull);
+        expect(tester.widget<DButton>(save).onPressed, isNull);
 
         await tester.showKeyboard(nameField);
         tester.testTextInput.enterText('Renamed lounge');
         await tester.pump();
-        expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+        expect(tester.widget<DButton>(save).onPressed, isNotNull);
 
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
@@ -1294,7 +1315,7 @@ void main() {
 
       current = replacement.controller;
       await tester.enterText(find.byType(TextField).first, 'Replacement save');
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(DButton, 'Save'));
       await tester.pumpAndSettle();
 
       expect(original.transport.writes, isEmpty);
@@ -2760,6 +2781,8 @@ Widget _app(
   DateTime Function() ringingClock = DateTime.now,
   bool showRoom = true,
 }) => MaterialApp(
+  builder: (context, child) =>
+      DToaster(position: DToastPosition.topEnd, child: child!),
   home: Scaffold(
     body: ListenableBuilder(
       listenable: controller,

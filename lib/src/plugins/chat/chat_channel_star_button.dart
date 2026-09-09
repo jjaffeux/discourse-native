@@ -64,8 +64,6 @@ class ChatChannelStarButton extends StatelessWidget {
   ) async {
     final error = await chat.updateChannelStarred(siteUrl, channelId, starred);
     if (error == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
   }
 }

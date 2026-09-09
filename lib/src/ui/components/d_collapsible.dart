@@ -121,13 +121,29 @@ class DCollapsibleTrigger extends StatefulWidget {
     this.focusNode,
     this.semanticLabel,
     this.disabled = false,
-  }) : assert((child == null) != (builder == null));
+    this.focusBorderRadius,
+    this.focusBorder = false,
+    this.focusRingWidth = 2,
+    this.focusRingOpacity = 1,
+  }) : assert((child == null) != (builder == null)),
+       assert(focusRingWidth >= 0),
+       assert(focusRingOpacity >= 0 && focusRingOpacity <= 1);
 
   final Widget? child;
   final Widget Function(BuildContext, DCollapsibleTriggerState)? builder;
   final FocusNode? focusNode;
   final String? semanticLabel;
   final bool disabled;
+
+  /// Optional rounded focus treatment for styled compositions.
+  ///
+  /// When [focusBorder] is true a one-pixel border is painted on the control
+  /// and [focusRingWidth] is painted outside it. Null preserves the original
+  /// square two-pixel Collapsible outline.
+  final BorderRadius? focusBorderRadius;
+  final bool focusBorder;
+  final double focusRingWidth;
+  final double focusRingOpacity;
 
   @override
   State<DCollapsibleTrigger> createState() => _TriggerState();
@@ -230,6 +246,10 @@ class _TriggerState extends State<DCollapsibleTrigger> {
             foregroundPainter: _FocusOutline(
               color: DTokens.of(context).focusRing,
               visible: _focused,
+              borderRadius: widget.focusBorderRadius,
+              border: widget.focusBorder,
+              ringWidth: widget.focusRingWidth,
+              ringOpacity: widget.focusRingOpacity,
             ),
             child: SelectionContainer.disabled(
               child: ExcludeSemantics(
@@ -245,12 +265,24 @@ class _TriggerState extends State<DCollapsibleTrigger> {
 }
 
 class _FocusOutline extends CustomPainter {
-  const _FocusOutline({required this.color, required this.visible});
+  const _FocusOutline({
+    required this.color,
+    required this.visible,
+    required this.borderRadius,
+    required this.border,
+    required this.ringWidth,
+    required this.ringOpacity,
+  });
   final Color color;
   final bool visible;
+  final BorderRadius? borderRadius;
+  final bool border;
+  final double ringWidth;
+  final double ringOpacity;
   @override
   void paint(Canvas canvas, Size size) {
-    if (visible) {
+    if (!visible) return;
+    if (borderRadius == null) {
       canvas.drawRect(
         (Offset.zero & size).inflate(1),
         Paint()
@@ -258,12 +290,36 @@ class _FocusOutline extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2,
       );
+      return;
     }
+    final rect = Offset.zero & size;
+    final borderRRect = borderRadius!.toRRect(rect);
+    if (border) {
+      canvas.drawRRect(
+        borderRRect.deflate(.5),
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
+    canvas.drawDRRect(
+      borderRRect.inflate(ringWidth),
+      borderRRect,
+      Paint()
+        ..color = color.withValues(alpha: color.a * ringOpacity)
+        ..style = PaintingStyle.fill,
+    );
   }
 
   @override
   bool shouldRepaint(_FocusOutline oldDelegate) =>
-      color != oldDelegate.color || visible != oldDelegate.visible;
+      color != oldDelegate.color ||
+      visible != oldDelegate.visible ||
+      borderRadius != oldDelegate.borderRadius ||
+      border != oldDelegate.border ||
+      ringWidth != oldDelegate.ringWidth ||
+      ringOpacity != oldDelegate.ringOpacity;
 }
 
 /// Closed content is unmounted after its exit transition by default.

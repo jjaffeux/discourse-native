@@ -87,7 +87,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
     final post = widget.post;
     final siteUrl = widget.siteUrl;
     final session = controller.beginPicker(siteUrl, post);
-    final messenger = ScaffoldMessenger.maybeOf(context);
+    final toast = DToast.maybeOf(context);
     final operation = Object();
     _panel.currentState?.close();
     setState(() => _operation = operation);
@@ -111,7 +111,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
         return;
       }
       _report(
-        messenger,
+        toast,
         controller,
         session,
         controller.toggleFromPicker(session, current, reaction),
@@ -282,7 +282,7 @@ Future<void> showPostReactionPicker(
   Rect? anchor,
 }) async {
   final session = controller.beginPicker(siteUrl, post);
-  final messenger = ScaffoldMessenger.maybeOf(context);
+  final toast = DToast.maybeOf(context);
   bool stillOwnsUi() => !context.mounted || _stillOwnsUi(context, controller);
   final allowAnyEmoji = await controller.allowsAnyEmoji(siteUrl);
   if (!context.mounted ||
@@ -326,7 +326,7 @@ Future<void> showPostReactionPicker(
     ),
   );
   _report(
-    messenger,
+    toast,
     controller,
     session,
     controller.toggleFromPicker(session, current, picked),
@@ -457,7 +457,7 @@ class ReactionGrid extends StatelessWidget {
             onTap: !enabled
                 ? null
                 : () {
-                    final messenger = ScaffoldMessenger.maybeOf(context);
+                    final toast = DToast.maybeOf(context);
                     final ownerContext = _ownerContext ?? context;
                     final canAct =
                         controller.isPickerCurrent(_session) &&
@@ -468,7 +468,7 @@ class ReactionGrid extends StatelessWidget {
                     final target = controller.pickerPost(_session, post);
                     if (target == null || !target.canReact) return;
                     _report(
-                      messenger,
+                      toast,
                       controller,
                       _session,
                       controller.toggleFromPicker(_session, target, id),
@@ -516,7 +516,7 @@ bool _stillOwnsUi(BuildContext context, ReactionsController controller) {
 }
 
 void _report(
-  ScaffoldMessengerState? messenger,
+  DToastController? toast,
   ReactionsController controller,
   ReactionPickerSession session,
   Future<String?> work, {
@@ -526,12 +526,11 @@ void _report(
     work.then((error) {
       if (error == null ||
           !controller.isPickerCurrent(session) ||
-          messenger == null ||
-          !messenger.mounted ||
+          toast?.isDisposed != false ||
           !stillOwnsUi()) {
         return;
       }
-      messenger.showSnackBar(SnackBar(content: Text(error)));
+      toast!.add(DToastOptions(description: error, type: DToastType.error));
     }),
   );
 }

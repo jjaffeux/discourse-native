@@ -616,9 +616,13 @@ class _PostActionsState extends State<PostActions> {
     if (!mounted || !identical(ShellScope.maybeRead(context), controller)) {
       return;
     }
-    ScaffoldMessenger.maybeOf(
+    DToast.show(
       context,
-    )?.showSnackBar(SnackBar(content: Text(message)));
+      message,
+      type: message.startsWith("Couldn't")
+          ? DToastType.error
+          : DToastType.success,
+    );
   }
 
   Future<void> _report(ShellController controller, Future<String?> work) async {
@@ -628,9 +632,7 @@ class _PostActionsState extends State<PostActions> {
         !identical(ShellScope.maybeRead(context), controller)) {
       return;
     }
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
   }
 
   Future<void> _openSheet(List<PostAction> actions) async {
