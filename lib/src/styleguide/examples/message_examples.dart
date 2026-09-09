@@ -346,6 +346,7 @@ class _ActionsExample extends StatefulWidget {
 class _ActionsExampleState extends State<_ActionsExample> {
   var copied = false;
   var liked = false;
+  var disliked = false;
   var delivery = DMessageDeliveryState.failed;
 
   @override
@@ -381,14 +382,24 @@ class _ActionsExampleState extends State<_ActionsExample> {
                       liked ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
                     ),
                     tooltip: 'Like',
-                    onPressed: () => setState(() => liked = !liked),
+                    onPressed: () => setState(() {
+                      liked = !liked;
+                      if (liked) disliked = false;
+                    }),
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.extraSmall,
                   ),
                   DButton.iconOnly(
-                    icon: const Icon(Icons.thumb_down_alt_outlined),
+                    icon: Icon(
+                      disliked
+                          ? Icons.thumb_down
+                          : Icons.thumb_down_alt_outlined,
+                    ),
                     tooltip: 'Dislike',
-                    onPressed: () {},
+                    onPressed: () => setState(() {
+                      disliked = !disliked;
+                      if (disliked) liked = false;
+                    }),
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.extraSmall,
                   ),
@@ -435,6 +446,14 @@ class _ActionsExampleState extends State<_ActionsExample> {
       Text(
         copied ? 'Message copied' : 'Copy has not run',
         key: const ValueKey('message-action-result'),
+      ),
+      Text(
+        liked
+            ? 'Helpful feedback selected'
+            : disliked
+            ? 'Not helpful feedback selected'
+            : 'No feedback selected',
+        key: const ValueKey('message-feedback-result'),
       ),
     ],
   );

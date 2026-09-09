@@ -60,6 +60,12 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Copy'));
     await tester.pump();
     expect(find.text('Message copied'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Like'));
+    await tester.pump();
+    expect(find.text('Helpful feedback selected'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Dislike'));
+    await tester.pump();
+    expect(find.text('Not helpful feedback selected'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Retry'));
     await tester.pump();
     expect(find.text('Delivered'), findsOneWidget);
