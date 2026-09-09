@@ -171,7 +171,10 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
             );
           }
           return state.loading
-              ? const LinearProgressIndicator(minHeight: 2)
+              ? const DProgress(
+                  semanticsLabel: 'Loading pinned messages',
+                  track: DProgressTrack(height: 2),
+                )
               : const SizedBox.shrink();
         }
 

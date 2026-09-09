@@ -125,7 +125,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(find.byType(DProgress), findsNothing);
       expect(find.text(_topic.title), findsOneWidget);
     });
 

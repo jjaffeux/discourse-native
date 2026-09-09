@@ -406,7 +406,7 @@ class EventCard extends StatelessWidget {
               if (pending)
                 const Padding(
                   padding: EdgeInsets.only(top: 10),
-                  child: LinearProgressIndicator(),
+                  child: DProgress(semanticsLabel: 'Loading event'),
                 ),
               if (error != null)
                 Padding(
@@ -707,7 +707,7 @@ class EventUnavailableCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(error ?? 'Event details are unavailable.'),
-          if (loading) const LinearProgressIndicator(),
+          if (loading) const DProgress(semanticsLabel: 'Loading event'),
           Wrap(
             spacing: 8,
             children: [

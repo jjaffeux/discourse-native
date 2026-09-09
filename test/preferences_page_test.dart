@@ -633,7 +633,7 @@ void main() {
         await tester.pump();
         expect(
           tester
-              .widget<SwitchListTile>(
+              .widget<DSwitchTile>(
                 find.byKey(const ValueKey('notify-on-linked-posts')),
               )
               .value,
@@ -649,7 +649,7 @@ void main() {
         );
         expect(
           tester
-              .widget<SwitchListTile>(
+              .widget<DSwitchTile>(
                 find.byKey(const ValueKey('notify-on-linked-posts')),
               )
               .value,
@@ -733,7 +733,7 @@ void main() {
       );
       expect(
         tester
-            .widget<SwitchListTile>(
+            .widget<DSwitchTile>(
               find.byKey(const ValueKey('notify-on-linked-posts')),
             )
             .onChanged,

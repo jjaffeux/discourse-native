@@ -79,7 +79,10 @@ class _TagsPageState extends State<TagsPage> {
               var tagIndex = index;
               if (feed.loading) {
                 if (tagIndex == 0) {
-                  return const LinearProgressIndicator(minHeight: 2);
+                  return const DProgress(
+                    semanticsLabel: 'Refreshing tags',
+                    track: DProgressTrack(height: 2),
+                  );
                 }
                 tagIndex--;
               }

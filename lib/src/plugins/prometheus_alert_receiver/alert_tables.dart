@@ -148,75 +148,82 @@ class _AlertTableState extends State<_AlertTable> {
         border: Border.all(color: theme.dividerColor),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    minimumSize: Size(0, _actionSize(context)),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: theme.colorScheme.onSurface,
-                    textStyle: theme.textTheme.bodyMedium,
-                    alignment: Alignment.centerLeft,
-                    shape: const RoundedRectangleBorder(),
-                  ),
-                  onPressed: () => setState(() => _collapsed = !collapsed),
-                  child: Row(
-                    children: [
-                      DIcon(
-                        collapsed ? DIcons.chevronRight : DIcons.chevronDown,
-                        size: 10,
+      child: DCollapsible(
+        open: !collapsed,
+        onOpenChange: (open) => setState(() => _collapsed = !open),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: DCollapsibleTrigger(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: _actionSize(context),
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          '${group.heading} (${group.alerts.length})',
-                          semanticsLabel:
-                              '${collapsed ? 'Expand' : 'Collapse'} '
-                              '${group.status.label}: ${group.heading} (${group.alerts.length})',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        child: Row(
+                          children: [
+                            DIcon(
+                              collapsed
+                                  ? DIcons.chevronRight
+                                  : DIcons.chevronDown,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                '${group.heading} (${group.alerts.length})',
+                                semanticsLabel:
+                                    '${collapsed ? 'Expand' : 'Collapse'} '
+                                    '${group.status.label}: ${group.heading} (${group.alerts.length})',
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              if (manager != null)
-                _AlertLinkButton(
-                  uri: manager,
-                  siteUrl: widget.siteUrl,
-                  label: 'Open Alertmanager',
-                  icon: DIcons.list,
-                ),
-            ],
-          ),
-          if (!collapsed)
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = math.max(
-                  constraints.maxWidth,
-                  (group.showDescription ? 620 : 460) * textScale,
-                );
-                return Scrollbar(
-                  controller: _scroll,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
+                if (manager != null)
+                  _AlertLinkButton(
+                    uri: manager,
+                    siteUrl: widget.siteUrl,
+                    label: 'Open Alertmanager',
+                    icon: DIcons.list,
+                  ),
+              ],
+            ),
+            DCollapsibleContent(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = math.max(
+                    constraints.maxWidth,
+                    (group.showDescription ? 620 : 460) * textScale,
+                  );
+                  return DScrollBar(
+                    axis: Axis.horizontal,
                     controller: _scroll,
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.only(
-                      bottom: width > constraints.maxWidth ? 6 : 0,
-                    ),
-                    child: SizedBox(
-                      width: width,
-                      child: Table(
-                        defaultVerticalAlignment:
-                            TableCellVerticalAlignment.middle,
+                    thumbVisibility: true,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: width > constraints.maxWidth ? 6 : 0,
+                      ),
+                      child: DTable(
+                        key: PageStorageKey((
+                          widget.siteUrl,
+                          group.status,
+                          group.datacenter,
+                        )),
+                        controller: _scroll,
+                        minimumWidth: width,
+                        semanticLabel:
+                            '${group.status.label}: ${group.heading}',
                         columnWidths: {
                           0: const FlexColumnWidth(2),
                           1: FixedColumnWidth(180 * textScale),
@@ -227,28 +234,25 @@ class _AlertTableState extends State<_AlertTable> {
                                 (widget.onQuote == null ? 1 : 2),
                           ),
                         },
-                        border: TableBorder(
-                          top: BorderSide(color: theme.dividerColor),
-                          horizontalInside: BorderSide(
-                            color: theme.dividerColor,
-                          ),
+                        body: DTableBody(
+                          rows: [
+                            for (final alert in group.alerts)
+                              _row(context, alert),
+                          ],
                         ),
-                        children: [
-                          for (final alert in group.alerts)
-                            _row(context, alert),
-                        ],
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  TableRow _row(BuildContext context, PrometheusAlert alert) {
+  DTableRow _row(BuildContext context, PrometheusAlert alert) {
     final now = DateTime.now();
     final graph = widget.settings.process(alert.generatorUrl, alert, now: now);
     final link = widget.settings.process(alert.linkUrl, alert, now: now);
@@ -256,10 +260,11 @@ class _AlertTableState extends State<_AlertTable> {
     final identifier = Text(
       alert.identifier.isEmpty ? 'Alert' : alert.identifier,
     );
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 3, 3, 3),
+    return DTableRow(
+      cells: [
+        DTableCell(
+          softWrap: true,
+          padding: const EdgeInsetsDirectional.fromSTEB(8, 3, 3, 3),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -301,34 +306,40 @@ class _AlertTableState extends State<_AlertTable> {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 3, 3, 3),
+        DTableCell(
+          softWrap: true,
+          padding: const EdgeInsetsDirectional.fromSTEB(8, 3, 3, 3),
           child: CookedHtml(
             html: _alertDateRangeHtml(alert),
             siteUrl: widget.siteUrl,
           ),
         ),
         if (widget.group.showDescription)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 3, 3, 3),
+          DTableCell(
+            softWrap: true,
+            padding: const EdgeInsetsDirectional.fromSTEB(8, 3, 3, 3),
             child: Text(alert.description),
           ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (link != null)
-              _AlertLinkButton(
-                uri: link,
-                siteUrl: widget.siteUrl,
-                label: alert.linkText,
-              ),
-            if (widget.onQuote case final quote?)
-              _AlertActionButton(
-                icon: DIcons.quoteLeft,
-                label: 'Quote Alert',
-                onPressed: () => quote(alert),
-              ),
-          ],
+        DTableCell(
+          padding: EdgeInsets.zero,
+          alignment: AlignmentDirectional.centerEnd,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (link != null)
+                _AlertLinkButton(
+                  uri: link,
+                  siteUrl: widget.siteUrl,
+                  label: alert.linkText,
+                ),
+              if (widget.onQuote case final quote?)
+                _AlertActionButton(
+                  icon: DIcons.quoteLeft,
+                  label: 'Quote Alert',
+                  onPressed: () => quote(alert),
+                ),
+            ],
+          ),
         ),
       ],
     );

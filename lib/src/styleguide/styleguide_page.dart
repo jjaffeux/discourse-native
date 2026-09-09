@@ -679,12 +679,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
               final scrollBehavior = ScrollConfiguration.of(context);
               return ColoredBox(
                 color: tokens.muted,
-                child: Scrollbar(
+                child: DScrollBar(
                   key: const ValueKey('styleguide-preview-scrollbar'),
+                  axis: Axis.horizontal,
                   controller: _previewScroll,
                   thumbVisibility: width > constraints.maxWidth,
-                  interactive: true,
-                  thickness: 6,
                   child: ScrollConfiguration(
                     behavior: scrollBehavior.copyWith(scrollbars: false),
                     child: SingleChildScrollView(

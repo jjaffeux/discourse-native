@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_shell.dart';
@@ -106,7 +105,6 @@ class _ChatThreadSplit extends StatefulWidget {
   static const double minimumPaneWidth = 320;
   static const double dividerWidth = 1;
   static const double dividerHitWidth = 9;
-  static const double dividerHitOverlap = (dividerHitWidth - dividerWidth) / 2;
   static const double minimumTotalWidth = minimumPaneWidth * 2 + dividerWidth;
 
   final String siteUrl;
@@ -150,6 +148,11 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
           maximum,
         );
 
+        final hitWidth = DResizableHandle.resolveHitExtent(
+          context,
+          _ChatThreadSplit.dividerHitWidth,
+        );
+        final hitOverlap = (hitWidth - _ChatThreadSplit.dividerWidth) / 2;
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -200,9 +203,9 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
             Positioned(
               top: 0,
               bottom: 0,
-              right: threadWidth - _ChatThreadSplit.dividerHitOverlap,
-              width: _ChatThreadSplit.dividerHitWidth,
-              child: _ThreadPaneDivider(
+              right: threadWidth - hitOverlap,
+              width: hitWidth,
+              child: ChatThreadPaneDivider(
                 width: threadWidth,
                 minimumWidth: _ChatThreadSplit.minimumPaneWidth,
                 maximumWidth: maximum,
@@ -226,8 +229,10 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
   }
 }
 
-class _ThreadPaneDivider extends StatelessWidget {
-  const _ThreadPaneDivider({
+/// Physical-right thread width adapter; persistence remains with the split host.
+class ChatThreadPaneDivider extends StatelessWidget {
+  const ChatThreadPaneDivider({
+    super.key,
     required this.width,
     required this.minimumWidth,
     required this.maximumWidth,
@@ -242,67 +247,18 @@ class _ThreadPaneDivider extends StatelessWidget {
   final VoidCallback onCommit;
 
   @override
-  Widget build(BuildContext context) {
-    final divider = Theme.of(context).shell.divider;
-    final canIncrease = width < maximumWidth;
-    final canDecrease = width > minimumWidth;
-    final increasedWidth = (width + 24).clamp(minimumWidth, maximumWidth);
-    final decreasedWidth = (width - 24).clamp(minimumWidth, maximumWidth);
-    return Semantics(
-      label: 'Thread pane width',
-      value: '${width.round()} pixels',
-      increasedValue: canIncrease ? '${increasedWidth.round()} pixels' : null,
-      decreasedValue: canDecrease ? '${decreasedWidth.round()} pixels' : null,
-      slider: true,
-      onIncrease: canIncrease
-          ? () {
-              onDelta(-24);
-              onCommit();
-            }
-          : null,
-      onDecrease: canDecrease
-          ? () {
-              onDelta(24);
-              onCommit();
-            }
-          : null,
-      child: Focus(
-        key: const ValueKey('chat-thread-divider-focus'),
-        onKeyEvent: (_, event) {
-          if (event is! KeyDownEvent) return KeyEventResult.ignored;
-          if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-            if (!canIncrease) return KeyEventResult.handled;
-            onDelta(-24);
-          } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-            if (!canDecrease) return KeyEventResult.handled;
-            onDelta(24);
-          } else {
-            return KeyEventResult.ignored;
-          }
-          onCommit();
-          return KeyEventResult.handled;
-        },
-        child: MouseRegion(
-          cursor: SystemMouseCursors.resizeColumn,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onHorizontalDragUpdate: (details) => onDelta(details.delta.dx),
-            onHorizontalDragEnd: (_) => onCommit(),
-            child: SizedBox.expand(
-              child: Center(
-                child: SizedBox(
-                  key: const ValueKey('chat-thread-divider-border'),
-                  width: 1,
-                  height: double.infinity,
-                  child: ColoredBox(color: divider),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DResizableHandle.standalone(
+    focusKey: const ValueKey('chat-thread-divider-focus'),
+    dividerKey: const ValueKey('chat-thread-divider-border'),
+    semanticLabel: 'Thread pane width',
+    value: width,
+    min: minimumWidth,
+    max: maximumWidth,
+    keyboardStep: 24,
+    reverse: DDirection.of(context) == TextDirection.ltr,
+    onChanged: (next) => onDelta(width - next),
+    onChangeEnd: onCommit,
+  );
 }
 
 class ChatThreadView extends StatefulWidget {

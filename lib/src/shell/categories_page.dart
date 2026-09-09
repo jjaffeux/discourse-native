@@ -147,7 +147,10 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       const SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.only(bottom: 12),
-                          child: LinearProgressIndicator(minHeight: 2),
+                          child: DProgress(
+                            semanticsLabel: 'Refreshing categories',
+                            track: DProgressTrack(height: 2),
+                          ),
                         ),
                       ),
                     if (!feed.pageError && feed.error != null)
