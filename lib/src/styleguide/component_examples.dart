@@ -16,6 +16,7 @@ import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
 import 'examples/native_select_examples.dart';
+import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
 import 'examples/radio_group_examples.dart';
 import 'examples/resizable_examples.dart';
@@ -62,6 +63,7 @@ final componentExamples = <String, ComponentExamples>{
   'native-select': nativeSelectExamples,
   'progress': progressExamples,
   'marker': markerExamples,
+  'popover': popoverExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
   'spinner': spinnerExamples,
