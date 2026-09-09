@@ -274,3 +274,9 @@ explicit 14/20 medium label. The completed 24px API must be selected and its
 inherited-disabled-style override rechecked after that dependency merges.
 No other worktree's Button source or unmerged API was imported. Native inspection
 remains `awaiting_slot`; Input stays `in_progress`.
+
+Latest corrected native source: `3800505aacce361f92bc71ff18332f58bf3cb07e`. Refreshed the same
+unique isolated bundle and verified its identifier/scheme and deep strict
+ad-hoc signature. Source-build and copied kernels both SHA256
+`661a1bb69eaf830e8c84de3f2931d1f2df5b760ea3dc4e86980c386cd243939a`. This supersedes previous
+unlaunched checkpoints. No launch or CUA/native interaction was performed.

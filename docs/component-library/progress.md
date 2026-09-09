@@ -695,6 +695,7 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 - Refreshed isolated bundle from final implementation source 4e1eb3b3fe499868e4ee70f86cb48a987c4040e8. Source/copy kernels both SHA256 400b22d515a8be38b71865ddbf53b4c56da175574bbc96ef0d4473b83e959506; unique identifier/scheme restored and deep strict ad-hoc signature verification passed. It remains unlaunched pending the serialized desktop slot.
 - Correction passes all 363 focused component/example/migration tests (seed 928374611). Root/full analysis, formatting/diff checks and isolated macOS fixture rebuild pass. Logs are recorded in input-reference.md.
 - Eight font-loaded Flutter exports plus pixel tests verify .15*.3 dark fill, role separation, no interior focus/invalid tint, exterior ring bounds, disabled fill and equal half-opacity file trigger/filename with disabled Button semantics. Hashed exports: docs/component-library/evidence/input/correction/. No CUA or browser/app launch.
+- Correction native checkpoint 3800505aacce361f92bc71ff18332f58bf3cb07e: refreshed /private/tmp/DiscourseInputReview-01a083ad.app, unique org.discourse.native.input.01a083ad identity and discourse-input-review-01a083ad scheme. Source/copy kernel SHA256 both 661a1bb69eaf830e8c84de3f2931d1f2df5b760ea3dc4e86980c386cd243939a; deep strict ad-hoc signature passes. Remains unlaunched, in_progress/awaiting_slot.
 
 **limitations**
 
