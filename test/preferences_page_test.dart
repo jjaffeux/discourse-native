@@ -517,6 +517,7 @@ void main() {
 
         final saved = find.bySemanticsLabel('Notifications preferences saved.');
         expect(saved, findsOneWidget);
+        expect(find.byType(DAlert), findsOneWidget);
         expect(
           tester.getSemantics(saved),
           isSemantics(

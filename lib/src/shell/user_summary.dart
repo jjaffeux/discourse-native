@@ -974,38 +974,23 @@ class _SummaryErrorBanner extends StatelessWidget {
   final Future<void> Function() onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      liveRegion: true,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 18),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.errorContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            DIcon(
-              DIcons.triangleExclamation,
-              size: 18,
-              color: theme.colorScheme.onErrorContainer,
-            ),
-            const SizedBox(width: 10),
-            Expanded(child: Text(error)),
-            DButton(
-              label: const Text('Retry'),
-              onPressed: () => unawaited(onRetry()),
-              variant: DButtonVariant.link,
-              loading: refreshing,
-              loadingLabel: const Text('Refreshing…'),
-            ),
-          ],
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 18),
+    child: DAlert(
+      variant: DAlertVariant.destructive,
+      icon: const DIcon(DIcons.triangleExclamation),
+      description: DAlertDescription(child: Text(error)),
+      action: DAlertAction(
+        child: DButton(
+          label: const Text('Retry'),
+          onPressed: () => unawaited(onRetry()),
+          variant: DButtonVariant.link,
+          loading: refreshing,
+          loadingLabel: const Text('Refreshing…'),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _SummaryState extends StatelessWidget {

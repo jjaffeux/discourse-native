@@ -104,7 +104,15 @@ class BadgesPage extends StatelessWidget {
     if (catalog.total == 0)
       const SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(child: Text('No badges to display.')),
+        child: Center(
+          child: SingleChildScrollView(
+            child: DEmpty(
+              children: [
+                DEmptyHeader(children: [DEmptyTitle('No badges to display.')]),
+              ],
+            ),
+          ),
+        ),
       ),
     for (final group in catalog.groups) ...[
       SliverToBoxAdapter(
@@ -497,14 +505,17 @@ class _BadgeError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 16),
-    child: Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Text(message),
-        DButton(label: const Text('Retry'), onPressed: onRetry),
-      ],
+    child: DAlert(
+      variant: DAlertVariant.destructive,
+      icon: const DIcon(DIcons.triangleExclamation),
+      description: DAlertDescription(child: Text(message)),
+      action: DAlertAction(
+        child: DButton(
+          label: const Text('Retry'),
+          onPressed: onRetry,
+          variant: DButtonVariant.link,
+        ),
+      ),
     ),
   );
 }

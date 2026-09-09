@@ -1,0 +1,29 @@
+{
+  "sourceCommit": "8bdc0386d7434dc5c440c1e8132b4b95edca7d13",
+  "pinnedMain": "e612ad7b47413fa890b35ae3b55a6f6d37b08cf7",
+  "sourceTree": "fdfd00b8c4510428a56897cb34fba7462c3a50fd",
+  "sourceCleanAtBuild": true,
+  "sourceBundle": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native/build/macos/Build/Products/Debug/Discourse.app",
+  "reviewBundle": "/private/tmp/DiscourseEmptyReview-8bdc0386.app",
+  "bundleId": "org.discourse.native.empty.8bdc0386",
+  "urlScheme": "discourse-empty-review-8bdc0386",
+  "buildCommand": "flutter build macos --debug --no-pub -t tool/component_fixtures/empty_main.dart",
+  "buildLog": "/tmp/empty-integrated-build.log",
+  "sourceKernelSha256": "d76f9bb4ef47a699f8f90b68e61ed100dc5ff65a916bebbe731994313f78bda8",
+  "copiedKernelSha256": "d76f9bb4ef47a699f8f90b68e61ed100dc5ff65a916bebbe731994313f78bda8",
+  "signedEntitlementsReadback": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.device.audio-input": true,
+    "com.apple.security.device.camera": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "entitlementsFile": "/private/tmp/empty-review-8bdc0386.entitlements",
+  "restrictedEntitlements": "No aps-environment, com.apple.developer.*, team/application identifiers or keychain groups; explicit ad-hoc debug/JIT entitlements only.",
+  "signatureVerification": "--prepared:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/MacOS/__preview.dylib\n--validated:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/MacOS/__preview.dylib\n--prepared:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/Frameworks/App.framework/Versions/Current/.\n--prepared:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--prepared:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/MacOS/Discourse.debug.dylib\n--validated:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/MacOS/Discourse.debug.dylib\n--prepared:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--prepared:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseEmptyReview-8bdc0386.app/Contents/Frameworks/App.framework/Versions/Current/.\n/private/tmp/DiscourseEmptyReview-8bdc0386.app: valid on disk\n/private/tmp/DiscourseEmptyReview-8bdc0386.app: satisfies its Designated Requirement\n",
+  "launched": false,
+  "reviewStatus": "awaiting_reference_and_native_review",
+  "runnerPinsLocks": "unchanged from pinned main"
+}
