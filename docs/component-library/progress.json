@@ -2273,7 +2273,7 @@
         "Final merge is blocked on Popover being accepted and merged to main; unaccepted Popover source must not reach main through Dropdown Menu.",
         "Thread creation and direct reviewer notifications were unavailable from this active tool set, so reviewTaskId/reviewStatus are not filled yet."
       ],
-      "implementationCommit": "314303451d1297eb11ebea8a716ad894c67eec20",
+      "implementationCommit": "a3db090342e88f584995e64b68ae19e324296c01",
       "reviewStatus": "blocked_tool_unavailable",
       "reviewTaskId": null,
       "mergeCommit": null

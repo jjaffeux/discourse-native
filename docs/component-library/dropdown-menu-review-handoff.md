@@ -15,10 +15,10 @@ Implementation branch:
 `codex/ui-dropdown-menu`
 
 Implementation source commit:
-`314303451d1297eb11ebea8a716ad894c67eec20`
+`a3db090342e88f584995e64b68ae19e324296c01`
 
 Handoff/progress commit:
-`3a32c134`
+`8055d825`
 
 Important dependency gate:
 
@@ -91,10 +91,10 @@ Remaining reviewer checks:
 Dropdown Menu source/API is committed on `codex/ui-dropdown-menu`.
 
 Source commit:
-`314303451d1297eb11ebea8a716ad894c67eec20`
+`a3db090342e88f584995e64b68ae19e324296c01`
 
 Handoff/progress commit:
-`3a32c134`
+`8055d825`
 
 Public API:
 
