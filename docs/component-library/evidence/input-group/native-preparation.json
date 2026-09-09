@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "60c0ce104ff9eec5bedf95b8f4bdb4dbf0c9232f",
+  "sourceTree": "adee0efe223f43815fe85d581c5dcad16de8894a",
+  "sourceCleanAtBuild": true,
+  "buildCommand": "flutter build macos --debug --no-pub -t tool/input_group_review_main.dart",
+  "sourceBundle": "/Users/joffreyjaffeux/.codex/worktrees/478c/discourse-native/build/macos/Build/Products/Debug/Discourse.app",
+  "reviewBundle": "/private/tmp/InputGroupReview-60c0ce10.app",
+  "bundleId": "org.discourse.native.inputgroup.60c0ce10",
+  "urlScheme": "discourse-input-group-60c0ce10",
+  "sourceKernelSha256": "b4c9e75731a96f785cf24f8223e0684a9bb5ce8893e4c21b3a7f7ef2fa81bfe1",
+  "copiedKernelSha256": "b4c9e75731a96f785cf24f8223e0684a9bb5ce8893e4c21b3a7f7ef2fa81bfe1",
+  "signedEntitlementsReadback": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.device.audio-input": true,
+    "com.apple.security.device.camera": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "restrictedEntitlements": "No APS environment, com.apple.developer.*, team/application identifiers or keychain groups; explicit ad-hoc debug/JIT review entitlements only.",
+  "signatureVerification": "codesign --verify --deep --strict passed",
+  "launched": false,
+  "reviewStatus": "queued_for_reference_and_native_review",
+  "runnerPinsLocks": "unchanged"
+}
