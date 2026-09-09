@@ -760,7 +760,9 @@
       ],
       "implementationCommit": "d286e1188bc57c2f2b1a26c3439c69d636606d9b",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewClientThreadId": "client-new-thread:7d5fdca9-74f5-42fc-89e9-20648dc15b64",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "checkbox",
@@ -959,7 +961,9 @@
       "implementationCommit": "3243a88cf2a9a1cfee96af7877386379089ab6c5",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_unlock",
-      "browserInspectionStatus": "completed"
+      "browserInspectionStatus": "completed",
+      "reviewClientThreadId": "client-new-thread:924c7988-4d79-43f3-a109-213370f680f8",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "toggle",
@@ -1051,7 +1055,9 @@
       ],
       "implementationCommit": "6792e34b950b780fbeb93a4aea82c57bd537f2b0",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewClientThreadId": "client-new-thread:e08c5588-e212-40bc-93b2-dbf1a99b2256",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "progress",
@@ -1096,7 +1102,9 @@
       ],
       "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewClientThreadId": "client-new-thread:26c2d1cc-b60a-44d1-bb52-34402eefa7e6",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "skeleton",
@@ -1403,7 +1411,9 @@
         "No iOS/Linux device, VoiceOver speech, pixel-parity or native-launch eligibility claim. Review bundle is statically verified only."
       ],
       "implementationCommit": "8bdc0386d7434dc5c440c1e8132b4b95edca7d13",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewClientThreadId": "client-new-thread:95c4df69-0847-488d-827a-e5b90f267a06",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "item",
@@ -1462,7 +1472,9 @@
         "Mac locked; browser separately denied admin-policy verification. No CUA/browser/native launch, policy retry or workaround attempted during integration."
       ],
       "implementationCommit": "68402409ccc314b6e9b624cf1d86b16531ccdcc4",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewClientThreadId": "client-new-thread:f50f0395-36f0-477a-a1c9-39858c13d819",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "table",
@@ -1514,7 +1526,9 @@
         "No VoiceOver or iOS/Linux device inspection, and no visual/pixel parity claim."
       ],
       "implementationCommit": "80c801e69ee94b8f1d02ca71ccb489bc53aec257",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewClientThreadId": "client-new-thread:ac865777-e87d-4ba8-ac49-757c8ad06b59",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "scroll-area",
@@ -1571,7 +1585,9 @@
       ],
       "implementationCommit": "3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e",
       "mergeCommit": null,
-      "nativeReviewStatus": "awaiting_slot"
+      "nativeReviewStatus": "awaiting_slot",
+      "reviewClientThreadId": "client-new-thread:c00777c6-fa04-4335-b426-65f4792c57cd",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "collapsible",
@@ -1614,7 +1630,9 @@
       ],
       "implementationCommit": "39159f39becd55a320da35aab967aaaad2ef6d6f",
       "mergeCommit": null,
-      "nativeReviewStatus": "awaiting_slot"
+      "nativeReviewStatus": "awaiting_slot",
+      "reviewClientThreadId": "client-new-thread:be8bed40-ccd7-4dbd-98f0-e8a38cd9d07b",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "accordion",
@@ -1688,7 +1706,9 @@
         "awaiting_slot: integration complete; native/reference comparison pending. Mac locked and browser navigation separately denied admin-policy verification. No CUA/browser/native launch or blocker retry attempted. Not review_ready or mergeable."
       ],
       "implementationCommit": "0629571a58e927f480c03de909bdfd4f676cdbd1",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewClientThreadId": "client-new-thread:cc005568-b1c9-4778-b2d5-488a84118a8d",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "popover",
@@ -1737,7 +1757,9 @@
       "implementationCommit": "b410f9da0227b2b9e0d6518b64277e97d6517b06",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a12a/discourse-native",
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewClientThreadId": "client-new-thread:21a25d72-ab71-4295-82d9-78e48a82d898",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "hover-card",
@@ -1805,7 +1827,9 @@
       "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "reviewClientThreadId": "client-new-thread:10106465-9319-41fc-8dcc-e16b25d21fe6",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "alert-dialog",
@@ -1923,7 +1947,9 @@
         "No native CUA/app launch. Font-loaded widget screenshots are not device rendering, VoiceOver or OS-popup parity evidence."
       ],
       "implementationCommit": "f9baeaa86c2bd88058ab815687543587aeec5296",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewClientThreadId": "client-new-thread:8f50b4fb-1330-4106-9ecf-433b691447ce",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "field",
@@ -1977,7 +2003,9 @@
         "send_message_to_thread remains absent from available tool inventory. Progress record and final head/artifact report carry the coordinator handoff."
       ],
       "implementationCommit": "e298291e7c85ce47d24049004504c84208d3d07f",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewClientThreadId": "client-new-thread:3dd3b117-0d7a-4df6-ab48-48a672eb4d7f",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "input-group",
@@ -2268,7 +2296,9 @@
         "awaiting_slot: native review blocked by locked Mac; browser verification separately denied by admin policy. No CUA/browser/native launch, policy retry or workaround. Rendered comparison and changed production native inspection still required."
       ],
       "implementationCommit": "1efab06cb3b99177278ed941db63ec37f07ce849",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewClientThreadId": "client-new-thread:7bdf9b6f-a711-4bb6-ad58-4e2462b81e14",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "attachment",
@@ -2330,7 +2360,9 @@
       "implementationCommit": "ba156a2ce378787c25fdd4a8910fbf86390c4a8a",
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:30c945fe-66ff-4d13-a4ed-120a945e4aa3",
-      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native"
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
+      "reviewClientThreadId": "client-new-thread:93cade56-77da-4aab-99e9-2885134f3361",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "bubble",
@@ -2432,7 +2464,9 @@
         "No iOS/Linux device or VoiceOver testing; test image geometry is not pixel-parity evidence."
       ],
       "implementationCommit": "1edacc2894f33d4002d02dd37b31baee1e0017b2",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewClientThreadId": "client-new-thread:857acd87-7ac7-487b-911b-5cb8d38dca79",
+      "reviewStatus": "worktree_setup"
     },
     {
       "id": "data-table",
@@ -2553,7 +2587,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T08:43:17.343374+00:00",
+    "updatedAt": "2026-09-09T08:47:19.445186+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
@@ -2900,13 +2934,167 @@
       "remaining": "Independent component reviewers finish reference/native verification and composition follow-ups, then merge locally under shared access leases."
     },
     "reviewPolicy": {
-      "status": "dispatching",
+      "status": "dispatched",
       "backlogCount": 17,
       "ownership": "independent_reviewer",
       "protocol": "docs/component-library/review-and-merge.md",
       "leaseTool": "tool/component_review_lock.py",
       "futureHandoff": "Each implementation creates a new reviewer Codex task that owns completion and local main merge.",
-      "reviewTasks": []
+      "reviewTasks": [
+        {
+          "component": "switch",
+          "title": "Review and merge Switch",
+          "clientThreadId": "client-new-thread:924c7988-4d79-43f3-a109-213370f680f8",
+          "hostId": "local",
+          "implementationTaskId": "01a083ce-319b-7bc3-a5c9-371087710718",
+          "implementationBranch": "codex/ui-switch",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "scroll-area",
+          "title": "Review and merge Scroll Area",
+          "clientThreadId": "client-new-thread:c00777c6-fa04-4335-b426-65f4792c57cd",
+          "hostId": "local",
+          "implementationTaskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
+          "implementationBranch": "codex/ui-scroll-area",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "native-select",
+          "title": "Review and merge Native Select",
+          "clientThreadId": "client-new-thread:8f50b4fb-1330-4106-9ecf-433b691447ce",
+          "hostId": "local",
+          "implementationTaskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
+          "implementationBranch": "codex/ui-native-select",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "chart",
+          "title": "Review and merge Chart",
+          "clientThreadId": "client-new-thread:857acd87-7ac7-487b-911b-5cb8d38dca79",
+          "hostId": "local",
+          "implementationTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
+          "implementationBranch": "codex/ui-chart",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "table",
+          "title": "Review and merge Table",
+          "clientThreadId": "client-new-thread:ac865777-e87d-4ba8-ac49-757c8ad06b59",
+          "hostId": "local",
+          "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
+          "implementationBranch": "codex/ui-table",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "progress",
+          "title": "Review and merge Progress",
+          "clientThreadId": "client-new-thread:26c2d1cc-b60a-44d1-bb52-34402eefa7e6",
+          "hostId": "local",
+          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+          "implementationBranch": "codex/ui-progress",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "textarea",
+          "title": "Review and merge Textarea",
+          "clientThreadId": "client-new-thread:7d5fdca9-74f5-42fc-89e9-20648dc15b64",
+          "hostId": "local",
+          "implementationTaskId": "01a08437-208f-7332-b373-192eaada5844",
+          "implementationBranch": "codex/ui-textarea",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "field",
+          "title": "Review and merge Field",
+          "clientThreadId": "client-new-thread:3dd3b117-0d7a-4df6-ab48-48a672eb4d7f",
+          "hostId": "local",
+          "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
+          "implementationBranch": "codex/ui-field",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "slider",
+          "title": "Review and merge Slider",
+          "clientThreadId": "client-new-thread:e08c5588-e212-40bc-93b2-dbf1a99b2256",
+          "hostId": "local",
+          "implementationTaskId": "01a083ce-313a-7362-ada6-57dc14221509",
+          "implementationBranch": "codex/ui-slider",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "resizable",
+          "title": "Review and merge Resizable",
+          "clientThreadId": "client-new-thread:cc005568-b1c9-4778-b2d5-488a84118a8d",
+          "hostId": "local",
+          "implementationTaskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
+          "implementationBranch": "codex/ui-resizable",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "dialog",
+          "title": "Review and merge Dialog",
+          "clientThreadId": "client-new-thread:10106465-9319-41fc-8dcc-e16b25d21fe6",
+          "hostId": "local",
+          "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932",
+          "implementationBranch": "codex/ui-dialog",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "marker",
+          "title": "Review and merge Marker",
+          "clientThreadId": "client-new-thread:93cade56-77da-4aab-99e9-2885134f3361",
+          "hostId": "local",
+          "implementationTaskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
+          "implementationBranch": "codex/ui-marker",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "collapsible",
+          "title": "Review and merge Collapsible",
+          "clientThreadId": "client-new-thread:be8bed40-ccd7-4dbd-98f0-e8a38cd9d07b",
+          "hostId": "local",
+          "implementationTaskId": "01a08445-7647-7a83-a366-e06252405043",
+          "implementationBranch": "codex/ui-collapsible",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "popover",
+          "title": "Review and merge Popover",
+          "clientThreadId": "client-new-thread:21a25d72-ab71-4295-82d9-78e48a82d898",
+          "hostId": "local",
+          "implementationTaskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
+          "implementationBranch": "codex/ui-popover",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "alert",
+          "title": "Review and merge Alert",
+          "clientThreadId": "client-new-thread:7bdf9b6f-a711-4bb6-ad58-4e2462b81e14",
+          "hostId": "local",
+          "implementationTaskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
+          "implementationBranch": "codex/ui-alert",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "empty",
+          "title": "Review and merge Empty",
+          "clientThreadId": "client-new-thread:95c4df69-0847-488d-827a-e5b90f267a06",
+          "hostId": "local",
+          "implementationTaskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
+          "implementationBranch": "codex/ui-empty",
+          "status": "worktree_setup"
+        },
+        {
+          "component": "item",
+          "title": "Review and merge Item",
+          "clientThreadId": "client-new-thread:f50f0395-36f0-477a-a1c9-39858c13d819",
+          "hostId": "local",
+          "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
+          "implementationBranch": "codex/ui-item",
+          "status": "worktree_setup"
+        }
+      ]
     }
   },
   "visualFidelity": {

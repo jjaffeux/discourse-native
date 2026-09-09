@@ -10,29 +10,31 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 **17 of 64 components are merged locally.** 17 existing components are in progress; 30 are planned.
 
+Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
+
 Reference browsing is blocked because the browser could not verify its admin-enforced security policy.
 
 Branch preparation does not mark a component merged or visually verified.
 
-| Component | Current stage | Branch head |
-| --- | --- | --- |
-| textarea | Reference and native review | 058bb044 |
-| switch | native review | b851adbb |
-| slider | Reference and native review | bbd35fec |
-| progress | Reference and native review | 1c21a435 |
-| empty | Input Group composition, reference and native review | 9d4ebc9e |
-| item | Control composition, reference and native review | 32ce1f96 |
-| table | Reference and native review | b3107cab |
-| scroll-area | Native review | 5f4e58a3 |
-| collapsible | Reference and native review | 684faacd |
-| resizable | Reference and native review | a7e26a93 |
-| popover | Control composition, reference and native review | cb7f9e2e |
-| dialog | Reference and native review | 715ab477 |
-| native-select | Native review | 986eb063 |
-| field | Control composition, reference and native review | 09869a67 |
-| alert | Reference and native review | 38002135 |
-| marker | Reference and native review | c797918b |
-| chart | Native review | c782a940 |
+| Component | Current stage | Branch head | Reviewer task |
+| --- | --- | --- | --- |
+| textarea | Reference and native review | 058bb044 | Worktree setup |
+| switch | native review | b851adbb | Worktree setup |
+| slider | Reference and native review | bbd35fec | Worktree setup |
+| progress | Reference and native review | 1c21a435 | Worktree setup |
+| empty | Input Group composition, reference and native review | 9d4ebc9e | Worktree setup |
+| item | Control composition, reference and native review | 32ce1f96 | Worktree setup |
+| table | Reference and native review | b3107cab | Worktree setup |
+| scroll-area | Native review | 5f4e58a3 | Worktree setup |
+| collapsible | Reference and native review | 684faacd | Worktree setup |
+| resizable | Reference and native review | a7e26a93 | Worktree setup |
+| popover | Control composition, reference and native review | cb7f9e2e | Worktree setup |
+| dialog | Reference and native review | 715ab477 | Worktree setup |
+| native-select | Native review | 986eb063 | Worktree setup |
+| field | Control composition, reference and native review | 09869a67 | Worktree setup |
+| alert | Reference and native review | 38002135 | Worktree setup |
+| marker | Reference and native review | c797918b | Worktree setup |
+| chart | Native review | c782a940 | Worktree setup |
 
 ## Component implementation
 
