@@ -84,6 +84,9 @@ Independent review fixed two shared-surface state bugs before native review:
   change or the group disposes.
 - `DInputGroup(enabled: false)` now dims the whole surface and makes composed
   DInput/DTextarea/custom controls non-interactive and non-focusable.
+- The mobile 48px wrapper now owns its outer touch bands, so a tap outside the
+  centered 32px artwork still focuses the editor; descendant addon buttons keep
+  their independent gesture/action ownership.
 
 The regression suite checks the actual parent decoration replacement on focus,
 the disabled editor state/opacity/focus exclusion, and listener lifecycle through
