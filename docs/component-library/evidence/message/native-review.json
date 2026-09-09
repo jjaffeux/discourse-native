@@ -62,6 +62,12 @@
     "sourceEquivalence": "Message, production ChatMessageTile, reaction layout and native fixture are unchanged from inspected 5f419da1. Example differences are only accepted status, notes and corrected displayed snippet text. Latest-main Button Group adds an optional joined-control scope whose absent-scope path preserves ordinary Message button behavior; Popover establishes a joined-scope boundary. The inspected fixtures have no joined-control ancestor. No additional native pass is required for this integration.",
     "preservation": "All non-Message progress data exactly matches the integrated main base. Latest-main component registrations and exports are preserved; only Message registration/export is added."
   },
+  "latestMainReconciliation": {
+    "candidateCommit": "5c7c10f75ce011041ba7c2f3ec541d63b607fdb2",
+    "mainBase": "d647400602824226d70d1328fba2a141195dc559",
+    "verification": "All 36 Dropdown Menu, Message production fixture and styleguide-page checks passed with seed 39061; root/full analysis and diff check passed.",
+    "sourceEquivalence": "The intervening accepted Dropdown Menu follow-up changes only its owner and tests. Message production actions use MenuAnchor, not DDropdownMenu; the inspected Message runtime is unchanged. All non-Message progress data matches this latest main base."
+  },
   "limitations": [
     "No spoken VoiceOver, iOS/Linux device or physical-touch run is claimed.",
     "The production fixture uses local in-memory records. No real account, successful profile-data fetch, file transfer or delivery endpoint is exercised; mutation/permission/selection/long-press variants additionally rely on the dedicated passing widget suites.",

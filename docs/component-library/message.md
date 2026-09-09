@@ -131,3 +131,9 @@ acceptance labels/notes/snippet text do not change those rendered compositions.
 The latest Button Group optional joined-control scope is absent from these
 fixtures and preserves ordinary button behavior. All unrelated main progress,
 exports and registrations were retained.
+
+The final candidate `5c7c10f7` additionally incorporates accepted Dropdown Menu
+follow-up main `d6474006`. All 36 targeted Dropdown Menu, Message fixture and
+styleguide-page checks passed with seed 39061; root/full analysis passed again.
+Message's production action menu uses `MenuAnchor`, not `DDropdownMenu`, so the
+inspected Message behavior remains unchanged. Other progress data is preserved.

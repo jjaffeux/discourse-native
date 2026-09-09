@@ -3186,6 +3186,7 @@ Status: review_ready. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/
 - Independent official rendered reference comparison completed for all documented compositions in light/dark. Native seven-example coverage includes normal light/dark and Plum/360px/200%/RTL/reduced motion; local actions and status transitions confirmed.
 - Actual native production thread/jump/reply callbacks, independent AX nodes, hover toolbar, Tab focus, Return menu activation, Escape dismissal/focus return, rich-text selection and offline profile target passed. Exact source/bundle/kernel provenance and cleanup are recorded in review evidence.
 - Final integration a5296738 from main 5ca267b5: all 244 focused Message/Chat/reaction/Button/styleguide-page checks passed, seed 39060; root/full analysis and diff check clean. Inspected runtime remains source-equivalent; all unrelated main progress and registrations preserved.
+- Latest-main candidate 5c7c10f7 from d6474006: all 36 Dropdown Menu/Message fixture/styleguide-page checks passed seed 39061, root/full analysis clean. Accepted Dropdown Menu changes do not affect the Message MenuAnchor; inspected runtime and unrelated progress are preserved.
 
 **limitations**
 
