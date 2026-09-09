@@ -1,0 +1,35 @@
+{
+  "component": "menubar",
+  "sourceCommit": "6a0da1e58bea257c89451f74e88759cf474fb7b2",
+  "branch": "codex/review-menubar",
+  "flutter": "3.47.2",
+  "target": "lib/styleguide_main.dart",
+  "buildCommand": "flutter build macos --debug -t lib/styleguide_main.dart --no-pub",
+  "buildResult": "passed",
+  "fixturePath": "/private/tmp/discourse-menubar-review-6a0d.9a6Kmo/Discourse Menubar Review 6a0d.app",
+  "bundleIdentifier": "org.discourse.menubarreview.6a0d",
+  "kernelSha256": "5d1c409d3317f7ffc9f6aea4a53a311c2168b10cc07486e369c62c591f8afd17",
+  "signature": {
+    "kind": "ad-hoc",
+    "deepStrictVerification": "passed",
+    "mainEntitlements": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.cs.allow-jit": true,
+      "com.apple.security.get-task-allow": true
+    },
+    "signedExecutableCount": 7,
+    "restrictedEntitlementExecutableCount": 0,
+    "restrictedKeysChecked": [
+      "com.apple.application-identifier",
+      "com.apple.developer.team-identifier",
+      "com.apple.developer.aps-environment"
+    ]
+  },
+  "sourceScope": "The fixture mounts the production styleguide and registered real DMenubar examples from the exact source commit. The copied bundle only changes its Info.plist identity and ad-hoc signature; repository runner identities and entitlements are unchanged.",
+  "inspection": {
+    "launched": false,
+    "officialBrowserCompared": false,
+    "nativeMacosInspected": false,
+    "note": "Build, kernel and signature evidence only. The independent reviewer owns the first actual official-browser and native macOS inspection under the shared desktop lease."
+  }
+}
