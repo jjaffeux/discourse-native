@@ -2771,7 +2771,10 @@
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6fe3/discourse-native",
       "nativeInspectionStatus": "not_started",
-      "reviewStatus": "not_started"
+      "reviewStatus": "handoff_ready",
+      "reviewTaskId": null,
+      "reviewBranch": "codex/review-bubble",
+      "reviewHandoff": "docs/component-library/evidence/bubble/review-handoff.md"
     },
     {
       "id": "message",
