@@ -86,7 +86,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
 | 43 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command | — |
-| 44 | dropdown-menu | in_progress | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
+| 44 | dropdown-menu | review_ready | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | — |
 | 45 | context-menu | in_progress | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | — |
 | 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
@@ -2427,7 +2427,7 @@ Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd49a5152023. Branch: codex/u
 
 ### dropdown-menu
 
-Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dropdown-menu.
+Status: review_ready. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dropdown-menu.
 
 **acceptanceCriteria**
 
@@ -2461,10 +2461,13 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 - Frozen Markdown was downloaded and reproduced the required SHA256 exactly; official page, registry source and Base UI behavior API were inspected and mapped.
 - Focused coverage proves pointer/Return/Space open and first enabled focus, arrow/Home/End traversal, repeating typeahead, controlled checkbox/radio retention, deepest Escape, RTL submenu arrows, sibling submenu non-overlap, outside focus behavior, controlled open requests, live theme/text scale, desktop/iOS geometry, semantics and Table edit/duplicate/delete focus/action regressions.
 - After reconciling the accepted Popover implementation from current main, 48 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145, including overlay lifecycle, custom-anchor tracking and ancestor-shortcut Escape precedence.
+- The exact 05d9f78f review candidate passed clean root and profiles/full static analysis, a debug macOS styleguide build, deep strict code signing and a copied-kernel SHA256 match of a6ee5d5cd0bb1142547fdc3045276559fd19afac0aadf9d52a61f1e5fc489e8e.
+- Official Base Nova rendered comparison covered dark and light Composition geometry, states, separators, shortcuts and submenu affordance. Native macOS interaction covered Return/Space entry, arrows, End, typeahead, checkbox/radio retained-open selection, nested deepest Escape, trigger restoration, outside dismissal and app-switch lifecycle dismissal.
+- Native styleguide inspection covered light, Forest and Plum palettes, 200% text with bounded scrolling, 360 px layout, reduced motion and RTL Arabic content with mirrored submenu affordance. The Table Actions adoption performed Edit and Duplicate callbacks with row mutation, status feedback, expanded-row highlighting and restored trigger focus; Delete remains covered by the focused consumer test.
 
 **limitations**
 
-- Official rendered reference comparison and native macOS interaction/visual inspection remain for the independent reviewer under the shared desktop lease; no iOS/Linux device or spoken VoiceOver run is claimed.
+- No iOS/Linux device, spoken VoiceOver session or pixel-identical screenshot claim is made; those platforms remain covered by widget behavior and geometry tests rather than this macOS acceptance pass.
 
 ### context-menu
 

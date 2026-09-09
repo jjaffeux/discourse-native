@@ -2642,7 +2642,7 @@
     },
     {
       "id": "dropdown-menu",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a085b3-05fc-79f1-bde2-dc6936b2bcd4",
       "branch": "codex/ui-dropdown-menu",
       "dependencies": [
@@ -2676,10 +2676,13 @@
       "verification": [
         "Frozen Markdown was downloaded and reproduced the required SHA256 exactly; official page, registry source and Base UI behavior API were inspected and mapped.",
         "Focused coverage proves pointer/Return/Space open and first enabled focus, arrow/Home/End traversal, repeating typeahead, controlled checkbox/radio retention, deepest Escape, RTL submenu arrows, sibling submenu non-overlap, outside focus behavior, controlled open requests, live theme/text scale, desktop/iOS geometry, semantics and Table edit/duplicate/delete focus/action regressions.",
-        "After reconciling the accepted Popover implementation from current main, 48 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145, including overlay lifecycle, custom-anchor tracking and ancestor-shortcut Escape precedence."
+        "After reconciling the accepted Popover implementation from current main, 48 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145, including overlay lifecycle, custom-anchor tracking and ancestor-shortcut Escape precedence.",
+        "The exact 05d9f78f review candidate passed clean root and profiles/full static analysis, a debug macOS styleguide build, deep strict code signing and a copied-kernel SHA256 match of a6ee5d5cd0bb1142547fdc3045276559fd19afac0aadf9d52a61f1e5fc489e8e.",
+        "Official Base Nova rendered comparison covered dark and light Composition geometry, states, separators, shortcuts and submenu affordance. Native macOS interaction covered Return/Space entry, arrows, End, typeahead, checkbox/radio retained-open selection, nested deepest Escape, trigger restoration, outside dismissal and app-switch lifecycle dismissal.",
+        "Native styleguide inspection covered light, Forest and Plum palettes, 200% text with bounded scrolling, 360 px layout, reduced motion and RTL Arabic content with mirrored submenu affordance. The Table Actions adoption performed Edit and Duplicate callbacks with row mutation, status feedback, expanded-row highlighting and restored trigger focus; Delete remains covered by the focused consumer test."
       ],
       "limitations": [
-        "Official rendered reference comparison and native macOS interaction/visual inspection remain for the independent reviewer under the shared desktop lease; no iOS/Linux device or spoken VoiceOver run is claimed."
+        "No iOS/Linux device, spoken VoiceOver session or pixel-identical screenshot claim is made; those platforms remain covered by widget behavior and geometry tests rather than this macOS acceptance pass."
       ],
       "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
       "mergeCommit": null,
@@ -2696,24 +2699,9 @@
       ],
       "reviewTaskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
       "reviewBranch": "codex/review-dropdown-menu-final4",
-      "reviewStatus": "in_progress",
+      "reviewStatus": "accepted",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/ec4d/discourse-native",
-      "reviewHandoffCommit": "48599440787a16d27c00d1b399d021f385113be5",
-      "reviewBlocker": {
-        "status": "blocked_mac_locked",
-        "recordedAt": "2026-09-09T12:23:20+00:00",
-        "reportedByTask": "01a085cf-f401-7813-80da-7c687de8a5d5",
-        "observation": "Two Dropdown Menu reviewer attempts on the approved CUA surface found the Mac locked and automatic unlock unavailable. The reviewer released desktop immediately; no native app/browser inspection occurred on either attempt.",
-        "requiredAction": "Manual Mac unlock. Resume approved visual verification once the host is actually unlocked; do not change OS security or provisioning. Source review, implementation, tests and builds may continue.",
-        "dependentMergeImpact": [
-          "dropdown-menu",
-          "input-group",
-          "button-group"
-        ],
-        "preparedSourceCommit": "dd0ad309c5a7ecc7d4af2c1f566bd8c5678a3f18",
-        "preparedBundle": "/private/tmp/dropdown-menu-review-dd0a.qRppAc/Dropdown Menu Review dd0a.app",
-        "verification": "Reviewer reports47 focused tests (seed826145), clean root/full analysis, deep/strict signed bundle and matching built/copied kernel55eb9f8f5408bd77b4d74bf8e79d26670eeb588e236f992dcd121b3aaf70303d. First successful final browser/native acceptance remains required."
-      }
+      "reviewHandoffCommit": "48599440787a16d27c00d1b399d021f385113be5"
     },
     {
       "id": "context-menu",
