@@ -340,6 +340,11 @@ class DTooltipState extends State<DTooltip>
   bool _longPressed = false;
   bool _suspended = false;
   bool _syncScheduled = false;
+  // The pointer has hovered this trigger or its popup since the popup opened.
+  // Only then does leaving the pair dismiss it; a popup opened by keyboard, a
+  // controller or a parent must not vanish because an unrelated pointer moved.
+  bool _pointerEngaged = false;
+  bool _listening = false;
   Offset? _pointer;
   LongPressGestureRecognizer? _longPress;
   int? _tapPointer;
@@ -363,8 +368,6 @@ class DTooltipState extends State<DTooltip>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    GestureBinding.instance.pointerRouter.addGlobalRoute(_globalPointer);
-    FocusManager.instance.addEarlyKeyEventHandler(_keyEvent);
     widget.controller?._triggers.add(this);
   }
 
@@ -488,6 +491,7 @@ class DTooltipState extends State<DTooltip>
       }
       DTooltip._visible.add(this);
       _group?.opened(this);
+      _pointerEngaged = _hovered || _popupHovered;
       _portal.show();
       if (still) {
         _animation.value = 1;
@@ -498,6 +502,7 @@ class DTooltipState extends State<DTooltip>
     } else {
       DTooltip._visible.remove(this);
       _group?.closed(this);
+      _pointerEngaged = false;
       if (still) {
         _animation.value = 0;
         _portal.hide();
@@ -505,7 +510,23 @@ class DTooltipState extends State<DTooltip>
         _animation.reverse();
       }
     }
+    _syncGlobalListeners();
     widget.controller?._changed(this);
+  }
+
+  // Global pointer and key observation exists only while a popup is open or a
+  // tap is being observed, so hundreds of idle triggers cost nothing per event.
+  void _syncGlobalListeners() {
+    final needed = mounted && (_open || _tapPointer != null);
+    if (needed == _listening) return;
+    _listening = needed;
+    if (needed) {
+      GestureBinding.instance.pointerRouter.addGlobalRoute(_globalPointer);
+      FocusManager.instance.addEarlyKeyEventHandler(_keyEvent);
+    } else {
+      GestureBinding.instance.pointerRouter.removeGlobalRoute(_globalPointer);
+      FocusManager.instance.removeEarlyKeyEventHandler(_keyEvent);
+    }
   }
 
   void _animationStatus(AnimationStatus status) {
@@ -520,6 +541,7 @@ class DTooltipState extends State<DTooltip>
 
   void _enter(PointerEnterEvent event) {
     _hovered = true;
+    _pointerEngaged = true;
     _pointer = event.position;
     _hideTimer?.cancel();
     if (_open || !_available || _suspended) return;
@@ -543,7 +565,9 @@ class DTooltipState extends State<DTooltip>
   void _scheduleHide() {
     if (_focused || _hovered || _popupHovered || _longPressed) return;
     if (!widget.disableHoverablePopup && _inBridge(_pointer)) return;
-    _hideTimer?.cancel();
+    // A pending close keeps its deadline; movement outside the pair does not
+    // postpone it.
+    if (_hideTimer?.isActive ?? false) return;
     if (_closeDelay == Duration.zero) {
       _request(false, DTooltipChangeReason.hover);
     } else {
@@ -595,6 +619,7 @@ class DTooltipState extends State<DTooltip>
               (event.position - _tapStart!).distance > kTouchSlop)) {
         _tapPointer = null;
         _tapStart = null;
+        _syncGlobalListeners();
       } else if (event is PointerUpEvent) {
         _tapPointer = null;
         _tapStart = null;
@@ -604,10 +629,10 @@ class DTooltipState extends State<DTooltip>
           widget.touchDelay,
           () => _request(false, DTooltipChangeReason.triggerPress),
         );
+        _syncGlobalListeners();
       }
     }
     if (event is PointerDownEvent) {
-      _showTimer?.cancel();
       if (!_open) return;
       if (_globalRect(_surfaceKey.currentContext)?.contains(event.position) ??
           false) {
@@ -628,11 +653,15 @@ class DTooltipState extends State<DTooltip>
       );
     } else if (event is PointerHoverEvent || event is PointerMoveEvent) {
       _pointer = event.position;
-      if (_open && !_hovered && !_popupHovered) _scheduleHide();
+      if (_open && _pointerEngaged && !_hovered && !_popupHovered) {
+        _scheduleHide();
+      }
     }
   }
 
   void _pointerDown(PointerDownEvent event) {
+    // Pressing the trigger withdraws a pending hover hint for every pointer.
+    _showTimer?.cancel();
     if (!_available || event.kind == PointerDeviceKind.mouse) return;
     switch (widget.triggerMode) {
       case TooltipTriggerMode.manual:
@@ -660,6 +689,7 @@ class DTooltipState extends State<DTooltip>
         // Buttons keep their activation callback; scroll/cancel withdraws it.
         _tapPointer = event.pointer;
         _tapStart = event.position;
+        _syncGlobalListeners();
     }
   }
 
@@ -793,6 +823,7 @@ class DTooltipState extends State<DTooltip>
                 child: MouseRegion(
                   onEnter: (_) {
                     _popupHovered = true;
+                    _pointerEngaged = true;
                     _hideTimer?.cancel();
                   },
                   onExit: (event) {
@@ -871,8 +902,9 @@ class DTooltipState extends State<DTooltip>
     _detachController(widget.controller);
     _group?.closed(this);
     DTooltip._visible.remove(this);
-    GestureBinding.instance.pointerRouter.removeGlobalRoute(_globalPointer);
-    FocusManager.instance.removeEarlyKeyEventHandler(_keyEvent);
+    _open = false;
+    _tapPointer = null;
+    _syncGlobalListeners();
     WidgetsBinding.instance.removeObserver(this);
     _curve.dispose();
     _animation.dispose();
@@ -880,21 +912,31 @@ class DTooltipState extends State<DTooltip>
   }
 }
 
+// The focusable wrapper shows the library's focus-visible ring: 3px of the
+// ring color at half opacity, painted outside the wrapper so no child edge is
+// covered.
 class _TooltipFocusRing extends StatelessWidget {
   const _TooltipFocusRing({required this.visible, required this.child});
   final bool visible;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      borderRadius: DTokens.of(context).borderRadius,
-      border: visible
-          ? Border.all(color: DTokens.of(context).focusRing, width: 2)
-          : null,
-    ),
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: tokens.borderRadius,
+        border: visible
+            ? Border.all(
+                color: tokens.focusRing.withValues(alpha: .5),
+                width: 3,
+                strokeAlign: BorderSide.strokeAlignOutside,
+              )
+            : null,
+      ),
+      child: child,
+    );
+  }
 }
 
 class _TooltipContent extends StatelessWidget {
@@ -922,9 +964,9 @@ class _TooltipContent extends StatelessWidget {
         child: DKbdTheme(
           foregroundColor: foreground,
           backgroundColor: foreground.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.10
-                : 0.20,
+            alpha:
+                foreground.a *
+                (Theme.of(context).brightness == Brightness.dark ? 0.10 : 0.20),
           ),
           child: Padding(
             padding: EdgeInsetsDirectional.fromSTEB(
@@ -1134,15 +1176,15 @@ class _RenderTooltip extends RenderShiftedBox {
       math.min(10.0, childSize.width / 2),
       math.max(childSize.width / 2, childSize.width - 10),
     );
-    final arrowY = (center.dy - offset.dy).clamp(
-      math.min(10.0, childSize.height / 2),
-      math.max(childSize.height / 2, childSize.height - 10),
-    );
+    // The registry pins side arrows to the popup's vertical middle
+    // (top-1/2! overrides the positioner's anchor-tracking offset); only the
+    // top and bottom arrows follow the anchor within the 5px arrow padding.
+    final arrowY = childSize.height / 2;
     _arrow = switch (_side) {
       DTooltipSide.top => Offset(arrowX.toDouble(), childSize.height - 2),
       DTooltipSide.bottom => Offset(arrowX.toDouble(), 2),
-      DTooltipSide.left => Offset(childSize.width - 1, arrowY.toDouble()),
-      _ => Offset(1, arrowY.toDouble()),
+      DTooltipSide.left => Offset(childSize.width - 1, arrowY),
+      _ => Offset(1, arrowY),
     };
     // Base UI scales around the trigger-facing edge plus the side gap, rather
     // than the diamond's center (for top: 50% calc(100% + sideOffset)).

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -842,6 +843,194 @@ void main() {
       await tester.pump();
       expect(actions, 1);
       expect(_hint, findsNothing);
+    },
+  );
+
+  testWidgets(
+    'an imperatively opened popup survives unrelated pointer movement until the pointer leaves its trigger',
+    (tester) async {
+      final controller = DTooltipController();
+      addTearDown(controller.dispose);
+      await _pump(
+        tester,
+        DTooltip(
+          message: 'Information',
+          controller: controller,
+          child: _target,
+        ),
+        still: true,
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await tester.pump();
+      controller.show();
+      await tester.pump();
+      expect(_hint, findsOneWidget);
+      await mouse.moveTo(const Offset(40, 40));
+      await tester.pump();
+      await mouse.moveTo(const Offset(60, 90));
+      await tester.pump();
+      expect(_hint, findsOneWidget);
+      await mouse.moveTo(tester.getCenter(find.text('Target')));
+      await tester.pump();
+      expect(_hint, findsOneWidget);
+      await mouse.moveTo(Offset.zero);
+      await tester.pump();
+      expect(_hint, findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the close delay keeps its deadline while the pointer moves outside the pair',
+    (tester) async {
+      await _pump(
+        tester,
+        const DTooltip(
+          message: 'Information',
+          dismissDelay: Duration(milliseconds: 200),
+          child: _target,
+        ),
+        still: true,
+      );
+      final mouse = await _mouse(tester, find.text('Target'));
+      expect(_hint, findsOneWidget);
+      await mouse.moveTo(const Offset(20, 20));
+      await tester.pump(const Duration(milliseconds: 150));
+      await mouse.moveTo(const Offset(30, 30));
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(_hint, findsOneWidget);
+      await mouse.moveTo(const Offset(40, 40));
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(_hint, findsNothing);
+    },
+  );
+
+  testWidgets(
+    'side arrows sit at the popup middle while top arrows follow the anchor',
+    (tester) async {
+      const arrow = Rect.fromLTWH(-5, -5, 10, 10);
+      for (final side in [DTooltipSide.left, DTooltipSide.top]) {
+        await _pump(
+          tester,
+          DTooltip(
+            key: ValueKey(side),
+            message: 'Information',
+            side: side,
+            align: DTooltipAlign.start,
+            defaultOpen: true,
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Information'),
+                Text('Second line'),
+                Text('Third line'),
+              ],
+            ),
+            child: _target,
+          ),
+          still: true,
+        );
+        await tester.pump();
+        final popup = tester.getRect(_surface(_hint));
+        final anchor = tester.getRect(find.byType(DTooltip));
+        final tip = side == DTooltipSide.left
+            ? Offset(
+                popup.left + (popup.width - 1),
+                popup.top + popup.height / 2,
+              )
+            : Offset(anchor.center.dx, popup.top + (popup.height - 2));
+        expect(popup.height, greaterThan(anchor.height));
+        expect(
+          tester.renderObject(find.byType(Overlay)),
+          paints
+            ..translate(x: tip.dx, y: tip.dy)
+            ..rotate(angle: math.pi / 4)
+            ..rrect(
+              rrect: RRect.fromRectAndRadius(arrow, const Radius.circular(2)),
+            ),
+          reason: side.name,
+        );
+      }
+    },
+  );
+
+  testWidgets(
+    'the focusable wrapper paints a 3px half-opacity ring outside the trigger',
+    (tester) async {
+      await _pump(
+        tester,
+        const DTooltip(
+          message: 'Information',
+          focusable: true,
+          child: DButton(
+            label: Text('Target'),
+            variant: DButtonVariant.outline,
+            onPressed: null,
+          ),
+        ),
+        still: true,
+      );
+      final ring = find
+          .ancestor(
+            of: find.byType(DButton),
+            matching: find.byType(DecoratedBox),
+          )
+          .first;
+      final tokens = DTokens.of(tester.element(ring));
+      final inner = tokens.borderRadius.toRRect(
+        Offset.zero & tester.getSize(ring),
+      );
+      final ringPaint = paints
+        ..drrect(
+          outer: inner.inflate(3),
+          inner: inner,
+          color: tokens.focusRing.withValues(alpha: .5),
+        );
+      expect(tester.renderObject(ring), isNot(ringPaint));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_hint, findsOneWidget);
+      expect(tester.renderObject(ring), ringPaint);
+    },
+  );
+
+  testWidgets(
+    'keycap tint multiplies the background alpha by its light and dark factors',
+    (tester) async {
+      const background = Color(0x80FFFFFF);
+      for (final (theme, factor) in [
+        (AppTheme.light, .2),
+        (AppTheme.dark, .1),
+      ]) {
+        final tokens = theme.extension<DTokens>()!;
+        await _pump(
+          tester,
+          DTooltip(
+            key: ValueKey(theme.brightness),
+            message: 'Information',
+            defaultOpen: true,
+            shortcut: const DShortcut(SingleActivator(LogicalKeyboardKey.keyS)),
+            child: _target,
+          ),
+          theme: theme.copyWith(
+            extensions: [
+              ...theme.extensions.values.where((e) => e is! DTokens),
+              tokens.copyWith(background: background),
+            ],
+          ),
+          still: true,
+        );
+        await tester.pump();
+        final keycaps = DKbdTheme.maybeOf(tester.element(find.byType(DKbd)))!;
+        expect(keycaps.foregroundColor, background);
+        expect(
+          keycaps.backgroundColor,
+          background.withValues(alpha: background.a * factor),
+          reason: theme.brightness.name,
+        );
+      }
     },
   );
 
