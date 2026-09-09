@@ -4695,16 +4695,6 @@
           "headCommit": "c8c6f049c299d6b41c4cc31ac2c1f106b8f56bd0"
         },
         {
-          "component": "date-picker",
-          "taskId": "01a086a1-dd61-77d1-ae4f-a09fa87ff595",
-          "branch": "codex/review-date-picker",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a08606-ca30-7bc1-8e27-69575273d443",
-          "implementationBranch": "codex/ui-date-picker",
-          "headCommit": "bb6072283237d82ff9d95eeef62b5938f0940cf2"
-        },
-        {
           "component": "card",
           "taskId": "01a086cd-3f9c-75b0-bda3-7d65d96604a0",
           "branch": "codex/review-card-compositions",
@@ -5156,18 +5146,6 @@
           "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
           "implementationBranch": "codex/ui-alert-dialog",
           "implementationCommit": "77a8933a9f58b275b44dc41ede4cf22e46ae9c9f",
-          "status": "in_progress"
-        },
-        {
-          "component": "date-picker",
-          "title": "Review and merge Date Picker",
-          "taskId": "01a086a1-dd61-77d1-ae4f-a09fa87ff595",
-          "hostId": "local",
-          "branch": "codex/review-date-picker",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/11aa/discourse-native",
-          "implementationTaskId": "01a08606-ca30-7bc1-8e27-69575273d443",
-          "implementationBranch": "codex/ui-date-picker",
-          "implementationCommit": "f980b6f5c7e0e0a0fe2888f6f3c1a1f4f563421e",
           "status": "in_progress"
         },
         {
