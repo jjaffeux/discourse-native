@@ -2062,7 +2062,7 @@
       "userUnlockRequested": true,
       "unaffectedWork": "Component implementation, reference source review, fixtures, tests and static analysis continue."
     },
-    "pendingCoordinatorNativeReview": "Final explicit styleguide scrollbar screenshot/drag after Mac unlock.",
+    "pendingCoordinatorNativeReview": "Final styleguide preview scrollbar screenshot/drag plus title-tooltip Escape correction through the isolated Title Review B104 fixture after Mac unlock.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized."
   },
   "visualFidelity": {
@@ -2142,5 +2142,26 @@
     ],
     "implementationCommit": "6d8c63edcbcd8372408a4a5ec8ccc9d8479e5bbb",
     "mergeCommit": "0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5"
+  },
+  "coordinatorFollowUps": {
+    "titleTooltipEscape": {
+      "status": "awaiting_native_review",
+      "branch": "codex/fix-title-tooltip-escape",
+      "implementationCommit": "c5d37bd18148337f3a6be894c27c44af920f0e2c",
+      "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+      "reason": "The Tooltip migration consumes Escape before the inline title editor can cancel. Hide the redundant value hint while editing or saving; preserve generic Tooltip dismissal.",
+      "verification": [
+        "Existing compact-title Escape case reproduced on current main before the change; /private/tmp/title-tooltip-before.log.",
+        "114 focused Tooltip/title/header tests pass with seed 9309127; /private/tmp/title-tooltip-after.log.",
+        "Touched code formatted, root/full static analysis clean; isolated macOS debug build and deep strict signature verification pass."
+      ],
+      "bundle": "/private/tmp/DiscourseTitleReviewB104-c5d37bd1.app",
+      "kernelSHA256": "b0729f42b1e502b9c87aeb0fe48ac96199008bb667a46862fc68c5e1e0859cdc",
+      "limitations": [
+        "Native title editing, save failure/cancellation and final styleguide scrollbar still await Mac unlock."
+      ],
+      "reviewDocument": "docs/component-library/title-tooltip-follow-up.md",
+      "mergeCommit": null
+    }
   }
 }
