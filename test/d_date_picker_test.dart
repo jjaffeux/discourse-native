@@ -315,6 +315,50 @@ void main() {
     },
   );
 
+  testWidgets('editable picker localizes its action and calendar semantics', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      const DDatePickerInput(
+        labels: DDatePickerLabels(calendar: 'Choose a subscription date'),
+        calendarLabels: DCalendarLabels(
+          calendar: 'Subscription date calendar',
+          previousMonth: 'Earlier month',
+          nextMonth: 'Later month',
+        ),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Choose a subscription date'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Choose a subscription date')),
+      isSemantics(
+        label: 'Choose a subscription date',
+        isButton: true,
+        hasExpandedState: true,
+        isExpanded: false,
+      ),
+    );
+    expect(find.bySemanticsLabel('Select date'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Choose a subscription date'));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Subscription date calendar'), findsWidgets);
+    expect(find.bySemanticsLabel('Earlier month'), findsOneWidget);
+    expect(find.bySemanticsLabel('Later month'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Choose a subscription date')),
+      isSemantics(
+        label: 'Choose a subscription date',
+        isButton: true,
+        hasExpandedState: true,
+        isExpanded: true,
+      ),
+    );
+  });
+
   testWidgets('editable input ignores active IME composition', (tester) async {
     final changes = <DCalendarDate?>[];
     await pump(
