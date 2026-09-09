@@ -379,6 +379,8 @@ class _DBubbleContentState extends State<DBubbleContent> {
   Widget build(BuildContext context) {
     if (widget.action == null) return _surface(context, interactive: false);
 
+    final scope = _DBubbleScope.of(context);
+    final tokens = DTokens.of(context);
     final touch = switch (Theme.of(context).platform) {
       TargetPlatform.iOS || TargetPlatform.android => true,
       _ => false,
@@ -443,8 +445,10 @@ class _DBubbleContentState extends State<DBubbleContent> {
               child: CustomPaint(
                 foregroundPainter: _BubbleFocusPainter(
                   visible: _focused,
-                  color: DTokens.of(context).focusRing,
-                  radius: DTokens.of(context).radius * 1.4,
+                  color: tokens.focusRing,
+                  radius: scope.variant == DBubbleVariant.ghost
+                      ? 0
+                      : tokens.radius * 1.4,
                 ),
                 child: SelectionContainer.disabled(
                   child: ExcludeSemantics(
