@@ -69,9 +69,7 @@ class _ChatUserCardButtonState extends State<ChatUserCardButton> {
         final WriteException error => error.message,
         _ => 'Could not start this chat.',
       };
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(message)));
+      DToast.show(context, message, type: DToastType.error);
     } finally {
       if (mounted) setState(() => _opening = false);
     }

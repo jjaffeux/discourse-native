@@ -128,8 +128,13 @@ void main() {
       harness.creation.completeError(error);
       await tester.pumpAndSettle();
 
-      expect(harness.messengerKey.currentState?.mounted, isTrue);
-      expect(find.widgetWithText(SnackBar, message), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.text(message),
+          matching: find.byType(Dismissible),
+        ),
+        findsOneWidget,
+      );
       expect(harness.host.opened, isEmpty);
       expect(harness.media.sessions, isEmpty);
       expect(harness.requestRoutes, ['POST /voice/calls.json']);
@@ -147,10 +152,10 @@ void main() {
         await tester.tap(find.byKey(_callButtonKey));
         await harness.finishDismissal(tester);
         final navigator = harness.navigatorKey.currentState!;
-        final messenger = harness.messengerKey.currentState!;
+        final toast = harness.toastController;
         await tester.pumpWidget(const SizedBox.shrink());
         expect(navigator.mounted, isFalse);
-        expect(messenger.mounted, isFalse);
+        expect(toast.isDisposed, isTrue);
 
         if (fail) {
           harness.creation.completeError(
@@ -219,11 +224,11 @@ final class _CallHarness {
   final host = _RouteHost();
   final media = _MediaFactory();
   final navigatorKey = GlobalKey<NavigatorState>();
-  final messengerKey = GlobalKey<ScaffoldMessengerState>();
   late final RecordingPluginTransport transport;
   late final VoiceController controller;
   late final InstalledPlugins plugins;
   late final PluginSession session;
+  late DToastController toastController;
   late BuildContext cardContext;
   int dismissals = 0;
   bool _closed = false;
@@ -238,7 +243,14 @@ final class _CallHarness {
         registry: plugins.registry,
         child: MaterialApp(
           navigatorKey: navigatorKey,
-          scaffoldMessengerKey: messengerKey,
+          builder: (context, child) => DToaster(
+            child: Builder(
+              builder: (context) {
+                toastController = DToast.of(context);
+                return child!;
+              },
+            ),
+          ),
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(

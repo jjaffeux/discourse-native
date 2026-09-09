@@ -63,4 +63,25 @@ void main() {
       }
     }
   });
+
+  testWidgets('rich-content feedback uses the shared Toast scope', (
+    tester,
+  ) async {
+    final example = alertExamples.examples.singleWhere(
+      (item) => item.title == 'Rich content',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DToaster(
+          child: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Copy example code'));
+    await tester.pump();
+
+    expect(find.text('Example code copied locally'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+  });
 }

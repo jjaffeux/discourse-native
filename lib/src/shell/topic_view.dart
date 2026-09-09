@@ -831,9 +831,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
-    context,
-  ).width.clamp(0.0, _TopicSidebarPanel.dockedWidth).toDouble();
+  double _sidebarOverlayWidth(BuildContext context) =>
+      MediaQuery.sizeOf(context).width
+          .clamp(0.0, _TopicSidebarPanel.dockedWidth)
+          .toDouble();
 
   void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
@@ -2353,9 +2354,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     if (!confirmed || !context.mounted || !lease.isCurrent) return;
     final error = await controller.deleteSelectedTopicPosts(siteUrl, topic.id);
     if (error != null && context.mounted) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      DToast.show(context, error, type: DToastType.error);
     }
   }
 
@@ -2374,9 +2373,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     if (!confirmed || !context.mounted || !lease.isCurrent) return;
     final error = await controller.mergeSelectedTopicPosts(siteUrl, topic.id);
     if (error != null && context.mounted) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      DToast.show(context, error, type: DToastType.error);
     }
   }
 
@@ -3342,9 +3339,8 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    ),
+    style: Theme.of(context).textTheme.labelMedium
+        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
   );
 }
 
@@ -3519,9 +3515,9 @@ class _MoreTopics extends StatelessWidget {
                 topic: selection.topics[index],
                 siteUrl: siteUrl,
                 recommendation: true,
-                onTap: () => ShellScope.read(
-                  context,
-                ).openTopicFromList(selection.topics[index]),
+                onTap: () =>
+                    ShellScope.read(context)
+                        .openTopicFromList(selection.topics[index]),
               )
             else
               TopicListRow(
@@ -4330,9 +4326,7 @@ class _TopicMap extends StatelessWidget {
   Future<void> _toggleSummary(BuildContext context) async {
     final error = await ShellScope.read(context).toggleTopicSummary();
     if (!context.mounted || error == null) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
   }
 
   List<Widget> _stats(BuildContext context) => [

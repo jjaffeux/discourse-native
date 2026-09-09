@@ -648,9 +648,7 @@ class _CodeCopyButtonState extends State<_CodeCopyButton> {
       await Clipboard.setData(ClipboardData(text: widget.text));
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.maybeOf(
-          context,
-        )?.showSnackBar(const SnackBar(content: Text("Couldn't copy code.")));
+        DToast.show(context, "Couldn't copy code.", type: DToastType.error);
       }
       return;
     }

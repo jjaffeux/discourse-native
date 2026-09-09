@@ -439,9 +439,7 @@ class _ChannelCard extends StatelessWidget {
     );
     if (!context.mounted) return;
     if (error != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
+      DToast.show(context, error, type: DToastType.error);
       return;
     }
     final changed = chat.channel(siteUrl, channel.id);

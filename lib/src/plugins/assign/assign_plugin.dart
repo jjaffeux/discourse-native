@@ -752,9 +752,8 @@ class _PostAssignmentLedger extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dividerColor = Theme.of(
-      context,
-    ).colorScheme.outlineVariant.withValues(alpha: 0.55);
+    final dividerColor = Theme.of(context).colorScheme.outlineVariant
+        .withValues(alpha: 0.55);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -927,23 +926,25 @@ Future<void> _removeAssignment({
 }) async {
   final controller = PluginUiScope.maybe(context, assignmentControllerService);
   if (controller == null || controller.isWriting(siteUrl, target)) return;
-  final messenger = ScaffoldMessenger.maybeOf(context);
+  final toast = DToast.maybeOf(context);
   final result = await controller.unassignForUndo(siteUrl, target, assignment);
-  if (messenger == null || !messenger.mounted) return;
+  if (toast?.isDisposed != false) return;
   if (result.error case final error?) {
-    messenger.showSnackBar(SnackBar(content: Text(error)));
+    toast!.add(DToastOptions(description: error, type: DToastType.error));
     return;
   }
   final permit = result.permit;
   if (permit == null) return;
-  messenger.showSnackBar(
-    SnackBar(
-      content: Text('$targetLabel assignment removed'),
-      action: SnackBarAction(
+  toast!.add(
+    DToastOptions(
+      description: '$targetLabel assignment removed',
+      type: DToastType.success,
+      action: DToastAction(
         label: 'Undo',
+        dismissOnPressed: true,
         onPressed: () => unawaited(
           _restoreAssignment(
-            messenger: messenger,
+            toast: toast,
             controller: controller,
             permit: permit,
           ),
@@ -954,13 +955,13 @@ Future<void> _removeAssignment({
 }
 
 Future<void> _restoreAssignment({
-  required ScaffoldMessengerState messenger,
+  required DToastController toast,
   required AssignmentController controller,
   required AssignmentRestorePermit permit,
 }) async {
   final error = await controller.restoreAssignment(permit);
-  if (error == null || !messenger.mounted) return;
-  messenger.showSnackBar(SnackBar(content: Text(error)));
+  if (error == null || toast.isDisposed) return;
+  toast.add(DToastOptions(description: error, type: DToastType.error));
 }
 
 Widget _assignmentPermissionBuilder({

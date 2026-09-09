@@ -288,8 +288,10 @@ class ChatThreadListRow extends StatelessWidget {
       );
     } catch (_) {
       if (!context.mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Could not open this chat thread.')),
+      DToast.show(
+        context,
+        'Could not open this chat thread.',
+        type: DToastType.error,
       );
     }
   }

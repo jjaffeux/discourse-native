@@ -348,9 +348,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       message = "Couldn't copy link.";
     }
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(message)));
+    DToast.show(context, message);
   }
 
   Future<void> _copyText() async {
@@ -362,9 +360,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       notice = "Couldn't copy message.";
     }
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(notice)));
+    DToast.show(context, notice);
   }
 
   Future<void> _bookmark() => showChatMessageBookmarkMenu(
@@ -397,9 +393,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     final chat = PluginUiScope.require(context, chatControllerService);
     final error = await chat.deleteMessage(widget.siteUrl, widget.message.id);
     if (!mounted || error == null) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
   }
 
   Future<void> _restore() async {
@@ -410,9 +404,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     if (!mounted) return;
     setState(() => _restoring = false);
     if (error == null) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
   }
 
   Future<void> _togglePin() async {
@@ -427,9 +419,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     if (!mounted) return;
     setState(() => _pinning = false);
     if (error == null) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
   }
 
   Future<void> _rebake() async {
@@ -439,9 +429,11 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     final error = await chat.rebakeMessage(widget.siteUrl, widget.message.id);
     if (!mounted) return;
     setState(() => _rebaking = false);
-    ScaffoldMessenger.maybeOf(
+    DToast.show(
       context,
-    )?.showSnackBar(SnackBar(content: Text(error ?? 'HTML rebuild queued.')));
+      error ?? 'HTML rebuild queued.',
+      type: error == null ? DToastType.success : DToastType.error,
+    );
   }
 
   Future<void> _flag(List<PostFlagType> flagTypes) async {
@@ -943,12 +935,12 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                         size: 16,
                                       ),
                                       style: MenuItemButton.styleFrom(
-                                        foregroundColor: Theme.of(
-                                          context,
-                                        ).colorScheme.error,
-                                        iconColor: Theme.of(
-                                          context,
-                                        ).colorScheme.error,
+                                        foregroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .error,
+                                        iconColor: Theme.of(context)
+                                            .colorScheme
+                                            .error,
                                       ),
                                       child: const Text('Delete'),
                                     ),
@@ -1421,7 +1413,7 @@ Future<void> _pickChatMessageReaction({
   final emoji = PluginUiScope.require(context, chatEmojiHostService);
   if (!chat.canAddReactionToMessage(siteUrl, message)) return;
   final lease = chat.captureSession(siteUrl);
-  final messenger = ScaffoldMessenger.maybeOf(context);
+  final toast = DToast.maybeOf(context);
 
   bool stillOwnsMessage() {
     if (!lease.isCurrent) return false;
@@ -1462,13 +1454,10 @@ Future<void> _pickChatMessageReaction({
   );
   unawaited(
     chat.addMessageReaction(siteUrl, message.id, picked).then((error) {
-      if (error == null ||
-          !stillOwnsMessage() ||
-          messenger == null ||
-          !messenger.mounted) {
+      if (error == null || !stillOwnsMessage() || toast?.isDisposed != false) {
         return;
       }
-      messenger.showSnackBar(SnackBar(content: Text(error)));
+      toast!.add(DToastOptions(description: error, type: DToastType.error));
     }),
   );
 }
@@ -1881,9 +1870,8 @@ class _AvatarFallback extends StatelessWidget {
           final name? => name.characters.first.toUpperCase(),
           null => '?',
         },
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(fontWeight: FontWeight.w700),
       ),
     ),
   );

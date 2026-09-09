@@ -55,7 +55,7 @@ class _VoiceUserCardCallButtonState extends State<VoiceUserCardCallButton> {
   Future<void> _call() async {
     if (_calling) return;
     setState(() => _calling = true);
-    final messenger = ScaffoldMessenger.maybeOf(context);
+    final toast = DToast.maybeOf(context);
     try {
       final shell = PluginUiScope.require(context, voiceShellService);
       // The navigator owns the join UI after the dismissed card is disposed.
@@ -67,12 +67,12 @@ class _VoiceUserCardCallButtonState extends State<VoiceUserCardCallButton> {
         username: widget.user.username,
       );
     } catch (error) {
-      if (messenger == null || !messenger.mounted) return;
+      if (toast?.isDisposed != false) return;
       final message = switch (error) {
         final WriteException error => error.message,
         _ => "Couldn't start the call.",
       };
-      messenger.showSnackBar(SnackBar(content: Text(message)));
+      toast!.add(DToastOptions(description: message, type: DToastType.error));
     } finally {
       if (mounted) setState(() => _calling = false);
     }

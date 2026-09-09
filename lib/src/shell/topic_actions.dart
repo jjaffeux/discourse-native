@@ -188,13 +188,10 @@ class TopicStatusButton extends StatelessWidget {
   }
 
   Future<void> _changePin(BuildContext context) async {
-    final error = await ShellScope.read(
-      context,
-    ).updateTopicPinPreference(siteUrl, topic.id, !topic.pinned);
+    final error = await ShellScope.read(context)
+        .updateTopicPinPreference(siteUrl, topic.id, !topic.pinned);
     if (error == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
   }
 
   Future<void> _change(
@@ -210,9 +207,7 @@ class TopicStatusButton extends StatelessWidget {
       enabled,
     );
     if (error == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    DToast.show(context, error, type: DToastType.error);
   }
 
   Future<void> _changeDeletion(BuildContext context, bool deleted) async {
@@ -261,9 +256,7 @@ class TopicStatusButton extends StatelessWidget {
       return;
     }
     if (error != null) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      DToast.show(context, error, type: DToastType.error);
       return;
     }
     if (deleted &&

@@ -1,0 +1,37 @@
+{
+  "component": "toast",
+  "reviewTaskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
+  "reviewBranch": "codex/review-toast",
+  "reviewedCommit": "964b2f39",
+  "candidateIntegrationCommit": "7316982b",
+  "platform": "macOS",
+  "bundlePath": "/private/tmp/DiscourseToastReview-a758-964b2f39.app",
+  "bundleIdentifier": "org.discourse.native.toast.review.a758.964b2f39",
+  "kernelSha256": "704b7a4a8b8c6c6bb096bb14e4adac48b3de85a2a8630219f7ebffdbadfa7814",
+  "signature": "ad-hoc deep strict verification passed",
+  "reference": {
+    "url": "https://ui.shadcn.com/docs/components/base/toast",
+    "appearances": ["light", "dark"],
+    "compared": ["geometry", "surface", "border", "radius", "shadow", "typography", "action", "close", "placement"]
+  },
+  "nativeChecks": [
+    "basic action and close",
+    "success error and loading stack",
+    "promise loading-to-success transition",
+    "light dark and Plum live themes",
+    "360px RTL at 200% text",
+    "custom content token inheritance",
+    "bounded oversized stack",
+    "production local-date apply toast"
+  ],
+  "reviewerFixes": [
+    "bounded position-aware scrolling for stacks taller than the safe viewport",
+    "foreground and icon token inheritance for custom content"
+  ],
+  "limitations": [
+    "No physical iOS or Linux device run",
+    "No spoken VoiceOver session",
+    "F6 and Escape accepted from widget coverage because the host routed the native F6 key as a system function key",
+    "No browser/native pixel-equality claim"
+  ]
+}
