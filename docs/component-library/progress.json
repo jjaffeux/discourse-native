@@ -2315,7 +2315,7 @@
     "pendingSourceReviews": {
       "radio-group": {
         "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
-        "issue": "Read-only API review resolved. Remaining visual source review: use actual input token with multiplicative alpha; audit referenced choice-card padding/border/background and proportional radius against Field composition, currently uses arbitrary radius+4/padding16/full primary border. Complete during browser comparison. During browser review independently check actual choice-card focus rings: Switch live CSS currently paints both card and switch rings despite the apparent source suppression utility; do not assume Radio is identical without inspection.",
+        "issue": "Read-only API review resolved. Remaining visual source review: use actual input token with multiplicative alpha; audit referenced choice-card padding/border/background and proportional radius against Field composition, currently uses arbitrary radius+4/padding16/full primary border. Complete during browser comparison. During browser review independently check actual choice-card focus rings: Switch live CSS currently paints both card and switch rings despite the apparent source suppression utility; do not assume Radio is identical without inspection. Revisit extra desktop labeled-row pitch: native RawRadio does not itself require the imposed32px row height; match measured reference pointer geometry and preserve48px touch bounds.",
         "status": "browser_comparison_in_progress"
       },
       "slider": {
@@ -2345,13 +2345,13 @@
       },
       "checkbox": {
         "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
-        "issue": "Source border-input/bg-input must use tokens.colors.outlineVariant and multiply existing alpha for dark /30. Current Checkbox uses tokens.border and replaces alpha. Validate actual neutral light/dark renders during its browser slot. Radio actual exports confirmed BoxShadow rings also tint transparent field interiors; use exterior-only focus/invalid rings preserving the same geometry.",
+        "issue": "Source border-input/bg-input must use tokens.colors.outlineVariant and multiply existing alpha for dark /30. Current Checkbox uses tokens.border and replaces alpha. Validate actual neutral light/dark renders during its browser slot. Radio actual exports confirmed BoxShadow rings also tint transparent field interiors; use exterior-only focus/invalid rings preserving the same geometry. Match measured labeled pointer-row pitch without applying standalone indicator/touch minima to the whole associated row; preserve48px touch targets.",
         "status": "in_progress"
       },
       "switch": {
         "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
         "status": "queued_for_free_execution_slot",
-        "issue": "After the completed source/browser corrections, Radio actual exports identified BoxShadow rings tinting translucent interiors. Switch still uses BoxShadow for track and card rings; its dark invalid export shows a red-filled unchecked track. Verify against reference-dark-invalid and replace rings with exterior-only strokes, preserving observed dual ring geometry and actual input fill."
+        "issue": "After the completed source/browser corrections, Radio actual exports identified BoxShadow rings tinting translucent interiors. Switch still uses BoxShadow for track and card rings; its dark invalid export shows a red-filled unchecked track. Verify against reference-dark-invalid and replace rings with exterior-only strokes, preserving observed dual ring geometry and actual input fill. Also remove or narrowly adapt the unconditional 48px DSwitchTile content minimum on pointer platforms; its whole label row is clickable and native touch targets do not justify much taller desktop reference examples. Preserve touch48 and necessary app-adapter spacing."
       },
       "native-select": {
         "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
