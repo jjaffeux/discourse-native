@@ -20,6 +20,10 @@ void main() {
       'Label in a form',
       'RTL labels',
     ]);
+    final formSnippet = labelExamples.examples[2].code;
+    expect(formSnippet, contains('final emailFocus = FocusNode();'));
+    expect(formSnippet, contains('emailFocus.dispose();'));
+    expect(formSnippet, contains('focusNode: emailFocus'));
   });
 
   testWidgets('disabled control preserves checked state across live themes', (
