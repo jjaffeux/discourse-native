@@ -1963,7 +1963,7 @@
     },
     {
       "id": "dialog",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
       "branch": "codex/ui-dialog",
       "dependencies": [
@@ -2006,17 +2006,18 @@
         "Official rendered base-nova comparison covered light and dark default Dialog, Arabic RTL and Scrollable Content. Measured default geometry was 384x305, 16px padding/gap, 14px radius, 16px/16px weight-500 title, 14px/20px description, 384x65 footer with 16px padding and 8px gaps, and a 28x28 close surface at logical top/end 8px. RTL moved the close to logical start and mirrored actions; the scroll example kept its header visible over a 50vh body.",
         "Final isolated native fixture /private/tmp/discourse-native-dialog.qNoMNI/build/macos/Build/Products/Debug/Dialog Native Review.app mounts the real Chat and Voice editors plus the actual component styleguide. Reviewed Dialog source SHA-256 is f438edbbc8b0484044389d3df603bf09212ee40ad680628af930557563b80b5e; final fixture kernel SHA-256 is 662c83fdf2d391f64f8e5a34d14324bb5e6bf417c64d158fb810b0fb546a580c. Strict ad-hoc signature verification passed with the previously recorded permitted entitlements.",
         "Native CUA inspection covered real Chat field editing and cancellation; real Voice edit/create in Plum, RTL and 200% text with independently scrollable bodies and sticky actions; disabled/enabled save validation; reduced-motion opening; Escape dismissal; closed-loop forward Tab focus; and default, Scrollable Content and Arabic RTL styleguide examples. The 28px close remained an independent Close button and moved to logical start in RTL. The isolated app was quit and the desktop lease released.",
-        "Latest-main candidate verification after preserving merged Collapsible, Popover, Table, Tabs and Native Select plus current dependent-task metadata: all 23 randomized Dialog/styleguide tests passed with seed 2165732119, and root flutter analyze --no-pub passed with no diagnostics."
+        "Latest-main candidate verification after preserving merged Collapsible, Popover, Table, Tabs and Native Select plus current dependent-task metadata: all 23 randomized Dialog/styleguide tests passed with seed 2165732119, and root flutter analyze --no-pub passed with no diagnostics.",
+        "Accepted candidate 1b1e9e1e merged into local main with merge commit 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3."
       ],
       "limitations": [
         "No physical iOS/Linux execution or VoiceOver speech session was performed. macOS AX inspection and widget semantics checks cover the route label and independent fields/actions, but do not substitute for device assistive-technology testing.",
         "Rich Field composition remains with its separate catalogue owner; Dialog composes the merged DInput where applicable. Native font shaping and antialiasing differ from browser rendering, so no automated pixel-identical cross-renderer claim is made."
       ],
       "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
-      "mergeCommit": null,
+      "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
       "nativeInspectionStatus": "completed",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
       "reviewBranch": "codex/review-dialog"
     },
@@ -3066,7 +3067,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T11:42:36+00:00",
+    "updatedAt": "2026-09-09T11:48:00+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 5,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -3129,16 +3130,6 @@
           "status": "independent_review",
           "headCommit": "09869a6713a9e2e01b3012515cfc5bbeefcee868",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97"
-        },
-        {
-          "component": "dialog",
-          "taskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
-          "branch": "codex/review-dialog",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/49f1/discourse-native",
-          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
-          "status": "review_ready",
-          "headCommit": "715ab477e807d3ba4f1f8d3492d09036844c7505",
-          "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932"
         },
         {
           "component": "item",
@@ -3407,17 +3398,6 @@
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
           "implementationBranch": "codex/ui-field",
           "status": "in_progress"
-        },
-        {
-          "component": "dialog",
-          "title": "Review and merge Dialog",
-          "taskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/49f1/discourse-native",
-          "branch": "codex/review-dialog",
-          "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932",
-          "implementationBranch": "codex/ui-dialog",
-          "status": "review_ready"
         },
         {
           "component": "alert",
