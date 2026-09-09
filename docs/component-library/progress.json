@@ -3008,15 +3008,6 @@
           "implementationTaskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd"
         },
         {
-          "component": "alert",
-          "taskId": "01a08558-ae1e-7843-8cff-724c8e877ba5",
-          "branch": "codex/review-alert",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ae77/discourse-native",
-          "status": "independent_review",
-          "headCommit": "38002135f93007ea04bc19873bd8bdf2e379f346",
-          "implementationTaskId": "01a08454-55a6-7681-8da9-bec8b23899a4"
-        },
-        {
           "component": "item",
           "taskId": "01a08558-aec4-7591-ac85-682a1eae4290",
           "branch": "codex/review-item",
@@ -3310,7 +3301,8 @@
           "branch": "codex/review-alert",
           "implementationTaskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
           "implementationBranch": "codex/ui-alert",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "a07ab617436f24f2e8116762f58b0b28e5d36918"
         },
         {
           "component": "item",
