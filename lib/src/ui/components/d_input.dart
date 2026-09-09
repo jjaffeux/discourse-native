@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/input_group_scope.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_label.dart';
@@ -25,11 +26,13 @@ import 'd_label.dart';
 class DInput extends FormField<String> {
   DInput({
     super.key,
+    this.editorKey,
     this.controller,
     this.value,
     String? initialValue,
     this.focusNode,
     this.labelText,
+    this.semanticLabel,
     this.hintText,
     this.helperText,
     this.errorText,
@@ -73,10 +76,11 @@ class DInput extends FormField<String> {
          builder: (state) => (state as _DInputState)._build(),
        );
 
+  final Key? editorKey;
   final TextEditingController? controller;
   final String? value;
   final FocusNode? focusNode;
-  final String? labelText, hintText, helperText, errorText;
+  final String? labelText, semanticLabel, hintText, helperText, errorText;
   final bool invalid;
 
   /// Exposes required semantics; the caller supplies the validation rule.
@@ -114,6 +118,7 @@ class DInput extends FormField<String> {
 class _DInputState extends FormFieldState<String> {
   TextEditingController? _ownedController;
   FocusNode? _ownedFocus;
+  DInputGroupControlScope? _group;
   late final String _resetValue;
   bool _syncing = false;
   DInput get input => widget as DInput;
@@ -135,6 +140,16 @@ class _DInputState extends FormFieldState<String> {
 
   void _focusChanged() {
     if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = DInputGroupControlScope.maybeOf(context);
+    if (!identical(next, _group)) {
+      _group?.remove(_focus);
+      _group = next;
+    }
   }
 
   void _changed() {
@@ -165,6 +180,7 @@ class _DInputState extends FormFieldState<String> {
       setValue(input.value);
     }
     if (oldWidget.focusNode != input.focusNode) {
+      _group?.remove(oldWidget.focusNode ?? _ownedFocus!);
       (oldWidget.focusNode ?? _ownedFocus!).removeListener(_focusChanged);
       _ownedFocus?.dispose();
       _ownedFocus = input.focusNode == null ? FocusNode() : null;
@@ -200,6 +216,7 @@ class _DInputState extends FormFieldState<String> {
 
   @override
   void dispose() {
+    _group?.remove(_focus);
     _controller.removeListener(_changed);
     _focus.removeListener(_focusChanged);
     _ownedController?.dispose();
@@ -223,6 +240,84 @@ class _DInputState extends FormFieldState<String> {
       letterSpacing: 0,
       color: t.foreground,
     );
+    final group = _group;
+    final enabled = input.enabled && (group?.enabled ?? true);
+    group?.report(_focus, enabled, isInvalid);
+    final editor = TextFieldTapRegion(
+      child: Row(
+        children: [
+          if (input.prefix != null) ...[
+            input.prefix!,
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Semantics(
+              // Keep the editable role bounded to this editor. Without
+              // a boundary it can merge into an entire page on macOS.
+              container: true,
+              label: input.semanticLabel ?? input.labelText,
+              isRequired: input.isRequired,
+              validationResult: isInvalid
+                  ? SemanticsValidationResult.invalid
+                  : SemanticsValidationResult.none,
+              child: TextField(
+                key: input.editorKey,
+                controller: _controller,
+                focusNode: _focus,
+                enabled: enabled,
+                readOnly: input.readOnly,
+                autofocus: input.autofocus,
+                style: style,
+                decoration: InputDecoration(
+                  isCollapsed: true,
+                  isDense: true,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  filled: false,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: input.hintText,
+                  hintStyle: style.copyWith(color: t.mutedForeground),
+                  counterText: '',
+                ),
+                cursorColor: t.foreground,
+                keyboardType: input.keyboardType,
+                textInputAction: input.textInputAction,
+                textCapitalization: input.textCapitalization,
+                obscureText: input.obscureText,
+                obscuringCharacter: input.obscuringCharacter,
+                autocorrect: input.autocorrect,
+                enableSuggestions: input.enableSuggestions,
+                enableInteractiveSelection: input.enableInteractiveSelection,
+                inputFormatters: input.inputFormatters,
+                autofillHints: input.autofillHints,
+                maxLength: input.maxLength,
+                maxLengthEnforcement: input.maxLengthEnforcement,
+                textAlign: input.textAlign,
+                textDirection: input.textDirection,
+                undoController: input.undoController,
+                contextMenuBuilder: input.contextMenuBuilder,
+                onChanged: input.onChanged,
+                onSubmitted: input.onSubmitted,
+                onEditingComplete: input.onEditingComplete,
+                onTap: input.onTap,
+                onTapOutside: input.onTapOutside,
+              ),
+            ),
+          ),
+          if (input.suffix != null) ...[
+            const SizedBox(width: 8),
+            input.suffix!,
+          ],
+        ],
+      ),
+    );
+    if (group != null) {
+      return Padding(padding: group.inputPadding, child: editor);
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -248,78 +343,7 @@ class _DInputState extends FormFieldState<String> {
             enabled: input.enabled,
             invalid: isInvalid,
             focused: _focus.hasFocus,
-            child: TextFieldTapRegion(
-              child: Row(
-                children: [
-                  if (input.prefix != null) ...[
-                    input.prefix!,
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Semantics(
-                      // Keep the editable role bounded to this editor. Without
-                      // a boundary it can merge into an entire page on macOS.
-                      container: true,
-                      label: input.labelText,
-                      isRequired: input.isRequired,
-                      validationResult: isInvalid
-                          ? SemanticsValidationResult.invalid
-                          : SemanticsValidationResult.none,
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focus,
-                        enabled: input.enabled,
-                        readOnly: input.readOnly,
-                        autofocus: input.autofocus,
-                        style: style,
-                        decoration: InputDecoration(
-                          isCollapsed: true,
-                          isDense: true,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          errorBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                          filled: false,
-                          contentPadding: EdgeInsets.zero,
-                          hintText: input.hintText,
-                          hintStyle: style.copyWith(color: t.mutedForeground),
-                          counterText: '',
-                        ),
-                        cursorColor: t.foreground,
-                        keyboardType: input.keyboardType,
-                        textInputAction: input.textInputAction,
-                        textCapitalization: input.textCapitalization,
-                        obscureText: input.obscureText,
-                        obscuringCharacter: input.obscuringCharacter,
-                        autocorrect: input.autocorrect,
-                        enableSuggestions: input.enableSuggestions,
-                        enableInteractiveSelection:
-                            input.enableInteractiveSelection,
-                        inputFormatters: input.inputFormatters,
-                        autofillHints: input.autofillHints,
-                        maxLength: input.maxLength,
-                        maxLengthEnforcement: input.maxLengthEnforcement,
-                        textAlign: input.textAlign,
-                        textDirection: input.textDirection,
-                        undoController: input.undoController,
-                        contextMenuBuilder: input.contextMenuBuilder,
-                        onChanged: input.onChanged,
-                        onSubmitted: input.onSubmitted,
-                        onEditingComplete: input.onEditingComplete,
-                        onTap: input.onTap,
-                        onTapOutside: input.onTapOutside,
-                      ),
-                    ),
-                  ),
-                  if (input.suffix != null) ...[
-                    const SizedBox(width: 8),
-                    input.suffix!,
-                  ],
-                ],
-              ),
-            ),
+            child: editor,
           ),
         ),
         if (error != null || input.helperText != null) ...[

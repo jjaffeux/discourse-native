@@ -17,10 +17,10 @@ final emptyExamples = ComponentExamples(
       'Native line wrapping replaces CSS text-balance. The layout owns no input, '
       'Form, animation, focus or controllers. Compose scrolling in short panes. '
       'Actions use the merged DButton owner. '
-      'The search uses a merged DInput; reconcile its Input Group '
-      'styling when that component merges. Avatar fallbacks are local deterministic '
+      'The search composes the merged DInput through DInputGroup. '
+      'Avatar fallbacks are local deterministic '
       'data in place of remote portraits. Browser and native visual review passed; '
-      'Input Group reconciliation remains a coordinated follow-up.',
+      'Input Group reconciliation is complete.',
   examples: [
     for (final kind in [
       'Basic',
@@ -47,10 +47,10 @@ final emptyExamples = ComponentExamples(
         builder: (_) => _EmptySample(kind: kind),
       ),
     StyleguideExample(
-      title: 'Search content (native input composition)',
+      title: 'Search content (Input Group composition)',
       description:
           'Submit a local search, validate an empty query, or activate '
-          'support. Editing survives preview changes. Input Group remains pending.',
+          'support. Editing survives preview changes.',
       states: const [
         'Form',
         'Keyboard',
@@ -268,17 +268,26 @@ class _EmptySearchSampleState extends State<EmptySearchSample> {
                 width:
                     constraints.maxWidth *
                     (MediaQuery.sizeOf(context).width >= 640 ? .75 : 1),
-                child: DInput(
-                  hintText: 'Try searching for pages...',
-                  labelText: 'Search pages',
-                  prefix: const Icon(Icons.search, size: 16),
-                  suffix: const DKbd('/'),
-                  textInputAction: TextInputAction.search,
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Enter a search query.'
-                      : null,
-                  onSaved: (value) => _query = value!.trim(),
-                  onSubmitted: (_) => _submit(),
+                child: DInputGroup(
+                  semanticLabel: 'Search pages',
+                  children: [
+                    const DInputGroupAddon(child: Icon(Icons.search, size: 16)),
+                    DInputGroupInput(
+                      hintText: 'Try searching for pages...',
+                      semanticLabel: 'Search pages',
+                      textInputAction: TextInputAction.search,
+                      validator: (value) =>
+                          value == null || value.trim().isEmpty
+                          ? 'Enter a search query.'
+                          : null,
+                      onSaved: (value) => _query = value!.trim(),
+                      onSubmitted: (_) => _submit(),
+                    ),
+                    const DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      child: DKbd('/'),
+                    ),
+                  ],
                 ),
               ),
             ),
