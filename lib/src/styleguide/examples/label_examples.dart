@@ -11,10 +11,15 @@ final labelExamples = ComponentExamples(
       'style and enabled. Registry metrics: 14px, weight 500, line height 1, '
       '8px composition gap, no padding/border/radius, and disabled opacity 0.5. '
       'The host supplies the font family, text scaler and live foreground tokens. '
-      'Native control slots own association, activation, focus and combined '
-      'semantics; a standalone DLabel is ordinary text. Keep interactive links '
-      'outside a list tile. The form example composes the accepted DField and '
-      'DInput owners. '
+      'Flutter has no element id registry, so the control slot replaces htmlFor: '
+      'DCheckbox.title, DSwitchTile.title and DRadioGroupItem.label toggle their '
+      'control and merge one accessible name; DFieldLabel, DInput.labelText, '
+      'DTextarea.labelText and DNativeSelect.label focus their editor. A '
+      'standalone DLabel is ordinary text. A slot owner wraps the label in its '
+      'own DLabel for line height, invalid color and the control-derived '
+      'disabled treatment; a nested DLabel inherits those metrics, merges only '
+      'its style and dims once. Keep interactive links outside a slot. The form '
+      'example composes the accepted DField and DInput owners. '
       'The larger reference FieldDemo belongs to Field; its neighboring '
       'outline, horizontal and submit props are not Label variants.',
   examples: [
@@ -23,8 +28,10 @@ final labelExamples = ComponentExamples(
       description:
           'Tap the label or its row to toggle the checkbox. Tab reaches the '
           'native control once; Space toggles it. Disable the control to keep '
-          'its value while removing activation. The control and label receive '
-          'the same enabled state. Sample state is local to this preview.',
+          'its value while removing activation. The control derives the '
+          'label\'s disabled treatment from its null callback, as the '
+          'reference peer-disabled selector does. Sample state is local to '
+          'this preview.',
       states: const ['Default', 'Checked', 'Disabled', 'Keyboard', 'Touch'],
       code: '''// Inside a State with bool accepted = false and enabled = true.
 DCheckbox(
@@ -42,7 +49,8 @@ DCheckbox(
     StyleguideExample(
       title: 'Rich labels and wrapping',
       description:
-          'A decorative icon and emphasized spans share the label style. '
+          'A decorative icon and emphasized spans share the label style in a '
+          'centered row with the reference 8px gap. '
           'The label wraps at narrow widths and large text sizes. The separate '
           'terms action retains its own focus and semantics; the label does '
           'not contain a second interactive control.',
@@ -55,9 +63,9 @@ DCheckbox(
   title: const DLabel(
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.center,
+      spacing: DSpacing.sm,
       children: [
         ExcludeSemantics(child: Icon(Icons.mail_outline, size: 20)),
-        SizedBox(width: DSpacing.sm),
         Expanded(child: Text.rich(TextSpan(children: [
           TextSpan(text: 'Send me '),
           TextSpan(
@@ -219,9 +227,9 @@ class _RichPreviewState extends State<_RichPreview> {
         title: const DLabel(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
+            spacing: DSpacing.sm,
             children: [
               ExcludeSemantics(child: Icon(Icons.mail_outline, size: 20)),
-              SizedBox(width: DSpacing.sm),
               Expanded(
                 child: Text.rich(
                   TextSpan(

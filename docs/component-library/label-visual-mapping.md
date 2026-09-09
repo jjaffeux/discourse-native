@@ -29,18 +29,12 @@ Reference inspected on **2026-09-08**:
 The captured outline, horizontal and submit props belong to neighboring Button
 and Field examples. Label has no corresponding variants.
 
-Current examples use Flutter checkbox/switch tiles and TextFormField as temporary
-composition while **Checkbox, Switch, Input and Field** are pending. Their
-appearance does not define the finished library's visuals. Those catalogue tasks
-must reproduce their shadcn reference styling while retaining native interaction,
-accessible naming and Form lifecycle behavior.
-
-Existing `InputDecoration.labelText` stays with Input/Field ownership for now;
-its floating appearance is not a blanket final native exception. The Label page's
-larger payment/billing **FieldDemo**, including FieldLabel, descriptions, errors,
-field sets, layout and validation composition, is handed off to the scheduled
-**Field** task. Label's local form example demonstrates ownership and behavior,
-without claiming completion of that component.
+The temporary Flutter tile and TextFormField composition described at
+implementation time has since been replaced: the examples now compose the merged
+DCheckbox, DSwitchTile, DField and DInput owners. The Label page's larger
+payment/billing **FieldDemo** is reproduced by the Field examples. The
+2026-09-09 [audit](audit/label.md) records the current reference comparison,
+including the nested-label fix for slot owners that wrap a caller's DLabel.
 
 ## Native inspection
 
