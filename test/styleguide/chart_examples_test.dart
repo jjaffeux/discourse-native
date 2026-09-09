@@ -28,6 +28,31 @@ void main() {
     }
   });
 
+  testWidgets('tooltip anatomy grows with accessible text', (tester) async {
+    final example = chartExamples.examples.firstWhere(
+      (item) => item.title == 'Tooltip anatomy and indicators',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: SizedBox(
+              width: 360,
+              child: Builder(builder: example.builder),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      tester.getSize(find.byType(DChartTooltipContent).first).width,
+      greaterThanOrEqualTo(256),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('all Chart examples render at narrow 200 percent RTL', (
     tester,
   ) async {

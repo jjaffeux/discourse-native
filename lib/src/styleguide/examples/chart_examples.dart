@@ -119,51 +119,57 @@ final chartExamples = ComponentExamples(
           'The last panel hides the indicator as well.',
       states: const ['Dot', 'Dashed', 'Line', 'Hide label', 'Hide indicator'],
       code: _tooltipCode,
-      builder: (_) => DChartContainer(
-        config: _config,
-        child: Wrap(
-          spacing: 24,
-          runSpacing: 24,
-          children: [
-            for (final indicator in DChartIndicator.values)
+      builder: (context) {
+        final textScaler = MediaQuery.textScalerOf(context);
+        final tooltipWidth = textScaler.scale(128);
+        return DChartContainer(
+          config: _config,
+          child: Wrap(
+            spacing: 24,
+            runSpacing: 24,
+            children: [
+              for (final indicator in DChartIndicator.values)
+                SizedBox(
+                  width: textScaler.scale(
+                    indicator == DChartIndicator.line ? 144 : 128,
+                  ),
+                  child: DChartTooltipContent(
+                    label: 'Page Views',
+                    indicator: indicator,
+                    items: [
+                      DChartItem(
+                        key: 'desktop',
+                        value: indicator == DChartIndicator.line ? 12486 : 186,
+                      ),
+                      if (indicator == DChartIndicator.dot)
+                        const DChartItem(key: 'mobile', value: 80),
+                    ],
+                  ),
+                ),
               SizedBox(
-                width: indicator == DChartIndicator.line ? 144 : 128,
-                child: DChartTooltipContent(
+                width: tooltipWidth,
+                child: const DChartTooltipContent(
                   label: 'Page Views',
-                  indicator: indicator,
+                  hideLabel: true,
+                  indicator: DChartIndicator.dashed,
                   items: [
-                    DChartItem(
-                      key: 'desktop',
-                      value: indicator == DChartIndicator.line ? 12486 : 186,
-                    ),
-                    if (indicator == DChartIndicator.dot)
-                      const DChartItem(key: 'mobile', value: 80),
+                    DChartItem(key: 'desktop', value: 1286),
+                    DChartItem(key: 'mobile', value: 1000),
                   ],
                 ),
               ),
-            const SizedBox(
-              width: 128,
-              child: DChartTooltipContent(
-                label: 'Page Views',
-                hideLabel: true,
-                indicator: DChartIndicator.dashed,
-                items: [
-                  DChartItem(key: 'desktop', value: 1286),
-                  DChartItem(key: 'mobile', value: 1000),
-                ],
+              SizedBox(
+                width: tooltipWidth,
+                child: const DChartTooltipContent(
+                  hideLabel: true,
+                  hideIndicator: true,
+                  items: [DChartItem(key: 'desktop', value: 1286)],
+                ),
               ),
-            ),
-            const SizedBox(
-              width: 128,
-              child: DChartTooltipContent(
-                hideLabel: true,
-                hideIndicator: true,
-                items: [DChartItem(key: 'desktop', value: 1286)],
-              ),
-            ),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      },
     ),
     StyleguideExample(
       title: 'Custom keys, colors and content',
@@ -671,12 +677,14 @@ const _tooltipCode = '''DChartContainer(config: {
   'mobile': DChartConfigEntry(label: 'Mobile', color: (c) => DChartColors.series(c, 1)),
 }, child: Wrap(spacing: 24, runSpacing: 24, children: [
   for (final indicator in DChartIndicator.values)
-    SizedBox(width: 128, child: DChartTooltipContent(
+    SizedBox(width: MediaQuery.textScalerOf(context).scale(128),
+      child: DChartTooltipContent(
       label: 'Page Views', indicator: indicator,
       items: [DChartItem(key: 'desktop', value: 186),
         if (indicator == DChartIndicator.dot) DChartItem(key: 'mobile', value: 80)],
     )),
-  SizedBox(width: 128, child: DChartTooltipContent(
+  SizedBox(width: MediaQuery.textScalerOf(context).scale(128),
+    child: DChartTooltipContent(
     hideLabel: true, hideIndicator: true,
     items: [DChartItem(key: 'desktop', value: 1286)],
   )),
