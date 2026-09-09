@@ -137,3 +137,15 @@ desktop slot was granted. Browser comparison and native styleguide/production
 fixture inspection, including representative themes and viewport states, are
 required before changing status to review_ready. Tests do not prove native
 VoiceOver, device behavior, pixel parity or typography/font rasterization parity.
+
+## Isolated build result — 2026-09-09
+
+Source checkpoint `e05de6002a37f1dfbc7483a29f921086dffb0d3d` built successfully.
+The exact bundle path, unique identifier/scheme, copied kernel locations and
+SHA256, source equality command and strict signature evidence are in
+[native-build.json](native-build.json). Signing is local ad-hoc. The normal
+provisioned identity could not sign the new review ID, so temporary runner
+settings used ad-hoc signing and omitted the APS development entitlement only
+for this local fixture. All four runner files were restored byte-for-byte; the
+real app build, push configuration and account provisioning were untouched.
+No app launch occurred. Native review remains awaiting_slot.

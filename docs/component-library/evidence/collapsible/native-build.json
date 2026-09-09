@@ -1,0 +1,32 @@
+{
+  "sourceCommit": "e05de6002a37f1dfbc7483a29f921086dffb0d3d",
+  "sourceEquality": "git diff --exit-code HEAD -- lib tool macos pubspec.lock profiles/full/pubspec.lock .fvmrc passed after restoring temporary runner identity edits",
+  "command": "flutter build macos --debug --no-pub -t tool/collapsible_review_main.dart",
+  "app": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/Collapsible Review 3c15.app",
+  "bundleIdentifier": "org.discourse.collapsiblereview3c15",
+  "name": "Collapsible Review 3c15",
+  "urlTypes": [
+    {
+      "CFBundleURLName": "org.discourse.collapsiblereview3c15",
+      "CFBundleURLSchemes": [
+        "discourse-collapsible-review-3c15"
+      ]
+    }
+  ],
+  "embeddedKernel": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/Collapsible Review 3c15.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin",
+  "kernelSha256": "57c4799f2342c03b9638bccf126114ce1f70ecc2dfcea46f9a2a472e850955f2",
+  "matchingBuiltKernels": [
+    "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin"
+  ],
+  "signatureCommand": "codesign --verify --deep --strict /Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/Collapsible Review 3c15.app",
+  "signatureExitCode": 0,
+  "signatureOutput": "",
+  "nativeInspection": "Not launched; awaiting coordinator desktop slot",
+  "signatureDetails": "Executable=/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/Collapsible Review 3c15.app/Contents/MacOS/Collapsible Review 3c15\nIdentifier=org.discourse.collapsiblereview3c15\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=444 flags=0x2(adhoc) hashes=3+7 location=embedded\nVersionPlatform=1\nVersionMin=786432\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=cf7000bdb63f4434e04a2560c7fa9e3a97c7232c\nCandidateCDHashFull sha256=cf7000bdb63f4434e04a2560c7fa9e3a97c7232cbfb3b62b13392b9fd0a2a695\nHash choices=sha256\nCMSDigest=cf7000bdb63f4434e04a2560c7fa9e3a97c7232cbfb3b62b13392b9fd0a2a695\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=16384\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=cf7000bdb63f4434e04a2560c7fa9e3a97c7232c\nSignature=adhoc\nInfo.plist entries=30\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=34\nInternal requirements count=0 size=12\n",
+  "temporaryRunnerChanges": [
+    "Unique PRODUCT_NAME, literal Info.plist bundle identifier and URL name/scheme, unique Debug bundle id in Xcode project.",
+    "Local ad-hoc CODE_SIGN_IDENTITY=-, Manual style and empty development team. Removed APS development entitlement from fixture only because push requires a provisioning profile. Fixture does not exercise push.",
+    "AppInfo.xcconfig, Info.plist, project.pbxproj and DebugProfile.entitlements restored byte-for-byte in finally block; git source equality check passed."
+  ],
+  "initialBuildAttempts": "Unique identity with normal signing failed for missing development profile; ad-hoc with APS entitlement also required a profile. Removing APS only in the temporary review build enabled successful local ad-hoc signing. No provisioning/account/release action taken."
+}
