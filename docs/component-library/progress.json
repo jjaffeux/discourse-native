@@ -1420,7 +1420,7 @@
         "Default groups preserve per-avatar sizes/dimensions and infer count size; explicit group size propagates badge/fallback metrics consistently. Standalone counts retain intrinsic 32px geometry.",
         "Above-100% text scaling reserves larger enum-sized boxes to fit initials and avoid ready/fallback geometry shifts; fixed app frames and explicit dimensions retain layout contracts. Narrow groups wrap.",
         "Exact Lucide plus SVG and full ISC/Feather MIT license recorded. Explicit badge icon slot hides arbitrary SVG/widget icons at sm; standalone GroupCount owns its 2px background ring.",
-        "Required final compositions are assigned to Finish and review Avatar compositions (01a086cd-3f9e-76a1-86a6-7ef4e7f7e5e4). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge."
+        "Final Avatar and Direction compositions independently reviewed with accepted DButton/DDropdownMenu owners, grouped/destructive reference menus and independent group actions. Native/reference verification and 147 latest-main focused tests pass; the original Avatar merge remains accepted."
       ],
       "migrations": [
         "Core topic/post/group/user/composer/quote/reaction/search identities; Chat, Voice, Assign and Events avatar owners now use DAvatar.frame. Four CircleAvatar fallbacks removed.",
@@ -1430,7 +1430,7 @@
       "retainedAlternatives": [
         "Domain online rings, flair, unread/count/recording indicators and UserStatus emoji retain their distinct meaning and geometry; underlying identities migrate.",
         "Video/camera/media/onebox thumbnails, shell/card clips and category swatches are not avatars. Adjacent 20px inbox posters retain their non-overlapping layout.",
-        "Existing fallback text, custom colors and DiscourseAvatarTheme radius values remain application presentation inputs; Button/Dropdown temporary controls remain their pending owners."
+        "Existing fallback text, custom colors and DiscourseAvatarTheme radius values remain application presentation inputs; final Avatar and Direction compositions use accepted DButton/DDropdownMenu owners."
       ],
       "verification": [
         "flutter pub get --enforce-lockfile passed on root with no lock changes.",
@@ -1443,12 +1443,13 @@
         "Quit only isolated Avatar app and confirmed its identity absent from subsequent global CUA inventory before releasing desktop slot.",
         "Final implemented registration: 12 Avatar/styleguide-page tests passed with seed 9082026; touched-file format check, git diff --check and unrelated-row preservation check passed.",
         "Coordinator reviewed final clean Avatar HEAD c5da5fd6ee548d415c496be27052c314d391f39b, generic image stream/fallback ownership, mixed group sizing, exact plus artwork and rings, app media adapters and migrations. Independently inspected the saved official light badge comparison, native light badges, Forest 360px/200% RTL groups and actual dark RTL 200% ForumIcon/AvatarImage fixture. Native inspection and app closure are complete; only the example status changed afterward. Merge retains all prior component owners and the Tooltip rail surface, token radius and fitted monogram while adopting its DAvatar frame.",
-        "Coordinator combined-main verification: all 593 focused library/styleguide, image/media/cache, shell/rail/forum, topic, Chat, Voice, Assign and Events cases passed, seed 342701054; log /private/tmp/component-avatar-integration-tests.log. All 41 touched Dart files pass formatting; flutter analyze --no-pub is clean (6.8s), log /private/tmp/component-avatar-integration-analysis.log; git diff --check passes. Generic Avatar, examples and AvatarImage/ForumIcon adapters exactly match the reviewed branch. All changed app source retains the prior Spinner, Tooltip, Skeleton, Aspect Ratio and Label owners, including Tooltip rail geometry and fitted monograms."
+        "Coordinator combined-main verification: all 593 focused library/styleguide, image/media/cache, shell/rail/forum, topic, Chat, Voice, Assign and Events cases passed, seed 342701054; log /private/tmp/component-avatar-integration-tests.log. All 41 touched Dart files pass formatting; flutter analyze --no-pub is clean (6.8s), log /private/tmp/component-avatar-integration-analysis.log; git diff --check passes. Generic Avatar, examples and AvatarImage/ForumIcon adapters exactly match the reviewed branch. All changed app source retains the prior Spinner, Tooltip, Skeleton, Aspect Ratio and Label owners, including Tooltip rail geometry and fitted monograms.",
+        "Final-owner follow-up: source-exact native/reference verification completed, own UI cleanup confirmed, all 147 focused tests and root/full analysis pass on reconciled candidate 90f3e019. Evidence: docs/component-library/evidence/avatar/final-composition-review.md."
       ],
       "limitations": [
         "No iOS/Linux device or spoken VoiceOver run. Nested styleguide main native AX tree was sparse; fixture/menu AX and visual/keyboard interaction verified without forcing global semantics.",
         "Reference and native screenshots have different capture/preview dimensions; intrinsic metrics compared at 100% with exact widget geometry tests, not pixel-diff equality. Palette, font and local artwork intentionally use app inputs.",
-        "Button and Dropdown Menu examples use their available temporary controls pending owning catalogue tasks; domain flair/presence and non-avatar media retain documented ownership."
+        "Domain flair/presence and non-avatar media retain documented ownership. Final Avatar/Direction composition evidence is recorded separately in evidence/avatar/final-composition-review.md."
       ],
       "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
       "mergeCommit": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0",
@@ -1481,7 +1482,34 @@
           "sha256": "921178487423ff56f4de4aa29b09541733b59359ae746fe63a8b765ae8b153d9"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "in_progress",
+        "reviewStatus": "review_ready",
+        "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
+        "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
+        "verification": [
+          "Final current-main candidate 90f3e019: 147 focused tests pass with seed 9082026; root/full analysis clean; native-inspected Avatar/Direction/Dropdown/fixture source unchanged.",
+          "After the prepared combined Dropdown correction 7110ef80: all 114 affected component/composition/downstream tests pass with seed 9082026; root and full-profile analysis are clean.",
+          "146 focused Avatar, Direction, Button, Dropdown Menu, Popover, Dialog, styleguide, adoption and downstream menu tests passed with seed 9082026; root and full-profile analysis are clean.",
+          "The generic Avatar and production AvatarImage/ForumIcon sources remain unchanged; final-owner examples and one narrowly coordinated live menu registration-order correction are source-reviewed."
+        ],
+        "parentFollowup": {
+          "component": "dropdown-menu",
+          "preparedCommit": "7110ef80b2190f3a17c6a78fbae05fe857a29d38",
+          "status": "merged",
+          "mergeCommit": "85f9265bf2593a7edc0693582b7eadf1c6645b8d",
+          "trackingCommit": "d647400602824226d70d1328fba2a141195dc559"
+        },
+        "nativeReview": {
+          "status": "passed",
+          "completed": "Exact r4 native menus, focus/actions, group keyboard actions, light/dark/Forest/Plum, LTR/RTL 360px 200% reduced motion, production fixture states and full styleguide groups inspected; screenshots saved.",
+          "remaining": "Final authorized local-main merge and acceptance metadata.",
+          "completion": "After user-confirmed unlock, both displayed final-owner snippets and actual official light/dark dropdown/group reference were verified. Initial reference theme restored, only own tab closed and own r4 app quit; fresh CUA inventories confirm cleanup.",
+          "desktopLease": "released",
+          "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
+          "bundle": "/private/tmp/Avatar Compositions Final 47e2 r4.app",
+          "kernelSha256": "05aeba9c6a9c5bc19df2f42788c06cb9b2d15af6761ade1343e14d2d434943ef"
+        },
+        "integrationCommit": "90f3e019c46d017eb1bad4273f958d31df279cf9"
       }
     },
     {
@@ -5402,7 +5430,34 @@
           "sha256": "921178487423ff56f4de4aa29b09541733b59359ae746fe63a8b765ae8b153d9"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "in_progress",
+        "reviewStatus": "review_ready",
+        "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
+        "evidence": "docs/component-library/evidence/avatar/final-composition-review.md",
+        "verification": [
+          "Final current-main candidate 90f3e019: 147 focused tests pass with seed 9082026; root/full analysis clean; native-inspected Avatar/Direction/Dropdown/fixture source unchanged.",
+          "After the prepared combined Dropdown correction 7110ef80: all 114 affected component/composition/downstream tests pass with seed 9082026; root and full-profile analysis are clean.",
+          "146 focused Avatar, Direction, Button, Dropdown Menu, Popover, Dialog, styleguide, adoption and downstream menu tests passed with seed 9082026; root and full-profile analysis are clean.",
+          "The generic Avatar and production AvatarImage/ForumIcon sources remain unchanged; final-owner examples and one narrowly coordinated live menu registration-order correction are source-reviewed."
+        ],
+        "parentFollowup": {
+          "component": "dropdown-menu",
+          "preparedCommit": "7110ef80b2190f3a17c6a78fbae05fe857a29d38",
+          "status": "merged",
+          "mergeCommit": "85f9265bf2593a7edc0693582b7eadf1c6645b8d",
+          "trackingCommit": "d647400602824226d70d1328fba2a141195dc559"
+        },
+        "nativeReview": {
+          "status": "passed",
+          "completed": "Exact r4 native menus, focus/actions, group keyboard actions, light/dark/Forest/Plum, LTR/RTL 360px 200% reduced motion, production fixture states and full styleguide groups inspected; screenshots saved.",
+          "remaining": "Final authorized local-main merge and acceptance metadata.",
+          "completion": "After user-confirmed unlock, both displayed final-owner snippets and actual official light/dark dropdown/group reference were verified. Initial reference theme restored, only own tab closed and own r4 app quit; fresh CUA inventories confirm cleanup.",
+          "desktopLease": "released",
+          "sourceCommit": "3b202d5eb89e51565c5f4ae9c293ce0eb36f25ca",
+          "bundle": "/private/tmp/Avatar Compositions Final 47e2 r4.app",
+          "kernelSha256": "05aeba9c6a9c5bc19df2f42788c06cb9b2d15af6761ade1343e14d2d434943ef"
+        },
+        "integrationCommit": "90f3e019c46d017eb1bad4273f958d31df279cf9"
       },
       {
         "component": "sidebar",
