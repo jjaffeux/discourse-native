@@ -33,7 +33,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
 | 22 | card | merged | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | a73f465ac86105fdda35f5b56f8b491da4b3936d |
 | 23 | empty | in_progress | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | — |
-| 24 | item | planned | — | — | separator | — |
+| 24 | item | in_progress | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar | — |
 | 25 | table | in_progress | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | — |
 | 26 | scroll-area | in_progress | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | — |
 | 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
@@ -1417,6 +1417,51 @@ Status: in_progress. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/u
 - awaiting_slot: reference browser-rendered comparison and native styleguide/production inspection pending; no CUA/app/browser launch permitted or attempted.
 - Native search composition must reconcile with Input Group after that separate component merges; it is not claimed as an Input Group implementation. Button remains baseline. Dash rendering and text wrapping await matched reference comparison.
 - No iOS/Linux device, VoiceOver speech or pixel parity claim. Native fixture covers the named representative production owners; other migrations have widget regression evidence only.
+
+### item
+
+Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
+
+**acceptanceCriteria**
+
+- Provide one exported reusable owner for all ten Item parts with default/outline/muted variants, default/sm/xs metrics, image/icon/avatar media, multiple content columns, full-width header/footer and group/separator compositions.
+- Match frozen markdown SHA c4a69c25199741ad3baea25f07a869e1aebf08cf3274f1a4f2e9da04afbbe0f0 and base-nova registry: 1px border, host lg radius, 12x10/10x8 padding, 10/8 gap, 14px title at 1.375 leading, 14/12px description at 1.5 leading, image 40/32/24 with sm radius; multiply muted/focus alpha and paint 3px exterior ring.
+- Passive Item adds no control role; opt-in action/link supports keyboard visible focus, pointer/touch and borrowed FocusNode ownership. Child actions cannot activate parent by keyboard or pointer. Expose no editable state: native Form descendants retain their own owner.
+- Prove geometry, live tokens, RTL, narrow/large text reflow, reduced motion, focus lifecycle, disabled interaction, child action isolation and group semantics with meaningful widget tests.
+- Self-contained real-component styleguide covers every documented example and pending Button/Dropdown dependency reconciliation explicitly; source/artwork URLs and hashes retained.
+- Audit core/plugin rows, migrate tag directory presentation and assignment detail rows while preserving lazy builders, per-row state, callbacks, permission guards and complete assignment notes; leave Empty/Alert regions to their owners.
+- Run touched format, root/full static analysis, focused component/styleguide/migration checks. Build distinct native fixture/styleguide bundle with source/kernel/signature provenance; remain in_progress awaiting serialized reference/native comparison.
+
+**decisions**
+
+- Own Item only on main base 402fe578. Proposed migrations: TagsPage row presentation and AssignmentDetailRow; shared tags empty/error regions overlap Empty/Alert and remain untouched. Thread messaging tool absent in this task; handoff via progress/final.
+- One generic owner exports all ten parts; full source hashes, CSS/logical metrics, semantics/layout/keyboard/native adaptations and audit are in docs/component-library/item.md.
+- Thirteen actual-component examples use bundled reference artwork. Button remains baseline; Dropdown uses an explicitly temporary MenuAnchor composition pending its owning branch. No unmerged dependency imported.
+
+**migrations**
+
+- TagsPage ready rows now use exported TagDirectoryRow/DItem; lazy builder, ShellSelector, request identity, refresh, navigation, keys and count semantics remain app-owned.
+- AssignmentDetailRow uses muted Item with existing avatar adapter and untruncated identity/status/note; permission callback and accessible full label retained.
+
+**retainedAlternatives**
+
+- Specialized topic/inbox/notification/read-state rows, draft/resume rows, activity tables and menu/field choices retain their existing state and interaction contracts; see item.md.
+- Events participants and event-day records are candidate follow-ups for coordinated Calendar/Dialog/Events migration; no changes to their async authority or navigation checks.
+- Empty page messages, Alert banners, Voice message rendering and reaction UserCardTarget rows remain with adjacent component owners.
+
+**verification**
+
+- Frozen markdown hash exactly matches; registry and artwork URLs/hashes committed under reference/item.
+- Flutter 3.47.2 unchanged. Root and full-profile enforced-lockfile resolution passed; all pins/lockfiles unchanged.
+- Root and full-profile flutter analyze --no-pub passed.
+- 47 focused tests passed with seed 9092026: d_item, item_examples, item_migration_fixture, tags_page, assignment_sheet and styleguide_page. Includes pixel evidence that focus paints outside and does not tint muted interior; this is not native parity.
+- Touched formatting and git diff --check passed.
+
+**limitations**
+
+- in_progress awaiting_slot: no browser/native slot granted; actual reference comparison and native styleguide/production fixture inspection remain required.
+- Button and Dropdown Menu example reconciliation remains explicit pending those branches; Events row candidates retained for coordinator review.
+- No iOS/Linux device, VoiceOver, authenticated screen or pixel-parity validation. Cross-thread messaging API unavailable in this task.
 
 ### table
 
