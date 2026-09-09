@@ -922,8 +922,10 @@ Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/u
 - Native accessible hit targets grow transparently to 48px; reference visual bounds remain compact.
 - Official source URLs, SHA256 values, complete metric mapping and native adaptations recorded in docs/component-library/switch.md; frozen Switch Markdown hash matches.
 - Controlled Form edits and reset requests wait for parent acceptance. Rejected/deferred reset retains consistent field value, semantics, validation and save.
-- Choice cards use source 10px inset + 1px border, 8px horizontal/2px description/20px group gaps, selected/hover treatment and a single wrapper focus ring.
+- Choice cards use source 10px inset + 1px border, 8px horizontal/2px description/20px group gaps, selected/hover treatment and the observed wrapper/track focus rings.
 - Native transparent 48px targets; borrowed focus node ownership; reference 150ms cubic(.4,0,.2,1) motion with reduced-motion zero duration.
+- 2026-09-09 coordinator fidelity correction: rounded-lg now equals base radius; input maps to colors.outlineVariant separately from border. Every Switch opacity modifier multiplies token alpha, including card selected/hover and focus/invalid states. Controlled Form/reset and app callbacks unchanged.
+- Browser correction: FieldTitle uses 14/20px leading (86px choice card at 384px); invalid descriptions stay muted. Added explicit source-faithful Invalid example and centered Size rows with associated labels. Live CSS shows both wrapper and track focus rings, now preserved.
 
 **migrations**
 
@@ -962,12 +964,20 @@ Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/u
 - Review bundle /private/tmp/discourse-switch-review-404a1748/Discourse Switch Review.app; bundle ID org.discourse.switch-review; URL scheme discourse-switch-review. Ad-hoc deep strict codesign verification passed. Only the isolated copy removes APS entitlement.
 - Kernel SHA256 3b08262090a788c933ea6f36ecd28644a5998f25aad3b4d9968b2b4347395ee1 matches source build and isolated copy. Tracked lib/test/tool source equality to implementation commit passed. Complete trace: docs/component-library/switch-review-build.json; signature log /private/tmp/discourse-switch-review-404a1748/codesign.log.
 - Final profiles/full flutter analyze --no-pub passed; /private/tmp/switch-full-final-analyze.log.
+- Fidelity correction: 21 component/production fixture tests passed (19 Switch + 2 fixture), including distinct translucent input/border and live custom-radius/light-dark selected-hover-focus checks. /private/tmp/switch-fidelity-correction-tests.log.
+- Prepared 16 font-loaded Flutter widget exports with component/example/image hashes under docs/component-library/evidence/switch; export test passed. Browser/native comparison remains pending; no CUA used.
+- Exclusive browser-only Chrome comparison completed: official light/dark variants, description/cards/size/RTL/invalid, small Space +10px/Enter reset and RTL Space -14px. Corrected final widget exports inspected in neutral and Forest/Plum at 360px/200% RTL with radius0/18. Evidence/hashes: docs/component-library/evidence/switch.
+- Final correction verification: 63 focused tests passed with seed 782311 (21 Switch, 2 production fixture, 39 affected Settings/Preferences/AI tests, 1 font export). /private/tmp/switch-fidelity-final-tests.log.
+- Restored website dark theme, no viewport override used, closed sole comparison tab and explicitly released browser slot before build. No native app launched.
+- Final browser-corrected root and profiles/full flutter analyze --no-pub passed; touched Dart format and git diff --check clean. Logs /private/tmp/switch-browser-final-analyze.log and /private/tmp/switch-browser-final-full-analyze.log.
+- Refreshed browser-corrected macOS debug review bundle: /private/tmp/discourse-switch-review-9ab5a887/Discourse Switch Review.app. Source 9ab5a887cbf71b021022454f91cbdcd8f6041a4b; kernel SHA256 4545ebfacea1b7417d4f2e5820a2fa1a2be8c2714f208b015b608b5ff0df7d59 matches original build; tracked lib/test/tool equality and deep strict ad-hoc signature verification passed. Trace docs/component-library/switch-review-build.json. Native inspection remains awaiting_slot; bundle not launched.
 
 **limitations**
 
-- Mac locked: no CUA, native launch, reference-browser comparison or desktop inspection performed. nativeInspectionStatus remains awaiting_slot; not review_ready or mergeable.
 - No iOS/Linux device run or spoken VoiceOver claim. Native text wrapping adapts CSS text balancing.
 - Review launcher covers representative migrated production surfaces. Voice room/editor and AI composer are covered by actual-widget regressions; additional native fixture coverage can be completed during review.
+- Browser comparison complete; native Mac remains locked. No native app launch/inspection, nativeInspectionStatus awaiting_slot; not review_ready or mergeable.
+- Browser Geist/Noto Arabic and native SF/SF Arabic shaping/canvas pixels differ; no pixel-equality claim. Shared DTokens.focusRing aliases host primary while reference neutral uses independent gray. Size row spacing grows to preserve separate 48px native touch targets.
 
 ### slider
 
