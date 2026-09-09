@@ -1737,7 +1737,7 @@
     },
     {
       "id": "accordion",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
       "branch": "codex/ui-accordion",
       "dependencies": [
@@ -1774,7 +1774,8 @@
         "The latest-main candidate based on 15e65e76 passed 88 focused Accordion, Collapsible, styleguide and retained-consumer tests with random seed 417203 after the Toast production migration; root and profiles/full flutter analyze --no-pub, Dart formatting and git diff --check passed.",
         "Approved official-browser inspection covered every registered reference variant, light/dark rendering, pointer and keyboard behavior, disabled state and exact focus geometry. Computed 14/20 medium text, 10px vertical padding, 16px chevron, 50% disabled opacity and one-plus-three-pixel focus bands matched the source mapping.",
         "The uniquely identified macOS styleguide bundle passed dark/light/Forest, pointer, Tab/Return/Space, single/multiple/disabled, Borders/Card/RTL, 360px/200%, reduced-motion, semantics and controlled lifecycle inspection. Its final embedded/build kernel SHA256 is 4aa2785f5a67437389be0bb82516afa130e549e09a7584e1fc182dd4ccd81a2d and its strict deep ad-hoc signature passed; full evidence is docs/component-library/evidence/accordion/native-review.md.",
-        "A final native follow-up on source 8f24147b7870eebb55debd28d304eccb0cff0f07 confirmed removing an open controlled Security item changed live state from profile, security to profile, and re-adding it left the panel closed."
+        "A final native follow-up on source 8f24147b7870eebb55debd28d304eccb0cff0f07 confirmed removing an open controlled Security item changed live state from profile, security to profile, and re-adding it left the panel closed.",
+        "The accepted latest-main candidate was merged locally from the shared main checkout as f3aa5074a848a6f8ee793de7323cf9de766be1d4; no remote push or external release change was made."
       ],
       "limitations": [
         "Native device inspection was macOS only. No iOS or Linux device was run and no spoken VoiceOver claim is made; macOS Accessibility API roles/actions were inspected directly and have widget regressions.",
@@ -1782,9 +1783,9 @@
         "Browser hidden-until-found has no native equivalent; hosts reveal search matches using controlled values or DAccordionController."
       ],
       "implementationCommit": "60d01f5fc11b73d1ceb0ab12fee84c805a2d22c3",
-      "mergeCommit": null,
+      "mergeCommit": "f3aa5074a848a6f8ee793de7323cf9de766be1d4",
       "nativeReviewStatus": "completed",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
       "reviewBranch": "codex/review-accordion",
       "browserInspectionStatus": "completed",
@@ -3738,16 +3739,6 @@
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
         },
         {
-          "component": "accordion",
-          "taskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
-          "branch": "codex/review-accordion",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c44f/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
-          "implementationBranch": "codex/ui-accordion",
-          "headCommit": "42e6cc265ba2875c91af2a8cb22dd443cb80786c"
-        },
-        {
           "component": "dropdown-menu",
           "taskId": "01a085cf-f401-7813-80da-7c687de8a5d5",
           "branch": "codex/review-dropdown-menu",
@@ -4169,17 +4160,6 @@
           "implementationBranch": "codex/ui-carousel",
           "status": "merged",
           "mergeCommit": "3ec0c089d273029ff901d9155eba93e17c4d3a23"
-        },
-        {
-          "component": "accordion",
-          "title": "Review and merge Accordion",
-          "taskId": "01a085b9-6a74-7181-8252-f5bbe9c6e05b",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c44f/discourse-native",
-          "branch": "codex/review-accordion",
-          "implementationTaskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
-          "implementationBranch": "codex/ui-accordion",
-          "status": "in_progress"
         },
         {
           "component": "dropdown-menu",

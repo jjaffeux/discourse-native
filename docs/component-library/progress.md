@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**37 of 64 components are merged locally.** 27 existing components are in progress; 0 are planned.
+**38 of 64 components are merged locally.** 26 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -18,7 +18,6 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
-| accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
 | hover-card | Implementation and checks | — | — |
 | alert-dialog | Implementation and checks | — | — |
 | sheet | Implementation and checks | — | — |
@@ -75,7 +74,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 25 | table | merged | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | 082fcc55ab85d3bd4012c6bd24c647c1febd7d2a |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
-| 28 | accordion | review_ready | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | — |
+| 28 | accordion | merged | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | f3aa5074a848a6f8ee793de7323cf9de766be1d4 |
 | 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
 | 31 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
@@ -1799,7 +1798,7 @@ Status: merged. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-col
 
 ### accordion
 
-Status: review_ready. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/ui-accordion.
+Status: merged. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/ui-accordion.
 
 **acceptanceCriteria**
 
@@ -1836,6 +1835,7 @@ Status: review_ready. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/
 - Approved official-browser inspection covered every registered reference variant, light/dark rendering, pointer and keyboard behavior, disabled state and exact focus geometry. Computed 14/20 medium text, 10px vertical padding, 16px chevron, 50% disabled opacity and one-plus-three-pixel focus bands matched the source mapping.
 - The uniquely identified macOS styleguide bundle passed dark/light/Forest, pointer, Tab/Return/Space, single/multiple/disabled, Borders/Card/RTL, 360px/200%, reduced-motion, semantics and controlled lifecycle inspection. Its final embedded/build kernel SHA256 is 4aa2785f5a67437389be0bb82516afa130e549e09a7584e1fc182dd4ccd81a2d and its strict deep ad-hoc signature passed; full evidence is docs/component-library/evidence/accordion/native-review.md.
 - A final native follow-up on source 8f24147b7870eebb55debd28d304eccb0cff0f07 confirmed removing an open controlled Security item changed live state from profile, security to profile, and re-adding it left the panel closed.
+- The accepted latest-main candidate was merged locally from the shared main checkout as f3aa5074a848a6f8ee793de7323cf9de766be1d4; no remote push or external release change was made.
 
 **limitations**
 
