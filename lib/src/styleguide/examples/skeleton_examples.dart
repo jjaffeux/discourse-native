@@ -322,23 +322,23 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
       ),
       if (_shape != 'Circle') ...[
         Text('Width: ${_width.round()}'),
-        Slider(
+        DSlider(
           semanticFormatterCallback: (value) => 'Width: ${value.round()}',
           value: _width,
           min: 40,
           max: 240,
-          divisions: 20,
+          step: 10,
           onChanged: (value) => setState(() => _width = value),
         ),
       ],
       Text('${_shape == 'Circle' ? 'Diameter' : 'Height'}: ${_height.round()}'),
-      Slider(
+      DSlider(
         semanticFormatterCallback: (value) =>
             '${_shape == 'Circle' ? 'Diameter' : 'Height'}: ${value.round()}',
         value: _height,
         min: 8,
         max: 96,
-        divisions: 22,
+        step: 4,
         onChanged: (value) => setState(() => _height = value),
       ),
       if (_shape == 'Rectangle') ...[
@@ -347,13 +347,13 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
               ? 'Radius: site default'
               : 'Radius: ${_radius!.round()}',
         ),
-        Slider(
+        DSlider(
           semanticFormatterCallback: (value) =>
               'Corner radius: ${value.round()}',
           value: _radius ?? (DTokens.of(context).radius * 0.8).clamp(0, 32),
           min: 0,
           max: 32,
-          divisions: 16,
+          step: 2,
           onChanged: (value) => setState(() => _radius = value),
         ),
         DButton(

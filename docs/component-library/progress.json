@@ -882,7 +882,7 @@
     },
     {
       "id": "switch",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
       "branch": "codex/ui-switch",
       "dependencies": [
@@ -962,23 +962,32 @@
         "Native rejected/deferred controlled Form reset remains widget-test coverage; native fixture verified external controlled update and ordinary Form reset. Voice confirmation dismissed without recording. Inspected bundle retains baseline badge; status-only promotion does not alter controls."
       ],
       "implementationCommit": "3243a88cf2a9a1cfee96af7877386379089ab6c5",
-      "mergeCommit": null,
+      "mergeCommit": "e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d",
       "nativeInspectionStatus": "completed",
       "browserInspectionStatus": "completed",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
-      "reviewBranch": "codex/review-switch"
+      "reviewBranch": "codex/review-switch",
+      "reviewedBranchHead": "d3059c1b1d2c1597942f4b8f7325d557bdd3027b"
     },
     {
       "id": "toggle",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08567-ac29-7dd0-ba78-1717a5235bd0",
+      "branch": "codex/ui-toggle",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Reproduce every frozen documented variant, behavior and composition with official source/geometry mapping and live host palette/font/radius integration.",
+        "Implement complete generic native APIs, state/controller lifecycle, keyboard/focus/semantics, touch, RTL, scaling, narrow layouts and reduced motion; every exposed feature must work.",
+        "Add all interactive styleguide examples and accurate usage; audit/migrate appropriate core and plugin usages with real application behavior preserved and retained alternatives documented.",
+        "Run meaningful focused component/consumer checks and root/full-profile analysis, prepare exact source/native evidence, then create a new independent reviewer task to finish acceptance and local main merge."
+      ],
+      "decisions": [
+        "The Button dependency is merged. Frozen examples cover default/outline, icon and text composition, default/sm/lg sizes, disabled and RTL plus public API behavior. Implement native pressed-toggle semantics and genuine controlled/uncontrolled toggling with keyboard/hover/press/focus and disabled state, matching measured reference artwork. Audit independent on/off formatting/view controls and plugin toolbar controls where appropriate; do not recast momentary actions, tab/navigation items or mutually exclusive selection as independent Toggle. Keep rich editor/IME/domain command ownership with app adapters. Toggle Group is a later catalogue component; build reusable Toggle suitable for composition without duplicating Toggle Group. Notify root when the final reviewer is created and after Toggle merges so Toggle Group can start.",
+        "Implementation uses the direct reviewer workflow; root is not an approval gate."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -1005,7 +1014,7 @@
     },
     {
       "id": "slider",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
       "branch": "codex/ui-slider",
       "dependencies": [
@@ -1050,19 +1059,23 @@
         "Media large-step adaptation: all 36 production slider-fixture and inline-video tests pass.",
         "API follow-up bundle /private/tmp/DiscourseSliderReview-01a083ce-r2.app built from be5f02ff2df29fc42b97ecb36fee30ef6df24d1c; ID org.discourse.native.slider.01a083ce.r2; scheme discourse-slider-review-01a083ce-r2. Source/copy kernel SHA256 6349ee6787314d4f9383576ac85d65e68435eb3d440bbef9762e2a7cec40988c; clean source equality and Credits stamp; codesign --verify --deep --strict passes. Current evidence docs/component-library/evidence/slider/native-preparation.json. Never launched.",
         "Reset/integration pass: 31 focused field, component, controlled, swap, production fixture and styleguide tests pass.",
-        "Pinned-main reset pass: 31 focused tests and root/full analysis pass. Exact source 6792e34b950b780fbeb93a4aea82c57bd537f2b0, bundle /private/tmp/DiscourseSliderReview-6792e34b.app, ID org.discourse.native.slider.6792e34b, scheme discourse-slider-6792e34b, matching kernel SHA256 b37dbe5b00805e4e9cfb90f15ecf2ed5d59303b365afb296a83617ad847ad8b7. Ad-hoc strict deep signature passes; signed sandbox, allow-jit, get-task-allow and network entitlements verified; no restricted developer entitlements. Runner identities/pin/locks unchanged; every non-Slider progress row equals pinned main. No native/browser/CUA launch."
+        "Pinned-main reset pass: 31 focused tests and root/full analysis pass. Exact source 6792e34b950b780fbeb93a4aea82c57bd537f2b0, bundle /private/tmp/DiscourseSliderReview-6792e34b.app, ID org.discourse.native.slider.6792e34b, scheme discourse-slider-6792e34b, matching kernel SHA256 b37dbe5b00805e4e9cfb90f15ecf2ed5d59303b365afb296a83617ad847ad8b7. Ad-hoc strict deep signature passes; signed sandbox, allow-jit, get-task-allow and network entitlements verified; no restricted developer entitlements. Runner identities/pin/locks unchanged; every non-Slider progress row equals pinned main. No native/browser/CUA launch.",
+        "Independent reviewer reran 230 focused Slider, Form, collision, styleguide, production migration, media, Voice, topic, Chat and keyboard tests with seed 4982; root and profiles/full flutter analyze --no-pub passed with no issues. Locked dependency resolution and git diff --check were clean.",
+        "Latest-main reconciliation integrated reviewed Switch and Scroll Area through 41b74494 while preserving their exports, examples, migrations and progress rows. The same 230 focused checks passed with seed 4983; root and profiles/full analysis and git diff --check remained clean.",
+        "Official Base UI browser comparison completed in light and dark across default, range, multiple-thumb, vertical, controlled, disabled and RTL examples. The exact-source macOS bundle was launched and its real topic, participant-volume and inline-video controls inspected in light/dark, RTL, 2x text, disabled, removal/restoration and external playback states. Native styleguide default/range/multiple/vertical/controlled/Plum/buffered examples passed; LTR/RTL keyboard direction and independent slider accessibility nodes were verified. No functional source defect was found."
       ],
       "limitations": [
-        "Mac locked; no native desktop/reference-browser inspection performed. Awaiting coordinator slot; no visual/native parity claim.",
-        "Native bundle is prepared but unlaunched; status remains in_progress / awaiting_slot. Source examples remain baseline until the actual native/reference comparison gate passes.",
-        "API follow-up source, automated checks and refreshed r2 bundle complete; no native/CUA/reference-browser, iOS/Linux device or VoiceOver speech inspection performed. Remains in_progress / awaiting_slot."
+        "No iOS/Linux device run or spoken VoiceOver verification was performed.",
+        "Browser and native font rasterizers differ; the review establishes measured geometry, styling and behavior rather than pixel equality."
       ],
       "implementationCommit": "6792e34b950b780fbeb93a4aea82c57bd537f2b0",
-      "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot",
-      "reviewStatus": "in_progress",
+      "mergeCommit": "e646022a0fd5524daab612e3bbfa9fe3de6db7a5",
+      "nativeInspectionStatus": "completed",
+      "browserInspectionStatus": "completed",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
-      "reviewBranch": "codex/review-slider"
+      "reviewBranch": "codex/review-slider",
+      "reviewedBranchHead": "07e339b4dec418f425d6eae0954a7230f19cf27e"
     },
     {
       "id": "progress",
@@ -1541,9 +1554,12 @@
     },
     {
       "id": "scroll-area",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
       "branch": "codex/ui-scroll-area",
+      "reviewTaskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
+      "reviewBranch": "codex/review-scroll-area",
+      "reviewStatus": "merged",
       "dependencies": [
         "separator"
       ],
@@ -1553,12 +1569,12 @@
         "Verify wheel, thumb drag, touch and keyboard scrolling, RTL, visibility, resizing and controller replacement/removal without disposing borrowed resources.",
         "Reproduce Tags/Horizontal/RTL reference examples and local combined/lazy composition; preserve styleguide explicit 360/768/1024 widths and state during preview changes.",
         "Audit core/plugins, migrate appropriate Sidebar and wide-preview scrollbar ownership, document retained specialized timelines/menus and any additional migrations.",
-        "Pass focused component/downstream tests, root/full-profile analysis and isolated signed macOS fixture build; remain in_progress awaiting serialized reference/native comparison."
+        "Pass focused component/downstream tests, root/full-profile analysis, isolated signed macOS fixture build, reference comparison and native macOS inspection."
       ],
       "decisions": [
         "Source mapping, native adaptations and full adoption audit: docs/component-library/scroll-area.md; hashed official registry/Markdown/Base UI behavior and reference photos in reference/scroll-area/sources.json.",
         "DScrollArea uses one native position per enabled axis; DScrollBar decorates existing native scrolling, with composable DScrollViewport, DScrollThumb and DScrollCorner. Live tokens, 7px capsule in 10px track, 16px minimum thumb and keyboard focus ring.",
-        "Tags, Horizontal, RTL, combined overflow and lazy-controller composition are actual public-component styleguide examples; remain baseline pending native visual gate.",
+        "Tags, Horizontal, RTL, combined overflow and lazy-controller composition are actual public-component styleguide examples; independent native acceptance promoted the styleguide entry to implemented.",
         "Coordinator keyboard follow-up: only overflowing areas enter root Tab traversal; descendant focus/state survive content and viewport resize transitions. Shift+Space pages upward; unrelated Ctrl/Alt/Meta and Shift-modified keys bubble.",
         "Browser-only review completed and released: measured light/dark/RTL/keyboard reference, corrected exterior-only focus ring with alpha multiplication, rounded-md×0.8 and rendered photo150×200 dimensions. Font-loaded actual examples/production fixtures exported; scroll-area-render-review.md and hashed rendered artifacts preserve findings."
       ],
@@ -1584,20 +1600,19 @@
         "Rendered-review final executable source 1514d822c89c30e32cc5d46419682c6541d7e3ad: clean source equality after runner restoration; isolated macOS debug build succeeded; unique ID verified; build/copied kernel SHA256 42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192; deep strict signature passed. No native launch.",
         "Backlog preparation: merged pinned main00f82d280a602c4ec86be3a24664f4052e6c1477; preserved all non-Scroll-Area progress rows and current shared owners.109 affected component/Sidebar/styleguide/production tests passed seed1438380230; root/full analysis clean. No unchanged browser/export review repeated.",
         "Final pinned-main native preparation source ad0647a4d46b756b87d5b9c5c0ca526e26cb2e17: isolated build passed; clean source equality and build/copied kernel SHA256 cb549143dbb2b4307b93a606c34e0090c8d9026ab36684d07c2b710c01ac6579 verified. Deep strict signature and exact read-back of sandbox/JIT/network client+server entitlements passed; no APS/team/application IDs. Native remains awaiting_slot.",
-        "Final17-component baseline: mergede612ad7b at source 3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e without conflicts, other progress rows equal pinned main.114 targeted integration tests pass seed4102292575; root/full analysis clean. Unique isolated debug build, clean source equality, copied kernel SHA256 1361361d520ac8cb0e836ed7581c2e4713c6777a666fc625977f382feda4acc0, strict signature and restricted-free sandbox/JIT/network entitlement read-back verified. No UI use."
+        "Final17-component baseline: mergede612ad7b at source 3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e without conflicts, other progress rows equal pinned main.114 targeted integration tests pass seed4102292575; root/full analysis clean. Unique isolated debug build, clean source equality, copied kernel SHA256 1361361d520ac8cb0e836ed7581c2e4713c6777a666fc625977f382feda4acc0, strict signature and restricted-free sandbox/JIT/network entitlement read-back verified. No UI use.",
+        "Independent macOS native review launched that exact signed bundle: accepted light/dark Tags geometry, RTL leading scrollbar, bundled horizontal photos, vertical wheel and thumb drag, horizontal thumb drag, two-axis corner composition, and native accessibility separation. Migrated Sidebar and Code scrolled; Alerts and Diagnostics ready states rendered, with Diagnostics rows unclipped.",
+        "Independent review branch: root and profiles/full flutter pub get --enforce-lockfile completed without lockfile changes; 109 focused component/styleguide/Sidebar/production tests passed with seed238741; root and profiles/full flutter analyze --no-pub found no issues; git diff --check passed.",
+        "Latest-main reconciliation integrated reviewed Switch and preserved its exports/migrations. 27 overlapping Scroll Area/styleguide/Voice tests passed with seed238742; root analysis and git diff --check remained clean."
       ],
       "limitations": [
-        "Mac locked: no CUA, browser/native launch or visual comparison performed. Remain in_progress awaiting_slot; not mergeable until coordinator visual/native review.",
         "No iOS/Linux device or VoiceOver testing; no pixel-parity claim.",
-        "Browser slot released with original dark theme restored, viewport reset and task tab closed. Native slot remains pending. At360px/200%, retained DiagnosticsPanel fixed-height rows overflow14px (14 exceptions); coordinator owns separate fix. Exact artifacts: reference/scroll-area/rendered/fixture-narrow200-diagnostics.png and fixture-render-errors.json.",
-        "Prior captured Diagnostics row overflow is historical: pinned main now supplies coordinator row-sizing fix, preserved in this branch and covered by merged focused tests. Native review remains pending."
+        "No physical touch-device or native trackpad pass; touch, reduced-motion, large-text, resize and controller lifecycle behavior are covered by focused widget/render evidence.",
+        "The captured Diagnostics large-text overflow artifact is historical; the main-owned row-sizing fix is integrated and the independent native fixture showed unclipped rows."
       ],
       "implementationCommit": "3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e",
-      "mergeCommit": null,
-      "nativeReviewStatus": "awaiting_slot",
-      "reviewStatus": "in_progress",
-      "reviewTaskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
-      "reviewBranch": "codex/review-scroll-area"
+      "mergeCommit": "655be577246f1f247e1e71199d32add8366deffc",
+      "nativeReviewStatus": "passed"
     },
     {
       "id": "collapsible",
@@ -1664,14 +1679,24 @@
     },
     {
       "id": "tabs",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
+      "branch": "codex/ui-tabs",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova default/line, horizontal/vertical, disabled, icon, RTL and Card composition examples with explicit source-to-native geometry and behavior mapping.",
+        "Implement complete controlled/uncontrolled selection and public composition/controller APIs, native tab semantics, focus/keyboard behavior, dynamic/disabled entries and panel state lifecycle.",
+        "Support live host theme/font/radius, light/dark/custom palettes, touch, narrow layouts, text scaling, RTL and reduced motion without substituting platform-default appearance.",
+        "Audit and migrate appropriate forum/topic/group/preferences and plugin tab surfaces while keeping navigation, unread state, permissions and domain state in app adapters.",
+        "Provide complete interactive examples, accurate usage, meaningful component/consumer tests, root/full-profile analysis and honest exact-source rendered/native evidence.",
+        "Create a new independent Review and merge Tabs Codex task; it owns fixes, remaining verification and final local main merge under shared leases without coordinator approval."
+      ],
+      "decisions": [
+        "Button dependency and Card composition owner are merged.",
+        "Collapsible File Tree composition has a direct dependency handoff between Tabs and reviewer 01a08558-a79c-7911-8f75-53b3528fc08f; retain explicit follow-up until the final DTabs composition is verified."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -2245,14 +2270,22 @@
     },
     {
       "id": "carousel",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
+      "branch": "codex/ui-carousel",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Reproduce every frozen documented variant, behavior and composition with official source/geometry mapping and live host palette/font/radius integration.",
+        "Implement complete generic native APIs, state/controller lifecycle, keyboard/focus/semantics, touch, RTL, scaling, narrow layouts and reduced motion; every exposed feature must work.",
+        "Add all interactive styleguide examples and accurate usage; audit/migrate appropriate core and plugin usages with real application behavior preserved and retained alternatives documented.",
+        "Run meaningful focused component/consumer checks and root/full-profile analysis, prepare exact source/native evidence, then create a new independent reviewer task to finish acceptance and local main merge."
+      ],
+      "decisions": [
+        "Button is the implementation dependency and is merged; Card composition is also merged. Frozen sections include Sizes, Spacing, Orientation, Options, API, Events, Plugins and RTL. Reproduce complete documented behavior and native API counterparts, including responsive slide extents/spacing, horizontal/vertical and direction-aware navigation, previous/next enabled states, scrolling/selection events and controller lifecycle, options, and the demonstrated autoplay plugin behavior with correct interaction/reduced-motion/disposal handling. Inspect official Embla-linked behavior to define the actual supported native contract; no inert options or ornamental plugin API. Audit shell/composer_image_gallery.dart, shell/lightbox.dart, other media/page-view owners and plugins for appropriate adoption. Preserve zoom/pan, media lifecycle, keyboard navigation, accessibility and domain state; record retained grids or specialized viewers rather than converting inappropriate surfaces simply to add a usage. Provide real migrated local-data fixtures and all documented Card compositions.",
+        "Implementation uses the direct reviewer workflow; root is not an approval gate."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -2613,7 +2646,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T08:50:35.202597+00:00",
+    "updatedAt": "2026-09-09T09:04:35.601992+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
@@ -2669,24 +2702,6 @@
       "nextComponents": [],
       "activeTasks": [
         {
-          "component": "switch",
-          "taskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
-          "branch": "codex/review-switch",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/904d/discourse-native",
-          "headCommit": "b851adbbf69778fd437b296b66492bfee7973125",
-          "status": "independent_review",
-          "implementationTaskId": "01a083ce-319b-7bc3-a5c9-371087710718"
-        },
-        {
-          "component": "scroll-area",
-          "taskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
-          "branch": "codex/review-scroll-area",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c76e/discourse-native",
-          "headCommit": "5f4e58a31772cc5edb40a670cab0264e278f93fe",
-          "status": "independent_review",
-          "implementationTaskId": "01a083e1-420b-7711-b8e8-f268576dcc3b"
-        },
-        {
           "component": "native-select",
           "taskId": "01a08558-4ae6-7db2-bdd6-ee1b7d91d022",
           "branch": "codex/review-native-select",
@@ -2739,16 +2754,6 @@
           "status": "independent_review",
           "headCommit": "09869a6713a9e2e01b3012515cfc5bbeefcee868",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97"
-        },
-        {
-          "component": "slider",
-          "taskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
-          "branch": "codex/review-slider",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d2da/discourse-native",
-          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f",
-          "headCommit": "bbd35fec5d7fbec5e967edf5f7b03567625b25b2",
-          "status": "independent_review",
-          "implementationTaskId": "01a083ce-313a-7362-ada6-57dc14221509"
         },
         {
           "component": "resizable",
@@ -2823,6 +2828,27 @@
           "headCommit": "32ce1f96e1a1648bd5f29d8268c8b37855d3e39b",
           "status": "independent_review",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
+        },
+        {
+          "component": "tabs",
+          "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
+          "branch": "codex/ui-tabs",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/599c/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "toggle",
+          "taskId": "01a08567-ac29-7dd0-ba78-1717a5235bd0",
+          "branch": "codex/ui-toggle",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a904/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "carousel",
+          "taskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
+          "branch": "codex/ui-carousel",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4e74/discourse-native",
+          "status": "implementation"
         }
       ],
       "nativeReadyTasks": []
@@ -2866,7 +2892,8 @@
       },
       "scroll-area": {
         "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
-        "status": "resolved_awaiting_native_review",
+        "status": "resolved_and_merged",
+        "mergeCommit": "655be577246f1f247e1e71199d32add8366deffc",
         "issue": "Radio renderer comparison confirms a shared focus-ring bug: BoxShadow(spreadRadius:3) paints underneath transparent content. DScrollArea viewport focus ring currently uses that pattern and can tint the entire scrolled content. Replace with an exterior-only ring, verify actual focused exports and retain keyboard/state behavior."
       },
       "button": {
@@ -2889,7 +2916,8 @@
       },
       "switch": {
         "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-        "status": "resolved_awaiting_native_review",
+        "status": "resolved_and_merged",
+        "mergeCommit": "e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d",
         "issue": "After the completed source/browser corrections, Radio actual exports identified BoxShadow rings tinting translucent interiors. Switch still uses BoxShadow for track and card rings; its dark invalid export shows a red-filled unchecked track. Verify against reference-dark-invalid and replace rings with exterior-only strokes, preserving observed dual ring geometry and actual input fill. Also remove or narrowly adapt the unconditional 48px DSwitchTile content minimum on pointer platforms; its whole label row is clickable and native touch targets do not justify much taller desktop reference examples. Preserve touch48 and necessary app-adapter spacing."
       },
       "native-select": {
@@ -2942,11 +2970,13 @@
       "resumeCondition": "Continue eligible implementation work as dependencies land, using direct reviewer handoffs."
     },
     "browserInspectionBlocker": {
-      "status": "active",
+      "status": "approved_surface_available",
       "reason": "admin_security_policy_unverified",
       "reportedByTask": "01a083ce-313e-7f70-a1a8-e645f31235c8",
       "observation": "First official Progress browser navigation denied because browser could not verify admin-enforced security policy. No rendered page comparison occurred; no retry or alternate route attempted. Progress immediately released browser slot.",
-      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds."
+      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds.",
+      "currentEvidence": "Slider independent review used the approved in-app browser for the official Base UI Slider reference in light/dark, documented in docs/component-library/slider.md and merged as e646022a. This proves that approved surface is available; it does not clear or authorize bypassing the earlier denial on another surface.",
+      "resolutionScope": "Approved in-app browser only; preserve and obey any surface-specific denial."
     },
     "backlogPreparation": {
       "status": "complete",
@@ -2963,28 +2993,6 @@
       "leaseTool": "tool/component_review_lock.py",
       "futureHandoff": "Each implementation creates a new reviewer Codex task that owns completion and local main merge.",
       "reviewTasks": [
-        {
-          "component": "switch",
-          "title": "Review and merge Switch",
-          "taskId": "01a08558-4ae6-7db2-bdd6-ee3d564e1835",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/904d/discourse-native",
-          "branch": "codex/review-switch",
-          "implementationTaskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-          "implementationBranch": "codex/ui-switch",
-          "status": "in_progress"
-        },
-        {
-          "component": "scroll-area",
-          "title": "Review and merge Scroll Area",
-          "taskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c76e/discourse-native",
-          "branch": "codex/review-scroll-area",
-          "implementationTaskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
-          "implementationBranch": "codex/ui-scroll-area",
-          "status": "in_progress"
-        },
         {
           "component": "native-select",
           "title": "Review and merge Native Select",
@@ -3049,17 +3057,6 @@
           "branch": "codex/review-field",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
           "implementationBranch": "codex/ui-field",
-          "status": "in_progress"
-        },
-        {
-          "component": "slider",
-          "title": "Review and merge Slider",
-          "taskId": "01a08558-7a1d-7451-8024-e357bd0861e8",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d2da/discourse-native",
-          "branch": "codex/review-slider",
-          "implementationTaskId": "01a083ce-313a-7362-ada6-57dc14221509",
-          "implementationBranch": "codex/ui-slider",
           "status": "in_progress"
         },
         {
@@ -3365,6 +3362,12 @@
         "status": "waiting_for_popover_merge",
         "requestedBy": "01a08558-aec4-7591-ac85-682a1eae4290",
         "nextAction": "Dispatch Dropdown Menu implementation from main after Popover lands; implementer creates its own final reviewer. Required for Item and Table compositions."
+      },
+      "tabs": {
+        "status": "implementation",
+        "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
+        "requestedBy": "01a08558-a79c-7911-8f75-53b3528fc08f",
+        "nextAction": "Tabs implementer creates final review/merge task and coordinates the documented Collapsible File Tree composition directly; retain the outstanding composition until verified."
       }
     }
   }
