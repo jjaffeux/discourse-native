@@ -2042,7 +2042,7 @@
     },
     {
       "id": "alert-dialog",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
       "branch": "codex/ui-alert-dialog",
       "dependencies": [
@@ -2624,13 +2624,14 @@
         "101 focused Combobox, styleguide, Input Group, Item, Popover and Group Page tests passed with seed 9092026 after accepted dependency reconciliation; root and profiles/full static analysis were clean.",
         "Official browser acceptance exercised Basic filtering/selection, grouped results, custom two-line items and Popup composition, and confirmed every frozen example heading.",
         "Isolated native macOS acceptance exercised filtering, arrow/Return selection, Escape/focus restoration, chip selection/removal, clear, Input Group, Popup, live themes, 216/320px bounds, 200% text, RTL and reduced motion.",
-        "The production Add Group Members fixture searched local async results, retained rapid-entry multiple selection and completed a local fake save with the expected username."
+        "The production Add Group Members fixture searched local async results, retained rapid-entry multiple selection and completed a local fake save with the expected username.",
+        "Exact candidate be8ffa8d637bd23ace4d21e8502a4c82b7a4e51a built as a macOS debug fixture; its kernel_blob.bin SHA256 was be5f83f7b8a8970efefda52164a63c7c1d513cdbc6189230b235954d52ad9475. Local main accepted it with a required no-fast-forward merge."
       ],
       "limitations": [
         "No iOS/Linux device or spoken VoiceOver session was inspected; those remain covered by widget semantics/geometry tests rather than this macOS visual acceptance pass."
       ],
       "implementationCommit": "51749084ce7c616b40e887b2c78fc977bde85f03",
-      "mergeCommit": null,
+      "mergeCommit": "336c4edb05afee7f1ca4d260484537f16d03573c",
       "preparedDependencies": [
         {
           "id": "command",
@@ -2674,8 +2675,8 @@
       "reviewBranch": "codex/review-combobox",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8b89/discourse-native",
       "reviewHandoffCommit": "55dcf257cba0c0ef9df75ab246960c4bef5248d2",
-      "reviewStatus": "review_ready",
-      "queueStage": "ready_for_main_merge",
+      "reviewStatus": "merged",
+      "queueStage": "complete",
       "implementationHandoffVerification": {
         "focusedTests": "Implementation owner reports34 Combobox/styleguide/Popover checks and24 GroupPage migration tests passing with seed9092026.",
         "analysis": "Root/full dependency resolution and static analysis clean at source handoff.",
