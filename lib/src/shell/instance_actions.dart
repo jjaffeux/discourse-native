@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
 
 import '../../discourse_ui.dart';
 import '../models/discourse_instance.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
@@ -89,19 +87,26 @@ class _InstanceActionsState extends State<InstanceActions> {
     label: 'Show forum actions',
   );
 
-  final MenuController _menu = MenuController();
+  final DContextMenuController _menu = DContextMenuController();
+  final DContextMenuTriggerController _trigger =
+      DContextMenuTriggerController();
 
   void _open(Offset position) {
     if (_menu.isOpen) {
       _menu.close();
       return;
     }
-    _menu.open(position: position);
+    _trigger.openAt(
+      position,
+      interaction: context.isTouch
+          ? DPopoverInteraction.touch
+          : DPopoverInteraction.mouse,
+    );
   }
 
   void _openFromKeyboard() {
     if (_menu.isOpen) return;
-    _menu.open();
+    _trigger.openFromKeyboard();
   }
 
   Future<void> _openSheet() async {
@@ -184,11 +189,17 @@ class _InstanceActionsState extends State<InstanceActions> {
     await confirmInstanceRemoval(context, widget.instance);
   }
 
-  List<Widget> _items(ThemeData theme) {
+  @override
+  void dispose() {
+    _menu.dispose();
+    super.dispose();
+  }
+
+  List<Widget> _items() {
     if (context.isTouch) {
       return [
-        MenuItemButton(
-          leadingIcon: const DIcon(DIcons.ellipsis, size: 18),
+        DContextMenuItem(
+          leading: const DIcon(DIcons.ellipsis, size: 16),
           onPressed: _openSheet,
           child: const Text('More Options'),
         ),
@@ -197,28 +208,25 @@ class _InstanceActionsState extends State<InstanceActions> {
 
     return [
       if (widget.onMoveUp != null)
-        MenuItemButton(
-          leadingIcon: const DIcon(DIcons.arrowUp, size: 18),
+        DContextMenuItem(
+          leading: const DIcon(DIcons.arrowUp, size: 16),
           onPressed: widget.onMoveUp,
           child: const Text('Move up'),
         ),
       if (widget.onMoveDown != null)
-        MenuItemButton(
-          leadingIcon: const RotatedBox(
+        DContextMenuItem(
+          leading: const RotatedBox(
             quarterTurns: 2,
-            child: DIcon(DIcons.arrowUp, size: 18),
+            child: DIcon(DIcons.arrowUp, size: 16),
           ),
           onPressed: widget.onMoveDown,
           child: const Text('Move down'),
         ),
       if (widget.onMoveUp != null || widget.onMoveDown != null)
-        const DSeparator(space: 1),
-      MenuItemButton(
-        leadingIcon: const DIcon(DIcons.trashCan, size: 18),
-        style: MenuItemButton.styleFrom(
-          foregroundColor: theme.colorScheme.error,
-          iconColor: theme.colorScheme.error,
-        ),
+        const DContextMenuSeparator(),
+      DContextMenuItem(
+        leading: const DIcon(DIcons.trashCan, size: 16),
+        variant: DContextMenuItemVariant.destructive,
         onPressed: _confirmRemoval,
         child: const Text('Remove forum'),
       ),
@@ -227,44 +235,26 @@ class _InstanceActionsState extends State<InstanceActions> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isTouch = context.isTouch;
     final touchGestureBuilder = isTouch ? widget.touchGestureBuilder : null;
-    final actionChild = GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      // Each gesture is wired only where it means something: holding a mouse
-      // button down on a desktop is not a request for a menu, and a touch
-      // screen has no second button to press. A touch wrapper owns long press
-      // exclusively when one is supplied, avoiding competing recognizers.
-      onLongPressStart: isTouch && touchGestureBuilder == null
-          ? (details) => _open(details.localPosition)
-          : null,
-      onSecondaryTapDown: isTouch
-          ? null
-          : (details) => _open(details.localPosition),
-      child: widget.child,
-    );
     final interactionChild = touchGestureBuilder == null
-        ? actionChild
-        : touchGestureBuilder(actionChild, _open);
+        ? widget.child
+        : touchGestureBuilder(widget.child, _open);
 
-    return MenuAnchor(
+    return DContextMenu(
       controller: _menu,
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      content: DContextMenuContent(
+        width: 176,
+        semanticLabel: 'Forum actions',
+        children: _items(),
       ),
-      menuChildren: _items(theme),
       child: MergeSemantics(
         child: Semantics(
           customSemanticsActions: {_showActions: _openFromKeyboard},
-          child: CallbackShortcuts(
-            bindings: {
-              const SingleActivator(LogicalKeyboardKey.contextMenu):
-                  _openFromKeyboard,
-              const SingleActivator(LogicalKeyboardKey.f10, shift: true):
-                  _openFromKeyboard,
-            },
+          child: DContextMenuTrigger(
+            controller: _trigger,
+            focusable: false,
+            longPressEnabled: touchGestureBuilder == null,
             child: interactionChild,
           ),
         ),

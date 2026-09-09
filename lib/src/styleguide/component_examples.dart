@@ -14,6 +14,7 @@ import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/combobox_examples.dart';
 import 'examples/command_examples.dart';
+import 'examples/context_menu_examples.dart';
 import 'examples/date_picker_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
@@ -67,6 +68,7 @@ final componentExamples = <String, ComponentExamples>{
   'collapsible': collapsibleExamples,
   'combobox': comboboxExamples,
   'command': commandExamples,
+  'context-menu': contextMenuExamples,
   'input': inputExamples,
   'input-otp': inputOTPExamples,
   'radio-group': radioGroupExamples,
