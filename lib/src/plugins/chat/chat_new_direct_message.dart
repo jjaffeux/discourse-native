@@ -328,20 +328,29 @@ class _ChatNewDirectMessageDialogState
               _buildMembers(),
               const SizedBox(height: 8),
             ],
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
-              key: const ValueKey('chat-new-direct-message-search'),
-              controller: _search,
-              autofocus: true,
-              enabled: !_opening,
-              onChanged: _scheduleSearch,
-              decoration: InputDecoration(
-                hintText: _composingGroup
-                    ? 'Search users or groups'
-                    : 'Search users, groups, or conversations',
-                prefixIcon: const Icon(Icons.search),
-                border: const OutlineInputBorder(),
-              ),
+            DInputGroup(
+              children: [
+                DInputGroupInput(
+                  key: const ValueKey('chat-new-direct-message-search'),
+                  controller: _search,
+                  autofocus: true,
+                  enabled: !_opening,
+                  semanticLabel: 'Search chat recipients',
+                  hintText: _composingGroup
+                      ? 'Search users or groups'
+                      : 'Search users, groups, or conversations',
+                  onChanged: _scheduleSearch,
+                ),
+                const DInputGroupAddon(child: Icon(Icons.search, size: 16)),
+                if (_searching)
+                  const DInputGroupAddon(
+                    alignment: DInputGroupAddonAlignment.inlineEnd,
+                    child: DSpinner(
+                      size: 16,
+                      semanticLabel: 'Searching recipients',
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             Expanded(child: _buildResults(query)),

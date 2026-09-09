@@ -166,39 +166,43 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    key: const ValueKey('chat-channel-search-field'),
-                    controller: _query,
-                    autofocus: true,
-                    onChanged: (value) => _search.setScopedQuery(
-                      widget.siteUrl,
-                      widget.channelId,
-                      value,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Search this channel',
-                      prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 17),
-                      suffixIcon: _query.text.isEmpty
-                          ? null
-                          : DTooltip(
-                              message: 'Clear search',
-                              labelTrigger: true,
-                              child: IconButton(
+                  child: DInputGroup(
+                    children: [
+                      DInputGroupInput(
+                        key: const ValueKey('chat-channel-search-field'),
+                        controller: _query,
+                        autofocus: true,
+                        semanticLabel: 'Search this channel',
+                        hintText: 'Search this channel',
+                        onChanged: (value) => _search.setScopedQuery(
+                          widget.siteUrl,
+                          widget.channelId,
+                          value,
+                        ),
+                      ),
+                      const DInputGroupAddon(
+                        child: DIcon(DIcons.magnifyingGlass, size: 17),
+                      ),
+                      if (busy || _query.text.isNotEmpty)
+                        DInputGroupAddon(
+                          alignment: DInputGroupAddonAlignment.inlineEnd,
+                          children: [
+                            if (busy)
+                              const DSpinner(
+                                size: 16,
+                                semanticLabel: 'Searching channel',
+                              ),
+                            if (_query.text.isNotEmpty)
+                              DInputGroupButton.icon(
                                 onPressed: _clear,
                                 icon: const DIcon(DIcons.xmark, size: 15),
-                                tooltip: '',
+                                tooltip: 'Clear search',
                               ),
-                            ),
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
-                if (busy) ...[
-                  const SizedBox(width: 10),
-                  const SizedBox.square(dimension: 18, child: DSpinner()),
-                ],
                 if (state.hits.isNotEmpty) ...[
                   const SizedBox(width: 10),
                   Text('${state.selectedIndex + 1} / ${state.hits.length}'),
