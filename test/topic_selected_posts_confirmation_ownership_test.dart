@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -26,7 +27,7 @@ void main() {
       final openingLease = shell.lifecycle.capture(_site);
       final openingPost = shell.store.read<Post>(_site, 1);
       await _openConfirmation(tester, action);
-      final openingDialog = tester.element(find.byType(AlertDialog));
+      final openingDialog = tester.element(find.byType(DAlertDialogContent));
 
       // Reconnect and repopulate between frames, keeping the actual toolbar's
       // caller mounted when its old dialog submits. An unmounted caller would
@@ -40,7 +41,10 @@ void main() {
       expect(auth.keys[_site], 'api-key');
       expect(openingLease.isCurrent, isFalse);
       expect(openingToolbar.mounted, isTrue);
-      expect(tester.element(find.byType(AlertDialog)), same(openingDialog));
+      expect(
+        tester.element(find.byType(DAlertDialogContent)),
+        same(openingDialog),
+      );
       final replacementTopic = shell.store.read<TopicDetail>(_site, _topicId);
       final replacementPosts = [
         for (var id = 1; id <= 4; id++) shell.store.read<Post>(_site, id),
@@ -89,7 +93,7 @@ void main() {
       }
       expect(shell.selectedTopicPostIds(_site, _topicId), {1, 2, 3});
       expect(shell.topicPostSelectionWriteInFlight(_site, _topicId), isFalse);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(DAlertDialogContent), findsNothing);
 
       // A new confirmation belongs to the replacement account and can act on
       // those same eligible IDs with its new credential.
@@ -98,7 +102,7 @@ void main() {
 
       _expectWrite(api, action, 'api-key', [1, 2, 3]);
       expect(shell.topicPostSelectionEnabled(_site, _topicId), isFalse);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(DAlertDialogContent), findsNothing);
     });
 
     testWidgets('$action uses the same account selection at submit', (
@@ -124,7 +128,7 @@ void main() {
       _expectWrite(api, action, _originalKey, [2, 3, 4]);
       expect(shell.topicPostSelectionEnabled(_site, _topicId), isFalse);
       expect(find.byKey(_toolbarKey), findsNothing);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(DAlertDialogContent), findsNothing);
     });
 
     testWidgets(
@@ -135,7 +139,7 @@ void main() {
         final readsBeforeCancel = auth.reads.length;
         await tester.tap(
           find.descendant(
-            of: find.byType(AlertDialog),
+            of: find.byType(DAlertDialogContent),
             matching: find.text('Cancel'),
           ),
         );
@@ -146,7 +150,7 @@ void main() {
         expect(api.postFetches, isEmpty);
         expect(shell.selectedTopicPostIds(_site, _topicId), {1, 2});
         expect(find.byKey(_toolbarKey), findsOneWidget);
-        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(DAlertDialogContent), findsNothing);
       },
     );
 
@@ -192,7 +196,7 @@ void main() {
         expect(api.writes, isEmpty);
         expect(api.postFetches, isEmpty);
         expect(shell.selectedTopicPostIds(_site, _topicId), selected);
-        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(DAlertDialogContent), findsNothing);
       });
     }
   }
@@ -240,7 +244,7 @@ Future<void> _openConfirmation(WidgetTester tester, String action) async {
   expect(tester.widget<TextButton>(button).onPressed, isNotNull);
   await tester.tap(button);
   await tester.pumpAndSettle();
-  expect(find.byType(AlertDialog), findsOneWidget);
+  expect(find.byType(DAlertDialogContent), findsOneWidget);
 }
 
 Future<void> _submit(WidgetTester tester, String action) async {
