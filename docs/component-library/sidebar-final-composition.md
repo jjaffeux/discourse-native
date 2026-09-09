@@ -54,6 +54,17 @@ onto main `892e1a97` as `6e57eda0815568c5a8176bb22dc8030209e8223f`. That
 reconciliation changes progress ordering only; source, tests, runner and
 lockfiles remain byte-identical.
 
+Final integration candidate `c80d5d461af48ef6f6fbf288d59d10963f2bf217` starts
+from accepted main `68360e94dda508bf83e2e7052da10914f5236021`. Sidebar,
+Sheet, its examples, the styleguide page, their changed tests, Dropdown Menu,
+Avatar, Collapsible, Input, runner and both lockfiles remain byte-identical to
+the inspected behavior source. Other owners' newer accepted work is preserved.
+All 48 focused Sidebar/Sheet/example/styleguide checks pass together on this
+candidate with seed 9092026; root and full-profile `dart analyze --fatal-infos`
+also pass. Logs are `/private/tmp/sidebar-compositions-accepted-main-tests.log`,
+`/private/tmp/sidebar-compositions-accepted-main-analysis.log`, and
+`/private/tmp/sidebar-compositions-accepted-main-full-analysis.log`.
+
 - All 32 Sidebar/Sheet/example tests pass with seed 9092026. The icon-collapse
   test first reproduced a 16px overflow; the mobile RTL/200% test first exposed
   the squeezed menu. Both pass after their corrections.

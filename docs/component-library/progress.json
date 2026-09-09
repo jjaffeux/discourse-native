@@ -4325,10 +4325,10 @@
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
         "status": "accepted",
         "sourceCommit": "63e2ee17ce344f1586a80b11b3ba74433fc6792c",
-        "candidateCommit": "6e57eda0815568c5a8176bb22dc8030209e8223f",
+        "candidateCommit": "c80d5d461af48ef6f6fbf288d59d10963f2bf217",
         "evidence": "docs/component-library/sidebar-final-composition.md",
         "nativeBuild": "docs/component-library/evidence/sidebar/final-composition-build.json",
-        "verification": "32 focused Sidebar/Sheet/example checks, 15 real styleguide widget regressions and the corrected catalogue metadata test pass. Root/full analysis and isolated macOS build pass. Official rendered reference and exact-source native final-owner compositions accepted; synthetic modifier shortcuts remain automated-only evidence as documented. Own app/tab cleaned up and desktop released."
+        "verification": "All 48 focused Sidebar/Sheet/example/styleguide checks pass together on the final integration candidate, seed 9092026. Root/full fatal-info analysis and isolated macOS build pass. Official rendered reference and exact-source native final-owner compositions accepted; synthetic modifier shortcuts remain automated-only evidence as documented. Relevant source equivalence is verified. Own app/tab cleaned up and desktop released."
       }
     },
     {
@@ -5365,10 +5365,10 @@
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
         "status": "accepted",
         "sourceCommit": "63e2ee17ce344f1586a80b11b3ba74433fc6792c",
-        "candidateCommit": "6e57eda0815568c5a8176bb22dc8030209e8223f",
+        "candidateCommit": "c80d5d461af48ef6f6fbf288d59d10963f2bf217",
         "evidence": "docs/component-library/sidebar-final-composition.md",
         "nativeBuild": "docs/component-library/evidence/sidebar/final-composition-build.json",
-        "verification": "32 focused Sidebar/Sheet/example checks, 15 real styleguide widget regressions and the corrected catalogue metadata test pass. Root/full analysis and isolated macOS build pass. Official rendered reference and exact-source native final-owner compositions accepted; synthetic modifier shortcuts remain automated-only evidence as documented. Own app/tab cleaned up and desktop released."
+        "verification": "All 48 focused Sidebar/Sheet/example/styleguide checks pass together on the final integration candidate, seed 9092026. Root/full fatal-info analysis and isolated macOS build pass. Official rendered reference and exact-source native final-owner compositions accepted; synthetic modifier shortcuts remain automated-only evidence as documented. Relevant source equivalence is verified. Own app/tab cleaned up and desktop released."
       },
       {
         "component": "radio-group",
