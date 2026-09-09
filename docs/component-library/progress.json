@@ -1881,7 +1881,7 @@
     },
     {
       "id": "popover",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
       "branch": "codex/ui-popover",
       "dependencies": [
@@ -1929,11 +1929,11 @@
         "Browser Geist and native host-font rasterization differ; review establishes geometry, styling, interaction and accessibility structure rather than pixel equality."
       ],
       "implementationCommit": "b410f9da0227b2b9e0d6518b64277e97d6517b06",
-      "mergeCommit": null,
+      "mergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/b664/discourse-native",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
       "reviewBranch": "codex/review-popover"
     },
@@ -3031,16 +3031,6 @@
           "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932"
         },
         {
-          "component": "popover",
-          "taskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
-          "branch": "codex/review-popover",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/b664/discourse-native",
-          "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
-          "status": "independent_review",
-          "headCommit": "cb7f9e2e474529b1ac2559f1226d47590202e23f",
-          "implementationTaskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd"
-        },
-        {
           "component": "item",
           "taskId": "01a08558-aec4-7591-ac85-682a1eae4290",
           "branch": "codex/review-item",
@@ -3298,17 +3288,6 @@
           "branch": "codex/review-dialog",
           "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932",
           "implementationBranch": "codex/ui-dialog",
-          "status": "in_progress"
-        },
-        {
-          "component": "popover",
-          "title": "Review and merge Popover",
-          "taskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/b664/discourse-native",
-          "branch": "codex/review-popover",
-          "implementationTaskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
-          "implementationBranch": "codex/ui-popover",
           "status": "in_progress"
         },
         {
