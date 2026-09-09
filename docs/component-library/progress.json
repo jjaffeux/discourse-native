@@ -4900,7 +4900,7 @@
     }
   },
   "workflow": {
-    "updatedAt": "2026-09-09T15:42:53+00:00",
+    "updatedAt": "2026-09-09T19:47:18+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -4947,11 +4947,11 @@
       "remainingComponentCount": 52,
       "pausedAt": "2026-09-09T02:52:52+02:00"
     },
-    "status": "in_progress",
+    "status": "complete",
     "resume": {
       "requestedAt": "2026-09-09T02:57:25+02:00",
       "instruction": "Once the current correction is done, resume the goal and continue the other components. Commit and merge only locally; do not push anything to GitHub or change anything on App Store Connect.",
-      "status": "final_audit_merged",
+      "status": "complete",
       "startingMainCommit": "8ea22c643829a10a5031019e2aef4e83956c7a8f",
       "nextComponents": [],
       "activeTasks": [],
@@ -4966,10 +4966,10 @@
     "nativeInspectionBlocker": {
       "reason": "mac_locked",
       "observedAt": "2026-09-09T14:38:56.875854+00:00",
-      "status": "recurred",
-      "userUnlockRequested": true,
-      "latestResult": "Navigation Menu acquired its second FIFO desktop lease after fresh-access confirmation; the first approved CUA getState call again reported that the Mac was locked and automatic unlock failed, so lease 83a9d71be9a44428acd3cbf4821aa9ab was released immediately. Context Menu reviewer 01a0861f-38ca-7122-b18f-5f286ab90ccb independently reported the same lock on the next FIFO probe and also released immediately. Neither reviewer performed or claimed official rendered browser/native acceptance.",
-      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds remain valid. Navigation Menu reviewer fixes, 37 focused tests, root/full analysis and its exact-source signed macOS fixture are preserved; only the required fresh official rendered comparison and native inspection remain blocked.",
+      "status": "resolved",
+      "userUnlockRequested": false,
+      "latestResult": "User unlock was followed by successful approved CUA component reviews and the final audit. All required native acceptance for this project is complete; desktop lease and queue are empty.",
+      "unaffectedWork": "All accepted source, integration, test, build and native/reference evidence remains recorded in the component rows and final audit report.",
       "history": [
         {
           "reason": "mac_locked",
@@ -4977,13 +4977,23 @@
           "status": "resolved",
           "result": "Switch CUA app selection twice reported that the Mac was locked and automatic unlock could not unlock it. Native review was not performed; Switch explicitly released its slot in switch-native-handoff.md.",
           "resolution": "After the user unlock update, fresh native Switch CUA inspection succeeded. Coordinator viewed actual size-default-focus.png and matching accessibility tree from 3243a88c, including on/off switch states in the updated styleguide. Dropdown Menu later completed its official browser and native macOS acceptance on the unlocked host."
+        },
+        {
+          "reason": "mac_locked",
+          "observedAt": "2026-09-09T14:38:56.875854+00:00",
+          "status": "recurred",
+          "userUnlockRequested": true,
+          "latestResult": "Navigation Menu acquired its second FIFO desktop lease after fresh-access confirmation; the first approved CUA getState call again reported that the Mac was locked and automatic unlock failed, so lease 83a9d71be9a44428acd3cbf4821aa9ab was released immediately. Context Menu reviewer 01a0861f-38ca-7122-b18f-5f286ab90ccb independently reported the same lock on the next FIFO probe and also released immediately. Neither reviewer performed or claimed official rendered browser/native acceptance.",
+          "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds remain valid. Navigation Menu reviewer fixes, 37 focused tests, root/full analysis and its exact-source signed macOS fixture are preserved; only the required fresh official rendered comparison and native inspection remain blocked."
         }
-      ]
+      ],
+      "resolvedAt": "2026-09-09T19:47:18+00:00",
+      "resolutionEvidence": "docs/component-library/final-audit.md and accepted Avatar, Navigation Menu, Data Table and Message Scroller native-review records."
     },
     "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Use up to five running source implementation tasks as accepted dependencies or recorded prepared parent sources become available. Each implementer creates an independent reviewer that owns remaining acceptance and local merge. Prepared source does not satisfy rendered/native or accepted-parent gates. Desktop inspection uses the FIFO lease; main-checkout mutations use the separate exclusive main lease.",
     "browserInspectionTaskId": null,
-    "browserInspectionPolicy": "Coordinator grants one serialized browser inspection slot at a time after access is restored. Browser navigation currently denied because admin-enforced security policy could not be verified; no retry or alternate route while blocked.",
+    "browserInspectionPolicy": "Browser and native actions share the canonical FIFO desktop lease. Use approved CUA, release access on a genuine blocker, and obey any surface-specific denial. All required rendered-reference checks for the completed catalogue are recorded in accepted component evidence.",
     "pendingSourceReviews": {
       "radio-group": {
         "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
@@ -4994,8 +5004,9 @@
       "slider": {
         "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
         "issue": "Earlier collision/large-step corrections complete. Reconcile Form adapters with merged field conventions: explicit mounted initial baseline, accepted/rejected controlled reset, save/validate accepted value and no stale reset baseline after rebuild.",
-        "status": "resolved_awaiting_browser_and_native_review",
-        "resolution": "6792e34b freezes mounted reset baselines, copies range values, proposes resets through onChanged and preserves accepted controlled save/validation. Four regressions included in31 passing focused checks; drag/collision unchanged."
+        "status": "resolved_and_merged",
+        "resolution": "6792e34b freezes mounted reset baselines, copies range values, proposes resets through onChanged and preserves accepted controlled save/validation. Four regressions included in31 passing focused checks; drag/collision unchanged.",
+        "mergeCommit": "e646022a0fd5524daab612e3bbfa9fe3de6db7a5"
       },
       "resizable": {
         "taskId": "01a083e2-4063-7c30-89ea-fa664ff9c943",
@@ -5035,25 +5046,29 @@
       },
       "native-select": {
         "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
-        "status": "resolved_review_ready",
-        "issue": "Broadened migration, Form/live-popup, stale type-ahead, browser geometry, actionable macOS popup semantics and native Escape ownership are independently verified. macOS-only and spoken VoiceOver/iOS/Linux limitations remain documented."
+        "status": "resolved_and_merged",
+        "issue": "Broadened migration, Form/live-popup, stale type-ahead, browser geometry, actionable macOS popup semantics and native Escape ownership are independently verified. macOS-only and spoken VoiceOver/iOS/Linux limitations remain documented.",
+        "mergeCommit": "0cdec859288cb2fa0369f64e1a9c1c022dc033e4"
       },
       "chart": {
         "taskId": "01a08400-ced8-7f22-a1aa-4955c7d28383",
-        "status": "resolved_awaiting_native_review",
-        "issue": "Coordinator scratch regression /private/tmp/chart_coordinator_escape_test.dart fails: first Escape dismisses selected chart inspection, but second Escape still gets consumed with no selection and cannot reach the containing dialog. Return ignored when no chart state is active; verify during browser comparison."
+        "status": "resolved_and_merged",
+        "issue": "Coordinator scratch regression /private/tmp/chart_coordinator_escape_test.dart fails: first Escape dismisses selected chart inspection, but second Escape still gets consumed with no selection and cannot reach the containing dialog. Return ignored when no chart state is active; verify during browser comparison.",
+        "mergeCommit": "ff57007163df986741ce422e4674d267012c8093"
       },
       "dialog": {
         "taskId": "01a084fb-b319-7053-8265-8cb4db577932",
-        "status": "resolved_review_ready",
+        "status": "resolved_and_merged",
         "issue": "Correct same-root async session ownership and disposed completion, target parent route below typed child, and update open content/dismissal/controller configuration without form reset. Helper-specific review: build content below the actual route and preserve live caller-scoped Theme/MediaQuery/Directionality below Navigator.",
-        "resolution": "Source b75bee83 fixes session/disposal ownership, typed parent route removal, live content/dismissal/controller configuration, and route-descendant helper context with caller-scoped theme/media/direction updates. Independent review corrects the rendered close surface to 28px at 8a800783; browser and final native CUA comparison passed, with randomized focused checks and static analysis clean."
+        "resolution": "Source b75bee83 fixes session/disposal ownership, typed parent route removal, live content/dismissal/controller configuration, and route-descendant helper context with caller-scoped theme/media/direction updates. Independent review corrects the rendered close surface to 28px at 8a800783; browser and final native CUA comparison passed, with randomized focused checks and static analysis clean.",
+        "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
       },
       "popover": {
         "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
-        "status": "resolved_awaiting_browser_native_and_native_select_composition",
+        "status": "resolved_and_merged",
         "issue": "Correct nested Popover/MenuAnchor Escape and pointer ownership, including non-focused Native Select menu choices outside parent bounds; outside field retains focus and one pointer cannot cascade across layers based on global handler order.",
-        "resolution": "b410f9da preserves nested Popover/MenuAnchor Escape and pointer ownership, including non-focused off-parent menu choices, and outside-field focus. 99 focused/downstream checks pass; final DInput examples and source-exact native bundle prepared."
+        "resolution": "b410f9da preserves nested Popover/MenuAnchor Escape and pointer ownership, including non-focused off-parent menu choices, and outside-field focus. 99 focused/downstream checks pass; final DInput examples and source-exact native bundle prepared.",
+        "mergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
       }
     },
     "integrationPreparation": {
@@ -5099,8 +5114,8 @@
       "remaining": "Independent component reviewers finish reference/native verification and composition follow-ups, then merge locally under shared access leases."
     },
     "reviewPolicy": {
-      "status": "active",
-      "backlogCount": 17,
+      "status": "complete",
+      "backlogCount": 0,
       "ownership": "independent_reviewer",
       "protocol": "docs/component-library/review-and-merge.md",
       "leaseTool": "tool/component_review_lock.py",
@@ -5189,7 +5204,8 @@
           "implementationTaskId": "01a085af-d606-7281-ac25-34c83adc855e",
           "implementationBranch": "codex/ui-input-group",
           "implementationCommit": "30078b3bf4e4eac96411c19c3bc16b2732ceff59",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "d1de717b1e2d1eeaf06d86dafe1452662d05e368"
         },
         {
           "component": "select",
@@ -5214,7 +5230,8 @@
           "implementationTaskId": "01a085ce-ca89-7af3-8375-946721be90c6",
           "implementationBranch": "codex/ui-toggle-group",
           "implementationCommit": "d6a9be0d00c160dffa7daf67e8f2f4cefa00c336",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "aaff45d5af3456c3d44e0e681400a071cb673908"
         },
         {
           "component": "button-group",
@@ -5239,7 +5256,8 @@
           "implementationTaskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
           "implementationBranch": "codex/ui-hover-card",
           "implementationCommit": "c03c39b5bf037e33dd84e86db6216ee3b7febaa9",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "de39686f2a5d75651ef37268edb44adb6376cd7c"
         },
         {
           "component": "context-menu",
@@ -5264,7 +5282,8 @@
           "implementationTaskId": "01a08606-c9d5-7741-bfe0-e4ff531ff9b7",
           "implementationBranch": "codex/ui-pagination",
           "implementationCommit": "cd69ff21400192e6a141a675ffb7ec6a7199526c",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "20f1673402d8b52370efacb5ca61d5f099810582"
         },
         {
           "component": "menubar",
@@ -5289,7 +5308,8 @@
           "implementationTaskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
           "implementationBranch": "codex/ui-sheet",
           "implementationCommit": "b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "b67f0068104b922ec0e80170643eddced6e27c37"
         },
         {
           "component": "bubble",
@@ -5301,7 +5321,8 @@
           "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
           "implementationBranch": "codex/ui-bubble",
           "implementationCommit": "78c60d0cd7cf87d34c46524fff95336b43e261cd",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "c3d6ae97af486134b32067aecc29f7191b05367d"
         }
       ],
       "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks.",
@@ -5321,14 +5342,15 @@
           "reason": "Repeated intermittent app-managed Git index.lock denials. Task confirmed stopped without leases; original worktree/index/history preserved.",
           "replacementTaskId": "01a085f4-2a6b-7c82-9dc3-c9b14d76b355"
         }
-      ]
+      ],
+      "initialBacklogCount": 17
     },
     "resourceCoordination": {
       "main": "Shared main lease; reviewer owns local merge.",
       "desktop": "Shared FIFO desktop queue and lease for browser/native review; live holder and waiters are in the Git common directory. No coordinator scheduling gate."
     },
     "fullCatalogueQueue": {
-      "status": "all_remaining_components_assigned",
+      "status": "complete",
       "requestedAt": "2026-09-09",
       "recordedAt": "2026-09-09T12:03:13+00:00",
       "instruction": "Start queuing work for the shadcn components not yet implemented; Calendar must use kalender and fit the styleguide theme.",
@@ -5350,7 +5372,9 @@
       ],
       "previousSourceTaskCap": 5,
       "admissionPolicy": "All remaining components have their own tasks now. Begin independent reference/API/app audit and source preparation as parent APIs permit; coordinate dependencies directly. Native/browser and main writes remain leased and serial. Each implementation creates its own independent reviewer/merge owner.",
-      "finalAudit": "Keep the separate final audit planned until all 64 components and required compositions are implemented, accepted and merged locally."
+      "finalAudit": "Keep the separate final audit planned until all 64 components and required compositions are implemented, accepted and merged locally.",
+      "completedAt": "2026-09-09T19:47:18+00:00",
+      "finalAuditMergeCommit": "2b79f083247b2edd53353e873fde56e354acedf1"
     },
     "finalCompositionReviews": [
       {
@@ -5564,7 +5588,39 @@
         "mergedAt": "2026-09-09",
         "integrationVerification": "52 affected Radio/Field/real-fixture/styleguide tests pass again, seed 9092026; final root/full analysis clean. Inspected Radio/Field/Label/example/adopter/fixture/package inputs unchanged from native source 3169db09. All other progress records preserved; own desktop lease released and isolated app stopped."
       }
-    ]
+    ],
+    "completedAt": "2026-09-09T19:47:18+00:00",
+    "completion": {
+      "verifiedMainCommit": "27d751ed9433a2bb950c1abc956abdf86d219e4d",
+      "componentCount": 64,
+      "acceptedComponents": 64,
+      "acceptedFinalCompositions": 4,
+      "finalAuditTaskId": "01a0879a-c563-7fa0-a5df-49654971f6da",
+      "finalAuditMergeCommit": "2b79f083247b2edd53353e873fde56e354acedf1",
+      "finalAuditFollowUpMergeCommit": "7ba28ca1576d2376ecb9ed300783b52512fec71f",
+      "report": "docs/component-library/final-audit.md",
+      "verification": "All 64 unique component merges, four required final-composition merges, the final audit and its Label snippet follow-up are accepted in local main ancestry; dependency order and duplicate-key/ID validation pass. Final audit records 415 passing styleguide/calendar checks, clean root/full analysis and actual macOS inspection; the snippet-only follow-up records 26 passing focused checks.",
+      "reconciledReviewEntries": [
+        "input-group",
+        "toggle-group",
+        "hover-card",
+        "pagination",
+        "sheet",
+        "bubble"
+      ],
+      "reconciledSourceReviewEntries": [
+        "slider",
+        "native-select",
+        "chart",
+        "dialog",
+        "popover"
+      ],
+      "limitations": [
+        "Actual native inspection was macOS only. No iOS/Linux device or spoken VoiceOver/TalkBack claim is made.",
+        "Browser/native font rasterizers can differ; accepted source-specific evidence establishes documented geometry, styling, interaction and semantics rather than cross-renderer pixel identity.",
+        "Persian/Hijri/Jalali chronology remains an explicit Kalender engine seam; Gregorian paging is not presented as alternate-calendar support."
+      ]
+    }
   },
   "visualFidelity": {
     "status": "merged",
