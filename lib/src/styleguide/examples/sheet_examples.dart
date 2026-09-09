@@ -27,7 +27,7 @@ final sheetExamples = ComponentExamples(
     StyleguideExample(
       title: 'Side',
       description:
-          'The documented edit-profile form on the top, right, bottom and left physical sides.',
+          'The documented long content on the top, right, bottom and left physical sides.',
       code: _sideCode,
       builder: (_) => const _SideSheets(),
       states: const ['top', 'right', 'bottom', 'left'],
@@ -93,7 +93,10 @@ const _sideCode = '''for (final side in const [
   trigger: sideButton,
   content: DSheetContent(
     side: side,
-    children: [header, DSheetBody(child: profileFields), footer],
+    topBottomMaxHeightFactor: side == DSheetSide.top || side == DSheetSide.bottom
+        ? .5
+        : null,
+    children: [header, DSheetBody(child: longContent), footer],
   ),
 )''';
 
@@ -301,6 +304,8 @@ class _SideSheets extends StatelessWidget {
           ),
           content: DSheetContent(
             side: side,
+            topBottomMaxHeightFactor:
+                side == DSheetSide.top || side == DSheetSide.bottom ? .5 : null,
             semanticLabel: '${side.name} sheet',
             children: [
               const DSheetHeader(
@@ -314,30 +319,34 @@ class _SideSheets extends StatelessWidget {
                 ],
               ),
               DSheetBody(
-                child: DFieldGroup(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    DField(
-                      children: [
-                        DInput(initialValue: 'Pedro Duarte', labelText: 'Name'),
-                      ],
-                    ),
-                    DField(
-                      children: [
-                        DInput(
-                          initialValue: '@peduarte',
-                          labelText: 'Username',
-                        ),
-                      ],
-                    ),
+                    for (var index = 0; index < 10; index++) ...[
+                      if (index > 0) const SizedBox(height: 8),
+                      const Text(
+                        'Lorem ipsum dolor sit amet, consectetur adipiscing '
+                        'elit. Sed do eiusmod tempor incididunt ut labore et '
+                        'dolore magna aliqua. Ut enim ad minim veniam, quis '
+                        'nostrud exercitation ullamco laboris nisi ut aliquip '
+                        'ex ea commodo consequat. Duis aute irure dolor in '
+                        'reprehenderit in voluptate velit esse cillum dolore '
+                        'eu fugiat nulla pariatur. Excepteur sint occaecat '
+                        'cupidatat non proident, sunt in culpa qui officia '
+                        'deserunt mollit anim id est laborum.',
+                      ),
+                    ],
                   ],
                 ),
               ),
               DSheetFooter(
                 children: [
+                  DButton(onPressed: () {}, label: const Text('Save changes')),
                   DSheetClose<void>(
                     builder: (context, close) => DButton(
                       onPressed: close,
-                      label: const Text('Save changes'),
+                      variant: DButtonVariant.outline,
+                      label: const Text('Cancel'),
                     ),
                   ),
                 ],
