@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**33 of 64 components are merged locally.** 12 existing components are in progress; 19 are planned.
+**33 of 64 components are merged locally.** 13 existing components are in progress; 18 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -66,7 +66,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
 | 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
-| 34 | alert-dialog | planned | — | — | dialog | — |
+| 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 35 | sheet | planned | — | — | dialog | — |
 | 36 | drawer | planned | — | — | dialog | — |
 | 37 | select | in_progress | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | — |
@@ -2007,6 +2007,57 @@ Status: in_progress. Task: 01a084fb-b319-7053-8265-8cb4db577932. Branch: codex/u
 
 - Native/reference-rendered visual comparison and VoiceOver/device behavior remain awaiting the coordinator's serialized UI slot; the prepared uniquely identified app has not been launched and no CUA interaction was performed.
 - No physical iOS/Linux execution. Rich Field composition remains with its planned catalogue owner; Dialog now composes merged DInput where applicable.
+
+### alert-dialog
+
+Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/ui-alert-dialog.
+
+**acceptanceCriteria**
+
+- Export typed DAlertDialog root/trigger/content/header/media/title/description/footer/cancel/action APIs and showDAlertDialog, composing final DDialog route/focus/lifecycle and DButton interaction owners.
+- Match frozen base-nova regular/small responsive popup, 16px padding/gaps, xl radius, popover surface, foreground/10 ring, 40/24px media, 16px heading, 14/20 description and flush muted footer geometry without an ordinary Dialog corner close.
+- Require an explicit response: outside press remains inert, Escape is an explicit configurable cancel path, cancel precedes action in keyboard order, focus is trapped/restored and typed results remain distinct.
+- Support controlled/uncontrolled/borrowed-controller ownership, coalesced async submission, loading/disabled/error/retry, late-completion/re-entry guards, live theme/font/radius/direction/text-scale/reduced-motion changes, 320px/200% layouts, RTL and native pointer/touch/keyboard/semantics behavior.
+- Demonstrate Composition, Basic, Small, Media, Small with Media, Destructive and RTL plus controlled/typed/async states using real public widgets and local data.
+- Audit core and plugins and migrate appropriate focused confirmations while retaining permissions, persistence, async work, lifecycle leases and cancellation in application owners.
+- Format and pass focused component/dependency/consumer tests plus root/full static analysis; prepare an exact-source unique unlaunched macOS review bundle and local-data production adapter harness; independent reviewer completes rendered/native acceptance after Dialog merges.
+
+**decisions**
+
+- Frozen Markdown was re-fetched and exactly matched ccc9147729b395b1d80ba6c9190ffbd5b556213571f958bb10c111a38b63c2da. base-nova registry and linked Base UI anatomy/API were inspected; docs/component-library/alert-dialog.md records complete mapping and source hashes.
+- DAlertDialog delegates route, live inherited environment, modal barrier, focus containment/restoration, typed results and controller session guards to the exact reviewed Dialog pin 8a80078316381a60f70b4e11adbc919814ca9fbc. Alert Dialog only specializes required-response dismissal, composition and surface geometry.
+- Outside presses are always ignored. Escape remains a configurable cancellation request. There is no corner close. Ordered focus keeps Cancel first even when the narrow reference visually reverses the footer column.
+- DAlertDialogAction closes synchronously by default, can remain open for caller-owned work, or can bind a borrowed DDialogController to coalesced onSubmit work that closes only the same session on success and reports failure without hiding it.
+- showDiscourseAlertDialog is an application adapter outside generic UI. It standardizes the common two-result confirmation while every caller retains domain checks and post-confirmation effects.
+
+**migrations**
+
+- Migrated forum removal, published-poll removal, draft deletion, plugin notification dismissal, diagnostics clearing and destructive bookmark confirmations to showDiscourseAlertDialog with their typed results and lifecycle/account guards unchanged.
+- Migrated Voice deep-capture enable/clear and room recording start/stop confirmations while retaining controller resolution, consent and async media ownership.
+- Migrated topic deletion, selected-post delete/merge and group-member removal while preserving permission rechecks, current-site leases, selection identity and server mutation ownership.
+
+**retainedAlternatives**
+
+- Phrase-entry permanent post/group deletion remains a specialized form dialog pending composition-level migration; it is not reduced to a two-choice alert.
+- Channel, event, status, composer, picker, membership and settings editors remain ordinary Dialog; sheets, drawers, popovers, menus, pickers and full-screen/media surfaces retain their separate owners.
+- DiscourseAlertDialog and AdaptiveDialogAction remain temporarily for specialized legacy editor/confirmation bodies not safely expressible by the common two-choice adapter.
+
+**verification**
+
+- flutter pub get --enforce-lockfile resolved the fresh worktree from committed dependencies without a lockfile change; Flutter remains pinned.
+- flutter test --no-pub test/ui/d_alert_dialog_test.dart test/styleguide/alert_dialog_examples_test.dart --test-randomize-ordering-seed=random --reporter expanded: 9 passed, seed 3089443727. Covers explicit dismissal, typed results, focus order, exact regular/small/media geometry, async loading/error/double-submit, disabled state and narrow 200% RTL reduced motion.
+- The reviewed Dialog dependency suite and Alert Dialog component/example checks reached 32 passing tests in the final focused matrix before consumer groups; Dialog route, environment, focus and lifecycle behavior remained green.
+- Draft/recovery, notification, Voice diagnostics, instance action and published-poll consumer group passed 55 tests at seed 1592572583. Diagnostics clear focused group passed 3; Bookmark UI passed 24 at the same seed.
+- Selected-post confirmation ownership passed 14 tests at seed 61956044 after updating the obsolete stock AlertDialog test owner assertion. Group-member, topic-action and topic-deletion suites passed 89 tests at seed 61956044; two focused Voice recording tests passed.
+- A broad randomized parallel consumer run reproduced the pre-existing diagnostics resize-handle hit-test flake and was stopped after a subsequent unrelated long-running topic test; the affected diagnostics clear tests passed separately and no component failure was inferred.
+- Root flutter analyze --no-pub passed in 2.9s and profiles/full passed in 1.7s; touched Dart is formatted and git diff --check passes.
+- flutter build macos --debug --no-pub -t tool/alert_dialog_review.dart passed. Unlaunched /private/tmp/discourse-alert-dialog-review.uFQUBx/Alert Dialog Review.app was re-identified as org.discourse.native.styleguide.alertdialog with discourse-alert-dialog-review scheme and ad-hoc signed using only sandbox/JIT/audio/camera/user-selected/network/get-task debug entitlements. Deep strict verification passed; original/copied kernel SHA-256 both a2724f22c8a502674b303547455467b94ba6df30da6cfec4ac365037cf86248d.
+
+**limitations**
+
+- awaiting_review: no browser/native launch, official rendered comparison, VoiceOver speech or iOS/Linux device pass was performed. The independent reviewer owns first rendered/native acceptance and any corrections.
+- Dialog is not accepted on local main. This branch prepared against exact reviewed pin 8a80078316381a60f70b4e11adbc919814ca9fbc; the reviewer must wait for Dialog reviewer 01a08558-7ac2-79a3-bd49-1be6148f540c, integrate accepted current main, prevent the unaccepted parent from reaching main through this branch and reverify overlap.
+- Task-creation API was unavailable after tool discovery. The exact committed handoff prompt is recorded for transport; no desktop lease was queued solely to create a task.
 
 ### select
 
