@@ -137,16 +137,16 @@ final selectExamples = ComponentExamples(
       builder: (_) => const _MultipleSelectDemo(),
     ),
     StyleguideExample(
-      title: 'Button Group handoff',
+      title: 'Button Group composition',
       description:
           'The trigger remains an independent control beside adjacent actions; the popup is outside joined geometry.',
       states: const ['Adjacent actions', 'Overlay outside group', 'Focus'],
-      code: '''Row(children: [
+      code: '''DButtonGroup(semanticLabel: 'Range navigation', children: [
   DButton(label: const Text('Back'), onPressed: previous),
   DSelect<String>(value: mode, entries: modes, onChanged: selectMode),
   DButton(label: const Text('Next'), onPressed: next),
 ])''',
-      builder: (_) => const _ButtonGroupHandoffSelectDemo(),
+      builder: (_) => const _ButtonGroupSelectDemo(),
     ),
   ],
 );
@@ -569,12 +569,11 @@ class _RtlSelectDemoState extends State<_RtlSelectDemo> {
   );
 }
 
-class _ButtonGroupHandoffSelectDemo extends StatefulWidget {
-  const _ButtonGroupHandoffSelectDemo();
+class _ButtonGroupSelectDemo extends StatefulWidget {
+  const _ButtonGroupSelectDemo();
 
   @override
-  State<_ButtonGroupHandoffSelectDemo> createState() =>
-      _ButtonGroupHandoffSelectDemoState();
+  State<_ButtonGroupSelectDemo> createState() => _ButtonGroupSelectDemoState();
 }
 
 class _MultipleSelectDemo extends StatefulWidget {
@@ -609,8 +608,7 @@ class _MultipleSelectDemoState extends State<_MultipleSelectDemo> {
   );
 }
 
-class _ButtonGroupHandoffSelectDemoState
-    extends State<_ButtonGroupHandoffSelectDemo> {
+class _ButtonGroupSelectDemoState extends State<_ButtonGroupSelectDemo> {
   String? _mode = 'week';
   int _actions = 0;
 
@@ -618,36 +616,41 @@ class _ButtonGroupHandoffSelectDemoState
   Widget build(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Wrap(
-        spacing: 0,
-        runSpacing: DSpacing.sm,
-        alignment: WrapAlignment.center,
-        children: [
-          DButton(
-            label: const Text('Back'),
-            variant: DButtonVariant.outline,
-            onPressed: () => setState(() => _actions++),
-          ),
-          DSelect<String>(
-            value: _mode,
-            entries: const [
-              DSelectOption(value: 'day', label: 'Day', child: Text('Day')),
-              DSelectOption(value: 'week', label: 'Week', child: Text('Week')),
-              DSelectOption(
-                value: 'month',
-                label: 'Month',
-                child: Text('Month'),
-              ),
-            ],
-            onChanged: (value) => setState(() => _mode = value),
-            semanticLabel: 'Range',
-          ),
-          DButton(
-            label: const Text('Next'),
-            variant: DButtonVariant.outline,
-            onPressed: () => setState(() => _actions++),
-          ),
-        ],
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DButtonGroup(
+          semanticLabel: 'Range navigation',
+          children: [
+            DButton(
+              label: const Text('Back'),
+              variant: DButtonVariant.outline,
+              onPressed: () => setState(() => _actions++),
+            ),
+            DSelect<String>(
+              value: _mode,
+              entries: const [
+                DSelectOption(value: 'day', label: 'Day', child: Text('Day')),
+                DSelectOption(
+                  value: 'week',
+                  label: 'Week',
+                  child: Text('Week'),
+                ),
+                DSelectOption(
+                  value: 'month',
+                  label: 'Month',
+                  child: Text('Month'),
+                ),
+              ],
+              onChanged: (value) => setState(() => _mode = value),
+              semanticLabel: 'Range',
+            ),
+            DButton(
+              label: const Text('Next'),
+              variant: DButtonVariant.outline,
+              onPressed: () => setState(() => _actions++),
+            ),
+          ],
+        ),
       ),
       const SizedBox(height: DSpacing.md),
       Semantics(

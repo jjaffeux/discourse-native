@@ -13,6 +13,7 @@ export 'src/ui/components/d_badge.dart';
 export 'src/ui/components/d_breadcrumb.dart';
 export 'src/ui/components/d_bubble.dart';
 export 'src/ui/components/d_button.dart';
+export 'src/ui/components/d_button_group.dart';
 export 'src/ui/components/d_calendar.dart';
 export 'src/ui/components/d_card.dart';
 export 'src/ui/components/d_carousel.dart';

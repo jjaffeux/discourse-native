@@ -58,14 +58,12 @@ void main() {
     );
   }
 
-  testWidgets('Button handoff fixture keeps editor and action state', (
-    tester,
-  ) async {
+  testWidgets('button actions keep editor and action state', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
         home: const Scaffold(
-          body: SizedBox(width: 360, child: InputGroupButtonHandoffExample()),
+          body: SizedBox(width: 360, child: InputGroupButtonActionsExample()),
         ),
       ),
     );

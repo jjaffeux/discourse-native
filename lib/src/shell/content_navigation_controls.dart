@@ -37,8 +37,8 @@ class ContentNavigationControls extends StatelessWidget {
         ),
         builder: (context, state, _) {
           final controller = ShellScope.read(context);
-          return Row(
-            mainAxisSize: MainAxisSize.min,
+          return DButtonGroup(
+            semanticLabel: 'Content navigation',
             children: [
               DButton.iconOnly(
                 key: backKey,

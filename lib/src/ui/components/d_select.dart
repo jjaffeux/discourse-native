@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
 import 'd_scroll_area.dart';
@@ -1311,7 +1312,14 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
               DiscourseTypography.lineHeightSmall +
           (small ? 6 : 10),
     );
-    final radius = tokens.radius * (small ? 0.8 : 1.0);
+    final baseRadius = tokens.radius * (small ? 0.8 : 1.0);
+    final joined = DJoinedControlScope.maybeOf(context);
+    final radius =
+        joined?.resolveRadius(
+          BorderRadius.circular(baseRadius),
+          Directionality.of(context),
+        ) ??
+        BorderRadius.circular(baseRadius);
     final foreground =
         widget.values.any(
           (value) => _items.any((item) => widget.equals(item.value, value)),
@@ -1342,10 +1350,12 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       height: visualHeight,
       width: popupWidth,
       padding: const EdgeInsetsDirectional.only(start: 10, end: 8),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: border),
+      decoration: _DSelectSurfaceDecoration(
+        backgroundColor: background,
+        borderColor: border,
+        borderRadius: radius,
+        joinedAxis: joined?.axis,
+        omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
       ),
       child: Row(
         children: [
@@ -1752,6 +1762,93 @@ class _DSelectScrollArrowState extends State<_DSelectScrollArrow> {
   }
 }
 
+class _DSelectSurfaceDecoration extends Decoration {
+  const _DSelectSurfaceDecoration({
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.borderRadius,
+    required this.joinedAxis,
+    required this.omitLeadingBorder,
+  });
+
+  final Color backgroundColor;
+  final Color borderColor;
+  final BorderRadius borderRadius;
+  final Axis? joinedAxis;
+  final bool omitLeadingBorder;
+
+  @override
+  EdgeInsetsGeometry get padding => const EdgeInsets.all(1);
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _DSelectSurfacePainter(this);
+
+  @override
+  Decoration? lerpFrom(Decoration? a, double t) =>
+      a is _DSelectSurfaceDecoration
+      ? _DSelectSurfaceDecoration(
+          backgroundColor: Color.lerp(a.backgroundColor, backgroundColor, t)!,
+          borderColor: Color.lerp(a.borderColor, borderColor, t)!,
+          borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
+          joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
+          omitLeadingBorder: t < .5 ? a.omitLeadingBorder : omitLeadingBorder,
+        )
+      : super.lerpFrom(a, t);
+
+  @override
+  Decoration? lerpTo(Decoration? b, double t) =>
+      b is _DSelectSurfaceDecoration ? b.lerpFrom(this, t) : super.lerpTo(b, t);
+}
+
+class _DSelectSurfacePainter extends BoxPainter {
+  const _DSelectSurfacePainter(this.decoration);
+
+  final _DSelectSurfaceDecoration decoration;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final rect = offset & configuration.size!;
+    final rrect = decoration.borderRadius.toRRect(rect);
+    canvas.drawRRect(rrect, Paint()..color = decoration.backgroundColor);
+    final outline = rrect.deflate(.5);
+    final borderPaint = Paint()
+      ..color = decoration.borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    if (!decoration.omitLeadingBorder || decoration.joinedAxis == null) {
+      canvas.drawRRect(outline, borderPaint);
+      return;
+    }
+    final direction = configuration.textDirection ?? TextDirection.ltr;
+    final clip = switch (decoration.joinedAxis!) {
+      Axis.vertical => Rect.fromLTRB(
+        rect.left - 1,
+        rect.top + 1.01,
+        rect.right + 1,
+        rect.bottom + 1,
+      ),
+      Axis.horizontal when direction == TextDirection.rtl => Rect.fromLTRB(
+        rect.left - 1,
+        rect.top - 1,
+        rect.right - 1.01,
+        rect.bottom + 1,
+      ),
+      Axis.horizontal => Rect.fromLTRB(
+        rect.left + 1.01,
+        rect.top - 1,
+        rect.right + 1,
+        rect.bottom + 1,
+      ),
+    };
+    canvas
+      ..save()
+      ..clipRect(clip)
+      ..drawRRect(outline, borderPaint)
+      ..restore();
+  }
+}
+
 class _DSelectRing extends StatelessWidget {
   const _DSelectRing({
     required this.color,
@@ -1760,7 +1857,7 @@ class _DSelectRing extends StatelessWidget {
   });
 
   final Color color;
-  final double radius;
+  final BorderRadius radius;
   final Widget child;
 
   @override
@@ -1777,20 +1874,12 @@ class _DSelectRingPainter extends CustomPainter {
   const _DSelectRingPainter(this.color, this.radius);
 
   final Color color;
-  final double radius;
+  final BorderRadius radius;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(-3, -3, size.width + 6, size.height + 6),
-        Radius.circular(radius + 3),
-      ),
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
-    );
+    final inner = radius.toRRect(Offset.zero & size);
+    canvas.drawDRRect(inner.inflate(3), inner, Paint()..color = color);
   }
 
   @override

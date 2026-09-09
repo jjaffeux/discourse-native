@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
 import 'd_spinner.dart';
@@ -549,7 +550,7 @@ class DButton extends StatelessWidget {
         ? iconOnlyDimension - flatSurfacePadding * 2
         : visualDimension;
     final enabled = onPressed != null && !loading;
-    final radius =
+    final baseRadius =
         borderRadius ??
         BorderRadius.circular(
           size == DButtonSize.extraSmall || size == DButtonSize.small
@@ -559,6 +560,11 @@ class DButton extends StatelessWidget {
                 )
               : tokens.radius,
         );
+    final direction = Directionality.of(context);
+    final joined = DJoinedControlScope.maybeOf(context);
+    final radius =
+        joined?.resolveRadius(baseRadius, direction) ??
+        baseRadius.resolve(direction);
 
     DButtonStateStyle withInteractiveBackground(DButtonStateStyle state) {
       final background = interactiveBackgroundColor;
@@ -667,7 +673,13 @@ class DButton extends StatelessWidget {
             : resolveState(states).border,
       ),
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: radius),
+        joined?.omitsLeadingBorder ?? false
+            ? _DButtonBorder(
+                borderRadius: radius,
+                joinedAxis: joined?.axis,
+                omitLeadingBorder: true,
+              )
+            : RoundedRectangleBorder(borderRadius: radius),
       ),
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       elevation: const WidgetStatePropertyAll(0),
@@ -699,7 +711,7 @@ class DButton extends StatelessWidget {
           final color = destructive ? tokens.destructive : tokens.focusRing;
           result = DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: radius.resolve(Directionality.of(context)),
+              borderRadius: radius,
               border: Border.all(
                 color: color.withValues(
                   alpha: destructive ? (dark ? .4 : .2) : .5,
@@ -809,6 +821,7 @@ class DButton extends StatelessWidget {
             style: style,
             focusNode: focusNode,
             autofocus: autofocus,
+            clipBehavior: joined == null ? null : Clip.none,
             child: child,
           )
         : FilledButton(
@@ -816,6 +829,7 @@ class DButton extends StatelessWidget {
             style: style,
             focusNode: focusNode,
             autofocus: autofocus,
+            clipBehavior: joined == null ? null : Clip.none,
             child: child,
           );
     if (!enabled) {
@@ -844,6 +858,101 @@ class DButton extends StatelessWidget {
   }
 }
 
+/// A rounded button outline that can omit only the shared leading edge.
+///
+/// Material's regular `side` is uniform, while base-nova removes the second
+/// control's leading border. Clipping that one painted edge avoids doubled
+/// seams without changing hit testing, layout, or the control's outer edges.
+class _DButtonBorder extends OutlinedBorder {
+  const _DButtonBorder({
+    required this.borderRadius,
+    required this.joinedAxis,
+    required this.omitLeadingBorder,
+    super.side,
+  });
+
+  final BorderRadius borderRadius;
+  final Axis? joinedAxis;
+  final bool omitLeadingBorder;
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.all(side.strokeInset);
+
+  @override
+  _DButtonBorder copyWith({BorderSide? side}) => _DButtonBorder(
+    borderRadius: borderRadius,
+    joinedAxis: joinedAxis,
+    omitLeadingBorder: omitLeadingBorder,
+    side: side ?? this.side,
+  );
+
+  @override
+  ShapeBorder scale(double t) => _DButtonBorder(
+    borderRadius: borderRadius * t,
+    joinedAxis: joinedAxis,
+    omitLeadingBorder: omitLeadingBorder,
+    side: side.scale(t),
+  );
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRRect(borderRadius.toRRect(rect));
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRRect(borderRadius.toRRect(rect).deflate(side.strokeInset));
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    if (side.style == BorderStyle.none) return;
+    final inset = side.strokeInset;
+    final outline = borderRadius.toRRect(rect).deflate(inset);
+    if (!omitLeadingBorder || joinedAxis == null) {
+      canvas.drawRRect(outline, side.toPaint());
+      return;
+    }
+    final edge = side.width + 0.01;
+    final direction = textDirection ?? TextDirection.ltr;
+    final clip = switch (joinedAxis!) {
+      Axis.vertical => Rect.fromLTRB(
+        rect.left - side.width,
+        rect.top + edge,
+        rect.right + side.width,
+        rect.bottom + side.width,
+      ),
+      Axis.horizontal when direction == TextDirection.rtl => Rect.fromLTRB(
+        rect.left - side.width,
+        rect.top - side.width,
+        rect.right - edge,
+        rect.bottom + side.width,
+      ),
+      Axis.horizontal => Rect.fromLTRB(
+        rect.left + edge,
+        rect.top - side.width,
+        rect.right + side.width,
+        rect.bottom + side.width,
+      ),
+    };
+    canvas
+      ..save()
+      ..clipRect(clip)
+      ..drawRRect(outline, side.toPaint())
+      ..restore();
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _DButtonBorder &&
+      other.borderRadius == borderRadius &&
+      other.joinedAxis == joinedAxis &&
+      other.omitLeadingBorder == omitLeadingBorder &&
+      other.side == side;
+
+  @override
+  int get hashCode =>
+      Object.hash(borderRadius, joinedAxis, omitLeadingBorder, side);
+}
+
 // ButtonStyleButton retains native Actions/Focus and activation semantics.
 // Navigation must not expose the button role inherited by FilledButton.
 class _DLinkPrimitive extends FilledButton {
@@ -853,6 +962,7 @@ class _DLinkPrimitive extends FilledButton {
     super.style,
     super.focusNode,
     super.autofocus,
+    super.clipBehavior,
   });
 
   @override
