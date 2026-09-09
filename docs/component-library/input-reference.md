@@ -162,3 +162,27 @@ Actual command results, final source/build provenance and native observations
 are recorded below when complete. Native inspection has not yet occurred; the
 coordinator has reported the Mac locked. No reference parity or review-ready
 claim is made by passing tests.
+
+### Prepared native build
+
+Implementation source: `ae4aa4a8b33115981a15b23fa714fb87501fab6e`.
+Command: `flutter build macos --debug --no-pub -t tool/input_review_main.dart`.
+Build log: `/tmp/input-final-native-build.log`.
+Isolated copy: `/private/tmp/DiscourseInputReview-01a083ad.app`.
+Bundle ID: `org.discourse.native.input.01a083ad`; display name:
+`Input Review 01a083ad`; URL scheme: `discourse-input-review-01a083ad`.
+Deep strict ad-hoc signature verification passed. The source-build and isolated
+copy kernel SHA256 are both
+`f9d9ddb13dba95a076d165d84db1eafcbfd3215232bb161782ad53b17e647089`.
+Only the isolated copy's Info.plist and signature were adjusted. The real
+running app and the main checkout build directory were not touched. The bundle
+has not been launched; desktop authorization and native comparison are pending.
+
+Final focused impact run (19 suites, seed `928374611`): 357 passed and one new
+semantics assertion required a frame pump before reading its updated value.
+After that test-only correction, all 12 Input tests and the Button adoption
+guard passed (13 total) with the same seed. The broad run includes Voice, Chat,
+link editing, app validation/stale-session behavior, Sidebar and documentation
+navigation. Logs: `/tmp/input-final-focused.log`, `/tmp/input-final-unit.log`.
+Root and full-profile final analysis logs:
+`/tmp/input-final-analysis.log`, `/tmp/input-final-full-analysis.log`.
