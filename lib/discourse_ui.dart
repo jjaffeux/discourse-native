@@ -1,8 +1,6 @@
 /// Reusable native UI. Components accept values and callbacks, never services.
 library;
 
-// Baseline exports move into src/ui/components in their catalogue tasks.
-export 'src/shell/select.dart';
 export 'src/ui/components/d_alert.dart';
 export 'src/ui/components/d_aspect_ratio.dart';
 export 'src/ui/components/d_avatar.dart';
@@ -27,6 +25,7 @@ export 'src/ui/components/d_progress.dart';
 export 'src/ui/components/d_radio_group.dart';
 export 'src/ui/components/d_resizable.dart';
 export 'src/ui/components/d_scroll_area.dart';
+export 'src/ui/components/d_select.dart';
 export 'src/ui/components/d_separator.dart';
 export 'src/ui/components/d_sidebar.dart';
 export 'src/ui/components/d_skeleton.dart';
