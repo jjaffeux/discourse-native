@@ -148,3 +148,35 @@ Kernel SHA256: `2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034
 No CUA/browser/native inspection, screenshot comparison, iOS/Linux device run,
 or spoken VoiceOver test has occurred. Keep in_progress / awaiting_slot; this
 checkpoint is not review_ready or mergeable.
+
+## Pinned-main integration follow-up
+
+Merged coordinator-pinned `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` in
+`a2984ddb589533370262b77270dab688e8b0a4bc`. All non-Progress rows match that
+pinned main exactly. Preserved merged Button, Badge, Input, Radio, Checkbox,
+shared application fixes, and Progress adapters. Generic Progress source is
+unchanged; no speculative visual correction was made. DButton controls now
+use the final merged component, superseding the earlier baseline dependency note.
+
+142 integration tests passed, seed 9092026 (`/tmp/progress-integration-tests.log`):
+Progress/component examples/offline fixture, update accessibility, Assign view,
+composer uploads, Event Card, Badge/Users pages, assignment sheet and Button
+adoption. Root/full analysis passed (`/tmp/progress-integration-analysis.log`,
+`/tmp/progress-integration-full-analysis.log`). Locked pub get passed; root
+rewrote only shared_preferences_platform_interface's dependency classification,
+which was restored to avoid unrelated lockfile churn. No pin/dependency changes.
+
+The exclusive browser-only reference slot was released immediately after the
+first official page navigation was denied: admin-enforced browser security
+policy could not be verified. No retry, indirect workaround, native app action,
+website theme change, computed browser geometry, or rendered comparison occurred.
+The failed batched call may have created a blank task-owned tab before navigation;
+its existence/cleanup could not be verified without another browser operation.
+No tab was marked to persist; ordinary browser-session cleanup owns it. Native
+access remains explicitly ungranted. Both reference and native gates are pending.
+
+The refreshed r2 bundle uses restricted-free local debug entitlements (JIT,
+unsigned executable memory, debug attachment, network client/server), without
+APNs, application-identifier, team identity or provisioning entitlements. This
+changes only the isolated review copy, never the real app or project signing.
+See updated native-manifest.json for exact source and payload trace.

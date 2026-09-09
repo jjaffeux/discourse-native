@@ -1150,6 +1150,7 @@ Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/u
 - Root/full locked pub get and root/full analyze --no-pub pass; no lockfile/pin/dependency/runner source changes.
 - 302 focused tests passed, seed 9092026; after timing/typography/example refinements 10 component/example/fixture cases passed again. Commands and logs recorded in implementation.md.
 - Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034.
+- Pinned-main integration: 142 focused tests pass seed9092026; root/full analysis clean. Refreshed /tmp/DiscourseProgressc8r2.app matches source a2984ddb589533370262b77270dab688e8b0a4bc and all built Flutter assets. Kernel d7ec6e8f4046cdc6db93fb6546d22ac5c64d69faa2325b95082db0623e85808b. Deep strict ad-hoc signature and exact restricted-free entitlement readback pass; details in native-manifest.json.
 
 **limitations**
 
