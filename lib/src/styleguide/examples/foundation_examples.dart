@@ -32,33 +32,6 @@ Container(
   ],
 );
 
-final baselineSelectExamples = ComponentExamples(
-  description: 'Choose a value from a list of options.',
-  status: ComponentStatus.baseline,
-  notes:
-      'Existing native dropdown adapter. The Select task will add '
-      'complete composition, states, lifecycle, and migrate core and plugin forms.',
-  examples: [
-    StyleguideExample(
-      title: 'Controlled selection',
-      description:
-          'A self-contained selection with long labels and '
-          'an unavailable option.',
-      states: const ['Selected', 'Disabled option', 'Keyboard', 'Long text'],
-      code: '''DSelect<String>(
-  value: value,
-  isExpanded: true,
-  items: const [
-    DropdownMenuItem(value: 'all', child: Text('All activity')),
-    DropdownMenuItem(value: 'mentions', child: Text('Mentions only')),
-  ],
-  onChanged: (next) => setState(() => value = next!),
-)''',
-      builder: (_) => const _SelectPreview(),
-    ),
-  ],
-);
-
 class _TokenPreview extends StatelessWidget {
   const _TokenPreview();
 
@@ -164,46 +137,6 @@ class _ButtonPreviewState extends State<_ButtonPreview> {
       ),
       const SizedBox(height: DSpacing.md),
       Semantics(liveRegion: true, child: Text('Actions: $_count')),
-    ],
-  );
-}
-
-class _SelectPreview extends StatefulWidget {
-  const _SelectPreview();
-
-  @override
-  State<_SelectPreview> createState() => _SelectPreviewState();
-}
-
-class _SelectPreviewState extends State<_SelectPreview> {
-  String _value = 'all';
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text('Notifications'),
-      DSelect<String>(
-        value: _value,
-        isExpanded: true,
-        items: const [
-          DropdownMenuItem(value: 'all', child: Text('All activity')),
-          DropdownMenuItem(
-            value: 'mentions',
-            child: Text('Mentions and replies to my posts'),
-          ),
-          DropdownMenuItem(
-            value: 'paused',
-            enabled: false,
-            child: Text('Paused (unavailable)'),
-          ),
-        ],
-        onChanged: (value) {
-          if (value != null) setState(() => _value = value);
-        },
-      ),
-      const SizedBox(height: DSpacing.md),
-      Semantics(liveRegion: true, child: Text('Selected: $_value')),
     ],
   );
 }
