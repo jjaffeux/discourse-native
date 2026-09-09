@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -620,29 +621,38 @@ class _DCarouselContentState extends State<DCarouselContent> {
             widget.extentResolver?.call(available) ?? widget.extentFraction;
         fraction = fraction.clamp(.01, 1);
         _ensurePageController(fraction);
+        final hostScrollBehavior = ScrollConfiguration.of(context);
         final viewport = NotificationListener<ScrollNotification>(
           onNotification: _notification,
-          child: PageView.builder(
-            key: const ValueKey('d-carousel-viewport'),
-            controller: _pageController,
-            scrollDirection: _scope.orientation,
-            physics: widget.physics,
-            padEnds: widget.alignment == DCarouselAlignment.center,
-            itemCount: _loops ? null : _count,
-            onPageChanged: _changed,
-            itemBuilder: (context, page) {
-              final index = _logicalPage(page);
-              return Semantics(
-                container: true,
-                label: 'Slide ${index + 1} of $_count',
-                child: Padding(
-                  padding: _scope.orientation == Axis.horizontal
-                      ? EdgeInsetsDirectional.only(end: widget.spacing)
-                      : EdgeInsets.only(bottom: widget.spacing),
-                  child: widget.children[index],
-                ),
-              );
-            },
+          child: ScrollConfiguration(
+            behavior: hostScrollBehavior.copyWith(
+              dragDevices: {
+                ...hostScrollBehavior.dragDevices,
+                PointerDeviceKind.mouse,
+              },
+            ),
+            child: PageView.builder(
+              key: const ValueKey('d-carousel-viewport'),
+              controller: _pageController,
+              scrollDirection: _scope.orientation,
+              physics: widget.physics,
+              padEnds: widget.alignment == DCarouselAlignment.center,
+              itemCount: _loops ? null : _count,
+              onPageChanged: _changed,
+              itemBuilder: (context, page) {
+                final index = _logicalPage(page);
+                return Semantics(
+                  container: true,
+                  label: 'Slide ${index + 1} of $_count',
+                  child: Padding(
+                    padding: _scope.orientation == Axis.horizontal
+                        ? EdgeInsetsDirectional.only(end: widget.spacing)
+                        : EdgeInsets.only(bottom: widget.spacing),
+                    child: widget.children[index],
+                  ),
+                );
+              },
+            ),
           ),
         );
         return ClipRect(

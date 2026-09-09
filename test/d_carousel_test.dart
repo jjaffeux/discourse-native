@@ -148,6 +148,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.selectedIndex, 1);
     expect(controller.scrollProgress, greaterThan(0));
+
+    final mouse = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('d-carousel-viewport'))),
+      kind: PointerDeviceKind.mouse,
+    );
+    await mouse.moveBy(const Offset(-260, 0));
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect(controller.selectedIndex, 2);
     semantics.dispose();
   });
 
