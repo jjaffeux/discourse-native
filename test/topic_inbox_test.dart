@@ -2085,6 +2085,7 @@ void main() {
     await _scrollReaderToTop(tester);
     await tester.tap(find.text('Manage details'));
     await tester.pumpAndSettle();
+    expect(find.byType(DPopoverContent), findsOneWidget);
     expect(find.text('Details: Topic 1 · Available'), findsOneWidget);
 
     shell.store.put(
@@ -2098,10 +2099,11 @@ void main() {
 
     await shell.jumpToCurrentTopicIndex(2);
     await tester.pumpAndSettle();
+    expect(find.byType(DPopoverContent), findsNothing);
     expect(find.text('Details: Updated topic · Saving'), findsNothing);
     expect(shell.currentContent?.topicId, 1);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'keeps the source list mounted across topic selection, back, and window resizing',
