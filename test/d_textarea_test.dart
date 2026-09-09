@@ -1,9 +1,8 @@
-import 'dart:ui' show SemanticsValidationResult;
-
-import 'package:flutter/semantics.dart';
+import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -38,7 +37,7 @@ void main() {
     expect(node.label, isNot(contains('Surrounding heading')));
     SemanticsNode? ancestor = tester.getSemantics(find.text('Send'));
     while (ancestor != null) {
-      expect(ancestor.hasFlag(SemanticsFlag.isTextField), isFalse);
+      expect(ancestor.getSemanticsData().flagsCollection.isTextField, isFalse);
       ancestor = ancestor.parent;
     }
     handle.dispose();
@@ -64,7 +63,7 @@ void main() {
           host(
             Column(
               children: [
-                Semantics(header: true, child: Text('Heading')),
+                Semantics(header: true, child: const Text('Heading')),
                 if (layout == 'row')
                   Row(
                     children: [
@@ -87,8 +86,11 @@ void main() {
           expect(node.rect.size, tester.getSize(find.byType(TextField).at(i)));
           expect(node.label, 'Message $i');
           expect(node.value, 'Draft $i');
-          expect(node.hasFlag(SemanticsFlag.isTextField), isTrue);
-          expect(node.hasFlag(SemanticsFlag.isRequired), isTrue);
+          expect(node.getSemanticsData().flagsCollection.isTextField, isTrue);
+          expect(
+            node.getSemanticsData().flagsCollection.isRequired,
+            Tristate.isTrue,
+          );
           expect(
             node.getSemanticsData().validationResult,
             SemanticsValidationResult.invalid,
@@ -97,16 +99,21 @@ void main() {
           expect(node.label, isNot(contains('Independent action')));
         }
         final action = tester.getSemantics(find.text('Independent action'));
-        expect(action.hasFlag(SemanticsFlag.isButton), isTrue);
+        expect(action.getSemanticsData().flagsCollection.isButton, isTrue);
         SemanticsNode? ancestor = action;
         while (ancestor != null) {
-          expect(ancestor.hasFlag(SemanticsFlag.isTextField), isFalse);
+          expect(
+            ancestor.getSemanticsData().flagsCollection.isTextField,
+            isFalse,
+          );
           ancestor = ancestor.parent;
         }
         expect(
           tester
               .getSemantics(find.text('Heading'))
-              .hasFlag(SemanticsFlag.isHeader),
+              .getSemanticsData()
+              .flagsCollection
+              .isHeader,
           isTrue,
         );
         expect(

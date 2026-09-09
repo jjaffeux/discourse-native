@@ -167,3 +167,34 @@ Linux device or spoken VoiceOver verification is claimed.
   root/full-profile analysis remained clean. `/tmp/textarea-final-component.log`.
 - Bundle is **unlaunched**. No CUA, browser tab, application focus or account
   interaction was used. Awaiting coordinator slot; this is not review_ready.
+
+
+### Accessibility boundary correction
+
+Source correction `c2d7026f` adds `container: true` to the native editor Semantics.
+The unadorned-field regression failed before the correction: editable semantics
+covered 320×64 rather than the 298×46 native TextField. The corrected test checks
+exact editor bounds and excludes the surrounding heading and any button beneath
+an editable ancestor. Separate Column/Row cases check each label/value, required
+and invalid metadata, independent heading/actions, and visible error semantics.
+The error remains its own announced live region instead of merging into the
+editor. Label activation still passes. Repro: `/tmp/textarea-ax-repro.log`.
+
+60 focused component/example/visual and migrated form tests passed. Final
+analyzer API cleanup passes all 12 component tests. Root and full-profile
+analysis are clean (`/tmp/textarea-ax-tests.log`, `/tmp/textarea-ax-final-test.log`,
+`/tmp/textarea-ax-analysis.log`, `/tmp/textarea-ax-full.log`).
+
+Native fixture rebuilt from correction source `c2d7026f`; later changes only
+modernize test assertions and record evidence. Production `lib/`, `tool/`, native
+and lockfile sources remain equal to that commit. New unlaunched bundle:
+`/private/tmp/DiscourseTextareaReview-01a08437-AX.app`, identifier
+`org.discourse.native.textarea.01a08437.ax`, scheme
+`discourse-textarea-review-01a08437-ax`. Source and copied kernel SHA256 both
+`be9603f36ffc05f2b2a1f7473cf99eec79f07852c369e93ae0ccf140df37e3fa`.
+Ad-hoc entitlements explicitly omit APS, team and application identifiers;
+readback confirms absence, and deep strict signature verification passes.
+Logs: `/tmp/textarea-ax-build.log`, `/tmp/textarea-ax-sign.log`.
+This bundle supersedes the earlier review copy. No UI actions were taken;
+Button owns the slot. Status remains in_progress/awaiting_slot, pending actual
+reference comparison and native AX/styleguide/production fixture inspection.
