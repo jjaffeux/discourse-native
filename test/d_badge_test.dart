@@ -53,7 +53,6 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
       expect(focus.hasFocus, isTrue);
-      expect(_decoration(tester).boxShadow, hasLength(1));
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
       await tester.tap(find.text('Count'));

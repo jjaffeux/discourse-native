@@ -20,3 +20,12 @@ scaling; its filename describes the underlying fixture, not overlay scaling.
 Native application review and VoiceOver remain pending. See `../../badge.md`
 and `../../badge-native.md` for observations, limitations, source mappings and
 signed build identity. No native app was launched during the browser-only slot.
+
+Exterior-ring followup: `ring-before/` was rendered from the previous source
+`45d85a99e12e9907a8c8d3ed882c8920b52d0f18`; current top-level Flutter exports
+include the correction. `reference-ring-css.json` preserves exact compiled CSS
+rules; `ring-pixel-regression.json` records the reproduced tint and pixel checks.
+Use `--dart-define=BADGE_RING_ONLY=true` with the harness for only ring states;
+`--dart-define=BADGE_EXPORT_DIR=/absolute/output/path` selects an existing output
+directory. This followup involved no UI access. Live focused/invalid comparison
+and native review remain pending.

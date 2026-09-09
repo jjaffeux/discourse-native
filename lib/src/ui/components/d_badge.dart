@@ -183,15 +183,13 @@ class _DBadgeState extends State<DBadge> {
         color: widget.backgroundColor ?? baseBackground,
         border: Border.all(color: border),
         borderRadius: radius,
-        boxShadow: [
-          if (focus || widget.invalid)
-            BoxShadow(
-              color: ringColor.withValues(
-                alpha: destructiveRing ? (dark ? .4 : .2) : .5,
-              ),
-              spreadRadius: 3,
-            ),
-        ],
+      ),
+      foregroundDecoration: _BadgeRing(
+        radius: radius,
+        width: focus ? 3 : 0,
+        color: ringColor.withValues(
+          alpha: destructiveRing ? (dark ? .4 : .2) : .5,
+        ),
       ),
       // Border-box h-5 centers the 16px line in 18px of interior space.
       padding: EdgeInsetsDirectional.fromSTEB(
@@ -324,4 +322,72 @@ class _DBadgeState extends State<DBadge> {
       ),
     ),
   );
+}
+
+/// CSS outer shadows exclude the border box, even with translucent backgrounds.
+/// A foreground decoration keeps the child clip independent of the exterior ring.
+class _BadgeRing extends Decoration {
+  const _BadgeRing({
+    required this.radius,
+    required this.width,
+    required this.color,
+  });
+
+  final BorderRadius radius;
+  final double width;
+  final Color color;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _BadgeRing &&
+      other.radius == radius &&
+      other.width == width &&
+      other.color == color;
+
+  @override
+  int get hashCode => Object.hash(radius, width, color);
+
+  @override
+  Decoration? lerpFrom(Decoration? a, double t) {
+    if (a is _BadgeRing) {
+      return _BadgeRing(
+        radius: BorderRadius.lerp(a.radius, radius, t)!,
+        width: a.width + (width - a.width) * t,
+        color: Color.lerp(a.color, color, t)!,
+      );
+    }
+    return super.lerpFrom(a, t);
+  }
+
+  @override
+  Decoration? lerpTo(Decoration? b, double t) =>
+      b is _BadgeRing ? b.lerpFrom(this, t) : super.lerpTo(b, t);
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _BadgeRingPainter(this);
+}
+
+class _BadgeRingPainter extends BoxPainter {
+  _BadgeRingPainter(this.ring);
+  final _BadgeRing ring;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    if (ring.width <= 0) return;
+    final inner = ring.radius
+        .toRRect(offset & configuration.size!)
+        .scaleRadii();
+    Radius expand(Radius radius) => radius == Radius.zero
+        ? Radius.zero
+        : radius + Radius.circular(ring.width);
+    final outer = RRect.fromRectAndCorners(
+      inner.outerRect.inflate(ring.width),
+      topLeft: expand(inner.tlRadius),
+      topRight: expand(inner.trRadius),
+      bottomLeft: expand(inner.blRadius),
+      bottomRight: expand(inner.brRadius),
+    );
+    canvas.drawDRRect(outer, inner, Paint()..color = ring.color);
+  }
 }

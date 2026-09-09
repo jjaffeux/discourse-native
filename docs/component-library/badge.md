@@ -42,7 +42,7 @@ CSS pixels map to Flutter logical pixels at a 16px rem root and 100% text scale.
 | ghost | transparent / foreground; hover muted (50% dark) / mutedForeground |
 | link | transparent / primary; underline on hover, no default underline |
 | focus-visible | 1px focusRing border with an outer 3px ring at 50% opacity; destructive ring at 20% light / 40% dark |
-| aria-invalid | destructive border and 3px ring, 20% light / 40% dark; invalid semantics |
+| aria-invalid | destructive border; ring color 20% light / 40% dark, with 3px width only during focus-visible; invalid semantics |
 | transition-all | 150ms easeInOut for decoration; disabled when reduced motion is enabled |
 | overflow-hidden | Rounded clipping of content inside the decoration; outer focus ring remains visible |
 
@@ -170,3 +170,28 @@ route inherits default text scaling, so it does not establish 200% overlay
 coverage. The native checklist remains pending. The reference dark theme was
 restored, no viewport override was applied, the sole task tab was closed, and
 the browser slot was explicitly released.
+
+## Exterior ring correction (2026-09-09)
+
+Six pixel regressions reproduced interior tinting from Flutter BoxShadow in
+light/dark ghost, outline and destructive badges. For example, a white ghost
+interior changed under focus although the background token remained transparent.
+`ring-pixel-regression.json` records exact before pixels; `ring-before/` contains
+exports rendered from the previous committed source. Updated `flutter-*-ring-*`
+images cover idle, focus, invalid idle and invalid focus for the three treatments.
+
+The ring now paints only the difference between the outer and inner rounded
+rectangles as an animated foreground decoration. It remains outside the child
+clip, adds no layout size, interpolates width/radius/color over the existing
+150ms duration, and respects reduced motion. Pixel tests replace the old
+BoxShadow-count assertion and verify unchanged interiors, 3px exterior extent,
+state colors, rounded corner exclusion, animation, disabled and focus removal.
+
+Frozen badge.json and the same hashed live compiled stylesheet confirm that
+aria-invalid only sets border and ring color. The 3px width utility is scoped to
+focus-visible. Idle invalid now has only the destructive border; focused invalid
+uses the destructive exterior ring. This is source fidelity, not a native
+adaptation. Exact compiled selectors and initial shadow value are preserved in
+`reference-ring-css.json`. No browser or native UI was accessed for this followup;
+new focused/invalid states still require live/native comparison in an assigned
+slot before review readiness.

@@ -21,8 +21,8 @@ checks were performed. This component is not `review_ready` yet.
   user's running application are unchanged.
 - All `lib/**/*.dart`, `tool/component_review/*.dart` and `test/support/*.dart`
   bytes match the current checkout. Sorted path + NUL + content manifest SHA256:
-  `de4845384d03b98c2b256b14c0c3f8c0fad05be958ff607c891701a0371934e8`.
-- Built kernel SHA256: `67aa39c270c5d327475f7b1d3e510b4e8dbe5ceff410366afff2a45958aa5d49`.
+  `6e87a28c8d82f59c3146e12161bdad6263fcf810f07f668b528092264d627c76`.
+- Built kernel SHA256: `f61d47a9c4e5d9e2be1ce0355c30eb398f4bb1e18e21b3e58a50e9b8f264720f`.
 
 ## Pending inspection plan
 
@@ -69,3 +69,15 @@ release it explicitly.
   (`/private/tmp/badge-export.log`). Reference screenshots and test-renderer
   images are clearly distinguished in `evidence/badge/`. The signed isolated
   bundle was rebuilt after the radius and SVG corrections, without launching.
+
+- Exterior ring followup: 46 affected checks pass with seed 792028 (45 permanent
+  tests and the export harness); root/full analysis clean. Logs:
+  `/private/tmp/badge-ring-final-tests.log`, `/private/tmp/badge-ring-analysis.log`,
+  `/private/tmp/badge-ring-full-analysis.log`. No UI touched.
+- Bundle rebuilt after the exterior-ring correction and signed again. Restricted
+  push/developer entitlements remain absent in the temporary runner. Entitlement
+  read-back equals the signing plist; exact source/kernel hashes and read-back
+  are saved in `evidence/badge/native-build-ring.json`. No native launch occurred.
+- Pending comparison specifically includes transparent/translucent focused
+  interiors and idle versus focused invalid states. Existing browser evidence
+  predates this correction; new widget exports do not replace a live comparison.

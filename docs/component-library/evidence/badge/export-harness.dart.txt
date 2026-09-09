@@ -17,8 +17,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const output =
-    '/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native/docs/component-library/evidence/badge';
+const output = String.fromEnvironment(
+  'BADGE_EXPORT_DIR',
+  defaultValue:
+      '/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native/docs/component-library/evidence/badge',
+);
 ThemeData neutral(bool dark) {
   final base = dark ? AppTheme.dark : AppTheme.light;
   final bg = Color(dark ? 0xff0a0a0a : 0xffffffff);
@@ -141,6 +144,9 @@ void main() {
       bool hover = false,
       ShellController? shell,
     }) async {
+      if (const bool.fromEnvironment('BADGE_RING_ONLY') &&
+          !name.contains('-ring-'))
+        return;
       tester.view.physicalSize = Size(width, height);
       final key = GlobalKey();
       await tester.pumpWidget(
@@ -231,6 +237,31 @@ void main() {
 
     for (final dark in [false, true]) {
       final prefix = dark ? 'dark' : 'light';
+      for (final variant in [
+        DBadgeVariant.ghost,
+        DBadgeVariant.outline,
+        DBadgeVariant.destructive,
+      ]) {
+        for (final (state, invalid, focused) in [
+          ('idle', false, false),
+          ('focus', false, true),
+          ('invalid-idle', true, false),
+          ('invalid-focus', true, true),
+        ]) {
+          await capture(
+            'flutter-neutral-$prefix-ring-${variant.name}-$state',
+            neutral(dark),
+            DBadge.action(
+              variant: variant,
+              invalid: invalid,
+              onPressed: () {},
+              child: Text(variant.name),
+            ),
+            focus: focused,
+          );
+        }
+      }
+
       for (final index in [0, 1, 2, 3, 4, 5]) {
         final example = badgeExamples.examples[index];
         await capture(
