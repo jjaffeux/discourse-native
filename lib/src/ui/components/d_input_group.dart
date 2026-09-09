@@ -227,11 +227,15 @@ class _DInputGroupState extends State<DInputGroup> {
       inputPadding: inputPadding,
       enabled: widget.enabled,
       child: touch && !multiline
-          ? ConstrainedBox(
-              constraints: const BoxConstraints(
-                minHeight: DSpacing.touchTarget,
+          ? GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _requestControlFocus,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: DSpacing.touchTarget,
+                ),
+                child: Align(heightFactor: 1, child: surface),
               ),
-              child: Align(heightFactor: 1, child: surface),
             )
           : surface,
     );
