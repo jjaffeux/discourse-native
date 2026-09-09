@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**21 of 64 components are merged locally.** 16 existing components are in progress; 27 are planned.
+**21 of 64 components are merged locally.** 17 existing components are in progress; 26 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -17,7 +17,7 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
 | textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
-| toggle | Implementation and checks | — | — |
+| toggle | independent review | 17e7778e | 01a08579-4e43-7ce2-9919-546137c84a24 |
 | progress | independent review | 1c21a435 | 01a08558-73d7-7d01-9b97-39615e28df0e |
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
@@ -30,6 +30,7 @@ Branch preparation does not mark a component merged or visually verified.
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | carousel | Implementation and checks | — | — |
+| toast | Implementation and checks | — | — |
 | alert | independent review | 38002135 | 01a08558-ae1e-7843-8cff-724c8e877ba5 |
 | chart | independent review | c782a940 | 01a08558-4ae6-7db2-bdd6-ee52e8570ff3 |
 
@@ -89,7 +90,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 50 | calendar | planned | — | — | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
 | 52 | carousel | in_progress | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | — |
-| 53 | toast | planned | — | — | button | — |
+| 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
 | 54 | alert | in_progress | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | — |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
@@ -1102,15 +1103,45 @@ Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Reproduce every frozen documented variant, behavior and composition with official source/geometry mapping and live host palette/font/radius integration.
-- Implement complete generic native APIs, state/controller lifecycle, keyboard/focus/semantics, touch, RTL, scaling, narrow layouts and reduced motion; every exposed feature must work.
-- Add all interactive styleguide examples and accurate usage; audit/migrate appropriate core and plugin usages with real application behavior preserved and retained alternatives documented.
-- Run meaningful focused component/consumer checks and root/full-profile analysis, prepare exact source/native evidence, then create a new independent reviewer task to finish acceptance and local main merge.
+- Match frozen base-nova default and outline variants, icon/text and icon-only compositions, 28/32/36px small/default/large artwork, disabled and Arabic RTL examples.
+- Provide genuine controlled pressed state and internally owned uncontrolled default state with change callbacks, borrowed focus-node lifecycle, pointer/touch/keyboard/semantic activation and disabled guards.
+- Match live palette/font/radius tokens, muted selected/hover/press surfaces, input-token outline, visible exterior focus/invalid rings, 48px touch targets, text scaling, narrow layout and reduced motion without resetting state.
+- Audit independent app on/off controls and migrate appropriate voice toolbar toggles while retaining async/domain ownership; retain momentary commands, navigation, tabs and mutually exclusive selection controls with specific reasons.
+- Register exhaustive interactive styleguide examples and verify focused component/styleguide/consumer tests plus root and full-profile static analysis before direct reviewer handoff.
 
 **decisions**
 
+- Frozen Markdown SHA-256 df0f3e67987ad00fc40be86458c43a330126f3babfd31134644c7fc0284ec7cc verified on 2026-09-09; base-nova registry and Base UI behavior API inspected directly.
+- CSS pixels map one-to-one to Flutter logical pixels at 100% text scale: h/min-w 28,32,36; horizontal padding 10; icon gap 4; icons 14 small and16 otherwise; font 12.8 small and14 otherwise; small radius min(.8x host radius,12), regular/large host radius.
+- DToggle exposes controlled pressed/onPressedChanged and internally owned initialPressed state. Borrowed FocusNode is never disposed; internally created focus state is owned by the widget.
+- The generic control uses native FocusableActionDetector/Actions/Shortcuts and Semantics(toggled:) ownership rather than Material or Cupertino artwork. Focus and invalid rings paint outside the transparent surface.
+- SelectedIcon supports the reference pressed bookmark fill while ordinary icon/child composition remains reusable by later Toggle Group without implementing group selection here.
 - The Button dependency is merged. Frozen examples cover default/outline, icon and text composition, default/sm/lg sizes, disabled and RTL plus public API behavior. Implement native pressed-toggle semantics and genuine controlled/uncontrolled toggling with keyboard/hover/press/focus and disabled state, matching measured reference artwork. Audit independent on/off formatting/view controls and plugin toolbar controls where appropriate; do not recast momentary actions, tab/navigation items or mutually exclusive selection as independent Toggle. Keep rich editor/IME/domain command ownership with app adapters. Toggle Group is a later catalogue component; build reusable Toggle suitable for composition without duplicating Toggle Group. Notify root when the final reviewer is created and after Toggle merges so Toggle Group can start.
 - Implementation uses the direct reviewer workflow; root is not an approval gate.
+
+**migrations**
+
+- Voice room mute, deafen, camera, screen-share, raise-hand and recording controls use controlled DToggle while VoiceController retains async media, permissions, confirmation and error ownership.
+- The persistent global Voice call mute control uses controlled DToggle and continues dispatching VoiceCallAction.toggleMuted through its existing port.
+
+**retainedAlternatives**
+
+- Composer bold/italic selection actions remain momentary domain commands: they transform the selected text, restore editor focus and do not expose an independent persistent pressed value.
+- Composer gallery grid/carousel buttons remain mutually exclusive selection pending Toggle Group; tabs, navigation, dialog launchers and other one-shot toolbar actions remain their existing button owners.
+- Presence and AI proofreading retain their associated row/DSwitch composition because they are full setting rows rather than compact pressed buttons.
+
+**verification**
+
+- Frozen Markdown SHA-256 matches catalogue exactly; base-nova registry and current Base UI Toggle API inspected directly and mapped in docs/component-library/toggle.md.
+- 7 focused Toggle component/example tests passed with randomized seed 9052026, covering controlled/uncontrolled ownership, pointer/Space/Enter/semantic activation, disabled guards, exact artwork and touch targets, state surfaces/rings, live theme/RTL/200%/reduced-motion retention and all frozen examples.
+- 258 Toggle, Voice adoption, retained composer toolbar and full styleguide tests passed with randomized seed 9052027.
+- Root and profiles/full flutter analyze --no-pub passed without diagnostics; root and full locked dependency resolution passed without dependency changes. Touched Dart formatting and git diff --check passed.
+- Unlaunched ordinary macOS styleguide debug build passed from source commit 271c1bddbd8332741e185d9924be7690e5628646 and was refreshed after latest-main/evidence reconciliation at 564051345421a6d603504046daeb8455583821dd. Toggle source SHA-256 966db63c7d1c41da694fd605f0970e692124beda4a2ac58324f122df50126176; refreshed kernel SHA-256 14d093ab5748a9c23a36c9b7c1480fa8ca642f2e58a06e003dab753978e306f5. This is build evidence only, not an isolated review bundle.
+
+**limitations**
+
+- Official browser/reference comparison and native light/dark/custom/RTL/200% hover/focus/pressed/disabled inspection remain for the independent reviewer.
+- The ordinary unlaunched build retains project developer entitlements and must not be used as the isolated review bundle. No native launch, CUA/browser action, spoken VoiceOver, physical iOS or Linux run, or pixel-equality claim was made by the implementer.
 
 ### slider
 
@@ -1977,6 +2008,23 @@ Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/u
 
 - Button is the implementation dependency and is merged; Card composition is also merged. Frozen sections include Sizes, Spacing, Orientation, Options, API, Events, Plugins and RTL. Reproduce complete documented behavior and native API counterparts, including responsive slide extents/spacing, horizontal/vertical and direction-aware navigation, previous/next enabled states, scrolling/selection events and controller lifecycle, options, and the demonstrated autoplay plugin behavior with correct interaction/reduced-motion/disposal handling. Inspect official Embla-linked behavior to define the actual supported native contract; no inert options or ornamental plugin API. Audit shell/composer_image_gallery.dart, shell/lightbox.dart, other media/page-view owners and plugins for appropriate adoption. Preserve zoom/pan, media lifecycle, keyboard navigation, accessibility and domain state; record retained grids or specialized viewers rather than converting inappropriate surfaces simply to add a usage. Provide real migrated local-data fixtures and all documented Card compositions.
 - Implementation uses the direct reviewer workflow; root is not an approval gate.
+
+### toast
+
+Status: in_progress. Task: 01a0857a-fcd6-7880-90c0-501e72f034df. Branch: codex/ui-toast.
+
+**acceptanceCriteria**
+
+- Faithfully port the frozen shadcn/Sonner Toast types, actions, promise behavior and documented native API contract, including real presentation, state and lifecycle behavior.
+- Implement complete scoped toaster/controller composition, timing/dismissal, stacking/positioning, accessibility/focus/keyboard, live themes and reduced motion without leaking callbacks or notices across disposed/replaced scopes.
+- Provide every documented interactive example and meaningful edge case using actual shared components; audit/migrate appropriate core/plugin transient notifications while preserving their app-owned behavior.
+- Verify meaningful focused timing/interaction/lifecycle and consumer regressions plus root/full analysis, then create a new independent reviewer to finish rendered/native acceptance and the local main merge.
+
+**decisions**
+
+- Toast includes Sonner under this one frozen catalogue row; Button is merged.
+- Transient ScaffoldMessenger/SnackBar usage is the adoption inventory; persistent inline status/error surfaces retain their Alert/Field/Empty meaning.
+- Source implementation hands directly to its own new Review and merge Toast task; root is not an approval gate.
 
 ### alert
 
