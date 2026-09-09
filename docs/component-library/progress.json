@@ -4065,7 +4065,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T13:06:41+00:00",
+    "updatedAt": "2026-09-09T14:44:56+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -4324,12 +4324,20 @@
     },
     "nativeInspectionBlocker": {
       "reason": "mac_locked",
-      "observedAt": "2026-09-09T07:44:57.141232+00:00",
-      "status": "resolved",
+      "observedAt": "2026-09-09T14:38:56.875854+00:00",
+      "status": "recurred",
       "userUnlockRequested": true,
-      "latestResult": "Switch CUA app selection twice reported: The Mac is locked and automatic unlock could not unlock it. Native review not performed; Switch explicitly released its slot in switch-native-handoff.md.",
-      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds continue; browser reference navigation is separately blocked.",
-      "resolution": "After the user unlock update, fresh native Switch CUA inspection succeeded. Coordinator viewed actual size-default-focus.png and matching accessibility tree from3243a88c, including on/off switch states in the updated styleguide. Dropdown Menu later completed its official browser and native macOS acceptance on the unlocked host."
+      "latestResult": "Navigation Menu acquired its second FIFO desktop lease after fresh-access confirmation; the first approved CUA getState call again reported that the Mac was locked and automatic unlock failed, so lease 83a9d71be9a44428acd3cbf4821aa9ab was released immediately. Context Menu reviewer 01a0861f-38ca-7122-b18f-5f286ab90ccb independently reported the same lock on the next FIFO probe and also released immediately. Neither reviewer performed or claimed official rendered browser/native acceptance.",
+      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds remain valid. Navigation Menu reviewer fixes, 37 focused tests, root/full analysis and its exact-source signed macOS fixture are preserved; only the required fresh official rendered comparison and native inspection remain blocked.",
+      "history": [
+        {
+          "reason": "mac_locked",
+          "observedAt": "2026-09-09T07:44:57.141232+00:00",
+          "status": "resolved",
+          "result": "Switch CUA app selection twice reported that the Mac was locked and automatic unlock could not unlock it. Native review was not performed; Switch explicitly released its slot in switch-native-handoff.md.",
+          "resolution": "After the user unlock update, fresh native Switch CUA inspection succeeded. Coordinator viewed actual size-default-focus.png and matching accessibility tree from 3243a88c, including on/off switch states in the updated styleguide. Dropdown Menu later completed its official browser and native macOS acceptance on the unlocked host."
+        }
+      ]
     },
     "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Use up to five running source implementation tasks as accepted dependencies or recorded prepared parent sources become available. Each implementer creates an independent reviewer that owns remaining acceptance and local merge. Prepared source does not satisfy rendered/native or accepted-parent gates. Desktop inspection uses the FIFO lease; main-checkout mutations use the separate exclusive main lease.",
