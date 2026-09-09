@@ -98,33 +98,59 @@ void main() {
     final example = menubarExamples.examples.first;
     await tester.binding.setSurfaceSize(const Size(360, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(
-          body: MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Builder(builder: example.builder),
+    for (final direction in TextDirection.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          key: ValueKey(direction),
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: Directionality(
+                textDirection: direction,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Builder(builder: example.builder),
+                ),
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('File'));
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.end);
-    await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
 
-    final bar = tester.getRect(find.byType(DMenubar));
-    final lastTrigger = tester.getRect(find.text('Profiles'));
-    expect(lastTrigger.left, greaterThanOrEqualTo(bar.left + 4));
-    expect(lastTrigger.right, lessThanOrEqualTo(bar.right - 4));
+      var bar = tester.getRect(find.byType(DMenubar));
+      var revealedTrigger = tester.getRect(find.text('File'));
+      expect(
+        revealedTrigger.left,
+        greaterThanOrEqualTo(bar.left + 4),
+        reason: direction.name,
+      );
+      expect(
+        revealedTrigger.right,
+        lessThanOrEqualTo(bar.right - 4),
+        reason: direction.name,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pumpAndSettle();
+
+      bar = tester.getRect(find.byType(DMenubar));
+      revealedTrigger = tester.getRect(find.text('Profiles'));
+      expect(
+        revealedTrigger.left,
+        greaterThanOrEqualTo(bar.left + 4),
+        reason: direction.name,
+      );
+      expect(
+        revealedTrigger.right,
+        lessThanOrEqualTo(bar.right - 4),
+        reason: direction.name,
+      );
+    }
   });
 
   testWidgets('icon example exposes the destructive command', (tester) async {

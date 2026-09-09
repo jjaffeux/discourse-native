@@ -393,7 +393,7 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
       Scrollable.ensureVisible(
         context,
         duration: DMotion.duration(context, DMotion.exit),
-        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        alignment: 0.5,
       );
     });
   }
