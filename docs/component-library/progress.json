@@ -1532,13 +1532,20 @@
     },
     {
       "id": "native-select",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
+      "branch": "codex/ui-native-select",
       "dependencies": [
         "label"
       ],
-      "acceptanceCriteria": [],
+      "acceptanceCriteria": [
+        "Port base-nova closed-control geometry (32/28px, 14/20px text, directional 10/32px padding, 16px chevron), token palette/radius, disabled opacity, invalid and keyboard focus rings.",
+        "Provide typed text options and disabled optgroups, placeholder, controlled and initial selection, Form save/reset/validation, borrowed focus lifecycle and accessible names.",
+        "Use Flutter DropdownButton as selection/popup owner, document exact platform adaptation distinct from custom rich Select; cover keyboard, touch, dismissal, scrolling, large text, RTL and theme changes.",
+        "Self-contained actual-component styleguide covers reference simple/groups/disabled/invalid/RTL plus form and state; audit core/plugins and migrate suitable simple selectors preserving callbacks and permission/busy guards.",
+        "Pass focused interaction/migration tests, touched format and root/full-profile analysis with unchanged pins/lockfiles; build isolated identifiable macOS local-data fixture with source/kernel/signature evidence.",
+        "Remain in_progress awaiting_slot until coordinator grants desktop and reference/native production-fixture review passes."
+      ],
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
@@ -2159,6 +2166,13 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native",
           "headCommit": "86bae370725c2f7db22bda5a7f999690ef1336bd",
           "status": "browser_and_test_renderer_review"
+        },
+        {
+          "component": "native-select",
+          "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
+          "branch": "codex/ui-native-select",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/89bf/discourse-native",
+          "baseCommit": "f979ad1e1b0e659cf40d3e5d9d44ded92556e392"
         }
       ],
       "nativeReadyTasks": [
@@ -2218,14 +2232,6 @@
           "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f",
           "headCommit": "a6b58ac8d0ea176e4e225449e14713c6761002d3",
           "status": "awaiting_native_review"
-        }
-      ],
-      "pendingTaskSetup": [
-        {
-          "component": "native-select",
-          "clientThreadId": "client-new-thread:a9ce85a6-49b0-49d9-8272-61e7ae77b239",
-          "branch": "codex/ui-native-select",
-          "baseCommit": "f979ad1e1b0e659cf40d3e5d9d44ded92556e392"
         }
       ]
     },
