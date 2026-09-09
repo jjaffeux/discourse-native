@@ -1,7 +1,9 @@
 # Alert Dialog reference and implementation mapping
 
-Reference date: **2026-09-08**  
-Frozen page: <https://ui.shadcn.com/docs/components/base/alert-dialog>  
+Reference date: **2026-09-08**
+
+Frozen page: <https://ui.shadcn.com/docs/components/base/alert-dialog>
+
 Frozen Markdown SHA-256: `ccc9147729b395b1d80ba6c9190ffbd5b556213571f958bb10c111a38b63c2da`
 
 The frozen Markdown was downloaded again on 2026-09-09 and matched the
