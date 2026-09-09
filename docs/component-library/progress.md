@@ -1164,6 +1164,7 @@ Status: merged. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-tog
 - Independent reviewer 01a085e6-4bb7-7e13-9e2a-98992292b4b3 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 7f4de6a88f41983a20ec757dd606153bca067500 is source evidence, not acceptance.
 - Independent review preserved DToggle as the visual, activation and pressed-semantic owner while DToggleGroup owns selection and roving coordination. Dynamic reconciliation now keeps focus on the surviving logical item, joined icon padding matches the frozen source, and focused joined items paint above sibling seams.
 - The documented Custom composition now uses accepted DField, DFieldLabel and DFieldDescription without DFieldControl because the group contains multiple independent controls. The production Composer retains gallery markup, selection identity, callbacks and editor focus around a controlled DToggleGroup<ComposerGalleryMode>.
+- A dependent Card composition preflight exposed that narrow scrollable groups moved keyboard focus without revealing the off-screen target. The follow-up uses the group's own-axis ScrollPosition and both keep-visible policies, including Flutter's left/up policy flip, while resolving the focused node by logical value after layout so dynamic removal and borrowed-node ownership remain safe.
 
 **migrations**
 
@@ -1182,6 +1183,7 @@ Status: merged. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-tog
 - Native acceptance exercised all nine examples, pointer selection, horizontal arrows and Home/End, dynamic controller updates, disabled blocking, joined focus layering, light/dark/Forest/Plum, RTL, reduced motion, 200% text and narrow layout. The real production Composer changed live markup between [grid] and [grid mode=carousel].
 - Final candidate f7c3fec516639bedf0e52137d8bc5c5e98d143a9 reconciled the accepted history onto main b2f425545756bf78798ae2e1635b261f1719b14d without relevant source overlap. The same 72 focused checks passed with seed 9052046; root and profiles/full flutter analyze --no-pub and locked resolution remained clean.
 - The repository main checkout merged the reviewed candidate with --no-ff as b77f25c9ac779f324dd3853590df0ce0dd27eaa9. No remote push, release or provisioning action was performed.
+- Follow-up commit d1815e50b850262e5f7ab2b0b8c75e1790a3ed14 adds 200% text regressions proving End/Home reveal horizontal LTR/RTL targets, End reveals vertical targets, and focus movement does not change selection before Space. Eleven component tests passed with seed 9052049; 75 Toggle/Composer checks passed with seed 9052048; root and profiles/full analysis remained clean.
 
 **limitations**
 
