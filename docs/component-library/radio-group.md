@@ -152,3 +152,23 @@ actual validator. Parent-driven controlled values, Form save and explicit reset
 continue working while read-only; declined reset preserves accepted state.
 
 Current API Markdown SHA256: `abd2d336d02fa7c04608c5ae1d21a903a447350e35b362e9770ff02d01e70dfd`.
+
+### Follow-up verification and replacement review bundle
+
+This supersedes the earlier review bundle for native inspection.
+
+- Executable source commit `88400eed4c5d4c2215b2df534e7b419c0258b9b1`, tree `3f37a23737e6bbf8af3d2182db910cda90b20409`.
+- 162 focused tests passed, seed 9092026; log `/tmp/radio-readonly-regression.log`.
+- Final 15 component tests passed with semantic-action binding and keyboard
+  override checks; `/tmp/radio-readonly-component-final.log`. Root/full analysis
+  clean; formatting and diff checks pass. No dependency or lockfile changes.
+- Committed-source macOS debug build passed; `/tmp/radio-readonly-build.log`.
+- Bundle `/private/tmp/discourse-radio-readonly-review-l6gbqvk1/Radio Group Readonly Review.app`.
+- ID `org.discourse.radio-group-readonly-review`; scheme `discourse-radio-group-readonly-review`.
+- Kernel SHA256 `c8399e45e0d59311d1bcebfc6fbef08400b7d3e29fab55ad1d36f95ef5416af9`; copied and original kernels match.
+- 725 library/fixture/support source files byte-match the source commit.
+- Deep strict ad-hoc signature verification passes. Only copied bundle identity
+  metadata changed. Main checkout/running app untouched; bundle not launched.
+- Native status remains awaiting_slot. No rendered comparison or device/speech
+  claims. The added Read-only and required example is in the actual styleguide
+  linked by the production fixture.
