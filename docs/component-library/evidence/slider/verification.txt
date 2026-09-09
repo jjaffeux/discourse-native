@@ -1,10 +1,10 @@
 Source: 3813f11df01e4a1db8d7b45fe0457d8f904f4d49
 
-Analyzing discourse-native...                                   
+Analyzing discourse-native...
 No issues found! (ran in 2.6s)
 
 profiles/full:
-Analyzing full...                                               
+Analyzing full...
 No issues found! (ran in 1.5s)
 
 Focused selection seed 4982:
@@ -18,7 +18,41 @@ Final frame safeguard, slider and controlled suites:
 00:00 +14: All tests passed!
 
 Final native build:
-Building macOS application...                                   
+Building macOS application...
 ✓ Built build/macos/Build/Products/Debug/Discourse.app
 
 No native launch or visual comparison has run.
+
+API follow-up final source: be5f02ff2df29fc42b97ecb36fee30ef6df24d1c
+
+Root analysis:
+Analyzing discourse-native...
+No issues found! (ran in 3.2s)
+
+Full profile analysis:
+Analyzing full...
+No issues found! (ran in 1.5s)
+
+Affected 100-test selection:
+00:15 +97: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/keyboard_navigation_test.dart: each tab restores its own list cursor (variant: TargetPlatform.linux)
+00:15 +98: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/keyboard_navigation_test.dart: a pending page cannot move the cursor in another tab (variant: TargetPlatform.linux)
+00:16 +99: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/keyboard_navigation_test.dart: manual post scrolling clears the reply target
+00:16 +100: All tests passed!
+
+Final 9 swap tests:
+00:00 +6: large steps default to absolute ten units and allow an explicit override
+00:00 +7: rejected swaps still finish native interaction with unchanged accepted values
+00:00 +8: multi-value Form saves accepted swaps and resets its initial range
+00:00 +9: All tests passed!
+
+36 media and fixture tests:
+00:03 +33: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/inline_video_test.dart: unsupported platform renders the external-open fallback
+00:03 +34: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/inline_video_test.dart: Linux document escapes attributes and locks down remote content
+00:03 +35: /Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native/test/inline_video_test.dart: Linux document scopes development HTTP to its loopback origin
+00:03 +36: All tests passed!
+
+Final r2 native build:
+Building macOS application...
+✓ Built build/macos/Build/Products/Debug/Discourse.app
+
+No native launch or reference comparison performed.

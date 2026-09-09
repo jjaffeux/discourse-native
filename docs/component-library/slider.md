@@ -144,22 +144,27 @@ desktop slot and both native production fixtures and reference comparisons pass.
 Bundle identity, source/kernel hashes and final command outcomes will be recorded
 in the progress row and native evidence record after the isolated build.
 
-## Prepared bundle
+## Prepared bundle (API follow-up)
 
-Final executable source: `3813f11df01e4a1db8d7b45fe0457d8f904f4d49`.
+Final executable source: `be5f02ff2df29fc42b97ecb36fee30ef6df24d1c`.
 [Native preparation evidence](evidence/slider/native-preparation.json) records
 source equality, tree IDs, Credits stamp, kernel hashes and signature output.
-Bundle: `/private/tmp/DiscourseSliderReview-01a083ce.app`.
-Identifier: `org.discourse.native.slider.01a083ce`.
-URL scheme: `discourse-slider-review-01a083ce`.
+Bundle: `/private/tmp/DiscourseSliderReview-01a083ce-r2.app`.
+Identifier: `org.discourse.native.slider.01a083ce.r2`.
+URL scheme: `discourse-slider-review-01a083ce-r2`.
 The source/copy kernel SHA256 is
-`1aae7dca646a7e21939f7c334e1fc16d29412d9a8869651b977b61baa0dbd6a0`.
+`6349ee6787314d4f9383576ac85d65e68435eb3d440bbef9762e2a7cec40988c`.
 Deep strict ad-hoc signature verification passed. Only the isolated copy's
 identity and signature were changed; its fixture entitlements omit push.
-The main checkout's application and build directory were untouched.
+The main checkout's application/build and original unlaunched review bundle
+were preserved. The older evidence is retained in
+[native-preparation-r1.json](evidence/slider/native-preparation-r1.json).
 
-The 217-test focused selection passed; after the final frame scheduling
-safeguard, all 14 Slider interaction/controlled tests passed again. Final source
-root and profiles/full analysis report no issues. See
-[verification output](evidence/slider/verification.txt). The bundle is **not
-launched** and remains queued for native inspection.
+Initial implementation verification passed 217 focused tests. The API follow-up
+passed 100 affected component, fixture, example, reading-keyboard and Chat
+regressions; all 9 final swap tests; and all 36 production fixture/video tests
+for the explicit seek increment. Final root and profiles/full analysis report
+no issues. See [verification output](evidence/slider/verification.txt).
+The refreshed bundle is **not launched** and remains queued for native
+inspection. No CUA, reference browser, iOS/Linux device or VoiceOver speech
+inspection was performed.
