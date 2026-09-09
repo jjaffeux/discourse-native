@@ -91,8 +91,7 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
         children: [
           const Text('This staff notice will be shown above the post.'),
           const SizedBox(height: 12),
-          TextField(
-            style: Theme.of(context).textTheme.bodyMedium,
+          DTextarea(
             key: const ValueKey('post-notice-text'),
             controller: _text,
             autofocus: true,
@@ -100,11 +99,7 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
             minLines: 4,
             maxLines: 8,
             onChanged: (_) => setState(() => _error = null),
-            decoration: const InputDecoration(
-              labelText: 'Notice',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
-            ),
+            labelText: 'Notice',
           ),
           if (_error case final error?) ...[
             const SizedBox(height: 8),
