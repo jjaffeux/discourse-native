@@ -11,6 +11,7 @@ Widget _host(
   TextDirection direction = TextDirection.ltr,
   TextScaler textScaler = TextScaler.noScaling,
   bool disableAnimations = false,
+  EdgeInsets viewInsets = EdgeInsets.zero,
   ThemeData? theme,
 }) => MaterialApp(
   theme: theme,
@@ -19,6 +20,7 @@ Widget _host(
       size: size,
       textScaler: textScaler,
       disableAnimations: disableAnimations,
+      viewInsets: viewInsets,
     ),
     child: Directionality(
       textDirection: direction,
@@ -330,6 +332,48 @@ void main() {
     final rect = tester.getRect(find.byType(DSheetContent));
     expect(rect.top, greaterThanOrEqualTo(0));
     expect(rect.bottom, lessThanOrEqualTo(640));
+  });
+
+  testWidgets('keyboard inset scrolls a capped fixed-height bottom sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      _host(
+        DSheet<void>(
+          trigger: DSheetTrigger(
+            builder: (context, open) =>
+                DButton(onPressed: open, label: const Text('Open')),
+          ),
+          content: const DSheetContent(
+            side: DSheetSide.bottom,
+            topBottomMaxHeightFactor: .85,
+            children: [
+              DSheetHeader(children: [DSheetTitle(child: Text('Room chat'))]),
+              SizedBox(height: 448, child: TextField()),
+            ],
+          ),
+        ),
+        size: const Size(320, 640),
+        viewInsets: const EdgeInsets.only(bottom: 300),
+        disableAnimations: true,
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.descendant(
+        of: find.byType(DSheetContent),
+        matching: find.byType(SingleChildScrollView),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.getRect(find.byType(DSheetContent)).bottom, 640);
   });
 
   testWidgets('showDSheet uses nearest Navigator and returns typed result', (

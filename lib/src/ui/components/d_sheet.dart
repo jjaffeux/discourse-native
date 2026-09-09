@@ -219,10 +219,11 @@ class DSheetContent extends StatelessWidget {
         _DSheetSideScope.maybeOf(context) ??
         side.resolve(Directionality.of(context));
     final fillsHeight = resolved.isHorizontal;
+    final hasBody = children.any((child) => child is DSheetBody);
     final scrollWholeSheet =
         (fillsHeight || topBottomMaxHeightFactor != null) &&
-        MediaQuery.textScalerOf(context).scale(1) > 1.5;
-    final hasBody = children.any((child) => child is DSheetBody);
+        (MediaQuery.textScalerOf(context).scale(1) > 1.5 ||
+            (topBottomMaxHeightFactor != null && !hasBody));
     final parts = <Widget>[];
     for (var index = 0; index < children.length; index++) {
       final child = children[index];
