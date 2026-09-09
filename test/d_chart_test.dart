@@ -69,6 +69,58 @@ Future<void> pump(
 );
 
 void main() {
+  testWidgets('Escape dismisses chart inspection then reaches its parent', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    final selection = DChartController(0);
+    addTearDown(focus.dispose);
+    addTearDown(selection.dispose);
+    var parentEscapes = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Focus(
+            canRequestFocus: false,
+            onKeyEvent: (_, event) {
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.escape) {
+                parentEscapes++;
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: DChartContainer(
+              config: const {'value': DChartConfigEntry(label: 'Value')},
+              child: DBarChart<int>(
+                data: const [1, 2],
+                series: [DChartSeries(key: 'value', value: (value) => value)],
+                label: (value) => '$value',
+                semanticLabel: 'Example',
+                focusNode: focus,
+                controller: selection,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(selection.value, isNull);
+    expect(parentEscapes, 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(parentEscapes, 1);
+    selection.value = 99;
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(parentEscapes, 2);
+    expect(selection.value, 99); // Invalid borrowed state is not rewritten.
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets(
     'Tab arrows endpoints Escape and semantics inspect the same data',
     (tester) async {

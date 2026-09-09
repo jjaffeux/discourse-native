@@ -67,12 +67,12 @@ Usage snippets include self-contained data and the full interactive widget.
 ## CSS-to-Flutter measurements
 
 Numbers below are source-derived logical pixels at 16px root rem / 100% text.
-They are **not** claims of a completed rendered browser comparison.
+Rendered comparison was subsequently completed in the browser-only slot; see [browser evidence](chart-browser-review.md). Native device review remains pending.
 
 | Reference geometry | Native mapping |
 | --- | --- |
 | `text-xs` | `DiscourseTypography.xs` = 12px; base 16px leading, weight 400, zero tracking, host font family. Tooltip row names/values use leading-none = 12px. Values use monospace/tabular figures and weight 500; labels weight 500. |
-| Chart measured dimensions | Explicit native plot height 200px, daily plot 250px, responsive bounded width. Native chart minimum retains 120px drawing space when axis text grows; empty data still measures. The first two examples use 16:9 with a 200px minimum; explicit-size steps use 200px. |
+| Chart measured dimensions | Explicit native plot height 200px, daily plot 250px, responsive bounded width. Native chart minimum retains 120px drawing space when axis text grows; empty data still measures. All five progressive examples use 16:9 with a 200px minimum; the legend reserves 28px inside that footprint. |
 | Bar groups | Default 10% category margin each side, 4px inter-series gap (reduced only when groups cannot fit), all-corner 4px explicit bar radius; 5px plot margin. These are plotting geometry, not host CSS rounded-class tokens. Daily bars use radius 0. |
 | Grid | Five horizontal tick positions, 1px strokes, `tokens.border` with **existing alpha multiplied by .5**. Rounded upper positive domain, zero/negative/missing input handled explicitly. |
 | Axis | Muted foreground; no baseline/tick strokes; 10px gap. Colliding labels skip at narrow/high-scale sizes and may ellipsize; full values remain inspectable. |

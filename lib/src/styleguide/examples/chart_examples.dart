@@ -60,7 +60,7 @@ final chartExamples = ComponentExamples(
         ][stage],
         description:
             'The reference January–June desktop/mobile values. '
-            'The first two steps use 16:9 with a 200px minimum; later steps use 200px.',
+            'All rendered steps use 16:9 with a 200px minimum, including the legend.',
         states: [
           if (stage >= 1) 'Grid',
           if (stage >= 2) 'Axis',
@@ -75,12 +75,14 @@ final chartExamples = ComponentExamples(
             children: [
               LayoutBuilder(
                 builder: (context, constraints) => DBarChart<_Month>(
-                  height: stage < 2
-                      ? (constraints.maxWidth * 9 / 16).clamp(
-                          200,
-                          double.infinity,
-                        )
-                      : 200,
+                  height:
+                      (constraints.maxWidth * 9 / 16).clamp(
+                        200,
+                        double.infinity,
+                      ) -
+                      (stage >= 4
+                          ? 12 + MediaQuery.textScalerOf(context).scale(16)
+                          : 0),
                   data: _months,
                   series: _series,
                   label: (datum) => datum.month,
@@ -125,19 +127,22 @@ final chartExamples = ComponentExamples(
           children: [
             for (final indicator in DChartIndicator.values)
               SizedBox(
-                width: 220,
+                width: indicator == DChartIndicator.line ? 144 : 128,
                 child: DChartTooltipContent(
                   label: 'Page Views',
                   indicator: indicator,
                   items: [
-                    const DChartItem(key: 'desktop', value: 186),
+                    DChartItem(
+                      key: 'desktop',
+                      value: indicator == DChartIndicator.line ? 12486 : 186,
+                    ),
                     if (indicator == DChartIndicator.dot)
                       const DChartItem(key: 'mobile', value: 80),
                   ],
                 ),
               ),
             const SizedBox(
-              width: 220,
+              width: 128,
               child: DChartTooltipContent(
                 label: 'Page Views',
                 hideLabel: true,
@@ -149,7 +154,7 @@ final chartExamples = ComponentExamples(
               ),
             ),
             const SizedBox(
-              width: 220,
+              width: 128,
               child: DChartTooltipContent(
                 hideLabel: true,
                 hideIndicator: true,
@@ -179,8 +184,8 @@ final chartExamples = ComponentExamples(
     StyleguideExample(
       title: 'RTL',
       description:
-          'The reference Arabic months and series labels. Categories and '
-          'series read from right to left; physical arrow direction follows the plot.',
+          'The reference Arabic months and series labels. Categories '
+          'read from right to left; series retain their source order.',
       states: const ['Arabic', 'RTL', 'Grid', 'Tooltip', 'Legend'],
       code: _rtlCode,
       builder: (_) => Directionality(
@@ -199,20 +204,30 @@ final chartExamples = ComponentExamples(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DBarChart<_Month>(
-                data: _months,
-                series: _series,
-                label: (datum) => const [
-                  'يناير',
-                  'فبراير',
-                  'مارس',
-                  'أبريل',
-                  'مايو',
-                  'يونيو',
-                ][_months.indexOf(datum)],
-                semanticLabel: 'الزوار شهريا',
-                grid: true,
-                axis: true,
+              LayoutBuilder(
+                builder: (context, constraints) => DBarChart<_Month>(
+                  height:
+                      (constraints.maxWidth * 9 / 16).clamp(
+                        200,
+                        double.infinity,
+                      ) -
+                      12 -
+                      MediaQuery.textScalerOf(context).scale(16),
+                  tickFormatter: (label) => label.substring(0, 3),
+                  data: _months,
+                  series: _series,
+                  label: (datum) => const [
+                    'يناير',
+                    'فبراير',
+                    'مارس',
+                    'أبريل',
+                    'مايو',
+                    'يونيو',
+                  ][_months.indexOf(datum)],
+                  semanticLabel: 'الزوار شهريا',
+                  grid: true,
+                  axis: true,
+                ),
               ),
               const DChartLegendContent(items: _legend),
             ],
@@ -255,7 +270,7 @@ DChartContainer(config: {
 }, child: Column(mainAxisSize: MainAxisSize.min, children: [
   LayoutBuilder(builder: (context, constraints) =>
     DBarChart<({String month, int desktop, int mobile})>(
-    height: ${stage < 2 ? "(constraints.maxWidth * 9 / 16).clamp(200, double.infinity)" : "200"},
+    height: (constraints.maxWidth * 9 / 16).clamp(200, double.infinity)${stage >= 4 ? " - 12 - MediaQuery.textScalerOf(context).scale(16)" : ""},
     data: data, label: (datum) => datum.month,
     semanticLabel: 'Monthly visitors',
     series: [
@@ -282,6 +297,28 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
     builder: (context, constraints) {
       final wide = constraints.maxWidth >= 640;
       final tokens = DTokens.of(context);
+      final totalWidths = <String, double>{};
+      for (final key in ['desktop', 'mobile']) {
+        final text = MaterialLocalizations.of(context).formatDecimal(
+          _days.fold<int>(
+            0,
+            (sum, day) => sum + (key == 'desktop' ? day.desktop : day.mobile),
+          ),
+        );
+        final painter = TextPainter(
+          text: TextSpan(
+            text: text,
+            style: Theme.of(context).textTheme.labelLarge!.copyWith(
+              fontSize: DiscourseTypography.xxxl,
+              height: 1,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        totalWidths[key] = painter.width + 65;
+      }
       final heading = Padding(
         padding: EdgeInsets.fromLTRB(24, wide ? 0 : 16, 24, wide ? 0 : 12),
         child: const Column(
@@ -289,15 +326,27 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 4,
           children: [
-            DCardTitle(child: Text('Bar Chart - Interactive')),
+            Text(
+              'Bar Chart - Interactive',
+              style: TextStyle(
+                fontSize: 15,
+                height: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             DCardDescription(child: Text('Showing total visitors for April')),
           ],
         ),
       );
-      final choices = Row(
+      final stackChoices =
+          !wide && MediaQuery.textScalerOf(context).scale(18) > 24;
+      final choices = Wrap(
         children: [
           for (final key in ['desktop', 'mobile'])
-            Expanded(
+            SizedBox(
+              width: wide
+                  ? totalWidths[key]
+                  : constraints.maxWidth / (stackChoices ? 1 : 2),
               child: Semantics(
                 selected: _active == key,
                 child: DecoratedBox(
@@ -378,7 +427,10 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
                   ? Row(
                       children: [
                         Expanded(child: heading),
-                        SizedBox(width: 288, child: choices),
+                        SizedBox(
+                          width: totalWidths.values.reduce((a, b) => a + b),
+                          child: choices,
+                        ),
                       ],
                     )
                   : Column(
@@ -390,9 +442,9 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
             Padding(
               padding: EdgeInsets.fromLTRB(
                 wide ? 24 : 8,
-                wide ? 24 : 0,
+                wide ? 48 : 24,
                 wide ? 24 : 8,
-                16,
+                40,
               ),
               child: DChartContainer(
                 config: _config,
@@ -408,10 +460,14 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
                   label: (datum) => 'April ${datum.day}, 2024',
                   semanticLabel: 'Daily visitors',
                   height: 250,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  tickMargin: 8,
+                  minTickGap: 32,
                   grid: true,
                   axis: true,
                   barRadius: 0,
-                  tickFormatter: (label) => label.split(',').first,
+                  tickFormatter: (label) =>
+                      label.split(',').first.replaceFirst('April', 'Apr'),
                   tooltipBuilder: (context, label, items) =>
                       DChartTooltipContent(
                         items: items,
@@ -615,12 +671,12 @@ const _tooltipCode = '''DChartContainer(config: {
   'mobile': DChartConfigEntry(label: 'Mobile', color: (c) => DTokens.of(c).colors.tertiary),
 }, child: Wrap(spacing: 24, runSpacing: 24, children: [
   for (final indicator in DChartIndicator.values)
-    SizedBox(width: 220, child: DChartTooltipContent(
+    SizedBox(width: 128, child: DChartTooltipContent(
       label: 'Page Views', indicator: indicator,
       items: [DChartItem(key: 'desktop', value: 186),
         if (indicator == DChartIndicator.dot) DChartItem(key: 'mobile', value: 80)],
     )),
-  SizedBox(width: 220, child: DChartTooltipContent(
+  SizedBox(width: 128, child: DChartTooltipContent(
     hideLabel: true, hideIndicator: true,
     items: [DChartItem(key: 'desktop', value: 1286)],
   )),
@@ -705,6 +761,28 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
     builder: (context, constraints) {
       final wide = constraints.maxWidth >= 640;
       final tokens = DTokens.of(context);
+      final totalWidths = <String, double>{};
+      for (final key in ['desktop', 'mobile']) {
+        final text = MaterialLocalizations.of(context).formatDecimal(
+          _days.fold<int>(
+            0,
+            (sum, day) => sum + (key == 'desktop' ? day.desktop : day.mobile),
+          ),
+        );
+        final painter = TextPainter(
+          text: TextSpan(
+            text: text,
+            style: Theme.of(context).textTheme.labelLarge!.copyWith(
+              fontSize: DiscourseTypography.xxxl,
+              height: 1,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        totalWidths[key] = painter.width + 65;
+      }
       final heading = Padding(
         padding: EdgeInsets.fromLTRB(24, wide ? 0 : 16, 24, wide ? 0 : 12),
         child: const Column(
@@ -712,15 +790,27 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 4,
           children: [
-            DCardTitle(child: Text('Bar Chart - Interactive')),
+            Text(
+              'Bar Chart - Interactive',
+              style: TextStyle(
+                fontSize: 15,
+                height: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             DCardDescription(child: Text('Showing total visitors for April')),
           ],
         ),
       );
-      final choices = Row(
+      final stackChoices =
+          !wide && MediaQuery.textScalerOf(context).scale(18) > 24;
+      final choices = Wrap(
         children: [
           for (final key in ['desktop', 'mobile'])
-            Expanded(
+            SizedBox(
+              width: wide
+                  ? totalWidths[key]
+                  : constraints.maxWidth / (stackChoices ? 1 : 2),
               child: Semantics(
                 selected: _active == key,
                 child: DecoratedBox(
@@ -801,7 +891,10 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
                   ? Row(
                       children: [
                         Expanded(child: heading),
-                        SizedBox(width: 288, child: choices),
+                        SizedBox(
+                          width: totalWidths.values.reduce((a, b) => a + b),
+                          child: choices,
+                        ),
                       ],
                     )
                   : Column(
@@ -813,9 +906,9 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
             Padding(
               padding: EdgeInsets.fromLTRB(
                 wide ? 24 : 8,
-                wide ? 24 : 0,
+                wide ? 48 : 24,
                 wide ? 24 : 8,
-                16,
+                40,
               ),
               child: DChartContainer(
                 config: _config,
@@ -831,10 +924,14 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
                   label: (datum) => 'April ${datum.day}, 2024',
                   semanticLabel: 'Daily visitors',
                   height: 250,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  tickMargin: 8,
+                  minTickGap: 32,
                   grid: true,
                   axis: true,
                   barRadius: 0,
-                  tickFormatter: (label) => label.split(',').first,
+                  tickFormatter: (label) =>
+                      label.split(',').first.replaceFirst('April', 'Apr'),
                   tooltipBuilder: (context, label, items) =>
                       DChartTooltipContent(
                         items: items,
@@ -884,7 +981,4 @@ const _days = <_Day>[
   (day: 29, desktop: 315, mobile: 240),
   (day: 30, desktop: 454, mobile: 380),
 ];
-
-
-// Mount const ChartInteractiveExample() in a MaterialApp.
 ''';

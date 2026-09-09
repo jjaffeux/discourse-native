@@ -125,44 +125,88 @@ class DChartTooltipContent extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w500),
                     ));
     final nested = visible.length == 1 && indicator != DChartIndicator.dot;
+    double measure(String value, {bool mono = false}) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: value,
+          style: _chartText(
+            context,
+          ).copyWith(fontFamily: mono ? 'monospace' : null),
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      return painter.width;
+    }
+
+    final preferredWidth = itemBuilder != null
+        ? 220.0
+        : math.max(
+            128.0,
+            math.max(
+              hideLabel ? 0 : measure(labelText ?? '') + 22,
+              visible.fold<double>(
+                0,
+                (width, item) => math.max(
+                  width,
+                  measure(
+                        scope.entry(nameKey ?? item.key, item.payload)?.label ??
+                            item.key,
+                      ) +
+                      (item.value == null
+                          ? 0
+                          : measure(
+                              valueFormatter?.call(item.value!) ??
+                                  _formatValue(context, item.value!),
+                              mono: true,
+                            )) +
+                      (hideIndicator ? 0 : 18) +
+                      22,
+                ),
+              ),
+            ),
+          );
     return DefaultTextStyle(
       style: _chartText(context),
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 128),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: tokens.background,
-          borderRadius: BorderRadius.circular(tokens.radius),
-          border: Border.all(
-            color: tokens.border.withValues(alpha: tokens.border.a * .5),
+      child: SizedBox(
+        width: preferredWidth.toDouble(),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 128),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: tokens.background,
+            borderRadius: BorderRadius.circular(tokens.radius),
+            border: Border.all(
+              color: tokens.border.withValues(alpha: tokens.border.a * .5),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .1),
+                offset: const Offset(0, 20),
+                blurRadius: 25,
+                spreadRadius: -5,
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .1),
+                offset: const Offset(0, 8),
+                blurRadius: 10,
+                spreadRadius: -6,
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .1),
-              offset: const Offset(0, 20),
-              blurRadius: 25,
-              spreadRadius: -5,
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .1),
-              offset: const Offset(0, 8),
-              blurRadius: 10,
-              spreadRadius: -6,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 6,
-          children: [
-            if (!nested && heading != null) heading,
-            for (var index = 0; index < visible.length; index++)
-              if (itemBuilder != null)
-                itemBuilder!(context, visible[index], index)
-              else
-                _row(context, scope, visible[index], nested ? heading : null),
-          ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 6,
+            children: [
+              if (!nested && heading != null) heading,
+              for (var index = 0; index < visible.length; index++)
+                if (itemBuilder != null)
+                  itemBuilder!(context, visible[index], index)
+                else
+                  _row(context, scope, visible[index], nested ? heading : null),
+            ],
+          ),
         ),
       ),
     );
@@ -180,57 +224,65 @@ class DChartTooltipContent extends StatelessWidget {
         item.color ??
         config?.color?.call(context) ??
         scope.color(context, item.key);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      spacing: 8,
-      children: [
-        if (config?.icon != null)
-          IconTheme(
-            data: IconThemeData(
-              size: 10,
-              color: DTokens.of(context).mutedForeground,
+    return LayoutBuilder(
+      builder: (context, constraints) => Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (config?.icon != null)
+            IconTheme(
+              data: IconThemeData(
+                size: 10,
+                color: DTokens.of(context).mutedForeground,
+              ),
+              child: config!.icon!(context),
+            )
+          else if (!hideIndicator)
+            _ChartIndicator(
+              color: markColor,
+              indicator: indicator,
+              height: heading == null
+                  ? MediaQuery.textScalerOf(context).scale(12)
+                  : MediaQuery.textScalerOf(context).scale(28) + 6,
             ),
-            child: config!.icon!(context),
-          )
-        else if (!hideIndicator)
-          _ChartIndicator(
-            color: markColor,
-            indicator: indicator,
-            height: heading == null
-                ? MediaQuery.textScalerOf(context).scale(12)
-                : MediaQuery.textScalerOf(context).scale(28) + 6,
+          if (config?.icon != null || !hideIndicator) const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 6,
+              children: [
+                ?heading,
+                Text(
+                  config?.label ?? item.key,
+                  style: TextStyle(
+                    color: DTokens.of(context).mutedForeground,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
           ),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 6,
-            children: [
-              ?heading,
-              Text(
-                config?.label ?? item.key,
-                style: TextStyle(
-                  color: DTokens.of(context).mutedForeground,
-                  height: 1,
+          if (item.value != null)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: math.max(
+                  0,
+                  (constraints.maxWidth - (hideIndicator ? 0 : 18)) / 2,
                 ),
               ),
-            ],
-          ),
-        ),
-        if (item.value != null)
-          Flexible(
-            child: Text(
-              valueFormatter?.call(item.value!) ??
-                  _formatValue(context, item.value!),
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                height: 1,
-                fontWeight: FontWeight.w500,
-                fontFeatures: [FontFeature.tabularFigures()],
+              child: Text(
+                valueFormatter?.call(item.value!) ??
+                    _formatValue(context, item.value!),
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  height: 1,
+                  fontWeight: FontWeight.w500,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -252,7 +304,11 @@ class _ChartIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: indicator == DChartIndicator.dot ? 10 : 4,
+    width: switch (indicator) {
+      DChartIndicator.dot => 10,
+      DChartIndicator.line => 4,
+      DChartIndicator.dashed => 3,
+    },
     height: indicator == DChartIndicator.dot ? 10 : height,
     child: indicator == DChartIndicator.dashed
         ? CustomPaint(painter: _DashPainter(color))
@@ -442,10 +498,15 @@ class DBarChart<T> extends StatefulWidget {
     this.valueFormatter,
     this.height = 200,
     this.barRadius = 4,
+    this.margin = const EdgeInsets.all(5),
+    this.tickMargin = 10,
+    this.minTickGap = 5,
     this.minValue,
     this.maxValue,
   }) : assert(height > 0 && height < double.infinity),
        assert(barRadius >= 0 && barRadius < double.infinity),
+       assert(tickMargin >= 0 && tickMargin < double.infinity),
+       assert(minTickGap >= 0 && minTickGap < double.infinity),
        assert(
          minValue == null ||
              (minValue > -double.infinity && minValue < double.infinity),
@@ -478,6 +539,9 @@ class DBarChart<T> extends StatefulWidget {
   /// Minimum total height; grows to retain a 120px plot with scaled axis text.
   final double height;
   final double barRadius;
+  final EdgeInsetsGeometry margin;
+  final double tickMargin;
+  final double minTickGap;
 
   /// Optional explicit domain. Values outside it are clipped to the plot.
   final double? minValue;
@@ -491,6 +555,11 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
   late DChartController _controller;
   late FocusNode _focus;
   bool _focusHighlight = false;
+  double? _pointerY;
+  void _inspect(Offset point, int? index) {
+    setState(() => _pointerY = point.dy);
+    _select(index);
+  }
 
   int? get _selected {
     final index = _controller.value;
@@ -552,11 +621,13 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
       return KeyEventResult.ignored;
     }
     if (event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_selected == null) return KeyEventResult.ignored;
       _select(null);
       return KeyEventResult.handled;
     }
     if (widget.data.isEmpty) return KeyEventResult.ignored;
     final rtl = Directionality.of(context) == TextDirection.rtl;
+    _pointerY = null;
     final delta = switch (event.logicalKey) {
       LogicalKeyboardKey.arrowRight => rtl ? -1 : 1,
       LogicalKeyboardKey.arrowLeft => rtl ? 1 : -1,
@@ -621,13 +692,28 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
         high = low + 1;
       }
     }
-    // Match the reference automatic axis's rounded upper domain.
-    if (widget.maxValue == null && high > 0) {
-      final magnitude = math
-          .pow(10, (math.log(high) / math.ln10).floor())
-          .toDouble();
-      final rounded = (high / magnitude).ceil() * magnitude;
-      if (rounded.isFinite) high = rounded;
+    // Five-tick source formatting: 305 → 80-step/320, 454 → 150-step/600.
+    if (widget.minValue == null && widget.maxValue == null) {
+      final normalization = math.max(low.abs(), high.abs());
+      final rough =
+          (high / normalization - low / normalization) * (normalization / 4);
+      if (rough.isFinite && rough > 0) {
+        final digits = (math.log(rough) / math.ln10).floor() + 1;
+        final unit = math.pow(10, digits).toDouble();
+        final scale = digits == 1 ? .1 : .05;
+        if (unit.isFinite && unit > 0) {
+          var step = (rough / unit / scale).ceil() * scale * unit;
+          while ((-low / step).ceil() + (high / step).ceil() > 4) {
+            step += scale * unit;
+          }
+          final nextLow = -(-low / step).ceil() * step;
+          final nextHigh = nextLow + step * 4;
+          if (nextLow.isFinite && nextHigh.isFinite) {
+            low = nextLow;
+            high = nextHigh;
+          }
+        }
+      }
     }
     final labels = widget.data.map(widget.label).toList();
     final scale = MediaQuery.textScalerOf(context);
@@ -674,7 +760,7 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
                     ),
               child: Container(
                 height: chartHeight,
-                decoration: BoxDecoration(
+                foregroundDecoration: BoxDecoration(
                   border: Border.all(
                     color: _focusHighlight
                         ? tokens.focusRing
@@ -695,11 +781,20 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
                             constraints.maxWidth / 3,
                           )
                         : 0.0;
+                    final insets = widget.margin.resolve(
+                      Directionality.of(context),
+                    );
                     final plot = Rect.fromLTWH(
-                      rtl ? 5 : gutter + 5,
-                      5,
-                      math.max(0, constraints.maxWidth - gutter - 10),
-                      math.max(0, constraints.maxHeight - axisHeight - 10),
+                      insets.left + (rtl ? 0 : gutter),
+                      insets.top,
+                      math.max(
+                        0,
+                        constraints.maxWidth - gutter - insets.horizontal,
+                      ),
+                      math.max(
+                        0,
+                        constraints.maxHeight - axisHeight - insets.vertical,
+                      ),
                     );
                     int? hit(Offset position) {
                       if (!plot.contains(position) ||
@@ -717,7 +812,10 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
                     }
 
                     return MouseRegion(
-                      onHover: (event) => _select(hit(event.localPosition)),
+                      onHover: (event) => _inspect(
+                        event.localPosition,
+                        hit(event.localPosition),
+                      ),
                       onExit: (_) {
                         if (!_focus.hasFocus) _select(null);
                       },
@@ -726,10 +824,15 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
                         excludeFromSemantics: true,
                         onTapDown: (event) {
                           _focus.requestFocus();
-                          _select(hit(event.localPosition));
+                          _inspect(
+                            event.localPosition,
+                            hit(event.localPosition),
+                          );
                         },
-                        onHorizontalDragUpdate: (event) =>
-                            _select(hit(event.localPosition)),
+                        onHorizontalDragUpdate: (event) => _inspect(
+                          event.localPosition,
+                          hit(event.localPosition),
+                        ),
                         child: Stack(
                           children: [
                             Positioned.fill(
@@ -756,6 +859,8 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
                                   ),
                                   cursorColor: tokens.muted,
                                   tickFormatter: widget.tickFormatter,
+                                  tickMargin: widget.tickMargin,
+                                  minTickGap: widget.minTickGap,
                                   valueFormatter:
                                       widget.valueFormatter ??
                                       (value) => _formatValue(context, value),
@@ -767,47 +872,47 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
                             if (selected != null &&
                                 widget.tooltip &&
                                 plot.width > 0)
-                              PositionedDirectional(
-                                top: 8,
-                                start:
-                                    ((selected + .5) /
-                                                labels.length *
-                                                plot.width +
-                                            12)
-                                        .clamp(
-                                          0.0,
-                                          math.max(
-                                            0,
-                                            constraints.maxWidth -
-                                                math.min(
-                                                  220,
-                                                  constraints.maxWidth,
-                                                ),
+                              Positioned.fill(
+                                child: CustomSingleChildLayout(
+                                  delegate: _ChartTooltipLayout(
+                                    anchor: Offset(
+                                      plot.left +
+                                          ((rtl
+                                                      ? labels.length -
+                                                            selected -
+                                                            1
+                                                      : selected) +
+                                                  .5) /
+                                              labels.length *
+                                              plot.width,
+                                      _pointerY ?? plot.center.dy,
+                                    ),
+                                    rtl: rtl,
+                                  ),
+                                  child: IntrinsicWidth(
+                                    child: ExcludeSemantics(
+                                      child: ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxHeight: constraints.maxHeight,
+                                          maxWidth: math.min(
+                                            220,
+                                            constraints.maxWidth,
                                           ),
                                         ),
-                                child: IntrinsicWidth(
-                                  child: ExcludeSemantics(
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxHeight: constraints.maxHeight - 8,
-                                        maxWidth: math.min(
-                                          220,
-                                          constraints.maxWidth,
+                                        child: SingleChildScrollView(
+                                          child:
+                                              widget.tooltipBuilder?.call(
+                                                context,
+                                                labels[selected],
+                                                rows[selected],
+                                              ) ??
+                                              DChartTooltipContent(
+                                                label: labels[selected],
+                                                items: rows[selected],
+                                                valueFormatter:
+                                                    widget.valueFormatter,
+                                              ),
                                         ),
-                                      ),
-                                      child: SingleChildScrollView(
-                                        child:
-                                            widget.tooltipBuilder?.call(
-                                              context,
-                                              labels[selected],
-                                              rows[selected],
-                                            ) ??
-                                            DChartTooltipContent(
-                                              label: labels[selected],
-                                              items: rows[selected],
-                                              valueFormatter:
-                                                  widget.valueFormatter,
-                                            ),
                                       ),
                                     ),
                                   ),
@@ -848,11 +953,14 @@ class _BarPainter extends CustomPainter {
     required this.cursorColor,
     required this.tickFormatter,
     required this.valueFormatter,
+    required this.tickMargin,
+    required this.minTickGap,
   });
   final List<List<DChartItem>> rows;
   final List<String> labels;
   final Rect plot;
   final double low, high, radius;
+  final double tickMargin, minTickGap;
   final bool grid, axis, valueAxis, rtl;
   final int? selected;
   final TextStyle textStyle;
@@ -915,19 +1023,18 @@ class _BarPainter extends CustomPainter {
       final row = rows[index];
       if (row.isNotEmpty) {
         final gap = math.min(4.0, slot * .8 / math.max(1, row.length * 2 - 1));
-        final width = math.max(
+        final rawWidth = math.max(
           0.0,
           (slot * .8 - gap * (row.length - 1)) / row.length,
         );
+        final width = rawWidth >= 1 ? rawWidth.floorToDouble() : rawWidth;
         for (var series = 0; series < row.length; series++) {
           final item = row[series];
           if (item.value == null || item.hidden) continue;
           final zero = y(0);
           final valueY = y(item.value!);
           final bar = Rect.fromLTWH(
-            x +
-                slot * .1 +
-                (rtl ? row.length - series - 1 : series) * (width + gap),
+            x + slot * .1 + series * (width + gap),
             math.min(zero, valueY),
             width,
             (zero - valueY).abs(),
@@ -938,23 +1045,35 @@ class _BarPainter extends CustomPainter {
           );
         }
       }
-      if (axis) {
-        // Skip colliding ticks while retaining all values through inspection.
-        final step = math.max(1, (textScaler.scale(32) / slot).ceil());
-        if (index % step == 0) {
+    }
+    if (axis) {
+      var boundary = rtl ? 0.0 : size.width;
+      for (var index = rows.length - 1; index >= 0; index--) {
+        final label = tickFormatter?.call(labels[index]) ?? labels[index];
+        final text = TextPainter(
+          text: TextSpan(text: label, style: textStyle),
+          textDirection: direction,
+          textScaler: textScaler,
+        )..layout(maxWidth: plot.width);
+        final center =
+            plot.left + ((rtl ? rows.length - index - 1 : index) + .5) * slot;
+        final left = (center - text.width / 2).clamp(
+          0.0,
+          size.width - text.width,
+        );
+        final right = left + text.width;
+        if (rtl ? left >= boundary : right <= boundary) {
           _text(
             canvas,
-            tickFormatter?.call(labels[index]) ?? labels[index],
+            label,
             Rect.fromLTWH(
-              (x + slot / 2 - slot * step / 2).clamp(
-                plot.left,
-                math.max(plot.left, plot.right - slot * step),
-              ),
-              plot.bottom + 10,
-              math.min(plot.width, slot * step),
+              left,
+              plot.bottom + tickMargin,
+              text.width,
               textScaler.scale(16),
             ),
           );
+          boundary = rtl ? right + minTickGap : left - minTickGap;
         }
       }
     }
@@ -991,4 +1110,32 @@ class _BarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BarPainter oldDelegate) => true;
+}
+
+class _ChartTooltipLayout extends SingleChildLayoutDelegate {
+  const _ChartTooltipLayout({required this.anchor, required this.rtl});
+  final Offset anchor;
+  final bool rtl;
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      BoxConstraints.loose(constraints.biggest);
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    var x = rtl ? anchor.dx - childSize.width - 10 : anchor.dx + 10;
+    if (x < 0 || x + childSize.width > size.width) {
+      x = rtl ? anchor.dx + 10 : anchor.dx - childSize.width - 10;
+    }
+    var y = anchor.dy + 10;
+    if (y + childSize.height > size.height) {
+      y = anchor.dy - childSize.height - 10;
+    }
+    return Offset(
+      x.clamp(0, math.max(0, size.width - childSize.width)),
+      y.clamp(0, math.max(0, size.height - childSize.height)),
+    );
+  }
+
+  @override
+  bool shouldRelayout(_ChartTooltipLayout oldDelegate) =>
+      anchor != oldDelegate.anchor || rtl != oldDelegate.rtl;
 }
