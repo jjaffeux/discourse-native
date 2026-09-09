@@ -208,71 +208,30 @@ class _Attachment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final filesize = upload.humanFilesize?.trim();
     final label = filesize == null || filesize.isEmpty
         ? 'Open attachment: ${upload.originalFilename}'
         : 'Open attachment: ${upload.originalFilename}, $filesize';
 
-    return Semantics(
-      container: true,
-      link: true,
-      label: label,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(6),
-        hoverColor: theme.shell.hover,
-        focusColor: theme.shell.hover,
-        onTap: () => openLink(context, _absoluteUploadUrl(siteUrl, upload.url)),
-        child: ExcludeSemantics(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 44),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              widthFactor: 1,
-              heightFactor: 1,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.shell.floating,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DIcon(
-                      DIcons.paperclip,
-                      size: 16,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        upload.originalFilename,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                    if (filesize case final size?) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        size,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: ChatUploads.maxWidth),
+      child: DAttachment(
+        children: [
+          const DAttachmentMedia(child: DIcon(DIcons.paperclip, size: 16)),
+          DAttachmentContent(
+            children: [
+              DAttachmentTitle(child: Text(upload.originalFilename)),
+              if (filesize case final size?)
+                DAttachmentDescription(child: Text(size)),
+            ],
           ),
-        ),
+          DAttachmentTrigger(
+            semanticLabel: label,
+            isLink: true,
+            onPressed: () =>
+                openLink(context, _absoluteUploadUrl(siteUrl, upload.url)),
+          ),
+        ],
       ),
     );
   }
