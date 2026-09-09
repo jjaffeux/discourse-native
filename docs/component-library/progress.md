@@ -2057,6 +2057,7 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30914ac699b4. Branch: codex/u
 - A broad randomized parallel consumer run reproduced the pre-existing diagnostics resize-handle hit-test flake and was stopped after a subsequent unrelated long-running topic test; the affected diagnostics clear tests passed separately and no component failure was inferred.
 - Root flutter analyze --no-pub passed in 2.9s and profiles/full passed in 1.7s; touched Dart is formatted and git diff --check passes.
 - flutter build macos --debug --no-pub -t tool/alert_dialog_review.dart passed. Unlaunched /private/tmp/discourse-alert-dialog-review.uFQUBx/Alert Dialog Review.app was re-identified as org.discourse.native.styleguide.alertdialog with discourse-alert-dialog-review scheme and ad-hoc signed using only sandbox/JIT/audio/camera/user-selected/network/get-task debug entitlements. Deep strict verification passed; original/copied kernel SHA-256 both a2724f22c8a502674b303547455467b94ba6df30da6cfec4ac365037cf86248d.
+- Integrated current main at dc6ab75f (accepted Popover) in merge 54e0a782 without source conflicts. Post-integration Alert Dialog/Dialog component and styleguide matrix passed all 32 tests at seed 4000796387; root analysis passed in 8.0s, profiles/full in 1.5s and final diff checks are clean.
 
 **limitations**
 
