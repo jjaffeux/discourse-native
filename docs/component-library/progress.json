@@ -2963,13 +2963,14 @@
       ],
       "decisions": [
         "Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.",
-        "Explicit user direction on 2026-09-09 requires kalender and visual consistency with the rest of the styleguide. Calendar owner acknowledged that its uncommitted custom engine will be removed, retaining only shadcn-specific state models, styling/builders and adapters around kalender. The new requirement must be carried into the independent review handoff."
+        "Explicit user direction on 2026-09-09 requires kalender and visual consistency with the rest of the styleguide. Calendar owner acknowledged that its uncommitted custom engine will be removed, retaining only shadcn-specific state models, styling/builders and adapters around kalender. The new requirement must be carried into the independent review handoff.",
+        "Verified independent reviewer Review and merge Calendar (01a08631-7574-70b0-a98f-4e7217e03209) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -2991,6 +2992,18 @@
           "lib/src/plugins/discourse_events/topic_calendar.dart"
         ],
         "theming": "Shared library tokens and final controls, live light/dark/custom themes, compact shadcn geometry and native adaptations documented explicitly."
+      },
+      "reviewTaskId": "01a08631-7574-70b0-a98f-4e7217e03209",
+      "reviewBranch": "codex/review-calendar",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/53b6/discourse-native",
+      "reviewHandoffCommit": "4b86c11a85bec38911cc3f5558c9ba315eee3043",
+      "reviewStatus": "in_progress",
+      "queueStage": "independent_review",
+      "implementationHandoffVerification": {
+        "focusedTests": "Source record reports15 Calendar/styleguide/EventCalendar tests passing with seed20260909.",
+        "analysis": "Root/profiles-full analysis and macOS debug build pass at handoff.",
+        "package": "Calendar uses user-required kalender0.29.1; EventCalendar adopts DKalenderTheme and DCalendarDayButton while retaining its event/controller/domain layouts.",
+        "review": "Reviewer owns first native/reference acceptance, source lifecycle/focus corrections, TopicCalendar theming-retention audit and honest Gregorian/alternate-calendar adaptation review. Input Group remains provisional and must be reconciled with its accepted parent before final merge."
       }
     },
     {
@@ -3322,13 +3335,14 @@
         "Pass focused component/consumer checks and root/full analysis, prepare exact-source fixtures, then create a new independent reviewer to finish required rendered/native review and final local main merge."
       ],
       "decisions": [
-        "Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory."
+        "Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.",
+        "Verified independent reviewer Review and merge Bubble (01a08639-b066-7882-85f5-a759c5fdab6f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "78c60d0cd7cf87d34c46524fff95336b43e261cd",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -3340,7 +3354,19 @@
           "mergeGate": "Parent is accepted on local main at dc6ab75fe99f2af8b401bae60285fdbe65e8012a. Reconcile its final reviewed corrections and verify affected behavior before the dependent final merge.",
           "acceptedMergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
         }
-      ]
+      ],
+      "reviewTaskId": "01a08639-b066-7882-85f5-a759c5fdab6f",
+      "reviewBranch": "codex/review-bubble",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f764/discourse-native",
+      "reviewHandoffCommit": "3aa4251692789567de9a3f010566dcd8aaa54d7b",
+      "reviewStatus": "in_progress",
+      "queueStage": "independent_review",
+      "implementationHandoffVerification": {
+        "focusedTests": "94 Bubble/examples/styleguide/Collapsible/Tooltip/accepted Popover/Toast checks passed with seed6864 after current-main reconciliation0dc71a5b8d282410587e36387a27cd48b50567da.",
+        "analysis": "Root/full locked resolution and analysis pass; Popover source matches accepted main.",
+        "native": "Reconciled ordinary macOS development build and deep/strict signature pass with kerneleb6f2dbe1c0cb694eb50f16d69418b4d274a753033bab46628437d6d5ca3c207. No isolated fixture/native launch yet; reviewer owns that first acceptance.",
+        "transport": "Root created the sole independent reviewer because implementation task lacked task-creation tools. Message has received the real reviewer ID; no coordinator review/merge approval gate."
+      }
     },
     {
       "id": "message",
@@ -3748,16 +3774,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Questionnaire (01a08633-c9ed-7062-86c4-16b0835eb303) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "3cedb9ad6c72ae9fc8eab26df7dd757704aeb111",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6d37/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement the full reference Questionnaire state machine and API, including Composition, Multiple Selection, Freeform Answer, Explicit Skip, Shortcuts, Custom Validation, Controlled, Resume, Conditional Items, Navigation State, Custom Progress, Animated Items, Card, Dialog, Accessibility and Unstyled modes. Correctly own typed answers, item identity, conditional visibility, visited/navigation/progress state, skipped-vs-empty answers, async validation cancellation, controlled acceptance, reset and serializable/resumable state. Preserve focus/keyboard shortcuts/announcements and readable transitions with reduced motion/narrow/RTL/large text. Use final Field/Button/Progress/Card/Dialog/Native Select owners and keep persistence/network/domain branching adapters outside generic widgets. Audit core/plugin surveys/onboarding/stepped forms; migrate appropriate real flows without altering required questions, permission or validation rules. Implement the reference behavior fully even if no current app usage exists, documenting the audit. Add meaningful state-transition, resume/conditional/backtracking/async-validation and real-consumer regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/questionnaire",
@@ -3825,7 +3852,17 @@
           "implementationCommit": "f9baeaa86c2bd88058ab815687543587aeec5296",
           "mergeCommit": "0cdec859288cb2fa0369f64e1a9c1c022dc033e4"
         }
-      ]
+      ],
+      "reviewTaskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
+      "reviewBranch": "codex/review-questionnaire",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/6384/discourse-native",
+      "reviewHandoffCommit": "8ae170128451e81d3fa1e355eb638bb82fb61eb9",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "21 Questionnaire controller/widget/styleguide checks and127 affected-owner regressions passed at source handoff.",
+        "analysis": "Root/full enforced-lockfile resolution and analysis, formatting/diff checks and macOS fixture build pass.",
+        "review": "Independent reviewer owns keyboard/IME corrections, first actual browser/native acceptance and final local merge. The implementation audit found no suitable real multi-step adopter; that conclusion remains subject to independent audit."
+      }
     }
   ],
   "finalAudit": {
@@ -3837,7 +3874,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T12:46:12+00:00",
+    "updatedAt": "2026-09-09T12:56:33+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -3942,13 +3979,6 @@
           "headCommit": "97554adac80cf4a702408966add2702f3bc313e0"
         },
         {
-          "component": "bubble",
-          "taskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
-          "branch": "codex/ui-bubble",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6fe3/discourse-native",
-          "status": "implementation"
-        },
-        {
           "component": "alert-dialog",
           "taskId": "01a085d9-7909-7fd0-b1b8-30914ac699b4",
           "branch": "codex/ui-alert-dialog",
@@ -3964,13 +3994,6 @@
           "implementationTaskId": "01a085d4-9afd-7082-8081-f8b1f8f66287",
           "implementationBranch": "codex/ui-attachment",
           "headCommit": "7c465bd106296dd9a102af5e08aefbb04e09f265"
-        },
-        {
-          "component": "calendar",
-          "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
-          "branch": "codex/ui-calendar",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2336/discourse-native",
-          "status": "implementation"
         },
         {
           "component": "input-otp",
@@ -4009,14 +4032,6 @@
           "taskId": "01a08606-ca30-7bc1-8e27-69575273d443",
           "branch": "codex/ui-date-picker",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/51f7/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
-          "component": "questionnaire",
-          "taskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
-          "branch": "codex/ui-questionnaire",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6d37/discourse-native",
           "status": "implementation",
           "phase": "reference_and_dependency_preparation"
         },
@@ -4109,6 +4124,36 @@
           "implementationTaskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
           "implementationBranch": "codex/ui-sheet",
           "headCommit": "88e3e8c2d753cfb7acea1244c179062815a0e2d0"
+        },
+        {
+          "component": "bubble",
+          "taskId": "01a08639-b066-7882-85f5-a759c5fdab6f",
+          "branch": "codex/review-bubble",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f764/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
+          "implementationBranch": "codex/ui-bubble",
+          "headCommit": "3aa4251692789567de9a3f010566dcd8aaa54d7b"
+        },
+        {
+          "component": "calendar",
+          "taskId": "01a08631-7574-70b0-a98f-4e7217e03209",
+          "branch": "codex/review-calendar",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/53b6/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
+          "implementationBranch": "codex/ui-calendar",
+          "headCommit": "4b86c11a85bec38911cc3f5558c9ba315eee3043"
+        },
+        {
+          "component": "questionnaire",
+          "taskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
+          "branch": "codex/review-questionnaire",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6384/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
+          "implementationBranch": "codex/ui-questionnaire",
+          "headCommit": "8ae170128451e81d3fa1e355eb638bb82fb61eb9"
         }
       ],
       "nativeReadyTasks": []
@@ -4513,6 +4558,42 @@
           "implementationTaskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
           "implementationBranch": "codex/ui-sheet",
           "implementationCommit": "b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a",
+          "status": "in_progress"
+        },
+        {
+          "component": "bubble",
+          "title": "Review and merge Bubble",
+          "taskId": "01a08639-b066-7882-85f5-a759c5fdab6f",
+          "hostId": "local",
+          "branch": "codex/review-bubble",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f764/discourse-native",
+          "implementationTaskId": "01a085d9-7909-7fd0-b1b8-30a76c6ab2af",
+          "implementationBranch": "codex/ui-bubble",
+          "implementationCommit": "78c60d0cd7cf87d34c46524fff95336b43e261cd",
+          "status": "in_progress"
+        },
+        {
+          "component": "calendar",
+          "title": "Review and merge Calendar",
+          "taskId": "01a08631-7574-70b0-a98f-4e7217e03209",
+          "hostId": "local",
+          "branch": "codex/review-calendar",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/53b6/discourse-native",
+          "implementationTaskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
+          "implementationBranch": "codex/ui-calendar",
+          "implementationCommit": "50b83b642a816e83382d4d14b588a12c4cd2533c",
+          "status": "in_progress"
+        },
+        {
+          "component": "questionnaire",
+          "title": "Review and merge Questionnaire",
+          "taskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
+          "hostId": "local",
+          "branch": "codex/review-questionnaire",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6384/discourse-native",
+          "implementationTaskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
+          "implementationBranch": "codex/ui-questionnaire",
+          "implementationCommit": "3cedb9ad6c72ae9fc8eab26df7dd757704aeb111",
           "status": "in_progress"
         }
       ],

@@ -31,15 +31,15 @@ Branch preparation does not mark a component merged or visually verified.
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
 | pagination | independent review | 2167c871 | 01a08629-4841-73d0-a5a6-c723f253b4b0 |
-| calendar | Implementation and checks | — | — |
+| calendar | independent review | 4b86c11a | 01a08631-7574-70b0-a98f-4e7217e03209 |
 | date-picker | Implementation and checks | — | — |
 | attachment | independent review | 7c465bd1 | 01a085f6-d243-7d73-8a4a-c1a1225d3a8f |
-| bubble | Implementation and checks | — | — |
+| bubble | independent review | 3aa42516 | 01a08639-b066-7882-85f5-a759c5fdab6f |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | Implementation and checks | — | — |
 | data-table | Implementation and checks | — | — |
 | input-otp | Implementation and checks | — | — |
-| questionnaire | Implementation and checks | — | — |
+| questionnaire | independent review | 8ae17012 | 01a08633-c9ed-7062-86c4-16b0835eb303 |
 
 ## Component implementation
 
@@ -2499,6 +2499,7 @@ Status: in_progress. Task: 01a085fd-5d83-79c3-b598-bd3ffc5b366e. Branch: codex/u
 
 - Created from current local main after accepted Popover, with source preparation in its own worktree and direct handoff to a new independent reviewer. Required final parent and example-owner acceptance remains mandatory.
 - Explicit user direction on 2026-09-09 requires kalender and visual consistency with the rest of the styleguide. Calendar owner acknowledged that its uncommitted custom engine will be removed, retaining only shadcn-specific state models, styling/builders and adapters around kalender. The new requirement must be carried into the independent review handoff.
+- Verified independent reviewer Review and merge Calendar (01a08631-7574-70b0-a98f-4e7217e03209) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### date-picker
 
@@ -2721,6 +2722,7 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/u
 **decisions**
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
+- Verified independent reviewer Review and merge Bubble (01a08639-b066-7882-85f5-a759c5fdab6f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### message
 
@@ -2887,6 +2889,7 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Questionnaire (01a08633-c9ed-7062-86c4-16b0835eb303) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### Final audit
 
