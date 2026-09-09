@@ -29,7 +29,7 @@
   },
   "postFix": {
     "status": "accepted",
-    "desktopBlocker": "The coordinator reported the Mac locked again during the next reviewers' CUA passes and is coordinating one unlock request. Scroller did not acquire another lease or attempt a workaround; its own waiting request was cancelled before pausing. Resume with the prepared exact-source bundle after ordinary CUA recovery.",
+    "desktopBlocker": "Resolved: the coordinator reported a renewed Mac lock, Scroller cancelled its waiting request and paused without a workaround. After the user confirmed unlock and Avatar verified ordinary CUA recovery, Scroller rejoined FIFO and completed the prepared-bundle recheck.",
     "sourceCommit": "378611767d74cef68f2ef4d94fbe00bd9d015ffb",
     "libTree": "c68d0122d717ed9012268a5914a89cdcd1df1c7b",
     "bundlePath": "/tmp/message-scroller-recheck-a0b4.zpmGT5/MessageScrollerReview-a0b4.app",

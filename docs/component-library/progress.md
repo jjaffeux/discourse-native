@@ -3324,11 +3324,12 @@ Status: in_progress. Task: 01a08606-ce86-7be2-b92f-59676b40cb40. Branch: codex/u
 - Prepared Message b4be43d2 integrated at 2f20c334; 89 Scroller, styleguide, Message, channel lifecycle and timeline checks passed, seed 1232392505. Root and full-profile analysis passed. This is prepared-source verification, not parent acceptance.
 - Final prepared runtime c3cfd500 (Message 69a0ab6a, current-main candidate based on b4e69861): 151 Scroller, styleguide, Message, production review fixture, Chat thread-preview, channel lifecycle and timeline checks passed with seed 2727160956. Root/full analysis, formatting, diff checks and the macOS debug build passed. Includes normal/reversed/index-owned margin regressions, measured short-turn landing, minimal/shrinking spacers and corrected Chat tooltip semantics coverage.
 - Post-native fix 6e30b304: 154 combined focused checks passed with seed 3612901707; root/full analysis clean. Initial native/reference evidence, observed defect, cleanup and precise limits are recorded in docs/component-library/evidence/message-scroller/native-review.json.
+- Final current-main candidate 50836af2: 192 Scroller, styleguide, Message, Chat lifecycle/timeline/thread-preview, Popover and Dropdown Menu checks passed with seed 909039; root/full analysis clean. Post-fix native source 37861176 accepted after both ten-row history batches preserved row20 at normal/light and360px/200%/dark; updated composer/menu/select owners rechecked. Scroller and production-adapter source are unchanged since that inspected build; only example acceptance metadata changed. Latest Popover defaults preserve the inspected behavior.
 
 **limitations**
 
-- Only the affected post-fix native history recheck remains pending; all declared parents are accepted and reconciled in this current-main candidate.
-- Native macOS only; no spoken VoiceOver, other device, first-frame video or live-network inspection. See the detailed evidence limits.
+- Native macOS inspection only; no other-device or spoken VoiceOver pass. First-frame/no-flash and reliable short-stream interruption are covered by permanent widget tests rather than native video/timing claims.
+- No live-network/server-pagination exercise; the real channel/thread adapters were inspected with offline seeded stores. Detailed observations and limits: docs/component-library/evidence/message-scroller/native-review.json.
 
 ### chart
 
