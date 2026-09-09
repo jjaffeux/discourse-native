@@ -1,0 +1,48 @@
+{
+  "sourceCommit": "e456fc7d7474908b8b6ce9a7e198b40346597259",
+  "sourceCleanAtBuild": true,
+  "buildCommand": "flutter build macos --debug --no-pub -t lib/styleguide_main.dart",
+  "sourceBundle": "/Users/joffreyjaffeux/.codex/worktrees/f764/discourse-native/build/macos/Build/Products/Debug/Discourse.app",
+  "reviewBundle": "/private/tmp/Discourse Bubble Review e456fc7d.app",
+  "bundleId": "org.discourse.native.bubble.e456fc7d",
+  "urlScheme": "discourse-bubble-review-e456fc7d",
+  "kernelSha256": "e0115b275e4a8cb16ae913e4f60e2a515d9609e98a8c2c3642973ccab2fe010c",
+  "kernelEqualityBeforeSigning": true,
+  "signatureVerification": "codesign --verify --deep --strict --verbose=2 passed; ad-hoc",
+  "entitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.cs.allow-unsigned-executable-memory",
+    "com.apple.security.files.user-selected.read-write",
+    "com.apple.security.get-task-allow",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "restrictedIdentitiesRemoved": [
+    "com.apple.application-identifier",
+    "com.apple.developer.aps-environment",
+    "com.apple.developer.team-identifier"
+  ],
+  "launched": true,
+  "nativeInspectionStatus": "accepted",
+  "referenceInspection": {
+    "url": "https://ui.shadcn.com/docs/components/base/bubble",
+    "themes": ["light", "dark"],
+    "observations": [
+      "Seven variants, logical alignment, 80% width, 8px group gap and overlapping reactions were compared against the rendered reference.",
+      "Secondary remains subtly distinct from muted in both reference themes; the Flutter live-token mapping now preserves that relationship.",
+      "Interactive content exposes an exterior focus treatment and the reference transition is 150ms."
+    ]
+  },
+  "nativeChecks": [
+    "All eight Bubble styleguide examples rendered without clipping or overflow.",
+    "Pointer activation produced deterministic local action feedback and a visible exterior focus ring.",
+    "Selected, disabled, busy and invalid content exposed distinct visual and accessibility states.",
+    "Static reactions announced once; interactive selection and failure changed counts, labels and error feedback.",
+    "Collapsible expanded the complete text and retained visible trigger focus.",
+    "Popover exposed the full command error and dismissed cleanly; Tooltip composition retained its independent read-receipt action.",
+    "Light, dark, Forest and Plum palettes retained readable semantic contrast.",
+    "360px width, 200% text, RTL and reduced-motion preview controls were exercised without overflow."
+  ],
+  "cleanup": "The isolated app was quit, its reference tab was closed, and the unique bundle identifier was absent from the running-app inventory before releasing the desktop lease."
+}
