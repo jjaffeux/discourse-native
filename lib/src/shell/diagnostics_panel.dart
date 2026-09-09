@@ -312,7 +312,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
         Expanded(
           child: visible.isEmpty
               ? _EmptyTimeline(hasEvents: events.isNotEmpty)
-              : Scrollbar(
+              : DScrollBar(
                   controller: _timeline,
                   child: ListView.builder(
                     key: const ValueKey('diagnostics-timeline'),

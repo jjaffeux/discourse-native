@@ -203,7 +203,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
             onTimeEnabled: (value) => setState(() => _hasStartTime = value),
           ),
           const SizedBox(height: 8),
-          SwitchListTile.adaptive(
+          DSwitchTile(
             contentPadding: EdgeInsets.zero,
             title: const DLabel(child: Text('End date and time')),
             value: _hasEnd,
@@ -245,7 +245,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                   hintText: '1.weeks',
                 ),
                 const SizedBox(height: 8),
-                SwitchListTile.adaptive(
+                DSwitchTile(
                   contentPadding: EdgeInsets.zero,
                   title: const DLabel(child: Text('Countdown')),
                   value: _countdown,
