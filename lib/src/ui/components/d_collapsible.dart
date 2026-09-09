@@ -193,6 +193,7 @@ class _TriggerState extends State<DCollapsibleTrigger> {
           ),
         );
     return Semantics(
+      container: true,
       button: true,
       expanded: scope.open,
       enabled: enabled,

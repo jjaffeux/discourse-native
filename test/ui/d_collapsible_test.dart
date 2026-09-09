@@ -123,6 +123,55 @@ void main() {
     },
   );
 
+  testWidgets('trigger remains a bounded control inside a semantic container', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        host(
+          Semantics(
+            key: const ValueKey('card-semantics'),
+            container: true,
+            child: const DCollapsible(
+              child: Row(
+                children: [
+                  Expanded(child: TextField()),
+                  DCollapsibleTrigger(
+                    key: ValueKey('bounded-trigger'),
+                    semanticLabel: 'More settings',
+                    child: Icon(Icons.expand_more),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final card = tester.getSemantics(
+        find.byKey(const ValueKey('card-semantics')),
+      );
+      expect(card.flagsCollection.isButton, isFalse);
+      expect(
+        tester.getSemantics(find.byKey(const ValueKey('bounded-trigger'))),
+        matchesSemantics(
+          label: 'More settings',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          hasExpandedState: true,
+          isExpanded: false,
+          hasTapAction: true,
+          hasFocusAction: true,
+          isFocusable: true,
+        ),
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   for (final retained in [false, true]) {
     testWidgets(
       '${retained ? 'retained' : 'lazy'} editor restores focus and ${retained ? 'preserves' : 'resets'} edits after collapse',
