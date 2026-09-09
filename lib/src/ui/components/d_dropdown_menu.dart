@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
+import 'd_scroll_area.dart';
 
 typedef DDropdownMenuController = DPopoverController;
 typedef DDropdownMenuOpenChange = DPopoverOpenChange;
@@ -68,6 +69,9 @@ class DDropdownMenu extends StatelessWidget {
         width: content.width,
         constraints: content.constraints,
         padding: EdgeInsets.zero,
+        // Menus own their scroll position so wheel, trackpad, and draggable
+        // scrollbar interaction all operate on the same popup-local viewport.
+        scrollable: false,
         child: DPopoverClose(
           builder: (context, close) => _DropdownMenuRootScope(
             closeSelf: close,
@@ -151,6 +155,7 @@ class _MenuRegistration {
 
 class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   final _items = <Object, _MenuRegistration>{};
+  final _scrollController = ScrollController();
   DDropdownMenuController? _activeSubmenu;
   String _search = '';
   Timer? _searchTimer;
@@ -286,6 +291,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   @override
   void dispose() {
     _searchTimer?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -314,12 +320,16 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
             style: textStyle,
             child: IconTheme.merge(
               data: IconThemeData(color: tokens.foreground, size: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: widget.children,
+              child: DScrollBar(
+                controller: _scrollController,
+                child: DScrollViewport(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(4),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: widget.children,
+                  ),
                 ),
               ),
             ),
@@ -803,7 +813,6 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
   late FocusNode _ownedFocus;
   FocusNode get _focus => widget.focusNode ?? _ownedFocus;
   _DDropdownMenuContentState? _content;
-  bool _hovered = false;
   bool _pressed = false;
   bool _focused = false;
 
@@ -860,7 +869,10 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final destructive = widget.variant == DDropdownMenuItemVariant.destructive;
-    final interactive = widget.enabled && (_hovered || _focused || _pressed);
+    // Pointer entry moves focus to this row, making focus the single source of
+    // truth for the active highlight. Independent hover state can leave two
+    // rows painted while scrolling moves content beneath a stationary pointer.
+    final interactive = widget.enabled && (_focused || _pressed);
     final background = interactive
         ? destructive
               ? tokens.destructive.withValues(
@@ -878,9 +890,9 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
         defaultTargetPlatform == TargetPlatform.android;
     final visualHeight = mobile ? DSpacing.touchTarget : 28.0;
     final startPadding = widget.inset && widget.leading == null ? 28.0 : 6.0;
-    final row = AnimatedContainer(
-      duration: DMotion.duration(context, DMotion.exit),
-      curve: Curves.easeOut,
+    // Active-row changes are atomic. Animating the previous row out while the
+    // next row animates in briefly presents two highlighted menu choices.
+    final row = Container(
       constraints: BoxConstraints(minHeight: visualHeight),
       padding: EdgeInsetsDirectional.fromSTEB(startPadding, 4, 6, 4),
       decoration: BoxDecoration(
@@ -935,12 +947,10 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
             if (!widget.preserveSubmenuOnFocus) {
               _content?.closeActiveSubmenu();
             }
-            setState(() => _hovered = true);
             _focus.requestFocus();
             widget.onHover?.call(true);
           },
           onExit: (_) {
-            if (mounted) setState(() => _hovered = false);
             widget.onHover?.call(false);
           },
           child: Focus(

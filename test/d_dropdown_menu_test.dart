@@ -1,7 +1,6 @@
-import 'dart:ui' show PointerDeviceKind;
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -394,6 +393,88 @@ void main() {
     final lastItem = tester.getRect(find.text('Command 19'));
     expect(lastItem.top, greaterThanOrEqualTo(popup.top));
     expect(lastItem.bottom, lessThanOrEqualTo(popup.bottom));
+  });
+
+  testWidgets('long menu has a draggable scrollbar and accepts wheel input', (
+    tester,
+  ) async {
+    await pumpMenu(
+      tester,
+      child: DDropdownMenu(
+        content: DDropdownMenuContent(
+          constraints: const BoxConstraints(maxHeight: 120),
+          children: [
+            for (var index = 0; index < 20; index++)
+              DDropdownMenuItem(
+                onPressed: _noop,
+                child: Text('Scrollable command $index'),
+              ),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton(
+            label: const Text('Open'),
+            onPressed: state.toggle,
+            focusNode: state.focusNode,
+          ),
+        ),
+      ),
+    );
+    await open(tester);
+
+    expect(find.byType(DScrollBar), findsOneWidget);
+    expect(find.byType(DScrollViewport), findsOneWidget);
+    final scrollbar = tester.widget<RawScrollbar>(find.byType(RawScrollbar));
+    expect(scrollbar.thumbVisibility, isTrue);
+    expect(scrollbar.interactive, isTrue);
+    final area = tester.getRect(find.byType(DScrollViewport));
+    final initialTop = tester.getTopLeft(find.text('Scrollable command 0')).dy;
+
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: area.center,
+        scrollDelta: const Offset(0, 60),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('Scrollable command 0')).dy,
+      lessThan(initialTop),
+    );
+  });
+
+  testWidgets('pointer movement leaves exactly one row highlighted', (
+    tester,
+  ) async {
+    await pumpMenu(tester);
+    await open(tester);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+
+    await mouse.moveTo(tester.getCenter(find.text('Profile')));
+    await tester.pump();
+    await mouse.moveTo(tester.getCenter(find.text('Billing')));
+    await tester.pump();
+
+    Color rowColor(String label) {
+      final row = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.text(label),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Container && widget.decoration is BoxDecoration,
+              ),
+            )
+            .first,
+      );
+      return (row.decoration! as BoxDecoration).color!;
+    }
+
+    expect(rowColor('Profile'), Colors.transparent);
+    expect(rowColor('Billing'), isNot(Colors.transparent));
   });
 
   testWidgets('opening a sibling submenu closes the previous overlay', (
