@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget host(
@@ -437,5 +438,74 @@ void main() {
           .first,
     );
     expect(padding.padding, const EdgeInsets.fromLTRB(6, 5, 6, 5));
+  });
+
+  testWidgets('keycap addons use the reduced inset and offset radius', (
+    tester,
+  ) async {
+    final tokens = AppTheme.light.extension<DTokens>()!.copyWith(radius: 10);
+    await tester.pumpWidget(
+      host(
+        theme: AppTheme.light.copyWith(extensions: [tokens]),
+        DInputGroup(
+          children: [
+            DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
+            const DInputGroupAddon(
+              key: ValueKey('direct'),
+              alignment: DInputGroupAddonAlignment.inlineEnd,
+              children: [DKbd('⌘'), DKbd('K')],
+            ),
+            const DInputGroupAddon(
+              key: ValueKey('grouped'),
+              child: DShortcutKeycaps(
+                platform: TargetPlatform.linux,
+                listenToKeyboard: false,
+                shortcut: DShortcut(
+                  SingleActivator(LogicalKeyboardKey.keyK, control: true),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    EdgeInsetsGeometry addonPadding(Key key) => tester
+        .widget<Padding>(
+          find
+              .descendant(of: find.byKey(key), matching: find.byType(Padding))
+              .first,
+        )
+        .padding;
+    BorderRadiusGeometry? keycapRadius(Finder keycap) =>
+        (tester
+                    .widget<AnimatedContainer>(
+                      find.descendant(
+                        of: keycap,
+                        matching: find.byType(AnimatedContainer),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .borderRadius;
+    expect(
+      addonPadding(const ValueKey('direct')),
+      const EdgeInsetsDirectional.only(end: 5.6, top: 6, bottom: 6),
+    );
+    expect(
+      addonPadding(const ValueKey('grouped')),
+      const EdgeInsetsDirectional.only(start: 5.6, top: 6, bottom: 6),
+    );
+    final command = find.widgetWithText(DKbd, '⌘');
+    final directK = find.descendant(
+      of: find.byKey(const ValueKey('direct')),
+      matching: find.widgetWithText(DKbd, 'K'),
+    );
+    expect(keycapRadius(command), BorderRadius.circular(5));
+    expect(keycapRadius(directK), BorderRadius.circular(5));
+    expect(
+      keycapRadius(find.widgetWithText(DKbd, 'Ctrl')),
+      BorderRadius.circular(6),
+    );
+    expect(tester.getTopLeft(directK).dx - tester.getTopRight(command).dx, 8);
   });
 }

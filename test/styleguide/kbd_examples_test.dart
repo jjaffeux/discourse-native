@@ -57,39 +57,73 @@ void main() {
   }
 
   testWidgets(
-    'button keycaps preserve pointer, keyboard action and live tooltip composition',
+    'the outline button carries the Enter keycap at its inline end and activates by pointer and keyboard',
     (tester) async {
       final theme = ValueNotifier(AppTheme.light);
       addTearDown(theme.dispose);
       final semantics = tester.ensureSemantics();
       try {
         await _pumpLive(tester, theme, const KbdActionSample());
-        await tester.tap(find.widgetWithText(DButton, 'Accept'));
+        final button = tester.widget<DButton>(find.byType(DButton));
+        expect(button.variant, DButtonVariant.outline);
+        expect(button.iconPosition, DButtonIconPosition.end);
+        final keycap = find.descendant(
+          of: find.byType(DButton),
+          matching: find.widgetWithText(DKbd, '⏎'),
+        );
+        expect(keycap, findsOneWidget);
+        final label = tester.getRect(find.text('Accept'));
+        final cap = tester.getRect(keycap);
+        final surface = tester.getRect(find.byType(FilledButton));
+        expect(cap.left, greaterThan(label.right));
+        expect(cap.right, lessThan(surface.right));
+        expect(cap.height, 20);
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Accept, Enter')),
+          isSemantics(label: 'Accept, Enter', isButton: true),
+        );
+        await tester.tap(find.byType(DButton));
         await tester.pump();
         expect(find.text('Accepted: 1'), findsOneWidget);
-        await tester.sendKeyEvent(LogicalKeyboardKey.f6);
-        await tester.pump();
-        expect(find.text('Accepted: 2'), findsOneWidget);
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pump();
-        expect(find.text('Accepted: 3'), findsOneWidget);
-        final focus = FocusManager.instance.primaryFocus;
-        final tooltip = tester.widget<DTooltip>(find.byType(DTooltip));
-        expect(tooltip.semanticsTooltip, 'Accept invitation');
+        expect(find.text('Accepted: 2'), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'button-group tooltips show keycaps with the live tint and run their shortcuts',
+    (tester) async {
+      final theme = ValueNotifier(AppTheme.light);
+      addTearDown(theme.dispose);
+      final semantics = tester.ensureSemantics();
+      try {
+        await _pumpLive(tester, theme, const KbdTooltipSample());
+        expect(
+          find.descendant(
+            of: find.byType(DButtonGroup),
+            matching: find.byType(DButton),
+          ),
+          findsNWidgets(2),
+        );
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         addTearDown(mouse.removePointer);
         await mouse.addPointer();
-        await mouse.moveTo(tester.getCenter(find.text('Inspect hint')));
+        await mouse.moveTo(tester.getCenter(find.text('Save')));
         await tester.pump();
         await tester.pump(const Duration(seconds: 1));
         await tester.pumpAndSettle();
-        expect(find.text('Accept invitation'), findsOneWidget);
+        expect(find.text('Save Changes'), findsOneWidget);
         final hint = find.descendant(
           of: find.byType(DShortcutKeycaps),
-          matching: find.byType(DKbd),
+          matching: find.widgetWithText(DKbd, 'S'),
         );
+        expect(hint, findsOneWidget);
         for (final palette in [
           StyleguideTheme.light,
           StyleguideTheme.dark,
@@ -98,16 +132,17 @@ void main() {
         ]) {
           theme.value = palette.resolve(AppTheme.light);
           await tester.pumpAndSettle();
-          expect(find.text('Accept invitation'), findsOneWidget);
-          expect(FocusManager.instance.primaryFocus, focus);
-          expect(find.text('Accepted: 3'), findsOneWidget);
+          expect(find.text('Save Changes'), findsOneWidget);
+          final foreground = theme.value.extension<DTokens>()!.background;
           final surface = tester.widget<AnimatedContainer>(
             find.descendant(of: hint, matching: find.byType(AnimatedContainer)),
           );
           expect(
             (surface.decoration! as BoxDecoration).color,
-            theme.value.tooltipTheme.textStyle!.color!.withValues(
-              alpha: theme.value.brightness == Brightness.dark ? 0.10 : 0.20,
+            foreground.withValues(
+              alpha:
+                  foreground.a *
+                  (theme.value.brightness == Brightness.dark ? 0.10 : 0.20),
             ),
           );
           final label = tester.widget<AnimatedDefaultTextStyle>(
@@ -116,16 +151,34 @@ void main() {
               matching: find.byType(AnimatedDefaultTextStyle),
             ),
           );
-          expect(label.style.color, theme.value.tooltipTheme.textStyle!.color);
+          expect(label.style.color, foreground);
         }
-        await mouse.moveTo(Offset.zero);
+        await mouse.moveTo(const Offset(790, 590));
         await tester.pump(const Duration(seconds: 1));
         await tester.pumpAndSettle();
-        expect(find.text('Accept invitation'), findsNothing);
-        // Long press uses the same overlay and can outlive the touch release.
-        await tester.longPress(find.text('Inspect hint'));
+        expect(find.text('Save Changes'), findsNothing);
+        await mouse.moveTo(tester.getCenter(find.text('Print')));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
         await tester.pumpAndSettle();
-        expect(find.text('Accept invitation'), findsOneWidget);
+        expect(find.text('Print Document'), findsOneWidget);
+        expect(find.widgetWithText(DKbd, 'Ctrl'), findsOneWidget);
+        expect(find.widgetWithText(DKbd, 'P'), findsOneWidget);
+        await mouse.moveTo(const Offset(790, 590));
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+        await tester.pump();
+        expect(find.text('Saved changes.'), findsOneWidget);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        expect(find.text('Printed document.'), findsOneWidget);
+        // Long press uses the same overlay and can outlive the touch release.
+        await tester.longPress(find.text('Save'));
+        await tester.pumpAndSettle();
+        expect(find.text('Save Changes'), findsOneWidget);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump(const Duration(seconds: 2));
         expect(tester.takeException(), isNull);
@@ -141,7 +194,7 @@ void main() {
     TargetPlatform.linux,
   ]) {
     testWidgets(
-      '${platform.name} search chord focuses native input and preserves query through live theme and direction',
+      '${platform.name} search chord focuses the grouped input and preserves query through live theme and direction',
       (tester) async {
         final theme = ValueNotifier(
           AppTheme.light.copyWith(platform: platform),
@@ -161,22 +214,35 @@ void main() {
             child: const KbdInputSample(),
           ),
         );
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
+        final apple = platform != TargetPlatform.linux;
+        final addon = find.descendant(
+          of: find.byType(DInputGroupAddon).last,
+          matching: find.byType(DKbd),
+        );
+        expect(addon, findsNWidgets(2));
+        expect(
+          find.descendant(of: addon, matching: find.text(apple ? '⌘' : 'Ctrl')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: addon, matching: find.text('K')),
+          findsOneWidget,
+        );
+        expect(find.byIcon(Icons.search), findsOneWidget);
+        expect(tester.getSize(find.byType(DInputGroup)).width, 320);
         final input = tester
-            .widget<TextField>(find.byType(TextField))
+            .widget<DInputGroupInput>(find.byType(DInputGroupInput))
             .focusNode!;
-        final modifier = platform == TargetPlatform.linux
-            ? LogicalKeyboardKey.controlLeft
-            : LogicalKeyboardKey.metaLeft;
+        expect(input.hasFocus, isFalse);
+        final modifier = apple
+            ? LogicalKeyboardKey.metaLeft
+            : LogicalKeyboardKey.controlLeft;
         await tester.sendKeyDownEvent(modifier);
         await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
         await tester.sendKeyUpEvent(modifier);
         await tester.pump();
         expect(input.hasFocus, isTrue);
-        await tester.enterText(find.byType(TextField), 'community');
+        await tester.enterText(find.byType(EditableText), 'community');
         theme.value = StyleguideTheme.plum
             .resolve(AppTheme.light)
             .copyWith(platform: platform);
@@ -192,7 +258,7 @@ void main() {
           'community',
         );
         expect(
-          Directionality.of(tester.element(find.byType(DShortcutKeycaps))),
+          Directionality.of(tester.element(find.byType(DKbd).first)),
           TextDirection.rtl,
         );
         expect(tester.takeException(), isNull);

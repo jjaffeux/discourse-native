@@ -9,9 +9,11 @@ import '../foundation/tokens.dart';
 /// A keyboard hint, with no tap target, focus node, or shortcut binding.
 ///
 /// Text uses the host's sans-serif family and the reference's 12/16 metrics,
-/// with intrinsic height and the inherited text scaler. Symbols have spoken defaults; override
-/// [semanticLabel] for localization or a longer explanation. Compose custom
-/// icons with [DKbd.child], keeping the surrounding control as the action owner.
+/// with intrinsic height and the inherited text scaler. Icons inherit the
+/// reference 12px size and foreground independently of [style]. Symbols have
+/// spoken defaults; override [semanticLabel] for localization or a longer
+/// explanation. Compose custom icons with [DKbd.child], keeping the
+/// surrounding control as the action owner.
 class DKbd extends StatelessWidget {
   const DKbd(
     String this.label, {
@@ -77,7 +79,9 @@ class DKbd extends StatelessWidget {
               color: highlighted
                   ? tokens.primary
                   : contextual?.backgroundColor ?? tokens.muted,
-              borderRadius: BorderRadius.circular(tokens.radius * 0.6),
+              borderRadius:
+                  contextual?.borderRadius ??
+                  BorderRadius.circular(tokens.radius * 0.6),
             ),
             child: Center(
               widthFactor: 1,
@@ -90,7 +94,7 @@ class DKbd extends StatelessWidget {
                 child: IconTheme.merge(
                   data: IconThemeData(
                     color: textStyle.color,
-                    size: textStyle.fontSize,
+                    size: DiscourseTypography.xs,
                     applyTextScaling: true,
                   ),
                   child: child ?? Text(label!),
@@ -104,21 +108,26 @@ class DKbd extends StatelessWidget {
   }
 }
 
-/// Contextual keycap colors, corresponding to the reference's tooltip scope.
+/// Contextual keycap colors and radius, corresponding to the reference's
+/// ancestor selectors (tooltip content, input-group addons).
 ///
-/// Ordinary keycaps use muted theme tokens. Tooltip owners supply their live
-/// foreground and translucent tint here, so custom site tooltip surfaces keep
-/// readable keycaps. Geometry and typography remain owned by [DKbd].
+/// Ordinary keycaps use muted theme tokens and the small relative radius.
+/// Tooltip owners supply their live foreground and translucent tint here, so
+/// custom site tooltip surfaces keep readable keycaps; an input-group addon
+/// supplies its offset radius. A null [borderRadius] keeps the default.
+/// Geometry and typography otherwise remain owned by [DKbd].
 class DKbdTheme extends InheritedTheme {
   const DKbdTheme({
     super.key,
     required this.foregroundColor,
     required this.backgroundColor,
+    this.borderRadius,
     required super.child,
   });
 
   final Color foregroundColor;
   final Color backgroundColor;
+  final BorderRadius? borderRadius;
 
   static DKbdTheme? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<DKbdTheme>();
@@ -126,12 +135,14 @@ class DKbdTheme extends InheritedTheme {
   @override
   bool updateShouldNotify(DKbdTheme oldWidget) =>
       foregroundColor != oldWidget.foregroundColor ||
-      backgroundColor != oldWidget.backgroundColor;
+      backgroundColor != oldWidget.backgroundColor ||
+      borderRadius != oldWidget.borderRadius;
 
   @override
   Widget wrap(BuildContext context, Widget child) => DKbdTheme(
     foregroundColor: foregroundColor,
     backgroundColor: backgroundColor,
+    borderRadius: borderRadius,
     child: child,
   );
 }
@@ -233,6 +244,8 @@ class DShortcut {
 /// app inactivity and window focus loss reset feedback. No focus is acquired.
 /// Set [listenToKeyboard] false for a static hint. All handlers are removed when
 /// disabled or disposed. [platform] affects labels only, never key matching.
+/// Key events that leave the painted feedback unchanged, such as typing or
+/// key repeats while a hint is visible, do not rebuild the keycaps.
 class DShortcutKeycaps extends StatefulWidget {
   const DShortcutKeycaps({
     super.key,
@@ -256,6 +269,7 @@ class DShortcutKeycaps extends StatefulWidget {
 class _ShortcutKeycapsState extends State<DShortcutKeycaps>
     with WidgetsBindingObserver {
   int _completedSteps = 0;
+  int _renderedFeedback = 0;
   bool _listening = false;
   bool _active = true;
   bool _viewFocused = true;
@@ -342,14 +356,36 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
         event.logicalKey == shortcut[completedSteps - 1].trigger) {
       completedSteps = 0;
     }
-    setState(() => _completedSteps = completedSteps);
+    if (_feedback(completedSteps) == _renderedFeedback) {
+      // Any pending rebuild still reads the latest step; nothing else changed.
+      _completedSteps = completedSteps;
+    } else {
+      setState(() => _completedSteps = completedSteps);
+    }
     return false;
+  }
+
+  /// The highlighted keys for [completedSteps] under the current hardware
+  /// state, packed so an event can be recognised as a visual no-op.
+  int _feedback(int completedSteps) {
+    final shortcut = widget.shortcut;
+    if (completedSteps >= shortcut.length) return completedSteps << 5;
+    final activator = shortcut[completedSteps];
+    final keyboard = HardwareKeyboard.instance;
+    var pressed = 0;
+    if (activator.control && keyboard.isControlPressed) pressed |= 1;
+    if (activator.alt && keyboard.isAltPressed) pressed |= 2;
+    if (activator.shift && keyboard.isShiftPressed) pressed |= 4;
+    if (activator.meta && keyboard.isMetaPressed) pressed |= 8;
+    if (keyboard.isLogicalKeyPressed(activator.trigger)) pressed |= 16;
+    return completedSteps << 5 | pressed;
   }
 
   @override
   Widget build(BuildContext context) {
     final shortcut = widget.shortcut;
     final platform = widget.platform ?? Theme.of(context).platform;
+    _renderedFeedback = _feedback(_completedSteps);
     return DKbdGroup(
       textDirection: widget.textDirection,
       semanticLabel: widget.semanticLabel ?? shortcut.semanticLabel(platform),
@@ -453,10 +489,12 @@ String _logicalKeyLabel(LogicalKeyboardKey key) => switch (key) {
   LogicalKeyboardKey.arrowDown => '↓',
   LogicalKeyboardKey.arrowLeft => '←',
   LogicalKeyboardKey.arrowRight => '→',
-  _ =>
-    key.keyLabel.isNotEmpty
-        ? key.keyLabel.toUpperCase()
-        : key.debugName ?? 'Key',
+  _ => switch (key.keyLabel) {
+    '' => key.debugName ?? 'Key',
+    // Single characters read as printed keycaps; named keys keep their case.
+    final label when label.length == 1 => label.toUpperCase(),
+    final label => label,
+  },
 };
 
 String _spokenLabel(String label) => switch (label) {

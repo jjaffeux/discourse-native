@@ -455,6 +455,155 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     },
   );
+
+  test(
+    'named keys keep their printed names while characters read as keycaps',
+    () {
+      expect(
+        const DShortcut(
+          SingleActivator(LogicalKeyboardKey.pageDown, control: true),
+        ).semanticLabel(TargetPlatform.linux),
+        'Control + Page Down',
+      );
+      expect(
+        const DShortcut(
+          SingleActivator(LogicalKeyboardKey.home),
+        ).semanticLabel(TargetPlatform.macOS),
+        'Home',
+      );
+      expect(
+        const DShortcut(
+          SingleActivator(LogicalKeyboardKey.keyA),
+        ).semanticLabel(TargetPlatform.macOS),
+        'A',
+      );
+      expect(
+        const DShortcut(
+          SingleActivator(LogicalKeyboardKey.f6),
+        ).semanticLabel(TargetPlatform.linux),
+        'F6',
+      );
+    },
+  );
+
+  testWidgets('named keys render their printed names on keycaps', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      child: const DShortcutKeycaps(
+        platform: TargetPlatform.linux,
+        listenToKeyboard: false,
+        shortcut: DShortcut.sequence(
+          SingleActivator(LogicalKeyboardKey.pageDown, control: true),
+          [SingleActivator(LogicalKeyboardKey.home)],
+        ),
+      ),
+    );
+    expect(find.widgetWithText(DKbd, 'Ctrl'), findsOneWidget);
+    expect(find.widgetWithText(DKbd, 'Page Down'), findsOneWidget);
+    expect(find.widgetWithText(DKbd, 'Home'), findsOneWidget);
+    expect(find.text('then'), findsOneWidget);
+  });
+
+  testWidgets('a custom text style leaves icons at the reference 12px', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      child: const DKbdGroup(
+        children: [
+          DKbd('K', style: TextStyle(fontSize: 18)),
+          DKbd.child(
+            semanticLabel: 'Brightness up',
+            style: TextStyle(fontSize: 18),
+            child: Icon(Icons.brightness_high),
+          ),
+        ],
+      ),
+    );
+    expect(
+      DefaultTextStyle.of(tester.element(find.text('K'))).style.fontSize,
+      18,
+    );
+    expect(tester.getSize(find.byType(Icon)), const Size(12, 12));
+  });
+
+  testWidgets(
+    'an ancestor keycap theme supplies colors and radius without changing geometry',
+    (tester) async {
+      const radius = BorderRadius.all(Radius.circular(1));
+      await _pump(
+        tester,
+        child: const DKbdTheme(
+          foregroundColor: Color(0xFF102030),
+          backgroundColor: Color(0xFF405060),
+          borderRadius: radius,
+          child: DKbdGroup(children: [DKbd('K')]),
+        ),
+      );
+      final surface = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byType(DKbd),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      final decoration = surface.decoration! as BoxDecoration;
+      expect(decoration.color, const Color(0xFF405060));
+      expect(decoration.borderRadius, radius);
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('K'))).style.color,
+        const Color(0xFF102030),
+      );
+      expect(tester.getSize(find.byType(DKbd)), const Size(20, 20));
+      await _pump(
+        tester,
+        child: const DKbdTheme(
+          foregroundColor: Color(0xFF102030),
+          backgroundColor: Color(0xFF405060),
+          child: DKbdGroup(children: [DKbd('K')]),
+        ),
+      );
+      final tokens = DTokens.of(tester.element(find.byType(DKbd)));
+      expect(
+        (tester
+                    .widget<AnimatedContainer>(
+                      find.descendant(
+                        of: find.byType(DKbd),
+                        matching: find.byType(AnimatedContainer),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .borderRadius,
+        BorderRadius.circular(tokens.radius * 0.6),
+      );
+    },
+  );
+
+  testWidgets('unrelated keys and repeats leave feedback keycaps unbuilt', (
+    tester,
+  ) async {
+    await _pump(tester, child: const DShortcutKeycaps(shortcut: sequence));
+    final idle = _cap(tester, 0, 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+    await tester.pump();
+    expect(identical(_cap(tester, 0, 0), idle), isTrue);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyG);
+    await tester.pump();
+    final progressed = _cap(tester, 0, 0);
+    expect(identical(progressed, idle), isFalse);
+    expect(progressed.highlighted, isTrue);
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyG);
+    await tester.pump();
+    expect(identical(_cap(tester, 0, 0), progressed), isTrue);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyG);
+    await tester.pump();
+    expect(identical(_cap(tester, 0, 0), progressed), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+    await tester.pump();
+    expect(_cap(tester, 0, 0).highlighted, isFalse);
+  });
 }
 
 DKbd _cap(WidgetTester tester, int step, int index) =>
