@@ -71,10 +71,14 @@ Source implementation: `271c1bddbd8332741e185d9924be7690e5628646`.
   and `git diff --check` passed.
 - An ordinary, unlaunched macOS styleguide debug build passed. Toggle source
   SHA-256: `966db63c7d1c41da694fd605f0970e692124beda4a2ac58324f122df50126176`.
-  Kernel SHA-256: `6ccefa7874e4d9b6f42d5c68ec3da012e6fc581a43c273961a069bd15150725c`.
+  After latest-main/evidence reconciliation at `564051345421a6d603504046daeb8455583821dd`,
+  the refreshed kernel SHA-256 is
+  `14d093ab5748a9c23a36c9b7c1480fa8ca642f2e58a06e003dab753978e306f5`.
   This normal project build retains developer entitlements and is build
   evidence only; it is not the isolated review bundle and was not launched.
 
 The independent reviewer owns official rendered reference comparison, native
 styleguide and Voice-control inspection, any resulting fixes, status promotion,
 latest-main reconciliation and the final local-main merge.
+Reviewer task: `01a08579-4e43-7ce2-9919-546137c84a24` on
+`codex/review-toggle`.
