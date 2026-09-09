@@ -179,6 +179,41 @@ class _ChartReviewFixtureState extends State<ChartReviewFixture> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                const Text(
+                  'Actual PollCard: multiple-choice quantitative results',
+                ),
+                PollCard(
+                  poll: const Poll(
+                    name: 'multiple',
+                    title: 'Which platforms do you use?',
+                    type: PollType.multiple,
+                    min: 1,
+                    max: 2,
+                    voters: 10,
+                    options: [
+                      PollOption(id: 'macos', html: 'macOS', votes: 8),
+                      PollOption(id: 'ios', html: 'iOS', votes: 6),
+                    ],
+                  ),
+                  signedIn: true,
+                  archived: false,
+                  pending: _pending,
+                  onVote: (_, ids) async {
+                    if (_error) {
+                      setState(() => _error = false);
+                      throw StateError('Offline simulated failure');
+                    }
+                    setState(
+                      () => _status =
+                          'Accepted local multiple vote: ${ids.join(', ')}',
+                    );
+                  },
+                  onVoteError: (_) => setState(
+                    () => _status =
+                        'Multiple vote failed locally; retry is available',
+                  ),
+                ),
+                const SizedBox(height: 24),
                 const Text('Confidential results remain confidential'),
                 const PollCard(
                   poll: Poll(

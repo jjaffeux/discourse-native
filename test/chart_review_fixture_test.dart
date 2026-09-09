@@ -35,6 +35,19 @@ void main() {
         findsNWidgets(2),
       );
       await tester.scrollUntilVisible(
+        find.text('Actual PollCard: multiple-choice quantitative results'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      final multiple = find.byWidgetPredicate(
+        (widget) => widget is PollCard && widget.poll.name == 'multiple',
+      );
+      expect(
+        find.descendant(of: multiple, matching: find.byType(DChartBar)),
+        findsNWidgets(2),
+      );
+      await tester.scrollUntilVisible(
         find.text('Confidential results remain confidential'),
         200,
         scrollable: find.byType(Scrollable).first,
