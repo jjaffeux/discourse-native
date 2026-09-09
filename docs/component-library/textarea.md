@@ -224,3 +224,29 @@ identities absent. Logs: `/tmp/textarea-integration-build.log` and
 `/tmp/textarea-integration-sign.log`. This supersedes previous review bundles.
 No native/browser actions occurred. Mac lock and browser admin-policy blocker
 were not retried or bypassed. Reference/native review remains pending.
+
+### Independent acceptance review — 2026-09-09
+
+The reviewer verified the frozen source hashes and all eight render artifacts,
+then compared the official Base UI page in light/dark, focused and invalid
+states. Native macOS inspection used the exact `d286e118` bundle and covered
+multiline growth, label focus, independent semantics, invalid/form save/reset,
+controlled/read-only ownership, live palettes, 320px/200%/RTL layout, and the
+actual local-data Invite and Events editors. No component or migration behavior
+defect remained. The one acceptance correction changed the styleguide's stale
+baseline/pending metadata to implemented/completed.
+
+The independent focused run passed 163 tests with randomized seed 1079605986;
+root and full-profile analysis, formatting and `git diff --check` passed. After
+the metadata correction, 16 component/visual/styleguide tests passed with seed
+933940314. After latest-main integration, the 163-test set passed again with
+seed 1478152398 and both analyzers remained clean. Fresh source `35a7959e` built as
+`/private/tmp/textarea-final.rvUv9Z/DiscourseTextareaReview-final-35a7959e.app`;
+its embedded kernel SHA256 is
+`c12e0e3007dc8baaeb0ff917bbd9fef78258a87d1eb49e64523b26ffb59e988f` and
+deep strict ad-hoc signature verification passes. The final serialized native
+launch is reserved to confirm the corrected styleguide status before merge.
+
+No iOS/Linux device or spoken VoiceOver verification is claimed. Browser Geist
+and native host font rasterization differ, so the review compares geometry,
+palette, state, interaction and semantics rather than claiming pixel equality.
