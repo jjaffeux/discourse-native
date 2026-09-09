@@ -8,8 +8,10 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/ui/components/d_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -48,6 +50,12 @@ void main() {
       final firstController = _controller(tester);
       final firstTracker = FakeSiteTracker.built.single;
       expect(firstController.currentInstance?.host, 'first.example');
+      final firstToast = DToast.of(tester.element(find.byType(AdaptiveShell)));
+      firstToast.add(
+        const DToastOptions(description: 'Old account', duration: null),
+      );
+      await tester.pump();
+      expect(find.text('Old account'), findsOneWidget);
 
       await tester.pumpWidget(
         DiscourseApp(
@@ -69,6 +77,8 @@ void main() {
       expect(secondController, isNot(same(firstController)));
       expect(secondController.currentInstance?.host, 'second.example');
       expect(firstTracker.disposed, isTrue);
+      expect(firstToast.isDisposed, isTrue);
+      expect(find.text('Old account'), findsNothing);
       expect(api.closeCalls, 0);
 
       await tester.pumpWidget(const SizedBox.shrink());

@@ -43,8 +43,10 @@ Future<void> showTopicMovePosts({
     siteUrl: target.siteUrl,
   );
   if (!controller.openTopicUrl(absoluteDestination)) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      const SnackBar(content: Text("Couldn't open the destination topic.")),
+    DToast.show(
+      context,
+      "Couldn't open the destination topic.",
+      type: DToastType.error,
     );
   }
 }

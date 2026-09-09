@@ -883,18 +883,20 @@ class _ExampleViewportState extends State<_ExampleViewport> {
           ),
           child: DDirection(
             textDirection: widget.rtl ? TextDirection.rtl : TextDirection.ltr,
-            child: Navigator(
-              onGenerateRoute: (_) => MaterialPageRoute<void>(
-                builder: (context) => Material(
-                  key: const ValueKey('styleguide-preview'),
-                  color: DTokens.of(context).background,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(DSpacing.xl),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: math.max(0, constraints.maxHeight - 48),
+            child: DToaster(
+              child: Navigator(
+                onGenerateRoute: (_) => MaterialPageRoute<void>(
+                  builder: (context) => Material(
+                    key: const ValueKey('styleguide-preview'),
+                    color: DTokens.of(context).background,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(DSpacing.xl),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: math.max(0, constraints.maxHeight - 48),
+                        ),
+                        child: Center(child: widget.example.builder(context)),
                       ),
-                      child: Center(child: widget.example.builder(context)),
                     ),
                   ),
                 ),

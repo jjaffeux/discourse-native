@@ -189,7 +189,7 @@ DAlert(
       description:
           'Caller-owned paragraphs and a keyboard-accessible action compose inside the description.',
       code:
-          r'''Align(alignment: AlignmentDirectional.topStart, child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 448), child: DAlert(title: const DAlertTitle(child: Text('Before you continue')), description: DAlertDescription(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Keep a copy of your recovery codes.'), const SizedBox(height: 16), const Text('You can regenerate them in your account settings.'), DButton(label: const Text('Copy example code'), variant: DButtonVariant.link, onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Example code copied locally'))))])))))''',
+          r'''Align(alignment: AlignmentDirectional.topStart, child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 448), child: DAlert(title: const DAlertTitle(child: Text('Before you continue')), description: DAlertDescription(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Keep a copy of your recovery codes.'), const SizedBox(height: 16), const Text('You can regenerate them in your account settings.'), DButton(label: const Text('Copy example code'), variant: DButtonVariant.link, onPressed: () => DToast.show(context, 'Example code copied locally', type: DToastType.success))])))))''',
       builder: (context) => Align(
         alignment: AlignmentDirectional.topStart,
         child: ConstrainedBox(
@@ -208,10 +208,10 @@ DAlert(
                   DButton(
                     label: const Text('Copy example code'),
                     variant: DButtonVariant.link,
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Example code copied locally'),
-                      ),
+                    onPressed: () => DToast.show(
+                      context,
+                      'Example code copied locally',
+                      type: DToastType.success,
                     ),
                   ),
                 ],

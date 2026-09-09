@@ -2781,6 +2781,8 @@ Widget _app(
   DateTime Function() ringingClock = DateTime.now,
   bool showRoom = true,
 }) => MaterialApp(
+  builder: (context, child) =>
+      DToaster(position: DToastPosition.topEnd, child: child!),
   home: Scaffold(
     body: ListenableBuilder(
       listenable: controller,

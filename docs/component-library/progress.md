@@ -88,7 +88,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 50 | calendar | in_progress | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
 | 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
-| 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
+| 53 | toast | accepted | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
 | 55 | attachment | in_progress | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
@@ -2349,7 +2349,7 @@ Status: merged. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/ui-car
 
 ### toast
 
-Status: in_progress. Task: 01a0857a-fcd6-7880-90c0-501e72f034df. Branch: codex/ui-toast.
+Status: accepted. Task: 01a0857a-fcd6-7880-90c0-501e72f034df. Branch: codex/ui-toast.
 
 **acceptanceCriteria**
 
@@ -2366,30 +2366,33 @@ Status: in_progress. Task: 01a0857a-fcd6-7880-90c0-501e72f034df. Branch: codex/u
 - DToaster is a local inherited manager plus renderer, not a Material SnackBar wrapper. An omitted controller is owned/disposed; a supplied controller is borrowed. Root and styleguide preview scopes are independent and read live inherited tokens on every build.
 - Promise completion is revision-checked. Replacement, repeated ids, explicit dismissal and scope disposal prevent stale terminal updates. Loading promise state is persistent; terminal options control their own duration.
 - Flutter Focus/Shortcuts, Semantics, SafeArea, Dismissible and app lifecycle observation are the native equivalents for the reference landmark, keyboard entry, ARIA live region, viewport, swipe and pause behavior.
+- Independent review added a replacement close reason and independent pause owners so controller replacement and overlapping lifecycle, hover, focus and manual pauses remain observable and deterministic.
+- Independent native review found and fixed two layout/token defects: oversized limited stacks now use a bounded position-aware scroll viewport, and custom content inherits the toast surface foreground and icon tokens.
 
 **migrations**
 
 - Root DiscourseApp and standalone styleguide mount DToaster; every interactive styleguide preview mounts a nested scope so notices disappear with the preview lifecycle.
-- Migrated transient feedback in topic_list_view, topic_share, user_menu, diagnostics_panel, topic_move_posts, composer_discard, topic_tag_picker and reaction_presentation, preserving async guards and stable replacement behavior.
-- Button styleguide feedback now demonstrates DToast instead of Material SnackBar.
+- Migrated transient feedback across core topic, user, diagnostics, composer, media, instance, bookmark, group and post flows while preserving async guards, captured-controller ownership and stable replacement behavior.
+- Migrated bundled Assign, Chat, Events, GIF, Local Dates, Poll, Reactions and Voice feedback with success/error/loading types and stable ids where repeated state replaces an existing notice.
+- Button and Alert styleguide feedback demonstrate DToast instead of Material SnackBar. The final audit finds no ScaffoldMessenger or SnackBar use under lib/src.
 
 **retainedAlternatives**
 
 - Permanent inline validation/status and page-scale errors remain owned by Alert, Field and Empty rather than becoming temporary notifications.
-- Remaining core/plugin ScaffoldMessenger sites require reviewer reconciliation with concurrent Alert ownership; each must be classified and migrated or retained with a specific application reason before final acceptance.
+- Specialized recording, progress and modal error surfaces retain caller-owned persistent state because replacing them with an expiring notice would lose task context.
 
 **verification**
 
 - Fresh-worktree root and profiles/full flutter pub get --enforce-lockfile passed with committed versions and hashes unchanged.
-- Focused d_toast manager/widget lifecycle suite passed 5 tests. Toast examples plus the complete styleguide page regression passed 24 tests; all examples also render at 280px, RTL, 200% text and a custom Plum palette.
-- Topic Share focused behavior passed 14 tests. Combined Toast/styleguide and named consumer ownership suites passed 97 tests after current-main integration; Diagnostics passed independently before integration and its later combined-run miss is a known pre-existing resize-handle hit-test failure unrelated to Toast.
+- Fifteen final Toast component/styleguide tests pass after both reviewer fixes. Earlier focused consumer runs passed 176 tests; a larger 451-test regression passed 450, with its sole message-hover semantics failure reproduced unchanged in the untouched implementation worktree.
 - Root and profiles/full flutter analyze --no-pub passed with no issues after current-main integration; dart format and git diff --check pass.
-- flutter build macos --debug --no-pub succeeded from integrated source 212577a5; bundle build/macos/Build/Products/Debug/Discourse.app, kernel SHA256 2a083264635f19a56c9e619132b367e6d78d349ec1cda3481e5d467a38458a40. Subsequent integrated main commit changed only coordination documentation. The bundle was not launched or re-signed as an isolated review app.
+- flutter build macos --debug --no-pub succeeded from accepted review source 964b2f39. The isolated Toast Review a758 bundle and build kernel SHA256 are both 704b7a4a8b8c6c6bb096bb14e4adac48b3de85a2a8630219f7ebffdbadfa7814; its uniquely identified deep strict ad-hoc signature and restricted entitlement readback passed.
+- Official rendered Base UI Toast examples were compared in light/dark. Native macOS inspection passed basic/type/action/close/promise/custom/stack, light/dark/Plum, RTL, 360px and 200% text checks, plus a realistic production local-date apply flow. Keyboard focus/Escape, swipe, timeout pause and reduced-motion behavior have focused widget coverage.
 
 **limitations**
 
-- Implementation source is prepared without a desktop lease. Official rendered browser comparison, native styleguide/production fixture inspection, macOS build provenance, exhaustive remaining transient notification migration and affected legacy-test updates remain owned by the new review task.
-- No iOS or Linux device run was performed.
+- No physical iOS/Linux device run or spoken VoiceOver session was performed; Flutter semantics assertions and native accessibility-tree inspection are not a spoken-screen-reader claim.
+- The host treated F6 as a system function-key path during CUA, so focus entry and Escape dismissal are accepted from deterministic widget tests rather than a visible native key sequence. Browser/native font rasterization differs, so no pixel-equality claim is made.
 
 ### alert
 

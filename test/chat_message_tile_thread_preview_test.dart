@@ -1157,7 +1157,11 @@ void main() {
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
-        _TestTile(controller: controller, onOpenThread: (_) {}),
+        _TestTile(
+          controller: controller,
+          onOpenThread: (_) {},
+          withToaster: true,
+        ),
       );
       await tester.pumpAndSettle();
       await _hoverMessage(tester);
@@ -1191,6 +1195,7 @@ void main() {
           onOpenThread: (_) {},
           contextThreadId: 3,
           platform: TargetPlatform.android,
+          withToaster: true,
         ),
       );
       await tester.pumpAndSettle();
@@ -1216,6 +1221,7 @@ void main() {
           controller: controller,
           onOpenThread: (_) {},
           platform: TargetPlatform.android,
+          withToaster: true,
         ),
       );
       await tester.pumpAndSettle();
@@ -1528,7 +1534,11 @@ void main() {
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
-        _TestTile(controller: controller, onOpenThread: (_) {}),
+        _TestTile(
+          controller: controller,
+          onOpenThread: (_) {},
+          withToaster: true,
+        ),
       );
       await tester.pumpAndSettle();
       await _hoverMessage(tester);
@@ -2075,6 +2085,7 @@ class _TestTile extends StatelessWidget {
     this.showThreadSummary = true,
     this.chained = false,
     this.platform = TargetPlatform.macOS,
+    this.withToaster = false,
   });
 
   final ShellController controller;
@@ -2087,6 +2098,7 @@ class _TestTile extends StatelessWidget {
   final bool showThreadSummary;
   final bool chained;
   final TargetPlatform platform;
+  final bool withToaster;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -2095,6 +2107,10 @@ class _TestTile extends StatelessWidget {
       chatPluginId,
       MaterialApp(
         theme: AppTheme.light.copyWith(platform: platform),
+        builder: withToaster
+            ? (context, child) =>
+                  DToaster(position: DToastPosition.topEnd, child: child!)
+            : null,
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,

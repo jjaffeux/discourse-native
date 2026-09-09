@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/components/d_toast.dart';
+
 import 'voice_controller.dart';
 
 /// Shows each [VoiceNotice] once, as a snackbar, wherever the shell is: a
@@ -39,9 +41,7 @@ class _VoiceNoticeHostState extends State<VoiceNoticeHost> {
 
   void _show(VoiceNotice notice) {
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(notice.message)));
+    DToast.show(context, notice.message);
   }
 
   @override

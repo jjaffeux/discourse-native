@@ -609,8 +609,10 @@ class _PostEventCardState extends State<PostEventCard> {
       );
     } catch (error) {
       if (mounted && operation.isCurrent) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(content: Text(eventError(error, reading: true))),
+        DToast.show(
+          context,
+          eventError(error, reading: true),
+          type: DToastType.error,
         );
       }
     } finally {

@@ -136,8 +136,10 @@ Widget? inlineVideoWidgetBuilder(dom.Element element, {String? siteUrl}) {
   return data == null ? null : InlineVideo(data: data, siteUrl: siteUrl);
 }
 
-typedef InlineVideoPlayerBuilder =
-    Widget Function(BuildContext context, InlineVideoData data);
+typedef InlineVideoPlayerBuilder = Widget Function(
+  BuildContext context,
+  InlineVideoData data,
+);
 
 /// A lazy, app-owned shell around the platform video implementation.
 class InlineVideo extends StatefulWidget {
@@ -175,7 +177,7 @@ class _InlineVideoState extends State<InlineVideo> {
     if (_downloading.value) return;
     final data = widget.data;
     final shell = ShellScope.maybeIdentityOf(context);
-    final messenger = ScaffoldMessenger.maybeOf(actionContext);
+    final toast = DToast.maybeOf(actionContext);
     final renderObject = actionContext.findRenderObject();
     final shareOrigin = renderObject is RenderBox && renderObject.hasSize
         ? renderObject.localToGlobal(Offset.zero) & renderObject.size
@@ -191,15 +193,19 @@ class _InlineVideoState extends State<InlineVideo> {
             lifecycle: shell?.lifecycle,
             sharePositionOrigin: shareOrigin,
           );
-      if (!mounted || messenger?.mounted != true) return;
+      if (!mounted || toast?.isDisposed != false) return;
       if (outcome == VideoDownloadOutcome.saved) {
         final filename = videoDownloadFilename(
           title: data.title,
           url: data.source,
         );
-        messenger!
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text('Saved $filename.')));
+        toast!.add(
+          DToastOptions(
+            description: 'Saved $filename.',
+            type: DToastType.success,
+          ),
+          id: 'video-download',
+        );
       }
     } catch (error, stackTrace) {
       DiagnosticsSink.current.reportError(
@@ -210,14 +216,14 @@ class _InlineVideoState extends State<InlineVideo> {
         severity: DiagnosticSeverity.warning,
         handled: true,
       );
-      if (mounted && messenger?.mounted == true) {
-        messenger!
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(
-              content: Text("Couldn't download video. Try again."),
-            ),
-          );
+      if (mounted && toast?.isDisposed == false) {
+        toast!.add(
+          const DToastOptions(
+            description: "Couldn't download video. Try again.",
+            type: DToastType.error,
+          ),
+          id: 'video-download',
+        );
       }
     } finally {
       if (mounted) _downloading.value = false;
@@ -1018,9 +1024,8 @@ class _PlaybackTimeline extends StatelessWidget {
           ),
           Text(
             '${_duration(timeline.position)} / ${_duration(timeline.duration)}',
-            style: Theme.of(
-              context,
-            ).textTheme.labelSmall?.copyWith(color: Colors.white),
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: Colors.white),
           ),
         ],
       );

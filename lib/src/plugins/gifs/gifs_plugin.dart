@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
+import '../../ui/components/d_toast.dart';
 import 'gifs_icons.dart';
 import 'gifs_services.dart';
 import 'gifs_settings.dart';
@@ -92,11 +93,8 @@ Future<void> openGifPickerForComposer(
 }
 
 void _changedComposerMessage(BuildContext context) {
-  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-    const SnackBar(
-      content: Text(
-        'The composer changed while the GIF picker was open. Nothing was changed.',
-      ),
-    ),
+  DToast.show(
+    context,
+    'The composer changed while the GIF picker was open. Nothing was changed.',
   );
 }

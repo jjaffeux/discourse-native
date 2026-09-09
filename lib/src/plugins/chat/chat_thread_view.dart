@@ -571,8 +571,10 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       final shell = PluginUiScope.require(context, chatShellService);
       shell.returnToChannel(widget.target.channelId);
       if (!context.mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('This thread is no longer available.')),
+      DToast.show(
+        context,
+        'This thread is no longer available.',
+        type: DToastType.warning,
       );
     });
   }
@@ -738,9 +740,8 @@ class _ThreadHeader extends StatelessWidget {
                     : 'Thread',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             _NotificationLevelButton(

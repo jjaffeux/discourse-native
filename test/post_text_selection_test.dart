@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
@@ -478,7 +479,7 @@ void main() {
         ),
       );
 
-      final shell = await _pumpSelection(tester);
+      final shell = await _pumpSelection(tester, withToaster: true);
       addTearDown(shell.dispose);
       await _selectWord(tester);
 
@@ -980,6 +981,7 @@ Future<ShellController> _pumpSelection(
   FakeDiscourseApi? api,
   FakeAuthenticator? authenticator,
   SiteConfig config = const SiteConfig.unknown(),
+  bool withToaster = false,
 }) async {
   final shell = await _shell(
     post: post,
@@ -992,6 +994,9 @@ Future<ShellController> _pumpSelection(
       controller: shell,
       child: MaterialApp(
         theme: AppTheme.dark,
+        builder: withToaster
+            ? (context, child) => DToaster(child: child!)
+            : null,
         home: Scaffold(
           body: Center(
             child: PostTextSelection(

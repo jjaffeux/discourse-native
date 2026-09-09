@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
 import '../plugin_api/shell_extensions.dart';
+import '../ui/components/d_toast.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -42,9 +43,7 @@ Future<bool> openLink(
 
 bool _handleTabResult(BuildContext context, TabOpenResult result) {
   if (result == TabOpenResult.limitReached) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      const SnackBar(content: Text('Close a tab before opening another.')),
-    );
+    DToast.show(context, 'Close a tab before opening another.');
   }
   return result == TabOpenResult.opened;
 }
@@ -79,9 +78,8 @@ class LinkTarget extends StatelessWidget {
     onTertiaryTapUp: content != null
         ? (_) => _handleTabResult(
             context,
-            ShellScope.read(
-              context,
-            ).openContentInNewTab(content!, siteUrl: siteUrl),
+            ShellScope.read(context)
+                .openContentInNewTab(content!, siteUrl: siteUrl),
           )
         : url != null
         ? (_) => openLink(

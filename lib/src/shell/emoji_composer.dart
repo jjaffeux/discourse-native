@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/emoji_usage.dart';
+import '../ui/components/d_toast.dart';
 import 'composer_controller.dart';
 import 'emoji_picker.dart';
 import 'shell_scope.dart';
@@ -51,12 +52,9 @@ Future<void> openEmojiPickerForComposer({
         emoji.siteConfigFor(siteUrl).emojiEnabled;
     if (!unchanged) {
       if (context.mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'The composer changed while the emoji picker was open. Nothing was changed.',
-            ),
-          ),
+        DToast.show(
+          context,
+          'The composer changed while the emoji picker was open. Nothing was changed.',
         );
       }
       return;

@@ -366,9 +366,7 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.maybeOf(context)
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    DToast.show(context, message, id: 'voice-diagnostics');
   }
 }
 
