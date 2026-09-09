@@ -497,6 +497,7 @@ class _QuestionnaireItemTransition extends StatelessWidget {
   Widget build(BuildContext context) => FadeTransition(
     opacity: animation,
     child: SlideTransition(
+      textDirection: Directionality.of(context),
       position: Tween<Offset>(
         begin: Offset(forward ? .04 : -.04, 0),
         end: Offset.zero,

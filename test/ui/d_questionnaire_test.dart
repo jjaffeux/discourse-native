@@ -372,6 +372,19 @@ void main() {
     expect(find.text('Skip'), findsOneWidget);
     expect(find.text('Next'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
+    expect(
+      tester
+          .widget<SlideTransition>(
+            find
+                .descendant(
+                  of: find.byType(AnimatedSwitcher),
+                  matching: find.byType(SlideTransition),
+                )
+                .first,
+          )
+          .textDirection,
+      TextDirection.rtl,
+    );
   });
 
   testWidgets('choice semantics expose group selection and invalid errors', (
