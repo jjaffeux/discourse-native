@@ -130,7 +130,7 @@ class DPagination extends StatelessWidget {
           constraints: BoxConstraints(
             minWidth: constraints.hasBoundedWidth ? constraints.maxWidth : 0,
           ),
-          child: Align(alignment: alignment, child: child),
+          child: Align(alignment: alignment, heightFactor: 1, child: child),
         ),
       ),
     ),
