@@ -4,18 +4,23 @@ import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 
 /// A centered empty-state composition. Actions, state and scrolling belong to
-/// the caller. Supply a bounded width (Expanded inside a Row). In a bounded pane, wrap in Center/SingleChildScrollView to allow
-/// large text to grow. Children keep their native focus and Form ownership.
+/// the caller. Supply a bounded width (Expanded inside a Row). The default
+/// padding follows the reference's 24px mobile and 48px desktop values; an
+/// explicit [padding] disables that responsive default. In a bounded pane, wrap
+/// in Center/SingleChildScrollView to allow large text to grow. Children keep
+/// their native focus and Form ownership.
 class DEmpty extends StatelessWidget {
   const DEmpty({
     super.key,
     required this.children,
-    this.padding = const EdgeInsets.all(24),
-    this.spacing = 16,
+    EdgeInsetsGeometry? padding,
+    this.spacing = 24,
     this.outlined = false,
     this.backgroundColor,
     this.gradient,
-  }) : assert(spacing >= 0);
+  }) : padding = padding ?? const EdgeInsets.all(24),
+       _usesDefaultPadding = padding == null,
+       assert(spacing >= 0);
 
   final List<Widget> children;
   final EdgeInsetsGeometry padding;
@@ -23,11 +28,16 @@ class DEmpty extends StatelessWidget {
   final bool outlined;
   final Color? backgroundColor;
   final Gradient? gradient;
+  final bool _usesDefaultPadding;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final radius = tokens.radius * 1.4;
+    final resolvedPadding =
+        _usesDefaultPadding && MediaQuery.sizeOf(context).width >= 768
+        ? const EdgeInsets.all(48)
+        : padding;
     return CustomPaint(
       foregroundPainter: outlined
           ? _DashedOutline(color: tokens.border, radius: radius)
@@ -39,7 +49,7 @@ class DEmpty extends StatelessWidget {
           borderRadius: BorderRadius.circular(radius),
         ),
         child: Padding(
-          padding: padding.add(EdgeInsets.all(outlined ? 1 : 0)),
+          padding: resolvedPadding.add(EdgeInsets.all(outlined ? 1 : 0)),
           child: SizedBox(
             width: double.infinity,
             child: DefaultTextStyle.merge(
@@ -68,7 +78,7 @@ class DEmptyHeader extends StatelessWidget {
 
 enum DEmptyMediaVariant { plain, icon }
 
-/// Arbitrary media, or a 32px muted tile with a default 16px icon.
+/// Arbitrary media, or a 40px muted tile with a default 24px icon.
 /// The 8px bottom margin is additional to the header's gap. Supply an explicit
 /// icon size to override the inherited size. Media does not intercept input.
 class DEmptyMedia extends StatelessWidget {
@@ -88,15 +98,15 @@ class DEmptyMedia extends StatelessWidget {
       child: variant == DEmptyMediaVariant.plain
           ? child
           : Container(
-              width: 32,
-              height: 32,
+              width: 40,
+              height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: tokens.muted,
                 borderRadius: BorderRadius.circular(tokens.radius),
               ),
               child: IconTheme.merge(
-                data: IconThemeData(size: 16, color: tokens.foreground),
+                data: IconThemeData(size: 24, color: tokens.foreground),
                 child: child,
               ),
             ),
@@ -128,9 +138,12 @@ class DEmptyTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolved = _textStyle(context)
         .copyWith(
+          fontSize: DiscourseTypography.lg,
+          height: 28 / 18,
           fontFamily: Theme.of(context).textTheme.titleMedium?.fontFamily,
           fontWeight: FontWeight.w500,
-          letterSpacing: -0.35,
+          letterSpacing:
+              DiscourseTypography.lg * DiscourseTypography.trackingTight,
         )
         .merge(style);
     return Semantics(
@@ -158,14 +171,13 @@ class DEmptyDescription extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DefaultTextStyle.merge(
     textAlign: TextAlign.center,
-    style: _textStyle(
-      context,
-    ).copyWith(height: 1.625, color: DTokens.of(context).mutedForeground),
+    style: _textStyle(context)
+        .copyWith(height: 1.625, color: DTokens.of(context).mutedForeground),
     child: child ?? Text(text!, textAlign: TextAlign.center),
   );
 }
 
-/// Full available width up to 384px, with 10px vertical gaps. Compose a Wrap
+/// Full available width up to 384px, with 16px vertical gaps. Compose a Wrap
 /// child for a responsive horizontal action group, or any native editable field.
 class DEmptyContent extends StatelessWidget {
   const DEmptyContent({super.key, required this.children});
@@ -179,7 +191,7 @@ class DEmptyContent extends StatelessWidget {
       child: DefaultTextStyle.merge(
         textAlign: TextAlign.center,
         style: _textStyle(context),
-        child: _Stack(spacing: 10, children: children),
+        child: _Stack(spacing: 16, children: children),
       ),
     ),
   );
