@@ -88,8 +88,19 @@ void main() {
     await tester.pumpWidget(
       host(scroller(controller: controller, items: rows(['1', '2', '3', '4']))),
     );
+
+    Iterable<Visibility> hiddenMaintainedViewports() => tester
+        .widgetList<Visibility>(find.byType(Visibility))
+        .where(
+          (widget) =>
+              !widget.visible && widget.maintainState && widget.maintainSize,
+        );
+    expect(hiddenMaintainedViewports(), hasLength(1));
+
     await tester.pump();
     await tester.pump();
+
+    expect(hiddenMaintainedViewports(), isEmpty);
 
     final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
     expect(scroll.position.pixels, scroll.position.maxScrollExtent);
@@ -136,6 +147,46 @@ void main() {
     expect(controller.state.canScrollEnd, isFalse);
   });
 
+  testWidgets('custom edge-button content keeps scrolling and callbacks', (
+    tester,
+  ) async {
+    final controller = DMessageScrollerController();
+    var presses = 0;
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      host(
+        DMessageScrollerProvider(
+          controller: controller,
+          initialPosition: DMessageScrollerInitialPosition.start,
+          child: DMessageScroller(
+            children: [
+              DMessageScrollerViewport(
+                content: DMessageScrollerContent(
+                  children: rows(['1', '2', '3', '4', '5', '6']),
+                ),
+              ),
+              DMessageScrollerButton(
+                semanticLabel: 'Latest custom',
+                onPressed: () => presses++,
+                child: const Icon(Icons.vertical_align_bottom),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.state.canScrollEnd, isTrue);
+
+    expect(find.bySemanticsLabel('Latest custom'), findsOneWidget);
+    await tester.tap(find.byType(DButton));
+    expect(presses, 1);
+    await tester.pumpAndSettle();
+
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+    expect(scroll.position.pixels, scroll.position.maxScrollExtent);
+  });
+
   testWidgets(
     'queues a message target until an initially empty transcript mounts',
     (tester) async {
@@ -171,6 +222,7 @@ void main() {
         _MutableTranscript(
           key: key,
           controller: controller,
+          autoScroll: true,
           initialIds: const ['old-1', 'old-2', 'old-3', 'old-4'],
         ),
       ),
@@ -190,6 +242,17 @@ void main() {
     final anchorTop = tester.getTopLeft(find.text('Message new-turn')).dy;
     expect(anchorTop - viewportTop, closeTo(64, 2));
     expect(controller.state.currentAnchorId, 'new-turn');
+
+    controller.scrollToEnd();
+    await tester.pumpAndSettle();
+    key.currentState!.append('second-turn', anchor: true, height: 180);
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final secondAnchorTop = tester.getTopLeft(find.text('Message second-turn'));
+    expect(secondAnchorTop.dy - viewportTop, closeTo(64, 2));
+    expect(controller.state.currentAnchorId, 'second-turn');
   });
 
   testWidgets('follows streaming growth only until the reader moves away', (

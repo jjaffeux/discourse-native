@@ -565,12 +565,14 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     final initialChanged =
         _scope != null && _scope!.initialPosition != next.initialPosition;
     _scope = next;
-    if (!_initialApplied) {
-      _mode = next.autoScroll ? _ScrollerMode.followingEnd : _ScrollerMode.free;
-    }
     if (initialChanged) {
       _initialApplied = false;
-      _pendingInitial = false;
+    }
+    if (!_initialApplied) {
+      _mode = next.autoScroll ? _ScrollerMode.followingEnd : _ScrollerMode.free;
+      _pendingInitial =
+          next.manageInitialPosition &&
+          next.initialPosition != DMessageScrollerInitialPosition.start;
     }
     _captureItems();
     _scheduleContentChange();
@@ -606,7 +608,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       if (newAnchor != null &&
           !_wasExistingAnchor(newAnchor, previousIds, previousAnchors)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _anchorNewTurn(newAnchor);
+          if (mounted) _anchorNewTurn(newAnchor, appendedAt: appendedAt);
         });
       }
     }
@@ -742,19 +744,17 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
 
     if (!_initialApplied) {
       if (_ids.isEmpty) {
-        _pendingInitial = false;
+        _setPendingInitial(false);
         _publishState();
         return;
       }
       if (!_scope!.manageInitialPosition) {
         _initialApplied = true;
-        _pendingInitial = false;
+        _setPendingInitial(false);
         _publishState();
         _scheduleReaderHoldCapture();
         return;
       }
-      _pendingInitial =
-          _scope!.initialPosition != DMessageScrollerInitialPosition.start;
       _applyInitialPosition();
       return;
     }
@@ -819,9 +819,14 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
           );
         }
     }
-    _pendingInitial = false;
+    _setPendingInitial(false);
     _publishState();
     _scheduleReaderHoldCapture();
+  }
+
+  void _setPendingInitial(bool value) {
+    if (_pendingInitial == value) return;
+    setState(() => _pendingInitial = value);
   }
 
   String? _lastAnchorId() {
@@ -847,9 +852,12 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     return extent <= _scroll.position.viewportDimension;
   }
 
-  void _anchorNewTurn(String id) {
+  void _anchorNewTurn(String id, {required int appendedAt}) {
     if (!_initialApplied || !_scroll.hasClients || !_list.isAttached) return;
-    final newAnchorCount = _anchors.where((value) => value).length;
+    final newAnchorCount = _anchors
+        .skip(appendedAt)
+        .where((value) => value)
+        .length;
     if (_scope!.autoScroll &&
         _mode == _ScrollerMode.followingEnd &&
         newAnchorCount > 1) {
@@ -954,7 +962,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       if (_ids.isEmpty) {
         _pendingTarget = (id: messageId, options: options);
         _initialApplied = true;
-        _pendingInitial = false;
+        _setPendingInitial(false);
         return true;
       }
       return false;
@@ -977,6 +985,9 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     DMessageScrollerScrollOptions options, {
     double extraMargin = 0,
   }) {
+    final generation = ++_programmaticGeneration;
+    final keepAnchored = _mode == _ScrollerMode.anchored;
+    if (!keepAnchored) _mode = _ScrollerMode.settling;
     final margin = (options.scrollMargin ?? _scope!.scrollMargin) + extraMargin;
     final alignment = switch (options.alignment) {
       DMessageScrollerAlignment.start => 0.0,
@@ -994,7 +1005,11 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       );
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.hasClients) return;
+      if (!mounted ||
+          !_scroll.hasClients ||
+          generation != _programmaticGeneration) {
+        return;
+      }
       if (options.behavior == DMessageScrollerScrollBehavior.smooth &&
           !MediaQuery.disableAnimationsOf(context)) {
         _programmaticDepth++;
@@ -1008,7 +1023,14 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
         Future<void>.delayed(const Duration(milliseconds: 220), () {
           if (!mounted) return;
           _programmaticDepth = (_programmaticDepth - 1).clamp(0, 1 << 20);
+          if (generation != _programmaticGeneration) {
+            _publishState();
+            return;
+          }
           _correctItemMargin(index, alignment, margin);
+          if (!keepAnchored) _mode = _ScrollerMode.free;
+          _readerHold = _captureReaderHold();
+          _publishState();
         });
       } else {
         _list.jumpToItem(
@@ -1017,14 +1039,15 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
           alignment: alignment,
         );
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _correctItemMargin(index, alignment, margin);
+          if (!mounted || generation != _programmaticGeneration) return;
+          _correctItemMargin(index, alignment, margin);
+          if (!keepAnchored) _mode = _ScrollerMode.free;
+          _readerHold = _captureReaderHold();
         });
         WidgetsBinding.instance.scheduleFrame();
       }
-      if (_mode == _ScrollerMode.anchored) {
+      if (keepAnchored) {
         _anchoredTop = margin;
-      } else {
-        _mode = _ScrollerMode.free;
       }
     });
     WidgetsBinding.instance.scheduleFrame();
@@ -1109,8 +1132,12 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     );
     final generation = ++_programmaticGeneration;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final settles = _mode != _ScrollerMode.followingEnd;
+    if (settles) _mode = _ScrollerMode.settling;
     if (behavior == DMessageScrollerScrollBehavior.instant || reduceMotion) {
       _jumpTo(clamped);
+      if (settles) _mode = _ScrollerMode.free;
+      _scheduleReaderHoldCapture();
       _scheduleStateSync();
       return;
     }
@@ -1126,7 +1153,13 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
           .whenComplete(() {
             if (!mounted) return;
             _programmaticDepth = (_programmaticDepth - 1).clamp(0, 1 << 20);
-            if (generation == _programmaticGeneration) _publishState();
+            if (generation != _programmaticGeneration) {
+              _publishState();
+              return;
+            }
+            if (settles) _mode = _ScrollerMode.free;
+            _readerHold = _captureReaderHold();
+            _publishState();
           }),
     );
   }
@@ -1536,34 +1569,34 @@ class DMessageScrollerButton extends StatelessWidget {
                         duration: duration,
                         curve: curve,
                         opacity: active ? 1 : 0,
-                        child:
-                            child ??
-                            DButton.iconOnly(
-                              icon: _MessageScrollerArrow(
+                        child: DButton.iconOnly(
+                          icon:
+                              child ??
+                              _MessageScrollerArrow(
                                 up:
                                     direction ==
                                     DMessageScrollerDirection.start,
                               ),
-                              tooltip: label,
-                              semanticLabel: label,
-                              size: DButtonSize.regular,
-                              variant: DButtonVariant.secondary,
-                              onPressed: active
-                                  ? () {
-                                      onPressed?.call();
-                                      if (direction ==
-                                          DMessageScrollerDirection.start) {
-                                        scope.controller.scrollToStart(
-                                          behavior: behavior,
-                                        );
-                                      } else {
-                                        scope.controller.scrollToEnd(
-                                          behavior: behavior,
-                                        );
-                                      }
-                                    }
-                                  : null,
-                            ),
+                          tooltip: label,
+                          semanticLabel: label,
+                          size: DButtonSize.regular,
+                          variant: DButtonVariant.secondary,
+                          onPressed: active
+                              ? () {
+                                  onPressed?.call();
+                                  if (direction ==
+                                      DMessageScrollerDirection.start) {
+                                    scope.controller.scrollToStart(
+                                      behavior: behavior,
+                                    );
+                                  } else {
+                                    scope.controller.scrollToEnd(
+                                      behavior: behavior,
+                                    );
+                                  }
+                                }
+                              : null,
+                        ),
                       ),
                     ),
                   ),
