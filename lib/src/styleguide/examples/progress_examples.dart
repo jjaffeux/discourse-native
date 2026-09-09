@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final progressExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Completion and ongoing work, with optional labels and values.',
   notes:
-      'Native review pending. Default range is 0–100; use max: 1 for fractional '
+      'Default range is 0–100; use max: 1 for fractional '
       'application values. Null/non-finite values are unknown; finite values clamp '
       'to min/max. Progress is read-only and does not take keyboard focus. '
       'DProgressLabel provides its accessible name; provide semanticsLabel when '
