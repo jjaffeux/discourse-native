@@ -15,7 +15,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 3 | spinner | merged | 01a08213-9960-79f1-8d90-9626f24a4b5a | codex/ui-spinner | — | 07a085c175c57c3e6b4868fd700885f8bfe5212c |
 | 4 | kbd | merged | 01a0821b-27cc-7013-affb-99cae203b2a8 | codex/ui-kbd | typography | 8d0936ff13346650682f3b04e55b612074bd3f66 |
 | 5 | tooltip | merged | 01a0829c-ba0d-7282-a010-7e26f190dd4f | codex/ui-tooltip | kbd | f0aee9adc5f0d64adfd9aa5e285830e2a143a1e7 |
-| 6 | button | in_progress | 01a083ac-5fd5-78b1-9263-7e3218a878b6 | codex/ui-button | spinner, tooltip | — |
+| 6 | button | review_ready | 01a083ac-5fd5-78b1-9263-7e3218a878b6 | codex/ui-button | spinner, tooltip | — |
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | planned | — | — | spinner | — |
@@ -522,7 +522,7 @@ Status: merged. Task: 01a0829c-ba0d-7282-a010-7e26f190dd4f. Branch: codex/ui-too
 
 ### button
 
-Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/ui-button.
+Status: review_ready. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/ui-button.
 
 **acceptanceCriteria**
 
@@ -541,6 +541,8 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Browser/export comparison corrected Small leading to22.4px, dark input-token alpha multiplication, leading loading padding, and responsive Size composition; added exact Arabic reference composition.
 - Radius follow-up: xs/icon-xs=min(.8×base,10px), sm/icon-sm=min(.8×base,12px), regular/large=base per official theming scale; preserves caller radius overrides.
 - Restore existing disabledOpacity scoped override with .5 default; preserve disabled/loading activation guards. No Input changes.
+- Users search height follows touch targets; reorder arrows are outside CheckboxListTile semantics/height constraints, with authored40px pointer and48px touch targets.
+- Native AX correction: icon-only tooltip becomes default spoken label; UserSummary count label moves onto DButton to eliminate duplicate nested buttons.
 
 **migrations**
 
@@ -572,10 +574,12 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Radius regression reproduced 2px vs3.2px at4px base, then passed0/4/10/14/20 base radii for both constructors with live theme rebuilds. All28 affected tests and root/full analysis pass. Refreshed exact exports and inspected Light4/Forest14/Plum20 specimens without browser/native actions.
 - Radius-corrected source 4483071a2b1e4a147fb9627a8b5de9713a2138b8 byte-verified and rebuilt in unlaunched /private/tmp/DiscourseButtonReview-3a88-v4.app, unique V4 identity/scheme; deep strict signature passes. Kernel SHA256 f3c167b9494e8e49c3f9f1894ff453eeffb27e0e4da57053cbb7db9102be2396. V4 supersedes V3.
 - All29 affected Button/reference/example tests and root/full analysis pass after opacity override correction. V5 bundle source-byte-verified/deep-strict signed; signed entitlements omit APS/team/application identifiers while retaining local sandbox/JIT/permissions. Unlaunched /private/tmp/DiscourseButtonReview-3a88-v5.app supersedesV4; kernel0b4bdc1f7e6292fb2eb3ff8a1803c5057abd8d85b73551d6aea25552344b0e12.
+- Actual V6/V8 macOS CUA inspection completed: light/dark/custom, sizes/icons,360px/200%/RTL, loading/disabled/repeat/keyboard/link behavior and real Poll/Users/UserSummary integrations. Evidence and provenance in button-native-review.md; native/browser slots explicitly RELEASED.
+- Final40 focused tests pass;48 Users tests pass with only two unrelated Avatar assertions already fixed on coordinator main. Root/full analysis clean. Final source-exact V8 kernel f1d36a8fc4850705bb5fcc310bef9d27677695a3c96499f5a45fd05e95843f8c.
 
 **limitations**
 
-- Actual native production-fixture verification remains pending Mac unlock and coordinator native slot. Browser-versus-widget-export comparison is complete but does not satisfy the native gate; do not mark review_ready.
+- Coordinator owns baseline root styleguide AX correction and final combined review. Preserve main Avatar assertions when merging. Catalogue baseline status remains for coordinator promotion after merged root AX recheck.
 - No iOS/Linux native device, spoken VoiceOver or automated cross-renderer pixel-diff claim.
 
 ### separator
