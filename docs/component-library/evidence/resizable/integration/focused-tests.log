@@ -1,0 +1,182 @@
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: iOS TextDirection.rtl keeps collapsed-edge drag and semantics target inside its group
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: iOS TextDirection.ltr keeps collapsed-edge drag and semantics target inside its group
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: divider and pill keep reference geometry and live palette with borrowed focus
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: pixel-preserving panel survives container resize while relative panel absorbs space
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: pointer midpoint snap conserves extent with 80.0 opposite capacity and a disabled neighbour
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: pointer midpoint snap conserves extent with 200.0 opposite capacity and a disabled neighbour
+00:00 +6: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: programmatic resizing propagates past adjacent minimum and preserves total
+00:00 +7: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: disabled panel remains fixed while surrounding panels resize
+00:00 +8: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: TextDirection.rtl arrows, Home and Enter resize and collapse with focus
+00:00 +9: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: TextDirection.ltr arrows, Home and Enter resize and collapse with focus
+00:00 +10: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: controlled parent may reject proposed layout
+00:00 +11: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: stable IDs retain child state through reorder and removal
+00:00 +12: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/d_resizable_test.dart: vertical gesture and cancellation commit actual geometry
+00:01 +13: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/panel_width_controller_headless_test.dart: notifies synchronously and flushes without a scheduler binding
+00:01 +14: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/panel_width_controller_headless_test.dart: a resize prevents a stale restoration from replacing its width
+00:01 +15: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/resizable_pane_test.dart: LTR leading puts the handle on its logical edge
+00:01 +16: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +17: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +18: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +19: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +20: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +21: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +22: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +23: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +24: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +25: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:01 +26: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/styleguide/resizable_examples_test.dart: all examples mount production components across themes, direction and large text
+00:02 +27: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory text NaN renders as unscaled text
+00:02 +28: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: invalid directory text NaN renders as unscaled text
+00:02 +29: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +30: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +31: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +32: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +33: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +34: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +35: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +36: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +37: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +38: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +39: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/group_member_menu_ownership_test.dart: member menus at width 1180.0 GroupMemberAction.makeOwner still targets Alice after a member refresh
+00:02 +40: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:02 +41: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:02 +42: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:02 +43: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:02 +44: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:02 +45: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +46: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +47: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +48: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +49: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +50: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +51: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +52: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +53: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +54: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +55: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +56: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +57: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "S" for username "sam"
+00:03 +58: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:03 +59: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:03 +60: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:03 +61: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "𐐀" for username "𐐨ser"
+00:03 +62: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "𐐀" for username "𐐨ser"
+00:03 +63: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "𐐀" for username "𐐨ser"
+00:03 +64: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "𐐀" for username "𐐨ser"
+00:03 +65: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "𐐀" for username "𐐨ser"
+00:03 +66: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "𐐀" for username "𐐨ser"
+00:04 +67: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "𐐀" for username "𐐨ser"
+00:04 +68: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "𐐀" for username "𐐨ser"
+00:04 +69: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "𐐀" for username "𐐨ser"
+00:04 +70: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +71: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +72: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +73: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +74: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +75: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +76: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +77: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +78: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: split route moves only the active chat stream
+00:04 +79: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: unchanged metrics reuse maxima through directory interactions
+00:04 +80: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: unchanged metrics reuse maxima through directory interactions
+00:05 +81: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "?" for username ""
+00:05 +82: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "?" for username ""
+00:05 +83: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header participant avatar uses "?" for username ""
+00:05 +84: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: Matrix supports search, periods, sorting, columns, and omits selection
+00:05 +85: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: Matrix supports search, periods, sorting, columns, and omits selection
+00:05 +86: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: Matrix supports search, periods, sorting, columns, and omits selection
+00:05 +87: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +88: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +89: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +90: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +91: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +92: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +93: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +94: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +95: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +96: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: reader collapses smoothly and restores the full header at the top
+00:05 +97: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread notification choices use a sheet on touch
+00:05 +98: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/chat_thread_workspace_test.dart: thread notification choices use a sheet on touch
+00:05 +99: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: column visibility drafts stay with their forum
+00:05 +100: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: column visibility drafts stay with their forum
+00:05 +101: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:05 +102: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:05 +103: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:05 +104: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:05 +105: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:05 +106: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:06 +107: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:06 +108: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:06 +109: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:06 +110: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: stationary toolbar controls stay visible through transitions with a wrapped title
+00:06 +111: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/users_page_test.dart: staff column editor includes disabled plugin and user-field columns
+00:06 +112: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.macOS)
+00:06 +113: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.macOS)
+00:06 +114: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.macOS)
+00:06 +115: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.macOS)
+00:06 +116: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.macOS)
+00:06 +117: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.macOS)
+00:06 +118: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.macOS)
+00:06 +119: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.macOS)
+00:06 +120: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.macOS)
+00:06 +121: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category navigates and assignment details remain available (variant: TargetPlatform.iOS)
+00:07 +122: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: topic headers resolve the category hierarchy with category cached false and topic cached false
+00:07 +123: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: topic headers resolve the category hierarchy with category cached true and topic cached false
+00:08 +124: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: topic headers resolve the category hierarchy with category cached true and topic cached true
+00:08 +125: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact parent browse button keeps the reader with editing true
+00:08 +126: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact parent browse button keeps the reader with editing false
+00:08 +127: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact category names open separate category editors
+00:09 +128: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: empty header tags offer Add tag in compact mode true
+00:09 +129: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: empty header tags offer Add tag in compact mode false
+00:09 +130: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: scrolling keeps an active title edit until it is saved
+00:10 +131: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact title click takes focus from another control and saves on Enter (variant: TargetPlatform.macOS)
+00:10 +132: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact title click takes focus from another control and cancels on Escape (variant: TargetPlatform.macOS)
+00:11 +133: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact titles remain read-only without edit permission
+00:11 +134: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact tags can be removed and added without expanding
+00:11 +135: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact tag overflow exposes hidden tags with editing true
+00:12 +136: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact tag overflow exposes hidden tags with editing false
+00:12 +137: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: both header modes keep title first in the centered reading column at desktop widths and zoom levels (variant: TargetPlatform.macOS)
+00:12 +138: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: compact header fits narrow windows and enlarged text
+00:13 +139: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: narrow toolbar categories can be browsed without edit permission
+00:13 +140: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header rows keep category and tags accessible as space shrinks
+00:13 +141: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: inbox read colors and badges follow web topic state (false)
+00:14 +142: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: inbox read colors and badges follow web topic state (true)
+00:14 +143: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: retained inbox updates read colors and counts as activity changes
+00:14 +144: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: unread badge stays visible and opens the topic at large text
+00:14 +145: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: wide reader aligns title, taxonomy, activity, and post text (variant: TargetPlatform.macOS)
+00:14 +146: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header closed status updates from topic actions without moving the title
+00:14 +147: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: closed status is readable in narrow headers without edit permissions
+00:15 +148: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: many tags stay beside categories and hidden tags can be removed immediately
+00:15 +149: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header tags navigate with editing true, private messages false, and new tab false
+00:15 +150: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header tags navigate with editing true, private messages true, and new tab false
+00:15 +151: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: collapsed tags navigate without saving with editing true and new tab false
+00:16 +152: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header tags navigate with editing true, private messages false, and new tab true
+00:16 +153: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header tags navigate with editing true, private messages true, and new tab true
+00:16 +154: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: collapsed tags navigate without saving with editing true and new tab true
+00:16 +155: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header tags navigate with editing false, private messages false, and new tab false
+00:16 +156: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header tags navigate with editing false, private messages true, and new tab false
+00:17 +157: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: collapsed tags navigate without saving with editing false and new tab false
+00:17 +158: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header tags navigate with editing false, private messages false, and new tab true
+00:17 +159: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header tags navigate with editing false, private messages true, and new tab true
+00:17 +160: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: collapsed tags navigate without saving with editing false and new tab true
+00:18 +161: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: middle-click opens the Design category arrow in a background tab with compact mode false
+00:18 +162: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: middle-click opens the Design category arrow in a background tab with compact mode true
+00:18 +163: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: middle-click opens the Onboarding category arrow in a background tab with compact mode false
+00:18 +164: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: middle-click opens the Onboarding category arrow in a background tab with compact mode true
+00:18 +165: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: read-only topics still expose every collapsed tag
+00:19 +166: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: private category chips fit across narrow header widths
+00:19 +167: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: narrow headers keep categories and tag overflow accessible with large text
+00:19 +168: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: assigned cards share the activity row and disclose hidden tags
+00:19 +169: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: resizing and topic arrows retain the source list and reader state
+00:20 +170: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: recommendations appear below posts and keep the source list
+00:20 +171: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: omits the recommendation section when none are available
+00:21 +172: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: header details stay live and dismiss on post navigation
+00:21 +173: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: keeps the source list mounted across topic selection, back, and window resizing
+00:21 +174: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: continues paging the source feed beside a reader
+00:21 +175: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: filters preserve the reader and combine category, tags, and period on the server
+00:22 +176: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: edits title inline and applies subcategory and tag removal immediately
+00:22 +177: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: post Reply is visible and opens the composer for that post
+00:23 +178: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: posts without reply permission do not expose Reply
+00:23 +179: /Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native/test/topic_inbox_test.dart: shows post actions without hover and J/K navigate posts without switching topics
+00:23 +180: All tests passed!

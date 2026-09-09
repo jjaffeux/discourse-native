@@ -79,7 +79,10 @@ class _TagsPageState extends State<TagsPage> {
               var tagIndex = index;
               if (feed.loading) {
                 if (tagIndex == 0) {
-                  return const LinearProgressIndicator(minHeight: 2);
+                  return const DProgress(
+                    semanticsLabel: 'Refreshing tags',
+                    track: DProgressTrack(height: 2),
+                  );
                 }
                 tagIndex--;
               }
@@ -192,37 +195,21 @@ class _TagRow extends StatelessWidget {
 
 class _TagErrorBanner extends StatelessWidget {
   const _TagErrorBanner({required this.message, required this.onRetry});
-
   final String message;
   final VoidCallback onRetry;
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(7),
+  Widget build(BuildContext context) => DAlert(
+    variant: DAlertVariant.destructive,
+    icon: const Icon(Icons.error_outline),
+    description: DAlertDescription(child: Text(message)),
+    action: DAlertAction(
+      child: DButton(
+        label: const Text('Retry'),
+        onPressed: onRetry,
+        variant: DButtonVariant.link,
       ),
-      child: Row(
-        children: [
-          DIcon(
-            DIcons.triangleExclamation,
-            size: 17,
-            color: theme.colorScheme.onErrorContainer,
-          ),
-          const SizedBox(width: 9),
-          Expanded(child: Text(message)),
-          DButton(
-            label: const Text('Retry'),
-            onPressed: onRetry,
-            variant: DButtonVariant.link,
-          ),
-        ],
-      ),
-    );
-  }
+    ),
+  );
 }
 
 class _TagPageState extends StatelessWidget {
@@ -239,24 +226,22 @@ class _TagPageState extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DIcon(icon, size: 26, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 10),
-            Text(title, textAlign: TextAlign.center),
-            if (actionLabel case final label?) ...[
-              const SizedBox(height: 12),
-              DButton(label: Text(label), onPressed: onAction),
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+              DEmptyTitle(title),
             ],
-          ],
-        ),
+          ),
+          if (actionLabel case final label?)
+            DEmptyContent(
+              children: [DButton(label: Text(label), onPressed: onAction)],
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

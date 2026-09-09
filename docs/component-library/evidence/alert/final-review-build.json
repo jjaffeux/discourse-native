@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "99f739cf211fad57f9e24c0018b1743a1caf537d",
+  "buildCommand": "flutter build macos --debug --no-pub -t tool/alert_review_main.dart",
+  "sourceProduct": "/Users/joffreyjaffeux/.codex/worktrees/ae77/discourse-native/build/macos/Build/Products/Debug/Discourse.app",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/ae77/discourse-native/build/macos/Build/Products/Debug/Alert Final Review ae77.app",
+  "bundleId": "org.discourse.alertfinalae77",
+  "bundleName": "Alert Final Review ae77",
+  "urlScheme": "discourse-alert-final-ae77",
+  "isolation": "Built without changing runner or project signing settings, copied to a unique product path, changed only the copied Info.plist identity, removed any copied provisioning profile, then ad-hoc re-signed the copy.",
+  "adHocEntitlements": [
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.cs.allow-unsigned-executable-memory",
+    "com.apple.security.get-task-allow",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "restrictedIdentityReadback": "No application identifier, team identifier, APNs entitlement or embedded provisioning profile. Nested executables, dylibs and bundled frameworks expose no entitlements.",
+  "kernelSha256": "2a5f2508f01d86b37dcbae2d9731c47fe5b0be49c0dbc9a046ca572151f75d5f",
+  "kernelPaths": [
+    "/Users/joffreyjaffeux/.codex/worktrees/ae77/discourse-native/.dart_tool/flutter_build/9bd5dcc6b52eda4e16ae90516c2a3b90b/app.dill",
+    "/Users/joffreyjaffeux/.codex/worktrees/ae77/discourse-native/build/macos/Build/Products/Debug/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin",
+    "/Users/joffreyjaffeux/.codex/worktrees/ae77/discourse-native/build/macos/Build/Products/Debug/Alert Final Review ae77.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin"
+  ],
+  "signatureVerification": "codesign --verify --deep --strict --verbose=2 passed and the copied bundle satisfied its designated requirement.",
+  "nativeInspection": "Passed on macOS using the immediately preceding signed review build from source 55f1de8228bb8019f007e798874a7fb5a833dce3. Production ComposerTagRemovalNotice, GroupsPage and GifPicker alerts were inspected in light/dark, RTL and 200% text; dismiss/retry actions retained independent semantics and callbacks, Groups recovered to loaded state, and narrow action layout reflowed without overlap. The Alert styleguide action toggled Enable/Disable, Plum custom colors updated live, and the 360px Arabic RTL examples wrapped cleanly. The official Base UI Alert basic, destructive, action, custom-color and RTL examples were compared in light and dark themes. After latest-main reconciliation, DAlert, the fixture, and the inspected Alert branches remained byte-identical; only unrelated merged DProgress/DSwitch/DScrollBar consumers and the styleguide acceptance label changed. This exact accepted-source bundle was then rebuilt and signature/hash verified without claiming a redundant second launch. No iOS or Linux inspection is claimed."
+}

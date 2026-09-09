@@ -1239,73 +1239,62 @@ class _SignedOutMessagesState extends StatelessWidget {
   const _SignedOutMessagesState();
 
   @override
-  Widget build(BuildContext context) =>
-      ShellSelector<({bool connecting, String? error})>(
-        select: (controller) =>
-            (connecting: controller.connecting, error: controller.connectError),
-        builder: (context, state, _) {
-          final theme = Theme.of(context);
-          final controller = ShellScope.read(context);
+  Widget build(
+    BuildContext context,
+  ) => ShellSelector<({bool connecting, String? error})>(
+    select: (controller) =>
+        (connecting: controller.connecting, error: controller.connectError),
+    builder: (context, state, _) {
+      final theme = Theme.of(context);
+      final controller = ShellScope.read(context);
 
-          return Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DIcon(
-                      DIcons.lock,
-                      size: 48,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Sign in to view your messages',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Private messages are tied to your forum account and '
-                      'aren’t available while you’re signed out.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (state.error case final error?) ...[
-                      const SizedBox(height: 16),
-                      Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          error,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    DButton(
-                      key: const ValueKey('messages-sign-in'),
-                      label: const Text('Sign in'),
-                      onPressed: () =>
-                          unawaited(controller.connectCurrentInstance()),
-                      icon: const DIcon(DIcons.user, size: 18),
-                      variant: DButtonVariant.primary,
-                      loading: state.connecting,
-                      loadingLabel: const Text('Signing in…'),
-                    ),
-                  ],
-                ),
+      return Center(
+        child: SingleChildScrollView(
+          child: DEmpty(
+            children: [
+              const DEmptyHeader(
+                children: [
+                  DEmptyMedia(
+                    variant: DEmptyMediaVariant.icon,
+                    child: DIcon(DIcons.lock),
+                  ),
+                  DEmptyTitle('Sign in to view your messages'),
+                  DEmptyDescription(
+                    'Private messages are tied to your forum account and aren’t available while you’re signed out.',
+                  ),
+                ],
               ),
-            ),
-          );
-        },
+              if (state.error case final error?)
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    error,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+              DEmptyContent(
+                children: [
+                  DButton(
+                    key: const ValueKey('messages-sign-in'),
+                    label: const Text('Sign in'),
+                    onPressed: () =>
+                        unawaited(controller.connectCurrentInstance()),
+                    icon: const DIcon(DIcons.user, size: 18),
+                    variant: DButtonVariant.primary,
+                    loading: state.connecting,
+                    loadingLabel: const Text('Signing in…'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       );
+    },
+  );
 }
 
 class _ContentPlaceholder extends StatelessWidget {

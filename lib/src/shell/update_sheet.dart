@@ -151,27 +151,8 @@ class _Status extends StatelessWidget {
         ],
       ),
 
-      UpdateStatus.downloading => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LinearProgressIndicator(
-            key: const ValueKey('update-download-progress'),
-            value: updates.progress,
-            semanticsLabel: 'Downloading update',
-            // Progress indicators carry numeric min/max semantics. Keeping the
-            // override numeric lets assistive technology announce it as a
-            // percentage without invalidating that native range.
-            semanticsValue: '${(updates.progress * 100).round()}',
-          ),
-          const SizedBox(height: 8),
-          _UpdateStatusAnnouncement(
-            label: 'Download in progress.',
-            child: Text(
-              'Downloading — ${(updates.progress * 100).round()}%',
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-        ],
+      UpdateStatus.downloading => UpdateDownloadProgress(
+        progress: updates.progress,
       ),
 
       UpdateStatus.readyToInstall => Column(
@@ -337,4 +318,31 @@ String _humanSize(int bytes) {
   const mb = 1024 * 1024;
   if (bytes >= mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
   return '${(bytes / 1024).round()} KB';
+}
+
+/// Read-only download surface. The update controller owns all work and actions;
+/// local review fixtures can render this same surface without an updater.
+class UpdateDownloadProgress extends StatelessWidget {
+  const UpdateDownloadProgress({super.key, required this.progress});
+  final double progress;
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      DProgress(
+        key: const ValueKey('update-download-progress'),
+        value: progress,
+        max: 1,
+        semanticsLabel: 'Downloading update',
+      ),
+      const SizedBox(height: 8),
+      _UpdateStatusAnnouncement(
+        label: 'Download in progress.',
+        child: Text(
+          'Downloading — ${(progress * 100).round()}%',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ),
+    ],
+  );
 }
