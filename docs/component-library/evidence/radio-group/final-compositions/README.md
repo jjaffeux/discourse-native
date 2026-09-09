@@ -1,7 +1,7 @@
 # Radio Group final compositions — 2026-09-09
 
-Status: automated/source review complete; native/reference desktop acceptance
-awaiting the canonical FIFO lease. No follow-up merge is claimed yet.
+Status: source, automated, official rendered-reference and native macOS review
+accepted on 2026-09-09. Desktop lease released; local integration is pending.
 
 ## Provenance
 
@@ -68,6 +68,8 @@ was introduced.
 - 239 affected widget/unit/ownership tests: pass, seed `9092026` (`tests.log`).
   Includes Radio, Field, Label, their examples, the real review fixture, Poll,
   flag editing, move/change-owner dialogs, keyboard navigation and Chat Drawer.
+- Another 39 Drawer/example/styleguide navigation tests pass with the same seed
+  (`styleguide-tests.log`): 278 distinct affected tests in total.
 - Root/full `flutter analyze --no-pub`: no issues (`analyze-*.log`).
 - `dart format`, generated snippet check and `git diff --check`: pass.
 - `flutter build macos --debug --no-pub --target tool/radio_group_review_main.dart`:
@@ -78,29 +80,78 @@ was introduced.
   RTL, 200% and reduced motion. These are font-loaded widget renders, not native
   desktop screenshots or VoiceOver speech evidence.
 
-| Composition | Current native-font logical geometry |
-| --- | --- |
-| Default | 112.0094×64; 16px rows |
-| Description | 272.2539×142; 42px rows |
-| Choice Card | 384×65; 16px indicator, 8px dot, both 3px exterior focus rings |
-| Fieldset / Invalid | 320px width; choices 73px tall; header gap 2px |
-| Disabled | 81.4219×73; regular-weight labels |
-| RTL | 230.3018×142 |
+| Composition | Native-font logical geometry | Rendered reference |
+| --- | --- | --- |
+| Default | 112.0094×64; 16px rows | 109.8594×64 |
+| Description | 272.2539×142; 42px rows | 264.0859×142.75 |
+| Choice Card | 384×65 per card; 211px group | 384×65; 211px group |
+| Fieldset / Invalid | 320px width; choices 73px tall | 320×73.75 choices |
+| Disabled | 81.4219×73; regular-weight labels | 80.0625×73.75 |
+| RTL | 230.3018×142 | 232.0547×142.75 |
 
 Rows remain separated by 8px. Field content has a 2px label/description gap;
 descriptions use 21px leading; described indicators sit 1px below the row top.
-Full measurements are in `measurements.json`. SF versus reference Geist glyph
-widths and Flutter's 19px versus CSS 19.25px label leading remain documented
-platform typography adaptations. Live palette alpha is multiplicative.
+Full measurements are in `measurements.json` and `reference-geometry.json`.
+SF versus reference Geist glyph widths and Flutter's 19px versus CSS 19.25px
+label leading remain documented platform typography adaptations. At the frozen
+320px Fieldset width, the SF description wraps to two lines while Geist fits
+one. The width is not enlarged to disguise that font difference. Live palette
+alpha is multiplicative.
 
-## Production audit and remaining acceptance
+## Fresh browser and native acceptance
+
+The approved browser rendered the official reference in light and dark themes:
+all seven examples, checked/unchecked/disabled/invalid states, both exterior
+focus rings and keyboard card selection. The 360px dark-page capture verifies
+natural card-description wrapping. `reference-*.png` contains 17 screenshots;
+the geometry JSON measures the visible reference DOM, not inferred source sizes.
+
+The exact isolated native bundle above was inspected under the canonical
+desktop lease acquired at `2026-09-09T16:39:11Z`. The 28 `native-*.png` captures
+are actual macOS screenshots, distinct from the 18 font-loaded widget exports.
+
+- All seven final examples passed light and dark inspection. Fieldset spacing,
+  regular-weight disabled labels, invalid color/rings and logical Arabic layout
+  match the mapped source within the typography adaptations above.
+- Clicking a card's empty area selected Pro; Down selected Enterprise. Both
+  card and radio focus rings remained visible. The disabled first item stayed
+  inert; selecting Option 3 and pressing Down wrapped to Option 2.
+- The required/read-only sample permitted its editable override, rejected its
+  locked item, and displayed validation after the parent cleared selection.
+  Controlled Form validation, Email selection/save and reset behaved correctly.
+- Forest and Plum previews passed at 360px, 200% text, RTL and reduced motion.
+  Pro selection survived the live theme change. The bounded card preview clips
+  the third card below its viewport; the complete large-text layout is covered
+  by the font-loaded exports. The Arabic native example fits its preview with
+  wrapped descriptions and right-side indicators.
+- The host's live blue/custom primary, focus and radius tokens are preserved;
+  the neutral widget exports isolate reference geometry. This is not a claim of
+  pixel-identical host colors or Geist typography. Native disabled opacity
+  continues to apply to the whole associated row, an accepted adaptation.
+
+`native-default-keyboard.png` records a focused unchecked Default radio while
+Comfortable remains selected after accessibility activation. It is not used as
+evidence of arrow selection; actual pointer-plus-arrow checks above cover that.
+Native accessibility read-back exposes radio roles, names and exclusive values.
+Detailed merged/error/required semantics are covered by tests, not a claimed
+spoken VoiceOver session.
+
+## Production audit and cleanup
 
 Actual adopters are PollCard, PostFlagEditor, TopicMovePosts and TopicChangeOwner;
 Field's choice sample and Drawer examples also consume Radio. Their application
-source was not rewritten by this follow-up. The current real-surface tests pass;
-the original native evidence remains historical, not relabelled as a fresh run.
+source was not rewritten by this follow-up. The fresh local-only fixture showed
+Morning select/deselect, Inappropriate selection retained through live dark,
+RTL and 200% changes, and exclusive Alex-to-Sam / first-to-second destination
+selection in the real dialogs. Search `review` returned in-memory fake results;
+an unmatched search showed the empty state. Both dialogs were cancelled without
+submission. The dialogs inherit their actual overlay theme/scale behavior; the
+200%/RTL controls apply to the underlying fixture, not its navigator overlays.
 
-Native acceptance will use the existing local-only fixture with in-memory fakes
-and the real styleguide/adopters. Desktop browser/native inspection, lease
-release, final source reconciliation and local main merge are still pending.
+The temporary reference tab was closed and its viewport override reset. The
+desktop lease was released to the next queued reviewer. The isolated app's
+quit shortcut was affected by the active AZERTY layout; the next lease holder
+received its exact bundle/process identity for approved-CUA cleanup. This was
+an input/cleanup incident, not a component crash or a production app mutation.
+Final source reconciliation and local main merge are the only pending work.
 No VoiceOver speech, iOS device, Linux or cross-platform native claim is made.

@@ -912,7 +912,25 @@
           "sha256": "e00939e01c108da6492bdf9a3d9ccf34bbb284e3dce26260dcf44dc4ef4219f6"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "review_ready",
+        "reviewStatus": "review_ready",
+        "sourceCommit": "3169db0954aa8e387ec316d1414a5a0d0cb5a919",
+        "compositionCommit": "bf601efd95699327c196229a30c44e7da1b58475",
+        "reviewFixCommit": "28418a2d1a1b6bfb1037218f66cda4642414aa49",
+        "semanticsTestCommit": "c4faf8e05e34918729cdbe722972261915cd82cc",
+        "nativeInspectionStatus": "completed",
+        "nativeEvidence": "docs/component-library/evidence/radio-group/final-compositions/README.md",
+        "kernelSha256": "393192a0a8c364720d81b4eba65bdba6216fb84ace89f7bd57e96d420931ad11",
+        "verification": [
+          "278 distinct affected tests pass, seed 9092026; root/full locked pub get and analysis clean; runnable snippet generator check, font-loaded exports and exact-source macOS build pass.",
+          "Approved official-browser and native macOS inspection: all seven final examples light/dark; whole-card/arrow selection, disabled wrapping, read-only override, controlled validation/save/reset; Forest/Plum 360px/200% RTL/reduced-motion and live selection retention.",
+          "Real in-memory-fake Poll/flag and change-owner/move-post dialogs retain toggleable votes, exclusive radio selection and accepted domain ownership. 28 native, 17 browser and 18 font-loaded screenshots distinguish evidence types.",
+          "Field owner approved fixed horizontal/vertical intrinsic sizing correction; responsive Flex state and generic FieldSet/FieldGroup spacing unchanged. Original accepted component and owner pins preserved."
+        ],
+        "limitations": [
+          "SF/Geist width and fractional-leading differences, including a two-line SF Fieldset description at the frozen 320px width, are documented; live host palette/focus/radius tokens and whole-row disabled opacity remain accepted adaptations.",
+          "No spoken VoiceOver, iOS or Linux device pass. Native dialog overlays retain their actual scale/direction inheritance; 200% RTL applies to the underlying fixture."
+        ]
       }
     },
     {
@@ -5392,7 +5410,25 @@
           "sha256": "e00939e01c108da6492bdf9a3d9ccf34bbb284e3dce26260dcf44dc4ef4219f6"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "review_ready",
+        "reviewStatus": "review_ready",
+        "sourceCommit": "3169db0954aa8e387ec316d1414a5a0d0cb5a919",
+        "compositionCommit": "bf601efd95699327c196229a30c44e7da1b58475",
+        "reviewFixCommit": "28418a2d1a1b6bfb1037218f66cda4642414aa49",
+        "semanticsTestCommit": "c4faf8e05e34918729cdbe722972261915cd82cc",
+        "nativeInspectionStatus": "completed",
+        "nativeEvidence": "docs/component-library/evidence/radio-group/final-compositions/README.md",
+        "kernelSha256": "393192a0a8c364720d81b4eba65bdba6216fb84ace89f7bd57e96d420931ad11",
+        "verification": [
+          "278 distinct affected tests pass, seed 9092026; root/full locked pub get and analysis clean; runnable snippet generator check, font-loaded exports and exact-source macOS build pass.",
+          "Approved official-browser and native macOS inspection: all seven final examples light/dark; whole-card/arrow selection, disabled wrapping, read-only override, controlled validation/save/reset; Forest/Plum 360px/200% RTL/reduced-motion and live selection retention.",
+          "Real in-memory-fake Poll/flag and change-owner/move-post dialogs retain toggleable votes, exclusive radio selection and accepted domain ownership. 28 native, 17 browser and 18 font-loaded screenshots distinguish evidence types.",
+          "Field owner approved fixed horizontal/vertical intrinsic sizing correction; responsive Flex state and generic FieldSet/FieldGroup spacing unchanged. Original accepted component and owner pins preserved."
+        ],
+        "limitations": [
+          "SF/Geist width and fractional-leading differences, including a two-line SF Fieldset description at the frozen 320px width, are documented; live host palette/focus/radius tokens and whole-row disabled opacity remain accepted adaptations.",
+          "No spoken VoiceOver, iOS or Linux device pass. Native dialog overlays retain their actual scale/direction inheritance; 200% RTL applies to the underlying fixture."
+        ]
       }
     ]
   },

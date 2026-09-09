@@ -10,12 +10,20 @@ DField family and Default with DLabel. Radio remains the sole selection,
 keyboard and Form owner. The original evidence below is retained as history.
 
 Current source candidate: `3169db0954aa8e387ec316d1414a5a0d0cb5a919`.
-All 239 affected tests, root/full analysis, font-loaded composition exports and
-the isolated macOS build pass. Native/reference desktop acceptance is pending
-the canonical FIFO lease; this follow-up is not yet merged.
+All 278 affected tests, root/full analysis, font-loaded composition exports and
+the isolated macOS build pass. Fresh official-browser and native macOS review
+accepted all seven final examples in light/dark, custom 360px/200% RTL and
+reduced-motion previews, radio/card keyboard behavior, Form validation/reset,
+and the real local-fake Poll, flag, change-owner and move-post surfaces. The
+desktop lease is released; local integration is pending.
 
 See [final-composition evidence](evidence/radio-group/final-compositions/README.md)
 for source pins, bounded shared-owner corrections, geometry and limitations.
+
+## Historical implementation and original acceptance record
+
+The remaining sections preserve the original staged implementation and review.
+Their pending-state statements are superseded by the final follow-up above.
 
 Reference: frozen 2026-09-08 Radio Group catalogue entry, all documented sections
 (Usage, Composition, Description, Choice Card, Fieldset, Disabled, Invalid, RTL).

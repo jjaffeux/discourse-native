@@ -1,0 +1,247 @@
+[
+  {
+    "gap": "8px",
+    "height": 64,
+    "rows": [
+      {
+        "fontSize": "15px",
+        "height": 16,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": null,
+        "tag": "DIV",
+        "width": 109.859375
+      },
+      {
+        "fontSize": "15px",
+        "height": 16,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": null,
+        "tag": "DIV",
+        "width": 109.859375
+      },
+      {
+        "fontSize": "15px",
+        "height": 16,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": null,
+        "tag": "DIV",
+        "width": 109.859375
+      }
+    ],
+    "text": "DefaultComfortableCompact",
+    "width": 109.859375
+  },
+  {
+    "gap": "8px",
+    "height": 142.75,
+    "rows": [
+      {
+        "fontSize": "15px",
+        "height": 42.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 264.0859375
+      },
+      {
+        "fontSize": "15px",
+        "height": 42.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 264.0859375
+      },
+      {
+        "fontSize": "15px",
+        "height": 42.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 264.0859375
+      }
+    ],
+    "text": "DefaultStandard spacing for most use cases.ComfortableMore space between elements.CompactMinimal spacing for dense layouts.",
+    "width": 264.0859375
+  },
+  {
+    "gap": "8px",
+    "height": 211,
+    "rows": [
+      {
+        "fontSize": "14px",
+        "height": 65,
+        "lineHeight": "19.25px",
+        "padding": "0px",
+        "slot": "field-label",
+        "tag": "LABEL",
+        "width": 384
+      },
+      {
+        "fontSize": "14px",
+        "height": 65,
+        "lineHeight": "19.25px",
+        "padding": "0px",
+        "slot": "field-label",
+        "tag": "LABEL",
+        "width": 384
+      },
+      {
+        "fontSize": "14px",
+        "height": 65,
+        "lineHeight": "19.25px",
+        "padding": "0px",
+        "slot": "field-label",
+        "tag": "LABEL",
+        "width": 384
+      }
+    ],
+    "text": "PlusFor individuals and small teams.ProFor growing businesses.EnterpriseFor large teams and enterprises.",
+    "width": 384
+  },
+  {
+    "gap": "8px",
+    "height": 73.75,
+    "rows": [
+      {
+        "fontSize": "15px",
+        "height": 19.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 320
+      },
+      {
+        "fontSize": "15px",
+        "height": 19.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 320
+      },
+      {
+        "fontSize": "15px",
+        "height": 19.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 320
+      }
+    ],
+    "text": "Monthly ($9.99/month)Yearly ($99.99/year)Lifetime ($299.99)",
+    "width": 320
+  },
+  {
+    "gap": "8px",
+    "height": 73.75,
+    "rows": [
+      {
+        "fontSize": "15px",
+        "height": 19.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 80.0625
+      },
+      {
+        "fontSize": "15px",
+        "height": 19.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 80.0625
+      },
+      {
+        "fontSize": "15px",
+        "height": 19.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 80.0625
+      }
+    ],
+    "text": "DisabledOption 2Option 3",
+    "width": 80.0625
+  },
+  {
+    "gap": "8px",
+    "height": 73.75,
+    "rows": [
+      {
+        "fontSize": "15px",
+        "height": 19.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 320
+      },
+      {
+        "fontSize": "15px",
+        "height": 19.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 320
+      },
+      {
+        "fontSize": "15px",
+        "height": 19.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 320
+      }
+    ],
+    "text": "Email onlySMS onlyBoth Email & SMS",
+    "width": 320
+  },
+  {
+    "gap": "8px",
+    "height": 142.75,
+    "rows": [
+      {
+        "fontSize": "15px",
+        "height": 42.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 232.0546875
+      },
+      {
+        "fontSize": "15px",
+        "height": 42.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 232.0546875
+      },
+      {
+        "fontSize": "15px",
+        "height": 42.25,
+        "lineHeight": "26.25px",
+        "padding": "0px",
+        "slot": "field",
+        "tag": "DIV",
+        "width": 232.0546875
+      }
+    ],
+    "text": "افتراضيتباعد قياسي لمعظم حالات الاستخدام.مريحمساحة أكبر بين العناصر.مضغوطتباعد أدنى للتخطيطات الكثيفة.",
+    "width": 232.0546875
+  }
+]
