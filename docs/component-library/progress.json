@@ -739,37 +739,56 @@
     },
     {
       "id": "radio-group",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+      "branch": "codex/ui-radio-group",
       "dependencies": [
         "label"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Reproduce base-nova 16px radio and focus/invalid/disabled states with live tokens.",
+        "Controlled and initial selection, native roving arrows/Space, RTL, item labels/descriptions/cards and Form validation/reset.",
+        "Migrate real single-choice controls preserving domain callbacks; focused tests and isolated macOS fixture build; native comparison pending slot."
+      ],
+      "decisions": [
+        "Label is merged; Field is not an implementation dependency: expose label/description slots, do not implement DField.",
+        "Button baseline is used for examples; concurrent Checkbox/Input/Button ownership preserved."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "switch",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
+      "branch": "codex/ui-switch",
       "dependencies": [
         "label"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match base-nova 32\u00d718.4/16 and 24\u00d714/12 track/thumb geometry, 1px inset, directional 14/10px travel, semantic colors, focus/error rings, disabled opacity and 150ms motion.",
+        "Provide controlled and uncontrolled switch, read-only and disabled behavior, focus/keyboard/touch/semantics, FormField validation/save/reset and live controlled updates.",
+        "Reproduce default, description, choice-card, disabled, invalid, sizes and RTL examples without implementing pending Field.",
+        "Migrate core and bundled plugin switches preserving async, permission and persistence owners; cover real local-data fixtures and focused regressions.",
+        "Run focused tests and root/full analysis, build isolated signed review bundle; remain in_progress until actual reference/native inspection."
+      ],
+      "decisions": [
+        "Label is merged. Baseline DButton is used for actions; no dependency on unmerged Button/Checkbox/Input/Field.",
+        "DSwitch owns Flutter focus/actions/semantics with shadcn artwork; DSwitchTile composes switch with arbitrary wrapping title/subtitle and a single row activation owner.",
+        "Native accessible hit targets grow transparently to 48px; reference visual bounds remain compact."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "toggle",
@@ -807,37 +826,56 @@
     },
     {
       "id": "slider",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
+      "branch": "codex/ui-slider",
       "dependencies": [
         "label"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match base-nova 4px track, 16px thumb, borders, focus and disabled styling using live tokens; record source hashes and native comparison.",
+        "Single/range/multiple controlled sliders, vertical/RTL, pointer capture and track jumps, overlap selection, keyboard arrows/Home/End/Page and per-thumb semantics.",
+        "Validate min/max/step and thumb ordering; Form save/reset/validation; safe cancellation, removal and controlled updates.",
+        "Migrate video seeking, topic position, Voice volume and Skeleton/AspectRatio controls; preserve domain callbacks and keyboard ownership.",
+        "Focused component and migration tests, root/full analysis, isolated traceable macOS bundle and offline production-widget fixture; native inspection awaits coordinator slot."
+      ],
+      "decisions": [
+        "Label is merged; compose baseline DButton for example actions. No dependency on pending Button/Input/Checkbox.",
+        "Slider owns interactive video seek and volume controls; noninteractive buffered progress remains part of the seek track, not a standalone Progress component."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "progress",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+      "branch": "codex/ui-progress",
       "dependencies": [
         "label"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Export DProgress with track/indicator/label/value composition matching base-nova 4px geometry and reference typography.",
+        "Clamp finite determinate min/max values, represent unknown progress without a fabricated percentage, and update accessible values without adjustable actions.",
+        "Demonstrate basic/composed/controlled/RTL plus indeterminate, narrow, scaled, reduced-motion and live theme behavior.",
+        "Audit core and bundled plugins; preserve async ownership while migrating appropriate linear indicators and prepare real local-data fixtures.",
+        "Pass focused regressions, root/full analysis and isolated traceable macOS build; require exclusive rendered/native review before review_ready."
+      ],
+      "decisions": [
+        "Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "skeleton",
@@ -1947,7 +1985,36 @@
         "slider",
         "progress"
       ],
-      "activeTasks": [],
+      "activeTasks": [
+        {
+          "component": "radio-group",
+          "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+          "branch": "codex/ui-radio-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5b3e/discourse-native",
+          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f"
+        },
+        {
+          "component": "switch",
+          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
+          "branch": "codex/ui-switch",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
+          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f"
+        },
+        {
+          "component": "slider",
+          "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
+          "branch": "codex/ui-slider",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e9e1/discourse-native",
+          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f"
+        },
+        {
+          "component": "progress",
+          "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+          "branch": "codex/ui-progress",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cfac/discourse-native",
+          "baseCommit": "32b90ed853c4464df210c7556beb4ef825bc8d1f"
+        }
+      ],
       "nativeReadyTasks": [
         {
           "component": "button",

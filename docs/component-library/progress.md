@@ -22,12 +22,12 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
 | 11 | textarea | planned | — | — | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
-| 13 | radio-group | planned | — | — | label | — |
-| 14 | switch | planned | — | — | label | — |
+| 13 | radio-group | in_progress | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
+| 14 | switch | in_progress | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | — |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
-| 17 | slider | planned | — | — | label | — |
-| 18 | progress | planned | — | — | label | — |
+| 17 | slider | in_progress | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | — |
+| 18 | progress | in_progress | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | — |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
@@ -836,6 +836,72 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 
 - Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.
 - Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
+
+### radio-group
+
+Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/ui-radio-group.
+
+**acceptanceCriteria**
+
+- Reproduce base-nova 16px radio and focus/invalid/disabled states with live tokens.
+- Controlled and initial selection, native roving arrows/Space, RTL, item labels/descriptions/cards and Form validation/reset.
+- Migrate real single-choice controls preserving domain callbacks; focused tests and isolated macOS fixture build; native comparison pending slot.
+
+**decisions**
+
+- Label is merged; Field is not an implementation dependency: expose label/description slots, do not implement DField.
+- Button baseline is used for examples; concurrent Checkbox/Input/Button ownership preserved.
+
+### switch
+
+Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-switch.
+
+**acceptanceCriteria**
+
+- Match base-nova 32×18.4/16 and 24×14/12 track/thumb geometry, 1px inset, directional 14/10px travel, semantic colors, focus/error rings, disabled opacity and 150ms motion.
+- Provide controlled and uncontrolled switch, read-only and disabled behavior, focus/keyboard/touch/semantics, FormField validation/save/reset and live controlled updates.
+- Reproduce default, description, choice-card, disabled, invalid, sizes and RTL examples without implementing pending Field.
+- Migrate core and bundled plugin switches preserving async, permission and persistence owners; cover real local-data fixtures and focused regressions.
+- Run focused tests and root/full analysis, build isolated signed review bundle; remain in_progress until actual reference/native inspection.
+
+**decisions**
+
+- Label is merged. Baseline DButton is used for actions; no dependency on unmerged Button/Checkbox/Input/Field.
+- DSwitch owns Flutter focus/actions/semantics with shadcn artwork; DSwitchTile composes switch with arbitrary wrapping title/subtitle and a single row activation owner.
+- Native accessible hit targets grow transparently to 48px; reference visual bounds remain compact.
+
+### slider
+
+Status: in_progress. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-slider.
+
+**acceptanceCriteria**
+
+- Match base-nova 4px track, 16px thumb, borders, focus and disabled styling using live tokens; record source hashes and native comparison.
+- Single/range/multiple controlled sliders, vertical/RTL, pointer capture and track jumps, overlap selection, keyboard arrows/Home/End/Page and per-thumb semantics.
+- Validate min/max/step and thumb ordering; Form save/reset/validation; safe cancellation, removal and controlled updates.
+- Migrate video seeking, topic position, Voice volume and Skeleton/AspectRatio controls; preserve domain callbacks and keyboard ownership.
+- Focused component and migration tests, root/full analysis, isolated traceable macOS bundle and offline production-widget fixture; native inspection awaits coordinator slot.
+
+**decisions**
+
+- Label is merged; compose baseline DButton for example actions. No dependency on pending Button/Input/Checkbox.
+- Slider owns interactive video seek and volume controls; noninteractive buffered progress remains part of the seek track, not a standalone Progress component.
+
+### progress
+
+Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/ui-progress.
+
+**acceptanceCriteria**
+
+- Export DProgress with track/indicator/label/value composition matching base-nova 4px geometry and reference typography.
+- Clamp finite determinate min/max values, represent unknown progress without a fabricated percentage, and update accessible values without adjustable actions.
+- Demonstrate basic/composed/controlled/RTL plus indeterminate, narrow, scaled, reduced-motion and live theme behavior.
+- Audit core and bundled plugins; preserve async ownership while migrating appropriate linear indicators and prepare real local-data fixtures.
+- Pass focused regressions, root/full analysis and isolated traceable macOS build; require exclusive rendered/native review before review_ready.
+
+**decisions**
+
+- Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.
 
 ### skeleton
 
