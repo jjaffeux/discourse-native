@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../shell/shell_sheet.dart';
-import '../../theme/d_button.dart';
 import 'chat_controller.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
@@ -86,8 +86,7 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          style: Theme.of(context).textTheme.bodyMedium,
+        DInput(
           key: const ValueKey('chat-thread-title-field'),
           controller: _title,
           autofocus: true,
@@ -96,11 +95,8 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => unawaited(_save()),
-          decoration: const InputDecoration(
-            labelText: 'Title',
-            hintText: 'Give this thread a title',
-            border: OutlineInputBorder(),
-          ),
+          labelText: 'Title',
+          hintText: 'Give this thread a title',
         ),
         if (_error case final error?) ...[
           const SizedBox(height: 8),

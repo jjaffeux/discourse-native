@@ -38,6 +38,52 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  testWidgets('diagnostic log rows grow with large text in a narrow panel', (
+    tester,
+  ) async {
+    final diagnostics = await _controller();
+    _recordRequest(diagnostics);
+    tester.view.physicalSize = const Size(360, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    try {
+      for (final scale in [1.0, 2.0]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: DiagnosticsPanel(controller: diagnostics, onClose: () {}),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        final row = find.byKey(const ValueKey('diagnostic-event-request-42'));
+        expect(
+          tester.getSize(row).height,
+          scale == 1 ? equals(70) : greaterThan(70),
+        );
+        expect(find.text('200'), findsOneWidget);
+        expect(find.text('120 ms'), findsOneWidget);
+        expect(tester.getSize(find.text('GET')).height, lessThan(40));
+      }
+      await tester.tap(
+        find.byKey(const ValueKey('diagnostic-event-request-42')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Event details'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await diagnostics.close();
+    }
+  });
+
   testWidgets('diagnostics entry survives loading, failure, and no sites', (
     tester,
   ) async {

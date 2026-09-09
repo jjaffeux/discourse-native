@@ -1,0 +1,35 @@
+The following is a diff from the previous accessibility tree for Window: "Discourse" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 15-35
+~			12 button (settable)
+~			13 container (settable) Summary review
+~			14 container (settable) STATS
+TOP REPLIES
+No replies yet.
+TOP TOPICS
+No topics yet.
+TOP LINKS
+No links yet.
+MOST REPLIED TO
+No replies yet.
+MOST LIKED BY
+No likes yet.
+MOST LIKED
+No likes yet.
+TOP CATEGORIES
+Topics
+Replies
+Support
+TOP BADGES
+No badges yet.
++				15 text (settable) days visited: 0
++				16 text (settable) read time: less than 1 min, all time
++				17 text (settable) topics viewed: 0
++				18 text (settable) posts read: 0
++				19 text (settable) given: 7
++				20 text (settable) received: 8
++				21 text (settable) bookmark: 1
++				22 text (settable) topics created: 2
++				23 text (settable) posts created: 3
++				24 button (settable) Search 2 topics by @reader in Support
++				25 button (settable) Search 7 replies by @reader in Support
+The focused UI element is 1 container Discourse Button Review V8

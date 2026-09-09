@@ -54,6 +54,12 @@ hit areas. Support touch, hover, keyboard, visible focus, semantics, text
 scaling, narrow layouts, RTL and reduced motion where applicable. Never expose
 selected, error or loading states using color alone.
 
+Keep editable native semantics bounded to their actual field or editor. A
+text-field role merged into a page or card can hide unrelated descendants from
+native accessibility clients even when Flutter finds their labels in tests.
+Check bounds, independent control ancestry and meaningful native AX output.
+Prefix/suffix actions and surrounding buttons must remain separate controls.
+
 Prefer Flutter's proven interaction owners (Actions, Shortcuts, Focus,
 MenuAnchor, OverlayPortal, Navigator, ScrollController, FormField) over copying
 React internals. Use the nearest Navigator for reusable component overlays
@@ -130,6 +136,12 @@ and report to the coordinator; they do not merge. Reviews and merges remain
 serialized. Reconcile shared exports, example registrations, app migrations and
 progress metadata against previously merged components during coordinator review.
 
+For isolated ad-hoc macOS review bundles, omit restricted push/team/application
+identity entitlements and read back the permitted debug entitlements. Preserve
+required local debug capabilities; do not change the real app's provisioning or
+OS security settings. Static strict signature verification does not by itself
+prove launch eligibility; record the actual launch and source/kernel evidence.
+
 Builds, analysis and widget tests can run concurrently. Native UI inspections
 share desktop focus: after preparing code and checks, notify the coordinator
 that native inspection is ready and wait for an inspection slot before using
@@ -154,3 +166,10 @@ After all 64 component rows are merged, create a final separate audit task to
 improve shared code, API consistency, composition, themes, accessibility,
 examples and missed app migrations. Review, verify and merge its changes before
 marking the overall goal complete.
+
+
+While macOS is locked, CUA Chrome browser control may still be available. The
+coordinator can grant a separate, serialized browser-only comparison slot.
+Flutter widget-test image exports can support that rendered comparison; record
+fonts, viewport, source and renderer explicitly. Neither browser access nor test
+exports authorize native app actions or satisfy native fixture verification.

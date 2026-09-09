@@ -242,17 +242,13 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
 
   Widget _newTopicFields() => ListView(
     children: [
-      TextField(
-        style: Theme.of(context).textTheme.bodyMedium,
+      DInput(
         key: const ValueKey('topic-move-posts-title'),
         controller: _title,
         autofocus: true,
         enabled: !_saving,
         onChanged: (_) => setState(() => _error = null),
-        decoration: const InputDecoration(
-          labelText: 'Topic title',
-          border: OutlineInputBorder(),
-        ),
+        labelText: 'Topic title',
       ),
       const SizedBox(height: 16),
       DropdownButtonFormField<int?>(
@@ -292,17 +288,13 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
   Widget _existingTopicFields() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      TextField(
-        style: Theme.of(context).textTheme.bodyMedium,
+      DInput(
         key: const ValueKey('topic-move-posts-search'),
         controller: _search,
         autofocus: true,
         enabled: !_saving,
         onChanged: _scheduleSearch,
-        decoration: const InputDecoration(
-          labelText: 'Search by topic title or ID',
-          border: OutlineInputBorder(),
-        ),
+        labelText: 'Search by topic title or ID',
       ),
       const SizedBox(height: 8),
       Expanded(
@@ -316,8 +308,9 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
                       : 'No topics found.',
                 ),
               )
-            : RadioGroup<TopicMoveDestination>(
+            : DRadioGroup<TopicMoveDestination>.controlled(
                 groupValue: _destination,
+                enabled: !_saving,
                 onChanged: _saving
                     ? (_) {}
                     : (value) => setState(() => _destination = value),
@@ -325,13 +318,13 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
                   key: const ValueKey('topic-move-posts-results'),
                   children: [
                     for (final destination in _destinations)
-                      RadioListTile<TopicMoveDestination>(
+                      DRadioGroupItem<TopicMoveDestination>(
                         key: ValueKey(
                           'topic-move-posts-destination-${destination.id}',
                         ),
                         value: destination,
-                        title: Text(destination.title),
-                        subtitle: Text('Topic #${destination.id}'),
+                        label: Text(destination.title),
+                        description: Text('Topic #${destination.id}'),
                       ),
                   ],
                 ),

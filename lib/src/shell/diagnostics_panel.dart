@@ -317,7 +317,6 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                   child: ListView.builder(
                     key: const ValueKey('diagnostics-timeline'),
                     controller: _timeline,
-                    itemExtent: 70,
                     itemCount: visible.length,
                     itemBuilder: (context, index) {
                       final event = visible[index];
@@ -824,6 +823,9 @@ class _EventRow extends StatelessWidget {
     final color = error
         ? theme.colorScheme.error
         : theme.colorScheme.onSurfaceVariant;
+    final methodFontSize = theme.textTheme.labelSmall?.fontSize ?? 12;
+    final methodTextScale =
+        MediaQuery.textScalerOf(context).scale(methodFontSize) / methodFontSize;
 
     return Semantics(
       button: true,
@@ -831,6 +833,7 @@ class _EventRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
+          constraints: const BoxConstraints(minHeight: 70),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: theme.shell.divider)),
@@ -838,7 +841,7 @@ class _EventRow extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
-                width: 40,
+                width: 40 * methodTextScale,
                 child: Text(
                   _eventMethod(event),
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -849,6 +852,7 @@ class _EventRow extends StatelessWidget {
               ),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -874,6 +878,7 @@ class _EventRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Column(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

@@ -1,0 +1,37 @@
+{
+  "referenceUrl": "https://ui.shadcn.com/docs/components/base/input",
+  "inputSourceSha256": "fdc8c2d4c9ee8d62410be8bfb1f3e08fd5f4067311d448c3a7456569091673ef",
+  "images": {
+    "reference-dark-basic.png": "ed9230305a2db450bb576d89fe29e31424f40af4ef391c0f05b47fe3a5fdf6ba",
+    "reference-dark-disabled.png": "573e0426c5f16f8c500f5d611dc78e43fa53f02cd9db037f2d07d96f270ef16d",
+    "reference-dark-file.png": "4ca7d7d3b25a6c792439f7fd67bcd479098cc216c0e6de019bf3418309947129",
+    "reference-dark-focus.png": "0396cd1878b2af05238564f45cd0a6e767a9ec649ac686f30fabe3471a822249",
+    "reference-dark-invalid.png": "1598e01dfc9f75950a6416eef7c82b769cbc124e7687de8c803ca333e615feab",
+    "reference-dark-rtl.png": "1f4faed3d2a722225a287b0988a474b907ada5f4c5fdde180ddda526c608929a",
+    "reference-light-basic.png": "4fa46fcf9694cc0bf5fd7e5ca64530c3233577a51d947cc10e1922ad440d9114",
+    "reference-light-disabled.png": "d5479cc5ed7c55f0e2782ff2ef52e01ad66e7c5e5908baf61ddade9cddc50f05",
+    "reference-light-file.png": "3da8a0fca2f3511118165f088f2a451f9abf3cbef4dfffc544cb9e01326bfd69",
+    "reference-light-invalid.png": "0e2f063f13d5b1666c1f516683bfa89ae67003b0e4b34fe8fbb9fc3e79306a74",
+    "reference-narrow-basic.png": "933d9d259dcd02100c11003ff64416b4d99de1e4eddc02527c5b9084392b4553"
+  },
+  "kind": "Official browser computed styles and crops",
+  "fonts": [
+    "Geist",
+    "Noto Sans Arabic"
+  ],
+  "metrics": {
+    "dark-metrics.json": "7a4b33c97efb38ab2657433826560f93f8e345d6476c92c75b93581d31929c03",
+    "field-composition.json": "8c783d4594c2ea35bbd15a4dd8221835aa89ff87a72f32f9724f6b5535541d1a",
+    "reference-dark-disabled.json": "04f450c8f5ee9470688ff9bf1f34d122bce3da9d96d0213b4b9cde78aa308d96",
+    "reference-dark-file.json": "474ab423572ecd42bc7997bdbf6c9e393eabaa67acbfa63ce68588df36d9898c",
+    "reference-dark-focus.json": "273c287680483f50e369f36f8b65411941e6fec4ccf72c9ec423cf2a45a5a320",
+    "reference-dark-invalid.json": "656b1f71f22cee222c52a172a95c6046ec16c64859f718e41faee2fcd3159f38",
+    "reference-dark-rtl.json": "5780e25e9f5b44ea1200bb8df09cb820ffdabb3ec78de1ee970c88233674454f",
+    "reference-light-basic.json": "c95b718b5451d6b710debfba5cba63580436bd5c112133412fa55a9ad1896d2b",
+    "reference-light-disabled.json": "48fc65204ceebde5a7464b0d311c1a5dba7c4b18afc3aaaab7ef8cd405714990",
+    "reference-light-file.json": "773a5ad3c39f96a1caf7a55a50ddf0754d14edc7ad57f7a93f2f5a370d12cdfd",
+    "reference-light-invalid.json": "fb0a9b9546f2468bddb4aea03dc23cbc4247dd3007f576dc717bbecde8bfc646",
+    "reference-narrow-basic.json": "f92851f28267915b2efc0b3f71f1c7a11e1b2548f2b6734655ad91d97509fc28"
+  },
+  "slot": "Released after interruption; original tab absent, restoration not verifiable"
+}

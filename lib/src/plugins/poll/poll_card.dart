@@ -300,6 +300,18 @@ class _PollCardState extends State<PollCard> {
     }
   }
 
+  Widget _selectionGroup({required Widget child}) => _isMultiple
+      ? child
+      : DRadioGroup<String>.controlled(
+          groupValue: _selection.firstOrNull,
+          enabled: _canVote,
+          onChanged: (value) {
+            final next = value ?? _selection.firstOrNull;
+            if (next != null) unawaited(_chooseSingle(next));
+          },
+          child: child,
+        );
+
   @override
   Widget build(BuildContext context) {
     final restriction = _voteRestriction;
@@ -354,29 +366,43 @@ class _PollCardState extends State<PollCard> {
                             style: Theme.of(context).textTheme.labelLarge,
                           ),
                         ),
-                      for (var index = 0; index < _poll.options.length; index++)
-                        _PollOptionRow(
-                          key: ValueKey<String>(
-                            'poll-${_poll.name}-option-${_poll.options[index].id}',
-                          ),
-                          option: _poll.options[index],
-                          selected: _selection.contains(
-                            _poll.options[index].id,
-                          ),
-                          multiple: _isMultiple,
-                          canSelect:
-                              _canVote &&
-                              (!_isMultiple ||
-                                  _selection.contains(
-                                    _poll.options[index].id,
-                                  ) ||
-                                  _selection.length < _multipleMax),
-                          percentage: percentages?[index],
-                          siteUrl: widget.siteUrl,
-                          onTap: _isMultiple
-                              ? () => _toggleMultiple(_poll.options[index].id)
-                              : () => _chooseSingle(_poll.options[index].id),
+                      _selectionGroup(
+                        child: Column(
+                          children: [
+                            for (
+                              var index = 0;
+                              index < _poll.options.length;
+                              index++
+                            )
+                              _PollOptionRow(
+                                key: ValueKey<String>(
+                                  'poll-${_poll.name}-option-${_poll.options[index].id}',
+                                ),
+                                option: _poll.options[index],
+                                selected: _selection.contains(
+                                  _poll.options[index].id,
+                                ),
+                                multiple: _isMultiple,
+                                canSelect:
+                                    _canVote &&
+                                    (!_isMultiple ||
+                                        _selection.contains(
+                                          _poll.options[index].id,
+                                        ) ||
+                                        _selection.length < _multipleMax),
+                                percentage: percentages?[index],
+                                siteUrl: widget.siteUrl,
+                                onTap: _isMultiple
+                                    ? () => _toggleMultiple(
+                                        _poll.options[index].id,
+                                      )
+                                    : () => _chooseSingle(
+                                        _poll.options[index].id,
+                                      ),
+                              ),
+                          ],
                         ),
+                      ),
                     ],
                     if (_isMultiple &&
                         _poll.supportsNativeVoting &&
@@ -391,12 +417,12 @@ class _PollCardState extends State<PollCard> {
                       const SizedBox(height: 8),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: FilledButton(
+                        child: DButton(
                           key: ValueKey<String>('poll-${_poll.name}-cast'),
                           onPressed: _canVote && _multipleSelectionValid
                               ? _castMultiple
                               : null,
-                          child: Text(
+                          label: Text(
                             _selection.isEmpty && _savedSelection.isNotEmpty
                                 ? 'Remove votes'
                                 : 'Cast votes',
@@ -442,10 +468,12 @@ class _PollCardState extends State<PollCard> {
                       const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: OutlinedButton(
+                        child: DButton(
+                          variant: DButtonVariant.outline,
+                          isLink: true,
                           key: ValueKey<String>('poll-${_poll.name}-web'),
                           onPressed: widget.onVoteOnWeb,
-                          child: const Text('Vote on web'),
+                          label: const Text('Vote on web'),
                         ),
                       ),
                     ] else if (!widget.signedIn &&
@@ -455,10 +483,11 @@ class _PollCardState extends State<PollCard> {
                       const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: TextButton(
+                        child: DButton(
+                          variant: DButtonVariant.link,
                           key: ValueKey<String>('poll-${_poll.name}-connect'),
                           onPressed: widget.onConnectAccount,
-                          child: const Text('Connect account'),
+                          label: const Text('Connect account'),
                         ),
                       ),
                     ],
@@ -569,6 +598,46 @@ class _PollOptionRow extends StatelessWidget {
         ? ''
         : ', ${votes == 1 ? '1 vote' : '$votes votes'}, $percentage percent';
 
+    if (!multiple) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: DRadioGroupItem<String>(
+          value: option.id,
+          toggleable: true,
+          enabled: canSelect,
+          semanticLabel: '$plain$resultLabel',
+          label: ExcludeSemantics(
+            child: CookedHtml(
+              html: option.html,
+              siteUrl: siteUrl,
+              textStyle: TextStyle(
+                fontSize: 14,
+                height: 20 / 14,
+                color: DTokens.of(context).foreground,
+              ),
+            ),
+          ),
+          description: votes == null || percentage == null
+              ? null
+              : ExcludeSemantics(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          Text(votes == 1 ? '1 vote' : '$votes votes'),
+                          Text('$percentage%'),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      _ResultBar(percentage: percentage!),
+                    ],
+                  ),
+                ),
+        ),
+      );
+    }
     return Semantics(
       container: true,
       button: canSelect,
