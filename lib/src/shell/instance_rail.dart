@@ -973,12 +973,10 @@ class _RailFooter extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Center(
-            child: DButton.iconOnly(
-              key: const ValueKey('styleguide-rail-button'),
+            child: _RailFooterButton(
+              buttonKey: const ValueKey('styleguide-rail-button'),
               tooltip: 'Open component styleguide',
-              semanticLabel: 'Open component styleguide',
-              variant: DButtonVariant.flat,
-              onPressed: () => unawaited(showComponentStyleguide(context)),
+              onTap: () => unawaited(showComponentStyleguide(context)),
               icon: Icon(
                 Icons.palette_outlined,
                 size: _railIconSize,
@@ -1005,79 +1003,50 @@ class _RailFooter extends StatelessWidget {
   }
 }
 
-class _SettingsButton extends StatefulWidget {
+class _RailFooterButton extends StatelessWidget {
+  const _RailFooterButton({
+    required this.buttonKey,
+    required this.tooltip,
+    required this.onTap,
+    required this.icon,
+    this.expanded = false,
+  });
+
+  final Key buttonKey;
+  final String tooltip;
+  final VoidCallback onTap;
+  final Widget icon;
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) => DButton.iconOnly(
+    key: buttonKey,
+    tooltip: tooltip,
+    semanticLabel: tooltip,
+    variant: DButtonVariant.ghost,
+    insetSurface: true,
+    expanded: expanded,
+    onPressed: onTap,
+    icon: icon,
+  );
+}
+
+class _SettingsButton extends StatelessWidget {
   const _SettingsButton({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
-  State<_SettingsButton> createState() => _SettingsButtonState();
-}
-
-class _SettingsButtonState extends State<_SettingsButton> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final foreground = theme.shell.railForeground;
-    final markerHeight = _hovered
-        ? _railHoveredMarkerHeight
-        : _railIdleMarkerHeight;
-
-    return Semantics(
-      button: true,
-      label: 'Settings',
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          AnimatedContainer(
-            key: const ValueKey('settings-rail-marker'),
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            width: 4,
-            height: markerHeight,
-            decoration: BoxDecoration(
-              color: foreground,
-              borderRadius: const BorderRadius.horizontal(
-                right: Radius.circular(4),
-              ),
-            ),
-          ),
-          Center(
-            child: DTooltip(
-              message: 'Settings',
-              child: InkWell(
-                key: const ValueKey('settings-rail-button'),
-                onTap: widget.onTap,
-                onHover: (hovered) => setState(() => _hovered = hovered),
-                borderRadius: BorderRadius.circular(_railControlExtent / 2),
-                child: SizedBox.square(
-                  dimension: _railControlExtent,
-                  child: Center(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      width: _railVisualSize,
-                      height: _railVisualSize,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: foreground.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(
-                          _hovered ? 10 : _railVisualSize / 2,
-                        ),
-                      ),
-                      child: DIcon(
-                        DIcons.gear,
-                        size: _railIconSize,
-                        color: foreground,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+    return _RailFooterButton(
+      buttonKey: const ValueKey('settings-rail-button'),
+      tooltip: 'Settings',
+      onTap: onTap,
+      icon: DIcon(
+        DIcons.gear,
+        size: _railIconSize,
+        color: theme.shell.railForeground,
       ),
     );
   }
@@ -1114,85 +1083,62 @@ class _DiagnosticsButton extends StatelessWidget {
             : '$baseTooltip, ${recordingLabels.join(', ')}';
 
         return Semantics(
-          button: true,
           selected: open,
-          label: tooltip,
-          child: DTooltip(
-            message: tooltip,
-            child: InkWell(
-              key: const ValueKey('diagnostics-rail-button'),
-              onTap: diagnostics.togglePanel,
-              borderRadius: BorderRadius.circular(_railControlExtent / 2),
-              child: SizedBox.square(
-                dimension: _railControlExtent,
-                child: Center(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      AnimatedContainer(
-                        width: _railVisualSize,
-                        height: _railVisualSize,
-                        duration: const Duration(milliseconds: 180),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: open
-                              ? theme.colorScheme.primary.withValues(
-                                  alpha: 0.16,
-                                )
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(
-                            open ? 10 : _railVisualSize / 2,
-                          ),
-                        ),
-                        child: DIcon(
-                          DIcons.bug,
-                          size: _railIconSize,
-                          color: open
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurfaceVariant,
+          child: _RailFooterButton(
+            buttonKey: const ValueKey('diagnostics-rail-button'),
+            tooltip: tooltip,
+            expanded: open,
+            onTap: diagnostics.togglePanel,
+            icon: SizedBox.square(
+              dimension: _railVisualSize,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  DIcon(
+                    DIcons.bug,
+                    size: _railIconSize,
+                    color: theme.shell.railForeground,
+                  ),
+                  if (unseen > 0)
+                    Positioned(
+                      right: -4,
+                      bottom: -4,
+                      // The button announces the exact unseen count. Keep the
+                      // visually capped badge from adding a contradictory
+                      // second number to the accessible label.
+                      child: ExcludeSemantics(
+                        child: _CountBadge(
+                          key: const ValueKey('diagnostics-rail-badge'),
+                          count: unseen,
+                          background: theme.colorScheme.error,
+                          foreground: theme.colorScheme.onError,
                         ),
                       ),
-                      if (unseen > 0)
-                        Positioned(
-                          right: -4,
-                          bottom: -4,
-                          // The parent announces the exact unseen count. Keep the
-                          // visually capped badge from adding a contradictory
-                          // second number to the accessible label.
-                          child: ExcludeSemantics(
-                            child: _CountBadge(
-                              key: const ValueKey('diagnostics-rail-badge'),
-                              count: unseen,
-                              background: theme.colorScheme.error,
-                              foreground: theme.colorScheme.onError,
+                    ),
+                  if (recordingLabels.isNotEmpty)
+                    Positioned(
+                      key: const ValueKey(
+                        'plugin-diagnostics-recording-indicator',
+                      ),
+                      right: -3,
+                      top: -3,
+                      child: ExcludeSemantics(
+                        child: Container(
+                          width: 11,
+                          height: 11,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.error,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.shell.rail,
+                              width: 2,
                             ),
                           ),
                         ),
-                      if (recordingLabels.isNotEmpty)
-                        Positioned(
-                          key: const ValueKey(
-                            'plugin-diagnostics-recording-indicator',
-                          ),
-                          right: -3,
-                          top: -3,
-                          child: ExcludeSemantics(
-                            child: Container(
-                              width: 11,
-                              height: 11,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.error,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.shell.rail,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
