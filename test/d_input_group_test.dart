@@ -282,6 +282,7 @@ void main() {
   testWidgets('form reset and validation stay owned by grouped control', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final form = GlobalKey<FormState>();
     String? saved;
     await tester.pumpWidget(
@@ -308,8 +309,20 @@ void main() {
       ),
     );
 
+    final initialHeight = tester.getSize(find.byType(DInputGroup)).height;
     await tester.enterText(find.byType(TextField), '');
     expect(form.currentState!.validate(), isFalse);
+    await tester.pump();
+    await tester.pump();
+    expect(tester.getSize(find.byType(DInputGroup)).height, initialHeight);
+    expect(find.text('Required'), findsNothing);
+    expect(
+      tester
+          .getSemantics(find.byType(DInputGroup))
+          .getSemanticsData()
+          .validationResult,
+      SemanticsValidationResult.invalid,
+    );
     await tester.enterText(find.byType(TextField), 'jane');
     expect(form.currentState!.validate(), isTrue);
     form.currentState!.save();
@@ -320,6 +333,7 @@ void main() {
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
       'initial',
     );
+    semantics.dispose();
   });
 
   testWidgets(

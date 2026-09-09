@@ -306,6 +306,12 @@ class _DTextareaState extends FormFieldState<String> {
         onTapOutside: input.onTapOutside,
       ),
     );
+    if (group != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: editor,
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -327,18 +333,12 @@ class _DTextareaState extends FormFieldState<String> {
           ),
           const SizedBox(height: 8),
         ],
-        if (group == null)
-          _TextareaSurface(
-            enabled: input.enabled,
-            invalid: isInvalid,
-            focused: _focus.hasFocus,
-            child: editor,
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: editor,
-          ),
+        _TextareaSurface(
+          enabled: input.enabled,
+          invalid: isInvalid,
+          focused: _focus.hasFocus,
+          child: editor,
+        ),
         if (input.showCounter && input.maxLength != null) ...[
           const SizedBox(height: 8),
           Align(
