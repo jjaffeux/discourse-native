@@ -184,6 +184,10 @@ including after a CUA session reset. `getState` reported that isolated app as
 running; no app binding or accessibility state was returned, so its UI could
 not be inspected or closed through the approved surface. The desktop lease was
 released promptly. No alternative UI automation or security changes were used,
-and no final acceptance or merge is claimed. The final bundle may remain open.
+and no final acceptance or merge is claimed. The subsequent leased Button Group
+reviewer confirmed normal native-control recovery, selected the exact Data
+Table bundle identifier and quit its old instance through the native menu. This
+is cleanup/control evidence only, not a Data Table visual pass. The reviewer
+has rejoined desktop FIFO for a fresh launch and the remaining checks.
 No iOS/Linux device or spoken
 VoiceOver pass is claimed. All examples use local immutable fixture data.
