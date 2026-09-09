@@ -2701,10 +2701,16 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 - Verified independent reviewer Review and merge Breadcrumb (01a08623-9d6e-7393-b3e8-fb4c402b8c71) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 - Reviewer preserved the finalized cd9c542d implementation history, added a source-exact local-data TopicListView fixture, and completed Breadcrumb's first official browser and native macOS comparison.
 - Dropdown Menu is accepted on main at 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787. Breadcrumb's prepared pin is its ancestor and all Dropdown component/example/focused-test paths are byte-equal to the accepted revision.
+- Candidate 12b4b531 reconciles the reviewed implementation onto current main 892e1a97, including the Combobox owner's corrected catalogue dependency order, while preserving all other component rows. Current Popover adds an opt-in focusContentOnOpen switch; Breadcrumb retains its unchanged true default, verified by the affected keyboard tests.
 
 **migrations**
 
 - topic_list_view.dart: the real topic-row parent-category to category path uses DBreadcrumb composition while preserving LinkTarget navigation, rich badges, controller callbacks, labels and dense-row ellipsis behavior.
+
+**retainedAlternatives**
+
+- The category header remains a compound toolbar with an interactive current title and flexible layout, rather than a disabled current-page breadcrumb.
+- Category picker values, Sidebar trees, drill-in rows and back/step controls retain their existing owners because they do not represent navigation through a resource's ancestry.
 
 **verification**
 
@@ -2713,10 +2719,12 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 - A source-exact offline DiscourseApp/TopicListView fixture exposed both production category links in native AX, kept the long path bounded and confirmed parent/child callbacks navigate to the correct local feeds.
 - 48 Breadcrumb/Dropdown/styleguide tests passed with seed826145; both focused topic-row regressions passed; root and profiles/full analysis are clean.
 - After accepted Dropdown reconciliation, the same 48 affected tests and both production topic-row regressions passed with seed826145; root and profiles/full analysis remained clean. Final accepted-source macOS bundle /private/tmp/breadcrumb-final.7BTZ0L/Breadcrumb Final ebcec.app built and passed deep/strict ad-hoc signing with restricted developer entitlements omitted; kernel SHA256 60dfdb795ece4294d03de84c3d49eb29c3029862848677e19cf1cae05ff4795b.
+- After current-main integration, 47 of 48 combined Breadcrumb/Dropdown/styleguide checks passed; the sole failure was current main's Combobox row ordering. Its owner corrected that ledger in 892e1a97, and the exact catalogue check passed on reconciled Breadcrumb candidate 12b4b531. Both production topic-row regressions and root/full-profile analysis also passed; relevant Breadcrumb/Dropdown/Popover/topic-row source did not change during the ledger reconciliation.
 
 **limitations**
 
-- The first official/native Breadcrumb pass remains valid because accepted Dropdown component/example/test paths are byte-equal. A final attempt to inspect the reviewer-added timed live-theme-while-open control was blocked by a fresh locked-Mac denial after acquiring the FIFO lease; the lease was released immediately. Parent focused coverage verifies live theme while open, but no native claim is made for that single timed interaction. No iOS/Linux device or spoken VoiceOver claim.
+- The initial official browser and native macOS pass remains valid for unchanged component behavior. One additional native check of the reviewer fixture's timed live-theme change while a menu is open is queued under the shared desktop FIFO.
+- No physical iOS or Linux device run or spoken VoiceOver verification was performed. Browser and native font rasterizers differ; comparison establishes mapped geometry, palette relationships and behavior rather than identical pixels.
 
 ### pagination
 
