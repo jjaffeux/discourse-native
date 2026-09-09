@@ -610,7 +610,8 @@
         "Public DBadge supports six treatments, static/action/link composition, decorative leading/trailing widgets, custom live colors, disabled callbacks, invalid/name/value/live semantics and owned-or-borrowed focus. Pointer activation transfers keyboard focus; links use Enter and actions use Enter/Space.",
         "Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 2.6\u00d7 configured radius (10.4px at host default 4; reference 26px at 10), using the live website globals override, not rounded-full.",
         "Spinner remains the only implementation dependency. Button is baseline only for example controls; Badge imports no unfinished Button code. Six full styleguide sections retain the redesigned documentation shell.",
-        "Native comparison is pending the coordinator slot and unlocked desktop; automated passing checks and successful debug builds are not review_ready."
+        "Native comparison is pending the coordinator slot and unlocked desktop; automated passing checks and successful debug builds are not review_ready.",
+        "Ring uses animated exterior-only rounded-rectangle difference, preventing tint in transparent/translucent interiors. Frozen registry and compiled CSS require only a destructive border for idle invalid; 3px ring width applies on focus-visible."
       ],
       "migrations": [
         "Core: TopicUnreadBadge exact count and tooltip; user-menu capped count with full accessible value; user-card staff/suspension labels and earned badge count; GroupsPage membership and GroupPage member-owner labels.",
@@ -631,15 +632,16 @@
         "Coordinator-granted browser-only comparison completed; theme restored, own tab closed and slot released. No native app launched while Mac locked. Evidence and exact export harness in evidence/badge/.",
         "Exact final test command: flutter test --no-pub test/d_badge_test.dart test/badge_migrations_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart test/groups_page_test.dart test/group_page_test.dart test/user_card_test.dart test/user_card_target_accessibility_test.dart test/user_card_account_lifecycle_test.dart test/user_menu_message_accessibility_test.dart test/plugin_user_menu_widget_test.dart test/chat_drawer_test.dart test/chat_shell_integration_test.dart test/topic_list_view_lifecycle_test.dart --test-randomize-ordering-seed=792026 --reporter expanded. All 254 pass.",
         "Browser corrections pass 39 focused tests, seed 792027, and widget-renderer export test. Radius source scale and bundled SVG paths verified against live computed styles.",
-        "Coordinator inspected actual dark reference variants versus matching neutral Flutter exports and the real Groups/Chat migration montage at Plum/RTL/200%. Compact geometry and distinct variants agree; montage scroll clipping is fixture viewport clipping, not a full native screen/overlay verification. Native checks remain queued."
+        "Exterior ring followup: six light/dark pixel regressions reproduced tint before correction; 46 affected tests including renderer export pass seed 792028. Root/full analysis clean; isolated source-matching bundle rebuilt, deep strict signature verified, restricted entitlement omission confirmed by signed read-back. No UI accessed."
       ],
       "limitations": [
-        "Native rendered comparison remains required before review_ready; Mac remains locked. Browser reference versus macOS-targeted widget-renderer comparison is complete.",
+        "Awaiting native slot; focused/invalid live-browser and native comparison of the exterior-ring correction remain required before review_ready. Previous browser reference comparison and regenerated widget exports are recorded separately.",
         "No iOS/Linux device or spoken VoiceOver verification. Native font underline offset differs from CSS underline-offset:4; custom Tailwind OKLCH examples use clipped 8-bit sRGB conversions."
       ],
-      "implementationCommit": "302f4c3b3082d87a0e2fd1a1b46be873e7d14c27",
+      "implementationCommit": "08e7042a27dc34f6db11399e26709d622fe14a7a",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native"
     },
     {
       "id": "input",
@@ -689,15 +691,17 @@
         "Correction native checkpoint 3800505aacce361f92bc71ff18332f58bf3cb07e: refreshed /private/tmp/DiscourseInputReview-01a083ad.app, unique org.discourse.native.input.01a083ad identity and discourse-input-review-01a083ad scheme. Source/copy kernel SHA256 both 661a1bb69eaf830e8c84de3f2931d1f2df5b760ea3dc4e86980c386cd243939a; deep strict ad-hoc signature passes. Remains unlaunched, in_progress/awaiting_slot.",
         "Official browser computed-style/crop comparison corrected file gap to 4px and Field label/description leading to 19.25/21px. Sixteen font-loaded Flutter exports cover all registered examples in both app palettes and real Add Site/Invite editors. All 366 focused tests (seed 928374611), root/full analysis and exact-source native build pass. Browser slot explicitly released; prior tab absent after interruption, restoration not verifiable. Evidence and logs: input-reference.md.",
         "Latest source a1020b6745954e54d72183729bc2f86049a949e6: unique signed /private/tmp/DiscourseInputReview-01a083ad.app refreshed, deep strict signature passes, source/copy kernel SHA256 b034361de32ad1e22d036fc1d4e0334f262b4ce1bc5eeee287751ad748211ba3. Remains unlaunched and awaiting_slot.",
-        "Semantics correction source 0464e555817ef8dae4fe63b1e8dd48548a2c3bed: editor container prevents editable role from merging into its page; Sidebar adoption inherits it and File Button remains separate. Three boundary regressions plus affected suites pass (369 tests, seed 928374611), root/full analysis clean. Exact-source unique /private/tmp/DiscourseInputReview-01a083ad.app rebuilt and deep strict ad-hoc signed with empty entitlements (no restricted entitlements); source/copy kernel SHA256 53eaa15f083810cdf1e97449df3abd24386bd355754e74795493797a5c13b34b. Unlaunched, awaiting_slot; no UI interaction."
+        "Semantics correction source 0464e555817ef8dae4fe63b1e8dd48548a2c3bed: editor container prevents editable role from merging into its page; Sidebar adoption inherits it and File Button remains separate. Three boundary regressions plus affected suites pass (369 tests, seed 928374611), root/full analysis clean. Exact-source unique /private/tmp/DiscourseInputReview-01a083ad.app rebuilt and deep strict ad-hoc signed with empty entitlements (no restricted entitlements); source/copy kernel SHA256 53eaa15f083810cdf1e97449df3abd24386bd355754e74795493797a5c13b34b. Unlaunched, awaiting_slot; no UI interaction.",
+        "Final Button integration source 3201d96b51f86abbb638218eee8d0178ef168938 merges pinned main9d7a49e; all non-Input progress rows and merged Button/Avatar owners preserved. File trigger uses sibling Button extraSmall24px and scoped disabledOpacity1; pixel checks use actual independent label rectangles. Desktop/mobile styleguide test verifies bounded descendant editor and independent functioning Clear search. All371 affected tests (seed928374611), root/full analysis, three pixel and three export tests pass. Unique signed review bundle refreshed with empty entitlements, deep strict verification and matching source/copy kernel SHA256 ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f. Unlaunched awaiting_slot; no CUA."
       ],
       "limitations": [
         "Native editing inspection awaits the coordinator desktop slot. Browser comparison completed from saved evidence; no native app interaction has occurred.",
         "No iOS/Linux device or spoken VoiceOver inspection; target-platform widget checks are not device verification."
       ],
-      "implementationCommit": "0464e555817ef8dae4fe63b1e8dd48548a2c3bed",
+      "implementationCommit": "3201d96b51f86abbb638218eee8d0178ef168938",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "awaiting_slot",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native"
     },
     {
       "id": "textarea",
@@ -2533,14 +2537,6 @@
           "status": "native_review"
         },
         {
-          "component": "input",
-          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
-          "branch": "codex/ui-input",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
-          "headCommit": "a7550c39004087bc8509efdbdb8f0b2a82ca779b",
-          "status": "button_integration"
-        },
-        {
           "component": "popover",
           "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
           "branch": "codex/ui-popover",
@@ -2694,6 +2690,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad2a/discourse-native",
           "headCommit": "7cdcf022595f2330940c482e4df4b5d403599090",
           "status": "awaiting_native_review"
+        },
+        {
+          "component": "input",
+          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+          "branch": "codex/ui-input",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
+          "headCommit": "37573a27482535d39fb146a8c430f127c5cecdbe",
+          "status": "awaiting_native_review"
         }
       ]
     },
@@ -2771,7 +2775,7 @@
       }
     },
     "integrationPreparation": {
-      "status": "downstream_reconciliation",
+      "status": "superseded_by_component_integration",
       "branch": "codex/component-library-integration-review",
       "worktree": "/private/tmp/discourse-component-integration-b104",
       "components": [
@@ -2784,11 +2788,9 @@
         "button": "f32de5cc356a561c3a3d26c75aeb855e0ad28307",
         "input": "a7550c39004087bc8509efdbdb8f0b2a82ca779b"
       },
-      "verification": "Combined Input/Sidebar/styleguide field-boundary adoption passes all 51 affected tests with seed 909619. Root native AX review is active after Button explicitly released the desktop; final Button source reconciliation remains.",
+      "verification": "Input owner integrated reviewed corrections and pinned merged main directly in its branch at37573a27, source3201d96b. All371 affected tests and root/full analysis pass; native final Button/file/search-suffix review is queued. Temporary combined checkout is retained for evidence only.",
       "remaining": [
-        "Button owner fixing Users toolbar and reorder target geometry on touch;184 downstream tests passed with two real Users geometry failures and one erroneous nonexistent test path.",
-        "Generic Input semantic boundary is integrated and 40 affected tests pass. Apply final Button Users fixes before rerunning affected combined checks and analysis.",
-        "Temporary integration remains unmerged and does not grant dependency availability."
+        "Input native review and coordinator final main merge."
       ]
     },
     "dispatchPolicy": {
@@ -2956,39 +2958,40 @@
       "nativeAccessibilityFollowUp": "5775a7d3793f830c9bf2700dc03f949a58d7fc7f; documentation/Sidebar navigation boundaries verified in native desktop and mobile layouts."
     },
     "currentNativeReviewBundle": {
-      "sourceCommit": "f0a74785453a6cfb73d2e877e16d0e415ec66a31",
-      "sourceTree": "5d81e96eb2eb5054fd19152a8710e9560773b72f",
+      "sourceCommit": "5775a7d3793f830c9bf2700dc03f949a58d7fc7f",
+      "sourceTree": "82f7681338d54d19e2842e4c2f1e00716f93ba27",
       "entrypoint": "tool/title_review_main.dart",
-      "bundle": "/private/tmp/DiscourseComponentFidelityB104-f0a74785.app",
-      "bundleIdentifier": "org.discourse.native.component-fidelity.b104.f0a74785",
-      "urlScheme": "discourse-component-fidelity-b104-f0a74785",
-      "kernelSHA256": "4d40db9421fb25e37e9f734d5b6cc98e64aa3cc1d88e5d9b61eae0354966cad8",
-      "sourceManifestSHA256": "9b445e65c51dae30ad2d81a7448b5171eb566e0c8f5b45b3abfc509d2d968d6d",
+      "bundle": "/private/tmp/DiscourseComponentFidelityB104-5775a7d3.app",
+      "bundleIdentifier": "org.discourse.native.component-fidelity.b104.5775a7d3",
+      "urlScheme": "discourse-component-fidelity-b104-5775a7d3",
+      "kernelSHA256": "57d35b8e4f386a9bd9dc91c9a667a278753217d73b256bb783894760e6b7969d",
+      "sourceManifestSHA256": "41b7328e05923bda55087e46c5a7299c45d533263135a7d4e8528ac065eecab1",
       "sourceFileCount": 1386,
       "signatureVerification": "codesign --verify --deep --strict passed",
-      "nativeInspectionStatus": "awaiting_serialized_slot",
-      "reviewEntitlements": "/private/tmp/component-fidelity-f0a74785.entitlements",
+      "nativeInspectionStatus": "complete",
+      "reviewEntitlements": "/private/tmp/component-fidelity-5775a7d3.entitlements",
       "restrictedEntitlementsOmitted": true,
-      "supersedes": "/private/tmp/DiscourseComponentFidelityB104-a872962f.app"
+      "supersedes": "/private/tmp/DiscourseComponentFidelityB104-f0a74785.app"
     },
     "styleguideSearchSemantics": {
-      "status": "awaiting_native_review",
+      "status": "complete",
       "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "branch": "codex/component-fidelity-follow-up",
-      "implementationCommit": "f0a74785453a6cfb73d2e877e16d0e415ec66a31",
+      "implementationCommit": "5775a7d3793f830c9bf2700dc03f949a58d7fc7f",
       "problem": "Native accessibility showed only the styleguide search because its editable role merged into the1280\u00d7860 page node. Isolate search semantics to its own field bounds and label.",
       "verification": [
         "Original native AX behavior and widget semantics dump reproduced.",
         "31 styleguide access/page/Sidebar tests passed seed909614; includes desktop/mobile search semantic bounds and label. Root/full analysis clean.",
-        "Refreshed exact-source unique macOS build,1386 source files match; app.dill/built/copied kernels match; strict signature and restricted-entitlement exclusion verified."
+        "Refreshed exact-source unique macOS build,1386 source files match; app.dill/built/copied kernels match; strict signature and restricted-entitlement exclusion verified.",
+        "Native desktop and narrow documentation search/navigation and 360px Sidebar modal all verified; exact-source screenshots/AX in native-fidelity-5775a7d3/manifest.json. All32 affected tests/root/full analysis pass."
       ],
-      "bundle": "/private/tmp/DiscourseComponentFidelityB104-f0a74785.app",
-      "kernelSHA256": "4d40db9421fb25e37e9f734d5b6cc98e64aa3cc1d88e5d9b61eae0354966cad8",
+      "bundle": "/private/tmp/DiscourseComponentFidelityB104-5775a7d3.app",
+      "kernelSHA256": "57d35b8e4f386a9bd9dc91c9a667a278753217d73b256bb783894760e6b7969d",
       "reviewDocument": "docs/component-library/styleguide-accessibility-follow-up.md",
       "limitations": [
-        "Refreshed native AX inspection awaits exclusive desktop slot. Input owner corrected the same issue independently in its generic editor; integration reconciliation remains."
+        "Generic Input owns the independent Clear search suffix; its final integration tests pass and native confirmation is queued. No spoken VoiceOver or iOS/Linux device claim."
       ],
-      "mergeCommit": null
+      "mergeCommit": "be0e96446270b1a063a72081be3ffa0b6d8c6bc5"
     }
   }
 }
