@@ -45,7 +45,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | merged | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | 916580e72e11de6a6b7872c41d5c4d92e27e9635 |
 | 10 | input | merged | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | 7df72ef294826616e8ba24c31c6129d8e9041fec |
-| 11 | textarea | in_progress | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
+| 11 | textarea | review_ready | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
 | 12 | checkbox | merged | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | 13466a062d19c247905ccc65adc615c8d0d6273d |
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
@@ -856,7 +856,7 @@ Status: merged. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/ui-inp
 
 ### textarea
 
-Status: in_progress. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/ui-textarea.
+Status: review_ready. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/ui-textarea.
 
 **acceptanceCriteria**
 
@@ -873,6 +873,7 @@ Status: in_progress. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/u
 - Match 64px content-growing surface, 11x9px border-box text insets, explicit 14/20 desktop and 16/24 touch metrics, host radius, outlineVariant input role, multiplied alpha and exterior-only 3px rings.
 - Seven actual examples cover all frozen compositions plus native Form/reset, controlled ownership and bounded read-only editing. Field uses DLabel/native composition; Button composition uses existing StyleguideAction until pending owners merge.
 - Merged pinned main e612ad7b in d286e118; final owners and all non-Textarea progress rows preserved. Textarea examples now compose final DButton; adjacent DInput adapters reconciled without changing rich composer boundaries.
+- Independent review accepted the component, migrations, ownership boundaries and base-nova mapping. The only acceptance correction promotes the completed styleguide entry from its stale baseline/pending label to implemented after browser and native inspection.
 
 **migrations**
 
@@ -896,11 +897,15 @@ Status: in_progress. Task: 01a08437-208f-7332-b373-192eaada5844. Branch: codex/u
 - Refreshed unlaunched /private/tmp/DiscourseTextareaReview-01a08437-AX.app from c2d7026f production source. Source/copy kernel SHA256 be9603f36ffc05f2b2a1f7473cf99eec79f07852c369e93ae0ccf140df37e3fa. Unique .ax identifier/scheme; restricted APS/team/application entitlements absent by readback; deep strict ad-hoc signature passes. Awaiting serialized UI slot.
 - Pinned-main integration: 221 focused tests pass, root/full-profile analysis and enforced-lockfile resolution pass; no SDK/lockfile changes.
 - Unlaunched source-exact /private/tmp/DiscourseTextareaReview-d286e118.app from d286e1188bc57c2f2b1a26c3439c69d636606d9b, unique identity/scheme. Source/copied kernel SHA256 2b33e2ae6338e5aa17e889731b44b50e459cdc497d37216643f6aa1f45093faf; deep strict signature and signed entitlement readback pass with debug/JIT allowed and APS/team/application identities absent.
+- Independent review reran 163 focused component, visual, styleguide and migrated production tests with randomized seed 1079605986; all passed. After the status correction, 16 component/visual/styleguide tests passed with seed 933940314. After latest-main integration, the 163-test set passed again with seed 1478152398. Root and profiles/full flutter analyze --no-pub, touched formatting and git diff --check passed.
+- Official browser inspection covered light/dark default, focus and invalid compositions. Native macOS inspection of exact d286e118 source covered multiline growth, label focus, independent semantics, invalid/form save/reset, controlled/read-only editing, live palette, 320px/200%/RTL layout, and actual InviteEditor/EventComposerSheet success, failure and pending paths.
+- Post-review source 35a7959e rebuild produced /private/tmp/textarea-final.rvUv9Z/DiscourseTextareaReview-final-35a7959e.app with identifier org.discourse.native.textarea.review35a7959e; kernel SHA256 c12e0e3007dc8baaeb0ff917bbd9fef78258a87d1eb49e64523b26ffb59e988f and deep strict ad-hoc signature verification pass. DTextarea, foundations and inspected Invite/Event fixture sources are unchanged from native-reviewed d286e118; the only runtime delta is styleguide baseline-to-implemented acceptance metadata, so the coordinator explicitly waived a redundant relaunch.
+- Final integration of main 7d29f531 preserved accepted Table, Alert, Empty and Chart owners. The 163 affected Textarea/adoption tests passed again with seed 1934955355; root/full analysis and git diff --check passed.
 
 **limitations**
 
-- No desktop/browser use: native Mac locked and no serialized slot granted. Actual reference-rendered comparison and native fixture/styleguide inspection remain required.
-- No iOS/Linux device or spoken VoiceOver verification; widget tests and exported renders do not claim device/pixel parity.
+- No iOS/Linux device or spoken VoiceOver verification; widget tests, native macOS inspection and exported renders do not claim cross-platform device/pixel parity.
+- Browser Geist and native host font rasterization differ, so no pixel-equality claim is made; geometry, palette, focus/invalid states, interaction and semantics were compared directly.
 
 ### checkbox
 

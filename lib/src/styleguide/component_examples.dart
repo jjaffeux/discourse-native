@@ -25,6 +25,7 @@ import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
 import 'examples/switch_examples.dart';
 import 'examples/table_examples.dart';
+import 'examples/textarea_examples.dart';
 import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
@@ -33,6 +34,7 @@ import 'styleguide_example.dart';
 final componentExamples = <String, ComponentExamples>{
   'alert': alertExamples,
   'table': tableExamples,
+  'textarea': textareaExamples,
   'collapsible': collapsibleExamples,
   'input': inputExamples,
   'radio-group': radioGroupExamples,
