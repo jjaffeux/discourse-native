@@ -3519,16 +3519,34 @@
       "decisions": [
         "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner began from main 77ee9b047528d43fcbcd4a31d464182f9640b835, then prepared a fresh candidate from main be63d141 after Field acceptance; no unaccepted parent source is carried.",
         "Input is accepted at merge 7df72ef294826616e8ba24c31c6129d8e9041fec. Field is accepted at merge 5cd7f369 and its final public API is used directly for Form and invalid compositions.",
-        "Frozen official Markdown SHA256 913027458ed577e6345687c3d42b62f28e2813e1d8b000e1b8b9e52f554b1a6e verified byte-for-byte on 2026-09-09. Official base-nova input-otp registry SHA256 is 1f8309b2749a129b011c93928416a0da7d6009b55ae8118d45850e488eac8989."
+        "Frozen official Markdown SHA256 913027458ed577e6345687c3d42b62f28e2813e1d8b000e1b8b9e52f554b1a6e verified byte-for-byte on 2026-09-09. Official base-nova input-otp registry SHA256 is 1f8309b2749a129b011c93928416a0da7d6009b55ae8118d45850e488eac8989; exact extracted UI source SHA256 is 800f2398fc404a1fa529d7af8c7647e22553205c482a15bc0c26775f145a6465.",
+        "One FormField<String>/TextField owns native typing, selection, paste, context menu, IME and oneTimeCode autofill. Group/slot/separator children are visual projections; visual semantics merge into the bounded editor instead of creating six decorative fields.",
+        "Controller, controlled value and initial value modes are exclusive. A transformer precedes per-character pattern/length filtering; completion fires on each incomplete-to-full transition. Form save/validate/reset and borrowed controller/focus lifecycles use Flutter owners.",
+        "Default slots are 32x32 at 14/20 typography; Form slots are 44x48 at 20px. Large text grows height only when needed. The narrow Form keeps exact 296px geometry in a logical horizontal viewport instead of shrinking characters or overflowing.",
+        "Active/invalid three-pixel rings are exterior-only, input and border roles remain distinct, opacity multiplies live token alpha, host radius uses the lg 1.0 factor, and reduced motion leaves the caret visible."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "migrations": [
+        "No production migration: a full tracked core/plugin/source audit found no existing authentication, OTP, TOTP, passcode, verification-code or security-code entry widget. No account or external authentication settings were touched."
+      ],
+      "retainedAlternatives": [
+        "Diagnostics redaction of the server-side one_time_password key is non-visual security behavior and remains unchanged. Ordinary numeric, date/time and search fields remain DInput; inventing an OTP adapter would change domain behavior."
+      ],
+      "verification": [
+        "Frozen Markdown hash, official base-nova registry hash, exact extracted TSX hash and upstream input-otp README hash are recorded in docs/component-library/input-otp-reference.md and reference/input-otp/sources.json.",
+        "15 Input OTP/component-example tests passed with seed 9092026. Coverage includes one-editor anatomy, autofill hint, paste transform/filter/order, completion transition, native editing value selection/deletion, controlled synchronization, borrowed lifecycle, Form validate/save/reset, disabled semantics, logical pointer selection, custom groups/separator and 320px 100/200 percent RTL rendering of all ten examples.",
+        "55 Input OTP, Field, Input, Button adoption and complete styleguide-page checks passed with seed 9092027 after correcting an invocation-only nonexistent d_card_test.dart path; the corrected run has no product failures.",
+        "31 accepted Card and Button component/example checks passed with seed 9092028, including narrow 200 percent RTL compositions.",
+        "Root and profiles/full flutter analyze --no-pub passed with no issues. Root and full flutter pub get --enforce-lockfile passed without lockfile changes; touched Dart formatting and git diff --check pass.",
+        "Local-only tool/input_otp_review_main.dart contains all real examples and live Light/Dark/Forest/Plum, LTR/RTL, 100/200 percent, motion and 320/448px controls; it performs no network or authentication work."
+      ],
+      "limitations": [
+        "Independent reviewer must complete the first actual official browser comparison and native macOS launch/typing/paste/selection/Form/theme/RTL/scaled inspection before promoting the styleguide from baseline, then merge from the main checkout. No iOS/Linux device or spoken VoiceOver verification is claimed.",
+        "The approved task-creation tool is absent from this task's callable tool inventory after explicit discovery. A committed exact reviewer prompt is provided for coordinator transport only; the reviewer ID must replace this transport limitation."
+      ],
+      "implementationCommit": "953692fe1de87078c58a50bb73bb4200553414d4",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9aa9/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "implementation_ready_for_independent_review",
       "implementationBrief": "Implement complete Input OTP anatomy/group/slot/separator and Pattern, Separator, Disabled, Controlled, Invalid, Four Digits, Alphanumeric, Form and RTL examples. Use an actual accessible editable text owner for native typing/selection/paste/autofill/IME; do not build independent decorative fields that break platform one-time-code autofill or backspace/selection behavior. Provide typed value/controller/initial ownership, length/pattern/paste transformation, completion/reset/validation callbacks and borrowed focus/controller lifecycle. Match shadcn slots/caret/focus/error/disabled geometry using shared tokens and preserve logical order/accessibility at text scale/RTL. Compose final Field for Form/invalid examples and coordinate its reviewer. Audit actual core/plugin authentication/code inputs without touching accounts or external auth settings; migrate suitable widgets preserving their existing submission/security/business callbacks. Test paste, selection, deletion, autofill configuration, completion, validation/reset and relevant app regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/input-otp",
