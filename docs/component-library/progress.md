@@ -37,7 +37,7 @@ Branch preparation does not mark a component merged or visually verified.
 | bubble | Implementation and checks | — | — |
 | message | independent review | 93729c14 | 01a08627-8995-7b43-9c06-8a219d472681 |
 | message-scroller | Implementation and checks | — | — |
-| data-table | Implementation and checks | — | — |
+| data-table | Implementation and checks | — | 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a |
 | input-otp | Implementation and checks | — | — |
 | questionnaire | Implementation and checks | — | — |
 
@@ -2807,14 +2807,39 @@ Status: in_progress. Task: 01a08606-ca45-73b1-9be1-7486d4e3fe1d. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match the frozen Base UI/base-nova Data Table complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
-- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
-- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
-- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+- Provide typed stable row and column identifiers, cell/header builders and controlled or controller-owned sorting, per-column filtering, visibility, stable row selection and 1-based pagination without importing TanStack or application services.
+- Reproduce the frozen payment table and reusable column-header, pagination and column-toggle compositions with real Table, Checkbox, Input, Dropdown Menu, Button and Badge owners; preserve independent row actions, empty results and RTL reading order.
+- Clamp pagination and prune stale column state while preserving valid stable-ID selection across data replacement; expose manual/server operation callbacks without owning loading, errors, fetching or caches.
+- Audit structured core/plugin datasets and migrate suitable bounded tables only, retaining card and infinite-feed surfaces with explicit reasons; cover interaction, semantics, keyboard, live themes, reduced motion, narrow width, 200 percent text and RTL.
+- Pass touched formatting, root and full-profile analysis and focused component/example/adoption tests; prepare exact-source real-widget macOS fixtures for the independent reviewer to complete official browser/native acceptance and local main merge.
 
 **decisions**
 
-- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Frozen Markdown SHA256 verified as 31d46187a08d79ce41dd8991599ce86ff2d6fba0b99ae4ebff84cfbccce6cff4 on 2026-09-09; official repository source pinned at 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048.
+- Prepared Dropdown Menu source is pinned only for isolated development at codex/review-dropdown-menu-candidate d273c27e788bb3991c773c7432e0b8c927715651; its reviewer reports 47 focused tests and clean root/full analysis, but acceptance/main merge remains a reviewer gate.
+- Prepared Pagination source is pinned at cd69ff21400192e6a141a675ffb7ec6a7199526c from task 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 and includes prepared Select/Field ancestry; its reviewer correction eb2fe3312aabb401625e82f824258a33c86f12ab shrink-wraps the bounded footer without changing public API.
+- DDataTable is a typed Flutter composition over the accepted DTable presentation owner: local mode performs stable filtering/sorting/paging, manual mode reports state for server adapters, and selection is keyed independently by caller-provided row IDs.
+- DDataTablePagination uses the real Pagination and Select owners; page-size changes preserve the first visible item, narrow layouts wrap intrinsically, and directional controls use the reference outline variant. No temporary dependency renderer was introduced.
+- Independent reviewer 01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a owns source review, dependency reconciliation, official browser/native acceptance, fixes and final local main merge.
+
+**migrations**
+
+- Registered four searchable real-widget Data Table examples covering the frozen payment table, the complete interactive Tasks composition, immutable dynamic rows and Arabic RTL.
+
+**retainedAlternatives**
+
+- Users directory keeps its pinned identity pane, synchronized virtualized scrolling, persisted resizable metric columns, server-side infinite loading, metric bars and administrative column ordering.
+- Alert Tables keep DTable because their nested alert/quote/expand/link content is passive document structure, not a homogeneous sortable and filterable row model.
+- Topic, Chat, SuperList and badge surfaces remain card, timeline or infinite-feed renderers; no bounded homogeneous core or bundled-plugin grid was suitable for migration.
+
+**verification**
+
+- Implementation owner reports 70 focused component/dependency tests passing with seed 278431, 15 styleguide tests passing, clean root/full analysis, unchanged enforced lockfiles and a successful exact-widget macOS fixture build; the independent reviewer will rerun affected checks after accepted dependency reconciliation.
+
+**limitations**
+
+- Official rendered browser comparison and native macOS interaction remain pending independent review.
+- Prepared Pagination and Dropdown Menu ancestry is isolated review source only and cannot reach main until their accepted current-main revisions are reconciled.
 
 ### sidebar
 
@@ -2891,3 +2916,4 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+

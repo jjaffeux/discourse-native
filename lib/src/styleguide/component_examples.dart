@@ -10,8 +10,10 @@ import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/command_examples.dart';
+import 'examples/data_table_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/dropdown_menu_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
@@ -20,6 +22,7 @@ import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
 import 'examples/native_select_examples.dart';
+import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
 import 'examples/radio_group_examples.dart';
@@ -61,14 +64,17 @@ final componentExamples = <String, ComponentExamples>{
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,
   'badge': badgeExamples,
+  'data-table': dataTableExamples,
   'direction': directionExamples,
   'dialog': dialogExamples,
+  'dropdown-menu': dropdownMenuExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'label': labelExamples,
   'native-select': nativeSelectExamples,
+  'pagination': paginationExamples,
   'field': fieldExamples,
   'progress': progressExamples,
   'marker': markerExamples,
