@@ -28,7 +28,7 @@ Branch preparation does not mark a component merged or visually verified.
 | dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | Implementation and checks | — | — |
-| navigation-menu | Implementation and checks | — | — |
+| navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
 | breadcrumb | Implementation and checks | — | — |
 | pagination | Implementation and checks | — | — |
 | calendar | Implementation and checks | — | — |
@@ -2445,6 +2445,7 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Navigation Menu (01a08621-0e86-7a62-82b9-6a8eca71227f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### breadcrumb
 

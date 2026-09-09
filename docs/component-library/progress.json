@@ -2734,16 +2734,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Navigation Menu (01a08621-0e86-7a62-82b9-6a8eca71227f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "43ef3bca0725ed27f452ed141a6eda4bf120072e",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5529/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement full reference Navigation Menu anatomy, including list/items, trigger/link/content, viewport/indicator and Link Component/RTL behavior as documented. This is navigation, with appropriate link/current-page semantics and controlled routing callbacks; reuse accepted Popover/shared positioning while preserving the reference pointer intent, inter-panel travel, keyboard focus/roving behavior, dismissals and viewport animations/sizing. Handle dynamic/disabled entries, nested content, live themes, reduced motion, narrow layouts and native touch adaptation. Audit real core/plugin navigation surfaces; migrate only suitable menu navigation while preserving routing, permissions and state. Do not convert ordinary buttons, Sidebar, route tabs or command menus into Navigation Menu. Keep examples functional with self-contained destinations and verify source-exact navigation and focus behavior.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/navigation-menu",
@@ -2761,7 +2762,17 @@
           "implementationCommit": "b410f9da0227b2b9e0d6518b64277e97d6517b06",
           "mergeCommit": "dc6ab75fe99f2af8b401bae60285fdbe65e8012a"
         }
-      ]
+      ],
+      "reviewTaskId": "01a08621-0e86-7a62-82b9-6a8eca71227f",
+      "reviewBranch": "codex/review-navigation-menu",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/9fda/discourse-native",
+      "reviewHandoffCommit": "57ee83934cd11d941b816bb1c59260e7515427b8",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "31 focused Navigation Menu/styleguide/Popover tests passed with seed860606, reported by the implementation owner.",
+        "analysis": "Root and profiles/full analysis clean at source handoff.",
+        "native": "No actual browser/native acceptance yet. Local macOS build attempt was cancelled due concurrent Xcode serialization; reviewer owns its own exact-source build and actual inspection."
+      }
     },
     {
       "id": "breadcrumb",
@@ -3755,7 +3766,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T12:27:59+00:00",
+    "updatedAt": "2026-09-09T12:30:15+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -3970,14 +3981,6 @@
           "phase": "reference_and_dependency_preparation"
         },
         {
-          "component": "navigation-menu",
-          "taskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
-          "branch": "codex/ui-navigation-menu",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5529/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
           "component": "breadcrumb",
           "taskId": "01a08606-c290-7772-8b90-e5358efa6752",
           "branch": "codex/ui-breadcrumb",
@@ -4012,6 +4015,16 @@
           "implementationTaskId": "01a08606-5dce-7b91-9ee6-7713872f1fa7",
           "implementationBranch": "codex/ui-context-menu",
           "headCommit": "e9b295386d4f10e82e93b7aa6875a0a8d20598b1"
+        },
+        {
+          "component": "navigation-menu",
+          "taskId": "01a08621-0e86-7a62-82b9-6a8eca71227f",
+          "branch": "codex/review-navigation-menu",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9fda/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
+          "implementationBranch": "codex/ui-navigation-menu",
+          "headCommit": "57ee83934cd11d941b816bb1c59260e7515427b8"
         }
       ],
       "nativeReadyTasks": []
@@ -4332,6 +4345,18 @@
           "implementationTaskId": "01a08606-5dce-7b91-9ee6-7713872f1fa7",
           "implementationBranch": "codex/ui-context-menu",
           "implementationCommit": "d1c954fefb5d461be217d443f5bf51330b7f24e7",
+          "status": "in_progress"
+        },
+        {
+          "component": "navigation-menu",
+          "title": "Review and merge Navigation Menu",
+          "taskId": "01a08621-0e86-7a62-82b9-6a8eca71227f",
+          "hostId": "local",
+          "branch": "codex/review-navigation-menu",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9fda/discourse-native",
+          "implementationTaskId": "01a08606-5dd7-73d2-b6f5-15b1bfbc34e7",
+          "implementationBranch": "codex/ui-navigation-menu",
+          "implementationCommit": "43ef3bca0725ed27f452ed141a6eda4bf120072e",
           "status": "in_progress"
         }
       ],
