@@ -542,6 +542,7 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Coordinator touch-target correction: small legacy inset surfaces keep 32px paint/40px desktop targets but clamp iOS/Android targets to 48px independently.
 - Browser/export comparison corrected Small leading to22.4px, dark input-token alpha multiplication, leading loading padding, and responsive Size composition; added exact Arabic reference composition.
 - Radius follow-up: xs/icon-xs=min(.8×base,10px), sm/icon-sm=min(.8×base,12px), regular/large=base per official theming scale; preserves caller radius overrides.
+- Restore existing disabledOpacity scoped override with .5 default; preserve disabled/loading activation guards. No Input changes.
 
 **migrations**
 
@@ -572,7 +573,7 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Compared implementation 6db474b8c16529a28d77a168d9ac9dc4fb885647 rebuilt and source-byte-verified in unlaunched /private/tmp/DiscourseButtonReview-3a88-v3.app; unique V3 ID/scheme and deep strict signature pass. Kernel SHA256 9e8e0376cc234c8be9299212620d118ca2a27b7b7ce3737b432318d8eb20ba9d. V3 supersedes earlier native review bundles.
 - Radius regression reproduced 2px vs3.2px at4px base, then passed0/4/10/14/20 base radii for both constructors with live theme rebuilds. All28 affected tests and root/full analysis pass. Refreshed exact exports and inspected Light4/Forest14/Plum20 specimens without browser/native actions.
 - Radius-corrected source 4483071a2b1e4a147fb9627a8b5de9713a2138b8 byte-verified and rebuilt in unlaunched /private/tmp/DiscourseButtonReview-3a88-v4.app, unique V4 identity/scheme; deep strict signature passes. Kernel SHA256 f3c167b9494e8e49c3f9f1894ff453eeffb27e0e4da57053cbb7db9102be2396. V4 supersedes V3.
-- Coordinator inspected the saved actual dark reference Size screenshot and final neutral-dark and Plum 360px/200%/RTL Flutter exports at source 6db474b8. Compact surface/icon sizes and grouped layout agree with recorded metrics; font width/rasterizer and native-runtime caveats remain explicit. This is source/rendered review, not native acceptance or merge approval.
+- All29 affected Button/reference/example tests and root/full analysis pass after opacity override correction. V5 bundle source-byte-verified/deep-strict signed; signed entitlements omit APS/team/application identifiers while retaining local sandbox/JIT/permissions. Unlaunched /private/tmp/DiscourseButtonReview-3a88-v5.app supersedesV4; kernel0b4bdc1f7e6292fb2eb3ff8a1803c5057abd8d85b73551d6aea25552344b0e12.
 
 **limitations**
 
@@ -805,6 +806,7 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 - Correction native checkpoint 3800505aacce361f92bc71ff18332f58bf3cb07e: refreshed /private/tmp/DiscourseInputReview-01a083ad.app, unique org.discourse.native.input.01a083ad identity and discourse-input-review-01a083ad scheme. Source/copy kernel SHA256 both 661a1bb69eaf830e8c84de3f2931d1f2df5b760ea3dc4e86980c386cd243939a; deep strict ad-hoc signature passes. Remains unlaunched, in_progress/awaiting_slot.
 - Official browser computed-style/crop comparison corrected file gap to 4px and Field label/description leading to 19.25/21px. Sixteen font-loaded Flutter exports cover all registered examples in both app palettes and real Add Site/Invite editors. All 366 focused tests (seed 928374611), root/full analysis and exact-source native build pass. Browser slot explicitly released; prior tab absent after interruption, restoration not verifiable. Evidence and logs: input-reference.md.
 - Latest source a1020b6745954e54d72183729bc2f86049a949e6: unique signed /private/tmp/DiscourseInputReview-01a083ad.app refreshed, deep strict signature passes, source/copy kernel SHA256 b034361de32ad1e22d036fc1d4e0334f262b4ce1bc5eeee287751ad748211ba3. Remains unlaunched and awaiting_slot.
+- Semantics correction source 0464e555817ef8dae4fe63b1e8dd48548a2c3bed: editor container prevents editable role from merging into its page; Sidebar adoption inherits it and File Button remains separate. Three boundary regressions plus affected suites pass (369 tests, seed 928374611), root/full analysis clean. Exact-source unique /private/tmp/DiscourseInputReview-01a083ad.app rebuilt and deep strict ad-hoc signed with empty entitlements (no restricted entitlements); source/copy kernel SHA256 53eaa15f083810cdf1e97449df3abd24386bd355754e74795493797a5c13b34b. Unlaunched, awaiting_slot; no UI interaction.
 
 **limitations**
 
@@ -1437,6 +1439,37 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/u
 **decisions**
 
 - Own Item only on main base 402fe578. Proposed migrations: TagsPage row presentation and AssignmentDetailRow; shared tags empty/error regions overlap Empty/Alert and remain untouched. Thread messaging tool absent in this task; handoff via progress/final.
+- One generic owner exports all ten parts; full source hashes, CSS/logical metrics, semantics/layout/keyboard/native adaptations and audit are in docs/component-library/item.md.
+- Thirteen actual-component examples use bundled reference artwork. Button remains baseline; Dropdown uses an explicitly temporary MenuAnchor composition pending its owning branch. No unmerged dependency imported.
+- Source/check/build ready; awaiting_slot. Coordinator must perform actual reference comparison and native styleguide plus production fixture inspection before review_ready/merge.
+
+**migrations**
+
+- TagsPage ready rows now use exported TagDirectoryRow/DItem; lazy builder, ShellSelector, request identity, refresh, navigation, keys and count semantics remain app-owned.
+- AssignmentDetailRow uses muted Item with existing avatar adapter and untruncated identity/status/note; permission callback and accessible full label retained.
+
+**retainedAlternatives**
+
+- Specialized topic/inbox/notification/read-state rows, draft/resume rows, activity tables and menu/field choices retain their existing state and interaction contracts; see item.md.
+- Events participants and event-day records are candidate follow-ups for coordinated Calendar/Dialog/Events migration; no changes to their async authority or navigation checks.
+- Empty page messages, Alert banners, Voice message rendering and reaction UserCardTarget rows remain with adjacent component owners.
+
+**verification**
+
+- Frozen markdown hash exactly matches; registry and artwork URLs/hashes committed under reference/item.
+- Flutter 3.47.2 unchanged. Root and full-profile enforced-lockfile resolution passed; all pins/lockfiles unchanged.
+- Root and full-profile flutter analyze --no-pub passed.
+- 47 focused tests passed with seed 9092026: d_item, item_examples, item_migration_fixture, tags_page, assignment_sheet and styleguide_page. Includes pixel evidence that focus paints outside and does not tint muted interior; this is not native parity.
+- Touched formatting and git diff --check passed.
+- Final inherited-clamp correction: 34 focused component/styleguide/migration tests passed with seed 9092026; root and full-profile analysis passed again. Earlier 47-test run also covered the unchanged styleguide shell.
+- Isolated ItemReview82f4 macOS debug build succeeded from e792c515; actual Info.plist confirms org.discourse.itemreview82f4 and discourse-item-review-82f4 URL scheme. Local ad-hoc signature passes codesign --verify --deep --strict.
+- Build and copied App.framework kernels both SHA256 7f7f633347d1a22adc56397fec4be1298837c0702253676fef1662d46991b596. Runner files restored; lib/pubspec/macos equality to source commit and all pin/lockfile equality to 402fe578 verified. See item-build.md and reference/item/build.json.
+
+**limitations**
+
+- in_progress awaiting_slot: no browser/native slot granted; actual reference comparison and native styleguide/production fixture inspection remain required.
+- Button and Dropdown Menu example reconciliation remains explicit pending those branches; Events row candidates retained for coordinator review.
+- No iOS/Linux device, VoiceOver, authenticated screen or pixel-parity validation. Cross-thread messaging API unavailable in this task.
 
 ### table
 
