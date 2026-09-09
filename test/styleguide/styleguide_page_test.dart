@@ -229,6 +229,10 @@ void main() {
       'search and navigation fit ${size.width}px at 200% system text',
       (tester) async {
         await _pump(tester, size: size, scale: 2);
+        if (size.width < 900) {
+          await tester.tap(find.byKey(const ValueKey('styleguide-navigation')));
+          await tester.pumpAndSettle();
+        }
         expect(tester.takeException(), isNull);
         await tester.enterText(
           find.byKey(const ValueKey('styleguide-search')),
@@ -317,6 +321,106 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Actions: 1'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('mobile Sidebar selection closes navigation and retains search', (
+    tester,
+  ) async {
+    var closed = false;
+    await _pump(
+      tester,
+      size: const Size(390, 800),
+      onClose: () => closed = true,
+    );
+    final trigger = find.byKey(const ValueKey('styleguide-navigation'));
+    expect(find.byType(DSidebar), findsOneWidget);
+    expect(find.byKey(const ValueKey('styleguide-search')), findsNothing);
+    await tester.tap(trigger);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('styleguide-search')),
+      'avatar',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('styleguide-component-avatar')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('styleguide-detail-avatar')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('styleguide-search')), findsNothing);
+    await tester.tap(trigger);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('styleguide-search')))
+          .controller!
+          .text,
+      'avatar',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('styleguide-search')), findsNothing);
+    expect(closed, false);
+  });
+
+  testWidgets(
+    'mobile search shortcut opens Sidebar and focuses its search field',
+    (tester) async {
+      await _pump(tester, size: const Size(390, 800));
+      final action = find.widgetWithText(DButton, 'primary');
+      await tester.ensureVisible(action);
+      await tester.tap(action);
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      final search = tester.widget<TextField>(
+        find.byKey(const ValueKey('styleguide-search')),
+      );
+      expect(search.focusNode!.hasFocus, true);
+      await tester.enterText(
+        find.byKey(const ValueKey('styleguide-search')),
+        'kbd',
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('styleguide-component-kbd')),
+        findsOneWidget,
+      );
+      expect(find.text('Actions: 1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'search reveals a collapsed desktop Sidebar without resetting the preview',
+    (tester) async {
+      await _pump(tester);
+      await tester.tap(find.widgetWithText(DButton, 'primary'));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('styleguide-navigation')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.state<DSidebarProviderState>(find.byType(DSidebarProvider)).open,
+        false,
+      );
+      await tester.tap(find.byKey(const ValueKey('styleguide-search')));
+      await tester.enterText(
+        find.byKey(const ValueKey('styleguide-search')),
+        'card',
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.state<DSidebarProviderState>(find.byType(DSidebarProvider)).open,
+        true,
+      );
+      expect(
+        find.byKey(const ValueKey('styleguide-component-card')),
+        findsOneWidget,
+      );
+      expect(find.text('Actions: 1'), findsOneWidget);
     },
   );
 

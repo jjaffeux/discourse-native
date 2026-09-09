@@ -40,6 +40,8 @@ void main() {
     ('Foundation', foundation),
     if (progress['visualFidelity'] case final Map<String, dynamic> review)
       ('shadcn visual fidelity correction', review),
+    if (progress['styleguideFidelity'] case final Map<String, dynamic> review)
+      ('Documentation layout and Sidebar adoption', review),
     for (final row in components.where((row) => row['status'] != 'planned'))
       (row['id'] as String, row),
     ('Final audit', progress['finalAudit'] as Map<String, dynamic>),

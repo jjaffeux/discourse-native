@@ -45,7 +45,7 @@ ThemeData styleguideDocumentationTheme(ThemeData host, Brightness brightness) {
         hover: muted,
         selected: muted,
         selectedForeground: foreground,
-        radius: 8,
+        radius: 10,
       ),
     ],
   );
@@ -80,7 +80,7 @@ class StyleguideAction extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.iconOnly = false,
-    this.selected = false,
+    this.selected,
     this.outlined = false,
     this.alignment = Alignment.center,
     super.key,
@@ -90,7 +90,7 @@ class StyleguideAction extends StatelessWidget {
   final VoidCallback? onPressed;
   final IconData? icon;
   final bool iconOnly;
-  final bool selected;
+  final bool? selected;
   final bool outlined;
   final AlignmentGeometry alignment;
 
@@ -123,7 +123,7 @@ class StyleguideAction extends StatelessWidget {
                 : tokens.foreground,
           ),
           backgroundColor: WidgetStateProperty.resolveWith(
-            (states) => selected || states.contains(WidgetState.hovered)
+            (states) => selected == true || states.contains(WidgetState.hovered)
                 ? tokens.muted
                 : Colors.transparent,
           ),

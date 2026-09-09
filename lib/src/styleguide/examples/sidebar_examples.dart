@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final sidebarExamples = ComponentExamples(
+  description:
+      'Composable navigation with collapsible panels, groups, and menus.',
   status: ComponentStatus.baseline,
   notes:
       'Sidebar ports base-nova geometry and native focus/navigation. Sheet, Input, Collapsible and Dropdown Menu remain pending catalogue owners: the mobile panel uses a native modal route, editing uses TextField, and disclosure/sample choices use local state. Persistence belongs to the app.',

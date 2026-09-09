@@ -156,6 +156,32 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/ui-sha
 - The original Typography live HTML redirects to Typeset; comparison used the preserved original source and an explicitly identified local CSS reconstruction. No automated pixel-exact cross-renderer comparison is claimed.
 - iOS/Linux devices and VoiceOver speech were not inspected for this follow-up. Normal Flutter semantics and selection behavior remain covered by the focused tests; the styleguide AX tree exposed fewer nodes than the initial app fixtures.
 
+### Documentation layout and Sidebar adoption
+
+Status: in_progress. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/styleguide-shadcn-layout.
+
+**acceptanceCriteria**
+
+- Use the actual DSidebar library component for documentation navigation on desktop and mobile.
+- Match measured shadcn documentation density: 30px navigation visuals, 30/36px page titles, a 640px article and restrained preview/code panels.
+- Keep app palette previews and sample state independent of documentation theme, code visibility, navigation resizing and preview settings.
+- Preserve searchable frozen capabilities, keyboard navigation, mobile dismissal, text scaling, example reset and the mounted app workspace.
+
+**decisions**
+
+- The user authorized Sidebar ahead of the paused catalogue specifically because the styleguide needs it. Other components and the final audit remain paused.
+- Documentation uses a local neutral light/dark DTokens theme and the host font. Example themes continue to resolve from the original host theme; no app setting is changed.
+- Short page introductions replace engineering notes at the top. Baseline components remain labelled; full notes and reference coverage stay available in a disclosure.
+- Reference measurements and native review are recorded in docs/component-library/styleguide-design.md.
+
+**migrations**
+
+- ComponentStyleguidePage adopts DSidebarProvider, DSidebar, content/groups/menus/buttons/header and trigger.
+
+**retainedAlternatives**
+
+- Documentation-only compact toolbar controls retain native Flutter interaction owners until their owning Button/Select catalogue work. They are private to the styleguide and do not replace public components.
+
 ### direction
 
 Status: merged. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/ui-direction.

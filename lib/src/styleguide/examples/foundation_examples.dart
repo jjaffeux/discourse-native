@@ -88,43 +88,64 @@ class _TokenPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: DSpacing.sm,
-          runSpacing: DSpacing.sm,
-          children: [
-            for (final (label, color, foreground) in [
-              ('Surface', tokens.surface, tokens.foreground),
-              ('Muted', tokens.muted, tokens.mutedForeground),
-              ('Primary', tokens.primary, tokens.primaryForeground),
-              ('Selected', tokens.selected, tokens.selectedForeground),
-              ('Destructive', tokens.destructive, tokens.destructiveForeground),
-            ])
-              Container(
-                padding: const EdgeInsets.all(DSpacing.md),
-                decoration: BoxDecoration(
-                  color: color,
-                  border: Border.all(color: tokens.border),
-                  borderRadius: tokens.borderRadius,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 480),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: DSpacing.lg,
+            runSpacing: DSpacing.lg,
+            children: [
+              for (final (label, color) in [
+                ('Surface', tokens.surface),
+                ('Muted', tokens.muted),
+                ('Primary', tokens.primary),
+                ('Selected', tokens.selected),
+                ('Destructive', tokens.destructive),
+              ])
+                SizedBox(
+                  width: 76,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color,
+                          border: Border.all(color: tokens.border),
+                          borderRadius: tokens.borderRadius,
+                        ),
+                      ),
+                      const SizedBox(height: DSpacing.sm),
+                      Text(
+                        label,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          height: 16 / 12,
+                          color: tokens.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Text(label, style: TextStyle(color: foreground)),
+            ],
+          ),
+          const SizedBox(height: DSpacing.xl),
+          const DCard(
+            children: [
+              DCardHeader(
+                title: DCardTitle(child: Text('Your community')),
+                description: DCardDescription(
+                  child: Text('Shared components, shaped by your theme.'),
+                ),
               ),
-          ],
-        ),
-        const SizedBox(height: DSpacing.lg),
-        Text(
-          'Made for your community',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: DSpacing.sm),
-        const Text(
-          'Native controls, shared colors, and readable type at every size.',
-        ),
-        const SizedBox(height: DSpacing.lg),
-        const _ButtonPreview(compact: true),
-      ],
+              DCardContent(child: _ButtonPreview(compact: true)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

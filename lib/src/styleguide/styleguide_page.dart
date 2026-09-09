@@ -42,6 +42,8 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   final FocusNode _searchFocus = FocusNode(debugLabel: 'Component search');
   final ScrollController _detailScroll = ScrollController();
   final GlobalKey _detailKey = GlobalKey();
+  final GlobalKey<DSidebarProviderState> _sidebarKey =
+      GlobalKey<DSidebarProviderState>();
   final GlobalKey _codeKey = GlobalKey();
   final GlobalKey _notesKey = GlobalKey();
   ComponentReference _selected = _foundations;
@@ -52,7 +54,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   bool _rtl = false;
   bool _reducedMotion = false;
   bool _settingsOpen = false;
-  bool _navigationOpen = false;
   bool _codeOpen = false;
   bool _notesOpen = false;
   bool _copied = false;
@@ -79,11 +80,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     setState(() {
       _selected = reference;
       _exampleIndex = 0;
-      _navigationOpen = false;
       _codeOpen = false;
       _notesOpen = false;
       _copied = false;
     });
+    _sidebarKey.currentState?.setOpenMobile(false);
     _detailScroll.jumpTo(0);
   }
 
@@ -100,7 +101,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
         hostTheme,
         _documentationBrightness ?? hostTheme.brightness,
       ),
-      child: Builder(builder: (context) => _page(context, hostTheme)),
+      child: DSidebarProvider(
+        key: _sidebarKey,
+        mobileBreakpoint: 900,
+        child: Builder(builder: (context) => _page(context, hostTheme)),
+      ),
     );
   }
 
@@ -109,16 +114,16 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): () {
-          if (_navigationOpen) {
-            setState(() => _navigationOpen = false);
+          if (_sidebarKey.currentState!.openMobile) {
+            _sidebarKey.currentState!.setOpenMobile(false);
           } else {
             _close();
           }
         },
         const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-            _searchFocus.requestFocus,
+            _focusSearch,
         const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-            _searchFocus.requestFocus,
+            _focusSearch,
       },
       child: Scaffold(
         key: const ValueKey('component-styleguide'),
@@ -138,29 +143,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (wide)
-                              SizedBox(
-                                width: 240,
-                                child: _componentList(context),
-                              ),
+                            _sidebar(context, wide),
                             Expanded(
-                              child: Column(
-                                children: [
-                                  if (!wide && _navigationOpen)
-                                    SizedBox(
-                                      height: math.min(
-                                        240,
-                                        constraints.maxHeight * .35,
-                                      ),
-                                      child: _componentList(context),
-                                    ),
-                                  Expanded(
-                                    child: KeyedSubtree(
-                                      key: _detailKey,
-                                      child: _detail(context, hostTheme),
-                                    ),
-                                  ),
-                                ],
+                              child: KeyedSubtree(
+                                key: _detailKey,
+                                child: _detail(context, hostTheme),
                               ),
                             ),
                             if (constraints.maxWidth >= 1280)
@@ -195,18 +182,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
         children: [
           Row(
             children: [
-              if (!wide) ...[
-                StyleguideAction(
-                  key: const ValueKey('styleguide-navigation'),
-                  label: 'Browse components',
-                  icon: Icons.menu,
-                  iconOnly: true,
-                  selected: _navigationOpen,
-                  onPressed: () =>
-                      setState(() => _navigationOpen = !_navigationOpen),
-                ),
-                const SizedBox(width: 8),
-              ],
+              const DSidebarTrigger(
+                key: ValueKey('styleguide-navigation'),
+                semanticLabel: 'Browse components',
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Row(
                   children: [
@@ -262,7 +242,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
               ),
             ],
           ),
-          if (!wide) ...[const SizedBox(height: 8), _searchField(context)],
         ],
       ),
     );
@@ -309,60 +288,108 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           borderSide: BorderSide(color: tokens.foreground),
         ),
       ),
-      onChanged: (_) => setState(() => _navigationOpen = true),
+      onTap: () {
+        final sidebar = _sidebarKey.currentState!;
+        if (!sidebar.isMobile && !sidebar.open) sidebar.setOpen(true);
+      },
+      onChanged: (_) => setState(() {}),
     );
   }
 
-  Widget _componentList(BuildContext context) {
+  void _focusSearch() {
+    final sidebar = _sidebarKey.currentState!;
+    if (sidebar.isMobile) {
+      sidebar.setOpenMobile(true);
+    } else {
+      sidebar.setOpen(true);
+    }
+    _searchFocus.requestFocus();
+  }
+
+  Widget _sidebar(BuildContext context, bool wide) {
     final entries = _entries
         .where((entry) => entry.matches(_search.text))
         .toList();
-    if (entries.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          'No components match your search.',
-          style: styleguideText(context, muted: true),
-        ),
-      );
-    }
-    return ListView.builder(
-      key: const ValueKey('styleguide-component-list'),
-      padding: const EdgeInsets.fromLTRB(24, 24, 16, 32),
-      itemCount: entries.length,
-      itemBuilder: (context, index) {
-        final entry = entries[index];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_search.text.isEmpty &&
-                (entry.id == 'foundations' || index == 1))
-              Padding(
-                padding: EdgeInsets.fromLTRB(10, index == 1 ? 24 : 0, 0, 8),
-                child: Text(
-                  index == 0 ? 'Getting started' : 'Components',
-                  style: styleguideText(
-                    context,
-                    size: 12,
-                    height: 16,
-                    muted: true,
-                    weight: FontWeight.w500,
+    Widget menu(Iterable<ComponentReference> entries) => DSidebarMenu(
+      children: [
+        for (final entry in entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: DSidebarMenuItem(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: IntrinsicWidth(
+                  child: DSidebarMenuButton(
+                    key: ValueKey('styleguide-component-${entry.id}'),
+                    height: 30,
+                    isActive: entry.id == _selected.id,
+                    onPressed: () => _select(entry),
+                    child: Text(
+                      entry.name,
+                      style: styleguideText(
+                        context,
+                        size: 13,
+                        height: 18,
+                        weight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: StyleguideAction(
-                key: ValueKey('styleguide-component-${entry.id}'),
-                label: entry.name,
-                selected: entry.id == _selected.id,
-                alignment: AlignmentDirectional.centerStart,
-                onPressed: () => _select(entry),
+            ),
+          ),
+      ],
+    );
+    return DSidebar(
+      key: const ValueKey('styleguide-sidebar'),
+      width: 240,
+      mobileWidth: 320,
+      semanticLabel: 'Component navigation',
+      side: Directionality.of(context) == TextDirection.rtl
+          ? DSidebarSide.right
+          : DSidebarSide.left,
+      backgroundColor: DTokens.of(context).background,
+      header: wide
+          ? null
+          : DSidebarHeader(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 24, 8, 8),
+                child: _searchField(context),
               ),
             ),
+      child: Padding(
+        padding: EdgeInsetsDirectional.only(
+          start: wide ? 16 : 8,
+          top: 16,
+          end: 8,
+          bottom: 16,
+        ),
+        child: DSidebarContent(
+          key: const ValueKey('styleguide-component-list'),
+          children: [
+            if (entries.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'No components match your search.',
+                  style: styleguideText(context, muted: true),
+                ),
+              )
+            else if (_search.text.isNotEmpty)
+              DSidebarGroup(child: menu(entries))
+            else ...[
+              DSidebarGroup(
+                label: const DSidebarGroupLabel(child: Text('Getting started')),
+                child: menu([_foundations]),
+              ),
+              DSidebarGroup(
+                label: const DSidebarGroupLabel(child: Text('Components')),
+                child: menu(componentCatalogue),
+              ),
+            ],
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -380,7 +407,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 704),
+              constraints: const BoxConstraints(maxWidth: 640),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -501,7 +528,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
                         border: Border.all(color: DTokens.of(context).border),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
                         'Its implementation and interactive examples are scheduled.',
@@ -575,7 +602,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         border: Border.all(color: tokens.border),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
