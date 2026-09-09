@@ -44,8 +44,9 @@ void main() {
         final bounds = tester.getRect(buttons.at(i));
         expect(bounds.width, greaterThanOrEqualTo(48));
         expect(bounds.height, greaterThanOrEqualTo(48));
-        if (i > 0)
+        if (i > 0) {
           expect(bounds.overlaps(tester.getRect(buttons.at(i - 1))), isFalse);
+        }
       }
       await tester.tap(buttons.at(1));
       await tester.pump();
