@@ -1643,7 +1643,7 @@
     },
     {
       "id": "collapsible",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08445-7647-7a83-a366-e06252405043",
       "branch": "codex/ui-collapsible",
       "dependencies": [],
@@ -1691,9 +1691,9 @@
         "The File Tree keeps its temporary two-DButton Explorer/Outline selector until the separately reviewed Tabs owner performs the recorded DTabs.controlled adoption; Collapsible does not duplicate that owner."
       ],
       "implementationCommit": "39159f39becd55a320da35aab967aaaad2ef6d6f",
-      "mergeCommit": null,
+      "mergeCommit": "985b4efdf4dd5e4502c98d4c2c0332df8e344982",
       "nativeReviewStatus": "completed",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-a79c-7911-8f75-53b3528fc08f",
       "reviewBranch": "codex/review-collapsible",
       "browserInspectionStatus": "completed",
@@ -2862,15 +2862,6 @@
           "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932"
         },
         {
-          "component": "collapsible",
-          "taskId": "01a08558-a79c-7911-8f75-53b3528fc08f",
-          "branch": "codex/review-collapsible",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c91e/discourse-native",
-          "headCommit": "684faacdbc706f90fddd6ddd8ba47ada6a431495",
-          "status": "independent_review",
-          "implementationTaskId": "01a08445-7647-7a83-a366-e06252405043"
-        },
-        {
           "component": "popover",
           "taskId": "01a08558-ae1e-7843-8cff-7221a399ea5c",
           "branch": "codex/review-popover",
@@ -3159,17 +3150,6 @@
           "branch": "codex/review-dialog",
           "implementationTaskId": "01a084fb-b319-7053-8265-8cb4db577932",
           "implementationBranch": "codex/ui-dialog",
-          "status": "in_progress"
-        },
-        {
-          "component": "collapsible",
-          "title": "Review and merge Collapsible",
-          "taskId": "01a08558-a79c-7911-8f75-53b3528fc08f",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c91e/discourse-native",
-          "branch": "codex/review-collapsible",
-          "implementationTaskId": "01a08445-7647-7a83-a366-e06252405043",
-          "implementationBranch": "codex/ui-collapsible",
           "status": "in_progress"
         },
         {
