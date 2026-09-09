@@ -431,7 +431,10 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
           )
         : null;
     final loading = widget.members.loading || widget.members.loadingMore
-        ? const LinearProgressIndicator(minHeight: 2)
+        ? const DProgress(
+            semanticsLabel: 'Loading group members',
+            track: DProgressTrack(height: 2),
+          )
         : null;
 
     final panel = Material(

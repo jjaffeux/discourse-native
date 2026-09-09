@@ -824,20 +824,45 @@
     },
     {
       "id": "progress",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+      "branch": "codex/ui-progress",
       "dependencies": [
         "label"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "acceptanceCriteria": [
+        "Export DProgress with track/indicator/label/value composition matching base-nova 4px geometry and reference typography.",
+        "Clamp finite determinate min/max values, represent unknown progress without a fabricated percentage, and update accessible values without adjustable actions.",
+        "Demonstrate basic/composed/controlled/RTL plus indeterminate, narrow, scaled, reduced-motion and live theme behavior.",
+        "Audit core and bundled plugins; preserve async ownership while migrating appropriate linear indicators and prepare real local-data fixtures.",
+        "Pass focused regressions, root/full analysis and isolated traceable macOS build; require exclusive rendered/native review before review_ready."
+      ],
+      "decisions": [
+        "Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.",
+        "Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.",
+        "Range is 0\u2013100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.",
+        "Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review."
+      ],
+      "migrations": [
+        "15 linear indicator sites across 14 core/Chat/Assign/Events files; retain fractional upload/update max:1, thin strip geometry, domain colors and async ownership. See implementation.md for exact audit.",
+        "Extracted real read-only UpdateDownloadProgress for update sheet and offline fixture; fixture also mounts ComposerUploadQueue with in-memory uploader, EventUnavailableCard and BadgesPage."
+      ],
+      "retainedAlternatives": [
+        "DSpinner, group/skeleton activity, poll result bars, topic progress and media timelines retain different semantics; other bundled plugins contain no matching linear indicator.",
+        "Vendored video_player_avfoundation example source unchanged. Slider integration pending its separate task; Button/Input/Badge overlapping edits require coordinator reconciliation."
+      ],
+      "verification": [
+        "Root/full locked pub get and root/full analyze --no-pub pass; no lockfile/pin/dependency/runner source changes.",
+        "302 focused tests passed, seed 9092026; after timing/typography/example refinements 10 component/example/fixture cases passed again. Commands and logs recorded in implementation.md.",
+        "Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034."
+      ],
+      "limitations": [
+        "No native/reference rendered comparison or CUA use before exclusive desktop slot; not review_ready. No iOS/Linux device or spoken VoiceOver verification.",
+        "Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only."
+      ],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "nativeInspectionStatus": "awaiting_slot"
     },
     {
       "id": "skeleton",

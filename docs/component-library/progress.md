@@ -27,7 +27,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | planned | — | — | label | — |
-| 18 | progress | planned | — | — | label | — |
+| 18 | progress | in_progress | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | — |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
@@ -836,6 +836,46 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 
 - Desktop is locked; waiting for coordinator native inspection slot. Official rendered/native comparisons and real fixture interactions are not yet verified. Status is in_progress, not review_ready.
 - Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.
+
+### progress
+
+Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/ui-progress.
+
+**acceptanceCriteria**
+
+- Export DProgress with track/indicator/label/value composition matching base-nova 4px geometry and reference typography.
+- Clamp finite determinate min/max values, represent unknown progress without a fabricated percentage, and update accessible values without adjustable actions.
+- Demonstrate basic/composed/controlled/RTL plus indeterminate, narrow, scaled, reduced-motion and live theme behavior.
+- Audit core and bundled plugins; preserve async ownership while migrating appropriate linear indicators and prepare real local-data fixtures.
+- Pass focused regressions, root/full analysis and isolated traceable macOS build; require exclusive rendered/native review before review_ready.
+
+**decisions**
+
+- Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.
+- Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.
+- Range is 0–100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.
+- Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review.
+
+**migrations**
+
+- 15 linear indicator sites across 14 core/Chat/Assign/Events files; retain fractional upload/update max:1, thin strip geometry, domain colors and async ownership. See implementation.md for exact audit.
+- Extracted real read-only UpdateDownloadProgress for update sheet and offline fixture; fixture also mounts ComposerUploadQueue with in-memory uploader, EventUnavailableCard and BadgesPage.
+
+**retainedAlternatives**
+
+- DSpinner, group/skeleton activity, poll result bars, topic progress and media timelines retain different semantics; other bundled plugins contain no matching linear indicator.
+- Vendored video_player_avfoundation example source unchanged. Slider integration pending its separate task; Button/Input/Badge overlapping edits require coordinator reconciliation.
+
+**verification**
+
+- Root/full locked pub get and root/full analyze --no-pub pass; no lockfile/pin/dependency/runner source changes.
+- 302 focused tests passed, seed 9092026; after timing/typography/example refinements 10 component/example/fixture cases passed again. Commands and logs recorded in implementation.md.
+- Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034.
+
+**limitations**
+
+- No native/reference rendered comparison or CUA use before exclusive desktop slot; not review_ready. No iOS/Linux device or spoken VoiceOver verification.
+- Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only.
 
 ### skeleton
 

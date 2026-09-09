@@ -3598,9 +3598,11 @@ class ComposerUploadQueue extends StatelessWidget {
                       else if (!completed)
                         Padding(
                           padding: const EdgeInsets.only(top: 3),
-                          child: LinearProgressIndicator(
+                          child: DProgress(
                             value: upload.progress,
-                            minHeight: 3,
+                            max: 1,
+                            semanticsLabel: 'Uploading image',
+                            track: const DProgressTrack(height: 3),
                           ),
                         ),
                     ],
