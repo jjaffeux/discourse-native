@@ -124,6 +124,39 @@ void main() {
     expect(find.text('Parent content'), findsNothing);
   });
 
+  testWidgets('nested Native Select owns choices and Escape before parent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const _NativeSelectPopoverTest()));
+    await tester.tap(find.text('Open parent'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('First choice'));
+    await tester.pumpAndSettle();
+
+    final parentRect = tester.getRect(find.byType(DPopoverContent));
+    final outsideChoiceRect = tester.getRect(find.text('Outside choice'));
+    expect(parentRect.overlaps(outsideChoiceRect), isFalse);
+
+    await tester.tap(find.text('Outside choice'));
+    await tester.pumpAndSettle();
+    expect(find.text('Parent content'), findsOneWidget);
+    expect(find.text('Outside choice'), findsOneWidget);
+
+    await tester.tap(find.text('Outside choice'));
+    await tester.pumpAndSettle();
+    expect(find.text('First choice'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('First choice'), findsNothing);
+    expect(find.text('Parent content'), findsOneWidget);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.escape);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Parent content'), findsNothing);
+  });
+
   testWidgets('outside field keeps focus after pointer dismissal', (
     tester,
   ) async {
@@ -550,6 +583,50 @@ class _MenuPopoverTestState extends State<_MenuPopoverTest> {
             ),
           ),
           Text('Selected: $_selected'),
+        ],
+      ),
+    ),
+    child: DPopoverTrigger(
+      builder: (context, trigger) => DButton(
+        label: const Text('Open parent'),
+        focusNode: trigger.focusNode,
+        hasPopup: true,
+        expanded: trigger.open,
+        onPressed: trigger.toggle,
+      ),
+    ),
+  );
+}
+
+class _NativeSelectPopoverTest extends StatefulWidget {
+  const _NativeSelectPopoverTest();
+
+  @override
+  State<_NativeSelectPopoverTest> createState() =>
+      _NativeSelectPopoverTestState();
+}
+
+class _NativeSelectPopoverTestState extends State<_NativeSelectPopoverTest> {
+  String _selected = 'first';
+
+  @override
+  Widget build(BuildContext context) => DPopover(
+    content: DPopoverContent(
+      width: 220,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Parent content'),
+          DNativeSelect<String>.controlled(
+            value: _selected,
+            entries: const [
+              DNativeSelectOption(value: 'first', label: 'First choice'),
+              DNativeSelectOption(value: 'outside', label: 'Outside choice'),
+            ],
+            onChanged: (value) {
+              if (value != null) setState(() => _selected = value);
+            },
+          ),
         ],
       ),
     ),
