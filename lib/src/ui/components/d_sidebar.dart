@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,6 +6,7 @@ import '../foundation/tokens.dart';
 import 'd_input.dart';
 import 'd_scroll_area.dart';
 import 'd_separator.dart';
+import 'd_sheet.dart';
 import 'd_skeleton.dart';
 import 'd_tooltip.dart';
 
@@ -68,6 +66,7 @@ class DSidebarProviderState extends State<DSidebarProvider> {
   late bool _open = widget.defaultOpen;
   bool _mobileOpen = false;
   bool _mobile = false;
+  FocusNode? _mobileInitialFocusNode;
   bool get open => widget.open ?? _open;
   bool get openMobile => _mobileOpen;
   bool get isMobile => _mobile;
@@ -76,8 +75,14 @@ class DSidebarProviderState extends State<DSidebarProvider> {
     widget.onOpenChange?.call(value);
   }
 
-  void setOpenMobile(bool value) {
-    if (_mobileOpen != value) setState(() => _mobileOpen = value);
+  void setOpenMobile(bool value, {FocusNode? initialFocusNode}) {
+    if (_mobileOpen != value ||
+        (value && _mobileInitialFocusNode != initialFocusNode)) {
+      setState(() {
+        _mobileOpen = value;
+        _mobileInitialFocusNode = value ? initialFocusNode : null;
+      });
+    }
   }
 
   void toggleSidebar() =>
@@ -167,11 +172,8 @@ class DSidebar extends StatefulWidget {
 }
 
 class _DSidebarState extends State<DSidebar> {
-  final _refresh = ValueNotifier<int>(0);
-  RawDialogRoute<void>? _route;
   DSidebarProviderState? _provider;
   bool _scheduled = false;
-  FocusNode? _returnFocus;
 
   @override
   void didChangeDependencies() {
@@ -191,126 +193,23 @@ class _DSidebarState extends State<DSidebar> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (!mounted) return;
-      _refresh.value++;
       final provider = _provider!;
-      final shouldOpen =
-          provider.isMobile &&
-          provider.openMobile &&
-          widget.collapsible != DSidebarCollapsible.none;
-      if (!shouldOpen && _route != null) {
-        final route = _route!;
-        _route = null;
-        route.navigator?.removeRoute(route);
-        if (!provider.isMobile ||
-            widget.collapsible == DSidebarCollapsible.none) {
-          provider.setOpenMobile(false);
-        }
-      } else if (shouldOpen && _route == null) {
-        _returnFocus = FocusManager.instance.primaryFocus;
-        final route = RawDialogRoute<void>(
-          barrierDismissible: true,
-          barrierLabel: MaterialLocalizations.of(
-            context,
-          ).modalBarrierDismissLabel,
-          barrierColor: Colors.black.withValues(alpha: .5),
-          transitionDuration: DMotion.duration(
-            context,
-            const Duration(milliseconds: 200),
-          ),
-          traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
-          pageBuilder: (routeContext, animation, secondary) =>
-              ValueListenableBuilder<int>(
-                valueListenable: _refresh,
-                builder: (_, value, child) {
-                  if (!mounted) return const SizedBox.shrink();
-                  return Theme(
-                    data: Theme.of(context),
-                    child: Directionality(
-                      textDirection: Directionality.of(context),
-                      child: MediaQuery(
-                        data: MediaQuery.of(context),
-                        child: _ProviderScope(
-                          state: provider,
-                          open: provider.open,
-                          mobileOpen: provider.openMobile,
-                          mobile: true,
-                          child: CallbackShortcuts(
-                            bindings: {
-                              const SingleActivator(
-                                LogicalKeyboardKey.escape,
-                              ): () =>
-                                  provider.setOpenMobile(false),
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyB,
-                                meta: true,
-                              ): provider.toggleSidebar,
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyB,
-                                control: true,
-                              ): provider.toggleSidebar,
-                            },
-                            child: Focus(
-                              autofocus: true,
-                              child: Align(
-                                alignment: widget.side == DSidebarSide.left
-                                    ? Alignment.centerLeft
-                                    : Alignment.centerRight,
-                                child: SizedBox(
-                                  width: math.min(
-                                    widget.mobileWidth,
-                                    MediaQuery.sizeOf(routeContext).width,
-                                  ),
-                                  child: SafeArea(
-                                    child: _panel(context, false, mobile: true),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-          transitionBuilder: (_, animation, secondary, child) =>
-              SlideTransition(
-                position: Tween<Offset>(
-                  begin: Offset(widget.side == DSidebarSide.left ? -1 : 1, 0),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
-              ),
-        );
-        _route = route;
-        unawaited(
-          Navigator.of(context).push(route).whenComplete(() {
-            if (_route == route) {
-              _route = null;
-              if (provider.mounted) provider.setOpenMobile(false);
-            }
-            if (mounted && _route == null && _returnFocus?.context != null) {
-              _returnFocus?.requestFocus();
-            }
-          }),
-        );
+      if (provider.openMobile &&
+          (!provider.isMobile ||
+              widget.collapsible == DSidebarCollapsible.none)) {
+        provider.setOpenMobile(false);
       }
     });
   }
 
-  @override
-  void dispose() {
-    final route = _route;
-    _route = null;
-    if (route != null) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => route.navigator?.removeRoute(route),
-      );
-    }
-    // The route may still have a listener until it is removed next frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh.dispose());
-    super.dispose();
-  }
+  Map<ShortcutActivator, VoidCallback> _mobileShortcuts(
+    DSidebarProviderState provider,
+  ) => {
+    const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
+        provider.toggleSidebar,
+    const SingleActivator(LogicalKeyboardKey.keyB, control: true):
+        provider.toggleSidebar,
+  };
 
   Widget _panel(BuildContext context, bool icon, {bool mobile = false}) {
     final t = DTokens.of(context);
@@ -382,7 +281,45 @@ class _DSidebarState extends State<DSidebar> {
     final p = _provider = DSidebarProvider.of(context);
     _schedule();
     final static = widget.collapsible == DSidebarCollapsible.none;
-    if (p.isMobile && !static) return const SizedBox.shrink();
+    if (p.isMobile && !static) {
+      return DSheet<void>(
+        open: p.openMobile,
+        onOpenChanged: (details) {
+          if (!details.open) p.setOpenMobile(false);
+        },
+        barrierLabel: MaterialLocalizations.of(
+          context,
+        ).modalBarrierDismissLabel,
+        initialFocusNode: p._mobileInitialFocusNode,
+        trigger: DSheetTrigger(
+          builder: (context, open) => const SizedBox.shrink(),
+        ),
+        content: DSheetContent(
+          side: widget.side == DSidebarSide.left
+              ? DSheetSide.left
+              : DSheetSide.right,
+          sidePanelMaxWidth: widget.mobileWidth,
+          sidePanelWidth: widget.mobileWidth,
+          scrollWholeSheet: false,
+          showCloseButton: false,
+          semanticLabel: widget.semanticLabel,
+          children: [
+            Expanded(
+              child: _ProviderScope(
+                state: p,
+                open: p.open,
+                mobileOpen: p.openMobile,
+                mobile: true,
+                child: CallbackShortcuts(
+                  bindings: _mobileShortcuts(p),
+                  child: _panel(context, false, mobile: true),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final icon =
         !static && !p.open && widget.collapsible == DSidebarCollapsible.icon;
     final hidden =
@@ -476,11 +413,11 @@ class DSidebarGroup extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (label != null)
+        if (label != null && !_PanelScope.iconOf(context))
           Row(
             children: [
               Expanded(child: label!),
-              if (action != null && !_PanelScope.iconOf(context)) action!,
+              if (action != null) action!,
             ],
           ),
         child,
@@ -622,6 +559,7 @@ class DSidebarMenuButton extends StatefulWidget {
     required this.child,
     this.onPressed,
     this.icon,
+    this.iconSize = 16,
     this.isActive = false,
     this.size = DSidebarMenuButtonSize.normal,
     this.variant = DSidebarMenuButtonVariant.normal,
@@ -631,9 +569,10 @@ class DSidebarMenuButton extends StatefulWidget {
     this.autofocus = false,
     this.height,
     this.expanded,
-  });
+  }) : assert(iconSize > 0);
   final Widget child;
   final Widget? icon;
+  final double iconSize;
   final VoidCallback? onPressed;
   final bool isActive, autofocus;
   final bool? expanded;
@@ -677,6 +616,8 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
           DSidebarMenuButtonSize.large => 48.0,
         };
     final active = hover || pressed || widget.isActive;
+    final collapsedLarge =
+        iconOnly && widget.size == DSidebarMenuButtonSize.large;
     Widget result = Semantics(
       container: true,
       button: true,
@@ -715,10 +656,12 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                   minHeight: iconOnly ? 32 : minHeight,
                 ),
                 padding: EdgeInsetsDirectional.only(
-                  start: 8,
-                  end: 8 + (_ItemScope.of(context)?.trailing ?? 0),
-                  top: iconOnly ? 8 : 4,
-                  bottom: iconOnly ? 8 : 4,
+                  start: collapsedLarge ? 0 : 8,
+                  end: collapsedLarge
+                      ? 0
+                      : 8 + (_ItemScope.of(context)?.trailing ?? 0),
+                  top: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
+                  bottom: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
                 ),
                 decoration: BoxDecoration(
                   color: active
@@ -758,8 +701,8 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                         if (widget.icon != null)
                           ExcludeSemantics(
                             child: SizedBox(
-                              width: 16,
-                              height: 16,
+                              width: widget.iconSize,
+                              height: widget.iconSize,
                               child: widget.icon,
                             ),
                           ),
