@@ -101,6 +101,21 @@ void main() {
     expect(node.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
     expect(find.bySemanticsLabel('Hidden busy'), findsNothing);
     expect(find.bySemanticsLabel('Running tests'), findsOneWidget);
+    await pump(
+      tester,
+      const DMarker(
+        variant: DMarkerVariant.separator,
+        child: DMarkerContent(child: Text('Today')),
+      ),
+    );
+    expect(
+      tester
+          .getSemantics(find.text('Today'))
+          .getSemanticsData()
+          .flagsCollection
+          .isLiveRegion,
+      isFalse,
+    );
     handle.dispose();
   });
 

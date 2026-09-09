@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/d_button.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 

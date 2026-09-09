@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:discourse_native/discourse_ui.dart' show DAvatar, DSpinner;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -9,7 +9,6 @@ import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/user_directory_controller.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -680,7 +679,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('users-table')),
-          matching: find.byType(Checkbox),
+          matching: find.byType(DCheckbox),
         ),
         findsNothing,
       );
@@ -1034,6 +1033,66 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets('directory controls retain full targets on $platform', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      List<UserDirectoryColumn>? saved;
+      await _pump(
+        tester,
+        UsersPage(
+          siteUrl: 'https://example.com',
+          data: const UsersPageData(
+            items: [_sam],
+            columns: [_likes, _replies],
+            availableColumns: [_likes, _replies],
+            canManageColumns: true,
+            loaded: true,
+          ),
+          onPeriodChanged: (_) {},
+          onManageColumns: (columns) async {
+            saved = columns;
+            return true;
+          },
+        ),
+        theme: AppTheme.light.copyWith(platform: platform),
+      );
+      final dimension = platform == TargetPlatform.iOS ? 48.0 : 40.0;
+      expect(
+        tester.getSize(find.byKey(const ValueKey('users-search'))).height,
+        dimension,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('users-period-filter')))
+            .height,
+        dimension,
+      );
+      await tester.tap(find.byKey(const ValueKey('users-columns')));
+      await tester.pumpAndSettle();
+      final down = find.byKey(const ValueKey('users-column-down-1'));
+      final up = find.byKey(const ValueKey('users-column-up-2'));
+      for (final button in [down, up]) {
+        expect(tester.getSize(button), Size.square(dimension));
+        expect(tester.getSemantics(button).rect.size, Size.square(dimension));
+        expect(
+          tester.getSemantics(button).label,
+          tester.widget<DButton>(button).tooltip,
+        );
+      }
+      // The bottom outside the painted icon must still activate the action.
+      final target = tester.getRect(down);
+      await tester.tapAt(Offset(target.center.dx, target.bottom - 1));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('users-save-columns')));
+      await tester.pumpAndSettle();
+      expect(saved!.map((column) => column.id), [2, 1]);
+      semantics.dispose();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'staff column editor includes disabled plugin and user-field columns',
     (tester) async {
@@ -1095,13 +1154,10 @@ void main() {
             .maxHeight,
         600,
       );
-      final solutionsTile = tester.widget<CheckboxListTile>(
+      final solutionsTile = tester.widget<DCheckbox>(
         find.byKey(const ValueKey('users-manage-column-9')),
       );
       expect(solutionsTile.value, isFalse);
-      expect(solutionsTile.visualDensity, VisualDensity.compact);
-      expect(solutionsTile.minTileHeight, 48);
-      expect(solutionsTile.minVerticalPadding, 6);
       expect(solutionsTile.contentPadding, EdgeInsets.zero);
 
       final firstUp = find.byKey(const ValueKey('users-column-up-1'));
@@ -1114,8 +1170,8 @@ void main() {
         tester.widget<DButton>(firstDown).variant,
         DButtonVariant.transparent,
       );
-      expect(tester.getSize(firstUp), const Size.square(40));
-      expect(tester.getSize(firstDown), const Size.square(40));
+      expect(tester.getSize(firstUp), const Size.square(48));
+      expect(tester.getSize(firstDown), const Size.square(48));
       expect(tester.getTopRight(firstUp).dx, tester.getTopLeft(firstDown).dx);
 
       expect(

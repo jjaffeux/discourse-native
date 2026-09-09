@@ -11,13 +11,10 @@ final _materialButtonConstructor = RegExp(
 // than representing ordinary Discourse actions. Keep the counts explicit so
 // adding another raw Material button requires reviewing this boundary.
 const _intentionalMaterialButtons = <String, int>{
-  'lib/src/theme/d_button.dart': 1, // DButton's rendering primitive.
-  // Documentation-only 32px toolbar geometry; examples still use DButton.
-  'lib/src/styleguide/styleguide_chrome.dart': 1,
+  'lib/src/ui/components/d_button.dart': 1, // DButton's rendering primitive.
   // Native menu and rich-text focus examples, including their usage snippets.
   'lib/src/styleguide/examples/direction_examples.dart': 2,
   'lib/src/styleguide/examples/typography_examples.dart': 2,
-  'lib/src/plugins/poll/poll_card.dart': 3, // Vote/result control group.
   'lib/src/plugins/chat/chat_channel_view.dart': 2, // Dense selection strips.
   // Kalender's zero-padding day headers and compact overflow rows.
   'lib/src/plugins/discourse_events/topic_calendar.dart': 2,
@@ -31,7 +28,6 @@ const _intentionalMaterialButtons = <String, int>{
   'lib/src/shell/topic_list_view.dart': 1, // Full-width incoming-topics notice.
   'lib/src/shell/topic_view.dart': 8, // Dense selection and inline link tools.
   'lib/src/shell/user_menu_button.dart': 2, // Fixed shell account control.
-  'lib/src/shell/user_summary.dart': 1, // Compact numeric count link.
 };
 
 void main() {

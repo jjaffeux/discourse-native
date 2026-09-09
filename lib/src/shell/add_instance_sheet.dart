@@ -333,8 +333,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           ),
         ),
         const SizedBox(height: 16),
-        TextField(
-          style: Theme.of(context).textTheme.bodyMedium,
+        DInput(
           controller: _field,
           autofocus: true,
           enabled: !_connecting,
@@ -343,15 +342,11 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           textInputAction: TextInputAction.go,
           onChanged: _addressChanged,
           onSubmitted: (_) => _connect(),
-          decoration: InputDecoration(
-            labelText: 'Forum address',
-            hintText: 'meta.discourse.org',
-            prefixIcon: const DIcon(DIcons.globe, size: 20),
-            suffixIcon: _siteCheckIcon(theme),
-            border: const OutlineInputBorder(),
-            errorText: _error,
-            errorMaxLines: 3,
-          ),
+          labelText: 'Forum address',
+          hintText: 'meta.discourse.org',
+          prefix: const DIcon(DIcons.globe, size: 16),
+          suffix: _siteCheckIcon(theme),
+          errorText: _error,
         ),
         const SizedBox(height: 16),
         DButton(

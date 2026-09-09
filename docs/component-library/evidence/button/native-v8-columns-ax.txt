@@ -1,0 +1,21 @@
+The following is a diff from the previous accessibility tree for Window: "Discourse" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 13-22
+~			12 container (settable)
++				13 text (settable) Directory columns
++				14 container (settable)
++					15 checkbox (settable, integer) Value: 1, Likes received
+Activity
++					16 button (settable) Move Likes received up
++					17 button (settable) Move Likes received down
++					18 checkbox (settable, integer) Value: 1, Replies posted
+Activity
++					19 button (settable) Move Replies posted up
++					20 button (settable) Move Replies posted down
++					21 checkbox (settable, integer) Value: 1, Days visited
+Activity
++					22 button (settable) Move Days visited up
++					23 button (settable) Move Days visited down
++				24 button (settable) Cancel
++				25 button (settable) Save changes
++			26 text (settable) Dismiss
+The focused UI element is 1 container Discourse Button Review V8
