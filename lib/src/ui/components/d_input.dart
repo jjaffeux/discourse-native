@@ -3,9 +3,9 @@ import 'dart:ui' show SemanticsValidationResult;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../theme/d_button.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
+import 'd_button.dart';
 import 'd_label.dart';
 
 /// A single-line shadcn input with Flutter editing and Form ownership.
@@ -605,7 +605,7 @@ class _DFileInputState extends FormFieldState<List<String>> {
                             child: DButton(
                               onPressed: input.enabled && !_busy ? _pick : null,
                               variant: DButtonVariant.transparent,
-                              size: DButtonSize.small,
+                              size: DButtonSize.extraSmall,
                               padding: EdgeInsets.zero,
                               label: Text(
                                 _busy ? 'Choosing…' : input.label,

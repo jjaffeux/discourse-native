@@ -4,7 +4,7 @@
   "referenceSha256": "bbad1bba130ac9750a61844eeb8f043e8a710846e07689fa85398b80a46c2741",
   "font": "assets/fonts/JetBrainsMono-Regular.ttf",
   "fontSha256": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f",
-  "inputSourceSha256": "fdc8c2d4c9ee8d62410be8bfb1f3e08fd5f4067311d448c3a7456569091673ef",
+  "inputSourceSha256": "5f0e6f3ad2a755837de4baa3c8ef2f0148cad4e6778ee6de37eb59dbeec70f49",
   "dimensions": [
     340,
     72
@@ -19,7 +19,5 @@
     "file-disabled.png": "4b5a63e7648d1639bd0253dff29bfe0b2c2792b8fa470d2451d512a82029dbe8",
     "file-enabled.png": "05e9281b0aacd98daacbb3fb167f8340a0a586a87a1552f004b8622035df995a",
     "light-invalid.png": "05e758f72a004496b6cbda8209706cf81d56a1f63640d87db661c69f77ffe56c"
-  },
-  "implementationCommit": "a1020b6745954e54d72183729bc2f86049a949e6",
-  "nativeKernelSha256": "b034361de32ad1e22d036fc1d4e0334f262b4ce1bc5eeee287751ad748211ba3"
+  }
 }

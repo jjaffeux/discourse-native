@@ -352,3 +352,22 @@ Semantics correction source 0464e555817ef8dae4fe63b1e8dd48548a2c3bed: editor con
 
 Logs: `/tmp/input-semantics-focused.log`, `/tmp/input-semantics-analysis.log`,
 `/tmp/input-semantics-full-analysis.log`, `/tmp/input-semantics-native-build.log`.
+
+## Pinned main / final Button integration
+
+Merged local main `9d7a49e797dff14c908369315d035a1437d49c07` into the Input
+branch. Preserved all other main progress rows, Avatar assertions, root navigation,
+Sidebar radius/title/Diagnostics fixes and the single merged Button owner.
+DSidebarInput and styleguide search still delegate to the bounded DInput editor.
+The adapted main search semantics test now locates its actual TextField descendant;
+at desktop/mobile widths it also enters a query, verifies Clear search has an
+independent Button role with no text-field ancestor, and activates it to clear.
+
+The file trigger imports sibling `d_button.dart`, uses `extraSmall` (24px), explicit
+14/20px medium text and zero padding, retaining its actual 48px touch target.
+The scoped disabledOpacity=1 override now works with final Button's inherited
+style, applying the outer field's half-opacity once. Applied the reviewed changes
+from `220342b7` selectively; no temporary integration branch was merged. The pixel
+test crops actual Choose file and No file chosen Text bounds separately, confirms
+enabled/disabled bounds match, and verifies each glyph region's half-opacity.
+This supersedes the earlier outstanding Button reconciliation notes.

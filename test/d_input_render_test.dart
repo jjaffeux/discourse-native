@@ -111,10 +111,10 @@ void _near(Color actual, Color expected) {
   }
 }
 
-int _brightest(Uint8List bytes, int left, int right) {
+int _brightest(Uint8List bytes, Rect bounds) {
   var maximum = 0;
-  for (var y = 24; y < 48; y++) {
-    for (var x = left; x < right; x++) {
+  for (var y = bounds.top.ceil(); y < bounds.bottom.floor(); y++) {
+    for (var x = bounds.left.ceil(); x < bounds.right.floor(); x++) {
       final red = bytes[(y * 340 + x) * 4];
       if (red > maximum) maximum = red;
     }
@@ -225,16 +225,31 @@ void main() {
         DFileInput(onPick: pick),
         'file-enabled',
       );
+      final offset = tester.getTopLeft(find.byKey(_boundary));
+      final trigger = tester.getRect(find.text('Choose file')).shift(-offset);
+      final filename = tester
+          .getRect(find.text('No file chosen'))
+          .shift(-offset);
+      expect(trigger.right, lessThan(filename.left));
       final disabled = await _capture(
         tester,
         DFileInput(onPick: pick, enabled: false),
         'file-disabled',
       );
+      final disabledOffset = tester.getTopLeft(find.byKey(_boundary));
+      expect(
+        tester.getRect(find.text('Choose file')).shift(-disabledOffset),
+        trigger,
+      );
+      expect(
+        tester.getRect(find.text('No file chosen')).shift(-disabledOffset),
+        filename,
+      );
       // Real font glyph cores are opaque white, not the square Ahem test font.
-      expect(_brightest(enabled, 34, 150), greaterThan(245));
-      expect(_brightest(enabled, 174, 307), greaterThan(245));
-      expect(_brightest(disabled, 34, 150), closeTo(136, 3));
-      expect(_brightest(disabled, 174, 307), closeTo(136, 3));
+      expect(_brightest(enabled, trigger), greaterThan(245));
+      expect(_brightest(enabled, filename), greaterThan(245));
+      expect(_brightest(disabled, trigger), closeTo(136, 3));
+      expect(_brightest(disabled, filename), closeTo(136, 3));
       expect(tester.widget<DButton>(find.byType(DButton)).onPressed, isNull);
       final semantics = tester.ensureSemantics();
       await tester.pump();

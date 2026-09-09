@@ -391,12 +391,12 @@ class _PollCardState extends State<PollCard> {
                       const SizedBox(height: 8),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: FilledButton(
+                        child: DButton(
                           key: ValueKey<String>('poll-${_poll.name}-cast'),
                           onPressed: _canVote && _multipleSelectionValid
                               ? _castMultiple
                               : null,
-                          child: Text(
+                          label: Text(
                             _selection.isEmpty && _savedSelection.isNotEmpty
                                 ? 'Remove votes'
                                 : 'Cast votes',
@@ -442,10 +442,12 @@ class _PollCardState extends State<PollCard> {
                       const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: OutlinedButton(
+                        child: DButton(
+                          variant: DButtonVariant.outline,
+                          isLink: true,
                           key: ValueKey<String>('poll-${_poll.name}-web'),
                           onPressed: widget.onVoteOnWeb,
-                          child: const Text('Vote on web'),
+                          label: const Text('Vote on web'),
                         ),
                       ),
                     ] else if (!widget.signedIn &&
@@ -455,10 +457,11 @@ class _PollCardState extends State<PollCard> {
                       const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: TextButton(
+                        child: DButton(
+                          variant: DButtonVariant.link,
                           key: ValueKey<String>('poll-${_poll.name}-connect'),
                           onPressed: widget.onConnectAccount,
-                          child: const Text('Connect account'),
+                          label: const Text('Connect account'),
                         ),
                       ),
                     ],

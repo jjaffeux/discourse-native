@@ -11,6 +11,50 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'search accessibility is bounded to the field on desktop and mobile',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        for (final width in [1200.0, 390.0]) {
+          await _pump(tester, size: Size(width, 900));
+          if (width < 900) {
+            await tester.tap(
+              find.byKey(const ValueKey('styleguide-navigation')),
+            );
+            await tester.pumpAndSettle();
+          }
+          final search = find.descendant(
+            of: find.byKey(const ValueKey('styleguide-search')),
+            matching: find.byType(TextField),
+          );
+          expect(tester.getSemantics(search).rect.size, tester.getSize(search));
+          expect(tester.getSemantics(search).label, 'Search components...');
+          expect(find.bySemanticsLabel('Foundations'), findsWidgets);
+          await tester.enterText(search, 'Input');
+          await tester.pumpAndSettle();
+          final clear = find.bySemanticsLabel('Clear search');
+          expect(clear, findsOneWidget);
+          final clearNode = tester.getSemantics(clear);
+          expect(clearNode.getSemanticsData().flagsCollection.isButton, isTrue);
+          var ancestor = clearNode.parent;
+          while (ancestor != null) {
+            expect(
+              ancestor.getSemanticsData().flagsCollection.isTextField,
+              isFalse,
+            );
+            ancestor = ancestor.parent;
+          }
+          await tester.tap(clear);
+          await tester.pumpAndSettle();
+          expect(tester.widget<TextField>(search).controller!.text, isEmpty);
+        }
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
   test('the styleguide accounts for every frozen catalogue entry', () {
     final snapshot =
         jsonDecode(
