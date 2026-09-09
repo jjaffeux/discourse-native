@@ -111,9 +111,13 @@ void main() {
 
     await tester.tap(find.text('Open menu'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Menu choice'));
+    final parentRect = tester.getRect(find.byType(DPopoverContent));
+    final secondChoiceRect = tester.getRect(find.text('Second choice'));
+    expect(parentRect.overlaps(secondChoiceRect), isFalse);
+    await tester.tap(find.text('Second choice'));
     await tester.pumpAndSettle();
     expect(find.text('Parent content'), findsOneWidget);
+    expect(find.text('Selected: second'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
@@ -484,8 +488,15 @@ class _NestedPopoverTest extends StatelessWidget {
   );
 }
 
-class _MenuPopoverTest extends StatelessWidget {
+class _MenuPopoverTest extends StatefulWidget {
   const _MenuPopoverTest();
+
+  @override
+  State<_MenuPopoverTest> createState() => _MenuPopoverTestState();
+}
+
+class _MenuPopoverTestState extends State<_MenuPopoverTest> {
+  String _selected = 'none';
 
   @override
   Widget build(BuildContext context) => DPopover(
@@ -496,10 +507,15 @@ class _MenuPopoverTest extends StatelessWidget {
         children: [
           const Text('Parent content'),
           MenuAnchor(
+            alignmentOffset: const Offset(180, 0),
             menuChildren: [
               MenuItemButton(
-                onPressed: () {},
+                onPressed: () => setState(() => _selected = 'first'),
                 child: const Text('Menu choice'),
+              ),
+              MenuItemButton(
+                onPressed: () => setState(() => _selected = 'second'),
+                child: const Text('Second choice'),
               ),
             ],
             builder: (context, controller, child) => DButton(
@@ -508,6 +524,7 @@ class _MenuPopoverTest extends StatelessWidget {
               onPressed: controller.open,
             ),
           ),
+          Text('Selected: $_selected'),
         ],
       ),
     ),

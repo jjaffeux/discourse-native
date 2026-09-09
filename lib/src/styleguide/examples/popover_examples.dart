@@ -12,9 +12,9 @@ final popoverExamples = ComponentExamples(
       'contain DPopoverHeader, DPopoverTitle, DPopoverDescription and '
       'DPopoverClose. The default 288px surface uses 10px padding/gaps, a '
       '4px side offset and host-relative lg radius. Positioning follows the '
-      'trigger unless DPopoverAnchor marks another descendant. Input and Field '
-      'are separate in-progress catalogue owners, so the form example uses '
-      'native TextFormField plus DLabel without defining substitute owners. '
+      'trigger unless DPopoverAnchor marks another descendant. The form '
+      'example composes the merged DInput owner; richer Field layouts remain '
+      'with the separate in-progress Field owner. '
       'Menus, Select, Combobox, Hover Card, dialogs and Tooltip retain their '
       'specialized interaction owners.',
   examples: [
@@ -72,7 +72,7 @@ final popoverExamples = ComponentExamples(
   content: DPopoverContent(width: 256, align: DPopoverAlign.start,
     child: Form(child: Column(children: [
       DPopoverHeader(children: [DPopoverTitle(child: Text('Dimensions'))]),
-      TextFormField(decoration: InputDecoration(labelText: 'Width')),
+      DInput(labelText: 'Width'),
     ])),
   child: DPopoverTrigger(builder: buildButton),
 )''',
@@ -284,17 +284,14 @@ class _FormPopoverState extends State<_FormPopover> {
                 ),
               ],
             ),
-            TextFormField(
+            DInput(
               initialValue: '100%',
-              decoration: const InputDecoration(labelText: 'Width'),
+              labelText: 'Width',
               validator: (value) =>
                   value?.trim().isEmpty == true ? 'Enter a width' : null,
               onSaved: (value) => _saved = 'Saved width: $value',
             ),
-            TextFormField(
-              initialValue: '25px',
-              decoration: const InputDecoration(labelText: 'Height'),
-            ),
+            DInput(initialValue: '25px', labelText: 'Height'),
             Text(_saved),
             Wrap(
               spacing: 8,

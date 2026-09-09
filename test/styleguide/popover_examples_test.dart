@@ -87,7 +87,7 @@ void main() {
     expect(trigger.focusNode!.hasFocus, isTrue);
   });
 
-  testWidgets('form example keeps native fields and Form save behavior', (
+  testWidgets('form example composes DInput and Form save behavior', (
     tester,
   ) async {
     final example = popoverExamples.examples.firstWhere(
@@ -103,8 +103,8 @@ void main() {
     );
     await tester.tap(find.text('Open Popover'));
     await tester.pumpAndSettle();
-    expect(find.byType(TextFormField), findsNWidgets(2));
-    await tester.enterText(find.byType(TextFormField).first, '640px');
+    expect(find.byType(DInput), findsNWidgets(2));
+    await tester.enterText(find.byType(DInput).first, '640px');
     await tester.scrollUntilVisible(
       find.text('Save'),
       80,

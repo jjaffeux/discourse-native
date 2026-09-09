@@ -52,9 +52,9 @@ nested fields and buttons keep independent nodes and bounds.
 The styleguide reproduces Basic, start/center/end Align, With Form, and RTL
 examples. It adds controlled close/reason reporting, all physical and logical
 sides, custom moving anchor, collision, narrow/large-text, live-theme and
-reduced-motion coverage. Input and Field are separate catalogue tasks, so With
-Form intentionally uses actual `TextFormField` controls and Flutter `Form`; no
-substitute component owner was introduced.
+reduced-motion coverage. With Form now composes the merged `DInput` owner and
+Flutter `Form`; richer label/description/error layout remains with the separate
+in-progress Field owner, so no substitute component owner was introduced.
 
 The topic header's plugin-property details surface is a genuine rich popover and
 now uses `DPopover` on pointer platforms. Its current topic store and plugin
