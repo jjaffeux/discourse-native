@@ -125,3 +125,7 @@ Sidebar app quit through its native menu; absence from the running-app list
 was verified. The desktop lease was released. Final-owner composition review
 is accepted with these explicit evidence limits; the original Sidebar merge
 remains unchanged.
+
+Local follow-up merge: `8509b75021342d5c5b6c3a7df9727a0a56eefc30`, performed
+from the repository's main checkout on main. The original component merge
+`93bfcf65f64868c92340f9aec8236d77585c3cd8` is preserved; nothing was pushed.

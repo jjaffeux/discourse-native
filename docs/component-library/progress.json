@@ -4323,7 +4323,9 @@
           "sha256": "a48b885e4d6f0d8d1cb143ef436b80b90ebcf5e548347d455f6b201dcb637971"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "accepted",
+        "status": "merged",
+        "reviewStatus": "merged",
+        "mergeCommit": "8509b75021342d5c5b6c3a7df9727a0a56eefc30",
         "sourceCommit": "63e2ee17ce344f1586a80b11b3ba74433fc6792c",
         "candidateCommit": "c80d5d461af48ef6f6fbf288d59d10963f2bf217",
         "evidence": "docs/component-library/sidebar-final-composition.md",
@@ -4761,15 +4763,6 @@
           "status": "final_composition_review",
           "implementationTaskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
           "implementationBranch": "codex/ui-avatar"
-        },
-        {
-          "component": "sidebar",
-          "taskId": "01a086cd-3f9c-75b0-bda3-7d495758a941",
-          "branch": "codex/review-sidebar-compositions",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8375/discourse-native",
-          "status": "final_composition_review",
-          "implementationTaskId": "01a08352-7665-7f90-a637-75478a83ea53",
-          "implementationBranch": "codex/ui-sidebar"
         }
       ],
       "nativeReadyTasks": []
@@ -5176,18 +5169,6 @@
           "implementationBranch": "codex/ui-avatar",
           "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
           "status": "final_composition_review"
-        },
-        {
-          "component": "sidebar",
-          "title": "Finish and review Sidebar compositions",
-          "taskId": "01a086cd-3f9c-75b0-bda3-7d495758a941",
-          "hostId": "local",
-          "branch": "codex/review-sidebar-compositions",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8375/discourse-native",
-          "implementationTaskId": "01a08352-7665-7f90-a637-75478a83ea53",
-          "implementationBranch": "codex/ui-sidebar",
-          "implementationCommit": "47aabf60e65dff047cdf80dd6e29203a93fb8012",
-          "status": "final_composition_review"
         }
       ],
       "resolvedVia": "All 17 review branches/worktrees and owner task IDs verified in Git worktree codex-thread.json; app list omitted newly created tasks.",
@@ -5363,7 +5344,9 @@
           "sha256": "a48b885e4d6f0d8d1cb143ef436b80b90ebcf5e548347d455f6b201dcb637971"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "accepted",
+        "status": "merged",
+        "reviewStatus": "merged",
+        "mergeCommit": "8509b75021342d5c5b6c3a7df9727a0a56eefc30",
         "sourceCommit": "63e2ee17ce344f1586a80b11b3ba74433fc6792c",
         "candidateCommit": "c80d5d461af48ef6f6fbf288d59d10963f2bf217",
         "evidence": "docs/component-library/sidebar-final-composition.md",
