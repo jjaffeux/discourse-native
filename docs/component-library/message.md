@@ -83,6 +83,15 @@ zero default header gap, inherit medium-weight status typography and lock the
 complete example groups, including the separate multiline Avatar composition.
 Copy, like, dislike, retry and download callbacks expose real local results.
 
+The production-fixture regression exposed reaction-pill and thread-metadata
+overflows at 360px and 200% text. Reaction artwork/fallback and count now wrap
+within their existing target; the thread header uses an overflow-aware layout
+for author and participant/reply metadata. Normal-width alignment, semantics,
+permissions and callbacks stay with the existing adapters. All 212 affected
+Message, Chat and reaction tests pass with seed 39059, including the final-main
+test-only correction to the legacy Reply semantics assertion. Root and
+full-profile analysis are clean on candidate `5f419da1`.
+
 Exact-source build provenance, completed browser/native observations and
 remaining checks are tracked in
 `docs/component-library/evidence/message/native-review.json`. The production

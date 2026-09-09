@@ -3125,6 +3125,10 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/u
 
 **acceptanceCriteria**
 
+- Match the frozen Base UI/base-nova Message complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
+- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
+- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
+- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
 - Reproduce the frozen base-nova Message, MessageGroup, MessageAvatar, MessageContent, MessageHeader and MessageFooter composition, start/end alignment, footer-aware avatar anchoring, exact 8px/10px/12px geometry and 14px row plus 12px metadata typography.
 - Provide complete Avatar, Group, Header/Footer, Actions, Attachment and accessibility/status-update examples by composing the final Avatar, Bubble, Button, Attachment and Marker owners without duplicated rendering or placeholder primitives.
 - Keep arbitrary rich content and sender/timestamp/status/action metadata generic; support independently labeled actions, appropriate live status announcements, keyboard/touch interaction, narrow and 200% text layouts, RTL, reduced motion and live host theme/font/radius changes.
@@ -3133,6 +3137,8 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/u
 
 **decisions**
 
+- User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Message (01a08627-8995-7b43-9c06-8a219d472681) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 - Frozen Markdown SHA256 39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782 verified on 2026-09-09; official base-nova registry SHA256 6a484395f7ed32d3b254619cc542aeed6ce77a5628d1e9a04d4b5baaf7de0c41.
 - Implementation began from local main 77ee9b047528d43fcbcd4a31d464182f9640b835. One public presentational composition exports DMessage, DMessageGroup, DMessageAvatar, DMessageContent, DMessageHeader, DMessageFooter and DMessageStatus; docs/component-library/message.md records exact source mapping and adapter extensions.
 - Ordinary Message rows add no semantic boundary, preserving arbitrary rich content and independent descendant actions. Whole-row labels/live regions are explicit; DMessageStatus provides caller-controlled localizable pending, delivered, read, failed and deleted states without owning delivery or retry work.
@@ -3142,7 +3148,7 @@ Status: in_progress. Task: 01a08606-ca30-7bc1-8e27-693690217969. Branch: codex/u
 **migrations**
 
 - ChatMessageTile production presentation now composes DMessage, DMessageAvatar and DMessageContent. Its app adapter explicitly retains the existing 42px gutter, top-anchored 28px authenticated avatar, zero internal gap, chaining, exact row padding/minimum heights, CookedHtml/preview, selection, uploads, reactions, thread/reply, delivery, pin/bookmark and hover/long-press action behavior.
-- Six actual-component styleguide groups reproduce Overview/Composition, Avatar, Group, Header/Footer, Actions, Attachment and Accessibility/Status examples with local state and final shared Avatar/Bubble/Button/Attachment/Marker composition. lib/message_review_main.dart is the offline source fixture.
+- Seven actual-component styleguide groups reproduce Overview, Avatar, Group, Header/Footer, Actions, Attachment and Accessibility/Status with local state and accepted shared owners. tool/message_native_review_main.dart mounts the real local-data production tiles alongside these examples.
 
 **retainedAlternatives**
 
