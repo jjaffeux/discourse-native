@@ -1105,7 +1105,7 @@
     },
     {
       "id": "progress",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
       "branch": "codex/ui-progress",
       "dependencies": [
@@ -1146,9 +1146,9 @@
         "No iOS/Linux device run or spoken VoiceOver verification was performed; browser and native font rasterizers differ, so review establishes measured geometry, behavior and palette mapping rather than pixel equality."
       ],
       "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
-      "mergeCommit": null,
+      "mergeCommit": "15da313eb259c51c6bbed5974895b6616c32c84c",
       "nativeInspectionStatus": "completed",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
       "reviewBranch": "codex/review-progress"
     },
@@ -2822,15 +2822,6 @@
           "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a"
         },
         {
-          "component": "progress",
-          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
-          "branch": "codex/review-progress",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
-          "headCommit": "1c21a43597a31f55b7bab4a325d879dde8bcf9f4",
-          "status": "independent_review",
-          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8"
-        },
-        {
           "component": "textarea",
           "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
           "branch": "codex/review-textarea",
@@ -3123,17 +3114,6 @@
           "branch": "codex/review-table",
           "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
           "implementationBranch": "codex/ui-table",
-          "status": "in_progress"
-        },
-        {
-          "component": "progress",
-          "title": "Review and merge Progress",
-          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
-          "branch": "codex/review-progress",
-          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
-          "implementationBranch": "codex/ui-progress",
           "status": "in_progress"
         },
         {
