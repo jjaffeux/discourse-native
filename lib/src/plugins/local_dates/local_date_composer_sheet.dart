@@ -233,137 +233,172 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
           const SizedBox(height: 16),
           _preview(),
           const SizedBox(height: 12),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: EdgeInsets.zero,
-            title: const Text('Display options'),
-            children: [
-              if (!_hasEnd) ...[
-                TextField(
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  controller: _recurring,
-                  decoration: const InputDecoration(
-                    labelText: 'Recurrence (optional)',
-                    hintText: '1.weeks',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: const DLabel(child: Text('Countdown')),
-                  value: _countdown,
-                  onChanged: (value) => setState(() => _countdown = value),
-                ),
-              ],
-              _TimezoneMenu(
-                key: const ValueKey('local-date-displayed-timezone'),
-                label: 'Displayed timezone (optional)',
-                zones: _zones,
-                initial: _displayedTimezone,
-                optional: true,
-                onSelected: (zone) => setState(() => _displayedTimezone = zone),
-              ),
-              const SizedBox(height: 12),
-              DSelectField<_CalendarMode>(
-                initialValue: _calendar,
-                decoration: const InputDecoration(labelText: 'Relative day'),
-                items: const [
-                  DropdownMenuItem(
-                    value: _CalendarMode.automatic,
-                    child: Text('Automatic'),
-                  ),
-                  DropdownMenuItem(
-                    value: _CalendarMode.on,
-                    child: Text('Always on'),
-                  ),
-                  DropdownMenuItem(
-                    value: _CalendarMode.off,
-                    child: Text('Off'),
-                  ),
-                ],
-                onChanged: (value) => setState(
-                  () => _calendar = value ?? _CalendarMode.automatic,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                style: Theme.of(context).textTheme.bodyMedium,
-                controller: _format,
-                decoration: InputDecoration(
-                  labelText: 'Moment format (optional)',
-                  hintText: widget.siteFormats.firstOrNull ?? 'LLL',
-                  helperText: widget.siteFormats.isEmpty
-                      ? 'For example: LLL or YYYY-MM-DD [at] HH:mm'
-                      : 'Site formats: ${widget.siteFormats.join(', ')}',
-                ),
-              ),
-              if (widget.siteFormats.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final format in widget.siteFormats)
-                      ActionChip(
-                        label: Text(format),
-                        onPressed: () => _format.text = format,
-                      ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 16),
-              Text('Preview timezones', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final zone in _previewTimezones)
-                    InputChip(
-                      label: Text(LocalDateFormatter.zoneLabel(zone)),
-                      onDeleted: () =>
-                          setState(() => _previewTimezones.remove(zone)),
-                    ),
-                ],
-              ),
-              if (_previewTimezones.length < 5) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _TimezoneMenu(
-                        key: ValueKey(
-                          'local-date-preview-${_previewTimezones.length}',
+          DCollapsible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DCollapsibleTrigger(
+                  builder: (context, state) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        const Expanded(child: Text('Display options')),
+                        Icon(
+                          state.open ? Icons.expand_less : Icons.expand_more,
+                          size: 16,
                         ),
-                        label: 'Add preview timezone',
-                        zones: _zones
-                            .where((zone) => !_previewTimezones.contains(zone))
-                            .toList(),
-                        initial: null,
+                      ],
+                    ),
+                  ),
+                ),
+                DCollapsibleContent(
+                  keepMounted: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!_hasEnd) ...[
+                        TextField(
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          controller: _recurring,
+                          decoration: const InputDecoration(
+                            labelText: 'Recurrence (optional)',
+                            hintText: '1.weeks',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: const DLabel(child: Text('Countdown')),
+                          value: _countdown,
+                          onChanged: (value) =>
+                              setState(() => _countdown = value),
+                        ),
+                      ],
+                      _TimezoneMenu(
+                        key: const ValueKey('local-date-displayed-timezone'),
+                        label: 'Displayed timezone (optional)',
+                        zones: _zones,
+                        initial: _displayedTimezone,
                         optional: true,
                         onSelected: (zone) =>
-                            setState(() => _previewCandidate = zone),
+                            setState(() => _displayedTimezone = zone),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    DTooltip(
-                      message: 'Add timezone',
-                      labelTrigger: true,
-                      child: IconButton.filledTonal(
-                        onPressed: _previewCandidate == null
-                            ? null
-                            : () => setState(() {
-                                _previewTimezones.add(_previewCandidate!);
-                                _previewCandidate = null;
-                              }),
-                        icon: const Icon(Icons.add),
-                        tooltip: '',
+                      const SizedBox(height: 12),
+                      DSelectField<_CalendarMode>(
+                        initialValue: _calendar,
+                        decoration: const InputDecoration(
+                          labelText: 'Relative day',
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: _CalendarMode.automatic,
+                            child: Text('Automatic'),
+                          ),
+                          DropdownMenuItem(
+                            value: _CalendarMode.on,
+                            child: Text('Always on'),
+                          ),
+                          DropdownMenuItem(
+                            value: _CalendarMode.off,
+                            child: Text('Off'),
+                          ),
+                        ],
+                        onChanged: (value) => setState(
+                          () => _calendar = value ?? _CalendarMode.automatic,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      TextField(
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        controller: _format,
+                        decoration: InputDecoration(
+                          labelText: 'Moment format (optional)',
+                          hintText: widget.siteFormats.firstOrNull ?? 'LLL',
+                          helperText: widget.siteFormats.isEmpty
+                              ? 'For example: LLL or YYYY-MM-DD [at] HH:mm'
+                              : 'Site formats: ${widget.siteFormats.join(', ')}',
+                        ),
+                      ),
+                      if (widget.siteFormats.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final format in widget.siteFormats)
+                              ActionChip(
+                                label: Text(format),
+                                onPressed: () => _format.text = format,
+                              ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Text(
+                        'Preview timezones',
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final zone in _previewTimezones)
+                            InputChip(
+                              label: Text(LocalDateFormatter.zoneLabel(zone)),
+                              onDeleted: () => setState(
+                                () => _previewTimezones.remove(zone),
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (_previewTimezones.length < 5) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _TimezoneMenu(
+                                key: ValueKey(
+                                  'local-date-preview-${_previewTimezones.length}',
+                                ),
+                                label: 'Add preview timezone',
+                                zones: _zones
+                                    .where(
+                                      (zone) =>
+                                          !_previewTimezones.contains(zone),
+                                    )
+                                    .toList(),
+                                initial: null,
+                                optional: true,
+                                onSelected: (zone) =>
+                                    setState(() => _previewCandidate = zone),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            DTooltip(
+                              message: 'Add timezone',
+                              labelTrigger: true,
+                              child: IconButton.filledTonal(
+                                onPressed: _previewCandidate == null
+                                    ? null
+                                    : () => setState(() {
+                                        _previewTimezones.add(
+                                          _previewCandidate!,
+                                        );
+                                        _previewCandidate = null;
+                                      }),
+                                icon: const Icon(Icons.add),
+                                tooltip: '',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
           if (_error case final error?) ...[
             const SizedBox(height: 12),

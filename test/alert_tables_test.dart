@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
@@ -108,7 +109,9 @@ void main() {
       expect(nameWidth, greaterThan(tester.getSize(table).width * .65));
       expect(tester.getSize(_button('Quote Alert')).height, 28);
       expect(
-        tester.getSize(find.widgetWithText(TextButton, 'sjc1 (1)')).height,
+        tester
+            .getSize(find.widgetWithText(DCollapsibleTrigger, 'sjc1 (1)'))
+            .height,
         28,
       );
       expect(
@@ -178,6 +181,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.text(identifier)).dx, lessThan(before));
+      final offset = tester.getTopLeft(find.text(identifier)).dx;
+      await tester.tap(find.text('sjc1 (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text(identifier), findsNothing);
+      await tester.tap(find.text('sjc1 (1)'));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text(identifier)).dx, offset);
       expect(find.byType(SelectionArea), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

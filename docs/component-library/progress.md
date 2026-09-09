@@ -36,7 +36,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 24 | item | planned | — | — | separator | — |
 | 25 | table | planned | — | — | typography | — |
 | 26 | scroll-area | in_progress | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | — |
-| 27 | collapsible | planned | — | — | — | — |
+| 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | planned | — | — | button | — |
 | 30 | resizable | in_progress | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
@@ -1385,6 +1385,47 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 - Mac locked: no CUA, browser/native launch or visual comparison performed. Remain in_progress awaiting_slot; not mergeable until coordinator visual/native review.
 - No iOS/Linux device or VoiceOver testing; no pixel-parity claim.
 - Browser slot released with original dark theme restored, viewport reset and task tab closed. Native slot remains pending. At360px/200%, retained DiagnosticsPanel fixed-height rows overflow14px (14 exceptions); coordinator owns separate fix. Exact artifacts: reference/scroll-area/rendered/fixture-narrow200-diagnostics.png and fixture-render-errors.json.
+
+### collapsible
+
+Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-collapsible.
+
+**acceptanceCriteria**
+
+- Composable DCollapsible root, trigger and content support controlled/default open state, disabled activation, nested scopes and borrowed focus ownership without app dependencies.
+- Match captured base-nova unstyled disclosure primitive and measured demo/Basic/Settings Panel/File Tree/RTL composition; incidental Button variants remain Button concerns.
+- Verify Enter/Space, expanded/disabled semantics, visible focus, focus restoration on collapse, lazy unmount and explicit keep-mounted editing retention, transition reversal and reduced motion.
+- Audit core/plugin disclosure owners and migrate appropriate single panels preserving editing, callbacks, permissions, async and scroll ownership; document retained sliver/Accordion alternatives.
+- Provide actual-component local examples and production fixtures; pass touched format, root/full analysis and focused component/migration checks on pinned Flutter; isolated signed native bundle and reference/native inspection required before review_ready.
+
+**decisions**
+
+- Frozen markdown SHA256 verified; base-nova wrappers have no visual classes or animation. Sources/registry/Base UI/Lucide URLs and hashes plus CSS mapping: docs/component-library/evidence/collapsible/implementation.md and sources.json.
+- Public DCollapsible/Trigger/Content expose composition, controlled/default state, disabled focusable triggers, passive state builder, borrowed focus nodes and explicit retained/lazy content with optional reduced-motion-aware height animation. Browser hiddenUntilFound maps to host-controlled open for search, not an inert native prop.
+- Actual order, Basic, Settings, nested File Tree, RTL and lifecycle/Form examples use merged Card and available DButton/StyleguideAction/native editing. Input/Field/Tabs remain pending and exact dependent button/editor visuals are explicitly identified for reconciliation.
+
+**migrations**
+
+- Events More options and Local Dates Display options replace ExpansionTile with retained DCollapsible editor composition, preserving controllers, selection, values, permissions, stale guards, asynchronous pickers and Apply outputs.
+- Prometheus AlertTables groups use controlled DCollapsible, preserving group refresh/default override, lazy content, horizontal scroll ownership, quote/link callbacks and compact app sizing. Stable PageStorage key retains horizontal offset across collapse.
+
+**retainedAlternatives**
+
+- Persisted InstanceSidebar lazy sliver groups retain their sliver disclosure; box content would change eager/lazy scroll ownership.
+- Composer reply excerpt retains constrained header/Expanded scrolling adaptation; topic inbound links and Chat deleted-message reveals are one-way domain show-more actions.
+- AI summary/inbox AnimatedSize are asynchronous/responsive layout transitions. Markdown collapsed projection state belongs to source editing. Sidebar styleguide submenu reconciliation remains with coordinator to avoid adjacent ownership changes.
+
+**verification**
+
+- Flutter 3.47.2; flutter pub get --enforce-lockfile at root and profiles/full passed with pins/lockfiles unchanged.
+- Touched dart format and git diff --check passed; flutter analyze --no-pub at root and profiles/full passed.
+- 61 focused tests passed: test/ui/d_collapsible_test.dart, test/styleguide/collapsible_examples_test.dart, test/collapsible_editor_migration_test.dart, test/collapsible_review_fixture_test.dart, test/event_composer_test.dart, test/plugins/local_dates/local_date_composer_sheet_lifecycle_test.dart, test/plugins/local_dates/local_date_composer_component_test.dart, test/alert_tables_test.dart, test/prometheus_alert_receiver_plugin_test.dart, test/styleguide/styleguide_page_test.dart.
+- Actual-production local-data native fixture prepared at tool/collapsible_review_main.dart. Isolated signed bundle evidence to follow before parking.
+
+**limitations**
+
+- awaiting_slot: no browser/native launch or CUA; Mac locked and no desktop slot granted. Native styleguide plus all three production fixtures and rendered reference comparison remain required; tests do not establish VoiceOver/device/pixel parity.
+- Input/Field/Tabs are not merged; sanctioned native editing/action composition is explicit. Baseline DButton xs/link appearance requires adjacent owner reconciliation.
 
 ### resizable
 
