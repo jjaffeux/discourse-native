@@ -6,7 +6,7 @@ import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 
 final commandExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Searchable command menus for navigation and quick actions.',
   notes:
       'This is the frozen base-nova/cmdk composition mapped to native Flutter '

@@ -2377,7 +2377,9 @@
         "Base-nova geometry maps to 4px root/group padding, 32px input and desktop rows, 8px row insets/gaps, 12px headings, 288px list cap, token surface/radius/color roles and 48px touch rows on iOS/Android.",
         "CommandDialog composes prepared DDialog rather than duplicating modal lifecycle. Backward-compatible DDialogContent contentPadding/verticalPadding/spacing options preserve current defaults and enable the official edge-to-edge Command composition.",
         "Prepare against the recorded tested parent source while final review continues; independent reviewer 01a085d3-21b9-75d0-a4f0-c739439ccb9d owns acceptance, required rendered/native verification and local merge only after accepted Dialog main integration.",
-        "Independent reviewer 01a085d3-21b9-75d0-a4f0-c739439ccb9d owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff f3180d998bd901ce24c2f21e386d5b08f78afbd5 is source evidence, not acceptance."
+        "Independent reviewer 01a085d3-21b9-75d0-a4f0-c739439ccb9d owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff f3180d998bd901ce24c2f21e386d5b08f78afbd5 is source evidence, not acceptance.",
+        "Accepted Dialog landed on main as 6a0aaa54. The reviewer reconciled Command from that accepted parent and retained only additive DDialogContent spacing parameters plus a post-frame route-notifier correction verified by the combined Dialog/Command suite.",
+        "Official Command shortcuts are unboxed trailing text rather than keycaps. DCommandShortcut therefore preserves the rendered reference and accepts any Widget so callers may compose DKbd/DShortcutKeycaps when an application intentionally wants keycap presentation; the generic owner does not duplicate DKbd styling."
       ],
       "migrations": [
         "lib/src/shell/command_menu.dart retains CommandMenuAnchor/showCommandMenu anchoring, transparent route barrier, result and app callback ownership while replacing its private Material MenuItemButton rows with the public DCommand/DCommandList/group/item/separator owner. Topic/group core actions and Chat add actions inherit the migration without moving permissions, stale-result checks or async/domain callbacks.",
@@ -2392,25 +2394,32 @@
         "After current-main reconciliation, root and profiles/full flutter analyze --no-pub passed with no diagnostics; touched formatting and git diff --check passed.",
         "32 randomized Command component, narrow 200% RTL styleguide and real group-member adapter tests passed with seed 1561896842. The affected topic action hover/cursor/anchored-viewport test passed independently.",
         "Focused coverage includes keyword/empty filtering, custom score ordering, filtering opt-out, controlled callbacks, native IME-composing preservation during keyboard activation, disabled suppression, loading/dynamic rendering, borrowed lifetimes, RTL, Dialog Escape/restoration and retained application result ownership.",
-        "Source preparation began at main 6fbecbce, integrated exact prepared Dialog 8a800783 only locally at 778539e2, committed component source at c73c39b8, reconciled current main at 072bbee3 and added the source-only native fixture at e91927bf. Reviewer merged that exact history into codex/review-command at 92800e83."
+        "Source preparation began at main 6fbecbce, integrated exact prepared Dialog 8a800783 only locally at 778539e2, committed component source at c73c39b8, reconciled current main at 072bbee3 and added the source-only native fixture at e91927bf. Reviewer merged that exact history into codex/review-command at 92800e83.",
+        "Independent review fixes persist imperative query/highlight state, retire disabled or removed dynamic highlights, suppress invalid Return activation, avoid compounded disabled opacity, expose checked/editor/custom-label semantics, support numpad Return, keep selected shortcuts readable, announce empty results and preserve live Dialog inherited-state updates. Pointer/touch and accessibility regressions were added.",
+        "After accepted Dialog reconciliation, 86 randomized Command, Dialog, DInput, styleguide and production-adapter tests passed with seed 927416; the affected topic hover/viewport test also passed independently. Root and profiles/full flutter analyze --no-pub passed with no diagnostics.",
+        "The official rendered page was inspected in light and dark across embedded, Basic, Shortcuts, Groups, Scrollable and Arabic RTL examples. It confirmed the compact 384px surface, 32px rows/input, grouped separators, 288px scrolling viewport, disabled 50% treatment and plain trailing shortcut text.",
+        "Native CUA inspected the exact isolated f0ae622b source bundle in light and Plum dark themes. Literal AZERTY-safe entry filtered to Billing, Return activated it, unmatched text announced No results found, loading changed to Privacy/Security/Devices, pointer actions updated state, and the real CommandMenuAnchor adapter returned close.",
+        "The native dialog retained the focused editor, dismissed with Escape, and stayed open across live palette/radius/font/RTL/200%/reduced-motion changes. At 200% RTL the result list scrolled without overflow and 15 Arrow Down movements kept View action 4 visible. RTL logical placement and disabled/checked states rendered correctly.",
+        "The unique bundle used identifier org.discourse.command-review.f0ae622b, display name Command Review f0ae622b and URL scheme discourse-command-review-f0ae622b. codesign --verify --deep --strict passed with only allow-jit, allow-unsigned-executable-memory and disable-library-validation entitlements. DCommand source SHA256 was 29a101237c7ef04b916e9bf6ecb3a796aca567acdf3402d3d3fec18546b3322e; fixture SHA256 adf7e5d040a0dc037c0ce3f46c3329ef900569d486fb98e1da64c6703c7cd7b3; built/copied pre-sign kernel SHA256 2788c6c952471cd70b1079f2f533bc3adf5e2db5a6049cfb2c94d531cf5f0c2a."
       ],
       "limitations": [
-        "No browser screenshot comparison, macOS native launch, spoken VoiceOver run, iOS device run or Linux device run is claimed. The source-only local-data fixture is committed; the independent reviewer owns unique-bundle build evidence and first rendered/native acceptance after Dialog merges.",
+        "No spoken VoiceOver session or iOS/Linux device run is claimed. macOS AX exposed named editors, result groups, enabled/disabled buttons, checked result content and live status text; touch-target/activation behavior is covered by widget tests rather than a touch device.",
+        "Native CUA Arrow navigation and Return activation were visible. Its Ctrl-N/P injection produced no visible signal on the AZERTY host, so Ctrl-N/J/P/K and native IME-composing preservation are claimed only from focused widget tests, not from the native CUA pass.",
         "The full topic_reading_integration_test run showed unrelated/order-sensitive failures when run concurrently with other files; the only changed topic action test passes independently. The full suite is not required."
       ],
       "implementationCommit": "c73c39b8e284abc85fcecfe74d7cf5cf83cd91c7",
       "mergeCommit": null,
       "reviewStatus": "in_progress",
       "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
-      "reviewBranch": "codex/review-command",
+      "reviewBranch": "codex/review-command-candidate",
       "preparedDependencies": [
         {
           "id": "dialog",
           "branch": "codex/review-dialog",
-          "commit": "8a80078316381a60f70b4e11adbc919814ca9fbc",
+          "commit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3",
           "reviewTaskId": "01a08558-7ac2-79a3-bd49-1be6148f540c",
-          "evidence": "Parent reviewer verified the Dialog source pin and unchanged public API, corrected 28px corner-close geometry and unique dismiss semantics. 23 focused tests (seed 2145466268), root/full analysis and 2+2 real Chat/Voice migration tests passed; official browser comparison is complete. Final native launch/interaction remains queued.",
-          "mergeGate": "Use the accepted parent in current main if available; otherwise prepare only in this isolated worktree. The dependent reviewer must integrate the accepted parent main revision, reconcile overlap and verify affected behavior before final merge. Prepared source does not establish acceptance."
+          "evidence": "Dialog was independently accepted and merged to local main as 6a0aaa54. Command was reconciled from that accepted main, and the combined Dialog/Command live-update, Escape, focus and narrow 200% RTL suites passed before native acceptance.",
+          "mergeGate": "Satisfied: the final Command candidate is based on current local main containing accepted Dialog merge 6a0aaa54, with overlap reconciled and affected behavior reverified."
         }
       ],
       "reviewTaskId": "01a085d3-21b9-75d0-a4f0-c739439ccb9d",
