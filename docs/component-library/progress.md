@@ -87,7 +87,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 49 | pagination | planned | — | — | button, select | — |
 | 50 | calendar | planned | — | — | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
-| 52 | carousel | in_progress | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | — |
+| 52 | carousel | review_ready | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | — |
 | 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
@@ -2190,7 +2190,7 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 
 ### carousel
 
-Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/ui-carousel.
+Status: review_ready. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/ui-carousel.
 
 **acceptanceCriteria**
 
@@ -2220,17 +2220,21 @@ Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/u
 
 **verification**
 
-- 9 Carousel widget tests passed with randomized seed 940219: controller/API state, bounded and loop navigation, swipe progress/events, responsive extents without state reset, horizontal RTL and vertical keyboard input, slide semantics, autoplay interaction/reduced-motion behavior, and borrowed lifecycle.
+- 10 Carousel widget tests passed with randomized seed 940219: controller/API state, bounded and adjacent loop navigation, touch and mouse drag progress/events, responsive extents without state reset, horizontal RTL and vertical keyboard input, slide semantics, serialized autoplay interaction/reduced-motion behavior, and borrowed lifecycle.
 - 33 ImageGrid production-widget tests passed with randomized seed 940219, including pointer/keyboard/dot navigation, looping, edited-item clamping, outer-topic scroll isolation, accessibility, narrow layout and gallery opening.
 - 17 styleguide access/page tests passed with randomized seed 940219; Carousel registration preserves frozen catalogue accounting and documentation shell behavior.
 - Root flutter analyze --no-pub clean. profiles/full locked dependency resolution and flutter analyze --no-pub clean. Flutter 3.47.2, dependency pins and lockfiles unchanged.
 - flutter build macos --debug --no-pub -t lib/styleguide_main.dart succeeded and produced build/macos/Build/Products/Debug/Discourse.app.
 - Touched Dart formatting and git diff --check passed. Implementation integrated current main before handoff.
+- Independent browser review reproduced both official hashes and inspected the live dark default: 320px viewport, 336px item including 16px gutter, and 28px circular controls at the documented 48px outside offset.
+- Independent native macOS review used the exact-source isolated Carousel Review 2d5354ca app (kernel SHA256 ce5acb89990f8acd5c1b7bec62fdd5062266048ed936f9514d1440198143482f; deep strict signature passed). It covered light/dark/Forest, 360px, 200% text, RTL/reduced-motion settings, horizontal/vertical drag and keys, bounded/loop controls, autoplay play/stop and accessibility semantics; focused widget tests cover controller events, interaction pause and reduced-motion suppression.
+- The production ImageGridCarousel fixture mounted three real local ImageGridItem records and passed native next/selection inspection without network or account writes. Full evidence is recorded in carousel-native.md.
+- Reviewer fixes are covered by 10 Carousel and 33 ImageGrid tests with seed 940219; 17 styleguide tests and root/profiles-full analysis passed on the integrated review branch.
 
 **limitations**
 
-- Independent reviewer owns official rendered browser comparison and native interaction/accessibility inspection; implementation task claims no CUA run, pixel equality, iOS/Linux device test or spoken VoiceOver.
-- Generic loop wrap uses the real finite PageView pages, so a wrap animation can cross intervening slides; reviewer must judge native/reference interaction quality and adjust if rendered review finds it materially different.
+- No physical iOS/Linux device run or spoken VoiceOver session; widget semantics coverage is not a device claim.
+- The production native fixture used deterministic local media metadata and did not open an authenticated gallery or network session. Browser/native font rasterization differs, so no pixel-equality claim is made.
 
 ### toast
 
