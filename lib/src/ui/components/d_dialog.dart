@@ -701,6 +701,9 @@ class DDialogContent extends StatelessWidget {
     this.closeSemanticLabel = 'Close',
     this.maxWidth = 384,
     this.semanticLabel,
+    this.contentPadding = const EdgeInsets.symmetric(horizontal: DSpacing.lg),
+    this.verticalPadding = DSpacing.lg,
+    this.spacing = DSpacing.lg,
   }) : assert(maxWidth > 0);
 
   final List<Widget> children;
@@ -709,6 +712,9 @@ class DDialogContent extends StatelessWidget {
   final String closeSemanticLabel;
   final double maxWidth;
   final String? semanticLabel;
+  final EdgeInsetsGeometry contentPadding;
+  final double verticalPadding;
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
@@ -732,21 +738,16 @@ class DDialogContent extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: DSpacing.lg),
+              SizedBox(height: verticalPadding),
               for (var index = 0; index < children.length; index++) ...[
-                if (index > 0) const SizedBox(height: DSpacing.lg),
+                if (index > 0) SizedBox(height: spacing),
                 if (children[index] is DDialogFooter)
                   children[index]
                 else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: DSpacing.lg,
-                    ),
-                    child: children[index],
-                  ),
+                  Padding(padding: contentPadding, child: children[index]),
               ],
               if (children.isEmpty || children.last is! DDialogFooter)
-                const SizedBox(height: DSpacing.lg),
+                SizedBox(height: verticalPadding),
             ],
           ),
           if (showCloseButton)
