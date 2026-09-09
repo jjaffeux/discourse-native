@@ -1300,6 +1300,7 @@ class _StreamState extends State<ChatMessageStream>
               listController: _list,
               reverse: true,
               gap: 0,
+              preserveScrollOnPrepend: false,
               preserveReaderPositionOnResize: false,
               preserveChildIdentity: false,
               contentPadding: lane.padding,

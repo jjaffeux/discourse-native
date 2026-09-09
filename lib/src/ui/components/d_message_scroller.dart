@@ -520,6 +520,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   final FocusNode _ownedFocus = FocusNode(debugLabel: 'Message transcript');
   final GlobalKey _viewportKey = GlobalKey();
   final Map<String, GlobalKey> _rowKeys = {};
+  final Map<int, GlobalKey> _indexedRowKeys = {};
 
   ScrollController get _scroll => widget.scrollController ?? _ownedScroll;
   ListController get _list => widget.listController ?? _ownedList;
@@ -640,11 +641,24 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     }
     _ids = List.unmodifiable(ids);
     _anchors = List.unmodifiable(anchors);
-    _rowKeys.removeWhere((id, _) => !seen.contains(id));
-    for (final id in ids) {
-      _rowKeys.putIfAbsent(id, GlobalKey.new);
+    if (widget.preserveChildIdentity) {
+      _indexedRowKeys.clear();
+      _rowKeys.removeWhere((id, _) => !seen.contains(id));
+      for (final id in ids) {
+        _rowKeys.putIfAbsent(id, GlobalKey.new);
+      }
+    } else {
+      _rowKeys.clear();
+      _indexedRowKeys.removeWhere((index, _) => index >= ids.length);
+      for (var index = 0; index < ids.length; index++) {
+        _indexedRowKeys.putIfAbsent(index, GlobalKey.new);
+      }
     }
   }
+
+  GlobalKey? _rowKey(String id) => widget.preserveChildIdentity
+      ? _rowKeys[id]
+      : _indexedRowKeys[_indexOf(id)];
 
   int _prependedCount(List<String> oldIds, List<String> newIds) {
     if (oldIds.isEmpty || newIds.length <= oldIds.length) return 0;
@@ -779,7 +793,9 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
             widget.preserveReaderPositionOnResize) {
       if (_restoreHold(hold)) return;
     }
-    if (_mode == _ScrollerMode.anchored && _anchoredId != null) {
+    if (_mode == _ScrollerMode.anchored &&
+        _anchoredId != null &&
+        !_pendingInitial) {
       if (_restoreAnchor()) return;
     }
     if (_mode == _ScrollerMode.followingEnd && _scope!.autoScroll) {
@@ -798,22 +814,13 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     _initialApplied = true;
     switch (position) {
       case DMessageScrollerInitialPosition.start:
-        _moveToEdge(
-          DMessageScrollerDirection.start,
-          DMessageScrollerScrollBehavior.instant,
-        );
+        scrollToStart();
       case DMessageScrollerInitialPosition.end:
-        _moveToEdge(
-          DMessageScrollerDirection.end,
-          DMessageScrollerScrollBehavior.instant,
-        );
+        scrollToEnd();
       case DMessageScrollerInitialPosition.lastAnchor:
         final anchor = _lastAnchorId();
         if (anchor == null || _turnFromAnchorFits(anchor)) {
-          _moveToEdge(
-            DMessageScrollerDirection.end,
-            DMessageScrollerScrollBehavior.instant,
-          );
+          scrollToEnd();
         } else {
           _scrollToMessage(
             anchor,
@@ -826,7 +833,6 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
           return;
         }
     }
-    _setPendingInitial(false);
     _publishState();
     _scheduleReaderHoldCapture();
   }
@@ -846,17 +852,23 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   bool _turnFromAnchorFits(String id) {
     final index = _indexOf(id);
     if (index == null || !_scroll.hasClients) return true;
-    var extent = 0.0;
+    return _remainingContentExtent(index) <= _scroll.position.viewportDimension;
+  }
+
+  double _remainingContentExtent(int index) {
+    var extent = widget.resolvedPadding
+        .resolve(Directionality.of(context))
+        .bottom;
     if (widget.reverse) {
       for (var row = 0; row <= index; row++) {
-        extent += _list.extentForIndex(row).$1 + widget.resolvedGap;
+        extent += _list.extentForIndex(row).$1;
       }
     } else {
       for (var row = index; row < _ids.length; row++) {
-        extent += _list.extentForIndex(row).$1 + widget.resolvedGap;
+        extent += _list.extentForIndex(row).$1;
       }
     }
-    return extent <= _scroll.position.viewportDimension;
+    return extent;
   }
 
   void _anchorNewTurn(String id, {required int appendedAt}) {
@@ -886,7 +898,9 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     }
     final currentTop = _rowTop(hold.id);
     if (currentTop == null) return false;
-    final target = _scroll.offset + currentTop - hold.top;
+    final target =
+        _scroll.offset +
+        (widget.reverse ? hold.top - currentTop : currentTop - hold.top);
     if ((currentTop - hold.top).abs() <= .5) {
       _readerHold = _captureReaderHold();
       _scheduleStateSync();
@@ -915,6 +929,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       _anchoredTop = null;
       return false;
     }
+    _setTargetSpacer(index, 0, top);
     return _restoreHold((id: id, top: top));
   }
 
@@ -940,6 +955,8 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     DMessageScrollerScrollBehavior behavior,
   ) {
     if (!_scroll.hasClients) return false;
+    _initialApplied = true;
+    _pendingTarget = null;
     _anchoredId = null;
     _anchoredTop = null;
     _pendingRestore = null;
@@ -960,16 +977,19 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
           behavior,
           markAutoScrolling: direction == DMessageScrollerDirection.end,
         );
+        _setPendingInitial(false);
         _publishState();
       });
       return true;
     }
     _mode = nextMode;
-    return _moveToEdge(
+    final moved = _moveToEdge(
       direction,
       behavior,
       markAutoScrolling: direction == DMessageScrollerDirection.end,
     );
+    _setPendingInitial(false);
+    return moved;
   }
 
   @override
@@ -1031,15 +1051,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       _publishState();
       return true;
     }
-    if (options.alignment == DMessageScrollerAlignment.start) {
-      final rowExtent = _list.extentForIndex(index).$1;
-      _setSpacer(
-        (_scroll.position.viewportDimension - rowExtent + margin).clamp(
-          0,
-          double.infinity,
-        ),
-      );
-    }
+    _setTargetSpacer(index, alignment, margin);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           !_scroll.hasClients ||
@@ -1059,7 +1071,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
         _list.animateToItem(
           index: currentIndex,
           scrollController: _scroll,
-          alignment: alignment,
+          alignment: widget.reverse ? 1 - alignment : alignment,
           duration: (_) => const Duration(milliseconds: 200),
           curve: (_) => Curves.easeOutCubic,
         );
@@ -1071,24 +1083,18 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
             return;
           }
           _correctItemMargin(messageId, alignment, margin);
-          if (!keepAnchored) _mode = _ScrollerMode.free;
-          _readerHold = _captureReaderHold();
-          _setPendingInitial(false);
-          _publishState();
+          _finishItemScroll(keepAnchored: keepAnchored);
         });
       } else {
         _list.jumpToItem(
           index: currentIndex,
           scrollController: _scroll,
-          alignment: alignment,
+          alignment: widget.reverse ? 1 - alignment : alignment,
         );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || generation != _programmaticGeneration) return;
           _correctItemMargin(messageId, alignment, margin);
-          if (!keepAnchored) _mode = _ScrollerMode.free;
-          _readerHold = _captureReaderHold();
-          _setPendingInitial(false);
-          _publishState();
+          _finishItemScroll(keepAnchored: keepAnchored);
         });
         WidgetsBinding.instance.scheduleFrame();
       }
@@ -1100,10 +1106,30 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     return true;
   }
 
+  void _finishItemScroll({required bool keepAnchored}) {
+    // The initial estimate can overstate an unmounted tail. Reconsider the
+    // saved-turn fit only after the jump has measured its real rows.
+    final anchor = _anchoredId;
+    if (_pendingInitial &&
+        keepAnchored &&
+        _scope!.initialPosition == DMessageScrollerInitialPosition.lastAnchor &&
+        anchor != null &&
+        _turnFromAnchorFits(anchor)) {
+      scrollToEnd();
+      _publishState();
+      return;
+    }
+    if (!keepAnchored) _mode = _ScrollerMode.free;
+    _readerHold = null;
+    _scheduleReaderHoldCapture();
+    _setPendingInitial(false);
+    _publishState();
+  }
+
   double? _nearestAlignment(int index, double margin) {
     final id = _ids[index];
     final rowTop = _rowTop(id);
-    final rowContext = _rowKeys[id]?.currentContext;
+    final rowContext = _rowKey(id)?.currentContext;
     final rowBox = rowContext?.findRenderObject() as RenderBox?;
     if (rowTop == null || rowBox == null) return 0;
     final rowBottom = rowTop + rowBox.size.height;
@@ -1118,20 +1144,33 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     if (!_scroll.hasClients || _indexOf(id) == null) return;
     final top = _rowTop(id);
     final rowBox =
-        _rowKeys[id]?.currentContext?.findRenderObject() as RenderBox?;
+        _rowKey(id)?.currentContext?.findRenderObject() as RenderBox?;
     if (top == null || rowBox == null) return;
-    final desired = switch (alignment) {
-      0 => margin,
-      1 => _scroll.position.viewportDimension - rowBox.size.height - margin,
-      _ => (_scroll.position.viewportDimension - rowBox.size.height) / 2,
-    };
-    _jumpTo(_scroll.offset + top - desired);
+    final desired = _targetTop(alignment, rowBox.size.height, margin);
+    _jumpTo(_scroll.offset + (widget.reverse ? desired - top : top - desired));
     _scheduleStateSync();
+  }
+
+  double _targetTop(double alignment, double extent, double margin) =>
+      switch (alignment) {
+        0 => margin,
+        1 => _scroll.position.viewportDimension - extent - margin,
+        _ => (_scroll.position.viewportDimension - extent) / 2 + margin,
+      };
+
+  void _setTargetSpacer(int index, double alignment, double margin) {
+    final top = _targetTop(alignment, _list.extentForIndex(index).$1, margin);
+    _setSpacer(
+      (_scroll.position.viewportDimension -
+              top -
+              _remainingContentExtent(index))
+          .clamp(0, double.infinity),
+    );
   }
 
   double? _rowTop(String id) {
     final rowBox =
-        _rowKeys[id]?.currentContext?.findRenderObject() as RenderBox?;
+        _rowKey(id)?.currentContext?.findRenderObject() as RenderBox?;
     final viewportBox =
         _viewportKey.currentContext?.findRenderObject() as RenderBox?;
     if (rowBox == null || viewportBox == null || !rowBox.attached) return null;
@@ -1440,9 +1479,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
           child: Semantics(
             container: true,
             child: SizedBox(
-              key: widget.preserveChildIdentity
-                  ? _rowKeys[widget.itemId(index)]
-                  : null,
+              key: _rowKey(widget.itemId(index)),
               child: Padding(
                 padding: EdgeInsets.only(bottom: gap),
                 child: widget.buildItem(context, index),

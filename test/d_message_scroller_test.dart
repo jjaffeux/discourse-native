@@ -60,6 +60,8 @@ void main() {
         DMessageScrollerInitialPosition.end,
     bool busy = false,
     bool showButton = true,
+    bool reverse = false,
+    bool preserveChildIdentity = true,
     VoidCallback? onUserScrollIntent,
   }) => DMessageScrollerProvider(
     controller: controller,
@@ -68,6 +70,8 @@ void main() {
     child: DMessageScroller(
       children: [
         DMessageScrollerViewport(
+          reverse: reverse,
+          preserveChildIdentity: preserveChildIdentity,
           scrollController: scrollController,
           onUserScrollIntent: onUserScrollIntent,
           content: DMessageScrollerContent(
@@ -222,6 +226,74 @@ void main() {
     await tester.pumpAndSettle();
     expect(scroll.offset, before);
   });
+
+  testWidgets('a short last anchored turn opens at the natural end', (
+    tester,
+  ) async {
+    final controller = DMessageScrollerController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      host(
+        scroller(
+          controller: controller,
+          initial: DMessageScrollerInitialPosition.lastAnchor,
+          items: rows(List.generate(10, (index) => '$index'), anchors: {'8'}),
+        ),
+        height: 200,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.state.canScrollEnd, isFalse);
+  });
+
+  for (final (reverse, preserveChildIdentity) in [
+    (false, true),
+    (true, true),
+    (false, false),
+    (true, false),
+  ]) {
+    testWidgets(
+      'message alignment respects margin with reverse=$reverse, stable children=$preserveChildIdentity',
+      (tester) async {
+        final controller = DMessageScrollerController();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          host(
+            scroller(
+              controller: controller,
+              reverse: reverse,
+              preserveChildIdentity: preserveChildIdentity,
+              items: rows(List.generate(10, (index) => '$index')),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        for (final alignment in [
+          DMessageScrollerAlignment.start,
+          DMessageScrollerAlignment.center,
+          DMessageScrollerAlignment.end,
+        ]) {
+          controller.scrollToMessage(
+            '3',
+            options: DMessageScrollerScrollOptions(
+              alignment: alignment,
+              scrollMargin: 16,
+            ),
+          );
+          await tester.pumpAndSettle();
+          final top =
+              tester.getTopLeft(find.byKey(const ValueKey('3'))).dy -
+              tester.getTopLeft(find.byType(DMessageScrollerViewport)).dy;
+          final expectedTop = switch (alignment) {
+            DMessageScrollerAlignment.start => 16.0,
+            DMessageScrollerAlignment.center => 128.0,
+            _ => 208.0,
+          };
+          expect(top, closeTo(expectedTop, 1), reason: alignment.name);
+        }
+      },
+    );
+  }
 
   testWidgets('last-anchor startup remains pending until the target lands', (
     tester,

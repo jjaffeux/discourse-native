@@ -34,7 +34,7 @@ models remain with callers. A production adapter may disable initial-position
 application when it already has a richer server-provided target; this is the
 narrow adaptation used by Discourse Chat. Likewise, the existing reversed chat
 virtualizer retains its proven physical-index identity and resize preservation,
-while the generic default uses stable-id child identity and first-visible-row
+  while the generic default uses stable-id child identity and first-visible-row
 restoration.
 
 New stable anchor rows settle near the start with 64px of previous context and
@@ -132,6 +132,14 @@ the implementation handoff and corrected these behavioral defects:
   smooth command cannot continue moving underneath the reader.
 - Sparse virtualized outlines distinguish unmounted past anchors from future
   anchors; the current turn no longer jumps to an offscreen future id.
+- Saved-turn fitting counts measured gaps once and rechecks estimated tail
+  heights after layout. Target spacers are only as large as necessary and
+  shrink as the anchored response grows.
+- Start, center and end margins work in normal and reversed viewports.
+  Reader holds are captured after the corrected frame, so restoration cannot
+  undo the requested margin. Index-owned adapter rows retain measurable
+  boundaries without adopting stable-id child ownership; the Chat adapter
+  explicitly retains its existing prepend-restoration owner.
 
 The review also locks owned-versus-borrowed controller, list-controller,
 focus-node and scroll-controller disposal behavior in a permanent regression.
