@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**21 of 64 components are merged locally.** 18 existing components are in progress; 25 are planned.
+**24 of 64 components are merged locally.** 15 existing components are in progress; 25 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -18,19 +18,16 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
 | toggle | independent review | 17e7778e | 01a08579-4e43-7ce2-9919-546137c84a24 |
-| progress | independent review | 1c21a435 | 01a08558-73d7-7d01-9b97-39615e28df0e |
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | table | independent review | b3107cab | 01a08558-73ce-7a51-bfd4-8e0f48d5f675 |
-| collapsible | independent review | 684faacd | 01a08558-a79c-7911-8f75-53b3528fc08f |
 | tabs | independent review | fcb0e06f | 01a08581-d666-7f81-b039-f9caae6c45c2 |
-| resizable | independent review | a7e26a93 | 01a08558-7acd-73d3-a690-2e5ceb920d6c |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | button-group | Implementation and checks | — | — |
-| carousel | Implementation and checks | — | 01a08589-3822-72d2-88a1-5fcaea66e089 |
+| carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
 | toast | Implementation and checks | — | — |
 | alert | independent review | 38002135 | 01a08558-ae1e-7843-8cff-724c8e877ba5 |
 | chart | independent review | c782a940 | 01a08558-4ae6-7db2-bdd6-ee52e8570ff3 |
@@ -56,7 +53,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 15 | toggle | in_progress | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
-| 18 | progress | in_progress | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | — |
+| 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
@@ -65,10 +62,10 @@ Branch preparation does not mark a component merged or visually verified.
 | 24 | item | in_progress | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
 | 25 | table | in_progress | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | — |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
-| 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
+| 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | in_progress | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | — |
-| 30 | resizable | in_progress | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
+| 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
 | 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
 | 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
@@ -1204,7 +1201,7 @@ Status: merged. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-sli
 
 ### progress
 
-Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/ui-progress.
+Status: merged. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/ui-progress.
 
 **acceptanceCriteria**
 
@@ -1216,10 +1213,10 @@ Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/u
 
 **decisions**
 
-- Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.
+- Label is merged. Slider is demonstrative and not an implementation dependency; controlled progress uses DButton actions while Slider remains independently owned.
 - Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.
 - Range is 0–100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.
-- Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review.
+- Six real-component examples cover reference basic timer, label/value, controlled DButton actions, RTL, async/range edges and explicit parts; independent rendered/native acceptance promoted the styleguide entry to implemented.
 - Pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 integrated; final Button/Badge/Input/Radio/Checkbox and shared application fixes preserved. DButton example actions now use merged Button.
 
 **migrations**
@@ -1238,12 +1235,13 @@ Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/u
 - 302 focused tests passed, seed 9092026; after timing/typography/example refinements 10 component/example/fixture cases passed again. Commands and logs recorded in implementation.md.
 - Isolated macOS debug build succeeded; /tmp/DiscourseProgressc8.app (org.discourse.native.progressc8, discourse-progressc8) copied payload/source equality and strict ad-hoc signature checks pass. Kernel SHA256 2d7c551c75496b96ea3407a6ba187689116f64f8c11574d2e950433cbb033034.
 - Pinned-main integration: 142 focused tests pass seed9092026; root/full analysis clean. Refreshed /tmp/DiscourseProgressc8r2.app matches source a2984ddb589533370262b77270dab688e8b0a4bc and all built Flutter assets. Kernel d7ec6e8f4046cdc6db93fb6546d22ac5c64d69faa2325b95082db0623e85808b. Deep strict ad-hoc signature and exact restricted-free entitlement readback pass; details in native-manifest.json.
+- Independent review: 26 focused component/example/fixture/update/Assign tests passed; a broader run had 115 passing cases and only an explicitly mistyped nonexistent test path, then the clean focused rerun passed. Root and profiles/full analysis passed with no issues; nine component/styleguide tests passed after the acceptance-only status update.
+- Official Base UI browser light/dark comparison measured 4px tracks, 384x36 composed geometry and the 150ms standard transition. Isolated macOS review passed light/dark/Forest, 360px/200%/RTL, reduced motion, keyboard activation, native AX boundaries and real upload/download/event/badge transitions. Exact-source /tmp/DiscourseProgressReview6adbb135.app has matching kernel SHA256 38e072176e4ed4538d3edea674b6044d6ad7eb7127dc7570edb9a5fb81318d7c, strict deep signature and restricted-free debug entitlements.
 
 **limitations**
 
-- No native/reference rendered comparison or CUA use before exclusive desktop slot; not review_ready. No iOS/Linux device or spoken VoiceOver verification.
 - Offline native fixtures cover actual upload queue, read-only update download, Event fallback and Badge directory; other migrated surfaces have focused regression tests only.
-- Browser-only reference slot released immediately: first navigation denied because admin-enforced browser security policy could not be verified. No retry/workaround, website theme unchanged, native access not attempted. Rendered comparison remains pending.
+- No iOS/Linux device run or spoken VoiceOver verification was performed; browser and native font rasterizers differ, so review establishes measured geometry, behavior and palette mapping rather than pixel equality.
 
 ### skeleton
 
@@ -1701,7 +1699,7 @@ Status: merged. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/ui-scr
 
 ### collapsible
 
-Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-collapsible.
+Status: merged. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-collapsible.
 
 **acceptanceCriteria**
 
@@ -1717,6 +1715,8 @@ Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/u
 - Public DCollapsible/Trigger/Content expose composition, controlled/default state, disabled focusable triggers, passive state builder, borrowed focus nodes and explicit retained/lazy content with optional reduced-motion-aware height animation. Browser hiddenUntilFound maps to host-controlled open for search, not an inert native prop.
 - Actual order, Basic, Settings, nested File Tree, RTL and lifecycle/Form examples use merged Card and available DButton/StyleguideAction/native editing. Input/Field/Tabs remain pending and exact dependent button/editor visuals are explicitly identified for reconciliation.
 - Integration refresh: merged pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 preserving all other progress rows and coordinator fixes. Examples use final DInput and DButton; trigger remains the sole disclosure interaction owner. Field/Tabs still unmerged.
+- Independent native review found and fixed an oversized semantics boundary: DCollapsibleTrigger is now an explicit semantic container, keeping enclosing cards, fields and sibling controls outside its button role.
+- Latest-main reconciliation preserves DSwitchTile in Local Dates and DScrollBar in AlertTables while DCollapsible remains the only disclosure owner. Field remains a documented DInput-owned label boundary; Tabs reviewer 01a08581-d666-7f81-b039-f9caae6c45c2 owns the explicit File Tree DTabs.controlled follow-up.
 
 **migrations**
 
@@ -1736,11 +1736,19 @@ Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/u
 - 61 focused tests passed: test/ui/d_collapsible_test.dart, test/styleguide/collapsible_examples_test.dart, test/collapsible_editor_migration_test.dart, test/collapsible_review_fixture_test.dart, test/event_composer_test.dart, test/plugins/local_dates/local_date_composer_sheet_lifecycle_test.dart, test/plugins/local_dates/local_date_composer_component_test.dart, test/alert_tables_test.dart, test/prometheus_alert_receiver_plugin_test.dart, test/styleguide/styleguide_page_test.dart.
 - Isolated Collapsible Review 3c15 macOS debug app built from e05de6002a37f1dfbc7483a29f921086dffb0d3d; restored source equality and deep strict ad-hoc signature verification passed. Embedded/built kernel SHA256 57c4799f2342c03b9638bccf126114ce1f70ecc2dfcea46f9a2a472e850955f2. Exact path/identity/temporary signing adaptations: docs/component-library/evidence/collapsible/native-build.json. No launch.
 - Integration: 47 focused tests and root/full analysis passed. Source 39159f39becd55a320da35aab967aaaad2ef6d6f built as Collapsible Integrated 3c15.app. Embedded/built kernel SHA256 0c06245b0af44db0d0cb2220cc4e98ad6b00cbbc3b300a497e3d7696fd1054c1; source equality, restricted-free signed debug/JIT readback and strict deep signature passed. Exact identity/path/evidence in native-build.json. No launch.
+- Independent reviewer reran 63 focused component, example, migration, fixture and styleguide tests after the semantics correction; all passed. Root and profiles/full flutter analyze --no-pub passed with no issues; touched formatting and git diff --check passed.
+- Approved browser inspection covered the official rendered Base UI dark Order disclosure and the documented Basic, Settings, File Tree and RTL compositions. Controlled collapsed/expanded state and two revealed detail rows matched the frozen source geometry and state treatment closely.
+- Native macOS inspection covered light/dark Order, keyboard activation, Settings, Events More options, Local Dates Display options and 32-row AlertTables groups. The initial Settings tree exposed the merged button semantics defect; the rebuilt fix confirmed a passive card, one bounded trigger and four independent text fields, with hidden descendants added only on expansion.
+- Latest-main overlap verification preserved merged DSwitchTile and DScrollBar child owners; 32 focused overlap tests plus root/full analysis passed. Final isolated Collapsible Final c91e.app rebuilt successfully with kernel SHA256 390c06fa872ff7a43f04cdb1fc59de7cce8472df097857b858e56612048a2ddc, restored runner equality and strict deep ad-hoc signature verification.
+- Final source/adoption/evidence review found no remaining Collapsible-owned issue. Full suite was not run under the user's focused-verification policy.
+- Final main 27ddc513, including the reviewed Progress owner and complete workflow metadata, integrated without Collapsible conflict. The 21 component/editor/AlertTables overlap checks and root/full analysis passed again; all other component rows were preserved.
 
 **limitations**
 
-- Browser/native review remains required and forbidden in this locked/admin-policy-denied session. No CUA, browser navigation, native launch or workaround performed.
-- Field/Tabs composition remains explicit; disclosure button skins are passive builders, not nested DButtons.
+- No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.
+- Native production inspection used actual Events, Local Dates and AlertTables widgets with fixed local data; no authenticated live account or network session was opened.
+- Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette mapping, interaction and native semantics were compared directly.
+- The File Tree keeps its temporary two-DButton Explorer/Outline selector until the separately reviewed Tabs owner performs the recorded DTabs.controlled adoption; Collapsible does not duplicate that owner.
 
 ### tabs
 
@@ -1788,7 +1796,7 @@ Status: in_progress. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/u
 
 ### resizable
 
-Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-resizable.
+Status: merged. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-resizable.
 
 **acceptanceCriteria**
 
@@ -1802,8 +1810,8 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 
 - See docs/component-library/resizable.md for primary source hashes, measurements, API/constraint and native adaptation decisions. Frozen page hash matches catalogue; Base Nova 1px divider + 4x24 pill, rounded-lg = 1x token radius.
 - Public group/panel/handle plus typed explicit pixel/percentage sizes and controller; controlled/uncontrolled state, constraints/collapse, disabled panels, dynamic stable IDs, relative/pixel parent sizing. Native 48px coarse targets with in-bounds collapsed-edge semantics.
-- App adapters reuse DResizableHandle.standalone; persistence/async races remain outside generic UI. No Form field or unmerged component dependency. Styleguide status remains baseline pending native gate.
-- Independent source/check/build work complete; awaiting_slot. Coordinator must complete native/reference comparison before review_ready or merge.
+- App adapters reuse DResizableHandle.standalone; persistence/async races remain outside generic UI. No Form field or unmerged component dependency. Styleguide status is implemented after independent native acceptance.
+- Independent reviewer accepted the unchanged source after official Base UI rendered comparison and native macOS inspection; no source correction or rebuild was required.
 
 **migrations**
 
@@ -1822,10 +1830,13 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 - Final root and full-profile flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed. Four extracted self-contained usage programs passed Dart analysis.
 - Isolated local-data native fixture built successfully from source 7ba6dd15a5134b195d8b9fb5fda6e457e8005eb0. Copied /tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app has unique name/ID/URL scheme; build app.dill and original/copied kernels share SHA256 564d2ae4fcee4c667fbd4aa80521d3454cef17195e76723758130b1398918b1b. Deep strict signature verification passed. See docs/component-library/resizable-native.md and evidence/resizable logs.
 - Integrated pinned main e612ad7b; source 0629571a58e927f480c03de909bdfd4f676cdbd1. 180 focused tests and root/full analysis pass. Unique isolated bundle /tmp/discourse-resizable-integration-0629571a/ResizableIntegration.app; kernel 2ffa27d7519d1edc17b8d8da3f204814298a298c4ae4b3c5cb10b76526f46840. Explicit restricted-free ad-hoc entitlement readback equals signing plist, allow-jit=true; deep strict signature passes. See resizable-native.md and evidence/resizable/integration.
+- Independent reviewer reran 90 focused component/styleguide/ResizablePane/Users/Chat tests and root/full-profile analysis after integrating current main; all passed.
+- Approved browser/native review passed: official 384px Base UI horizontal, vertical, handle, nested and RTL renders were compared with the exact signed macOS fixture. Dark/light documentation canvases, RTL, 200% text, reduced motion and 360px preview remained usable. Keyboard resize, controlled collapse/expand/disabled state, and pointer commits on Users 160 to 228px, Chat 160 to 226px and pane 208 to 267px succeeded; native AX exposed independent named adjustable handles.
 
 **limitations**
 
-- awaiting_slot: integration complete; native/reference comparison pending. Mac locked and browser navigation separately denied admin-policy verification. No CUA/browser/native launch or blocker retry attempted. Not review_ready or mergeable.
+- No iOS/Linux device run or spoken VoiceOver verification was performed.
+- Browser Geist and native host-font rasterization differ; the review establishes geometry, styling, interaction and semantics rather than pixel equality.
 
 ### popover
 

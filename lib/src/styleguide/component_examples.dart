@@ -5,13 +5,16 @@ import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/carousel_examples.dart';
 import 'examples/checkbox_examples.dart';
+import 'examples/collapsible_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
+import 'examples/progress_examples.dart';
 import 'examples/radio_group_examples.dart';
+import 'examples/resizable_examples.dart';
 import 'examples/scroll_area_examples.dart';
 import 'examples/separator_examples.dart';
 import 'examples/sidebar_examples.dart';
@@ -25,11 +28,13 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'collapsible': collapsibleExamples,
   'input': inputExamples,
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
   'card': cardExamples,
   'carousel': carouselExamples,
+  'resizable': resizableExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,
@@ -40,6 +45,7 @@ final componentExamples = <String, ComponentExamples>{
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'label': labelExamples,
+  'progress': progressExamples,
   'marker': markerExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,

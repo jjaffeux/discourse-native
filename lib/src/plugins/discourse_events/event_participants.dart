@@ -136,7 +136,7 @@ class _ParticipantsState extends State<_Participants> {
                 ),
             ],
           ),
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading) const DProgress(semanticsLabel: 'Loading participants'),
           if (_error != null) Text(_error!),
           Expanded(
             child: ListView(
