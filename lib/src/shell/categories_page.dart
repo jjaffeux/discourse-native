@@ -460,28 +460,22 @@ class _CategoryPageState extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DIcon(icon, size: 42, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleSmall,
-            ),
-            if (actionLabel case final label?) ...[
-              const SizedBox(height: 16),
-              DButton(label: Text(label), onPressed: onAction),
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+              DEmptyTitle(title),
             ],
-          ],
-        ),
+          ),
+          if (actionLabel case final label?)
+            DEmptyContent(
+              children: [DButton(label: Text(label), onPressed: onAction)],
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
