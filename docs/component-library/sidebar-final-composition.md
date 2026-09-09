@@ -38,6 +38,11 @@ Input `7df72ef294826616e8ba24c31c6129d8e9041fec`, Collapsible
 - Reviewing icon collapse reproduced a 16px account-avatar overflow. Matching
   the registry's large-button zero-padding icon state fixes it. Hiding the
   complete group-label slot also removes an invisible disclosure focus target.
+- Narrow RTL/200% interaction exposed squeezed outward dropdowns. Mobile
+  workspace/account menus now open vertically, allowing the accepted popup
+  owner to use the viewport width. Selecting a workspace leaves the Sheet
+  open; Escape closes the account popup first and restores its trigger focus,
+  and a second Escape closes the Sheet.
 - The styleguide is the actual application adoption. Forum and Chat retain
   their documented domain-specific navigation adapters; their routing,
   memberships, permissions and persistence were not part of this follow-up.

@@ -130,13 +130,17 @@ class _SidebarDemoState extends State<_SidebarDemo> {
     DSidebarProvider.of(context).setOpenMobile(false);
   }
 
-  DPopoverSide get _menuSide =>
-      widget.side == DSidebarSide.left ? DPopoverSide.right : DPopoverSide.left;
+  DPopoverSide _menuSide(BuildContext context) =>
+      DSidebarProvider.of(context).isMobile
+      ? DPopoverSide.bottom
+      : widget.side == DSidebarSide.left
+      ? DPopoverSide.right
+      : DPopoverSide.left;
 
-  Widget _workspaceMenu() => DDropdownMenu(
+  Widget _workspaceMenu(BuildContext context) => DDropdownMenu(
     content: DDropdownMenuContent(
       semanticLabel: 'Workspace menu',
-      side: _menuSide,
+      side: _menuSide(context),
       width: 208,
       children: [
         const DDropdownMenuLabel(child: Text('Workspaces')),
@@ -173,10 +177,10 @@ class _SidebarDemoState extends State<_SidebarDemo> {
     ),
   );
 
-  Widget _accountMenu() => DDropdownMenu(
+  Widget _accountMenu(BuildContext context) => DDropdownMenu(
     content: DDropdownMenuContent(
       semanticLabel: 'Account menu',
-      side: _menuSide,
+      side: _menuSide(context),
       align: DPopoverAlign.end,
       width: 192,
       children: [
@@ -243,7 +247,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 8,
                 children: [
-                  _workspaceMenu(),
+                  _workspaceMenu(context),
                   if (DSidebarProvider.of(context).open ||
                       DSidebarProvider.of(context).isMobile ||
                       widget.documentation)
@@ -255,7 +259,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                 ],
               ),
             ),
-            footer: DSidebarFooter(child: _accountMenu()),
+            footer: DSidebarFooter(child: _accountMenu(context)),
             child: DSidebarContent(
               children: [
                 if (loading)
