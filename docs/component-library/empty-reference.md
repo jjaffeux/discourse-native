@@ -9,6 +9,9 @@ Registry source is `https://ui.shadcn.com/r/styles/base-nova/empty.json`.
 Tabler folder-code/cloud/bell SVGs are captured with MIT license and displayed
 without the app's DIcon glyph scaling. Production status icons retain their
 existing domain artwork, inheriting the new media's 16px bounds.
+The final review also captured the frozen examples' Lucide RefreshCcw, Plus and
+ArrowUpRight artwork with its ISC license. These restore the documented button
+compositions instead of substituting platform glyphs.
 
 ## Source-to-Flutter measurements
 

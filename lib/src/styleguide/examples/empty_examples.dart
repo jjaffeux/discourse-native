@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
@@ -165,6 +167,17 @@ class _EmptySampleState extends State<_EmptySample> {
                     children: [
                       DButton(
                         label: Text(action),
+                        icon: switch (kind) {
+                          'Background' => Builder(
+                            builder: (context) =>
+                                emptyReferenceIcon(context, 'refresh-ccw'),
+                          ),
+                          'Avatar Group' => Builder(
+                            builder: (context) =>
+                                emptyReferenceIcon(context, 'plus'),
+                          ),
+                          _ => null,
+                        },
                         variant: kind == 'Outline' || kind == 'Background'
                             ? DButtonVariant.outline
                             : DButtonVariant.standard,
@@ -192,7 +205,12 @@ class _EmptySampleState extends State<_EmptySample> {
                   variant: DButtonVariant.link,
                   size: DButtonSize.small,
                   iconPosition: DButtonIconPosition.end,
-                  icon: Icon(rtl ? Icons.north_west : Icons.north_east),
+                  icon: Builder(
+                    builder: (context) => Transform.rotate(
+                      angle: rtl ? -math.pi / 2 : 0,
+                      child: emptyReferenceIcon(context, 'arrow-up-right'),
+                    ),
+                  ),
                   onPressed: () => act('Project help opened'),
                 ),
             ],

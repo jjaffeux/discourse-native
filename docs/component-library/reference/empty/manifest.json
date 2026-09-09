@@ -12,6 +12,18 @@
     "sha256": "470d39082cfbf44f0b4b0588d8f9f1fd2c211b09dc60d0304e91a24a3aeef32e"
   },
   {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/refresh-ccw.svg",
+    "sha256": "e855fbce0f96339d57428a1931ee958efc71d8677d2c04f468477c7868d423dd"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/plus.svg",
+    "sha256": "7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/arrow-up-right.svg",
+    "sha256": "50b2503b9d11881142255466b7e3461d022b919735841c321d72003ac9959fe1"
+  },
+  {
     "url": "https://ui.shadcn.com/docs/components/base/empty.md",
     "sha256": "052a80cfb1f64c836d1aa39c739da20ab26848f94555cd13f3c6a598267c9d37"
   },
