@@ -574,28 +574,33 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                   if (widget.selectable)
                     DTableHead(
                       padding: EdgeInsets.zero,
-                      child: DCheckbox(
-                        value: allPageSelected
-                            ? true
-                            : somePageSelected
-                            ? null
-                            : false,
-                        tristate: true,
-                        enabled: selectableRows.isNotEmpty,
-                        semanticLabel: widget.selectAllLabel,
-                        onChanged: selectableRows.isEmpty
-                            ? null
-                            : (selected) => change(
-                                state.copyWith(
-                                  selectedRowIds: selected == true
-                                      ? ({
-                                          ...state.selectedRowIds,
-                                          ...selectableRows,
-                                        })
-                                      : (Set<Object>.of(state.selectedRowIds)
-                                          ..removeAll(selectableRows)),
+                      child: Semantics(
+                        container: true,
+                        explicitChildNodes: true,
+                        label: widget.selectionColumnLabel,
+                        child: DCheckbox(
+                          value: allPageSelected
+                              ? true
+                              : somePageSelected
+                              ? null
+                              : false,
+                          tristate: true,
+                          enabled: selectableRows.isNotEmpty,
+                          semanticLabel: widget.selectAllLabel,
+                          onChanged: selectableRows.isEmpty
+                              ? null
+                              : (selected) => change(
+                                  state.copyWith(
+                                    selectedRowIds: selected == true
+                                        ? ({
+                                            ...state.selectedRowIds,
+                                            ...selectableRows,
+                                          })
+                                        : (Set<Object>.of(state.selectedRowIds)
+                                            ..removeAll(selectableRows)),
+                                  ),
                                 ),
-                              ),
+                        ),
                       ),
                     ),
                   for (final column in visible)

@@ -158,6 +158,38 @@ void main() {
     expect(header().value, isFalse);
   });
 
+  testWidgets('selection header exposes column and select-all semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final controller = DDataTableController();
+    addTearDown(controller.dispose);
+    await _pump(
+      tester,
+      DDataTable<_Payment>(
+        data: _payments,
+        columns: _columns(),
+        rowId: (row) => row.id,
+        controller: controller,
+        selectable: true,
+        selectionColumnLabel: 'Payment selection',
+        selectAllLabel: 'Select every payment on this page',
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Payment selection'), findsOneWidget);
+    final selectAll = find.bySemanticsLabel(
+      'Select every payment on this page',
+    );
+    expect(selectAll, findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(controller.value.selectedRowIds, {'a', 'b', 'c'});
+    semantics.dispose();
+  });
+
   testWidgets('selection is keyed by IDs across row replacement and pruned', (
     tester,
   ) async {
