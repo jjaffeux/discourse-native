@@ -830,7 +830,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
           ),
           const SizedBox(height: 10),
           if (controller.queryIsEmail)
-            CheckboxListTile(
+            DCheckbox(
               key: ValueKey('add-email-$email'),
               contentPadding: EdgeInsets.zero,
               value: controller.selectedEmails.contains(email),
@@ -846,7 +846,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
               itemCount: controller.results.length,
               itemBuilder: (context, index) {
                 final user = controller.results[index];
-                return CheckboxListTile(
+                return DCheckbox(
                   key: ValueKey('add-user-${user.username}'),
                   contentPadding: EdgeInsets.zero,
                   value: controller.selectedUsernames.contains(user.username),

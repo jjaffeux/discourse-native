@@ -29,7 +29,8 @@
       "After Spinner exposed the stale baseline guard, coordinator ran flutter test --no-pub test/d_button_adoption_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=random: 9 passed, seed 1006078620, including actual Direction/Typography state preservation and reset. Touched files are formatted, flutter analyze --no-pub and git diff --check pass. Logs: /private/tmp/component-button-adoption-fix.log and /private/tmp/component-button-adoption-fix-analysis.log.",
       "Coordinator rebuilt the real repository-root macOS app after Label and Aspect Ratio integration: flutter build macos --debug --no-pub succeeded at main 4b5bd8b7d6fecb5a11d01732e8fe7ff7bbba0b98 with all seven currently merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app. Log: /private/tmp/discourse-main-label-aspect-build.log. The real account app was not launched; this verifies compilation and bundling, and does not diagnose the user-reported startup problem.",
       "Coordinator built the real repository-root macOS app after Spinner, Tooltip and Avatar integration: flutter build macos --debug --no-pub succeeded at main 6976336acc1cf7dd1a44da5bfa4ba7dbdf3dd799 (ten merged catalogue components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-avatar-tooltip-spinner-build.log. Full-profile flutter pub get --enforce-lockfile and flutter analyze --no-pub also passed, with no lockfile/pin changes and analysis clean in 2.4s. This is compilation/bundling verification only; the real account app was not launched and the user-reported startup issue remains unverified.",
-      "Final four-component batch checkpoint: the real repository-root macOS app built successfully with flutter build macos --debug --no-pub at main ea58497479e75efce7a86ebe95c784cd3c974846, containing all eleven merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-four-component-batch-build.log. Coordinator verified all four reviewed branch heads are ancestors of main, their merge commits have two parents, public components/examples are present and marked implemented, and the native inspection owner/queue are empty. All requested batch work is complete; work is paused for user review. This build does not diagnose the user-reported startup issue; the real account app was not launched."
+      "Final four-component batch checkpoint: the real repository-root macOS app built successfully with flutter build macos --debug --no-pub at main ea58497479e75efce7a86ebe95c784cd3c974846, containing all eleven merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-four-component-batch-build.log. Coordinator verified all four reviewed branch heads are ancestors of main, their merge commits have two parents, public components/examples are present and marked implemented, and the native inspection owner/queue are empty. All requested batch work is complete; work is paused for user review. This build does not diagnose the user-reported startup issue; the real account app was not launched.",
+      "After final Button, Badge and Input integration, the real repository-root macOS app builds successfully with flutter build macos --debug --no-pub at main e5bee6d59479627082aaa2c95015df0282738383 (15 merged components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-input-badge-build.log. Compilation/bundling verified only; the account app was not launched and the user-reported startup issue remains unverified."
     ],
     "mergeCommit": "1b130d3323f9b7619bdead025fd76a57be402a97",
     "acceptanceCriteria": [
@@ -650,7 +651,7 @@
     },
     {
       "id": "input",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
       "branch": "codex/ui-input",
       "dependencies": [
@@ -699,14 +700,16 @@
         "Semantics correction source 0464e555817ef8dae4fe63b1e8dd48548a2c3bed: editor container prevents editable role from merging into its page; Sidebar adoption inherits it and File Button remains separate. Three boundary regressions plus affected suites pass (369 tests, seed 928374611), root/full analysis clean. Exact-source unique /private/tmp/DiscourseInputReview-01a083ad.app rebuilt and deep strict ad-hoc signed with empty entitlements (no restricted entitlements); source/copy kernel SHA256 53eaa15f083810cdf1e97449df3abd24386bd355754e74795493797a5c13b34b. Unlaunched, awaiting_slot; no UI interaction.",
         "Final Button integration source 3201d96b51f86abbb638218eee8d0178ef168938 merges pinned main9d7a49e; all non-Input progress rows and merged Button/Avatar owners preserved. File trigger uses sibling Button extraSmall24px and scoped disabledOpacity1; pixel checks use actual independent label rectangles. Desktop/mobile styleguide test verifies bounded descendant editor and independent functioning Clear search. All371 affected tests (seed928374611), root/full analysis, three pixel and three export tests pass. Unique signed review bundle refreshed with empty entitlements, deep strict verification and matching source/copy kernel SHA256 ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f. Unlaunched awaiting_slot; no CUA.",
         "Native macOS review completed on integrated3201d96b kernelffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f: editing/Tab/theme retention, desktop/mobile independent search/Clear search/navigation, actual AddSite/Poll editing, file picker open/cancel, validation/save/reset and secure controlled editing, narrow/200%RTL/Plum rendering. Evidence/input/native contains hashed screenshots/AX. Unique app quit and absent in inventory; desktop slot explicitly released. Example status marked implemented after gate; no behavioral correction required.",
-        "Post-native status-only source 460c0f21d2afabdc45fb69765c719435a52c3336: seven example tests and rebuild pass; unique bundle refreshed and deep strict signed with empty entitlements. Source/copy kernel 66925e1943f9e996c4162e03d4378fa3de71d32df6cbe6325769e008c499f734; not relaunched after slot release. Native-reviewed behavioral implementation remains unchanged."
+        "Post-native status-only source 460c0f21d2afabdc45fb69765c719435a52c3336: seven example tests and rebuild pass; unique bundle refreshed and deep strict signed with empty entitlements. Source/copy kernel 66925e1943f9e996c4162e03d4378fa3de71d32df6cbe6325769e008c499f734; not relaunched after slot release. Native-reviewed behavioral implementation remains unchanged.",
+        "Coordinator reviewed native real Add Site/Poll editing, independent desktop/mobile search Clear action, file Button and narrow200% RTL form evidence. Merge into main required only regenerated progress Markdown; final Badge/Button exports and app alignment changes were preserved. All146 focused integration checks pass seed909623, including Input/pixel/examples, Sidebar/styleguide, Add Site, Poll, Group layout, Button adoption and Badge migrations. Root/full analysis clean; git diff --check passes. Logs: /private/tmp/input-main-integration-tests.log, /private/tmp/input-main-integration-analysis.log, /private/tmp/input-main-integration-analysis-full.log."
       ],
       "limitations": [
         "macOS native inspection complete; no physical iOS/Linux or spoken VoiceOver verification. Native file chooser cancellation verified; no file upload or network submission performed."
       ],
       "implementationCommit": "460c0f21d2afabdc45fb69765c719435a52c3336",
-      "mergeCommit": null,
-      "nativeInspectionStatus": "completed"
+      "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec",
+      "nativeInspectionStatus": "completed",
+      "reviewedBranchHead": "da302a2df59ad7c8c8bf518a27dc109060f6d283"
     },
     {
       "id": "textarea",
@@ -758,7 +761,7 @@
     },
     {
       "id": "checkbox",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
       "branch": "codex/ui-checkbox",
       "dependencies": [
@@ -778,7 +781,8 @@
         "Fixed 16px paint, 14px Lucide Check, 4px radius, token colors and explicit rings. Mixed uses a documented Minus extension pending visual review; pointer/touch targets reserve 40x32/48x48 native space.",
         "Six actual-component styleguide examples cover basic, states, group, table, form recovery and RTL/long labels; Label examples migrated. Shared Sidebar shell remains unchanged.",
         "Controlled-form follow-up: mutation paths retain the current prop synchronously. Native effective reset baseline is the controlled prop; separately captured reset proposal preserves onChanged and Form notification ordering, while errors and interaction flags clear normally. Parent acceptance syncs in didUpdateWidget without artificial interaction.",
-        "Visual correction: outlineVariant input token with multiplicative alpha; focus/invalid rings paint outside; intrinsic pointer label rows, source group/table typography and outer choice-card focus. Font-loaded exports and official browser evidence are preserved in evidence/checkbox."
+        "Visual correction: outlineVariant input token with multiplicative alpha; focus/invalid rings paint outside; intrinsic pointer label rows, source group/table typography and outer choice-card focus. Font-loaded exports and official browser evidence are preserved in evidence/checkbox.",
+        "Coordinator accepts the native Minus mixed-state extension after reviewing the partial-selection table and all/none transition evidence. Completed examples are promoted from baseline without changing their behavior."
       ],
       "migrations": [
         "Core User Status, Invites, Post Flag, Topic Move, Users column visibility/reorder, Composer gallery, Group member selection, Topic post selection and Aggregate included forums.",
@@ -798,20 +802,21 @@
         "Controlled follow-up: all 36 Checkbox/Label component and example tests pass (seed 927315), covering synchronous save/validate in caller/Form callbacks during declined toggles/resets, native reset error/interaction clearing, and later acceptance. Formatting/diff checks pass.",
         "Controlled consistency source 7519fc61670d995a80dc027e902f6545105715a2: root/full-profile analysis clean; 36 focused tests pass. Refreshed bundle /private/tmp/DiscourseCheckbox132a-7519fc61.app, identifier org.discourse.native.checkbox.132a.sync and unique discourse-checkbox-132a-sync URL scheme. Source/copied kernel SHA256 e379f6048e80056a2d98aa976da8e850b6191b8a34b3bae299d705e0dcb35940 matches; deep strict ad-hoc signature verification passes. This supersedes the earlier 0df1b03c inspection bundle. No CUA or launch performed.",
         "Visual follow-up: 38 focused Checkbox/Label/paint tests and 118 migration tests passed; three font-loaded export/pixel tests passed. Root/full analysis clean after removing two redundant test imports. Browser-only slot released after restoring original theme/viewport and closing the temporary tab.",
-        "Visual source a1d2737243099e8e6565c8fad268a102aa70a843: clean-source macOS debug build passed. Refreshed signed bundle /private/tmp/DiscourseCheckbox132a-a1d27372.app, identifier org.discourse.native.checkbox.132a.visual, scheme discourse-checkbox-132a-visual. Source/copied kernel SHA256 52687198c964426357053f2039af167ad2294598607a589b091aa9d7735ce715 matches; deep strict signature verification passes. No app launch; native inspection awaiting_slot."
+        "Visual source a1d2737243099e8e6565c8fad268a102aa70a843: clean-source macOS debug build passed. Refreshed signed bundle /private/tmp/DiscourseCheckbox132a-a1d27372.app, identifier org.discourse.native.checkbox.132a.visual, scheme discourse-checkbox-132a-visual. Source/copied kernel SHA256 52687198c964426357053f2039af167ad2294598607a589b091aa9d7735ce715 matches; deep strict signature verification passes. No app launch; native inspection awaiting_slot.",
+        "Exclusive native slot: reviewed exact signed a1d27372 app, all six actual registered examples, light/dark states, mixed table 1\u21924\u21920, keyboard/pointer focus, disabled/readOnly, outer Plum card ring, form invalid\u2192saved\u2192reset, Forest360px200%RTL Arabic/Hebrew wrapping and activation. Actual legal explanation editing and checked/unchecked submission gating verified; actual Voice privacy checked values and focus verified at Plum200%RTL. Screenshots and AX in evidence/checkbox/native-*. No new source issue found. App quit through native menu; process absence verified; browser/native slot explicitly released before evidence commit. No browser used this slot.",
+        "Coordinator reviewed native mixed table, legal confirmation and large-text multilingual evidence. Merge preserves final Radio Group single-choice Polls, uses Checkbox for multiselect and removes the obsolete row renderer; Users column reorder Buttons remain independent. Initial integration passed406 checks and exposed3 inherited Button/Badge Topic Inbox assumptions. Reserved32px for the tags overflow beside compressed categories and updated touch-target/combined-label assertions. All66 Topic Inbox checks now pass, including macOS/iOS assignment interaction; root/full analysis and diff checks clean. Logs: /private/tmp/checkbox-main-integration-tests.log, /private/tmp/checkbox-main-topic-final.log, /private/tmp/checkbox-main-integration-analysis-final.log, /private/tmp/checkbox-main-integration-analysis-full-final.log. The generic Checkbox renderer matches inspected source; bounded app-adapter reconciliation is covered by affected widget tests."
       ],
       "limitations": [
-        "Native desktop inspection remains awaiting_slot. Official browser comparison and font-loaded Flutter exports completed; these do not constitute native app inspection. Status remains in_progress.",
-        "Mixed Minus artwork is an explicit extension to base-nova hardcoded CheckIcon, pending visual review. iOS/Linux device and VoiceOver speech are unverified.",
-        "Coordinator reports base Avatar assertions corrected on main adc25e7b and Tooltip/compact-title Escape fixed separately at c5d37bd1 pending native review; no changes to these owners in this follow-up."
+        "No spoken VoiceOver or iOS/Linux device execution. Native Checkbox used the pre-Input styleguide shell; its AX search limitation was separately fixed and natively verified in merged Input. Real legal and Voice fixtures exposed checked values and focus. The status-only example promotion does not change inspected behavior."
       ],
       "implementationCommit": "a1d2737243099e8e6565c8fad268a102aa70a843",
-      "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "mergeCommit": "13466a062d19c247905ccc65adc615c8d0d6273d",
+      "nativeInspectionStatus": "complete_slot_released",
+      "reviewedBranchHead": "13044ce83cfa282a9ae5a8d8ec52873dce68a7fa"
     },
     {
       "id": "radio-group",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
       "branch": "codex/ui-radio-group",
       "dependencies": [
@@ -857,15 +862,17 @@
         "Latest source-corrected fixture /private/tmp/discourse-radio-field-review-a2j2_677/Radio Group Field Review.app from 9ece5376b01fad2157af34ca2dd7914ba833e880; kernel 16336ff6c32757e9362121e5d6763a2e35e65d98df43ae4fed546aaf055e15b6; 725 source files byte-match, original/copied kernels equal, deep strict signature passes. No launch; native awaiting_slot.",
         "Serialized official light/dark browser comparison completed and slot released; 22 font-loaded widget/production fixture PNGs and reproduction harness preserved in evidence/radio-group. Export plus component run passed 18 tests.",
         "Final desktop geometry correction:165 focused tests pass seed9092026, including18 component tests and retained touch bounds; measured font-loaded export run passes.",
-        "Latest browser-corrected bundle /private/tmp/discourse-radio-browser-review-zpdismeb/Radio Group Browser Review.app from 99126e23b169f72ffde2975adb1da77fd5f966cb; kernel 2f72ac9df88df5dd329edafa55d2dced9a1c5e8961564768713b00484914ad11; 725 source files byte-match, kernels equal and deep strict signature passes. Root/full analyses clean. Native not launched, awaiting_slot."
+        "Latest browser-corrected bundle /private/tmp/discourse-radio-browser-review-zpdismeb/Radio Group Browser Review.app from 99126e23b169f72ffde2975adb1da77fd5f966cb; kernel 2f72ac9df88df5dd329edafa55d2dced9a1c5e8961564768713b00484914ad11; 725 source files byte-match, kernels equal and deep strict signature passes. Root/full analyses clean. Native not launched, awaiting_slot.",
+        "Native review completed on source99126e23: all9 registered examples, Poll/flag and real owner/move dialogs; keyboard/disabled/readOnly/validation/save/reset, dual focus light/dark, Forest/Plum360pxRTL200%.18 screenshots and AX evidence in native-review.md. No component defect. Isolated copy local-only re-sign verified; app quit and desktop slot RELEASED.",
+        "Coordinator reviewed controlled/read-only/disabled group source and actual Poll, owner/move, flag and dark choice-card native evidence. Integration preserves final Button, Badge, Input, Sidebar/search and Chat keyboard ownership; only documentation and example registration conflicts needed reconciliation. All202 focused Radio/Poll/flag/owner/move/keyboard/Chat/fixture/Input/styleguide tests pass seed909624; root/full analysis and diff checks clean. Logs: /private/tmp/radio-main-integration-tests.log, /private/tmp/radio-main-integration-analysis.log and /private/tmp/radio-main-integration-analysis-full.log. No generic component or migrated behavior change was needed after native inspection."
       ],
       "limitations": [
-        "Browser comparison and font-loaded widget exports completed; native desktop remains locked and native visual inspection awaiting_slot.",
-        "No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review."
+        "No spoken VoiceOver or iOS/Linux device verification. Native review used the pre-Input styleguide shell; its search AX limitation was separately corrected and natively verified by the merged Input work, with current integrated styleguide checks passing. Native production fixtures expose Radio roles, labels and values."
       ],
       "implementationCommit": "99126e23b169f72ffde2975adb1da77fd5f966cb",
-      "mergeCommit": null,
-      "nativeInspectionStatus": "in_progress"
+      "mergeCommit": "62e7d25adeb8c125faca2a6476cbb800660a2025",
+      "nativeInspectionStatus": "completed",
+      "reviewedBranchHead": "218cb991b2db573ab7d1d2be44312f5a1d8cd71f"
     },
     {
       "id": "switch",
@@ -947,7 +954,7 @@
       ],
       "implementationCommit": "c637efb393b9bec314cae0c85edca7ae241bf472",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot",
+      "nativeInspectionStatus": "awaiting_unlock",
       "browserInspectionStatus": "completed"
     },
     {
@@ -1528,14 +1535,17 @@
         "Keyboard follow-up: 35 focused Scroll Area/Sidebar/styleguide tests passed, including real Tab traversal, child text selection and button Enter/Space activation, content/viewport overflow transitions and modified-key propagation. Log /tmp/scroll-area-keyboard.log.",
         "Keyboard follow-up final executable source 5ccd42497c6db763d5e37f3ffb5a5d89f5111209: root/full-profile analysis clean; rebuilt isolated macOS fixture, production source equality checked, copied/build kernel SHA256 042805352d6b28602593333032112aad0aa7b45e17eadb65cd35671894251d63; deep strict signature verification passed. Awaiting native slot.",
         "Rendered follow-up:106 focused tests passed (seed1519015133), including RGBA focus interior/exterior/alpha regression; root/full-profile analysis clean. Export runner captured registered examples and migrated widgets with loaded SFNS/SFArabic/MaterialIcons/JetBrains Mono; fixture errors explicitly recorded, not treated as native acceptance.",
-        "Rendered-review final executable source 1514d822c89c30e32cc5d46419682c6541d7e3ad: clean source equality after runner restoration; isolated macOS debug build succeeded; unique ID verified; build/copied kernel SHA256 42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192; deep strict signature passed. No native launch."
+        "Rendered-review final executable source 1514d822c89c30e32cc5d46419682c6541d7e3ad: clean source equality after runner restoration; isolated macOS debug build succeeded; unique ID verified; build/copied kernel SHA256 42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192; deep strict signature passed. No native launch.",
+        "Backlog preparation: merged pinned main00f82d280a602c4ec86be3a24664f4052e6c1477; preserved all non-Scroll-Area progress rows and current shared owners.109 affected component/Sidebar/styleguide/production tests passed seed1438380230; root/full analysis clean. No unchanged browser/export review repeated.",
+        "Final pinned-main native preparation source ad0647a4d46b756b87d5b9c5c0ca526e26cb2e17: isolated build passed; clean source equality and build/copied kernel SHA256 cb549143dbb2b4307b93a606c34e0090c8d9026ab36684d07c2b710c01ac6579 verified. Deep strict signature and exact read-back of sandbox/JIT/network client+server entitlements passed; no APS/team/application IDs. Native remains awaiting_slot."
       ],
       "limitations": [
         "Mac locked: no CUA, browser/native launch or visual comparison performed. Remain in_progress awaiting_slot; not mergeable until coordinator visual/native review.",
         "No iOS/Linux device or VoiceOver testing; no pixel-parity claim.",
-        "Browser slot released with original dark theme restored, viewport reset and task tab closed. Native slot remains pending. At360px/200%, retained DiagnosticsPanel fixed-height rows overflow14px (14 exceptions); coordinator owns separate fix. Exact artifacts: reference/scroll-area/rendered/fixture-narrow200-diagnostics.png and fixture-render-errors.json."
+        "Browser slot released with original dark theme restored, viewport reset and task tab closed. Native slot remains pending. At360px/200%, retained DiagnosticsPanel fixed-height rows overflow14px (14 exceptions); coordinator owns separate fix. Exact artifacts: reference/scroll-area/rendered/fixture-narrow200-diagnostics.png and fixture-render-errors.json.",
+        "Prior captured Diagnostics row overflow is historical: pinned main now supplies coordinator row-sizing fix, preserved in this branch and covered by merged focused tests. Native review remains pending."
       ],
-      "implementationCommit": "1514d822c89c30e32cc5d46419682c6541d7e3ad",
+      "implementationCommit": "ad0647a4d46b756b87d5b9c5c0ca526e26cb2e17",
       "mergeCommit": null,
       "nativeReviewStatus": "awaiting_slot"
     },
@@ -2461,13 +2471,11 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+    "nativeInspectionTaskId": null,
     "nativeInspectionQueue": [
-      "01a083ce-313e-7f70-a1a8-e645f31235c8",
-      "01a083ce-313b-7da0-aa51-3687fd556604",
       "01a083ce-319b-7bc3-a5c9-371087710718",
-      "01a083ad-91cf-7e91-9083-a861d5c4fa28",
       "01a083e1-420b-7711-b8e8-f268576dcc3b",
+      "01a083ce-313e-7f70-a1a8-e645f31235c8",
       "01a083ce-313a-7362-ada6-57dc14221509",
       "01a083e2-4063-7c30-89ea-fa664ff9c943",
       "01a08400-ced8-7f22-a1aa-4955c7d28383",
@@ -2547,24 +2555,24 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
           "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
           "status": "implementation"
-        },
-        {
-          "component": "radio-group",
-          "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
-          "branch": "codex/ui-radio-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5b3e/discourse-native",
-          "headCommit": "fffc066c0c43fc6bba62f366b79eef00d7e15f18",
-          "status": "native_review"
         }
       ],
       "nativeReadyTasks": [
         {
-          "component": "input",
-          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
-          "branch": "codex/ui-input",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
-          "headCommit": "da302a2df59ad7c8c8bf518a27dc109060f6d283",
-          "status": "awaiting_local_merge"
+          "component": "switch",
+          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
+          "branch": "codex/ui-switch",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
+          "headCommit": "901f1227",
+          "status": "awaiting_native_unlock"
+        },
+        {
+          "component": "scroll-area",
+          "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
+          "branch": "codex/ui-scroll-area",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
+          "headCommit": "5f4e013333459e32b22215101f0273af41e1d0f6",
+          "status": "awaiting_native_review"
         },
         {
           "component": "progress",
@@ -2592,36 +2600,12 @@
           "headCommit": "69d4d9ce62b14478bf331792ed81e6f15637efa5"
         },
         {
-          "component": "checkbox",
-          "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
-          "branch": "codex/ui-checkbox",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/132a/discourse-native",
-          "headCommit": "3171921eb6022bb53523c2849d91f436fb3b87ff",
-          "status": "awaiting_native_review"
-        },
-        {
-          "component": "switch",
-          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-          "branch": "codex/ui-switch",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
-          "headCommit": "6793b50801f15e3735f7186441a0ed8588768ed3",
-          "status": "awaiting_native_review"
-        },
-        {
           "component": "marker",
           "taskId": "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
           "branch": "codex/ui-marker",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
           "headCommit": "dfbe6df0f538a8834cd48b4d02416f609ab5d5fe",
           "status": "awaiting_browser_and_native_review"
-        },
-        {
-          "component": "scroll-area",
-          "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
-          "branch": "codex/ui-scroll-area",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
-          "headCommit": "dd729ba02654ee7f76b7300e4522b47596014131",
-          "status": "awaiting_native_review"
         },
         {
           "component": "native-select",
@@ -2705,15 +2689,13 @@
     },
     "nativeInspectionBlocker": {
       "reason": "mac_locked",
-      "observedAt": "2026-09-09T03:04:54+02:00",
+      "observedAt": "2026-09-09T07:44:57.141232+00:00",
+      "status": "active",
       "userUnlockRequested": true,
-      "unaffectedWork": "Source, tests, builds and serialized browser-only reference comparisons with Flutter test exports can continue. Native application interaction still needs Mac unlock.",
-      "latestResult": "Existing native review window accessible and corrected unique Component Fidelity B104 fixture launched successfully. Ad-hoc signing correction is documented in the isolated bundle provenance.",
-      "latestCheckRecordedAt": "2026-09-09T05:20:55+02:00",
-      "status": "resolved",
-      "resolvedAt": "2026-09-09T08:10:37+02:00"
+      "latestResult": "Switch CUA app selection twice reported: The Mac is locked and automatic unlock could not unlock it. Native review not performed; Switch explicitly released its slot in switch-native-handoff.md.",
+      "unaffectedWork": "Local reviewed merges, source reconciliation, focused tests and builds continue. Browser-only reference work can continue if the browser bridge remains available."
     },
-    "pendingCoordinatorNativeReview": "After Button releases, inspect Component Fidelity B104 f0a74785 for native accessibility: full documentation navigation/actions plus field-sized search on desktop/mobile. Earlier a872962f title/Sidebar/Diagnostics/scrollbar interactions passed; evidence manifest recorded.",
+    "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
     "browserInspectionTaskId": null,
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
@@ -2721,7 +2703,8 @@
       "radio-group": {
         "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
         "issue": "Read-only API review resolved. Remaining visual source review: use actual input token with multiplicative alpha; audit referenced choice-card padding/border/background and proportional radius against Field composition, currently uses arbitrary radius+4/padding16/full primary border. Complete during browser comparison. During browser review independently check actual choice-card focus rings: Switch live CSS currently paints both card and switch rings despite the apparent source suppression utility; do not assume Radio is identical without inspection. Revisit extra desktop labeled-row pitch: native RawRadio does not itself require the imposed32px row height; match measured reference pointer geometry and preserve48px touch bounds.",
-        "status": "resolved_awaiting_native_review"
+        "status": "resolved_and_merged",
+        "mergeCommit": "62e7d25adeb8c125faca2a6476cbb800660a2025"
       },
       "slider": {
         "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
@@ -2741,18 +2724,20 @@
       "button": {
         "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
         "issue": "Small/extra-small rounded-md uses radius\u00d7.8, not radius-minus-2; verify exact registry classes and preserve host custom-radius scale. Live proportional theme mapping independently confirmed during Badge browser review.",
-        "status": "resolved_awaiting_native_review"
+        "status": "resolved_and_merged",
+        "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94"
       },
       "input": {
         "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
         "issue": "Source border-input/bg-input must use tokens.colors.outlineVariant and multiply its existing alpha for .3/.5/.8 modifiers. Current Input uses tokens.border and replaces alpha. Combine with the already recorded Button file-trigger integration after Button merge. Also audit disabled DFileInput: _InputSurface applies opacity .5 and its child Row adds another .5, with the disabled Button dimming again. Ensure one effective reference disabled treatment instead of unintentionally compounding opacity; retain real Button ownership and disabled semantics. Check exterior-only focus/invalid rings: BoxShadow currently paints behind transparent interiors; CSS rings do not.",
-        "status": "independent_corrections_resolved_button_reconciliation_pending",
-        "remaining": "After Button merges reconcile file trigger extraSmall/import/disabled-theme compatibility; native and reference comparison remain pending."
+        "status": "resolved_and_merged",
+        "mergeCommit": "7df72ef294826616e8ba24c31c6129d8e9041fec"
       },
       "checkbox": {
         "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
         "issue": "Source border-input/bg-input must use tokens.colors.outlineVariant and multiply existing alpha for dark /30. Current Checkbox uses tokens.border and replaces alpha. Validate actual neutral light/dark renders during its browser slot. Radio actual exports confirmed BoxShadow rings also tint transparent field interiors; use exterior-only focus/invalid rings preserving the same geometry. Match measured labeled pointer-row pitch without applying standalone indicator/touch minima to the whole associated row; preserve48px touch targets.",
-        "status": "resolved_awaiting_native_review"
+        "status": "resolved_and_merged",
+        "mergeCommit": "13466a062d19c247905ccc65adc615c8d0d6273d"
       },
       "switch": {
         "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
@@ -2979,13 +2964,14 @@
         "Original native AX behavior and widget semantics dump reproduced.",
         "31 styleguide access/page/Sidebar tests passed seed909614; includes desktop/mobile search semantic bounds and label. Root/full analysis clean.",
         "Refreshed exact-source unique macOS build,1386 source files match; app.dill/built/copied kernels match; strict signature and restricted-entitlement exclusion verified.",
-        "Native desktop and narrow documentation search/navigation and 360px Sidebar modal all verified; exact-source screenshots/AX in native-fidelity-5775a7d3/manifest.json. All32 affected tests/root/full analysis pass."
+        "Native desktop and narrow documentation search/navigation and 360px Sidebar modal all verified; exact-source screenshots/AX in native-fidelity-5775a7d3/manifest.json. All32 affected tests/root/full analysis pass.",
+        "Input final integration natively confirmed independent functioning Clear search on desktop and mobile, with navigation/preview siblings exposed. Reviewed source3201d96b and evidence/input/native/manifest.json are recorded in Input. Generic DInput now owns the bounded editor semantics."
       ],
       "bundle": "/private/tmp/DiscourseComponentFidelityB104-5775a7d3.app",
       "kernelSHA256": "57d35b8e4f386a9bd9dc91c9a667a278753217d73b256bb783894760e6b7969d",
       "reviewDocument": "docs/component-library/styleguide-accessibility-follow-up.md",
       "limitations": [
-        "Generic Input owns the independent Clear search suffix; its final integration tests pass and native confirmation is queued. No spoken VoiceOver or iOS/Linux device claim."
+        "No spoken VoiceOver or iOS/Linux device claim."
       ],
       "mergeCommit": "be0e96446270b1a063a72081be3ffa0b6d8c6bc5"
     }

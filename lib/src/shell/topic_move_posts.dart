@@ -308,8 +308,9 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
                       : 'No topics found.',
                 ),
               )
-            : RadioGroup<TopicMoveDestination>(
+            : DRadioGroup<TopicMoveDestination>.controlled(
                 groupValue: _destination,
+                enabled: !_saving,
                 onChanged: _saving
                     ? (_) {}
                     : (value) => setState(() => _destination = value),
@@ -317,30 +318,26 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
                   key: const ValueKey('topic-move-posts-results'),
                   children: [
                     for (final destination in _destinations)
-                      RadioListTile<TopicMoveDestination>(
+                      DRadioGroupItem<TopicMoveDestination>(
                         key: ValueKey(
                           'topic-move-posts-destination-${destination.id}',
                         ),
                         value: destination,
-                        title: Text(destination.title),
-                        subtitle: Text('Topic #${destination.id}'),
+                        label: Text(destination.title),
+                        description: Text('Topic #${destination.id}'),
                       ),
                   ],
                 ),
               ),
       ),
-      CheckboxListTile(
+      DCheckbox(
         key: const ValueKey('topic-move-posts-chronological'),
         contentPadding: EdgeInsets.zero,
         value: _chronologicalOrder,
         onChanged: _saving
             ? null
             : (value) => setState(() => _chronologicalOrder = value ?? false),
-        title: DLabel(
-          enabled: !_saving,
-          child: const Text('Preserve chronological order'),
-        ),
-        controlAffinity: ListTileControlAffinity.leading,
+        title: const DLabel(child: Text('Preserve chronological order')),
       ),
     ],
   );

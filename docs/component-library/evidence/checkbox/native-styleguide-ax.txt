@@ -1,0 +1,15 @@
+Window: "Discourse", App: Checkbox Review 132a Visual.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Checkbox Review 132a Visual
+		2 text field (settable)
+	3 close button
+	4 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	5 minimize button
+6 menu bar
+	7 Checkbox Review 132a Visual
+	8 Edit
+	9 View
+	10 Window
+	11 Help
+
+The focused UI element is 1 container Checkbox Review 132a Visual

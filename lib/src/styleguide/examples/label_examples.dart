@@ -13,9 +13,8 @@ final labelExamples = ComponentExamples(
       'The host supplies the font family, text scaler and live foreground tokens. '
       'Native control slots own association, activation, focus and combined '
       'semantics; a standalone DLabel is ordinary text. Keep interactive links '
-      'outside a list tile. Current Checkbox and TextFormField visuals '
-      'are temporary while their catalogue components and Field are pending. '
-      'Those tasks will port the shadcn visuals and retain native behavior. '
+      'outside a list tile. TextFormField composition remains temporary while '
+      'Field is pending. '
       'The larger reference FieldDemo belongs to Field; its neighboring '
       'outline, horizontal and submit props are not Label variants.',
   examples: [
@@ -28,16 +27,14 @@ final labelExamples = ComponentExamples(
           'the same enabled state. Sample state is local to this preview.',
       states: const ['Default', 'Checked', 'Disabled', 'Keyboard', 'Touch'],
       code: '''// Inside a State with bool accepted = false and enabled = true.
-CheckboxListTile.adaptive(
-  controlAffinity: ListTileControlAffinity.leading,
+DCheckbox(
   contentPadding: EdgeInsets.zero,
   value: accepted,
   onChanged: enabled
       ? (value) => setState(() => accepted = value ?? false)
       : null,
-  title: DLabel(
-    enabled: enabled,
-    child: const Text('Accept terms and conditions'),
+  title: const DLabel(
+    child: Text('Accept terms and conditions'),
   ),
 )''',
       builder: (_) => const _ControlPreview(),
@@ -51,8 +48,7 @@ CheckboxListTile.adaptive(
           'not contain a second interactive control.',
       states: const ['Rich content', 'Wrapping', 'Text scaling', 'Composition'],
       code: '''// Inside a State with bool updates = false.
-CheckboxListTile.adaptive(
-  controlAffinity: ListTileControlAffinity.leading,
+DCheckbox(
   contentPadding: EdgeInsets.zero,
   value: updates,
   onChanged: (value) => setState(() => updates = value ?? false),
@@ -109,7 +105,7 @@ Form(
         onSaved: (value) => savedEmail = value?.trim(),
       ),
     ),
-    CheckboxListTile.adaptive(
+    DCheckbox(
       value: updates,
       onChanged: (value) => setState(() => updates = value ?? false),
       title: const DLabel(child: Text('Send me product updates')),
@@ -144,9 +140,9 @@ Form(
       code: '''// Inside a State with bool accepted = false.
 DDirection(
   textDirection: TextDirection.rtl,
-  child: CheckboxListTile.adaptive(
+  child: DCheckbox(
     contentPadding: EdgeInsets.zero,
-    controlAffinity: ListTileControlAffinity.leading,
+
     value: accepted,
     onChanged: (value) => setState(() => accepted = value ?? false),
     title: const DLabel(child: Text('قبول الشروط والأحكام')),
@@ -172,18 +168,15 @@ class _ControlPreviewState extends State<_ControlPreview> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      CheckboxListTile.adaptive(
+      DCheckbox(
         key: const ValueKey('label-terms'),
         contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
+
         value: _accepted,
         onChanged: _enabled
             ? (value) => setState(() => _accepted = value ?? false)
             : null,
-        title: DLabel(
-          enabled: _enabled,
-          child: const Text('Accept terms and conditions'),
-        ),
+        title: const DLabel(child: Text('Accept terms and conditions')),
       ),
       DSwitchTile(
         key: const ValueKey('label-enable'),
@@ -212,9 +205,9 @@ class _RichPreviewState extends State<_RichPreview> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      CheckboxListTile.adaptive(
+      DCheckbox(
         contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
+
         value: _updates,
         onChanged: (value) => setState(() => _updates = value ?? false),
         title: const DLabel(
@@ -300,9 +293,9 @@ class _FormPreviewState extends State<_FormPreview> {
           ),
         ),
         const SizedBox(height: DSpacing.md),
-        CheckboxListTile.adaptive(
+        DCheckbox(
           contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
+
           value: _updates,
           onChanged: (value) => setState(() => _updates = value ?? false),
           title: const DLabel(child: Text('Send me product updates')),
@@ -360,18 +353,18 @@ class _RtlPreviewState extends State<_RtlPreview> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CheckboxListTile.adaptive(
+        DCheckbox(
           key: const ValueKey('label-arabic'),
           contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
+
           value: _arabic,
           onChanged: (value) => setState(() => _arabic = value ?? false),
           title: const DLabel(child: Text('قبول الشروط والأحكام')),
         ),
-        CheckboxListTile.adaptive(
+        DCheckbox(
           key: const ValueKey('label-hebrew'),
           contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
+
           value: _hebrew,
           onChanged: (value) => setState(() => _hebrew = value ?? false),
           title: const DLabel(child: Text('קבל תנאים והגבלות')),

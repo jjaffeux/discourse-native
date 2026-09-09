@@ -409,9 +409,9 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
           ),
         ],
       ),
-      CheckboxListTile(
+      DCheckbox(
         contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
+
         title: DLabel(child: Text('$label time')),
         value: hasTime,
         onChanged: (value) => onTimeEnabled(value ?? false),
