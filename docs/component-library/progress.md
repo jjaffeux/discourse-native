@@ -80,7 +80,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 37 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
 | 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
 | 39 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
-| 40 | input-group | in_progress | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner | — |
+| 40 | input-group | review_ready | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner, field, dropdown-menu, popover | — |
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
 | 43 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command | — |
@@ -2295,7 +2295,7 @@ Status: merged. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/ui-fie
 
 ### input-group
 
-Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/ui-input-group.
+Status: review_ready. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/ui-input-group.
 
 **acceptanceCriteria**
 
@@ -2307,8 +2307,34 @@ Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/u
 
 **decisions**
 
-- Source preparation may overlap Textarea final review using pinned committed source; acceptance and final main merge remain gated on the accepted parent revision. The implementer creates its own independent review/merge task.
-- Independent reviewer 01a085d3-1acf-7361-9dc8-fc4a99de7c45 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff bc39e7f4ffab614dad82b13f6b5ad749869fc6fa is source evidence, not acceptance.
+- Source preparation overlapped Textarea review using pinned committed source; final review reconciled the accepted Textarea parent from main before acceptance.
+- DInputGroup owns only the joined exterior surface and focus/invalid/disabled state. DInputGroupInput and DInputGroupTextarea retain native editing, selection, IME, controller, Form and focus ownership; addons and nested buttons retain independent actions and semantics.
+- FocusNode listeners repaint the exterior ring and are removed on replacement/disposal. Group-disabled state dims and excludes composed editors from interaction/focus. The mobile 48px wrapper focuses the editor from outer touch bands without stealing descendant button actions.
+- Grouped DInput and DTextarea suppress their standalone label/helper/error/counter blocks. Accepted DField metadata surrounds the group without DFieldControl wrapping multiple independent controls.
+- The accepted Dropdown Menu/Popover composition uses the menu trigger's own focus node and external expanded semantics; opening or selecting a menu item does not replace the editable control or its value ownership.
+- Independent reviewer 01a085d3-1acf-7361-9dc8-fc4a99de7c45 accepted the implementation source 30078b3bf4e4eac96411c19c3bc16b2732ceff59 after source fixes, final-owner reconciliation, official browser/native inspection and the complete affected verification matrix.
+
+**migrations**
+
+- Chat global search, channel message search and thread message search compose public DInputGroup while preserving their controllers, keys, focus, clear actions, keyboard behavior and navigation state.
+- Spinner's Input Group example now composes public DInputGroup and preserves its documented validation/loading surface.
+- Empty's functional search example now composes DField metadata and public DInputGroup while preserving Form validation, save, submission, reset and local state.
+
+**retainedAlternatives**
+
+- Multiline/rich composers, domain-specific selection controls and standalone DInput/DTextarea fields remain with their specialized owners; Input Group does not absorb their lifecycle or presentation.
+
+**verification**
+
+- Official frozen-reference browser review passed in light/dark themes for all nine actual styleguide examples; exact-bundle native macOS review passed styleguide/default/alignment/buttons/Form/RTL/360px and 200% scaling plus all three Chat search migrations. Evidence is recorded in docs/component-library/evidence/input-group/native-review.md and native-preparation.json.
+- Final affected matrix passed 290 tests: flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart test/styleguide/spinner_examples_test.dart test/styleguide/empty_examples_test.dart test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart test/ui/d_field_test.dart test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_popover_test.dart test/chat_navigation_test.dart test/chat_shell_integration_test.dart --test-randomize-ordering-seed=314159265.
+- Accepted Input API and Chat reconciliation passed 210 tests with randomization seed 42424242; Field/Empty reconciliation and focused Dropdown composition tests also passed independently.
+- flutter analyze --no-pub passed; profiles/full flutter analyze --no-pub passed; git diff --check passed.
+
+**limitations**
+
+- Native inspection was performed on macOS; physical iOS/Android devices, Linux and spoken VoiceOver output were not run. Widget tests cover touch targets, keyboard/focus, semantics, RTL and narrow/200% layouts.
+- No automated pixel-diff baseline was produced; geometry and state comparisons were inspected against the frozen official browser reference.
 
 ### button-group
 
