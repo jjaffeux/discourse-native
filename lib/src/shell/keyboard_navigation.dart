@@ -36,6 +36,7 @@ bool navigationShortcutsAllowed(
       widget is DropdownMenu<Object?> ||
       widget is Checkbox ||
       widget is CheckboxListTile ||
+      widget is RawRadio<Object?> ||
       widget is Radio<Object?> ||
       widget is RadioListTile<Object?> ||
       widget is Switch ||

@@ -22,7 +22,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 10 | input | merged | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | 7df72ef294826616e8ba24c31c6129d8e9041fec |
 | 11 | textarea | in_progress | 01a08437-208f-7332-b373-192eaada5844 | codex/ui-textarea | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
-| 13 | radio-group | in_progress | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
+| 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | — |
 | 14 | switch | in_progress | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | — |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
@@ -114,6 +114,7 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/compon
 - Coordinator rebuilt the real repository-root macOS app after Label and Aspect Ratio integration: flutter build macos --debug --no-pub succeeded at main 4b5bd8b7d6fecb5a11d01732e8fe7ff7bbba0b98 with all seven currently merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app. Log: /private/tmp/discourse-main-label-aspect-build.log. The real account app was not launched; this verifies compilation and bundling, and does not diagnose the user-reported startup problem.
 - Coordinator built the real repository-root macOS app after Spinner, Tooltip and Avatar integration: flutter build macos --debug --no-pub succeeded at main 6976336acc1cf7dd1a44da5bfa4ba7dbdf3dd799 (ten merged catalogue components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-avatar-tooltip-spinner-build.log. Full-profile flutter pub get --enforce-lockfile and flutter analyze --no-pub also passed, with no lockfile/pin changes and analysis clean in 2.4s. This is compilation/bundling verification only; the real account app was not launched and the user-reported startup issue remains unverified.
 - Final four-component batch checkpoint: the real repository-root macOS app built successfully with flutter build macos --debug --no-pub at main ea58497479e75efce7a86ebe95c784cd3c974846, containing all eleven merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-four-component-batch-build.log. Coordinator verified all four reviewed branch heads are ancestors of main, their merge commits have two parents, public components/examples are present and marked implemented, and the native inspection owner/queue are empty. All requested batch work is complete; work is paused for user review. This build does not diagnose the user-reported startup issue; the real account app was not launched.
+- After final Button, Badge and Input integration, the real repository-root macOS app builds successfully with flutter build macos --debug --no-pub at main e5bee6d59479627082aaa2c95015df0282738383 (15 merged components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-input-badge-build.log. Compilation/bundling verified only; the account app was not launched and the user-reported startup issue remains unverified.
 
 **limitations**
 
@@ -925,7 +926,7 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 
 ### radio-group
 
-Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/ui-radio-group.
+Status: merged. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/ui-radio-group.
 
 **acceptanceCriteria**
 
@@ -973,11 +974,12 @@ Status: in_progress. Task: 01a083ce-313b-7da0-aa51-3687fd556604. Branch: codex/u
 - Serialized official light/dark browser comparison completed and slot released; 22 font-loaded widget/production fixture PNGs and reproduction harness preserved in evidence/radio-group. Export plus component run passed 18 tests.
 - Final desktop geometry correction:165 focused tests pass seed9092026, including18 component tests and retained touch bounds; measured font-loaded export run passes.
 - Latest browser-corrected bundle /private/tmp/discourse-radio-browser-review-zpdismeb/Radio Group Browser Review.app from 99126e23b169f72ffde2975adb1da77fd5f966cb; kernel 2f72ac9df88df5dd329edafa55d2dced9a1c5e8961564768713b00484914ad11; 725 source files byte-match, kernels equal and deep strict signature passes. Root/full analyses clean. Native not launched, awaiting_slot.
+- Native review completed on source99126e23: all9 registered examples, Poll/flag and real owner/move dialogs; keyboard/disabled/readOnly/validation/save/reset, dual focus light/dark, Forest/Plum360pxRTL200%.18 screenshots and AX evidence in native-review.md. No component defect. Isolated copy local-only re-sign verified; app quit and desktop slot RELEASED.
+- Coordinator reviewed controlled/read-only/disabled group source and actual Poll, owner/move, flag and dark choice-card native evidence. Integration preserves final Button, Badge, Input, Sidebar/search and Chat keyboard ownership; only documentation and example registration conflicts needed reconciliation. All202 focused Radio/Poll/flag/owner/move/keyboard/Chat/fixture/Input/styleguide tests pass seed909624; root/full analysis and diff checks clean. Logs: /private/tmp/radio-main-integration-tests.log, /private/tmp/radio-main-integration-analysis.log and /private/tmp/radio-main-integration-analysis-full.log. No generic component or migrated behavior change was needed after native inspection.
 
 **limitations**
 
-- Browser comparison and font-loaded widget exports completed; native desktop remains locked and native visual inspection awaiting_slot.
-- No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review.
+- No spoken VoiceOver or iOS/Linux device verification. Native review used the pre-Input styleguide shell; its search AX limitation was separately corrected and natively verified by the merged Input work, with current integrated styleguide checks passing. Native production fixtures expose Radio roles, labels and values.
 
 ### switch
 

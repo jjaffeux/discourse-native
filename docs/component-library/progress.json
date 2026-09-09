@@ -29,7 +29,8 @@
       "After Spinner exposed the stale baseline guard, coordinator ran flutter test --no-pub test/d_button_adoption_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=random: 9 passed, seed 1006078620, including actual Direction/Typography state preservation and reset. Touched files are formatted, flutter analyze --no-pub and git diff --check pass. Logs: /private/tmp/component-button-adoption-fix.log and /private/tmp/component-button-adoption-fix-analysis.log.",
       "Coordinator rebuilt the real repository-root macOS app after Label and Aspect Ratio integration: flutter build macos --debug --no-pub succeeded at main 4b5bd8b7d6fecb5a11d01732e8fe7ff7bbba0b98 with all seven currently merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app. Log: /private/tmp/discourse-main-label-aspect-build.log. The real account app was not launched; this verifies compilation and bundling, and does not diagnose the user-reported startup problem.",
       "Coordinator built the real repository-root macOS app after Spinner, Tooltip and Avatar integration: flutter build macos --debug --no-pub succeeded at main 6976336acc1cf7dd1a44da5bfa4ba7dbdf3dd799 (ten merged catalogue components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-avatar-tooltip-spinner-build.log. Full-profile flutter pub get --enforce-lockfile and flutter analyze --no-pub also passed, with no lockfile/pin changes and analysis clean in 2.4s. This is compilation/bundling verification only; the real account app was not launched and the user-reported startup issue remains unverified.",
-      "Final four-component batch checkpoint: the real repository-root macOS app built successfully with flutter build macos --debug --no-pub at main ea58497479e75efce7a86ebe95c784cd3c974846, containing all eleven merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-four-component-batch-build.log. Coordinator verified all four reviewed branch heads are ancestors of main, their merge commits have two parents, public components/examples are present and marked implemented, and the native inspection owner/queue are empty. All requested batch work is complete; work is paused for user review. This build does not diagnose the user-reported startup issue; the real account app was not launched."
+      "Final four-component batch checkpoint: the real repository-root macOS app built successfully with flutter build macos --debug --no-pub at main ea58497479e75efce7a86ebe95c784cd3c974846, containing all eleven merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-four-component-batch-build.log. Coordinator verified all four reviewed branch heads are ancestors of main, their merge commits have two parents, public components/examples are present and marked implemented, and the native inspection owner/queue are empty. All requested batch work is complete; work is paused for user review. This build does not diagnose the user-reported startup issue; the real account app was not launched.",
+      "After final Button, Badge and Input integration, the real repository-root macOS app builds successfully with flutter build macos --debug --no-pub at main e5bee6d59479627082aaa2c95015df0282738383 (15 merged components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-input-badge-build.log. Compilation/bundling verified only; the account app was not launched and the user-reported startup issue remains unverified."
     ],
     "mergeCommit": "1b130d3323f9b7619bdead025fd76a57be402a97",
     "acceptanceCriteria": [
@@ -809,11 +810,11 @@
       ],
       "implementationCommit": "a1d2737243099e8e6565c8fad268a102aa70a843",
       "mergeCommit": null,
-      "nativeInspectionStatus": "awaiting_slot"
+      "nativeInspectionStatus": "in_progress"
     },
     {
       "id": "radio-group",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
       "branch": "codex/ui-radio-group",
       "dependencies": [
@@ -859,15 +860,17 @@
         "Latest source-corrected fixture /private/tmp/discourse-radio-field-review-a2j2_677/Radio Group Field Review.app from 9ece5376b01fad2157af34ca2dd7914ba833e880; kernel 16336ff6c32757e9362121e5d6763a2e35e65d98df43ae4fed546aaf055e15b6; 725 source files byte-match, original/copied kernels equal, deep strict signature passes. No launch; native awaiting_slot.",
         "Serialized official light/dark browser comparison completed and slot released; 22 font-loaded widget/production fixture PNGs and reproduction harness preserved in evidence/radio-group. Export plus component run passed 18 tests.",
         "Final desktop geometry correction:165 focused tests pass seed9092026, including18 component tests and retained touch bounds; measured font-loaded export run passes.",
-        "Latest browser-corrected bundle /private/tmp/discourse-radio-browser-review-zpdismeb/Radio Group Browser Review.app from 99126e23b169f72ffde2975adb1da77fd5f966cb; kernel 2f72ac9df88df5dd329edafa55d2dced9a1c5e8961564768713b00484914ad11; 725 source files byte-match, kernels equal and deep strict signature passes. Root/full analyses clean. Native not launched, awaiting_slot."
+        "Latest browser-corrected bundle /private/tmp/discourse-radio-browser-review-zpdismeb/Radio Group Browser Review.app from 99126e23b169f72ffde2975adb1da77fd5f966cb; kernel 2f72ac9df88df5dd329edafa55d2dced9a1c5e8961564768713b00484914ad11; 725 source files byte-match, kernels equal and deep strict signature passes. Root/full analyses clean. Native not launched, awaiting_slot.",
+        "Native review completed on source99126e23: all9 registered examples, Poll/flag and real owner/move dialogs; keyboard/disabled/readOnly/validation/save/reset, dual focus light/dark, Forest/Plum360pxRTL200%.18 screenshots and AX evidence in native-review.md. No component defect. Isolated copy local-only re-sign verified; app quit and desktop slot RELEASED.",
+        "Coordinator reviewed controlled/read-only/disabled group source and actual Poll, owner/move, flag and dark choice-card native evidence. Integration preserves final Button, Badge, Input, Sidebar/search and Chat keyboard ownership; only documentation and example registration conflicts needed reconciliation. All202 focused Radio/Poll/flag/owner/move/keyboard/Chat/fixture/Input/styleguide tests pass seed909624; root/full analysis and diff checks clean. Logs: /private/tmp/radio-main-integration-tests.log, /private/tmp/radio-main-integration-analysis.log and /private/tmp/radio-main-integration-analysis-full.log. No generic component or migrated behavior change was needed after native inspection."
       ],
       "limitations": [
-        "Browser comparison and font-loaded widget exports completed; native desktop remains locked and native visual inspection awaiting_slot.",
-        "No iOS/Linux device or VoiceOver speech verification. Styleguide status stays baseline pending review."
+        "No spoken VoiceOver or iOS/Linux device verification. Native review used the pre-Input styleguide shell; its search AX limitation was separately corrected and natively verified by the merged Input work, with current integrated styleguide checks passing. Native production fixtures expose Radio roles, labels and values."
       ],
       "implementationCommit": "99126e23b169f72ffde2975adb1da77fd5f966cb",
       "mergeCommit": null,
-      "nativeInspectionStatus": "in_progress"
+      "nativeInspectionStatus": "completed",
+      "reviewedBranchHead": "218cb991b2db573ab7d1d2be44312f5a1d8cd71f"
     },
     {
       "id": "switch",
@@ -2462,10 +2465,9 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+    "nativeInspectionTaskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
     "nativeInspectionQueue": [
       "01a083ce-313e-7f70-a1a8-e645f31235c8",
-      "01a083ce-313b-7da0-aa51-3687fd556604",
       "01a083ce-319b-7bc3-a5c9-371087710718",
       "01a083ad-91cf-7e91-9083-a861d5c4fa28",
       "01a083e1-420b-7711-b8e8-f268576dcc3b",
@@ -2550,12 +2552,20 @@
           "status": "implementation"
         },
         {
-          "component": "radio-group",
-          "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
-          "branch": "codex/ui-radio-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5b3e/discourse-native",
-          "headCommit": "fffc066c0c43fc6bba62f366b79eef00d7e15f18",
+          "component": "checkbox",
+          "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
+          "branch": "codex/ui-checkbox",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/132a/discourse-native",
+          "headCommit": "3171921eb6022bb53523c2849d91f436fb3b87ff",
           "status": "native_review"
+        },
+        {
+          "component": "switch",
+          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
+          "branch": "codex/ui-switch",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
+          "headCommit": "6793b50801f15e3735f7186441a0ed8588768ed3",
+          "status": "main_integration_preparation"
         }
       ],
       "nativeReadyTasks": [
@@ -2583,22 +2593,6 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native",
           "status": "awaiting_native_review",
           "headCommit": "69d4d9ce62b14478bf331792ed81e6f15637efa5"
-        },
-        {
-          "component": "checkbox",
-          "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
-          "branch": "codex/ui-checkbox",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/132a/discourse-native",
-          "headCommit": "3171921eb6022bb53523c2849d91f436fb3b87ff",
-          "status": "awaiting_native_review"
-        },
-        {
-          "component": "switch",
-          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-          "branch": "codex/ui-switch",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
-          "headCommit": "6793b50801f15e3735f7186441a0ed8588768ed3",
-          "status": "awaiting_native_review"
         },
         {
           "component": "marker",

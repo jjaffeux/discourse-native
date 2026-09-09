@@ -241,7 +241,7 @@ void main() {
       }
     });
 
-    testWidgets('exposes 44-pixel options as native keyboard buttons', (
+    testWidgets('exposes accessible options as native keyboard radios', (
       tester,
     ) async {
       List<String>? cast;
@@ -259,16 +259,16 @@ void main() {
         final target = find.bySemanticsLabel('Alpha');
         expect(option, findsOneWidget);
         expect(target, findsOneWidget);
-        expect(tester.getSize(option).height, 44);
+        expect(tester.getSize(option).height, greaterThanOrEqualTo(44));
         expect(
           tester.getSemantics(target),
           isSemantics(
             label: 'Alpha',
-            isButton: true,
+            hasCheckedState: true,
+            isInMutuallyExclusiveGroup: true,
             hasEnabledState: true,
             isEnabled: true,
-            hasSelectedState: true,
-            isSelected: false,
+            isChecked: false,
             isFocusable: true,
             hasTapAction: true,
             hasFocusAction: true,
@@ -282,13 +282,13 @@ void main() {
           isSemantics(isFocusable: true, isFocused: true),
         );
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
         await tester.pumpAndSettle();
 
         expect(cast, ['a']);
         expect(
           tester.getSemantics(target),
-          isSemantics(label: 'Alpha', hasSelectedState: true, isSelected: true),
+          isSemantics(label: 'Alpha', hasCheckedState: true, isChecked: true),
         );
       } finally {
         semantics.dispose();
@@ -391,18 +391,12 @@ void main() {
 
         expect(reported, same(failure));
         expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('poll-poll-option-a')),
-            matching: find.byIcon(Icons.radio_button_checked),
-          ),
-          findsOneWidget,
+          tester.getSemantics(find.bySemanticsLabel('Alpha')),
+          isSemantics(hasCheckedState: true, isChecked: true),
         );
         expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('poll-poll-option-b')),
-            matching: find.byIcon(Icons.radio_button_unchecked),
-          ),
-          findsOneWidget,
+          tester.getSemantics(find.bySemanticsLabel('Beta')),
+          isSemantics(hasCheckedState: true, isChecked: false),
         );
       },
     );
