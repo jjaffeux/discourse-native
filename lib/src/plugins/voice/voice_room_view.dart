@@ -873,7 +873,7 @@ class _CallControls extends StatelessWidget {
           _Control(
             label: 'Invite people',
             icon: DIcons.userPlus,
-            selected: false,
+            selected: null,
             onPressed: () => _showVoiceInvite(
               context,
               controller,
@@ -886,7 +886,7 @@ class _CallControls extends StatelessWidget {
           _Control(
             label: 'Room chat',
             icon: DIcons.comment,
-            selected: false,
+            selected: null,
             onPressed: () => _showVoiceChat(
               context,
               controller,
@@ -913,7 +913,7 @@ class _CallControls extends StatelessWidget {
         _Control(
           label: 'Media settings',
           icon: DIcons.gear,
-          selected: false,
+          selected: null,
           onPressed: () => _showMediaSettings(
             context,
             controller,
@@ -924,7 +924,7 @@ class _CallControls extends StatelessWidget {
           _Control(
             label: 'Edit room',
             icon: DIcons.gear,
-            selected: false,
+            selected: null,
             onPressed: () => showVoiceRoomEditor(
               context,
               siteUrl: siteUrl,
@@ -940,7 +940,7 @@ class _CallControls extends StatelessWidget {
           _Control(
             label: 'Manage members',
             icon: DIcons.users,
-            selected: false,
+            selected: null,
             onPressed: () => _showVoiceMembers(
               context,
               controller,
@@ -968,19 +968,29 @@ class _Control extends StatelessWidget {
   });
   final String label;
   final DIconData icon;
-  final bool selected;
+
+  /// Null identifies a momentary action; non-null values are controlled
+  /// independent toggle state owned by the voice controller.
+  final bool? selected;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => DTooltip(
     message: label,
     labelTrigger: true,
-    child: IconButton.filledTonal(
-      tooltip: '',
-      isSelected: selected,
-      onPressed: onPressed,
-      icon: DIcon(icon, size: 19),
-    ),
+    excludeFromSemantics: selected != null,
+    child: selected == null
+        ? IconButton.filledTonal(
+            tooltip: '',
+            onPressed: onPressed,
+            icon: DIcon(icon, size: 19),
+          )
+        : DToggle.iconOnly(
+            pressed: selected,
+            onPressedChanged: (_) => onPressed(),
+            semanticLabel: label,
+            icon: DIcon(icon, size: 19),
+          ),
   );
 }
 
