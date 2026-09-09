@@ -25,7 +25,8 @@ Status: in_progress; source/check/build preparation precedes awaiting_slot.
 
 ## CSS to Flutter mapping
 
-Measured from registry source with 16px root rem; no rendered-comparison claim.
+Registry mapping verified against the rendered official page on 2026-09-09;
+see `native-select-review.md` for measurements, fonts and evidence boundaries.
 One CSS px maps to one Flutter logical px at 100% text scale.
 
 | Registry | Flutter |
@@ -36,7 +37,7 @@ One CSS px maps to one Flutter logical px at 100% text scale.
 | small rounded min(radius-md,10px) | min(.8× configured radius,10) |
 | border-input | 1px colors.outlineVariant; distinct from tokens.border |
 | bg-transparent, dark bg-input/30; dark hover /50 | transparent light; input alpha multiplied by .3/.5 in dark |
-| pl-2.5 / pr-8 | text begins at 10px including border; trailing text allowance 32px = border+9px+16px artwork+6px gap |
+| pl-2.5 / pr-8 | text begins at 11px including border; trailing text allowance 33px = border+9px+16px artwork+7px gap |
 | icon right-2.5, size-4 | 16×16 at trailing 10px, mirrored position in RTL |
 | lucide ChevronDown | path (6,9)-(12,15)-(18,9) in 24px viewbox, scaled 2/3; 2px stroke scaled 2/3, round cap/join |
 | focus-visible border-ring/ring-3 ring/50 | keyboard focus border and 3px exterior-only stroke ring (no tint inside a transparent field); pointer focus does not paint keyboard ring |
@@ -68,7 +69,8 @@ positioning and navigation. Popup width matches the trigger when opened. No
 OS-native picker or browser-popup pixel parity claim is made.
 
 The closed control defaults to reference content width: the widest option or
-placeholder, measured using the live font and text scaler, plus 42px insets.
+placeholder, measured using the live font and text scaler, plus 44px border-box insets. Grouped options include one scaled em in intrinsic
+width, matching the browser optgroup indentation allowance.
 `isExpanded: true` fills a caller's bounded width; migrated app fields set this
 explicitly to retain their layouts. Text ellipsizes in the closed control while the
 full text remains available in popup and semantics. iOS/Android get an invisible
@@ -170,5 +172,6 @@ The status fixture uses a `.invalid` forum; any remote emoji cannot resolve and
 may show its existing production fallback. Source and bundle evidence follows
 in `native-select-build.md` after the isolated build completes.
 
-Native and reference-rendered review remain pending. No CUA or app launch was
-performed while the Mac was locked. Do not mark review_ready or merge yet.
+Browser and font-loaded Flutter render comparison is recorded in
+`native-select-review.md`. Native app/device/VoiceOver review remains pending.
+No native CUA or app launch occurred. Do not mark review_ready or merge yet.

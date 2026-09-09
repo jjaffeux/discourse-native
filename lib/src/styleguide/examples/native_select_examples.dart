@@ -33,6 +33,176 @@ final nativeSelectExamples = ComponentExamples(
       'Label and descriptions compose here without depending on the pending Field.',
   examples: [
     StyleguideExample(
+      title: 'Reference status',
+      description:
+          'Exact composition from the official Base UI Native Select page.',
+      code: '''DNativeSelect<String>(
+  placeholder: 'Select status',
+  entries: const [
+    DNativeSelectOption(value: 'todo', label: 'Todo'),
+    DNativeSelectOption(value: 'in-progress', label: 'In Progress'),
+    DNativeSelectOption(value: 'done', label: 'Done'),
+    DNativeSelectOption(value: 'cancelled', label: 'Cancelled'),
+  ],
+  onChanged: (_) {},
+)''',
+      builder: (_) => DNativeSelect<String>(
+        placeholder: 'Select status',
+        entries: const [
+          DNativeSelectOption(value: 'todo', label: 'Todo'),
+          DNativeSelectOption(value: 'in-progress', label: 'In Progress'),
+          DNativeSelectOption(value: 'done', label: 'Done'),
+          DNativeSelectOption(value: 'cancelled', label: 'Cancelled'),
+        ],
+        onChanged: (_) {},
+      ),
+    ),
+    StyleguideExample(
+      title: 'Reference departments',
+      description:
+          'Exact composition from the official Base UI Native Select page.',
+      code: '''DNativeSelect<String>(
+  placeholder: 'Select department',
+  entries: const [
+    DNativeSelectOptGroup(label: 'Engineering', options: [
+      DNativeSelectOption(value: 'frontend', label: 'Frontend'),
+      DNativeSelectOption(value: 'backend', label: 'Backend'),
+      DNativeSelectOption(value: 'devops', label: 'DevOps'),
+    ]),
+    DNativeSelectOptGroup(label: 'Sales', options: [
+      DNativeSelectOption(value: 'sales-rep', label: 'Sales Rep'),
+      DNativeSelectOption(value: 'account-manager', label: 'Account Manager'),
+      DNativeSelectOption(value: 'sales-director', label: 'Sales Director'),
+    ]),
+    DNativeSelectOptGroup(label: 'Operations', options: [
+      DNativeSelectOption(value: 'support', label: 'Customer Support'),
+      DNativeSelectOption(value: 'product-manager', label: 'Product Manager'),
+      DNativeSelectOption(value: 'ops-manager', label: 'Operations Manager'),
+    ]),
+  ],
+  onChanged: (_) {},
+)''',
+      builder: (_) => DNativeSelect<String>(
+        placeholder: 'Select department',
+        entries: const [
+          DNativeSelectOptGroup(
+            label: 'Engineering',
+            options: [
+              DNativeSelectOption(value: 'frontend', label: 'Frontend'),
+              DNativeSelectOption(value: 'backend', label: 'Backend'),
+              DNativeSelectOption(value: 'devops', label: 'DevOps'),
+            ],
+          ),
+          DNativeSelectOptGroup(
+            label: 'Sales',
+            options: [
+              DNativeSelectOption(value: 'sales-rep', label: 'Sales Rep'),
+              DNativeSelectOption(
+                value: 'account-manager',
+                label: 'Account Manager',
+              ),
+              DNativeSelectOption(
+                value: 'sales-director',
+                label: 'Sales Director',
+              ),
+            ],
+          ),
+          DNativeSelectOptGroup(
+            label: 'Operations',
+            options: [
+              DNativeSelectOption(value: 'support', label: 'Customer Support'),
+              DNativeSelectOption(
+                value: 'product-manager',
+                label: 'Product Manager',
+              ),
+              DNativeSelectOption(
+                value: 'ops-manager',
+                label: 'Operations Manager',
+              ),
+            ],
+          ),
+        ],
+        onChanged: (_) {},
+      ),
+    ),
+    StyleguideExample(
+      title: 'Reference disabled',
+      description:
+          'Exact composition from the official Base UI Native Select page.',
+      code: '''DNativeSelect<String>(
+  placeholder: 'Disabled',
+  entries: const [
+    DNativeSelectOption(value: 'apple', label: 'Apple'),
+    DNativeSelectOption(value: 'banana', label: 'Banana'),
+    DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+  ],
+  onChanged: null,
+)''',
+      builder: (_) => const DNativeSelect<String>(
+        placeholder: 'Disabled',
+        entries: [
+          DNativeSelectOption(value: 'apple', label: 'Apple'),
+          DNativeSelectOption(value: 'banana', label: 'Banana'),
+          DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+        ],
+        onChanged: null,
+      ),
+    ),
+    StyleguideExample(
+      title: 'Reference invalid',
+      description:
+          'Exact composition from the official Base UI Native Select page.',
+      code: '''DNativeSelect<String>(
+  placeholder: 'Error state',
+  entries: const [
+    DNativeSelectOption(value: 'apple', label: 'Apple'),
+    DNativeSelectOption(value: 'banana', label: 'Banana'),
+    DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+  ],
+  onChanged: (_) {},
+  invalid: true,
+)''',
+      builder: (_) => DNativeSelect<String>(
+        placeholder: 'Error state',
+        entries: const [
+          DNativeSelectOption(value: 'apple', label: 'Apple'),
+          DNativeSelectOption(value: 'banana', label: 'Banana'),
+          DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+        ],
+        onChanged: (_) {},
+        invalid: true,
+      ),
+    ),
+    StyleguideExample(
+      title: 'Reference RTL',
+      description:
+          'Exact composition from the official Base UI Native Select page.',
+      code:
+          '''Directionality(textDirection: TextDirection.rtl, child: DNativeSelect<String>(
+  placeholder: 'اختر الحالة',
+  entries: const [
+    DNativeSelectOption(value: 'todo', label: 'مهام'),
+    DNativeSelectOption(value: 'in-progress', label: 'قيد التنفيذ'),
+    DNativeSelectOption(value: 'done', label: 'منجز'),
+    DNativeSelectOption(value: 'cancelled', label: 'ملغي'),
+  ],
+  onChanged: (_) {},
+))''',
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: DNativeSelect<String>(
+          placeholder: 'اختر الحالة',
+          entries: const [
+            DNativeSelectOption(value: 'todo', label: 'مهام'),
+            DNativeSelectOption(value: 'in-progress', label: 'قيد التنفيذ'),
+            DNativeSelectOption(value: 'done', label: 'منجز'),
+            DNativeSelectOption(value: 'cancelled', label: 'ملغي'),
+          ],
+          onChanged: (_) {},
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Simple',
       description:
           'Select a fruit; Grapes is disabled. The placeholder can be selected again.',

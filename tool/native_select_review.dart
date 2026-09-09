@@ -53,7 +53,9 @@ import 'native_select_voice_fixture.dart';
 const _site = 'https://native-select.invalid';
 
 /// Local-only native review entrypoint mounting the actual migrated owners.
-Future<void> main() async {
+Future<void> main() => startNativeSelectReview();
+
+Future<void> startNativeSelectReview({Widget Function(Widget)? wrap}) async {
   WidgetsFlutterBinding.ensureInitialized();
   // This executable deliberately uses the package’s in-memory test backend.
   // ignore: invalid_use_of_visible_for_testing_member
@@ -136,7 +138,8 @@ Future<void> main() async {
   );
   await shell.load();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-  runApp(_Review(shell: shell));
+  final app = _Review(shell: shell);
+  runApp(wrap?.call(app) ?? app);
 }
 
 class _Review extends StatefulWidget {

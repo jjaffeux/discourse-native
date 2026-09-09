@@ -53,6 +53,135 @@ Future<void> _pick(WidgetTester tester, String label) async {
 }
 
 void main() {
+  testWidgets('closed border-box text and chevron insets mirror in RTL', (
+    tester,
+  ) async {
+    for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
+      await tester.pumpWidget(
+        _app(
+          DNativeSelect<String>(
+            isExpanded: true,
+            placeholder: 'Pick',
+            entries: _entries,
+            onChanged: (_) {},
+          ),
+          direction: direction,
+        ),
+      );
+      final outer = tester.getRect(find.byType(MenuAnchor));
+      final text = tester.getRect(find.text('Pick'));
+      final icon = tester.getRect(
+        find
+            .descendant(
+              of: find.byType(MenuAnchor),
+              matching: find.byType(CustomPaint),
+            )
+            .last,
+      );
+      expect(text.height, 20);
+      expect(icon.size, const Size(16, 16));
+      expect(icon.center.dy, outer.center.dy);
+      if (direction == TextDirection.ltr) {
+        expect(text.left - outer.left, 11);
+        expect(outer.right - text.right, 33);
+        expect(outer.right - icon.right, 10);
+      } else {
+        expect(outer.right - text.right, 11);
+        expect(text.left - outer.left, 33);
+        expect(icon.left - outer.left, 10);
+      }
+    }
+  });
+
+  testWidgets('expired character navigation starts at current accepted choice', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    late StateSetter rebuild;
+    String? accepted = 'apple';
+    var accept = true;
+    final proposals = <String?>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return DNativeSelect<String>.controlled(
+                focusNode: focus,
+                value: accepted,
+                entries: const [
+                  DNativeSelectOption(value: 'apple', label: 'Apple'),
+                  DNativeSelectOption(value: 'banana', label: 'Banana'),
+                  DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+                  DNativeSelectOption(value: 'broccoli', label: 'Broccoli'),
+                ],
+                onChanged: (value) {
+                  proposals.add(value);
+                  if (accept) setState(() => accepted = value);
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    focus.requestFocus();
+    await tester.pump();
+    // sendKeyEvent uses Duration.zero, so dispatch explicit timestamps through
+    // the pinned framework public key handler to exercise prefix expiry.
+    Future<void> letterAt(int milliseconds) async {
+      // ignore: deprecated_member_use
+      tester.binding.keyEventManager.keyMessageHandler!(
+        // ignore: deprecated_member_use
+        KeyMessage([
+          KeyDownEvent(
+            physicalKey: PhysicalKeyboardKey.keyB,
+            logicalKey: LogicalKeyboardKey.keyB,
+            character: 'b',
+            timeStamp: Duration(milliseconds: milliseconds),
+          ),
+        ], null),
+      );
+      // ignore: deprecated_member_use
+      tester.binding.keyEventManager.keyMessageHandler!(
+        // ignore: deprecated_member_use
+        KeyMessage([
+          KeyUpEvent(
+            physicalKey: PhysicalKeyboardKey.keyB,
+            logicalKey: LogicalKeyboardKey.keyB,
+            timeStamp: Duration(milliseconds: milliseconds + 1),
+          ),
+        ], null),
+      );
+      await tester.pump();
+    }
+
+    await letterAt(100);
+    expect(proposals, ['banana']);
+    rebuild(() => accepted = 'blueberry');
+    await tester.pump();
+    await letterAt(1500);
+    expect(proposals.last, 'broccoli');
+    // Repeated letters continue the active cycle even if a controlled parent
+    // declines proposals; a new session must use its current accepted value.
+    accept = false;
+    await letterAt(1600);
+    expect(proposals.last, 'banana');
+    await letterAt(1650);
+    expect(proposals.last, 'blueberry');
+    expect(_state(tester).value, 'broccoli');
+    focus.unfocus();
+    await tester.pump();
+    rebuild(() => accepted = 'blueberry');
+    focus.requestFocus();
+    await tester.pump();
+    await letterAt(1700);
+    expect(proposals.last, 'broccoli');
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets(
     'content width stays stable across selections and expanded fills its parent',
     (tester) async {

@@ -239,6 +239,12 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
     if (mounted) setState(() {});
   }
 
+  void _clearTypeAhead() {
+    _typed = '';
+    _lastTypedAt = null;
+    _lastMatch = null;
+  }
+
   bool get _enabled => widget.enabled && widget.onChanged != null;
 
   @override
@@ -259,6 +265,7 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
   @override
   void reset() {
     super.reset();
+    _clearTypeAhead();
     if (widget.controlled) setValue(widget.value);
     widget.onChanged?.call(widget.initialValue);
   }
@@ -295,14 +302,16 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
       letterSpacing: 0,
       color: tokens.foreground,
     );
-    final rows = <({T? value, String label, bool enabled, bool heading})>[
-      (
-        value: null,
-        label: widget.placeholder,
-        enabled: widget.placeholderEnabled,
-        heading: false,
-      ),
-    ];
+    final rows =
+        <({T? value, String label, bool enabled, bool heading, bool grouped})>[
+          (
+            value: null,
+            label: widget.placeholder,
+            enabled: widget.placeholderEnabled,
+            heading: false,
+            grouped: false,
+          ),
+        ];
     final values = <T>{};
     for (final entry in widget.entries) {
       switch (entry) {
@@ -316,6 +325,7 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
             label: entry.label,
             enabled: entry.enabled,
             heading: false,
+            grouped: false,
           ));
         case DNativeSelectOptGroup<T>():
           rows.add((
@@ -323,6 +333,7 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
             label: entry.label,
             enabled: false,
             heading: true,
+            grouped: false,
           ));
           for (final option in entry.options) {
             assert(
@@ -334,6 +345,7 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
               label: option.label,
               enabled: entry.enabled && option.enabled,
               heading: false,
+              grouped: true,
             ));
           }
       }
@@ -366,7 +378,7 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
       _lastTypedAt = event.timeStamp;
       final start = recent && !repeated
           ? (_lastMatch ?? selected)
-          : ((_lastMatch ?? selected) + 1);
+          : ((recent ? (_lastMatch ?? selected) : selected) + 1);
       for (var offset = 0; offset < rows.length; offset++) {
         final index = (math.max(0, start) + offset) % rows.length;
         final row = rows[index];
@@ -413,7 +425,11 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
           textDirection: Directionality.of(context),
           textScaler: MediaQuery.textScalerOf(context),
         )..layout();
-        naturalWidth = math.max(naturalWidth, text.width + 42);
+        // Native select intrinsic sizing includes one em for grouped options.
+        final indent = row.grouped
+            ? MediaQuery.textScalerOf(context).scale(14)
+            : 0;
+        naturalWidth = math.max(naturalWidth, text.width + indent + 44);
         text.dispose();
       }
     }
@@ -454,9 +470,7 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
                   if (box != null && box.hasSize) {
                     setState(() => _menuWidth = box.size.width);
                   }
-                  _typed = '';
-                  _lastTypedAt = null;
-                  _lastMatch = null;
+                  _clearTypeAhead();
                   _menu.open();
                   final index = selected >= 0 && rows[selected].enabled
                       ? selected
@@ -471,9 +485,7 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
                 return MenuAnchor(
                   controller: _menu,
                   onClose: () {
-                    _typed = '';
-                    _lastTypedAt = null;
-                    _lastMatch = null;
+                    _clearTypeAhead();
                   },
                   childFocusNode: _focus,
                   consumeOutsideTap: true,
@@ -570,6 +582,9 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
                         focusNode: _focus,
                         autofocus: widget.autofocus,
                         enabled: _enabled,
+                        onFocusChange: (focused) {
+                          if (!focused && !_menu.isOpen) _clearTypeAhead();
+                        },
                         onShowFocusHighlight: (focused) =>
                             setState(() => _focused = focused),
                         onShowHoverHighlight: (hovered) =>
@@ -624,7 +639,7 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
                                       ? _NativeSelectRing(ring, radius)
                                       : null,
                                   padding: const EdgeInsetsDirectional.only(
-                                    start: 9,
+                                    start: 10,
                                     end: 9,
                                   ),
                                   child: ExcludeSemantics(
@@ -639,7 +654,7 @@ class _NativeSelectFieldState<T extends Object> extends FormFieldState<T> {
                                             style: style,
                                           ),
                                         ),
-                                        const SizedBox(width: 6),
+                                        const SizedBox(width: 7),
                                         CustomPaint(
                                           size: const Size(16, 16),
                                           painter: _ChevronPainter(
