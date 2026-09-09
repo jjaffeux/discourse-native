@@ -124,7 +124,6 @@ const double _railListPadding = 8;
 const double _railItemExtent = 44;
 const double _railControlExtent = 44;
 const double _railVisualSize = 32;
-const double _railAddVisualSize = 34;
 const double _railIconSize = 16;
 const double _railSelectedMarkerHeight = 28;
 const double _railHoveredMarkerHeight = 16;
@@ -1596,89 +1595,18 @@ class _AddInstanceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     const label = 'Add a Discourse site';
-    return Semantics(
-      button: true,
-      label: label,
-      child: DTooltip(
-        message: label,
-        excludeFromSemantics: true,
-        child: InkWell(
-          key: const ValueKey('add-instance-rail-button'),
-          onTap: () => showAddInstanceSheet(context),
-          mouseCursor: SystemMouseCursors.click,
-          borderRadius: BorderRadius.circular(11),
-          child: SizedBox.square(
-            dimension: _railControlExtent,
-            child: Center(
-              child: CustomPaint(
-                key: const ValueKey('add-instance-rail-outline'),
-                painter: _DashedRoundedRectPainter(
-                  color: theme.shell.marker.withValues(alpha: 0.35),
-                  radius: 10,
-                ),
-                child: SizedBox.square(
-                  dimension: _railAddVisualSize,
-                  child: Center(
-                    child: DIcon(
-                      DIcons.plus,
-                      size: 16,
-                      color: theme.shell.marker,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return DButton.iconOnly(
+      key: const ValueKey('add-instance-rail-button'),
+      tooltip: label,
+      semanticLabel: label,
+      variant: DButtonVariant.outline,
+      size: DButtonSize.small,
+      insetSurface: true,
+      onPressed: () => showAddInstanceSheet(context),
+      icon: const DIcon(DIcons.plus, size: _railIconSize),
     );
   }
-}
-
-class _DashedRoundedRectPainter extends CustomPainter {
-  const _DashedRoundedRectPainter({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const strokeWidth = 1.5;
-    const dashLength = 5.0;
-    const gapLength = 4.0;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          Radius.circular(radius),
-        ).deflate(strokeWidth / 2),
-      );
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-
-    for (final metric in path.computeMetrics()) {
-      var offset = 0.0;
-      while (offset < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(
-            offset,
-            math.min(offset + dashLength, metric.length),
-          ),
-          paint,
-        );
-        offset += dashLength + gapLength;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedRoundedRectPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.radius != radius;
 }
 
 class _CountBadge extends StatelessWidget {
