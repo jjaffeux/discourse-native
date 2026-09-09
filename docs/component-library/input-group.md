@@ -2,6 +2,9 @@
 
 Implementation task: `01a085af-d606-7281-ac25-34c83adc855e`.
 Branch: `codex/ui-input-group`.
+Implementation source: `30078b3bf4e4eac96411c19c3bc16b2732ceff59`.
+Independent review: task `01a085d3-1acf-7361-9dc8-fc4a99de7c45`, branch
+`codex/review-input-group`.
 
 ## Reference
 
@@ -54,7 +57,7 @@ focus node to its builder; the group consumes only focus/enabled/invalid state.
 
 ## Examples
 
-The styleguide registers eight actual examples:
+The styleguide registers nine actual examples:
 
 - Default search.
 - Inline/block alignments.
@@ -62,18 +65,33 @@ The styleguide registers eight actual examples:
 - Button actions / Button Group handoff.
 - Kbd and spinner.
 - Textarea footer.
-- Custom input and Form.
+- Custom input.
+- Form validation and reset.
 - RTL.
 
-Dropdown, Popover and Field overlays remain separate catalogue owners. Their
+Empty's functional search example now uses the final Input Group while
+preserving its Form validation, save, submission and local state. Dropdown,
+Popover and Field overlays remain separate catalogue owners. Their
 Input Group examples use local non-overlay stand-ins until those owners merge;
 this avoids importing unmerged branches or duplicating overlay components.
 
 ## Verification
 
-- `flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart --test-randomize-ordering-seed=497094161` passed: 11 tests.
-- `flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart --test-randomize-ordering-seed=3777303596` passed: 49 tests.
-- `flutter test --no-pub test/styleguide/spinner_examples_test.dart --test-randomize-ordering-seed=670442656` passed: 13 tests.
+Independent review fixed two shared-surface state bugs before native review:
+
+- The group now subscribes to every reported control `FocusNode`, repaints the
+  exterior ring on focus changes, and removes those subscriptions when controls
+  change or the group disposes.
+- `DInputGroup(enabled: false)` now dims the whole surface and makes composed
+  DInput/DTextarea/custom controls non-interactive and non-focusable.
+
+The regression suite checks the actual parent decoration replacement on focus,
+the disabled editor state/opacity/focus exclusion, and listener lifecycle through
+the existing focus-node replacement and teardown coverage.
+
+- `flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart test/styleguide/spinner_examples_test.dart test/styleguide/empty_examples_test.dart --test-randomize-ordering-seed=497094161` passed: 30 tests.
+- `flutter test --no-pub test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart --test-randomize-ordering-seed=3777303596` passed: 38 tests.
+- `flutter test --no-pub test/chat_navigation_test.dart test/chat_shell_integration_test.dart --test-randomize-ordering-seed=79316425` passed: 172 tests.
 - `flutter analyze --no-pub` passed.
 - `cd profiles/full && flutter analyze --no-pub` passed.
 - `git diff --check` passed.
@@ -83,10 +101,14 @@ loading-button color expectation unrelated to the Input Group/Spinner styleguide
 fixture replacement.
 
 The implementation has not completed official browser/native inspection yet.
-The independent review task must re-run affected verification after Textarea’s
-accepted main revision is merged, compare against the official rendered
+The independent review task must re-run affected verification, compare against the official rendered
 reference, inspect native macOS styleguide/app surfaces, and then perform the
 local main merge under the review protocol.
+
+The independent reviewer added `tool/input_group_review_main.dart`, an isolated
+offline entry point that mounts the real application, accepted styleguide and
+all three migrated Chat search surfaces using in-memory fakes. It makes no
+account or network request and is the source-exact macOS inspection target.
 
 ## Coordination
 

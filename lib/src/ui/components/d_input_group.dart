@@ -43,6 +43,9 @@ class _DInputGroupState extends State<DInputGroup> {
   bool _updateQueued = false;
 
   void _report(FocusNode node, bool enabled, bool invalid) {
+    if (!_controls.containsKey(node)) {
+      node.addListener(_focusChanged);
+    }
     final next = (enabled: enabled, invalid: invalid);
     if (_controls[node] == next) return;
     _controls[node] = next;
@@ -50,8 +53,13 @@ class _DInputGroupState extends State<DInputGroup> {
   }
 
   void _remove(FocusNode node) {
-    if (_controls.remove(node) != null) _queueUpdate();
+    if (_controls.remove(node) != null) {
+      node.removeListener(_focusChanged);
+      _queueUpdate();
+    }
   }
+
+  void _focusChanged() => _queueUpdate();
 
   void _queueUpdate() {
     if (_updateQueued) return;
@@ -63,12 +71,21 @@ class _DInputGroupState extends State<DInputGroup> {
   }
 
   void _requestControlFocus() {
+    if (!widget.enabled) return;
     for (final node in _controls.keys) {
       if (node.canRequestFocus) {
         node.requestFocus();
         return;
       }
     }
+  }
+
+  @override
+  void dispose() {
+    for (final node in _controls.keys) {
+      node.removeListener(_focusChanged);
+    }
+    super.dispose();
   }
 
   @override
@@ -156,35 +173,38 @@ class _DInputGroupState extends State<DInputGroup> {
             ? MouseCursor.defer
             : SystemMouseCursors.forbidden,
         child: Opacity(
-          opacity: controlEnabled ? 1 : .5,
-          child: IgnorePointer(
-            ignoring: !widget.enabled,
-            child: AnimatedContainer(
-              duration: DMotion.duration(
-                context,
-                const Duration(milliseconds: 150),
+          opacity: widget.enabled && controlEnabled ? 1 : .5,
+          child: ExcludeFocus(
+            excluding: !widget.enabled,
+            child: IgnorePointer(
+              ignoring: !widget.enabled,
+              child: AnimatedContainer(
+                duration: DMotion.duration(
+                  context,
+                  const Duration(milliseconds: 150),
+                ),
+                constraints: BoxConstraints(minHeight: multiline ? 64 : 32),
+                decoration: BoxDecoration(
+                  color: dark
+                      ? tokens.colors.outlineVariant.withValues(
+                          alpha:
+                              tokens.colors.outlineVariant.a *
+                              (controlEnabled ? .3 : .8),
+                        )
+                      : controlEnabled
+                      ? Colors.transparent
+                      : tokens.colors.outlineVariant.withValues(
+                          alpha: tokens.colors.outlineVariant.a * .5,
+                        ),
+                  borderRadius: BorderRadius.circular(tokens.radius),
+                  border: Border.all(color: border),
+                ),
+                foregroundDecoration: _InputGroupRingDecoration(
+                  color: invalid || focused ? ring : ring.withValues(alpha: 0),
+                  radius: tokens.radius,
+                ),
+                child: content,
               ),
-              constraints: BoxConstraints(minHeight: multiline ? 64 : 32),
-              decoration: BoxDecoration(
-                color: dark
-                    ? tokens.colors.outlineVariant.withValues(
-                        alpha:
-                            tokens.colors.outlineVariant.a *
-                            (controlEnabled ? .3 : .8),
-                      )
-                    : controlEnabled
-                    ? Colors.transparent
-                    : tokens.colors.outlineVariant.withValues(
-                        alpha: tokens.colors.outlineVariant.a * .5,
-                      ),
-                borderRadius: BorderRadius.circular(tokens.radius),
-                border: Border.all(color: border),
-              ),
-              foregroundDecoration: _InputGroupRingDecoration(
-                color: invalid || focused ? ring : ring.withValues(alpha: 0),
-                radius: tokens.radius,
-              ),
-              child: content,
             ),
           ),
         ),
@@ -205,6 +225,7 @@ class _DInputGroupState extends State<DInputGroup> {
       remove: _remove,
       requestControlFocus: _requestControlFocus,
       inputPadding: inputPadding,
+      enabled: widget.enabled,
       child: touch && !multiline
           ? ConstrainedBox(
               constraints: const BoxConstraints(
@@ -569,13 +590,20 @@ class _DInputGroupControlState extends State<DInputGroupControl> {
 
   @override
   Widget build(BuildContext context) {
-    _group?.report(_focus, widget.enabled, widget.invalid);
+    final enabled = widget.enabled && (_group?.enabled ?? true);
+    _group?.report(_focus, enabled, widget.invalid);
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: 10,
         vertical: widget.multiline ? 8 : 5,
       ),
-      child: widget.builder(context, _focus),
+      child: ExcludeFocus(
+        excluding: !enabled,
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: widget.builder(context, _focus),
+        ),
+      ),
     );
   }
 }

@@ -247,7 +247,8 @@ class _DTextareaState extends FormFieldState<String> {
       color: t.foreground,
     );
     final group = _group;
-    group?.report(_focus, input.enabled, isInvalid);
+    final enabled = input.enabled && (group?.enabled ?? true);
+    group?.report(_focus, enabled, isInvalid);
     final editor = Semantics(
       container: true,
       label: input.semanticLabel ?? input.labelText,
@@ -259,7 +260,7 @@ class _DTextareaState extends FormFieldState<String> {
         key: input.editorKey,
         controller: _controller,
         focusNode: _focus,
-        enabled: input.enabled,
+        enabled: enabled,
         readOnly: input.readOnly,
         autofocus: input.autofocus,
         style: style,
