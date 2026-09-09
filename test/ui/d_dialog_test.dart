@@ -69,6 +69,45 @@ Widget _dialog<T>({
 );
 
 void main() {
+  testWidgets('custom presentation keeps Dialog lifecycle and close scope', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        DDialog<void>(
+          transitionDuration: const Duration(milliseconds: 200),
+          reverseTransitionDuration: const Duration(milliseconds: 180),
+          presentationBuilder: (context, presentation) => Stack(
+            children: [
+              Positioned.fill(child: presentation.buildBackdrop()),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: presentation.content,
+              ),
+            ],
+          ),
+          trigger: DDialogTrigger(
+            builder: (_, open) =>
+                TextButton(onPressed: open, child: const Text('Open custom')),
+          ),
+          content: DDialogClose<void>(
+            builder: (_, close) =>
+                TextButton(onPressed: close, child: const Text('Close custom')),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open custom'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getBottomLeft(find.text('Close custom')).dy,
+      greaterThan(550),
+    );
+    await tester.tap(find.text('Close custom'));
+    await tester.pumpAndSettle();
+    expect(find.text('Close custom'), findsNothing);
+  });
+
   testWidgets('uncontrolled trigger and close report state and restore focus', (
     tester,
   ) async {

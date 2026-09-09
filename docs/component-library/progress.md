@@ -62,27 +62,27 @@ Branch preparation does not mark a component merged or visually verified.
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
 | 22 | card | merged | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | a73f465ac86105fdda35f5b56f8b491da4b3936d |
 | 23 | empty | merged | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | fb790fcd2356a9acc7cd488ca587eaafb4d91ccb |
-| 24 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
-| 25 | table | merged | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | 082fcc55ab85d3bd4012c6bd24c647c1febd7d2a |
-| 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
-| 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
-| 28 | accordion | merged | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | f3aa5074a848a6f8ee793de7323cf9de766be1d4 |
-| 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
-| 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
-| 31 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
-| 32 | hover-card | merged | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | de39686f2a5d75651ef37268edb44adb6376cd7c |
-| 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
-| 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
-| 35 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
-| 36 | drawer | in_progress | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | — |
-| 37 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
-| 38 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
-| 39 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
-| 40 | input-group | merged | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner, field, dropdown-menu, popover | d1de717b1e2d1eeaf06d86dafe1452662d05e368 |
-| 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
-| 42 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
-| 43 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command | — |
-| 44 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
+| 24 | table | merged | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | 082fcc55ab85d3bd4012c6bd24c647c1febd7d2a |
+| 25 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
+| 26 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
+| 27 | accordion | merged | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | f3aa5074a848a6f8ee793de7323cf9de766be1d4 |
+| 28 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
+| 29 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
+| 30 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
+| 31 | hover-card | merged | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | de39686f2a5d75651ef37268edb44adb6376cd7c |
+| 32 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
+| 33 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
+| 34 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
+| 35 | drawer | implemented | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | — |
+| 36 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
+| 37 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
+| 38 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
+| 39 | input-group | merged | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner, field, dropdown-menu, popover | d1de717b1e2d1eeaf06d86dafe1452662d05e368 |
+| 40 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
+| 41 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
+| 42 | combobox | in_progress | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command | — |
+| 43 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
+| 44 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
 | 45 | context-menu | in_progress | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | — |
 | 46 | menubar | in_progress | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | — |
 | 47 | navigation-menu | in_progress | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | — |
@@ -1567,66 +1567,6 @@ Status: merged. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/ui-emp
 - Input Group example reconciliation remains pending that component after its Textarea prerequisite; final DInput/Form composition is functional but is not an Input Group implementation.
 - No iOS/Linux device, VoiceOver speech or pixel-parity claim. Other migrated owners beyond the inspected no-sites/categories/groups/Chat fixtures retain downstream widget coverage rather than native screen inspection.
 
-### item
-
-Status: merged. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
-
-**acceptanceCriteria**
-
-- Provide one exported reusable owner for all ten Item parts with default/outline/muted variants, default/sm/xs metrics, image/icon/avatar media, multiple content columns, full-width header/footer and group/separator compositions.
-- Match frozen markdown SHA c4a69c25199741ad3baea25f07a869e1aebf08cf3274f1a4f2e9da04afbbe0f0 and base-nova registry: 1px border, host lg radius, 12x10/10x8 padding, 10/8 gap, 14px title at 1.375 leading, 14/12px description at 1.5 leading, image 40/32/24 with sm radius; multiply muted/focus alpha and paint 3px exterior ring.
-- Passive Item adds no control role; opt-in action/link supports keyboard visible focus, pointer/touch and borrowed FocusNode ownership. Child actions cannot activate parent by keyboard or pointer. Expose no editable state: native Form descendants retain their own owner.
-- Prove geometry, live tokens, RTL, narrow/large text reflow, reduced motion, focus lifecycle, disabled interaction, child action isolation and group semantics with meaningful widget tests.
-- Self-contained real-component styleguide covers every documented example and pending Button/Dropdown dependency reconciliation explicitly; source/artwork URLs and hashes retained.
-- Audit core/plugin rows, migrate tag directory presentation and assignment detail rows while preserving lazy builders, per-row state, callbacks, permission guards and complete assignment notes; leave Empty/Alert regions to their owners.
-- Run touched format, root/full static analysis, focused component/styleguide/migration checks, and distinct source-exact native fixture/styleguide verification with recorded kernel/signature provenance.
-
-**decisions**
-
-- Own Item only on main base 402fe578. Proposed migrations: TagsPage row presentation and AssignmentDetailRow; shared tags empty/error regions overlap Empty/Alert and remain untouched. Thread messaging tool absent in this task; handoff via progress/final.
-- One generic owner exports all ten parts; full source hashes, CSS/logical metrics, semantics/layout/keyboard/native adaptations and audit are in docs/component-library/item.md.
-- Thirteen actual-component examples use bundled reference artwork. The implementation's temporary MenuAnchor was historical preparation only and did not reach the accepted candidate.
-- Independent review compared the live official Base UI Item page and exact-source native production fixture under the serialized desktop lease.
-- Bounded integration merges pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 via 1462873c; all 17 merged components, coordinator Group/Sidebar/Topic Inbox fixes and every non-Item progress row preserved.
-- Final Button outline/small and accessible round icon-only outline/ghost actions, Badge role composition, controlled Checkbox fixture settings and DInput Form regression replace applicable temporary composition. No radio choices require replacement.
-- Native RTL/200% inspection exposed inherited ellipsis on intentionally unclamped assignment notes; review fix fcc26238982fb062a84b4f964995d7026e547af7 uses clip only when maxLines is null and preserves explicit clamp ellipsis.
-- The final current-main candidate composes accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 with passive xs Items; menu focus, selection, dismissal and restoration remain Dropdown-owned.
-
-**migrations**
-
-- TagsPage ready rows now use exported TagDirectoryRow/DItem; lazy builder, ShellSelector, request identity, refresh, navigation, keys and count semantics remain app-owned.
-- AssignmentDetailRow uses muted Item with existing avatar adapter and untruncated identity/status/note; permission callback and accessible full label retained.
-
-**retainedAlternatives**
-
-- Specialized topic/inbox/notification/read-state rows, draft/resume rows, activity tables and menu/field choices retain their existing state and interaction contracts; see item.md.
-- Events participants and event-day records are candidate follow-ups for coordinated Calendar/Dialog/Events migration; no changes to their async authority or navigation checks.
-- Empty page messages, Alert banners, Voice message rendering and reaction UserCardTarget rows remain with adjacent component owners.
-
-**verification**
-
-- Frozen markdown hash exactly matches; registry and artwork URLs/hashes committed under reference/item.
-- Flutter 3.47.2 unchanged. Root and full-profile enforced-lockfile resolution passed; all pins/lockfiles unchanged.
-- Root and full-profile flutter analyze --no-pub passed.
-- 47 focused tests passed with seed 9092026: d_item, item_examples, item_migration_fixture, tags_page, assignment_sheet and styleguide_page. Includes pixel evidence that focus paints outside and does not tint muted interior; this is not native parity.
-- Touched formatting and git diff --check passed.
-- Final inherited-clamp correction: 34 focused component/styleguide/migration tests passed with seed 9092026; root and full-profile analysis passed again. Earlier 47-test run also covered the unchanged styleguide shell.
-- Isolated ItemReview82f4 macOS debug build succeeded from e792c515; actual Info.plist confirms org.discourse.itemreview82f4 and discourse-item-review-82f4 URL scheme. Local ad-hoc signature passes codesign --verify --deep --strict.
-- Build and copied App.framework kernels both SHA256 7f7f633347d1a22adc56397fec4be1298837c0702253676fef1662d46991b596. Runner files restored; lib/pubspec/macos equality to source commit and all pin/lockfile equality to 402fe578 verified. See item-build.md and reference/item/build.json.
-- Pinned-main integration: Item/styleguide examples/TagsPage/AssignmentSheet suites passed; fixture control-width/settled-scroll correction then passed final 11 Item/fixture tests including final Checkbox pointer/Space isolation and final Input Form retention. Root and full-profile analysis pass after final changes.
-- Integrated exact-source macOS build from 68402409 succeeded: ItemReview82f4Integrated.app / org.discourse.itemreview82f4integrated / discourse-item-review-82f4-integrated. Explicit local debug/JIT entitlement signed readback is restricted-free across main app/frameworks/dylibs; strict deep signature passes and no embedded profile remains.
-- Integrated copied/build kernel SHA256 cf0a1efc46876ee29e0fc93fcee132e6b14977e82d0f1dd725c472b55df48122. Source/runner equality to 68402409 and all pins/locks equality to e612ad7b verified; all non-Item progress and coordinator Group/Sidebar/Topic Inbox source preserved. See item-build.md and reference/item/integration-build.json.
-- Live official Base UI comparison confirmed the 448px Item width, 10x12 default/sm and 8x10 xs padding, 10/8 gaps, 1px border, 10px radius and 14/20 text geometry in light and dark rendering.
-- Initial native production-fixture inspection exercised tag navigation, assignment editing and permission-disabled rows. RTL, dark and 200% text exposed the unclamped-note ellipsis defect fixed in fcc26238.
-- Corrected exact-source ItemReviewD14aFinal.app uses org.discourse.itemreviewd14afinal / discourse-item-review-d14a-final; build and copied kernels match SHA256 b792631873ef9e75576a154432c7f7e6eb9c6d0d9915843c2f945fa2d4675013 and deep strict signing passed with only recorded debug/JIT/network entitlements.
-- Corrected native confirmation showed every line of both real assignment notes at RTL/dark/200% without ellipsis and retained Edit assignment 2 activation.
-- Final accepted Dropdown composition plus Item/component/migration suites passed 35 tests with seed 9092026; root and full-profile flutter analyze --no-pub, Dart formatting and git diff --check passed. Dependency resolution used existing enforced lockfiles without changes.
-
-**limitations**
-
-- No iOS/Linux device, spoken VoiceOver, authenticated screen or pixel-parity validation. macOS Accessibility roles/actions and focused widget semantics were inspected.
-- Events participant/day rows remain candidate follow-ups for their Calendar/Dialog/Events owners; this review did not change their async or navigation authority.
-
 ### table
 
 Status: merged. Task: 01a0844a-0669-7780-92e8-33cc4314f64a. Branch: codex/ui-table.
@@ -2129,7 +2069,7 @@ Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/u
 
 ### drawer
 
-Status: in_progress. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/ui-drawer.
+Status: implemented. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/ui-drawer.
 
 **acceptanceCriteria**
 
@@ -2142,6 +2082,36 @@ Status: in_progress. Task: 01a08606-5dd1-75a2-9dbb-a652188d7bd5. Branch: codex/u
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
 - Verified independent reviewer Review and merge Drawer (01a08643-3074-72e1-8b18-a2266dd724e6) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- The frozen Markdown, base-nova registry and current Base UI API were pinned at SHA-256 e3fca4a3433436c5eb043a1075f04d064f97add28e4d89872a9a01fe493cc63a, fc81c0adadef868df72172c9cf83237b8ab791a4f0f3e300540883be56c26982 and 06e18a642563ba92e71fe756dbadfc3fc8789c9458a37bba6b7b359f3ae8fbcd respectively.
+- Base-nova geometry maps to 450ms cubic motion, 10% black/4px-blur overlay, exposed-edge border and xl radius, content-sized vertical panels capped 96px from the viewport, 75% side width capped at 384px, 16px section padding, 96x4 handle and 48px overshoot bleed. Native theme tokens, safe areas, text scaling and Flutter focus/semantics remain integration owners.
+- Drawer owns swipe, snap and nested gesture behavior. Concurrent Sheet owns showShellSheet adoption and non-gesture sheet conveniences; DOverlayRoute is the shared route/focus/live-environment foundation reused by Dialog and Drawer.
+- Touch, stylus and trackpad can drag the whole surface; mouse dragging is restricted to the visible handle so body text remains selectable. Logical start/end resolve from live Directionality, and reduced motion completes immediately.
+- Independent review checked the exact Base UI v1.8.0 implementation and corrected fraction snap resolution, one-pixel snap deduplication, low-speed closest-snap selection, fast-swipe projection, one-detent sequential movement, no-snap dismissal thresholds and square-root open overshoot damping.
+- Nested depth and live swipe progress now propagate through every mounted ancestor, matching Silk's below-stack aggregation. Route teardown clears ownership before Navigator removal and the stack handle rejects late notifications after disposal.
+
+**migrations**
+
+- Added Drawer as a public discourse_ui.dart component and registered nine runnable styleguide examples covering delivery-time composition, custom size/style, physical/logical positions, swipe handle, four-level nesting, non-modal interaction, pixel/fraction snap points, responsive Dialog composition and RTL placement.
+- No application surface was migrated. The concurrent Sheet task owns existing showShellSheet callers and its Voice modal-bottom-sheet adoption, avoiding duplicate component ownership.
+
+**retainedAlternatives**
+
+- ChatDrawerOverlay remains the app-specific persistent, collapsible and user-resizable chat workspace because replacing it with a transient route Drawer would remove saved width, collapse/full-page transitions and desktop placement contracts.
+- No Scaffold.drawer or NavigationDrawer usage exists in core, bundled plugins, profiles or packages.
+
+**verification**
+
+- Independent review passed all 62 Drawer/Dialog/styleguide tests with seed 19040911, including viewport-fraction, shallow no-snap rebound, nested swipe reveal and three-level stack-depth regressions.
+- flutter analyze --no-pub passed at the repository root and profiles/full; Dart formatting and git diff --check passed.
+- The source-exact macOS fixture built as isolated Drawer Review fb46.app with bundle ID org.discourse.drawer.review.fb46. Original and copied kernels both hashed f00a9426f82200529a427047b7c156fd4d3179b7f2feca81a7df252deabe89c7; deep strict signature verification passed with only expected debug entitlements.
+- Official rendered browser inspection covered Basic/right, Position/left, Swipe Handle/bottom, Snap Points, Non Modal and three nested levels. Measured side width, inset/radius, handle, overlay, depth transforms and non-modal barrier behavior agreed with the recorded mapping.
+- Interactive native macOS acceptance passed bottom focus/Tab/Escape restoration, LTR right and RTL left logical placement, compact-to-full snap dragging, nested child-only Escape then parent close, non-modal page pass-through, live dark theme while open, 200% text usability and immediate reduced-motion open/close.
+- docs/component-library/reference/drawer.md records the exact source-to-Flutter, Base UI v1.8.0 and Silk mapping. The Sheet reviewer confirmed its shared route extraction is byte-identical and Sheet retains its adoption ownership.
+
+**limitations**
+
+- iOS, Android and Linux devices were not run, and no spoken VoiceOver session was performed.
+- Browser Geist and native host-font rasterization differ; review establishes geometry, styling, interaction and accessibility structure rather than pixel equality.
 
 ### select
 
@@ -2494,6 +2464,66 @@ Status: merged. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dro
 **limitations**
 
 - No iOS/Linux device, spoken VoiceOver session or pixel-identical screenshot claim is made; those platforms remain covered by widget behavior and geometry tests rather than this macOS acceptance pass.
+
+### item
+
+Status: merged. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
+
+**acceptanceCriteria**
+
+- Provide one exported reusable owner for all ten Item parts with default/outline/muted variants, default/sm/xs metrics, image/icon/avatar media, multiple content columns, full-width header/footer and group/separator compositions.
+- Match frozen markdown SHA c4a69c25199741ad3baea25f07a869e1aebf08cf3274f1a4f2e9da04afbbe0f0 and base-nova registry: 1px border, host lg radius, 12x10/10x8 padding, 10/8 gap, 14px title at 1.375 leading, 14/12px description at 1.5 leading, image 40/32/24 with sm radius; multiply muted/focus alpha and paint 3px exterior ring.
+- Passive Item adds no control role; opt-in action/link supports keyboard visible focus, pointer/touch and borrowed FocusNode ownership. Child actions cannot activate parent by keyboard or pointer. Expose no editable state: native Form descendants retain their own owner.
+- Prove geometry, live tokens, RTL, narrow/large text reflow, reduced motion, focus lifecycle, disabled interaction, child action isolation and group semantics with meaningful widget tests.
+- Self-contained real-component styleguide covers every documented example and pending Button/Dropdown dependency reconciliation explicitly; source/artwork URLs and hashes retained.
+- Audit core/plugin rows, migrate tag directory presentation and assignment detail rows while preserving lazy builders, per-row state, callbacks, permission guards and complete assignment notes; leave Empty/Alert regions to their owners.
+- Run touched format, root/full static analysis, focused component/styleguide/migration checks, and distinct source-exact native fixture/styleguide verification with recorded kernel/signature provenance.
+
+**decisions**
+
+- Own Item only on main base 402fe578. Proposed migrations: TagsPage row presentation and AssignmentDetailRow; shared tags empty/error regions overlap Empty/Alert and remain untouched. Thread messaging tool absent in this task; handoff via progress/final.
+- One generic owner exports all ten parts; full source hashes, CSS/logical metrics, semantics/layout/keyboard/native adaptations and audit are in docs/component-library/item.md.
+- Thirteen actual-component examples use bundled reference artwork. The implementation's temporary MenuAnchor was historical preparation only and did not reach the accepted candidate.
+- Independent review compared the live official Base UI Item page and exact-source native production fixture under the serialized desktop lease.
+- Bounded integration merges pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 via 1462873c; all 17 merged components, coordinator Group/Sidebar/Topic Inbox fixes and every non-Item progress row preserved.
+- Final Button outline/small and accessible round icon-only outline/ghost actions, Badge role composition, controlled Checkbox fixture settings and DInput Form regression replace applicable temporary composition. No radio choices require replacement.
+- Native RTL/200% inspection exposed inherited ellipsis on intentionally unclamped assignment notes; review fix fcc26238982fb062a84b4f964995d7026e547af7 uses clip only when maxLines is null and preserves explicit clamp ellipsis.
+- The final current-main candidate composes accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 with passive xs Items; menu focus, selection, dismissal and restoration remain Dropdown-owned.
+
+**migrations**
+
+- TagsPage ready rows now use exported TagDirectoryRow/DItem; lazy builder, ShellSelector, request identity, refresh, navigation, keys and count semantics remain app-owned.
+- AssignmentDetailRow uses muted Item with existing avatar adapter and untruncated identity/status/note; permission callback and accessible full label retained.
+
+**retainedAlternatives**
+
+- Specialized topic/inbox/notification/read-state rows, draft/resume rows, activity tables and menu/field choices retain their existing state and interaction contracts; see item.md.
+- Events participants and event-day records are candidate follow-ups for coordinated Calendar/Dialog/Events migration; no changes to their async authority or navigation checks.
+- Empty page messages, Alert banners, Voice message rendering and reaction UserCardTarget rows remain with adjacent component owners.
+
+**verification**
+
+- Frozen markdown hash exactly matches; registry and artwork URLs/hashes committed under reference/item.
+- Flutter 3.47.2 unchanged. Root and full-profile enforced-lockfile resolution passed; all pins/lockfiles unchanged.
+- Root and full-profile flutter analyze --no-pub passed.
+- 47 focused tests passed with seed 9092026: d_item, item_examples, item_migration_fixture, tags_page, assignment_sheet and styleguide_page. Includes pixel evidence that focus paints outside and does not tint muted interior; this is not native parity.
+- Touched formatting and git diff --check passed.
+- Final inherited-clamp correction: 34 focused component/styleguide/migration tests passed with seed 9092026; root and full-profile analysis passed again. Earlier 47-test run also covered the unchanged styleguide shell.
+- Isolated ItemReview82f4 macOS debug build succeeded from e792c515; actual Info.plist confirms org.discourse.itemreview82f4 and discourse-item-review-82f4 URL scheme. Local ad-hoc signature passes codesign --verify --deep --strict.
+- Build and copied App.framework kernels both SHA256 7f7f633347d1a22adc56397fec4be1298837c0702253676fef1662d46991b596. Runner files restored; lib/pubspec/macos equality to source commit and all pin/lockfile equality to 402fe578 verified. See item-build.md and reference/item/build.json.
+- Pinned-main integration: Item/styleguide examples/TagsPage/AssignmentSheet suites passed; fixture control-width/settled-scroll correction then passed final 11 Item/fixture tests including final Checkbox pointer/Space isolation and final Input Form retention. Root and full-profile analysis pass after final changes.
+- Integrated exact-source macOS build from 68402409 succeeded: ItemReview82f4Integrated.app / org.discourse.itemreview82f4integrated / discourse-item-review-82f4-integrated. Explicit local debug/JIT entitlement signed readback is restricted-free across main app/frameworks/dylibs; strict deep signature passes and no embedded profile remains.
+- Integrated copied/build kernel SHA256 cf0a1efc46876ee29e0fc93fcee132e6b14977e82d0f1dd725c472b55df48122. Source/runner equality to 68402409 and all pins/locks equality to e612ad7b verified; all non-Item progress and coordinator Group/Sidebar/Topic Inbox source preserved. See item-build.md and reference/item/integration-build.json.
+- Live official Base UI comparison confirmed the 448px Item width, 10x12 default/sm and 8x10 xs padding, 10/8 gaps, 1px border, 10px radius and 14/20 text geometry in light and dark rendering.
+- Initial native production-fixture inspection exercised tag navigation, assignment editing and permission-disabled rows. RTL, dark and 200% text exposed the unclamped-note ellipsis defect fixed in fcc26238.
+- Corrected exact-source ItemReviewD14aFinal.app uses org.discourse.itemreviewd14afinal / discourse-item-review-d14a-final; build and copied kernels match SHA256 b792631873ef9e75576a154432c7f7e6eb9c6d0d9915843c2f945fa2d4675013 and deep strict signing passed with only recorded debug/JIT/network entitlements.
+- Corrected native confirmation showed every line of both real assignment notes at RTL/dark/200% without ellipsis and retained Edit assignment 2 activation.
+- Final accepted Dropdown composition plus Item/component/migration suites passed 35 tests with seed 9092026; root and full-profile flutter analyze --no-pub, Dart formatting and git diff --check passed. Dependency resolution used existing enforced lockfiles without changes.
+
+**limitations**
+
+- No iOS/Linux device, spoken VoiceOver, authenticated screen or pixel-parity validation. macOS Accessibility roles/actions and focused widget semantics were inspected.
+- Events participant/day rows remain candidate follow-ups for their Calendar/Dialog/Events owners; this review did not change their async or navigation authority.
 
 ### context-menu
 
