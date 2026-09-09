@@ -5,6 +5,70 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('reparented custom anchor re-registers without closing', (
+    tester,
+  ) async {
+    final moved = ValueNotifier(false);
+    addTearDown(moved.dispose);
+    final anchor = DPopoverAnchor(
+      key: GlobalKey(),
+      child: const Text('Anchor'),
+    );
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<bool>(
+          valueListenable: moved,
+          builder: (context, right, child) => DPopover(
+            defaultOpen: true,
+            content: const DPopoverContent(child: Text('Reparented content')),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(width: 120, child: right ? null : anchor),
+                SizedBox(width: 120, child: right ? anchor : null),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final before = tester.getRect(find.byType(DPopoverContent));
+    moved.value = true;
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Reparented content'), findsOneWidget);
+    final after = tester.getRect(find.byType(DPopoverContent));
+    expect(after.left, greaterThan(before.left + 100));
+  });
+
+  testWidgets('removing an open custom anchor avoids inactive layout reads', (
+    tester,
+  ) async {
+    final visible = ValueNotifier(true);
+    addTearDown(visible.dispose);
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<bool>(
+          valueListenable: visible,
+          builder: (context, show, child) => DPopover(
+            defaultOpen: true,
+            content: const DPopoverContent(child: Text('Anchored content')),
+            child: show
+                ? const DPopoverAnchor(child: Text('Anchor'))
+                : const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Anchored content'), findsOneWidget);
+    visible.value = false;
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Anchored content'), findsNothing);
+  });
+
   testWidgets(
     'uncontrolled trigger opens, focuses content, and Escape restores',
     (tester) async {
