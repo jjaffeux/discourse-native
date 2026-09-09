@@ -15,8 +15,8 @@ The twelve linked Base example sources were also downloaded and inspected.
 | Frozen source behavior | Native implementation |
 | --- | --- |
 | `role="group"`; author supplies `aria-label`/`aria-labelledby` | `Semantics(container: true, explicitChildNodes: true, label: semanticLabel)` creates a named boundary while retaining separate descendant controls. Flutter exposes no generic group `SemanticsRole`. |
-| Horizontal `flex w-fit items-stretch` | `DButtonGroupOrientation.horizontal`, `MainAxisSize.min`, `IntrinsicHeight`, and stretched direct children. A caller can use max size in a finite parent. |
-| Vertical `flex-col` | `DButtonGroupOrientation.vertical`, `IntrinsicWidth`, and stretched direct children. |
+| Horizontal `flex w-fit items-stretch` | `DButtonGroupOrientation.horizontal` and `MainAxisSize.min` use a centered `Row`; a caller can use max size plus `DButtonGroupExpanded` in a finite parent. The implementation deliberately avoids intrinsic measurement because rich controls such as `DSelect` use `LayoutBuilder`. Standard controls share the reference height. |
+| Vertical `flex-col` | `DButtonGroupOrientation.vertical` uses a centered `Column`; the component does not impose intrinsic measurement on arbitrary child controls. |
 | First/last outer radii; square joined corners | A direct-child `DJoinedControlScope` resolves logical corners from live token or explicit control radii. RTL mirrors start/end. Nested groups install their own scope. |
 | Later direct controls use `border-l-0` or `border-t-0` | The grouped `DButton` outline omits only its painted leading edge, preserving the other three borders and all focus/invalid rings. `DInput` uses the same joined radii and custom animated surface decoration so its shared leading edge is omitted without changing editing, focus, invalid or disabled behavior. |
 | `*:focus-visible:relative *:focus-visible:z-10` | Each Flutter control owns visible focus. Its 3px outside focus/invalid ring paints after its own surface without changing group layout. Flutter focus order remains ordinary Tab order, not roving toolbar focus. |
@@ -31,14 +31,15 @@ The twelve linked Base example sources were also downloaded and inspected.
 ## Frozen compositions
 
 The styleguide registers runnable sections for Composition, Orientation, Size,
-Nested, Separator, Split, Input, Input Group, Dropdown Menu, Select, Popover,
-and RTL. It also explains Button Group versus Toggle Group and demonstrates the
-three public API parts. Input Group, library Dropdown Menu, rich Select and
-Popover are dependency-aware handoff fixtures: they exercise the generic group
-with local state and approved Flutter primitives, explicitly say they are not
-the final owning components, and do not substitute Native Select. The final
-Button Group reviewer owns replacing those four fixtures when their respective
-owners merge and then completing rendered/native acceptance.
+Nested, Separator, Split, Field/Input, Input Group, Dropdown Menu, Select,
+Popover, and RTL. It also explains Button Group versus Toggle Group and
+demonstrates the three public API parts. Each dependency composition now mounts
+its public component: `DField` labels and describes the multi-control search
+group without wrapping it in `DFieldControl`; `DInputGroup` owns its nested
+editor/addon surface; `DDropdownMenu` owns split-menu focus and dismissal;
+`DSelect` is the sole direct joined currency trigger; and `DPopover` owns its
+detached content. `DJoinedControlScope.boundary` prevents popup descendants
+from inheriting the trigger's joined geometry.
 
 ## Concrete acceptance criteria
 
@@ -59,6 +60,17 @@ owners merge and then completing rendered/native acceptance.
   snippet uses the public library API.
 - At least one appropriate production independent-action row adopts the group,
   with focused regression coverage for its existing callbacks and shortcuts.
+
+## Official rendered inspection
+
+The official Base UI Button Group page was inspected on 2026-09-09 in both
+light and dark themes. The rendered examples confirmed compact equal-height
+joined surfaces, one-pixel shared seams, logical outside radii, independent Tab
+stops, the split Dropdown Menu, a three-option currency Select whose popup keeps
+its own radius, and the full documented Composition, Orientation, Size, Nested,
+Separator, Split, Input, Input Group, Dropdown Menu, Select, Popover and RTL
+sections. Escape closed both inspected overlays and returned focus to their
+triggers. The source hashes above remain the byte-level reference record.
 
 ## Application audit
 
