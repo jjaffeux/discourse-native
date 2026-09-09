@@ -221,10 +221,7 @@ void main() {
 
     await tester.tap(find.text('Edit status'));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
-      isTrue,
-    );
+    expect(tester.widget<DCheckbox>(find.byType(DCheckbox)).value, isTrue);
     await tester.tap(find.text('Clear status'));
     await tester.pumpAndSettle();
     expect(api.userStatusesCleared, [_site]);

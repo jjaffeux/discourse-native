@@ -330,18 +330,14 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
                 ),
               ),
       ),
-      CheckboxListTile(
+      DCheckbox(
         key: const ValueKey('topic-move-posts-chronological'),
         contentPadding: EdgeInsets.zero,
         value: _chronologicalOrder,
         onChanged: _saving
             ? null
             : (value) => setState(() => _chronologicalOrder = value ?? false),
-        title: DLabel(
-          enabled: !_saving,
-          child: const Text('Preserve chronological order'),
-        ),
-        controlAffinity: ListTileControlAffinity.leading,
+        title: const DLabel(child: Text('Preserve chronological order')),
       ),
     ],
   );
