@@ -442,7 +442,7 @@
         "Actual native production-fixture verification remains pending Mac unlock and coordinator native slot. Browser-versus-widget-export comparison is complete but does not satisfy the native gate; do not mark review_ready.",
         "No iOS/Linux native device, spoken VoiceOver or automated cross-renderer pixel-diff claim."
       ],
-      "implementationCommit": "4483071a2b1e4a147fb9627a8b5de9713a2138b8",
+      "implementationCommit": "154e83dd7f1c97b4acf1d729f8375acd482bc3fa",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },

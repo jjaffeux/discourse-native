@@ -202,3 +202,5 @@ Manifest `/private/tmp/button-build-source-v5.json` SHA256:
 Kernel SHA256:
 `0b4bdc1f7e6292fb2eb3ff8a1803c5057abd8d85b73551d6aea25552344b0e12`.
 Build log: `/private/tmp/button-review-v5-build.log`.
+
+V5 implementation commit: `154e83dd7f1c97b4acf1d729f8375acd482bc3fa`.
