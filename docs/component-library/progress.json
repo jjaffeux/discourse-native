@@ -387,14 +387,19 @@
     },
     {
       "id": "button",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+      "branch": "codex/ui-button",
       "dependencies": [
         "spinner",
         "tooltip"
       ],
-      "acceptanceCriteria": [],
+      "acceptanceCriteria": [
+        "Match base-nova default, outline, secondary, ghost, destructive and link surfaces and all four text/icon sizes, directional icons, rounded and spinner compositions.",
+        "Preserve compatibility variants, rich labels, tooltip shortcuts, loading names, caller-owned async operations, disabled activation, borrowed focus nodes and accessible touch targets.",
+        "Adopt public owner in core/plugins and appropriate native-button exceptions; exercise actual components in interactive examples without changing Sidebar shell.",
+        "Verify root/full-profile analysis and focused component/adoption/downstream tests; compare official and isolated native light/dark/custom/RTL/200% states before review_ready."
+      ],
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
@@ -543,13 +548,18 @@
     },
     {
       "id": "badge",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
+      "branch": "codex/ui-badge",
       "dependencies": [
         "spinner"
       ],
-      "acceptanceCriteria": [],
+      "acceptanceCriteria": [
+        "Reproduce base-nova default, secondary, destructive, outline, ghost and link variants with 20px visual height, 12/16px medium type, 12px icon slots, directional insets, pill shape and exact token-based states.",
+        "Provide static and actionable/link compositions with keyboard focus and activation, disabled and invalid semantics, borrowed focus node safety, accessible touch targets, wrapping large labels, RTL and live palettes.",
+        "Demonstrate every frozen section using DBadge and DSpinner, audit core and plugins and migrate justified status/counter owners without changing business state.",
+        "Pass root/full-profile analysis and focused component/example/migration tests; compare reference and isolated native styleguide plus real migrated fixtures under a coordinator-granted desktop slot before review_ready."
+      ],
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
@@ -560,13 +570,19 @@
     },
     {
       "id": "input",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+      "branch": "codex/ui-input",
       "dependencies": [
         "label"
       ],
-      "acceptanceCriteria": [],
+      "acceptanceCriteria": [
+        "Match official base-nova Input geometry, typography, border, placeholder, focus, disabled and invalid states with recorded source hashes and actual native comparison.",
+        "Implement single-line native editing with owned/borrowed controller and focus lifecycle, initial and controlled updates, Form validation/save/reset, secure entry, keyboard configuration, read-only, disabled, selection and IME preservation.",
+        "Audit core and plugin fields; migrate appropriate single-line inputs and Sidebar adapter while preserving app behavior, documenting retained Textarea/Field/Input Group owners and shared-file conflicts.",
+        "Provide actual component examples for documented Input capabilities and compositions, forms, independent state, RTL/long text, live palettes and 200 percent/narrow layouts.",
+        "Format touched source; pass root/full-profile analysis and focused editing, lifecycle, example and migration regressions; inspect isolated exact-source native review build only after coordinator desktop authorization."
+      ],
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
@@ -594,13 +610,19 @@
     },
     {
       "id": "checkbox",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
+      "branch": "codex/ui-checkbox",
       "dependencies": [
         "label"
       ],
-      "acceptanceCriteria": [],
+      "acceptanceCriteria": [
+        "Match frozen Checkbox sections and base-nova 16px control, check/mixed artwork, borders, radius, focus and invalid states; record source hashes and rendered comparison.",
+        "Provide controlled/default state, native Focus/Space/semantics and FormField validation/save/reset with borrowed focus lifecycle, RTL, scaling, reduced motion and live palettes.",
+        "Migrate matching core/plugin checkboxes and multi-selection owners preserving permission, tri-state, callbacks and labels; document retained alternatives.",
+        "Provide actual interactive styleguide variants, group/table/form/error and narrow/200%/RTL/theme examples, preserving Sidebar shell.",
+        "Pass formatting, root/full-profile analysis and focused component/form/semantics/migration tests; inspect isolated native fixtures only in coordinator desktop slot before review_ready."
+      ],
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
@@ -1812,6 +1834,32 @@
         "badge",
         "input",
         "checkbox"
+      ],
+      "activeTasks": [
+        {
+          "component": "checkbox",
+          "taskId": "01a083ad-91cf-7e91-9083-a861d5c4fa28",
+          "branch": "codex/ui-checkbox",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/132a/discourse-native"
+        },
+        {
+          "component": "button",
+          "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+          "branch": "codex/ui-button",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native"
+        },
+        {
+          "component": "badge",
+          "taskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
+          "branch": "codex/ui-badge",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native"
+        },
+        {
+          "component": "input",
+          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+          "branch": "codex/ui-input",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native"
+        }
       ]
     },
     "externalWritePolicy": {
@@ -1819,6 +1867,12 @@
       "pushes": false,
       "githubWrites": false,
       "appStoreConnectChanges": false
+    },
+    "nativeInspectionBlocker": {
+      "reason": "mac_locked",
+      "observedAt": "2026-09-09T03:04:54+02:00",
+      "userUnlockRequested": true,
+      "unaffectedWork": "Component implementation, reference source review, fixtures, tests and static analysis continue."
     }
   },
   "visualFidelity": {

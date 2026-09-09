@@ -15,13 +15,13 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 3 | spinner | merged | 01a08213-9960-79f1-8d90-9626f24a4b5a | codex/ui-spinner | — | 07a085c175c57c3e6b4868fd700885f8bfe5212c |
 | 4 | kbd | merged | 01a0821b-27cc-7013-affb-99cae203b2a8 | codex/ui-kbd | typography | 8d0936ff13346650682f3b04e55b612074bd3f66 |
 | 5 | tooltip | merged | 01a0829c-ba0d-7282-a010-7e26f190dd4f | codex/ui-tooltip | kbd | f0aee9adc5f0d64adfd9aa5e285830e2a143a1e7 |
-| 6 | button | planned | — | — | spinner, tooltip | — |
+| 6 | button | in_progress | 01a083ac-5fd5-78b1-9263-7e3218a878b6 | codex/ui-button | spinner, tooltip | — |
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
-| 9 | badge | planned | — | — | spinner | — |
-| 10 | input | planned | — | — | label | — |
+| 9 | badge | in_progress | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | — |
+| 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label | — |
 | 11 | textarea | planned | — | — | label | — |
-| 12 | checkbox | planned | — | — | label | — |
+| 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
 | 13 | radio-group | planned | — | — | label | — |
 | 14 | switch | planned | — | — | label | — |
 | 15 | toggle | planned | — | — | button | — |
@@ -520,6 +520,17 @@ Status: merged. Task: 01a0829c-ba0d-7282-a010-7e26f190dd4f. Branch: codex/ui-too
 - Native rich-content pointer/wheel access and outer-scroll dismissal were inspected; deliberately overflowing popup-content scrolling and long press/touch gestures were verified in widget tests, not on touch hardware.
 - The configured host font/palette/radius intentionally supply the reference theme variables, so glyph widths/colors can differ from Geist/neutral defaults. The composed DButton visual treatment remains its separate baseline catalogue task.
 
+### button
+
+Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/ui-button.
+
+**acceptanceCriteria**
+
+- Match base-nova default, outline, secondary, ghost, destructive and link surfaces and all four text/icon sizes, directional icons, rounded and spinner compositions.
+- Preserve compatibility variants, rich labels, tooltip shortcuts, loading names, caller-owned async operations, disabled activation, borrowed focus nodes and accessible touch targets.
+- Adopt public owner in core/plugins and appropriate native-button exceptions; exercise actual components in interactive examples without changing Sidebar shell.
+- Verify root/full-profile analysis and focused component/adoption/downstream tests; compare official and isolated native light/dark/custom/RTL/200% states before review_ready.
+
 ### separator
 
 Status: merged. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/ui-separator.
@@ -649,6 +660,41 @@ Status: merged. Task: 01a0825a-9fe1-7700-878c-f448801c0851. Branch: codex/ui-lab
 - iOS and Linux are uninspected on devices. A wireless iPhone was detected but has not been run. No new native platform dependency is introduced.
 - The macOS styleguide route exposed only its native search field through the CUA accessibility snapshot. Preview semantics are verified by widget tests; production dialog/view snapshots exposed the named control states. VoiceOver speech was not run.
 - Checkbox/Switch/TextFormField and baseline DButton visuals in Label examples are temporary until their catalogue tasks implement the reference controls. This task completes Label only and does not exempt those components or FieldDemo from shadcn fidelity.
+
+### badge
+
+Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/ui-badge.
+
+**acceptanceCriteria**
+
+- Reproduce base-nova default, secondary, destructive, outline, ghost and link variants with 20px visual height, 12/16px medium type, 12px icon slots, directional insets, pill shape and exact token-based states.
+- Provide static and actionable/link compositions with keyboard focus and activation, disabled and invalid semantics, borrowed focus node safety, accessible touch targets, wrapping large labels, RTL and live palettes.
+- Demonstrate every frozen section using DBadge and DSpinner, audit core and plugins and migrate justified status/counter owners without changing business state.
+- Pass root/full-profile analysis and focused component/example/migration tests; compare reference and isolated native styleguide plus real migrated fixtures under a coordinator-granted desktop slot before review_ready.
+
+### input
+
+Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/ui-input.
+
+**acceptanceCriteria**
+
+- Match official base-nova Input geometry, typography, border, placeholder, focus, disabled and invalid states with recorded source hashes and actual native comparison.
+- Implement single-line native editing with owned/borrowed controller and focus lifecycle, initial and controlled updates, Form validation/save/reset, secure entry, keyboard configuration, read-only, disabled, selection and IME preservation.
+- Audit core and plugin fields; migrate appropriate single-line inputs and Sidebar adapter while preserving app behavior, documenting retained Textarea/Field/Input Group owners and shared-file conflicts.
+- Provide actual component examples for documented Input capabilities and compositions, forms, independent state, RTL/long text, live palettes and 200 percent/narrow layouts.
+- Format touched source; pass root/full-profile analysis and focused editing, lifecycle, example and migration regressions; inspect isolated exact-source native review build only after coordinator desktop authorization.
+
+### checkbox
+
+Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/ui-checkbox.
+
+**acceptanceCriteria**
+
+- Match frozen Checkbox sections and base-nova 16px control, check/mixed artwork, borders, radius, focus and invalid states; record source hashes and rendered comparison.
+- Provide controlled/default state, native Focus/Space/semantics and FormField validation/save/reset with borrowed focus lifecycle, RTL, scaling, reduced motion and live palettes.
+- Migrate matching core/plugin checkboxes and multi-selection owners preserving permission, tri-state, callbacks and labels; document retained alternatives.
+- Provide actual interactive styleguide variants, group/table/form/error and narrow/200%/RTL/theme examples, preserving Sidebar shell.
+- Pass formatting, root/full-profile analysis and focused component/form/semantics/migration tests; inspect isolated native fixtures only in coordinator desktop slot before review_ready.
 
 ### skeleton
 
