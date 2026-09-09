@@ -3169,6 +3169,7 @@ Status: in_progress. Task: 01a08606-ce86-7be2-b92f-59676b40cb40. Branch: codex/u
 - Independent review d212f7cd: 77 focused component, styleguide and production channel/timeline tests passed with seed 3931493614; root analysis clean. Added stable-target, nearest, spacer, pending-landing, child-identity and canceled-motion regressions. Parent reconciliation and native acceptance remain pending.
 - Post-composition Scroller/styleguide/channel/timeline run: 80 checks passed, seed 87573987. Root analysis and profiles/full locked dependency resolution plus analysis were clean.
 - Prepared Message b4be43d2 integrated at 2f20c334; 89 Scroller, styleguide, Message, channel lifecycle and timeline checks passed, seed 1232392505. Root and full-profile analysis passed. This is prepared-source verification, not parent acceptance.
+- Final prepared runtime c3cfd500 (Message 69a0ab6a, current-main candidate based on b4e69861): 151 Scroller, styleguide, Message, production review fixture, Chat thread-preview, channel lifecycle and timeline checks passed with seed 2727160956. Root/full analysis, formatting, diff checks and the macOS debug build passed. Includes normal/reversed/index-owned margin regressions, measured short-turn landing, minimal/shrinking spacers and corrected Chat tooltip semantics coverage.
 
 **limitations**
 

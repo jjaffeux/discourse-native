@@ -3998,7 +3998,8 @@
       "verification": [
         "Independent review d212f7cd: 77 focused component, styleguide and production channel/timeline tests passed with seed 3931493614; root analysis clean. Added stable-target, nearest, spacer, pending-landing, child-identity and canceled-motion regressions. Parent reconciliation and native acceptance remain pending.",
         "Post-composition Scroller/styleguide/channel/timeline run: 80 checks passed, seed 87573987. Root analysis and profiles/full locked dependency resolution plus analysis were clean.",
-        "Prepared Message b4be43d2 integrated at 2f20c334; 89 Scroller, styleguide, Message, channel lifecycle and timeline checks passed, seed 1232392505. Root and full-profile analysis passed. This is prepared-source verification, not parent acceptance."
+        "Prepared Message b4be43d2 integrated at 2f20c334; 89 Scroller, styleguide, Message, channel lifecycle and timeline checks passed, seed 1232392505. Root and full-profile analysis passed. This is prepared-source verification, not parent acceptance.",
+        "Final prepared runtime c3cfd500 (Message 69a0ab6a, current-main candidate based on b4e69861): 151 Scroller, styleguide, Message, production review fixture, Chat thread-preview, channel lifecycle and timeline checks passed with seed 2727160956. Root/full analysis, formatting, diff checks and the macOS debug build passed. Includes normal/reversed/index-owned margin regressions, measured short-turn landing, minimal/shrinking spacers and corrected Chat tooltip semantics coverage."
       ],
       "limitations": [
         "Actual official rendered reference and native Scroller inspection remain pending desktop access; final local main merge also requires accepted Message reconciliation.",
@@ -4053,7 +4054,7 @@
         {
           "id": "message",
           "branch": "codex/review-message",
-          "commit": "b4be43d2",
+          "commit": "69a0ab6a",
           "reviewTaskId": "01a08627-8995-7b43-9c06-8a219d472681",
           "status": "prepared_only",
           "mergeGate": "Await accepted Message main merge and reconcile final adapter changes before final Scroller merge."
@@ -4061,11 +4062,11 @@
       ],
       "nativeReviewFixture": {
         "status": "prepared_not_inspected",
-        "sourceCommit": "2f20c334e4e6417b0a7ccec1dbb9b1f158b10cf9",
-        "libTree": "0759d17e297fa4ea41743cf541676b4c506efdfb",
-        "bundle": "/tmp/message-scroller-review-a0b4.94O6eL/MessageScrollerReview-a0b4.app",
+        "sourceCommit": "c3cfd5002161a68833bdbd6296b14419dce25767",
+        "libTree": "c1dc92f3006e338d661bc60862d7e0ed2222d275",
+        "bundle": "/tmp/message-scroller-review-a0b4.3AgXfl/MessageScrollerReview-a0b4.app",
         "bundleId": "org.discourse.review.messagescroller.a0b4",
-        "kernelSha256": "5c4b246d4c423fdc582bba4406edb1b1f82278eb676055f1530874332e5e36da",
+        "kernelSha256": "2d881eb981e2e85f0e2cd45397f5fce90cfad9afa1ac6f186b517d27e7381c23",
         "verification": "Debug build passed. Copied bundle has a distinct name, bundle id and URL scheme; ad-hoc deep/strict signature verifies and its kernel matches the build. Only sandbox, JIT and network client/server entitlements remain. Original copied provisioning profile is retained outside the app; production runner files are unchanged."
       }
     },
