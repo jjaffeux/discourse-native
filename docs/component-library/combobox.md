@@ -25,7 +25,7 @@ input-inside-popup, clear, status and collision-aware positioning.
 
 | Base Nova reference | Flutter mapping |
 | --- | --- |
-| `Root` controlled/default value, input, open and highlight | `DCombobox<T>` FormField constructors plus independently controlled `query`, `open`, `highlightedValue`, callbacks and `DComboboxController<T>` |
+| `Root` controlled/default value, input, open and highlight | `DCombobox<T>` FormField constructors plus independently controlled `query`, `open`, `highlightedValue` with `highlightControlled`, callbacks and `DComboboxController<T>` |
 | flat `items`, grouped items and `Collection` | immutable `DComboboxOption<T>`, `DComboboxOptionGroup<T>`, `DComboboxList<T>` and `DComboboxCollection` |
 | internal/custom/external filtering | default case-insensitive substring matching, `DComboboxFilter<T>`, `searchText`, or `filterLocally: false` with safely replaced options |
 | 32px input, 14/20 text, 10px start inset | compact input surface, `DiscourseTypography.sm`, 20px leading and logical padding |

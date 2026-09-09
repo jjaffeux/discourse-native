@@ -300,6 +300,32 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('controlled null highlight reports requests without mutating', (
+    tester,
+  ) async {
+    String? requested;
+    final controller = DComboboxController<String>();
+    await tester.pumpWidget(
+      _app(
+        DCombobox<String>(
+          controller: controller,
+          options: _options,
+          highlightControlled: true,
+          highlightedValue: null,
+          onHighlightChanged: (value, _) => requested = value,
+          anchor: const DComboboxInput<String>(),
+          content: const DComboboxContent(children: [DComboboxList<String>()]),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(requested, 'next');
+    expect(controller.highlightedValue, isNull);
+    controller.dispose();
+  });
+
   testWidgets(
     'escape closes, restores selected label and retains editor focus',
     (tester) async {
@@ -460,6 +486,39 @@ void main() {
     await tester.tap(find.byType(TextField), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.text('Next.js'), findsNothing);
+  });
+
+  testWidgets('read-only input can open but cannot edit, clear, or select', (
+    tester,
+  ) async {
+    String? changed;
+    final controller = DComboboxController<String>();
+    await tester.pumpWidget(
+      _app(
+        DCombobox<String>(
+          controller: controller,
+          readOnly: true,
+          initialValue: 'next',
+          options: _options,
+          onChanged: (value, _) => changed = value,
+          anchor: const DComboboxInput<String>(showClear: true),
+          content: const DComboboxContent(children: [DComboboxList<String>()]),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    expect(controller.isOpen, isTrue);
+    await tester.enterText(find.byType(TextField), 'SvelteKit');
+    await tester.pump();
+    expect(controller.query, 'Next.js');
+    await tester.tap(find.text('Next.js').last);
+    await tester.pump();
+    expect(changed, isNull);
+    expect(controller.value, 'next');
+    controller.clear();
+    expect(controller.value, 'next');
+    controller.dispose();
   });
 
   testWidgets('touch items and actions retain 48 logical pixel targets', (
