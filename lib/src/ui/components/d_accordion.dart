@@ -210,6 +210,8 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
       child: _DAccordionScope<T>(
         owner: this,
         values: Set<T>.unmodifiable(values),
+        disabled: widget.disabled,
+        outlined: widget.outlined,
         child: result,
       ),
     );
@@ -220,10 +222,14 @@ class _DAccordionScope<T> extends InheritedWidget {
   const _DAccordionScope({
     required this.owner,
     required this.values,
+    required this.disabled,
+    required this.outlined,
     required super.child,
   });
   final _DAccordionState<T> owner;
   final Set<T> values;
+  final bool disabled;
+  final bool outlined;
 
   static _DAccordionScope<T> of<T>(BuildContext context) {
     final scope = context
@@ -235,9 +241,8 @@ class _DAccordionScope<T> extends InheritedWidget {
   @override
   bool updateShouldNotify(_DAccordionScope<T> oldWidget) =>
       !setEquals(values, oldWidget.values) ||
-      owner.widget.disabled != oldWidget.owner.widget.disabled ||
-      owner.widget.keepMounted != oldWidget.owner.widget.keepMounted ||
-      owner.widget.outlined != oldWidget.owner.widget.outlined;
+      disabled != oldWidget.disabled ||
+      outlined != oldWidget.outlined;
 }
 
 class _DAccordionVisualScope extends InheritedWidget {
@@ -324,16 +329,14 @@ class _DAccordionItemState<T> extends State<DAccordionItem<T>> {
   @override
   Widget build(BuildContext context) {
     final scope = _DAccordionScope.of<T>(context);
-    final disabled = scope.owner.widget.disabled || widget.disabled;
+    final disabled = scope.disabled || widget.disabled;
     final open = scope.values.contains(widget.value);
     final showBorder = widget.border ?? !_DAccordionPosition.isLastOf(context);
     return _DAccordionItemScope<T>(
       value: widget.value,
       disabled: disabled,
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: scope.owner.widget.outlined ? 16 : 0,
-        ),
+        padding: EdgeInsets.symmetric(horizontal: scope.outlined ? 16 : 0),
         decoration: showBorder
             ? BoxDecoration(
                 border: Border(

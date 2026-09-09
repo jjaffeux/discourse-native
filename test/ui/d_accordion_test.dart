@@ -243,6 +243,59 @@ void main() {
     },
   );
 
+  testWidgets('root visual and disabled changes reach reused const items', (
+    tester,
+  ) async {
+    const reusedItem = DAccordionItem<String>(
+      key: ValueKey('reused-item'),
+      value: 'a',
+      child: Column(
+        children: [
+          DAccordionHeader(
+            child: DAccordionTrigger(child: Text('Reused question')),
+          ),
+          DAccordionContent(child: Text('Reused answer')),
+        ],
+      ),
+    );
+    var disabled = false;
+    var outlined = false;
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return DAccordion<String>(
+              disabled: disabled,
+              outlined: outlined,
+              children: const [reusedItem],
+            );
+          },
+        ),
+      ),
+    );
+
+    rebuild(() {
+      disabled = true;
+      outlined = true;
+    });
+    await tester.pump();
+    await tester.tap(find.text('Reused question'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reused answer'), findsNothing);
+    final itemContainer = tester.widget<Container>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('reused-item')),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    expect(itemContainer.padding, const EdgeInsets.symmetric(horizontal: 16));
+  });
+
   testWidgets(
     'removed values are pruned while reordered items preserve state',
     (tester) async {
