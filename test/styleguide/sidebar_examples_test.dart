@@ -40,9 +40,13 @@ void main() {
           await tester.pump();
           await tester.pump();
           expect(find.byType(DSheetContent), findsOneWidget);
-          expect(find.byType(DInput), findsOneWidget);
+          if (example.title == 'Application sidebar') {
+            expect(find.byType(DInput), findsNothing);
+          } else {
+            expect(find.byType(DInput), findsOneWidget);
+          }
           if (example.title != 'Loading and recovery') {
-            expect(find.byType(DCollapsible), findsOneWidget);
+            expect(find.byType(DCollapsible), findsWidgets);
           }
           expect(find.byType(DDropdownMenu), findsNWidgets(2));
           expect(find.byType(DAvatar), findsOneWidget);
@@ -75,38 +79,69 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.bySemanticsLabel('Switch workspace, Acme Inc'));
-    await tester.pumpAndSettle();
-    expect(find.text('Stark Industries'), findsOneWidget);
-    await tester.tap(find.text('Stark Industries'));
-    await tester.pumpAndSettle();
-    expect(find.text('Stark Industries workspace selected'), findsOneWidget);
+    expect(find.text('Platform'), findsOneWidget);
+    expect(find.text('Playground'), findsOneWidget);
+    expect(find.text('History'), findsOneWidget);
+    expect(find.text('Starred'), findsOneWidget);
+    expect(find.text('Models'), findsOneWidget);
+    expect(find.text('Documentation'), findsOneWidget);
+    expect(find.text('m@example.com'), findsOneWidget);
+    expect(find.byType(DInput), findsNothing);
 
-    final projects = find.byType(DCollapsibleTrigger);
-    await tester.scrollUntilVisible(
-      projects,
-      160,
-      scrollable: find
-          .descendant(
-            of: find.byType(DSidebarContent),
-            matching: find.byType(Scrollable),
-          )
-          .first,
+    await tester.tap(
+      find.bySemanticsLabel('Switch team, Acme Inc, Enterprise'),
     );
+    await tester.pumpAndSettle();
+    expect(find.text('Acme Corp.'), findsOneWidget);
+    await tester.tap(find.text('Acme Corp.'));
+    await tester.pumpAndSettle();
+    expect(find.text('Acme Corp. team selected'), findsOneWidget);
+
+    final playground = find.bySemanticsLabel('Toggle Playground');
     expect(
-      tester.getSemantics(projects).flagsCollection.isExpanded,
+      tester.getSemantics(playground).flagsCollection.isExpanded,
       Tristate.isTrue,
     );
-    await tester.tap(projects);
+    await tester.tap(playground);
     await tester.pumpAndSettle();
-    expect(find.text('Design'), findsNothing);
+    expect(find.text('History'), findsNothing);
 
-    await tester.tap(find.bySemanticsLabel('Open Alex Morgan account menu'));
+    await tester.tap(find.bySemanticsLabel('Open shadcn account menu'));
     await tester.pumpAndSettle();
-    expect(find.text('Profile'), findsOneWidget);
-    await tester.tap(find.text('Profile'));
+    expect(find.text('Account'), findsOneWidget);
+    await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
-    expect(find.text('Profile selected'), findsOneWidget);
+    expect(find.text('Account selected'), findsOneWidget);
+  });
+
+  testWidgets('reference icon collapse hides the Projects group', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Builder(builder: sidebarExamples.examples.first.builder),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Projects'), findsOneWidget);
+    expect(find.text('Design Engineering'), findsOneWidget);
+
+    await tester.tap(find.byType(DSidebarTrigger));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Projects'), findsNothing);
+    expect(find.text('Design Engineering'), findsNothing);
+    expect(
+      find.bySemanticsLabel('Switch team, Acme Inc, Enterprise'),
+      findsOne,
+    );
+    expect(find.bySemanticsLabel('Open shadcn account menu'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../styleguide_example.dart';
 
@@ -13,22 +14,27 @@ final sidebarExamples = ComponentExamples(
     StyleguideExample(
       title: 'Application sidebar',
       description:
-          'Header workspace menu, Input search, collapsible groups, active destinations, badges, actions and Avatar account menu. These compact demos switch to a Sheet below 500px; the component default is 768px. Cmd/Ctrl+B toggles, Tab navigates, Enter/Space activates and Escape dismisses.',
+          'A close native reproduction of the shadcn Base UI demo: team and account switchers, the Platform hierarchy, projects, icon collapse and rail. Below 500px it uses the shared Sheet adaptation. Cmd/Ctrl+B toggles, Tab navigates, Enter/Space activates and Escape dismisses.',
       code: '''DSidebarProvider(mobileBreakpoint: 500, child: Row(children: [
-  DSidebar(header: DSidebarHeader(child: DDropdownMenu(
-    child: DDropdownMenuTrigger(builder: workspaceButton),
-    content: DDropdownMenuContent(children: workspaceItems))),
+  DSidebar(
+    collapsible: DSidebarCollapsible.icon,
+    header: DSidebarHeader(child: teamSwitcher),
+    footer: DSidebarFooter(child: accountMenu),
+    rail: const DSidebarRail(),
     child: DSidebarContent(children: [
-      DSidebarGroup(label: DSidebarGroupLabel(child: Text('Application')),
-        child: DSidebarMenu(children: [
-          DSidebarMenuItem(child: DSidebarMenuButton(
-            icon: Icon(Icons.home), isActive: true,
-            onPressed: selectHome, child: Text('Home'))),
-        ])),
-    ])),
+      DSidebarGroup(
+        label: const DSidebarGroupLabel(child: Text('Platform')),
+        child: DSidebarMenu(children: platformItems),
+      ),
+      DSidebarGroup(
+        label: const DSidebarGroupLabel(child: Text('Projects')),
+        child: DSidebarMenu(children: projectItems),
+      ),
+    ]),
+  ),
   Expanded(child: Column(children: [DSidebarTrigger(), content])),
 ]))''',
-      builder: (_) => const _SidebarDemo(),
+      builder: (_) => const _ShadcnSidebarDemo(),
     ),
     StyleguideExample(
       title: 'Icon, floating and inset',
@@ -91,6 +97,454 @@ final sidebarExamples = ComponentExamples(
     ),
   ],
 );
+
+class _ShadcnSidebarDemo extends StatefulWidget {
+  const _ShadcnSidebarDemo();
+
+  @override
+  State<_ShadcnSidebarDemo> createState() => _ShadcnSidebarDemoState();
+}
+
+class _ShadcnSidebarDemoState extends State<_ShadcnSidebarDemo> {
+  static const _avatarAsset =
+      'packages/discourse_native/src/styleguide/assets/item/shadcn.png';
+  static const _teams = <({String name, String plan, IconData icon})>[
+    (name: 'Acme Inc', plan: 'Enterprise', icon: Icons.view_column_outlined),
+    (name: 'Acme Corp.', plan: 'Startup', icon: Icons.graphic_eq),
+    (name: 'Evil Corp.', plan: 'Free', icon: Icons.code),
+  ];
+  static const _navigation =
+      <({String title, String icon, List<String> children})>[
+        (
+          title: 'Playground',
+          icon: _SidebarReferenceIcon.squareTerminal,
+          children: ['History', 'Starred', 'Settings'],
+        ),
+        (
+          title: 'Models',
+          icon: _SidebarReferenceIcon.bot,
+          children: ['Genesis', 'Explorer', 'Quantum'],
+        ),
+        (
+          title: 'Documentation',
+          icon: _SidebarReferenceIcon.bookOpen,
+          children: ['Introduction', 'Get Started', 'Tutorials', 'Changelog'],
+        ),
+        (
+          title: 'Settings',
+          icon: _SidebarReferenceIcon.settings,
+          children: ['General', 'Team', 'Billing', 'Limits'],
+        ),
+      ];
+  static const _projects = <({String title, String icon})>[
+    (title: 'Design Engineering', icon: _SidebarReferenceIcon.frame),
+    (title: 'Sales & Marketing', icon: _SidebarReferenceIcon.chartPie),
+    (title: 'Travel', icon: _SidebarReferenceIcon.map),
+  ];
+
+  var _activeTeam = 0;
+  var _message = 'Select a destination';
+
+  DPopoverSide _menuSide(BuildContext context) =>
+      DSidebarProvider.of(context).isMobile
+      ? DPopoverSide.bottom
+      : DPopoverSide.right;
+
+  void _select(BuildContext context, String value) {
+    setState(() => _message = '$value selected');
+    DSidebarProvider.of(context).setOpenMobile(false);
+  }
+
+  Widget _teamMark(
+    BuildContext context, {
+    required Widget icon,
+    required double dimension,
+    required bool filled,
+  }) {
+    final tokens = DTokens.of(context);
+    return Container(
+      width: dimension,
+      height: dimension,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: filled ? tokens.foreground : null,
+        border: filled ? null : Border.all(color: tokens.border),
+        borderRadius: BorderRadius.circular(tokens.radius * 1.6),
+      ),
+      child: IconTheme(
+        data: IconThemeData(
+          size: dimension / 2,
+          color: filled ? tokens.background : tokens.foreground,
+        ),
+        child: icon,
+      ),
+    );
+  }
+
+  Widget _identityText(BuildContext context, String title, String subtitle) {
+    final tokens = DTokens.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 14,
+            height: 20 / 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: tokens.mutedForeground,
+            fontSize: 12,
+            height: 16 / 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _teamSwitcher(BuildContext context) {
+    final team = _teams[_activeTeam];
+    return DDropdownMenu(
+      content: DDropdownMenuContent(
+        semanticLabel: 'Team menu',
+        side: _menuSide(context),
+        width: 224,
+        children: [
+          DDropdownMenuGroup(
+            semanticLabel: 'Teams',
+            children: [
+              const DDropdownMenuLabel(child: Text('Teams')),
+              for (final (index, candidate) in _teams.indexed)
+                DDropdownMenuItem(
+                  leading: Builder(
+                    builder: (context) => _teamMark(
+                      context,
+                      dimension: 24,
+                      filled: false,
+                      icon: Icon(candidate.icon),
+                    ),
+                  ),
+                  trailing: DDropdownMenuShortcut('⌘${index + 1}'),
+                  onPressed: () => setState(() {
+                    _activeTeam = index;
+                    _message = '${candidate.name} team selected';
+                  }),
+                  child: Text(candidate.name),
+                ),
+            ],
+          ),
+          const DDropdownMenuSeparator(),
+          DDropdownMenuItem(
+            leading: const Icon(Icons.add),
+            onPressed: () => setState(() => _message = 'Add team selected'),
+            child: const Text('Add team'),
+          ),
+        ],
+      ),
+      child: DDropdownMenuTrigger(
+        builder: (context, state) => DSidebarMenuButton(
+          iconSize: 32,
+          size: DSidebarMenuButtonSize.large,
+          icon: _teamMark(
+            context,
+            dimension: 32,
+            filled: true,
+            icon: const _SidebarReferenceIcon(
+              _SidebarReferenceIcon.galleryVerticalEnd,
+            ),
+          ),
+          tooltip: team.name,
+          semanticLabel: 'Switch team, ${team.name}, ${team.plan}',
+          focusNode: state.focusNode,
+          expanded: state.open,
+          onPressed: state.toggle,
+          child: Row(
+            children: [
+              Expanded(child: _identityText(context, team.name, team.plan)),
+              const _SidebarReferenceIcon(_SidebarReferenceIcon.chevronsUpDown),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _platformNavigation(BuildContext context) => DSidebarGroup(
+    label: const DSidebarGroupLabel(child: Text('Platform')),
+    child: DSidebarMenu(
+      children: [
+        for (final item in _navigation)
+          DCollapsible(
+            defaultOpen: item.title == 'Playground',
+            child: DSidebarMenuItem(
+              submenu: DCollapsibleContent(
+                child: DSidebarMenuSub(
+                  children: [
+                    for (final child in item.children)
+                      DSidebarMenuSubItem(
+                        child: DSidebarMenuSubButton(
+                          onPressed: () => _select(context, child),
+                          child: Text(child),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              child: DCollapsibleTrigger(
+                semanticLabel: 'Toggle ${item.title}',
+                focusBorderRadius: BorderRadius.circular(
+                  DTokens.of(context).radius * .8,
+                ),
+                builder: (context, state) => ExcludeFocus(
+                  child: IgnorePointer(
+                    child: DSidebarMenuButton(
+                      icon: _SidebarReferenceIcon(item.icon),
+                      tooltip: item.title,
+                      expanded: state.open,
+                      onPressed: () {},
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(item.title)),
+                          AnimatedRotation(
+                            turns: state.open ? .25 : 0,
+                            duration: DMotion.duration(
+                              context,
+                              const Duration(milliseconds: 200),
+                            ),
+                            child: const _SidebarReferenceIcon(
+                              _SidebarReferenceIcon.chevronRight,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+
+  Widget _projectNavigation(BuildContext context) => DSidebarGroup(
+    label: const DSidebarGroupLabel(child: Text('Projects')),
+    child: DSidebarMenu(
+      children: [
+        for (final project in _projects)
+          DSidebarMenuItem(
+            action: DSidebarMenuAction(
+              semanticLabel: 'More options for ${project.title}',
+              showOnHover: true,
+              onPressed: () => setState(
+                () => _message = '${project.title} options selected',
+              ),
+              child: const _SidebarReferenceIcon(
+                _SidebarReferenceIcon.ellipsis,
+              ),
+            ),
+            child: DSidebarMenuButton(
+              icon: _SidebarReferenceIcon(project.icon),
+              tooltip: project.title,
+              onPressed: () => _select(context, project.title),
+              child: Text(project.title),
+            ),
+          ),
+        DSidebarMenuItem(
+          child: DSidebarMenuButton(
+            icon: const _SidebarReferenceIcon(_SidebarReferenceIcon.ellipsis),
+            tooltip: 'More projects',
+            onPressed: () =>
+                setState(() => _message = 'More projects selected'),
+            child: const Text('More'),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _accountMenu(BuildContext context) => DDropdownMenu(
+    content: DDropdownMenuContent(
+      semanticLabel: 'Account menu',
+      side: _menuSide(context),
+      align: DPopoverAlign.end,
+      width: 224,
+      children: [
+        DDropdownMenuLabel(
+          child: Row(
+            children: [
+              _avatar(context),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _identityText(context, 'shadcn', 'm@example.com'),
+              ),
+            ],
+          ),
+        ),
+        const DDropdownMenuSeparator(),
+        DDropdownMenuItem(
+          leading: const Icon(Icons.auto_awesome_outlined),
+          onPressed: () => setState(() => _message = 'Upgrade selected'),
+          child: const Text('Upgrade to Pro'),
+        ),
+        const DDropdownMenuSeparator(),
+        DDropdownMenuGroup(
+          children: [
+            DDropdownMenuItem(
+              leading: const Icon(Icons.verified_outlined),
+              onPressed: () => setState(() => _message = 'Account selected'),
+              child: const Text('Account'),
+            ),
+            DDropdownMenuItem(
+              leading: const Icon(Icons.credit_card_outlined),
+              onPressed: () => setState(() => _message = 'Billing selected'),
+              child: const Text('Billing'),
+            ),
+            DDropdownMenuItem(
+              leading: const Icon(Icons.notifications_none),
+              onPressed: () =>
+                  setState(() => _message = 'Notifications selected'),
+              child: const Text('Notifications'),
+            ),
+          ],
+        ),
+        const DDropdownMenuSeparator(),
+        DDropdownMenuItem(
+          leading: const Icon(Icons.logout),
+          onPressed: () => setState(() => _message = 'Logged out locally'),
+          child: const Text('Log out'),
+        ),
+      ],
+    ),
+    child: DDropdownMenuTrigger(
+      builder: (context, state) => DSidebarMenuButton(
+        iconSize: 32,
+        icon: _avatar(context),
+        size: DSidebarMenuButtonSize.large,
+        tooltip: 'shadcn',
+        semanticLabel: 'Open shadcn account menu',
+        focusNode: state.focusNode,
+        expanded: state.open,
+        onPressed: state.toggle,
+        child: Row(
+          children: [
+            Expanded(child: _identityText(context, 'shadcn', 'm@example.com')),
+            const _SidebarReferenceIcon(_SidebarReferenceIcon.chevronsUpDown),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _avatar(BuildContext context) => DAvatar(
+    dimension: 32,
+    borderRadius: BorderRadius.circular(DTokens.of(context).radius * 1.6),
+    image: const DAvatarImage(image: AssetImage(_avatarAsset)),
+    fallback: const DAvatarFallback(child: Text('CN')),
+    decorative: true,
+  );
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 440,
+    child: DSidebarProvider(
+      mobileBreakpoint: 500,
+      child: Builder(
+        builder: (context) {
+          final provider = DSidebarProvider.of(context);
+          final panel = DSidebar(
+            width: 256,
+            collapsible: DSidebarCollapsible.icon,
+            rail: const DSidebarRail(),
+            header: DSidebarHeader(child: _teamSwitcher(context)),
+            footer: DSidebarFooter(child: _accountMenu(context)),
+            child: DSidebarContent(
+              children: [
+                _platformNavigation(context),
+                if (provider.open || provider.isMobile)
+                  _projectNavigation(context),
+              ],
+            ),
+          );
+          return Row(
+            textDirection: TextDirection.ltr,
+            children: [
+              panel,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const DSidebarTrigger(),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(_message),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+}
+
+/// Exact Lucide outlines used by the upstream Sidebar demo. Lucide is ISC;
+/// the repository attribution is in `licenses/lucide.txt`.
+class _SidebarReferenceIcon extends StatelessWidget {
+  const _SidebarReferenceIcon(this.svg);
+
+  final String svg;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = IconTheme.of(context);
+    return SvgPicture.string(
+      svg,
+      width: theme.size ?? 16,
+      height: theme.size ?? 16,
+      theme: SvgTheme(
+        currentColor: theme.color ?? DTokens.of(context).foreground,
+      ),
+      excludeFromSemantics: true,
+    );
+  }
+
+  static const galleryVerticalEnd =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10"/><path d="M5 6h14"/><rect width="18" height="12" x="3" y="10" rx="2"/></svg>''';
+  static const squareTerminal =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 11 2-2-2-2"/><path d="M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2"/></svg>''';
+  static const bot =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>''';
+  static const bookOpen =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>''';
+  static const settings =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>''';
+  static const chevronRight =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>''';
+  static const chevronsUpDown =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>''';
+  static const frame =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6H2"/><path d="M22 18H2"/><path d="M6 2v20"/><path d="M18 2v20"/></svg>''';
+  static const chartPie =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></svg>''';
+  static const map =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg>''';
+  static const ellipsis =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>''';
+}
 
 class _SidebarDemo extends StatefulWidget {
   const _SidebarDemo({
