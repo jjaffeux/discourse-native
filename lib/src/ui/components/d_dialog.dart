@@ -763,7 +763,6 @@ class DDialogContent extends StatelessWidget {
                       icon: const _DDialogCloseIcon(),
                       tooltip: closeSemanticLabel,
                       semanticLabel: closeSemanticLabel,
-                      insetSurface: true,
                     ),
                   ),
             ),

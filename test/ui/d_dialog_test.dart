@@ -602,7 +602,7 @@ void main() {
           matching: find.byType(FilledButton),
         ),
       );
-      expect(closeSurface.style?.fixedSize?.resolve({}), const Size.square(32));
+      expect(closeSurface.style?.fixedSize?.resolve({}), const Size.square(28));
       if (direction == TextDirection.ltr) {
         expect(close.right, popup.right - 8);
       } else {
