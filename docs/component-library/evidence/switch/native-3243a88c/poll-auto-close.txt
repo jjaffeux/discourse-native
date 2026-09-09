@@ -1,0 +1,43 @@
+Window: "Discourse", App: Discourse Switch Review 3243a88c.
+0 standard window Discourse, Secondary Actions: Raise
+	1 container Discourse Switch Review 3243a88c
+		2 container (settable)
+			3 container (settable) Add poll
+				4 button (settable) Close
+				5 container (settable)
+					6 text field (settable)
+					7 button (settable) Poll type
+Single choice
+					8 image (settable)
+					9 text (settable) Options
+					10 text field (settable)
+					11 button (settable) Move option up
+					12 button (settable) Move option down
+					13 button (settable) Remove option
+					14 text field (settable)
+					15 button (settable) Move option up
+					16 button (settable) Move option down
+					17 button (settable) Remove option
+					18 button (settable) Add option
+					19 button (settable) Show results
+Always visible
+					20 image (settable)
+					21 switch (settable, boolean) Value: off, Public voter identities
+The voter list itself is shown on the web in this version.
+					22 switch (settable, boolean) Automatic close, Value: on
+					23 container (settable) ISO 8601, including a time zone
+						24 text field (settable)
+					25 button (settable) Cancel
+					26 button (settable) Apply
+			27 text (settable) Dismiss
+	28 close button
+	29 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	30 minimize button
+31 menu bar
+	32 Discourse Switch Review 3243a88c
+	33 Edit
+	34 View
+	35 Window
+	36 Help
+
+The focused UI element is 1 container Discourse Switch Review 3243a88c

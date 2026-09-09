@@ -30,20 +30,42 @@ python3 /Users/joffreyjaffeux/Code/discourse-native/tool/component_review_lock.p
 ```
 
 Use `main` instead of `desktop` for any main-checkout mutation, including
-progress updates. A busy acquire returns exit 75 and the owner's task ID.
-Continue independent work, or wait up to 45 seconds between attempts. Read
-owner status or message that task directly when useful. Do not ask the
+progress updates. Desktop requests are first-come, first-served: a busy
+`acquire desktop` automatically joins the waiting queue and returns exit 75,
+the holder, your queue position and the next waiting task. Retrying preserves
+your position. `status desktop` shows the live queue. The next waiting task
+acquires directly when the holder releases; nobody can jump ahead by polling
+faster. Main-checkout access remains a simple exclusive lease.
+
+Continue independent work, or wait up to 45 seconds between attempts. If you
+are no longer ready for desktop review or are ending your turn while queued,
+withdraw your own waiting request with:
+
+```sh
+python3 /Users/joffreyjaffeux/Code/discourse-native/tool/component_review_lock.py cancel desktop --owner YOUR_TASK_ID --repo /Users/joffreyjaffeux/Code/discourse-native
+```
+
+Cancellation only removes a waiting request; it never releases a held lease.
+Read owner status or message that task directly when useful. Do not ask the
 coordinator to grant access. Leases never expire automatically: do not delete
 another task's lease or treat elapsed time as permission to take it. Arrange
 release with the owner; if a task is terminated, establish that it has stopped
 using the resource before repairing an abandoned lease and record the reason.
 Never hold one lease while waiting for the other, UI permission, a dependency,
-or a user response. Release before ending a turn or on a genuine UI blocker.
+or a user response. Release a held lease before ending a turn or on a genuine UI blocker; cancel
+your waiting desktop request if you have not acquired it. Waiting requests do
+not expire automatically. Verify a task is terminal or explicitly withdrew
+before repairing an abandoned waiting request, and record the reason.
 
 The desktop lease covers native app and browser actions together. Switch's
 implementation task initially holds it while finishing its in-flight native
 review; its new reviewer receives the evidence and released access directly.
 Quit only your own isolated review app and close only your own browser tabs.
+The recorded host uses AZERTY: earlier native CUA `super+a` input quit an
+isolated app (the `a` key produced `q`). Use documented literal text/pointer
+editing or native Edit actions as appropriate and verify the actual field
+state. Do not classify a shortcut/tool-input incident as a component crash
+without evidence. See the Typography and Skeleton records in progress.
 Use the approved CUA surface. The prior browser denial concerned verification
 of an admin-enforced security policy. The Mac was subsequently unlocked;
 attempt the approved surface only, and stop if that denial persists. No

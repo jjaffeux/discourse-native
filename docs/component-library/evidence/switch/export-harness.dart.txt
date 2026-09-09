@@ -1,0 +1,286 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
+import 'package:discourse_native/src/styleguide/examples/switch_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import '../tool/switch_review_main.dart';
+
+ThemeData neutral(bool dark) {
+  final base = dark ? AppTheme.dark : AppTheme.light;
+  final bg = Color(dark ? 0xff0a0a0a : 0xffffffff);
+  final fg = Color(dark ? 0xfffafafa : 0xff0a0a0a);
+  final muted = Color(dark ? 0xff262626 : 0xfff5f5f5);
+  final colors = base.colorScheme.copyWith(
+    surface: bg,
+    onSurface: fg,
+    onSurfaceVariant: Color(dark ? 0xffa1a1a1 : 0xff737373),
+    primary: Color(dark ? 0xffe5e5e5 : 0xff000000),
+    onPrimary: Color(dark ? 0xff171717 : 0xfffafafa),
+    outlineVariant: dark ? const Color(0x26ffffff) : const Color(0xffe5e5e5),
+    error: Color(dark ? 0xffff6467 : 0xffe7000b),
+  );
+  return base.copyWith(
+    colorScheme: colors,
+    scaffoldBackgroundColor: bg,
+    extensions: [
+      DTokens(
+        colors: colors,
+        background: bg,
+        surface: bg,
+        muted: muted,
+        border: dark ? const Color(0x1affffff) : const Color(0xffe5e5e5),
+        hover: muted,
+        selected: muted,
+        selectedForeground: fg,
+        radius: 10,
+      ),
+    ],
+  );
+}
+
+void main() {
+  testWidgets('export font-loaded Switch examples without native app launch', (
+    tester,
+  ) async {
+    final output = Directory(
+      '${Directory.current.path}/docs/component-library/evidence/switch',
+    );
+    await tester.runAsync(() async {
+      for (final family in [
+        '.AppleSystemUIFont',
+        'Roboto',
+        'SF Pro Text',
+        'SF Pro Display',
+      ]) {
+        await (FontLoader(family)..addFont(
+              Future.value(
+                ByteData.sublistView(
+                  File('/System/Library/Fonts/SFNS.ttf').readAsBytesSync(),
+                ),
+              ),
+            ))
+            .load();
+      }
+      await (FontLoader('Review Arabic')..addFont(
+            Future.value(
+              ByteData.sublistView(
+                File('/System/Library/Fonts/SFArabic.ttf').readAsBytesSync(),
+              ),
+            ),
+          ))
+          .load();
+      await (FontLoader('MaterialIcons')..addFont(
+            Future.value(
+              ByteData.sublistView(
+                File(
+                  '/opt/homebrew/share/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+                ).readAsBytesSync(),
+              ),
+            ),
+          ))
+          .load();
+    });
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final measurements = <String, Object>{};
+    Future<void> capture(
+      String name,
+      ThemeData theme,
+      Widget child, {
+      bool rtl = false,
+      double scale = 1,
+      double width = 640,
+      double height = 320,
+    }) async {
+      tester.view.physicalSize = Size(width, height);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: key,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: theme.copyWith(
+              textTheme: theme.textTheme.apply(
+                fontFamilyFallback: ['Review Arabic'],
+              ),
+            ),
+            home: Scaffold(
+              body: MediaQuery(
+                data: MediaQueryData(
+                  size: Size(width, height),
+                  textScaler: TextScaler.linear(scale),
+                  disableAnimations: true,
+                ),
+                child: Directionality(
+                  textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+                  child: Center(child: child),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: name);
+      measurements[name] = [
+        for (final element in find.byType(AnimatedContainer).evaluate())
+          if ((element.widget as AnimatedContainer).constraints?.maxWidth
+              case final width? when width == 32 || width == 24)
+            {
+              'size': tester
+                  .getSize(
+                    find.byElementPredicate((e) => identical(e, element)),
+                  )
+                  .toString(),
+              'decoration': (element.widget as AnimatedContainer).decoration
+                  .toString(),
+              'exteriorRing': (element.widget as AnimatedContainer)
+                  .foregroundDecoration
+                  .toString(),
+            },
+      ];
+      await tester.runAsync(() async {
+        final image =
+            await (key.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary)
+                .toImage(pixelRatio: 2);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        File(
+          '${output.path}/$name.png',
+        ).writeAsBytesSync(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    final strategy = FocusManager.instance.highlightStrategy;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+    for (final dark in [false, true]) {
+      for (final title in [
+        'Airplane Mode',
+        'Description',
+        'Choice Card',
+        'Size',
+        'RTL',
+        'Invalid',
+      ]) {
+        final example = switchExamples.examples.singleWhere(
+          (e) => e.title == title,
+        );
+        await capture(
+          'flutter-neutral-${dark ? 'dark' : 'light'}-${title.toLowerCase().replaceAll(' ', '-')}',
+          neutral(dark),
+          Builder(builder: example.builder),
+        );
+      }
+      await capture(
+        'flutter-neutral-${dark ? 'dark' : 'light'}-focused-card',
+        neutral(dark),
+        SizedBox(
+          width: 384,
+          child: DSwitchTile(
+            choiceCard: true,
+            autofocus: true,
+            value: false,
+            onChanged: (_) {},
+            title: const Text('Share across devices'),
+            subtitle: const Text(
+              'Focus is shared across devices, and turns off when you leave the app.',
+            ),
+          ),
+        ),
+      );
+      await capture(
+        'flutter-neutral-${dark ? 'dark' : 'light'}-states',
+        neutral(dark),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const DSwitch(semanticLabel: 'Off'),
+            DSwitch(value: true, onChanged: (_) {}, semanticLabel: 'On'),
+            const DSwitch(value: false, semanticLabel: 'Disabled off'),
+            const DSwitch(value: true, semanticLabel: 'Disabled on'),
+            const DSwitch(invalid: true, semanticLabel: 'Invalid'),
+          ],
+        ),
+      );
+    }
+    for (final palette in [StyleguideTheme.forest, StyleguideTheme.plum]) {
+      for (final radius in [0.0, 18.0]) {
+        final theme = palette.resolve(AppTheme.light);
+        await capture(
+          'flutter-${palette.name}-radius-${radius.toInt()}-rtl200',
+          theme.copyWith(
+            extensions: [theme.extension<DTokens>()!.copyWith(radius: radius)],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Builder(
+              builder: switchExamples.examples
+                  .singleWhere((e) => e.title == 'Choice Card')
+                  .builder,
+            ),
+          ),
+          rtl: true,
+          scale: 2,
+          width: 360,
+          height: 640,
+        );
+      }
+    }
+    LocalDateEnvironment.instance.ensureDatabase();
+    for (final dark in [false, true]) {
+      for (final (name, label) in [
+        ('settings', 'Settings — memory persistence'),
+        ('preferences', 'Preferences — fake account'),
+        ('chat', 'Chat settings — fake account'),
+        ('poll', 'Poll — local draft'),
+        ('local-date', 'Local date — local draft'),
+        ('group', 'Group management — local updates'),
+        ('voice', 'Voice diagnostics — fake capture'),
+      ]) {
+        tester.view.physicalSize = const Size(1200, 900);
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          RepaintBoundary(key: key, child: const SwitchReviewApp()),
+        );
+        await tester.pumpAndSettle();
+        if (dark) {
+          await tester.tap(find.text('Light / Dark'));
+          await tester.pumpAndSettle();
+        }
+        await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: label);
+        await tester.runAsync(() async {
+          final image =
+              await (key.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary)
+                  .toImage(pixelRatio: 2);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          File(
+            '${output.path}/flutter-fixture-${dark ? 'dark' : 'light'}-$name.png',
+          ).writeAsBytesSync(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      }
+    }
+    File('${output.path}/flutter-metrics.json').writeAsStringSync(
+      const JsonEncoder.withIndent('  ').convert(measurements),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+}

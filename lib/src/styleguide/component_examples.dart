@@ -10,11 +10,16 @@ import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
+import 'examples/marker_examples.dart';
 import 'examples/radio_group_examples.dart';
+import 'examples/resizable_examples.dart';
+import 'examples/scroll_area_examples.dart';
 import 'examples/separator_examples.dart';
 import 'examples/sidebar_examples.dart';
 import 'examples/skeleton_examples.dart';
+import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
+import 'examples/switch_examples.dart';
 import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
@@ -26,18 +31,23 @@ final componentExamples = <String, ComponentExamples>{
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
   'card': cardExamples,
+  'resizable': resizableExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,
   'badge': badgeExamples,
   'direction': directionExamples,
   'typography': typographyExamples,
+  'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'label': labelExamples,
+  'marker': markerExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
   'spinner': spinnerExamples,
+  'slider': sliderExamples,
+  'switch': switchExamples,
   'button': buttonExamples,
   'tooltip': tooltipExamples,
   'select': baselineSelectExamples,

@@ -113,16 +113,18 @@ class _StreamDaySeparatorState extends State<StreamDaySeparator> {
 
     return SizedBox(
       height: StreamDaySeparator.height,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (!widget.floating && widget.showDivider)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: DSeparator(space: 1, color: theme.shell.divider),
-            ),
-          date,
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: DMarker(
+          variant: !widget.floating && widget.showDivider
+              ? DMarkerVariant.separator
+              : DMarkerVariant.inline,
+          axis: widget.floating || !widget.showDivider
+              ? Axis.vertical
+              : Axis.horizontal,
+          borderColor: theme.shell.divider,
+          child: DMarkerContent(child: date),
+        ),
       ),
     );
   }
