@@ -215,6 +215,22 @@ void main() {
     expect(controller.selectedIndex, 0);
     expect(physicalPage(), initialPage);
     expect(controller.scrollProgress, 0);
+
+    await tester.drag(
+      find.byKey(const ValueKey('d-carousel-viewport')),
+      const Offset(260, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.selectedIndex, 2);
+    expect(physicalPage(), initialPage - 1);
+
+    await tester.drag(
+      find.byKey(const ValueKey('d-carousel-viewport')),
+      const Offset(-260, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.selectedIndex, 0);
+    expect(physicalPage(), initialPage);
   });
 
   testWidgets('responsive extent recomputes without resetting selection', (
