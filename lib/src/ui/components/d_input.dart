@@ -19,6 +19,7 @@ import 'd_label.dart';
 /// the new owner's value; switching to local ownership preserves editing state.
 ///
 /// [labelText] is a static, focus-activating label, not a floating Material
+/// label. [semanticLabel] names the native editor without adding a visible
 /// label. Rich field layouts belong to Field; [prefix] and [suffix] are simple
 /// inline slots for application search/status controls, not Input Group's API.
 /// Multiline editing belongs to Textarea. Use [DFileInput] for file selection.
@@ -30,6 +31,7 @@ class DInput extends FormField<String> {
     String? initialValue,
     this.focusNode,
     this.labelText,
+    this.semanticLabel,
     this.hintText,
     this.helperText,
     this.errorText,
@@ -76,7 +78,7 @@ class DInput extends FormField<String> {
   final TextEditingController? controller;
   final String? value;
   final FocusNode? focusNode;
-  final String? labelText, hintText, helperText, errorText;
+  final String? labelText, semanticLabel, hintText, helperText, errorText;
   final bool invalid;
 
   /// Exposes required semantics; the caller supplies the validation rule.
@@ -260,7 +262,7 @@ class _DInputState extends FormFieldState<String> {
                       // Keep the editable role bounded to this editor. Without
                       // a boundary it can merge into an entire page on macOS.
                       container: true,
-                      label: input.labelText,
+                      label: input.semanticLabel ?? input.labelText,
                       isRequired: input.isRequired,
                       validationResult: isInvalid
                           ? SemanticsValidationResult.invalid
