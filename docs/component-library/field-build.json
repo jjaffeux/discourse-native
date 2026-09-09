@@ -1,0 +1,46 @@
+{
+  "sourceCommit": "4efec6cc",
+  "buildCheckout": "/private/tmp/field-review-4efec6cc.v6cM1s/source",
+  "originalBundle": "/private/tmp/field-review-4efec6cc.v6cM1s/source/build/macos/Build/Products/Debug/Field Review 4EFEC6.app",
+  "copiedBundle": "/private/tmp/field-review-ready-4efec6cc.em0DBs/Field Review 4EFEC6.app",
+  "bundleIdentifier": "org.discourse.field.review4efec6",
+  "urlSchemes": [
+    "discourse-field-review4efec6"
+  ],
+  "executable": "Field Review 4EFEC6",
+  "buildCommand": "flutter build macos --debug --no-pub -t tool/field_review_main.dart",
+  "sourceEquality": {
+    "matchingTrackedFiles": 3362,
+    "comparedTrackedFiles": 3366,
+    "exceptions": [
+      "macos/Runner.xcodeproj/project.pbxproj",
+      "macos/Runner/Configs/AppInfo.xcconfig",
+      "macos/Runner/DebugProfile.entitlements",
+      "macos/Runner/Info.plist"
+    ],
+    "exceptionReason": "Only temporary runner identity and explicit ad-hoc review entitlements differ from the source commit; every other tracked file and symlink target matches."
+  },
+  "kernelRelativePath": "Contents/Frameworks/App.framework/Resources/flutter_assets/kernel_blob.bin",
+  "originalKernelSHA256": "17c143b2e45abd69da86715ad941ad1df77b8446f446ad694c3cfd06b8e81cbe",
+  "copiedKernelSHA256": "17c143b2e45abd69da86715ad941ad1df77b8446f446ad694c3cfd06b8e81cbe",
+  "signatureVerification": "codesign --verify --deep --strict --verbose=2 passed after explicitly re-signing the copied root.",
+  "signingIdentity": "Signature=adhoc; TeamIdentifier=not set; no embedded provisioning profile.",
+  "signedEntitlements": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.device.audio-input": true,
+    "com.apple.security.device.camera": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "entitlementReadback": "codesign read-back exactly matched the seven-key source DebugProfile.entitlements; no APS, com.apple.developer.*, team or application identifiers.",
+  "signingAdaptation": "The detached build changed only four runner files for a unique review identity and explicit ad-hoc signing. Production signing, provisioning and entitlements are unchanged.",
+  "pins": {
+    ".fvmrc": "e786cee62ee9a4ba93d72741ae82e7e5ba6df4099c1b524118f594431ce9f90e",
+    "pubspec.lock": "26b059f1a76ab3ed4b24afc33ab6ec37f2e2ae58361b3c84a4f043361f58baa5",
+    "packages/discourse_voice/pubspec.lock": "a453128993e78a192954bd5fa48dc4a02731b87612b9562f836353349b20b4b9",
+    "profiles/full/pubspec.lock": "c1b711d05ed2d13c2da85b0962fe872a5a172866a1adcd7ee8805eb98fd779f0"
+  },
+  "inspectionStatus": "completed: approved-browser light/dark reference comparison; exact macOS bundle light/dark, LTR/RTL, 100%/200%, choice/validation/styleguide/Preferences/Voice inspection. VoiceOver speech and non-macOS devices were not run."
+}
