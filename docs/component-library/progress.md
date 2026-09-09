@@ -34,7 +34,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 22 | card | merged | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | a73f465ac86105fdda35f5b56f8b491da4b3936d |
 | 23 | empty | in_progress | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography | — |
 | 24 | item | planned | — | — | separator | — |
-| 25 | table | planned | — | — | typography | — |
+| 25 | table | in_progress | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | — |
 | 26 | scroll-area | in_progress | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | — |
 | 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
@@ -1373,6 +1373,50 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 ### empty
 
 Status: in_progress. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/ui-empty.
+
+### table
+
+Status: in_progress. Task: 01a0844a-0669-7780-92e8-33cc4314f64a. Branch: codex/ui-table.
+
+**acceptanceCriteria**
+
+- Port base-nova table/header/body/footer/row/head/cell/caption with 14/20 typography, 40px heads, 8px cell padding, 1px section rules, caption gap 16px, muted alpha hover/expanded and controlled selected state.
+- Support column sizing and spanning footer cells, shared column alignment, intrinsic horizontal overflow, RTL reading order, large text growth, semantic headers and keyboard-accessible composed actions; borrowed scroll controllers survive disposal.
+- Provide self-contained default seven-invoice, footer, product actions, selected/expanded and Arabic RTL styleguide examples using production DTable.
+- Audit core and plugin tables; migrate appropriate presentation preserving business callbacks, permissions and scrolling; document concrete specialized retained owners.
+- Pass touched format, root/full analysis and focused component/adoption tests; build exact-source uniquely identified signed macOS fixture, then await desktop slot for reference/native comparison.
+
+**decisions**
+
+- Single generic eager DTable owner with immutable typed sections/rows, widget cells/caption, Flutter column sizing and spanning footer layout; source mapping and exact frozen source hashes in table.md.
+- Controlled selected/expanded presentation, semantic table/rows/headers/cells and child-owned native actions/Form; live palette/font, RTL, reduced-motion alpha multiplication and intrinsic overflow.
+- Task worktree /Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native; no Users/Poll changes or unmerged component dependencies.
+
+**migrations**
+
+- Prometheus AlertTables presentation migrated; plugin collapse/link/timezone/quote permission/order/scrollbar/sizing behavior retained.
+- Skeleton ready-state table example migrated with its authored spacing.
+
+**retainedAlternatives**
+
+- Users pinned virtualized synchronized grid retained for specific scrolling/width persistence/hover isolation contracts; Data Table owner review boundary, Chart/Resizable adjacent ownership preserved.
+- CookedHtml authored DOM tables remain with HtmlWidget CSS/spans/selection; Typography frozen 16/24 full-grid article examples remain distinct.
+- Responsive discovery/group/member lists and Poll result bars are not generic presentation tables; detailed audit in table.md.
+
+**verification**
+
+- flutter pub get --enforce-lockfile (root and profiles/full): passed; Flutter 3.47.2 and lockfiles unchanged.
+- dart format touched Dart files and git diff --check: passed.
+- flutter analyze --no-pub (root): no issues; profiles/full: no issues.
+- flutter test --no-pub test/d_table_test.dart test/alert_tables_test.dart test/alert_data_test.dart test/alert_links_test.dart test/prometheus_alert_receiver_plugin_test.dart test/styleguide/styleguide_page_test.dart test/styleguide/skeleton_examples_test.dart --test-randomize-ordering-seed=9092026: 65 passed.
+- Widget checks: source geometry, spanning alignment/caption, semantic table-row-header-cell hierarchy, selected semantics, live multiplied alpha/reduced motion, borrowed controller, RTL large-text horizontal scrolling, keyboard menu edit and all examples at 360px/200%.
+- Native review fixture entrypoint tool/table_review.dart prepared; build provenance follows after source commit.
+
+**limitations**
+
+- awaiting_slot: native Mac locked; no browser/native inspection authorization. Actual reference-rendered comparison and native styleguide + AlertTables fixture inspection remain required; status stays in_progress.
+- Actions temporarily compose existing StyleguideAction/DButton and native MenuAnchor until Button/Dropdown Menu owners merge.
+- No VoiceOver or iOS/Linux device inspection, and no visual/pixel parity claim.
 
 ### scroll-area
 

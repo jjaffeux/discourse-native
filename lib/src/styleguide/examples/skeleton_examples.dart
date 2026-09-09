@@ -808,29 +808,31 @@ class _TableContent extends StatelessWidget {
   const _TableContent();
 
   @override
-  Widget build(BuildContext context) => Table(
+  Widget build(BuildContext context) => DTable(
     columnWidths: const {1: FixedColumnWidth(112), 2: FixedColumnWidth(96)},
-    children: [
-      for (final (index, name) in [
-        'Ada',
-        'Grace',
-        'Linus',
-        'Margaret',
-        'Ken',
-      ].indexed)
-        TableRow(
-          children: [
-            for (final value in [name, '${index + 2} posts', 'Member'])
-              Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  end: DSpacing.lg,
-                  top: DSpacing.sm,
-                  bottom: DSpacing.sm,
+    body: DTableBody(
+      rows: [
+        for (final (index, name) in [
+          'Ada',
+          'Grace',
+          'Linus',
+          'Margaret',
+          'Ken',
+        ].indexed)
+          DTableRow(
+            cells: [
+              for (final value in [name, '${index + 2} posts', 'Member'])
+                DTableCell(
+                  padding: const EdgeInsetsDirectional.only(
+                    end: DSpacing.lg,
+                    top: DSpacing.sm,
+                    bottom: DSpacing.sm,
+                  ),
+                  child: Text(value),
                 ),
-                child: Text(value),
-              ),
-          ],
-        ),
-    ],
+            ],
+          ),
+      ],
+    ),
   );
 }
