@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import '../styleguide_example.dart';
 
 final inputGroupExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Add addons, buttons, and helper content to inputs.',
   notes:
       'DInputGroup owns the joined shadcn surface, border, fill and exterior '
@@ -15,10 +15,10 @@ final inputGroupExamples = ComponentExamples(
       'block-start or block-end; place controls before addons in the child list '
       'and use align for visual order. The API intentionally covers the Button '
       'Group handoff fixture: joined input/action geometry with separate editor '
-      'and button semantics, RTL and scaling. The component source is complete, '
-      'but this page remains baseline until the final Dropdown Menu, Popover, '
-      'Field, Empty and Button Group owners replace the explicitly deferred '
-      'cross-component compositions.',
+      'and button semantics, RTL and scaling. Field owns labels and supporting '
+      'content outside the shared surface; Dropdown Menu and Popover own overlay '
+      'lifecycle. Empty uses the same accepted composition. Button Group remains '
+      'a downstream consumer of this public API.',
   examples: [
     StyleguideExample(
       title: 'Default search',
@@ -82,15 +82,29 @@ final inputGroupExamples = ComponentExamples(
       builder: (_) => const InputGroupButtonHandoffExample(),
     ),
     StyleguideExample(
-      title: 'Kbd and spinner',
+      title: 'Kbd, dropdown, and spinner',
       description:
-          'Keycaps and busy status stay decorative when the editor or surrounding text owns the action.',
-      states: const ['Kbd', 'Spinner', 'Reduced motion', 'Multiple addons'],
+          'Keycaps and busy status stay decorative; the accepted Dropdown Menu adds an independent popup trigger without taking editor ownership.',
+      states: const [
+        'Kbd',
+        'Dropdown Menu',
+        'Spinner',
+        'Reduced motion',
+        'Multiple addons',
+      ],
       code: '''DInputGroup(children: [
-  DInputGroupInput(hintText: 'Search...', semanticLabel: 'Command search'),
-  DInputGroupAddon(child: DKbd('⌘K')),
-  DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
-    child: DSpinner(size: 16, semanticLabel: null)),
+  DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search workspace'),
+  DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd, child:
+    DDropdownMenu(
+      content: DDropdownMenuContent(children: [
+        DDropdownMenuItem(onPressed: searchAll, child: Text('All content')),
+        DDropdownMenuItem(onPressed: searchUsers, child: Text('Users')),
+      ]),
+      child: DDropdownMenuTrigger(builder: (context, menu) =>
+        Semantics(expanded: menu.open, child: DInputGroupButton(
+          label: Text('Search in'), hasPopup: true,
+          focusNode: menu.focusNode, onPressed: menu.toggle))),
+    )),
 ])''',
       builder: (_) => const _KbdSpinnerExample(),
     ),
@@ -400,6 +414,46 @@ class _KbdSpinnerExample extends StatelessWidget {
             semanticLabel: 'Command search',
           ),
           const DInputGroupAddon(child: DKbd('⌘K')),
+        ],
+      ),
+      const SizedBox(height: DSpacing.md),
+      DInputGroup(
+        children: [
+          DInputGroupInput(
+            hintText: 'Search workspace...',
+            semanticLabel: 'Search workspace',
+          ),
+          DInputGroupAddon(
+            alignment: DInputGroupAddonAlignment.inlineEnd,
+            child: DDropdownMenu(
+              content: DDropdownMenuContent(
+                semanticLabel: 'Search scope menu',
+                children: [
+                  DDropdownMenuItem(
+                    onPressed: () {},
+                    child: const Text('All content'),
+                  ),
+                  DDropdownMenuItem(
+                    onPressed: () {},
+                    child: const Text('Users'),
+                  ),
+                ],
+              ),
+              child: DDropdownMenuTrigger(
+                builder: (context, menu) => Semantics(
+                  expanded: menu.open,
+                  child: DInputGroupButton(
+                    label: const Text('Search in'),
+                    icon: const Icon(Icons.arrow_drop_down, size: 16),
+                    iconPosition: DButtonIconPosition.end,
+                    hasPopup: true,
+                    focusNode: menu.focusNode,
+                    onPressed: menu.toggle,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       const SizedBox(height: DSpacing.md),

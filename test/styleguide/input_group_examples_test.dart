@@ -120,4 +120,35 @@ void main() {
       );
     },
   );
+
+  testWidgets('Dropdown composition keeps trigger and editor independent', (
+    tester,
+  ) async {
+    final example = inputGroupExamples.examples.singleWhere(
+      (example) => example.title == 'Kbd, dropdown, and spinner',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: Builder(builder: example.builder)),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).at(1), 'needle');
+    await tester.tap(find.text('Search in'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(find.text('All content'), findsOneWidget);
+    expect(find.text('Users'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
+      'needle',
+    );
+
+    await tester.tap(find.text('Users'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(find.text('Users'), findsNothing);
+    expect(find.text('Search in'), findsOneWidget);
+  });
 }
