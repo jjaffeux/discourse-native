@@ -954,13 +954,12 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
         ),
         if (controller.hasEmail) ...[
           const SizedBox(height: 10),
-          TextField(
-            style: Theme.of(context).textTheme.bodyMedium,
+          DTextarea(
             key: const ValueKey('group-invite-message'),
             controller: controller.message,
             minLines: 2,
             maxLines: 5,
-            decoration: const InputDecoration(labelText: 'Message (optional)'),
+            labelText: 'Message (optional)',
           ),
         ],
         if (controller.link case final link?) ...[

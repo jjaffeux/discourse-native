@@ -1,0 +1,196 @@
+Shuffling test order with --test-randomize-ordering-seed=4024479176
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/d_chart_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/chart_examples_test.dart: interactive reference switches its selected series locally
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/chart_examples_test.dart: interactive reference switches its selected series locally
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/chart_examples_test.dart: interactive reference switches its selected series locally
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/d_chart_test.dart: borrowed resources survive replacement and invalid indexes hide content
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/chart_examples_test.dart: all Chart examples render at narrow 200 percent RTL
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/chart_examples_test.dart: all Chart examples render at narrow 200 percent RTL
+00:00 +6: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/chart_examples_test.dart: all Chart examples render at narrow 200 percent RTL
+00:00 +7: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/chart_examples_test.dart: all Chart examples render at narrow 200 percent RTL
+00:00 +8: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/chart_examples_test.dart: all Chart examples render at narrow 200 percent RTL
+00:00 +9: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/d_chart_test.dart: quantitative marks clamp and fill from the directional start
+00:00 +10: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/d_chart_test.dart: open tooltip follows live palette radius font scale and alpha
+00:01 +11: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/poll_card_test.dart: poll deadlines expiry removes the account connection control
+00:01 +12: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:01 +13: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:01 +14: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:01 +15: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:02 +16: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:02 +17: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:02 +18: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:02 +19: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:03 +20: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: every column resizes and restores its forum-specific width
+00:03 +21: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/chart_review_fixture_test.dart: offline fixture mounts migrated Users and Poll marks with confidential counts hidden
+00:04 +22: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/chart_review_fixture_test.dart: offline fixture mounts migrated Users and Poll marks with confidential counts hidden
+00:04 +23: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/chart_review_fixture_test.dart: offline fixture mounts migrated Users and Poll marks with confidential counts hidden
+00:04 +24: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/chart_review_fixture_test.dart: offline fixture mounts migrated Users and Poll marks with confidential counts hidden
+00:04 +25: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/chart_review_fixture_test.dart: offline fixture mounts migrated Users and Poll marks with confidential counts hidden
+00:04 +26: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/chart_review_fixture_test.dart: offline fixture mounts migrated Users and Poll marks with confidential counts hidden
+00:04 +27: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/chart_review_fixture_test.dart: offline fixture mounts migrated Users and Poll marks with confidential counts hidden
+00:05 +28: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/chart_review_fixture_test.dart: offline fixture mounts migrated Users and Poll marks with confidential counts hidden
+00:05 +29: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +30: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +31: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +32: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +33: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +34: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +35: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +36: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +37: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +38: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +39: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +40: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +41: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +42: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +43: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:05 +44: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:06 +45: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:06 +46: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:06 +47: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:06 +48: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:06 +49: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: hover follows split scrolling and theme changes with lazy rows
+00:06 +50: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: refresh button owns the directory loading feedback
+00:06 +51: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: invalid directory text 000000000000000000123 renders as unscaled text
+00:06 +52: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: invalid directory text 000000000000000000123 renders as unscaled text
+00:06 +53: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: Matrix follows an explicit theme avatar radius
+00:06 +54: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: invalid directory number NaN renders as unscaled text
+00:07 +55: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +56: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +57: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +58: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +59: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +60: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +61: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +62: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +63: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +64: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +65: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +66: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +67: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +68: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +69: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +70: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +71: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +72: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +73: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +74: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +75: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +76: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +77: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +78: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +79: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +80: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +81: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/ui/d_checkbox_test.dart: controlled label, Space and semantic action share one value owner
+00:07 +82: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +83: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +84: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +85: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +86: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +87: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +88: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +89: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +90: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +91: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +92: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +93: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +94: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +95: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +96: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +97: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +98: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +99: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +100: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +101: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +102: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +103: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +104: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +105: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:07 +106: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +107: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +108: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +109: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +110: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +111: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +112: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +113: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +114: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +115: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +116: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +117: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +118: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +119: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +120: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +121: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +122: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +123: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +124: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +125: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +126: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +127: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +128: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +129: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +130: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +131: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +132: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +133: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +134: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:08 +135: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:09 +136: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:09 +137: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:09 +138: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:09 +139: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:09 +140: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +141: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +142: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +143: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +144: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +145: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +146: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +147: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +148: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +149: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +150: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +151: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +152: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +153: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +154: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +155: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +156: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: theme and viewport previews preserve example state and reset clears it
+00:10 +157: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: metric bars use the new maxima after query
+00:10 +158: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: search accessibility is bounded to the field on desktop and mobile
+00:11 +159: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: search accessibility is bounded to the field on desktop and mobile
+00:11 +160: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: search accessibility is bounded to the field on desktop and mobile
+00:11 +161: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: search accessibility is bounded to the field on desktop and mobile
+00:11 +162: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: search accessibility is bounded to the field on desktop and mobile
+00:11 +163: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: unchanged metrics reuse maxima through directory interactions
+00:11 +164: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Direction examples use the preview provider and retain edits
+00:11 +165: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Direction examples use the preview provider and retain edits
+00:11 +166: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Direction examples use the preview provider and retain edits
+00:11 +167: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Direction examples use the preview provider and retain edits
+00:12 +168: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Direction examples use the preview provider and retain edits
+00:12 +169: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: switching forums permits the new directory to load more
+00:12 +170: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +171: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +172: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +173: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +174: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +175: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +176: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +177: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +178: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +179: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +180: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Typography preview controls retain rich action state and reset it
+00:12 +181: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/users_page_test.dart: Matrix loads the next page automatically near the end
+00:12 +182: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: search reveals a collapsed desktop Sidebar without resetting the preview
+00:12 +183: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Sidebar preview shows desktop navigation and retains selection on mobile
+00:13 +184: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: resizing across the navigation breakpoint keeps the active sample
+00:13 +185: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: the styleguide accounts for every frozen catalogue entry
+00:13 +186: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: search finds documented capabilities and reports no matches
+00:13 +187: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: documentation theme and code disclosure preserve the app preview
+00:13 +188: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: mobile Sidebar selection closes navigation and retains search
+00:13 +189: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: mobile search shortcut opens Sidebar and focuses its search field
+00:14 +190: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: search and navigation fit 1200.0px at 200% system text
+00:14 +191: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: search and navigation fit 320.0px at 200% system text
+00:14 +192: /Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native/test/styleguide/styleguide_page_test.dart: Escape invokes the styleguide close action from keyboard focus
+00:14 +193: All tests passed!

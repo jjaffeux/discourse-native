@@ -478,48 +478,36 @@ class _ActivityState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final content = Semantics(
       container: true,
       liveRegion: true,
-      label: [title, ?body].join('. '),
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DIcon(icon, size: 48, color: theme.colorScheme.primary),
-                const SizedBox(height: 14),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleLarge,
-                ),
-                if (body case final body?) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    body,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+        child: SingleChildScrollView(
+          child: DEmpty(
+            children: [
+              DEmptyHeader(
+                children: [
+                  DEmptyMedia(
+                    variant: DEmptyMediaVariant.icon,
+                    child: DIcon(icon),
+                  ),
+                  DEmptyTitle(title),
+                  if (body case final body?) DEmptyDescription(body),
+                ],
+              ),
+              if (actionLabel case final label?)
+                DEmptyContent(
+                  children: [
+                    DButton(
+                      label: Text(label),
+                      onPressed: onAction == null
+                          ? null
+                          : () => unawaited(onAction!()),
+                      variant: DButtonVariant.primary,
                     ),
-                  ),
-                ],
-                if (actionLabel case final label?) ...[
-                  const SizedBox(height: 18),
-                  DButton(
-                    label: Text(label),
-                    onPressed: onAction == null
-                        ? null
-                        : () => unawaited(onAction!()),
-                    variant: DButtonVariant.primary,
-                  ),
-                ],
-              ],
-            ),
+                  ],
+                ),
+            ],
           ),
         ),
       ),
