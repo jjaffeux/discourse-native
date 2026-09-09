@@ -96,9 +96,11 @@ final inputOTPExamples = ComponentExamples(
           'Letters and digits are accepted; pasted input is normalized to upper case.',
       states: const ['Alphanumeric', 'Paste transform'],
       code: '''DInputOTP(maxLength: 6, pattern: dInputOTPAlphanumeric,
+  keyboardType: TextInputType.text,
   inputTransformer: (value) => value.toUpperCase(), children: separatedSlots)''',
       builder: (_) => _SeparatedOTP(
         pattern: dInputOTPAlphanumeric,
+        keyboardType: TextInputType.text,
         transformer: (value) => value.toUpperCase(),
         semanticLabel: 'Alphanumeric code',
       ),
@@ -179,12 +181,14 @@ class _SeparatedOTP extends StatelessWidget {
     this.value,
     this.enabled = true,
     this.pattern,
+    this.keyboardType,
     this.transformer,
     this.semanticLabel = 'One-time password',
   });
   final String? value;
   final bool enabled;
   final RegExp? pattern;
+  final TextInputType? keyboardType;
   final DInputOTPTransformer? transformer;
   final String semanticLabel;
 
@@ -194,6 +198,7 @@ class _SeparatedOTP extends StatelessWidget {
     value: value,
     enabled: enabled,
     pattern: pattern,
+    keyboardType: keyboardType,
     inputTransformer: transformer,
     semanticLabel: semanticLabel,
     children: const [
