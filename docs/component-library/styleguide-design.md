@@ -125,3 +125,21 @@ VoiceOver, iOS/Linux device run or pixel-diff equality is claimed.
 The final review bundle remains available for the user's review. No real
 account app was launched or changed during the isolated inspection. The real
 app build and local-main merge are recorded in [the checkpoint](review-checkpoint.md).
+
+
+## Current review previews
+
+The coordinator exported the current Foundations page in Light and Dark using
+Flutter's widget-test renderer at 1270×847 logical pixels / 2× output. The
+explicitly loaded fonts are system SFNS and Flutter's Material icon font. This
+shows the actual widgets and layout, independently of the locked desktop.
+
+The render source is `c5d37bd18148337f3a6be894c27c44af920f0e2c`; its complete
+styleguide and Sidebar source matches `6d8c63ed` byte for byte. The temporary
+export harness completed successfully (`/private/tmp/styleguide-b104-render.log`).
+
+Previews and their JSON provenance are under
+`/Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/`:
+`styleguide-current-dark.png`, `styleguide-current-light.png`, and
+`styleguide-preview-provenance.json`. These previews do not complete the pending
+native scrollbar/keyboard inspection or replace component reference comparison.
