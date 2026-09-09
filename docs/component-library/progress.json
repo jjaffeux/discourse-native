@@ -678,13 +678,15 @@
         "Refreshed isolated bundle from final implementation source 4e1eb3b3fe499868e4ee70f86cb48a987c4040e8. Source/copy kernels both SHA256 400b22d515a8be38b71865ddbf53b4c56da175574bbc96ef0d4473b83e959506; unique identifier/scheme restored and deep strict ad-hoc signature verification passed. It remains unlaunched pending the serialized desktop slot.",
         "Correction passes all 363 focused component/example/migration tests (seed 928374611). Root/full analysis, formatting/diff checks and isolated macOS fixture rebuild pass. Logs are recorded in input-reference.md.",
         "Eight font-loaded Flutter exports plus pixel tests verify .15*.3 dark fill, role separation, no interior focus/invalid tint, exterior ring bounds, disabled fill and equal half-opacity file trigger/filename with disabled Button semantics. Hashed exports: docs/component-library/evidence/input/correction/. No CUA or browser/app launch.",
-        "Correction native checkpoint 3800505aacce361f92bc71ff18332f58bf3cb07e: refreshed /private/tmp/DiscourseInputReview-01a083ad.app, unique org.discourse.native.input.01a083ad identity and discourse-input-review-01a083ad scheme. Source/copy kernel SHA256 both 661a1bb69eaf830e8c84de3f2931d1f2df5b760ea3dc4e86980c386cd243939a; deep strict ad-hoc signature passes. Remains unlaunched, in_progress/awaiting_slot."
+        "Correction native checkpoint 3800505aacce361f92bc71ff18332f58bf3cb07e: refreshed /private/tmp/DiscourseInputReview-01a083ad.app, unique org.discourse.native.input.01a083ad identity and discourse-input-review-01a083ad scheme. Source/copy kernel SHA256 both 661a1bb69eaf830e8c84de3f2931d1f2df5b760ea3dc4e86980c386cd243939a; deep strict ad-hoc signature passes. Remains unlaunched, in_progress/awaiting_slot.",
+        "Official browser computed-style/crop comparison corrected file gap to 4px and Field label/description leading to 19.25/21px. Sixteen font-loaded Flutter exports cover all registered examples in both app palettes and real Add Site/Invite editors. All 366 focused tests (seed 928374611), root/full analysis and exact-source native build pass. Browser slot explicitly released; prior tab absent after interruption, restoration not verifiable. Evidence and logs: input-reference.md.",
+        "Latest source a1020b6745954e54d72183729bc2f86049a949e6: unique signed /private/tmp/DiscourseInputReview-01a083ad.app refreshed, deep strict signature passes, source/copy kernel SHA256 b034361de32ad1e22d036fc1d4e0334f262b4ce1bc5eeee287751ad748211ba3. Remains unlaunched and awaiting_slot."
       ],
       "limitations": [
-        "Native reference comparison and editing inspection await the coordinator desktop slot; the Mac was reported locked. No CUA or real app interaction has occurred.",
+        "Native editing inspection awaits the coordinator desktop slot. Browser comparison completed from saved evidence; no native app interaction has occurred.",
         "No iOS/Linux device or spoken VoiceOver inspection; target-platform widget checks are not device verification."
       ],
-      "implementationCommit": "3800505aacce361f92bc71ff18332f58bf3cb07e",
+      "implementationCommit": "a1020b6745954e54d72183729bc2f86049a949e6",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },
@@ -1367,14 +1369,25 @@
     },
     {
       "id": "item",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
+      "branch": "codex/ui-item",
       "dependencies": [
-        "separator"
+        "separator",
+        "avatar"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Provide one exported reusable owner for all ten Item parts with default/outline/muted variants, default/sm/xs metrics, image/icon/avatar media, multiple content columns, full-width header/footer and group/separator compositions.",
+        "Match frozen markdown SHA c4a69c25199741ad3baea25f07a869e1aebf08cf3274f1a4f2e9da04afbbe0f0 and base-nova registry: 1px border, host lg radius, 12x10/10x8 padding, 10/8 gap, 14px title at 1.375 leading, 14/12px description at 1.5 leading, image 40/32/24 with sm radius; multiply muted/focus alpha and paint 3px exterior ring.",
+        "Passive Item adds no control role; opt-in action/link supports keyboard visible focus, pointer/touch and borrowed FocusNode ownership. Child actions cannot activate parent by keyboard or pointer. Expose no editable state: native Form descendants retain their own owner.",
+        "Prove geometry, live tokens, RTL, narrow/large text reflow, reduced motion, focus lifecycle, disabled interaction, child action isolation and group semantics with meaningful widget tests.",
+        "Self-contained real-component styleguide covers every documented example and pending Button/Dropdown dependency reconciliation explicitly; source/artwork URLs and hashes retained.",
+        "Audit core/plugin rows, migrate tag directory presentation and assignment detail rows while preserving lazy builders, per-row state, callbacks, permission guards and complete assignment notes; leave Empty/Alert regions to their owners.",
+        "Run touched format, root/full static analysis, focused component/styleguide/migration checks. Build distinct native fixture/styleguide bundle with source/kernel/signature provenance; remain in_progress awaiting serialized reference/native comparison."
+      ],
+      "decisions": [
+        "Own Item only on main base 402fe578. Proposed migrations: TagsPage row presentation and AssignmentDetailRow; shared tags empty/error regions overlap Empty/Alert and remain untouched. Thread messaging tool absent in this task; handoff via progress/final."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -1767,16 +1780,29 @@
     },
     {
       "id": "field",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
+      "branch": "codex/ui-field",
       "dependencies": [
         "label",
         "separator"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
+      "acceptanceCriteria": [
+        "Capture and hash frozen Field Markdown (1afe174f74b982ec86fad520dab464a16bfe289c2d54fde88241ce3a791112ee), official base-nova registry and reference examples; document measured CSS geometry, typography, states and native adaptations.",
+        "Export a single generic DFieldSet/Legend/Group/Field/Content/Label/Title/Description/Separator/Error owner with vertical, horizontal and 448px container-responsive layout, both legend variants, nested/choice groups, rich content, error deduplication and no competing Form state.",
+        "Provide explicit native control-label-description-error association and label activation without duplicate tab stops; verify validation semantics, Form save/reset, disabled handling, borrowed focus lifecycle and state retention across layout changes.",
+        "Match choice cards: 10px padding plus 1px border, proportional lg radius, selected primary border/background with multiplicative alpha, disabled opacity, hover and outside-only 3px keyboard focus ring.",
+        "Cover every frozen reference composition in self-contained actual Field examples; explicitly retain current native/baseline controls until unmerged Button/Input/Textarea/Checkbox/Radio/Switch/Slider/Select owners are reconciled.",
+        "Audit core and all bundled plugins, migrate surrounding composition without taking Input/Textarea/Alert ownership, record precise overlaps and retained alternatives, and verify changed production behavior.",
+        "Format touched code; pass root/full-profile analysis and meaningful Field/styleguide/downstream tests with pins unchanged. Prepare isolated uniquely identified macOS debug styleguide/production fixture, source equality and kernel/signature evidence. Remain in_progress awaiting_slot until serialized reference/native inspection passes."
+      ],
+      "decisions": [
+        "Owns Field composition only, based on local main 402fe578; Label and Separator merged. No imports from unmerged component worktrees.",
+        "Coordinator send_message_to_thread is absent from available tool metadata; report ownership and overlap through this row and final handoff."
+      ],
+      "migrations": [
+        "Candidate bounded migration: Preferences _PreferenceCard surrounding form grouping and Voice room editor section grouping. Input/Textarea/Switch/Native Select own inner controls; Alert owns preferences notices. Broad ordinary-editor migrations are explicitly excluded."
+      ],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
@@ -2063,12 +2089,13 @@
         "Page-scale states owned by Empty; historical cooked post notices, chat deleted/read runs, recording/diagnostic indicators, specialized tables, field validation, media errors and Toast/Dialog content retained with specific audit rationale in alert.md."
       ],
       "verification": [
-        "107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity tests passed. Root and full-profile enforced-lockfile resolution completed. Native build evidence pending."
+        "107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity checks passed (three component tests repeated). Root and full-profile enforced-lockfile resolution and static analysis passed; 18 touched Dart files formatted; git diff --check clean. Pins/locks unchanged.",
+        "Unique local macOS debug bundle Alert Review 38df / org.discourse.alertreview38df / discourse-alert-review-38df built from implementation commit with zero lib/fixture diff. Source app.dill and both copied kernels SHA256 e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99. Deep strict ad-hoc signature verification passed; temporary runner settings restored. Exact paths in evidence/alert/build.json."
       ],
       "limitations": [
         "awaiting_slot: Mac locked; no browser/native access authorized. Rendered comparison, native styleguide and changed production-surface inspection remain required; no VoiceOver/device/pixel-parity claim."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "5f0418cc6a90faaa88c3df6adee1df232bff081c",
       "mergeCommit": null
     },
     {
@@ -2356,7 +2383,7 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": null,
+    "nativeInspectionTaskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
     "nativeInspectionQueue": [
       "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "01a083ac-5fd5-78b1-9263-7e3218a878b6",
@@ -2376,7 +2403,9 @@
       "01a0843e-76da-7911-ac98-49bd6dba8384",
       "01a08445-7647-7a83-a366-e06252405043",
       "01a0844a-0669-7780-92e8-33cc4314f64a",
-      "01a08454-55a6-7681-8da9-bec8b23899a4"
+      "01a08454-55a6-7681-8da9-bec8b23899a4",
+      "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
+      "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -2433,19 +2462,20 @@
       ],
       "activeTasks": [
         {
-          "component": "input",
-          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
-          "branch": "codex/ui-input",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
-          "status": "browser_and_renderer_review"
+          "component": "field",
+          "taskId": "01a084bf-dd8a-7c13-86dd-63d635b7bf97",
+          "branch": "codex/ui-field",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/14b5/discourse-native",
+          "status": "implementation",
+          "baseCommit": "402fe578"
         },
         {
-          "component": "alert",
-          "taskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
-          "branch": "codex/ui-alert",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native",
-          "baseCommit": "84e073f8266773c830c0d03d1ad2c1b3caa3fdb2",
-          "status": "implementation"
+          "component": "item",
+          "taskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
+          "branch": "codex/ui-item",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native",
+          "status": "implementation",
+          "baseCommit": "402fe578"
         }
       ],
       "nativeReadyTasks": [
@@ -2577,6 +2607,22 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native",
           "headCommit": "32cc5ca1666a0f13e92024a10d9a9aec208a8858",
           "status": "awaiting_browser_and_native_review"
+        },
+        {
+          "component": "input",
+          "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+          "branch": "codex/ui-input",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
+          "status": "awaiting_native_and_button_reconciliation",
+          "headCommit": "326b810eb6a966658fec9e9e968ddc56834f022a"
+        },
+        {
+          "component": "alert",
+          "taskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
+          "branch": "codex/ui-alert",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native",
+          "status": "awaiting_browser_and_native_review",
+          "headCommit": "58c6b5e2c1630941c83a50642dee8cda09898de5"
         }
       ]
     },
@@ -2591,12 +2637,14 @@
       "observedAt": "2026-09-09T03:04:54+02:00",
       "userUnlockRequested": true,
       "unaffectedWork": "Source, tests, builds and serialized browser-only reference comparisons with Flutter test exports can continue. Native application interaction still needs Mac unlock.",
-      "latestResult": "Mac remains locked; automatic unlock failed. Existing unlock request remains pending; no repeated prompt.",
-      "latestCheckRecordedAt": "2026-09-09T05:20:55+02:00"
+      "latestResult": "Existing native review window accessible and corrected unique Component Fidelity B104 fixture launched successfully. Ad-hoc signing correction is documented in the isolated bundle provenance.",
+      "latestCheckRecordedAt": "2026-09-09T05:20:55+02:00",
+      "status": "resolved",
+      "resolvedAt": "2026-09-09T08:10:37+02:00"
     },
     "pendingCoordinatorNativeReview": "Use Component Fidelity B104 at a872962f after unlock: title Escape/save failure, final styleguide preview scrollbar, floating Sidebar radius, Diagnostics rows at100%/200% and detail navigation.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
+    "browserInspectionTaskId": null,
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
@@ -2652,7 +2700,7 @@
       }
     },
     "integrationPreparation": {
-      "status": "combined_source_reconciliation",
+      "status": "file_trigger_correction_verified",
       "branch": "codex/component-library-integration-review",
       "worktree": "/private/tmp/discourse-component-integration-b104",
       "components": [
@@ -2664,7 +2712,8 @@
       "componentHeads": {
         "button": "f32de5cc356a561c3a3d26c75aeb855e0ad28307",
         "input": "43437c9a271e8352d71684a634654e11f3028d15"
-      }
+      },
+      "verification": "52 Button/Input and example tests passed seed909611. Improved actual glyph bounds exposed previously masked double-fading (83 instead of136 intensity), then passed after honoring shared disabled-opacity override. Final Input browser corrections being integrated before combined review."
     }
   },
   "visualFidelity": {
