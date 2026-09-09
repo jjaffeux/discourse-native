@@ -619,6 +619,36 @@ void main() {
     expect(footer.top - body.bottom, 16);
   });
 
+  testWidgets('wide footer alignment can reproduce reference overrides', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        DDialog<void>(
+          trigger: DDialogTrigger(
+            builder: (context, open) =>
+                TextButton(onPressed: open, child: const Text('Open')),
+          ),
+          content: const DDialogContent(
+            children: [
+              DDialogTitle(child: Text('Start-aligned actions')),
+              DDialogFooter(
+                wideAlignment: WrapAlignment.start,
+                children: [SizedBox(key: Key('action'), width: 40, height: 10)],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final footer = tester.getRect(find.byType(DDialogFooter));
+    final action = tester.getRect(find.byKey(const Key('action')));
+    expect(action.left, footer.left + DSpacing.lg);
+  });
+
   testWidgets('title metrics and logical close placement follow direction', (
     tester,
   ) async {

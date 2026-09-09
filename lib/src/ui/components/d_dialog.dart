@@ -816,11 +816,17 @@ class DDialogFooter extends StatelessWidget {
     required this.children,
     this.showCloseButton = false,
     this.closeLabel = 'Close',
+    this.wideAlignment = WrapAlignment.end,
   });
 
   final List<Widget> children;
   final bool showCloseButton;
   final String closeLabel;
+
+  /// Horizontal action alignment at the 640px responsive breakpoint.
+  ///
+  /// Narrow layouts always keep the reference's reversed, full-width column.
+  final WrapAlignment wideAlignment;
 
   @override
   Widget build(BuildContext context) {
@@ -849,7 +855,7 @@ class DDialogFooter extends StatelessWidget {
         padding: const EdgeInsets.all(DSpacing.lg),
         child: wide
             ? Wrap(
-                alignment: WrapAlignment.end,
+                alignment: wideAlignment,
                 spacing: DSpacing.sm,
                 runSpacing: DSpacing.sm,
                 children: parts,

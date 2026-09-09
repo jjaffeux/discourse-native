@@ -100,7 +100,8 @@ const _customCloseCode = '''DDialog<void>(
     const DDialogHeader(children: [DDialogTitle(child: Text('Share link')),
       DDialogDescription(child: Text('Anyone who has this link will be able to view this.'))]),
     readOnlyLinkField,
-    DDialogFooter(children: [DDialogClose<void>(builder: closeButton)]),
+    DDialogFooter(wideAlignment: WrapAlignment.start,
+      children: [DDialogClose<void>(builder: closeButton)]),
   ]),
 )''';
 
@@ -109,7 +110,6 @@ const _noCloseCode = '''DDialog<void>(
   content: DDialogContent(showCloseButton: false, children: [
     DDialogHeader(children: [DDialogTitle(child: Text('No Close Button')),
       DDialogDescription(child: Text('This dialog doesn’t have a close button in the top-right corner.'))]),
-    DDialogFooter(showCloseButton: true, children: []),
   ]),
 )''';
 
@@ -280,6 +280,7 @@ class _CustomCloseDialog extends StatelessWidget {
       builder: (context, open) => _trigger('Share', open),
     ),
     content: DDialogContent(
+      maxWidth: 448,
       semanticLabel: 'Share link',
       children: [
         const DDialogHeader(
@@ -298,6 +299,7 @@ class _CustomCloseDialog extends StatelessWidget {
           initialValue: 'https://ui.shadcn.com/docs/installation',
         ),
         DDialogFooter(
+          wideAlignment: WrapAlignment.start,
           children: [
             DDialogClose<void>(
               builder: (context, close) =>
@@ -332,7 +334,6 @@ class _NoCloseDialog extends StatelessWidget {
             ),
           ],
         ),
-        DDialogFooter(showCloseButton: true, children: []),
       ],
     ),
   );
