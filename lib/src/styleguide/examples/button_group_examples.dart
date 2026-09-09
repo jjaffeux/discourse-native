@@ -121,22 +121,27 @@ final buttonGroupExamples = ComponentExamples(
       builder: (_) => const _SplitGroup(),
     ),
     StyleguideExample(
-      title: 'Input and text',
+      title: 'Input',
       description:
-          'The editable field takes the remaining finite width. Rich group text '
-          'is passive. DField associates the label and description with the '
-          'editor without wrapping the multi-control group in DFieldControl.',
-      states: const ['Field', 'Expanded input', 'Rich text', 'Invalid'],
-      code: '''DField(children: [
-  DFieldLabel(focusNode: searchFocus, child: Text('Search topics')),
-  DButtonGroup(mainAxisSize: MainAxisSize.max, children: [
-    DButtonGroupText(child: Icon(Icons.manage_search)),
-    DButtonGroupExpanded(child: DInput(focusNode: searchFocus, invalid: invalid)),
-    DButton.iconOnly(icon: Icon(Icons.search), tooltip: 'Search', onPressed: search),
-  ]),
-  DFieldDescription(child: Text('Search titles and post bodies.')),
-])''',
-      builder: (_) => const _InputGroup(),
+          'The documented composition contains only the editable input and its '
+          'trailing outline action, joined at one shared seam.',
+      states: const ['Input', 'Expanded input', 'Icon action'],
+      code: '''SizedBox(
+  width: 229,
+  child: DButtonGroup(
+    mainAxisSize: MainAxisSize.max,
+    children: [
+      DButtonGroupExpanded(child: DInput(hintText: 'Search...')),
+      DButton.iconOnly(
+        variant: DButtonVariant.outline,
+        icon: Icon(Icons.search),
+        tooltip: 'Search',
+        onPressed: search,
+      ),
+    ],
+  ),
+)''',
+      builder: (_) => const _InputFixture(),
     ),
     StyleguideExample(
       title: 'Input Group composition',
@@ -409,57 +414,24 @@ class _SplitGroup extends StatelessWidget {
   );
 }
 
-class _InputGroup extends StatefulWidget {
-  const _InputGroup();
-  @override
-  State<_InputGroup> createState() => _InputGroupState();
-}
-
-class _InputGroupState extends State<_InputGroup> {
-  bool _invalid = false;
-
-  final FocusNode _focusNode = FocusNode();
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
+class _InputFixture extends StatelessWidget {
+  const _InputFixture();
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 360,
-    child: DField(
-      invalid: _invalid,
+    width: 229,
+    child: DButtonGroup(
+      mainAxisSize: MainAxisSize.max,
+      semanticLabel: 'Search controls',
       children: [
-        DFieldLabel(focusNode: _focusNode, child: const Text('Search topics')),
-        DButtonGroup(
-          mainAxisSize: MainAxisSize.max,
-          semanticLabel: 'Search controls',
-          children: [
-            const DButtonGroupText(
-              semanticLabel: 'Search query',
-              child: Icon(Icons.manage_search),
-            ),
-            DButtonGroupExpanded(
-              child: DInput(
-                focusNode: _focusNode,
-                semanticLabel: 'Search topics',
-                hintText: 'Search...',
-                invalid: _invalid,
-                onSubmitted: (value) =>
-                    setState(() => _invalid = value.isEmpty),
-              ),
-            ),
-            DButton.iconOnly(
-              variant: DButtonVariant.outline,
-              icon: const Icon(Icons.search),
-              tooltip: 'Search',
-              onPressed: () => setState(() => _invalid = !_invalid),
-            ),
-          ],
+        DButtonGroupExpanded(
+          child: DInput(semanticLabel: 'Search', hintText: 'Search...'),
         ),
-        const DFieldDescription(child: Text('Search titles and post bodies.')),
+        DButton.iconOnly(
+          variant: DButtonVariant.outline,
+          icon: const Icon(Icons.search),
+          tooltip: 'Search',
+          onPressed: () {},
+        ),
       ],
     ),
   );
