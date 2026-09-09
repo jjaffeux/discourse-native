@@ -68,7 +68,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | in_progress | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | — |
-| 30 | resizable | in_progress | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
+| 30 | resizable | review_ready | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
 | 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
 | 33 | dialog | in_progress | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | — |
@@ -1788,7 +1788,7 @@ Status: in_progress. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/u
 
 ### resizable
 
-Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-resizable.
+Status: review_ready. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-resizable.
 
 **acceptanceCriteria**
 
@@ -1802,8 +1802,8 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 
 - See docs/component-library/resizable.md for primary source hashes, measurements, API/constraint and native adaptation decisions. Frozen page hash matches catalogue; Base Nova 1px divider + 4x24 pill, rounded-lg = 1x token radius.
 - Public group/panel/handle plus typed explicit pixel/percentage sizes and controller; controlled/uncontrolled state, constraints/collapse, disabled panels, dynamic stable IDs, relative/pixel parent sizing. Native 48px coarse targets with in-bounds collapsed-edge semantics.
-- App adapters reuse DResizableHandle.standalone; persistence/async races remain outside generic UI. No Form field or unmerged component dependency. Styleguide status remains baseline pending native gate.
-- Independent source/check/build work complete; awaiting_slot. Coordinator must complete native/reference comparison before review_ready or merge.
+- App adapters reuse DResizableHandle.standalone; persistence/async races remain outside generic UI. No Form field or unmerged component dependency. Styleguide status is implemented after independent native acceptance.
+- Independent reviewer accepted the unchanged source after official Base UI rendered comparison and native macOS inspection; no source correction or rebuild was required.
 
 **migrations**
 
@@ -1822,10 +1822,13 @@ Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/u
 - Final root and full-profile flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed. Four extracted self-contained usage programs passed Dart analysis.
 - Isolated local-data native fixture built successfully from source 7ba6dd15a5134b195d8b9fb5fda6e457e8005eb0. Copied /tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app has unique name/ID/URL scheme; build app.dill and original/copied kernels share SHA256 564d2ae4fcee4c667fbd4aa80521d3454cef17195e76723758130b1398918b1b. Deep strict signature verification passed. See docs/component-library/resizable-native.md and evidence/resizable logs.
 - Integrated pinned main e612ad7b; source 0629571a58e927f480c03de909bdfd4f676cdbd1. 180 focused tests and root/full analysis pass. Unique isolated bundle /tmp/discourse-resizable-integration-0629571a/ResizableIntegration.app; kernel 2ffa27d7519d1edc17b8d8da3f204814298a298c4ae4b3c5cb10b76526f46840. Explicit restricted-free ad-hoc entitlement readback equals signing plist, allow-jit=true; deep strict signature passes. See resizable-native.md and evidence/resizable/integration.
+- Independent reviewer reran 90 focused component/styleguide/ResizablePane/Users/Chat tests and root/full-profile analysis after integrating current main; all passed.
+- Approved browser/native review passed: official 384px Base UI horizontal, vertical, handle, nested and RTL renders were compared with the exact signed macOS fixture. Dark/light documentation canvases, RTL, 200% text, reduced motion and 360px preview remained usable. Keyboard resize, controlled collapse/expand/disabled state, and pointer commits on Users 160 to 228px, Chat 160 to 226px and pane 208 to 267px succeeded; native AX exposed independent named adjustable handles.
 
 **limitations**
 
-- awaiting_slot: integration complete; native/reference comparison pending. Mac locked and browser navigation separately denied admin-policy verification. No CUA/browser/native launch or blocker retry attempted. Not review_ready or mergeable.
+- No iOS/Linux device run or spoken VoiceOver verification was performed.
+- Browser Geist and native host-font rasterization differ; the review establishes geometry, styling, interaction and semantics rather than pixel equality.
 
 ### popover
 

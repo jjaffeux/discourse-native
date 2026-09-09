@@ -3,11 +3,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart' show DDirection;
+import '../../discourse_ui.dart' show DResizableHandle;
 import '../foundation/frame_safe_notifier.dart';
-import '../theme/app_theme.dart';
 
 typedef PanelWidthReader = Future<double?> Function();
 typedef PanelWidthWriter = Future<void> Function(double width);
@@ -158,205 +156,81 @@ class ResizablePane extends StatefulWidget {
 }
 
 class _ResizablePaneState extends State<ResizablePane> {
-  late final FocusNode _focus = FocusNode(
-    debugLabel: '${widget.resizeKey} resize',
-  );
-  bool _focused = false;
-  bool _keyboardResizePending = false;
-  double? _renderedWidth;
-
   @override
   void didUpdateWidget(ResizablePane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(widget.controller, oldWidget.controller)) {
+    if (widget.controller != oldWidget.controller) {
       unawaited(oldWidget.controller.flush());
-      _keyboardResizePending = false;
     }
   }
 
   @override
   void dispose() {
     unawaited(widget.controller.flush());
-    _focus.dispose();
     super.dispose();
   }
 
-  void _resizeBy(double widthDelta) {
-    widget.controller.resizeBy(widthDelta, maximum: widget.maximumWidth);
-  }
-
-  void _startDrag(DragStartDetails _) {
-    _focus.requestFocus();
-  }
-
-  void _updateDrag(DragUpdateDetails details) {
-    final renderedWidth = _renderedWidth;
-    if (renderedWidth == null) return;
-    final widthDelta = widget.edge.widthDeltaForDrag(
-      details.delta.dx,
-      DDirection.of(context),
-    );
-    // Multiple pointer updates can arrive before a frame. Anchoring each one
-    // to rendered geometry keeps undisplayed threshold movement from becoming
-    // part of the pane's persisted width.
-    final targetWidth = renderedWidth + widthDelta;
-    final currentWidth = widget.controller.effectiveWidth(
-      maximum: widget.maximumWidth,
-    );
-    _resizeBy(targetWidth - currentWidth);
-  }
-
-  void _endDrag() {
-    unawaited(widget.controller.flush());
-    _focus.unfocus();
-  }
-
-  void _resizeOnce(double widthDelta) {
-    _resizeBy(widthDelta);
-    unawaited(widget.controller.flush());
-  }
-
-  KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
-    final horizontalDelta = switch (event.logicalKey) {
-      LogicalKeyboardKey.arrowLeft => -widget.keyboardStep,
-      LogicalKeyboardKey.arrowRight => widget.keyboardStep,
-      _ => null,
-    };
-    if (horizontalDelta == null) return KeyEventResult.ignored;
-
-    final isPress = event is KeyDownEvent || event is KeyRepeatEvent;
-    final keyboard = HardwareKeyboard.instance;
-    if (isPress &&
-        (keyboard.isAltPressed ||
-            keyboard.isControlPressed ||
-            keyboard.isMetaPressed ||
-            keyboard.isShiftPressed)) {
-      _focus.unfocus();
-      return KeyEventResult.ignored;
-    }
-
-    if (isPress) {
-      final widthDelta = widget.edge.widthDeltaForDrag(
-        horizontalDelta,
-        DDirection.of(context),
-      );
-      _resizeBy(widthDelta);
-      _keyboardResizePending = true;
-    } else if (event is KeyUpEvent && _keyboardResizePending) {
-      _keyboardResizePending = false;
-      unawaited(widget.controller.flush());
-    }
-    return KeyEventResult.handled;
-  }
-
-  void _focusChanged(bool focused) {
-    if (_focused == focused) return;
-    if (!focused && _keyboardResizePending) {
-      _keyboardResizePending = false;
-      unawaited(widget.controller.flush());
-    }
-    setState(() => _focused = focused);
-  }
-
   @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<double>(
-      valueListenable: widget.controller,
-      child: widget.child,
-      builder: (context, _, child) {
-        final width = widget.controller.effectiveWidth(
-          maximum: widget.maximumWidth,
-        );
-        _renderedWidth = width;
-        final increasedWidth = widget.controller.resizedWidth(
-          widget.keyboardStep,
-          maximum: widget.maximumWidth,
-        );
-        final decreasedWidth = widget.controller.resizedWidth(
-          -widget.keyboardStep,
-          maximum: widget.maximumWidth,
-        );
-        final canIncrease = increasedWidth != width;
-        final canDecrease = decreasedWidth != width;
-
-        return SizedBox(
-          width: width,
-          child: Stack(
-            children: [
-              Positioned.fill(child: child!),
-              if (widget.resizeEnabled)
-                PositionedDirectional(
-                  start: widget.edge == ResizablePaneEdge.leading ? 0 : null,
-                  end: widget.edge == ResizablePaneEdge.trailing ? 0 : null,
-                  top: 0,
-                  bottom: 0,
-                  width: widget.handleWidth,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.resizeLeftRight,
-                    child: Focus(
-                      key: ValueKey('${widget.resizeKey}-resize-focus'),
-                      focusNode: _focus,
-                      onFocusChange: _focusChanged,
-                      onKeyEvent: _handleKey,
-                      child: Semantics(
-                        key: ValueKey('${widget.resizeKey}-resize-semantics'),
-                        container: true,
-                        focusable: true,
-                        focused: _focused,
-                        slider: true,
-                        label: widget.semanticsLabel,
-                        value: '${width.round()} pixels wide',
-                        increasedValue: canIncrease
-                            ? '${increasedWidth.round()} pixels wide'
-                            : null,
-                        decreasedValue: canDecrease
-                            ? '${decreasedWidth.round()} pixels wide'
-                            : null,
-                        onIncrease: canIncrease
-                            ? () => _resizeOnce(widget.keyboardStep)
-                            : null,
-                        onDecrease: canDecrease
-                            ? () => _resizeOnce(-widget.keyboardStep)
-                            : null,
-                        child: GestureDetector(
-                          key: ValueKey('${widget.resizeKey}-resize-handle'),
-                          behavior: HitTestBehavior.translucent,
-                          onHorizontalDragStart: _startDrag,
-                          onHorizontalDragUpdate: _updateDrag,
-                          onHorizontalDragEnd: (_) => _endDrag(),
-                          onHorizontalDragCancel: _endDrag,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (widget.dividerWidth > 0)
-                                Align(
-                                  alignment:
-                                      widget.edge == ResizablePaneEdge.leading
-                                      ? AlignmentDirectional.centerStart
-                                      : AlignmentDirectional.centerEnd,
-                                  child: ColoredBox(
-                                    color: _focused
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Theme.of(context).shell.divider,
-                                    child: SizedBox(
-                                      width: _focused
-                                          ? widget.focusedDividerWidth
-                                          : widget.dividerWidth,
-                                      height: double.infinity,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
+  Widget build(BuildContext context) => ValueListenableBuilder<double>(
+    valueListenable: widget.controller,
+    child: widget.child,
+    builder: (context, _, child) {
+      final width = widget.controller.effectiveWidth(
+        maximum: widget.maximumWidth,
+      );
+      return SizedBox(
+        width: width,
+        child: Stack(
+          children: [
+            Positioned.fill(child: child!),
+            if (widget.resizeEnabled)
+              PositionedDirectional(
+                start: widget.edge == ResizablePaneEdge.leading ? 0 : null,
+                end: widget.edge == ResizablePaneEdge.trailing ? 0 : null,
+                top: 0,
+                bottom: 0,
+                width: DResizableHandle.resolveHitExtent(
+                  context,
+                  widget.handleWidth,
+                ),
+                child: DResizableHandle.standalone(
+                  trackUnrenderedChanges: false,
+                  focusKey: ValueKey('${widget.resizeKey}-resize-focus'),
+                  semanticsKey: ValueKey(
+                    '${widget.resizeKey}-resize-semantics',
+                  ),
+                  gestureKey: ValueKey('${widget.resizeKey}-resize-handle'),
+                  semanticLabel: widget.semanticsLabel,
+                  value: width,
+                  min: widget.controller.minimumWidth,
+                  max: math.max(
+                    widget.controller.minimumWidth,
+                    math.min(
+                      widget.controller.maximumWidth,
+                      widget.maximumWidth,
                     ),
                   ),
+                  reverse: widget.edge == ResizablePaneEdge.leading,
+                  keyboardStep: widget.keyboardStep,
+                  dividerThickness: widget.dividerWidth,
+                  focusedDividerThickness: widget.focusedDividerWidth,
+                  dividerAlignment: widget.edge == ResizablePaneEdge.leading
+                      ? AlignmentDirectional.centerStart
+                      : AlignmentDirectional.centerEnd,
+                  valueFormatter: (value) => '${value.round()} pixels wide',
+                  onChanged: (next) => widget.controller.resizeBy(
+                    next -
+                        widget.controller.effectiveWidth(
+                          maximum: widget.maximumWidth,
+                        ),
+                    maximum: widget.maximumWidth,
+                  ),
+                  onChangeEnd: () => unawaited(widget.controller.flush()),
                 ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+              ),
+          ],
+        ),
+      );
+    },
+  );
 }
