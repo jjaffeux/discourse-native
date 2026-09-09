@@ -91,15 +91,42 @@ an app-specific primary selected surface. They retain selected-choice ownership
 and geometry rather than being recast as compact pressed-button groups during
 this migration.
 
-## Prepared verification boundary
+## Independent acceptance
 
 Source implementation: `d6a9be0d00c160dffa7daf67e8f2f4cefa00c336`.
-Latest-main integration handoff: `1f97c825115e5511d857ec255bd875bf6ec34398`.
-Reviewer: `01a085e6-4bb7-7e13-9e2a-98992292b4b3` on
+Independent reviewer: `01a085e6-4bb7-7e13-9e2a-98992292b4b3` on
 `codex/review-toggle-group`.
 
-The implementation task verifies source hashes, focused component/styleguide
-tests, composer consumer regressions, root and full-profile analysis, and a
-macOS source build. Official rendered comparison and actual native interaction
-remain required and are owned by the new independent reviewer. No physical
-iOS/Linux device or spoken VoiceOver claim is made.
+Review corrected three ownership and artwork defects: roving focus now remains
+on the surviving logical item across dynamic updates, joined outline items use
+the reference icon-edge padding, and a focused joined item paints above its
+siblings. The Custom example was reconciled with accepted Field and its leading
+alignment corrected. Regression coverage also pins the local review fixture's
+production Composer ownership boundary.
+
+Seventy-two focused Toggle, Toggle Group, review-fixture and Composer gallery
+tests passed with randomized seed `9052045`. Root and `profiles/full` locked
+dependency resolution and static analysis passed. The exact source at
+`9a0d7a34bc8b2e7243af8c55562c55a018b7ad0d` built as
+`/private/tmp/toggle-group-review-9a0d7a34.6q7VMA/ready/Toggle Group Review 9A0D7A34.app`
+with isolated identifier `org.discourse.togglegroup.review9a0d7a34`. Its copied
+`App.framework` SHA-256 exactly matched the source build at
+`f4f665946edda732d0c2fb8138a6b27a3acf576eba5a860c95b2a19dbeb2d273`;
+deep strict ad-hoc signature verification passed after removing the unrelated
+push entitlement and retaining the seven local debug entitlements.
+
+Official browser inspection covered every documented example in light and dark,
+including single deselection, multiple selection, RTL and the four-tile Field
+composition. Native acceptance exercised all nine examples, pointer selection,
+horizontal roving arrows plus Home/End, dynamic controller updates, disabled
+pointer blocking, joined focus layering, light/dark/Forest/Plum palettes, RTL,
+reduced motion, 200% text and a narrow window. The real production Composer
+gallery was selected and its Grid/Carousel group changed the live editor markup
+between `[grid]` and `[grid mode=carousel]` while retaining controller ownership.
+
+No physical iOS or Linux device run and no spoken VoiceOver claim is made.
+Browser and native font rasterization differ, so acceptance establishes mapped
+geometry, palette relationships, semantics and behavior rather than pixel
+equality. Vertical and RTL arrow behavior is pinned by widget tests; the native
+pass inspected those layouts but did not claim a spoken assistive-technology or
+physical-keyboard device session for each variant.

@@ -7,14 +7,12 @@ import 'toggle_reference_icons.dart';
 final toggleGroupExamples = ComponentExamples(
   description:
       'A shared single- or multiple-selection state for two-state buttons.',
-  status: ComponentStatus.baseline,
-  notes:
-      'Source-complete pending independent rendered/native review. The frozen 2026-05-17 behavior uses 8px default spacing; spacing 0 joins edges, collapses inner outline borders and uses 8px horizontal padding. DToggle remains the visual and activation owner. Values may be parent-controlled, borrowed from a DToggleGroupController, or internally owned. Arrow keys follow orientation and RTL, Home/End move to edges, disabled items are skipped, and loopFocus controls wrapping. The 64px font-weight tiles are the documented Custom composition; the final accepted DField owner must replace its temporary label/description wrapper during review.',
+  status: ComponentStatus.implemented,
+  notes: 'Accepted after independent rendered and native review. The frozen 2026-05-17 behavior uses 8px default spacing; spacing 0 joins edges, collapses inner outline borders and uses 8px horizontal padding. DToggle remains the visual and activation owner. Values may be parent-controlled, borrowed from a DToggleGroupController, or internally owned. Arrow keys follow orientation and RTL, Home/End move to edges, disabled items are skipped, and loopFocus controls wrapping. The documented 64px font-weight tiles compose the accepted DField label and description around the group without transferring control ownership.',
   examples: [
     StyleguideExample(
       title: 'Default and composition',
-      description:
-          'The lead multiple-selection outline group uses the documented ToggleGroup → ToggleGroupItem composition.',
+      description: 'The lead multiple-selection outline group uses the documented ToggleGroup → ToggleGroupItem composition.',
       states: const ['Multiple', 'Outline', 'Icons', 'Default spacing 8px'],
       code: '''DToggleGroup<String>(
   multiple: true,
@@ -29,11 +27,9 @@ final toggleGroupExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Outline',
-      description:
-          'A single-select text group starts with All selected and permits deselection like Base UI.',
+      description: 'A single-select text group starts with All selected and permits deselection like Base UI.',
       states: const ['Single', 'Outline', 'Text', 'Deselectable'],
-      code:
-          "DToggleGroup<String>(initialValues: const ['all'], variant: DToggleVariant.outline, items: const [DToggleGroupItem(value: 'all', child: Text('All')), DToggleGroupItem(value: 'missed', child: Text('Missed'))])",
+      code: "DToggleGroup<String>(initialValues: const ['all'], variant: DToggleVariant.outline, items: const [DToggleGroupItem(value: 'all', child: Text('All')), DToggleGroupItem(value: 'missed', child: Text('Missed'))])",
       builder: (_) => const _SimpleGroup(
         labels: ['All', 'Missed'],
         initial: ['All'],
@@ -42,11 +38,9 @@ final toggleGroupExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Size',
-      description:
-          'Small and default groups retain the accepted 28px and 32px Toggle artwork.',
+      description: 'Small and default groups retain the accepted 28px and 32px Toggle artwork.',
       states: const ['Small 28px', 'Default 32px', 'Outline'],
-      code:
-          "DToggleGroup<String>(size: DToggleSize.small, initialValues: const ['Top'], variant: DToggleVariant.outline, items: items)",
+      code: "DToggleGroup<String>(size: DToggleSize.small, initialValues: const ['Top'], variant: DToggleVariant.outline, items: items)",
       builder: (_) => const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -67,11 +61,9 @@ final toggleGroupExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Spacing',
-      description:
-          'Compare the frozen 8px default with connected spacing 0 and a 4px vertical group.',
+      description: 'Compare the frozen 8px default with connected spacing 0 and a 4px vertical group.',
       states: const ['Default 8px', 'Connected 0px', 'Vertical 4px'],
-      code:
-          "DToggleGroup<String>(spacing: 0, variant: DToggleVariant.outline, initialValues: const ['Top'], items: items)",
+      code: "DToggleGroup<String>(spacing: 0, variant: DToggleVariant.outline, initialValues: const ['Top'], items: items)",
       builder: (_) => const Wrap(
         spacing: 20,
         runSpacing: 16,
@@ -95,26 +87,21 @@ final toggleGroupExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Vertical',
-      description:
-          'Multiple formatting choices stack vertically with 4px spacing and vertical arrow focus.',
+      description: 'Multiple formatting choices stack vertically with 4px spacing and vertical arrow focus.',
       states: const ['Vertical', 'Multiple', '4px gap', 'Arrow keys'],
-      code:
-          "DToggleGroup<String>(multiple: true, orientation: Axis.vertical, spacing: 1, initialValues: const ['bold', 'italic'], items: formattingItems)",
+      code: "DToggleGroup<String>(multiple: true, orientation: Axis.vertical, spacing: 1, initialValues: const ['bold', 'italic'], items: formattingItems)",
       builder: (_) => const _FormattingGroup(vertical: true),
     ),
     StyleguideExample(
       title: 'Disabled',
-      description:
-          'A disabled group preserves selection semantics but blocks pointer, keyboard and semantic activation.',
+      description: 'A disabled group preserves selection semantics but blocks pointer, keyboard and semantic activation.',
       states: const ['Disabled group', 'Pressed state retained'],
-      code:
-          "DToggleGroup<String>(enabled: false, initialValues: const ['bold'], items: formattingItems)",
+      code: "DToggleGroup<String>(enabled: false, initialValues: const ['bold'], items: formattingItems)",
       builder: (_) => const _FormattingGroup(enabled: false),
     ),
     StyleguideExample(
       title: 'Custom font weight',
-      description:
-          'The documented controlled 64px tile composition previews and describes the selected font weight.',
+      description: 'The documented controlled 64px tile composition previews and describes the selected font weight.',
       states: const [
         'Controlled',
         '64px tiles',
@@ -148,11 +135,9 @@ final toggleGroupExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'RTL',
-      description:
-          'Arabic text follows reading order; Left/Right arrows move visually in RTL.',
+      description: 'Arabic text follows reading order; Left/Right arrows move visually in RTL.',
       states: const ['RTL', 'Arabic', 'Single', 'Outline'],
-      code:
-          "Directionality(textDirection: TextDirection.rtl, child: DToggleGroup<String>(variant: DToggleVariant.outline, initialValues: const ['قائمة'], items: arabicItems))",
+      code: "Directionality(textDirection: TextDirection.rtl, child: DToggleGroup<String>(variant: DToggleVariant.outline, initialValues: const ['قائمة'], items: arabicItems))",
       builder: (_) => const Directionality(
         textDirection: TextDirection.rtl,
         child: _SimpleGroup(
@@ -164,8 +149,7 @@ final toggleGroupExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Ownership and dynamic items',
-      description:
-          'Exercise a borrowed controller, required selection, disabled-item focus skipping, looping and item removal.',
+      description: 'Exercise a borrowed controller, required selection, disabled-item focus skipping, looping and item removal.',
       states: const [
         'Borrowed controller',
         'Required choice',
@@ -173,8 +157,7 @@ final toggleGroupExamples = ComponentExamples(
         'Disabled item',
         'Home/End',
       ],
-      code:
-          "DToggleGroup<String>(controller: controller, allowEmptySelection: false, items: dynamicItems, onChanged: observe)",
+      code: "DToggleGroup<String>(controller: controller, allowEmptySelection: false, items: dynamicItems, onChanged: observe)",
       builder: (_) => const _DynamicGroup(),
     ),
   ],
