@@ -195,6 +195,18 @@ Future<DiagnosticsController> _createReviewDiagnostics() async {
     controller.recordHttp(
       HttpDiagnosticRecord(
         eventId: 'sample-$i',
+        phase: HttpDiagnosticPhase.started,
+        timestamp: DateTime.now().toUtc(),
+        method: i.isEven ? 'GET' : 'POST',
+        uri: Uri.parse('https://review.invalid/topics/$i'),
+        sentBytes: 0,
+        receivedBytes: 0,
+        operationId: 'Sample request',
+      ),
+    );
+    controller.recordHttp(
+      HttpDiagnosticRecord(
+        eventId: 'sample-$i',
         phase: HttpDiagnosticPhase.completed,
         timestamp: DateTime.now().toUtc(),
         method: i.isEven ? 'GET' : 'POST',
