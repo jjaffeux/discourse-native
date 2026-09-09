@@ -1129,27 +1129,33 @@ class DSidebarInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = DTokens.of(context);
-    return TextField(
-      controller: controller,
-      focusNode: focusNode,
-      onChanged: onChanged,
-      enabled: enabled,
-      style: Theme.of(
-        context,
-      ).textTheme.bodyMedium!.copyWith(fontSize: 14, height: 20 / 14),
-      decoration: InputDecoration(
-        hintText: hintText,
-        isDense: true,
-        filled: true,
-        fillColor: t.background,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(t.radius * .8),
-          borderSide: BorderSide(color: t.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(t.radius * .8),
-          borderSide: BorderSide(color: t.focusRing, width: 2),
+    return Semantics(
+      container: true,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        onChanged: onChanged,
+        enabled: enabled,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium!.copyWith(fontSize: 14, height: 20 / 14),
+        decoration: InputDecoration(
+          hintText: hintText,
+          isDense: true,
+          filled: true,
+          fillColor: t.background,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 5,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(t.radius * .8),
+            borderSide: BorderSide(color: t.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(t.radius * .8),
+            borderSide: BorderSide(color: t.focusRing, width: 2),
+          ),
         ),
       ),
     );
