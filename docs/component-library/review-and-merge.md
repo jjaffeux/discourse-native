@@ -113,7 +113,15 @@ After implementing a component, create a new project Codex task titled
 worktree. Its prompt must include the component branch, exact source/evidence,
 remaining checks and dependencies, and this protocol. Record the returned
 reviewer ID in the implementation handoff and progress row, then send it the
-final commit. The reviewer finishes and merges directly. Do not send an
+final commit. Creation can first return a `clientThreadId` while its worktree
+is being prepared; do not pass that setup ID to tools requiring a real task ID.
+Use the task tools to resolve the new task. If the app list omits a worktree
+that has already started, identify its review branch with `git worktree list`,
+read its `codex-thread.json` in the Git directory reported by
+`git -C REVIEW_WORKTREE rev-parse --absolute-git-dir`, and verify that
+`ownerThreadId` with `read_thread` (matching title and worktree). This is a
+read-only lookup, not a reason to create another reviewer. The reviewer
+finishes and merges directly. Do not send an
 implementation back to the coordinator as its required next step.
 
 The overall goal remains incomplete until all 64 components and the separate
