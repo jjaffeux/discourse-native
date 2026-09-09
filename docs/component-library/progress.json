@@ -2164,7 +2164,7 @@
     },
     {
       "id": "select",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a085bb-1d11-7f52-a7bd-667348469087",
       "branch": "codex/ui-select",
       "dependencies": [
@@ -2208,7 +2208,7 @@
         "The Mac locked only during cleanup after all required captures; the reference tab was closed and the exact isolated app process was then terminated by PID before merge preparation."
       ],
       "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
-      "mergeCommit": null,
+      "mergeCommit": "57bbeb94368649a4665483180e4f5c84b5f33856",
       "preparedDependencies": [
         {
           "id": "popover",
@@ -2222,7 +2222,7 @@
       ],
       "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
       "reviewBranch": "codex/review-select",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f6b1/discourse-native",
       "reviewHandoffCommit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e"
     },
@@ -3813,16 +3813,6 @@
           "headCommit": "bc39e7f4ffab614dad82b13f6b5ad749869fc6fa"
         },
         {
-          "component": "select",
-          "taskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
-          "branch": "codex/review-select",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/f6b1/discourse-native",
-          "status": "independent_review",
-          "implementationTaskId": "01a085bb-1d11-7f52-a7bd-667348469087",
-          "implementationBranch": "codex/ui-select",
-          "headCommit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e"
-        },
-        {
           "component": "toggle-group",
           "taskId": "01a085e6-4bb7-7e13-9e2a-98992292b4b3",
           "branch": "codex/review-toggle-group",
@@ -4239,7 +4229,8 @@
           "implementationTaskId": "01a085bb-1d11-7f52-a7bd-667348469087",
           "implementationBranch": "codex/ui-select",
           "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
-          "status": "in_progress"
+          "status": "merged",
+          "mergeCommit": "57bbeb94368649a4665483180e4f5c84b5f33856"
         },
         {
           "component": "toggle-group",
