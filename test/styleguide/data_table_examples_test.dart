@@ -83,6 +83,33 @@ void main() {
     expect(find.text('\$242.00'), findsNothing);
   });
 
+  testWidgets('sortable header applies ascending and descending row order', (
+    tester,
+  ) async {
+    await _show(
+      tester,
+      'Sorting, filtering, visibility, selection, and actions',
+    );
+
+    await tester.tap(find.text('Email'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sort ascending'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('abe45@example.com')).dy,
+      lessThan(tester.getTopLeft(find.text('carmella@example.com')).dy),
+    );
+
+    await tester.tap(find.text('Email'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sort descending'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('silas22@example.com')).dy,
+      lessThan(tester.getTopLeft(find.text('monserrat44@example.com')).dy),
+    );
+  });
+
   testWidgets('advanced pagination changes page and page size', (tester) async {
     await _show(
       tester,
@@ -124,12 +151,18 @@ void main() {
       tester,
       'Sorting, filtering, visibility, selection, and actions',
     );
-    await tester.tap(find.byTooltip('Open menu for ken99@example.com'));
+    final trigger = find.byWidgetPredicate(
+      (widget) =>
+          widget is DButton &&
+          widget.tooltip == 'Open menu for ken99@example.com',
+    );
+    await tester.tap(trigger);
     await tester.pumpAndSettle();
     expect(find.text('Copy payment ID'), findsOneWidget);
     await tester.tap(find.text('Copy payment ID'));
     await tester.pumpAndSettle();
     expect(find.text('Opened m5gr84i9'), findsOneWidget);
+    expect(tester.widget<DButton>(trigger).focusNode?.hasFocus, isTrue);
     expect(tester.takeException(), isNull);
   });
 

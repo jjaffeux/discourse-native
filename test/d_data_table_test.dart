@@ -118,6 +118,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('page selection exposes none, all, mixed, then none', (
+    tester,
+  ) async {
+    final controller = DDataTableController();
+    addTearDown(controller.dispose);
+    await _pump(
+      tester,
+      DDataTable<_Payment>(
+        data: _payments,
+        columns: _columns(),
+        rowId: (row) => row.id,
+        controller: controller,
+        selectable: true,
+        selectRowLabel: (row) => 'Select ${row.email}',
+      ),
+    );
+
+    DCheckbox header() =>
+        tester.widget<DCheckbox>(find.byType(DCheckbox).first);
+    expect(header().value, isFalse);
+
+    await tester.tap(find.bySemanticsLabel('Select all rows on this page'));
+    await tester.pump();
+    expect(controller.value.selectedRowIds, {'a', 'b', 'c'});
+    expect(header().value, isTrue);
+
+    await tester.tap(find.bySemanticsLabel('Select abe@example.com'));
+    await tester.pump();
+    expect(controller.value.selectedRowIds, {'a', 'c'});
+    expect(header().value, isNull);
+
+    await tester.tap(find.bySemanticsLabel('Select zara@example.com'));
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Select mina@example.com'));
+    await tester.pump();
+    expect(controller.value.selectedRowIds, isEmpty);
+    expect(header().value, isFalse);
+  });
+
   testWidgets('selection is keyed by IDs across row replacement and pruned', (
     tester,
   ) async {
