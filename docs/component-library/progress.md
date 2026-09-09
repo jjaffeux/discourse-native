@@ -57,7 +57,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
 | 22 | card | merged | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | a73f465ac86105fdda35f5b56f8b491da4b3936d |
 | 23 | empty | merged | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | fb790fcd2356a9acc7cd488ca587eaafb4d91ccb |
-| 24 | item | in_progress | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
+| 24 | item | review_ready | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
 | 25 | table | merged | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | 082fcc55ab85d3bd4012c6bd24c647c1febd7d2a |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
@@ -1547,7 +1547,7 @@ Status: merged. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/ui-emp
 
 ### item
 
-Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
+Status: review_ready. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
 
 **acceptanceCriteria**
 
@@ -2190,7 +2190,34 @@ Status: in_progress. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/u
 
 **decisions**
 
-- Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch.
+- Implemented DDropdownMenu on the exact tested Popover review pin so menu overlays share Popover placement, collision, lifecycle, outside dismissal, reduced-motion and trigger-focus behavior instead of adding a native MenuAnchor owner.
+- Recorded the verified frozen Markdown SHA256 3a8ab9398fa074c3cdf023e31bc9368a3b6bafb0b0f146a326eb2c76808ba7fa and observed base-nova registry SHA256 335c59dba30145f434a9cc9ccb0438a3c5e2afe857fc11b029de1ecb415224d7 with measured mapping in docs/component-library/dropdown-menu.md.
+- Checkbox and radio items default to closeOnSelect false for repeated local editing; ordinary actions default to closing the full menu chain.
+- Submenus compose nested DDropdownMenu instances with one active sibling owner, shared close-all scope, inline-end placement, RTL mirrored chevron/directional keys and submenu-local Escape handling.
+
+**migrations**
+
+- Added the public Dropdown Menu API export in package:discourse_native/discourse_ui.dart and registered all thirteen frozen interactive styleguide examples.
+- Migrated TableActionsExample from temporary DButton + native MenuAnchor/MenuItemButton to DButton + DDropdownMenu, preserving local edit/duplicate/delete behavior, expanded row highlighting, 32px trigger geometry and trigger focus restoration.
+
+**retainedAlternatives**
+
+- Generic ChoiceMenuAnchor/CommandMenuAnchor, category/tag/search adapters and rich chat/action menus remain specialized because they own search, async busy state, permissions, rich domain rows or additional keyboard behavior; docs/component-library/dropdown-menu.md records the audit rather than claiming these are migrated.
+- Direct plugin PopupMenuButton call sites remain pending reviewer domain-fixture validation; third-party package example applications are outside the product component-library owner.
+- Public icon slots accept caller widgets. Styleguide outline icons demonstrate the exact 16px slot geometry; production app icon vocabulary remains caller-owned while the internal check indicator is component-owned.
+
+**verification**
+
+- Frozen Markdown was downloaded and reproduced the required SHA256 exactly; official page, registry source and Base UI behavior API were inspected and mapped.
+- flutter test --no-pub test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_table_test.dart --test-randomize-ordering-seed=826145 passed 23 tests before the sibling non-overlap addition; the component suite then passed 14 tests with the same seed.
+- Focused coverage proves pointer/Return/Space open and first enabled focus, arrow/Home/End traversal, repeating typeahead, controlled checkbox/radio retention, deepest Escape, RTL submenu arrows, sibling submenu non-overlap, outside focus behavior, controlled open requests, live theme/text scale, desktop/iOS geometry, semantics and Table focus/action regression.
+- After integrating current main 6b8ec8f8, 42 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145; root and profiles/full flutter analyze --no-pub and git diff --check passed.
+- flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed after current-main integration; compiled kernel SHA256 is 5b8111208021b3a52ba1237e83017feeca049c96905d9809239dad0da18143d9. This is build/kernel evidence only, not a native launch claim.
+
+**limitations**
+
+- Official rendered reference comparison and native macOS interaction/visual inspection remain for the new Dropdown Menu reviewer under the shared desktop lease; no iOS/Linux device or spoken VoiceOver run is claimed.
+- Final merge is gated on Popover being accepted and merged to current main. The reviewer must integrate accepted Popover/current main, reconcile overlap and rerun affected behavior so the unaccepted prepared parent cannot enter main through Dropdown Menu.
 
 ### carousel
 

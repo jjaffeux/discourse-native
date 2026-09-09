@@ -9,12 +9,14 @@ import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/dropdown_menu_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
+import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
 import 'examples/radio_group_examples.dart';
 import 'examples/resizable_examples.dart';
@@ -51,6 +53,7 @@ final componentExamples = <String, ComponentExamples>{
   'avatar': avatarExamples,
   'badge': badgeExamples,
   'direction': directionExamples,
+  'dropdown-menu': dropdownMenuExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
@@ -58,6 +61,7 @@ final componentExamples = <String, ComponentExamples>{
   'label': labelExamples,
   'progress': progressExamples,
   'marker': markerExamples,
+  'popover': popoverExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
   'spinner': spinnerExamples,

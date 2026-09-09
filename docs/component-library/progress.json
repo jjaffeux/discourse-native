@@ -1482,7 +1482,7 @@
     },
     {
       "id": "item",
-      "status": "in_progress",
+      "status": "review_ready",
       "taskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
       "branch": "codex/ui-item",
       "dependencies": [
@@ -2340,14 +2340,36 @@
         "Pass focused component/consumer tests and root/full-profile analysis; create a new reviewer for all remaining official browser/native acceptance, dependency composition and final local main merge. The accepted Popover main revision is a required final merge gate."
       ],
       "decisions": [
-        "Prepare Dropdown Menu against the exact tested Popover review pin to unblock existing component compositions while the parent finishes native review. The implementer creates its own reviewer; no unaccepted parent may reach main through this branch."
+        "Implemented DDropdownMenu on the exact tested Popover review pin so menu overlays share Popover placement, collision, lifecycle, outside dismissal, reduced-motion and trigger-focus behavior instead of adding a native MenuAnchor owner.",
+        "Recorded the verified frozen Markdown SHA256 3a8ab9398fa074c3cdf023e31bc9368a3b6bafb0b0f146a326eb2c76808ba7fa and observed base-nova registry SHA256 335c59dba30145f434a9cc9ccb0438a3c5e2afe857fc11b029de1ecb415224d7 with measured mapping in docs/component-library/dropdown-menu.md.",
+        "Checkbox and radio items default to closeOnSelect false for repeated local editing; ordinary actions default to closing the full menu chain.",
+        "Submenus compose nested DDropdownMenu instances with one active sibling owner, shared close-all scope, inline-end placement, RTL mirrored chevron/directional keys and submenu-local Escape handling."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "migrations": [
+        "Added the public Dropdown Menu API export in package:discourse_native/discourse_ui.dart and registered all thirteen frozen interactive styleguide examples.",
+        "Migrated TableActionsExample from temporary DButton + native MenuAnchor/MenuItemButton to DButton + DDropdownMenu, preserving local edit/duplicate/delete behavior, expanded row highlighting, 32px trigger geometry and trigger focus restoration."
+      ],
+      "retainedAlternatives": [
+        "Generic ChoiceMenuAnchor/CommandMenuAnchor, category/tag/search adapters and rich chat/action menus remain specialized because they own search, async busy state, permissions, rich domain rows or additional keyboard behavior; docs/component-library/dropdown-menu.md records the audit rather than claiming these are migrated.",
+        "Direct plugin PopupMenuButton call sites remain pending reviewer domain-fixture validation; third-party package example applications are outside the product component-library owner.",
+        "Public icon slots accept caller widgets. Styleguide outline icons demonstrate the exact 16px slot geometry; production app icon vocabulary remains caller-owned while the internal check indicator is component-owned."
+      ],
+      "verification": [
+        "Frozen Markdown was downloaded and reproduced the required SHA256 exactly; official page, registry source and Base UI behavior API were inspected and mapped.",
+        "flutter test --no-pub test/d_dropdown_menu_test.dart test/styleguide/dropdown_menu_examples_test.dart test/d_table_test.dart --test-randomize-ordering-seed=826145 passed 23 tests before the sibling non-overlap addition; the component suite then passed 14 tests with the same seed.",
+        "Focused coverage proves pointer/Return/Space open and first enabled focus, arrow/Home/End traversal, repeating typeahead, controlled checkbox/radio retention, deepest Escape, RTL submenu arrows, sibling submenu non-overlap, outside focus behavior, controlled open requests, live theme/text scale, desktop/iOS geometry, semantics and Table focus/action regression.",
+        "After integrating current main 6b8ec8f8, 42 Dropdown Menu, Popover, styleguide and Table tests passed with seed 826145; root and profiles/full flutter analyze --no-pub and git diff --check passed.",
+        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed after current-main integration; compiled kernel SHA256 is 5b8111208021b3a52ba1237e83017feeca049c96905d9809239dad0da18143d9. This is build/kernel evidence only, not a native launch claim."
+      ],
+      "limitations": [
+        "Official rendered reference comparison and native macOS interaction/visual inspection remain for the new Dropdown Menu reviewer under the shared desktop lease; no iOS/Linux device or spoken VoiceOver run is claimed.",
+        "Final merge is gated on Popover being accepted and merged to current main. The reviewer must integrate accepted Popover/current main, reconcile overlap and rerun affected behavior so the unaccepted prepared parent cannot enter main through Dropdown Menu."
+      ],
+      "implementationCommit": "a78b3615",
       "mergeCommit": null,
+      "reviewStatus": "pending_dispatch",
+      "reviewTaskId": null,
+      "reviewBranch": "codex/review-dropdown-menu",
       "preparedDependencies": [
         {
           "id": "popover",
