@@ -31,6 +31,7 @@ import 'examples/item_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
+import 'examples/message_scroller_examples.dart';
 import 'examples/native_select_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
@@ -103,6 +104,7 @@ final componentExamples = <String, ComponentExamples>{
   'progress': progressExamples,
   'questionnaire': questionnaireExamples,
   'marker': markerExamples,
+  'message-scroller': messageScrollerExamples,
   'popover': popoverExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
