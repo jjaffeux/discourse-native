@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,6 +18,177 @@ Widget host(Widget child, {double scale = 1, ThemeData? theme}) => MaterialApp(
   ),
 );
 void main() {
+  testWidgets('a lone sidebar search cannot turn its page into a text field', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      host(
+        Column(
+          children: [
+            const Text('Navigation'),
+            const DSidebarInput(hintText: 'Find component'),
+            TextButton(onPressed: () {}, child: const Text('Open component')),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final editor = tester.getSemantics(find.byType(EditableText));
+    expect(editor.label, 'Find component');
+    expect(editor.rect.size, tester.getSize(find.byType(EditableText)));
+    final action = tester.getSemantics(find.byType(TextButton));
+    expect(action.getSemanticsData().flagsCollection.isButton, isTrue);
+    SemanticsNode? ancestor = action.parent;
+    while (ancestor != null) {
+      expect(ancestor.getSemanticsData().flagsCollection.isTextField, isFalse);
+      ancestor = ancestor.parent;
+    }
+    handle.dispose();
+  });
+
+  for (final horizontal in [false, true]) {
+    testWidgets(
+      'editable semantics stay bounded beside actions in ${horizontal ? 'Row' : 'Column'}',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final fields = <Widget>[
+          DInput(
+            labelText: 'Account',
+            initialValue: 'alice',
+            isRequired: true,
+            errorText: 'Account unavailable',
+            prefix: IconButton(
+              onPressed: () {},
+              tooltip: 'Find account',
+              icon: const Icon(Icons.search),
+            ),
+            suffix: IconButton(
+              onPressed: () {},
+              tooltip: 'Clear account',
+              icon: const Icon(Icons.clear),
+            ),
+          ),
+          DInput(labelText: 'Email', helperText: 'Use your work email'),
+          const DSidebarInput(hintText: 'Search navigation'),
+        ];
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: Column(
+                children: [
+                  const Text('Surrounding page heading'),
+                  if (horizontal)
+                    Row(
+                      children: [
+                        for (final field in fields) Expanded(child: field),
+                      ],
+                    )
+                  else
+                    ...fields,
+                  DFileInput(onPick: () async => null),
+                  TextButton(onPressed: () {}, child: const Text('Save page')),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final all = <SemanticsNode>[];
+        void collect(SemanticsNode node) {
+          all.add(node);
+          node.visitChildren((child) {
+            collect(child);
+            return true;
+          });
+        }
+
+        var root = tester.getSemantics(find.byType(Scaffold));
+        while (root.parent != null) {
+          root = root.parent!;
+        }
+        collect(root);
+        final editors = all
+            .where(
+              (node) => node.getSemanticsData().flagsCollection.isTextField,
+            )
+            .toList();
+        expect(editors, hasLength(3));
+        expect(
+          editors.map((node) => node.label),
+          containsAll(['Account', 'Email', 'Search navigation']),
+        );
+        for (var i = 0; i < 3; i++) {
+          final editable = find.byType(EditableText).at(i);
+          final node = tester.getSemantics(editable);
+          expect(node.rect.size, tester.getSize(editable));
+          final descendants = <SemanticsNode>[];
+          node.visitChildren((child) {
+            descendants.add(child);
+            return true;
+          });
+          expect(
+            descendants.where(
+              (child) => child.getSemanticsData().flagsCollection.isButton,
+            ),
+            isEmpty,
+          );
+        }
+        final account = editors.singleWhere((node) => node.label == 'Account');
+        expect(account.value, 'alice');
+        expect(
+          account.getSemanticsData().flagsCollection.isRequired,
+          Tristate.isTrue,
+        );
+        expect(
+          account.getSemanticsData().validationResult,
+          SemanticsValidationResult.invalid,
+        );
+        for (final label in [
+          'Find account',
+          'Clear account',
+          'Choose file',
+          'Save page',
+        ]) {
+          final button = all.singleWhere(
+            (node) =>
+                (node.label == label ||
+                    node.getSemanticsData().tooltip == label) &&
+                node.getSemanticsData().flagsCollection.isButton,
+          );
+          expect(button.rect.width, lessThan(200));
+          SemanticsNode? ancestor = button.parent;
+          while (ancestor != null) {
+            expect(
+              ancestor.getSemanticsData().flagsCollection.isTextField,
+              isFalse,
+              reason: label,
+            );
+            ancestor = ancestor.parent;
+          }
+        }
+        expect(
+          all.any((node) => node.label.contains('Use your work email')),
+          isTrue,
+        );
+        expect(
+          all.any(
+            (node) =>
+                node.label.contains('Account unavailable') &&
+                node.getSemanticsData().flagsCollection.isLiveRegion,
+          ),
+          isTrue,
+        );
+        expect(
+          all.any((node) => node.label.contains('No file chosen')),
+          isTrue,
+        );
+        handle.dispose();
+      },
+    );
+  }
+
   testWidgets(
     'form saves edits, validates, resets to mount value and reports reset once',
     (tester) async {

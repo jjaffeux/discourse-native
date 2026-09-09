@@ -257,6 +257,9 @@ class _DInputState extends FormFieldState<String> {
                   ],
                   Expanded(
                     child: Semantics(
+                      // Keep the editable role bounded to this editor. Without
+                      // a boundary it can merge into an entire page on macOS.
+                      container: true,
                       label: input.labelText,
                       isRequired: input.isRequired,
                       validationResult: isInvalid

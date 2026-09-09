@@ -329,3 +329,21 @@ Refreshed unique `/private/tmp/DiscourseInputReview-01a083ad.app`; deep strict
 ad-hoc signature passes. Source/copy kernels both SHA256
 `b034361de32ad1e22d036fc1d4e0334f262b4ce1bc5eeee287751ad748211ba3`. Bundle unlaunched; Input remains
 `in_progress` / `awaiting_slot`.
+
+## Editable semantics boundary correction
+
+The coordinator's native AX review found the styleguide search role merging into
+its page and hiding sibling controls. DInput now declares an explicit semantics
+container around only its editor and metadata. Prefix/suffix actions remain outside
+that boundary; labels still name the editor, descriptions stay separate readable
+content, and errors retain their live region. DSidebarInput inherits the fix.
+DFileInput already has a separate Button role and readable filename; no generic
+file-field or page-specific semantic wrapper was needed.
+
+Three regressions in `test/d_input_test.dart` cover a lone sidebar search plus an
+action and multiple labeled fields in plain Row/Column layouts with prefix/suffix,
+file picker and sibling buttons. They verify exact editor semantic rectangles,
+separate native roles, no button beneath a text-field ancestor, required/invalid
+metadata, value, helper description, live error and filename. Removing the boundary
+makes the rectangle assertion fail (`/tmp/input-semantics-negative.log`). No UI
+slot was used; native AX confirmation remains pending coordinator review.
