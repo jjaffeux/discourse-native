@@ -5,7 +5,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
 
 import '../data/user_directory_column_width_store.dart';
 import '../models/user_directory.dart';
@@ -1601,10 +1600,9 @@ class _IdentityHeader extends StatelessWidget {
             alignment: AlignmentDirectional.centerStart,
           ),
         ),
-        _ColumnResizeHandle(
+        UsersColumnResizeHandle(
           resizeKey: 'users-resize-identity',
           semanticsLabel: 'Resize User column',
-          palette: palette,
           width: width,
           minimumWidth: minimumWidth,
           maximumWidth: maximumWidth,
@@ -1667,11 +1665,10 @@ class _MetricHeader extends StatelessWidget {
             alignment: AlignmentDirectional.centerEnd,
           ),
         ),
-        _ColumnResizeHandle(
+        UsersColumnResizeHandle(
           key: ValueKey('users-resize-${column.id}'),
           resizeKey: 'users-resize-${column.id}',
           semanticsLabel: 'Resize ${column.label} column',
-          palette: palette,
           width: width,
           minimumWidth: minimumWidth,
           maximumWidth: maximumWidth,
@@ -1684,12 +1681,12 @@ class _MetricHeader extends StatelessWidget {
   );
 }
 
-class _ColumnResizeHandle extends StatefulWidget {
-  const _ColumnResizeHandle({
+/// Column-edge adapter shared by the directory and local native review fixture.
+class UsersColumnResizeHandle extends StatelessWidget {
+  const UsersColumnResizeHandle({
     super.key,
     required this.resizeKey,
     required this.semanticsLabel,
-    required this.palette,
     required this.width,
     required this.minimumWidth,
     required this.maximumWidth,
@@ -1702,7 +1699,6 @@ class _ColumnResizeHandle extends StatefulWidget {
 
   final String resizeKey;
   final String semanticsLabel;
-  final _MatrixPalette palette;
   final double width;
   final double minimumWidth;
   final double maximumWidth;
@@ -1711,180 +1707,27 @@ class _ColumnResizeHandle extends StatefulWidget {
   final VoidCallback onResizeEnd;
 
   @override
-  State<_ColumnResizeHandle> createState() => _ColumnResizeHandleState();
-}
-
-class _ColumnResizeHandleState extends State<_ColumnResizeHandle> {
-  late final FocusNode _focus = FocusNode(
-    debugLabel: '${widget.resizeKey} column resize',
+  Widget build(BuildContext context) => PositionedDirectional(
+    end: 0,
+    top: 0,
+    bottom: 0,
+    width: DResizableHandle.resolveHitExtent(context, 12),
+    child: DResizableHandle.standalone(
+      focusKey: ValueKey('$resizeKey-focus'),
+      semanticsKey: ValueKey('$resizeKey-semantics'),
+      gestureKey: ValueKey('$resizeKey-handle'),
+      semanticLabel: semanticsLabel,
+      value: width,
+      min: minimumWidth,
+      max: maximumWidth,
+      keyboardStep: keyboardStep,
+      dividerAlignment: AlignmentDirectional.centerEnd,
+      valueFormatter: (value) => '${value.round()} pixels wide',
+      onChangeStart: onResizeStart,
+      onChanged: onResize,
+      onChangeEnd: onResizeEnd,
+    ),
   );
-  double? _dragWidth;
-  double? _keyboardWidth;
-  bool _dragging = false;
-  bool _focused = false;
-  bool _hovered = false;
-
-  double _clamp(double width) =>
-      width.clamp(widget.minimumWidth, widget.maximumWidth).toDouble();
-
-  double _widthDelta(double horizontalDelta) =>
-      DDirection.of(context) == TextDirection.ltr
-      ? horizontalDelta
-      : -horizontalDelta;
-
-  void _startDrag(DragStartDetails _) {
-    widget.onResizeStart();
-    _dragWidth = widget.width;
-    _focus.requestFocus();
-    setState(() => _dragging = true);
-  }
-
-  void _updateDrag(DragUpdateDetails details) {
-    final next = _clamp(
-      (_dragWidth ?? widget.width) + _widthDelta(details.delta.dx),
-    );
-    _dragWidth = next;
-    if (next != widget.width) widget.onResize(next);
-  }
-
-  void _endDrag() {
-    _dragWidth = null;
-    if (_dragging) setState(() => _dragging = false);
-    widget.onResizeEnd();
-    _focus.unfocus();
-  }
-
-  void _resizeOnce(double delta) {
-    final next = _clamp(widget.width + delta);
-    if (next == widget.width) return;
-    widget.onResizeStart();
-    widget.onResize(next);
-    widget.onResizeEnd();
-  }
-
-  KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
-    final horizontalDelta = switch (event.logicalKey) {
-      LogicalKeyboardKey.arrowLeft => -_ColumnResizeHandle.keyboardStep,
-      LogicalKeyboardKey.arrowRight => _ColumnResizeHandle.keyboardStep,
-      _ => null,
-    };
-    if (horizontalDelta == null) return KeyEventResult.ignored;
-
-    final isPress = event is KeyDownEvent || event is KeyRepeatEvent;
-    final keyboard = HardwareKeyboard.instance;
-    if (isPress &&
-        (keyboard.isAltPressed ||
-            keyboard.isControlPressed ||
-            keyboard.isMetaPressed ||
-            keyboard.isShiftPressed)) {
-      _focus.unfocus();
-      return KeyEventResult.ignored;
-    }
-
-    if (isPress) {
-      final next = _clamp(
-        (_keyboardWidth ?? widget.width) + _widthDelta(horizontalDelta),
-      );
-      if (next != (_keyboardWidth ?? widget.width)) {
-        if (_keyboardWidth == null) widget.onResizeStart();
-        _keyboardWidth = next;
-        widget.onResize(next);
-      }
-    } else if (event is KeyUpEvent) {
-      _commitKeyboardResize();
-    }
-    return KeyEventResult.handled;
-  }
-
-  void _commitKeyboardResize() {
-    if (_keyboardWidth == null) return;
-    _keyboardWidth = null;
-    widget.onResizeEnd();
-  }
-
-  void _focusChanged(bool focused) {
-    if (_focused == focused) return;
-    if (!focused) _commitKeyboardResize();
-    setState(() => _focused = focused);
-  }
-
-  void _hoverChanged(bool hovered) {
-    if (_hovered == hovered) return;
-    setState(() => _hovered = hovered);
-  }
-
-  @override
-  void dispose() {
-    _commitKeyboardResize();
-    _focus.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final increasedWidth = _clamp(
-      widget.width + _ColumnResizeHandle.keyboardStep,
-    );
-    final decreasedWidth = _clamp(
-      widget.width - _ColumnResizeHandle.keyboardStep,
-    );
-    final active = _dragging || _focused || _hovered;
-    return PositionedDirectional(
-      end: 0,
-      top: 0,
-      bottom: 0,
-      width: 12,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeColumn,
-        onEnter: (_) => _hoverChanged(true),
-        onExit: (_) => _hoverChanged(false),
-        child: Focus(
-          key: ValueKey('${widget.resizeKey}-focus'),
-          focusNode: _focus,
-          onFocusChange: _focusChanged,
-          onKeyEvent: _handleKey,
-          child: Semantics(
-            key: ValueKey('${widget.resizeKey}-semantics'),
-            container: true,
-            focusable: true,
-            focused: _focused,
-            slider: true,
-            label: widget.semanticsLabel,
-            value: '${widget.width.round()} pixels wide',
-            increasedValue: increasedWidth == widget.width
-                ? null
-                : '${increasedWidth.round()} pixels wide',
-            decreasedValue: decreasedWidth == widget.width
-                ? null
-                : '${decreasedWidth.round()} pixels wide',
-            onIncrease: increasedWidth == widget.width
-                ? null
-                : () => _resizeOnce(_ColumnResizeHandle.keyboardStep),
-            onDecrease: decreasedWidth == widget.width
-                ? null
-                : () => _resizeOnce(-_ColumnResizeHandle.keyboardStep),
-            child: GestureDetector(
-              key: ValueKey('${widget.resizeKey}-handle'),
-              behavior: HitTestBehavior.translucent,
-              onHorizontalDragStart: _startDrag,
-              onHorizontalDragUpdate: _updateDrag,
-              onHorizontalDragEnd: (_) => _endDrag(),
-              onHorizontalDragCancel: _endDrag,
-              child: Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  width: active ? 2 : 1,
-                  height: double.infinity,
-                  color: active ? widget.palette.green : Colors.transparent,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _HeaderButton extends StatelessWidget {

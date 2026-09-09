@@ -39,7 +39,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 27 | collapsible | planned | — | — | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | planned | — | — | button | — |
-| 30 | resizable | planned | — | — | — | — |
+| 30 | resizable | in_progress | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
 | 31 | popover | planned | — | — | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
 | 33 | dialog | planned | — | — | button | — |
@@ -1166,6 +1166,45 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 - iOS and Linux native device inspection unavailable in this macOS session. Widget tests and platform overrides are not device testing.
 - No VoiceOver audit; some native accessibility snapshots were sparse. Widget tests verify semantic grouping and keyboard/focus behavior. Preferences, Categories, Aggregate, Voice diagnostics and cooked/request fallback migrations have focused test coverage but were not individually inspected natively.
 - Adjacent Button/Input/Badge/Toggle Group visuals remain pending their owners, as documented in the examples. Native inspected build displayed baseline status before the final metadata-only promotion to implemented.
+
+### resizable
+
+Status: in_progress. Task: 01a083e2-4063-7c30-89ea-fa664ff9c943. Branch: codex/ui-resizable.
+
+**acceptanceCriteria**
+
+- Port frozen Base Nova horizontal, vertical, nested and with-handle examples: 1px border divider and centered 4x24px rounded pill, live token colors/radius, visible 1px focus ring with transparent native hit targets.
+- Typed pixel/percentage sizing, stable panel IDs, default/min/max, controlled and imperative layouts, collapse/expand restoration, disabled group/panel/handle, adjacent constraint propagation and dynamic panel insertion/removal. Explicit bounded-layout and infeasible-constraint policy.
+- Keyboard arrows/Home/End/Enter, RTL physical drag and keyboard direction, semantics increase/decrease, mouse/touch cancellation and borrowed controller/focus lifecycle. No Form integration needed for layout geometry.
+- Audit core and plugins; migrate pane persistence adapter and appropriate split handles without changing storage, temporary maximum behavior, responsive modes or async ownership; document retained domain controls.
+- Self-contained production-widget styleguide and local fixture; focused interaction/migration tests, root/full static analysis, pinned SDK/locks, isolated uniquely identified signed macOS debug build. Native/reference comparison remains pending locked-desktop slot.
+
+**decisions**
+
+- See docs/component-library/resizable.md for primary source hashes, measurements, API/constraint and native adaptation decisions. Frozen page hash matches catalogue; Base Nova 1px divider + 4x24 pill, rounded-lg = 1x token radius.
+- Public group/panel/handle plus typed explicit pixel/percentage sizes and controller; controlled/uncontrolled state, constraints/collapse, disabled panels, dynamic stable IDs, relative/pixel parent sizing. Native 48px coarse targets with in-bounds collapsed-edge semantics.
+- App adapters reuse DResizableHandle.standalone; persistence/async races remain outside generic UI. No Form field or unmerged component dependency. Styleguide status remains baseline pending native gate.
+
+**migrations**
+
+- ResizablePane: sidebar, diagnostics and topic inbox retain PanelWidthController/store behavior and responsive callers.
+- Users Matrix column handles now UsersColumnResizeHandle using shared renderer; forum persistence, generation guards and pre-frame accumulation preserved.
+- ChatThreadPaneDivider replaces duplicate thread split interactions; physical-right adapter and stored widths preserved. Actual Chat split expands touch hit overlap without changing panel space.
+
+**retainedAlternatives**
+
+- Composer and Chat drawer two-axis floating corner resize/movement are domain geometry, not panel groups. Calendar resize disabled. Scrollbars and seek/volume/timeline controls remain separate owners.
+
+**verification**
+
+- flutter pub get --enforce-lockfile at root and profiles/full passed; Flutter 3.47.2 and lockfiles unchanged.
+- Focused tests: d_resizable_test, styleguide/resizable_examples_test, resizable_pane_test, panel_width_controller_headless_test, users_page_test, chat_thread_workspace_test passed (88 tests); final radius correction additionally passed 16 component/styleguide tests including custom zero-radius assertion.
+- Final root and full-profile flutter analyze --no-pub passed with no issues; touched Dart formatting and git diff --check passed. Four extracted self-contained usage programs passed Dart analysis.
+- Local native review entrypoint lib/resizable_review_main.dart mounts actual ResizablePane, UsersColumnResizeHandle, ChatThreadPaneDivider and all component examples without real settings/services. Build evidence follows.
+
+**limitations**
+
+- awaiting_slot: Mac locked; no browser/CUA/app launch performed. Native/reference-rendered light/dark/custom palette, large-text/RTL comparisons, real fixture inspection and VoiceOver/device behavior still pending. Not review_ready or mergeable.
 
 ### sidebar
 

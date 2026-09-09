@@ -10,6 +10,7 @@ export 'src/ui/components/d_card.dart';
 export 'src/ui/components/d_direction.dart';
 export 'src/ui/components/d_kbd.dart';
 export 'src/ui/components/d_label.dart';
+export 'src/ui/components/d_resizable.dart';
 export 'src/ui/components/d_separator.dart';
 export 'src/ui/components/d_sidebar.dart';
 export 'src/ui/components/d_skeleton.dart';
