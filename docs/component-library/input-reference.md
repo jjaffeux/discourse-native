@@ -203,3 +203,10 @@ reset baseline. All 20 Input and example tests pass after these refinements
 rebuild. Logs: `/tmp/input-final-refinements.log`,
 `/tmp/input-refinements-analysis.log`, `/tmp/input-refinements-full-analysis.log`,
 `/tmp/input-refinements-native-build.log`.
+
+Latest native source checkpoint:
+`4e1eb3b3fe499868e4ee70f86cb48a987c4040e8`. The isolated bundle at the same path
+was refreshed after the refinements. Both source and isolated kernels now have
+SHA256 `400b22d515a8be38b71865ddbf53b4c56da175574bbc96ef0d4473b83e959506`.
+The unique identity/scheme and deep strict signature are verified again.
+This supersedes the earlier unlaunched bundle; it has still not been launched.

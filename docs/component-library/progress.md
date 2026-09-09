@@ -690,6 +690,7 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 - flutter build macos --debug --no-pub -t tool/input_review_main.dart passed. Fixture mounts real Add a Site and Poll editor against local fake data plus actual Input samples and the full styleguide.
 - Isolated native bundle /private/tmp/DiscourseInputReview-01a083ad.app built from implementation source ae4aa4a8. CFBundleIdentifier org.discourse.native.input.01a083ad and unique discourse-input-review-01a083ad scheme; codesign --verify --deep --strict passes. Source-build and isolated-copy kernels both SHA256 f9d9ddb13dba95a076d165d84db1eafcbfd3215232bb161782ad53b17e647089. Bundle is prepared but has not been launched.
 - Final file-target and responsive-form refinements: all 20 Input/component-example tests passed with seed 928374611; root/full-profile analysis and isolated macOS rebuild passed. Live grid-to-stack/palette changes preserve field identity, edited text and reset baseline. Logs: /tmp/input-final-refinements.log, /tmp/input-refinements-analysis.log, /tmp/input-refinements-full-analysis.log, /tmp/input-refinements-native-build.log.
+- Refreshed isolated bundle from final implementation source 4e1eb3b3fe499868e4ee70f86cb48a987c4040e8. Source/copy kernels both SHA256 400b22d515a8be38b71865ddbf53b4c56da175574bbc96ef0d4473b83e959506; unique identifier/scheme restored and deep strict ad-hoc signature verification passed. It remains unlaunched pending the serialized desktop slot.
 
 **limitations**
 
