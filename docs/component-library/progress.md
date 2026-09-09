@@ -66,7 +66,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
 | 22 | card | merged | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | a73f465ac86105fdda35f5b56f8b491da4b3936d |
 | 23 | empty | merged | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | fb790fcd2356a9acc7cd488ca587eaafb4d91ccb |
-| 24 | item | in_progress | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
+| 24 | item | implemented | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
 | 25 | table | merged | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | 082fcc55ab85d3bd4012c6bd24c647c1febd7d2a |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
@@ -1573,7 +1573,7 @@ Status: merged. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/ui-emp
 
 ### item
 
-Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
+Status: implemented. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
 
 **acceptanceCriteria**
 
@@ -2779,6 +2779,21 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/u
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
 - Verified independent reviewer Review and merge Bubble (01a08639-b066-7882-85f5-a759c5fdab6f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
+- Independent review preserved the frozen 12x8px and host-radius mapping despite current live-site global token drift, corrected ghost focus to remain square, and derived secondary as muted plus 1% foreground so secondary and muted remain subtly distinct in light, dark and arbitrary site palettes.
+- Application audit retained ChatMessageTile, chat/topic ReactionPill surfaces and Voice room chat for Message ownership because they combine rich rendering, selection/virtualization, permissions, async mutation or room-domain state; Bubble remains the generic presentational owner.
+
+**verification**
+
+- Independent review added exact geometry, typography, natural semantics, borrowed FocusNode, reduced-motion and secondary-versus-muted token regressions. Fourteen Bubble/example tests passed with randomized seeds 6864 and 6865 after the final visual correction; root flutter analyze --no-pub and git diff --check passed.
+- Official rendered reference inspection covered variants, logical alignment, grouping, links/buttons, reactions, Collapsible, Tooltip and Popover in light and dark. DOM measurements confirmed 80% width, 8px group spacing, overlapping reactions and the exterior interactive focus treatment; current global token drift was recorded separately from the frozen registry contract.
+- Exact-source isolated macOS review bundle /private/tmp/Discourse Bubble Review e456fc7d.app used identifier org.discourse.native.bubble.e456fc7d and kernel SHA256 e0115b275e4a8cb16ae913e4f60e2a515d9609e98a8c2c3642973ccab2fe010c. Pre-sign kernel equality, explicit restricted-free entitlements and deep strict ad-hoc signature verification passed.
+- Native acceptance exercised all eight styleguide examples, pointer actions, visible focus, selected/disabled/busy/error states, static and interactive reactions, disclosure expansion, Popover details, light/dark/Forest/Plum palettes, 360px, 200% text, RTL and reduced motion. The isolated app and reference tab were closed before desktop lease release; full provenance is in docs/component-library/evidence/bubble/native-build.json.
+
+**limitations**
+
+- No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.
+- The generic Bubble audit intentionally made no production migration before Message owns the existing rich chat row and domain-specific reaction surfaces.
+- Browser Geist and native host-font rasterization differ, so no pixel-equality claim is made; geometry, semantic palette relationships, interaction, motion and accessibility structure were compared directly.
 
 ### message
 
@@ -2988,3 +3003,4 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+

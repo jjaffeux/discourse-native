@@ -1496,7 +1496,7 @@
     },
     {
       "id": "item",
-      "status": "in_progress",
+      "status": "implemented",
       "taskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
       "branch": "codex/ui-item",
       "dependencies": [
@@ -3395,13 +3395,24 @@
       ],
       "decisions": [
         "Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.",
-        "Verified independent reviewer Review and merge Bubble (01a08639-b066-7882-85f5-a759c5fdab6f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
+        "Verified independent reviewer Review and merge Bubble (01a08639-b066-7882-85f5-a759c5fdab6f) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.",
+        "Independent review preserved the frozen 12x8px and host-radius mapping despite current live-site global token drift, corrected ghost focus to remain square, and derived secondary as muted plus 1% foreground so secondary and muted remain subtly distinct in light, dark and arbitrary site palettes.",
+        "Application audit retained ChatMessageTile, chat/topic ReactionPill surfaces and Voice room chat for Message ownership because they combine rich rendering, selection/virtualization, permissions, async mutation or room-domain state; Bubble remains the generic presentational owner."
       ],
       "migrations": [],
       "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": "78c60d0cd7cf87d34c46524fff95336b43e261cd",
+      "verification": [
+        "Independent review added exact geometry, typography, natural semantics, borrowed FocusNode, reduced-motion and secondary-versus-muted token regressions. Fourteen Bubble/example tests passed with randomized seeds 6864 and 6865 after the final visual correction; root flutter analyze --no-pub and git diff --check passed.",
+        "Official rendered reference inspection covered variants, logical alignment, grouping, links/buttons, reactions, Collapsible, Tooltip and Popover in light and dark. DOM measurements confirmed 80% width, 8px group spacing, overlapping reactions and the exterior interactive focus treatment; current global token drift was recorded separately from the frozen registry contract.",
+        "Exact-source isolated macOS review bundle /private/tmp/Discourse Bubble Review e456fc7d.app used identifier org.discourse.native.bubble.e456fc7d and kernel SHA256 e0115b275e4a8cb16ae913e4f60e2a515d9609e98a8c2c3642973ccab2fe010c. Pre-sign kernel equality, explicit restricted-free entitlements and deep strict ad-hoc signature verification passed.",
+        "Native acceptance exercised all eight styleguide examples, pointer actions, visible focus, selected/disabled/busy/error states, static and interactive reactions, disclosure expansion, Popover details, light/dark/Forest/Plum palettes, 360px, 200% text, RTL and reduced motion. The isolated app and reference tab were closed before desktop lease release; full provenance is in docs/component-library/evidence/bubble/native-build.json."
+      ],
+      "limitations": [
+        "No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.",
+        "The generic Bubble audit intentionally made no production migration before Message owns the existing rich chat row and domain-specific reaction surfaces.",
+        "Browser Geist and native host-font rasterization differ, so no pixel-equality claim is made; geometry, semantic palette relationships, interaction, motion and accessibility structure were compared directly."
+      ],
+      "implementationCommit": "88a58ebbea197b745bad2d070500ddda596cd3b5",
       "mergeCommit": null,
       "preparedDependencies": [
         {
@@ -3418,8 +3429,10 @@
       "reviewBranch": "codex/review-bubble",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f764/discourse-native",
       "reviewHandoffCommit": "3aa4251692789567de9a3f010566dcd8aaa54d7b",
-      "reviewStatus": "in_progress",
-      "queueStage": "independent_review",
+      "reviewStatus": "accepted",
+      "queueStage": "ready_to_merge",
+      "browserInspectionStatus": "completed",
+      "nativeInspectionStatus": "completed",
       "implementationHandoffVerification": {
         "focusedTests": "94 Bubble/examples/styleguide/Collapsible/Tooltip/accepted Popover/Toast checks passed with seed6864 after current-main reconciliation0dc71a5b8d282410587e36387a27cd48b50567da.",
         "analysis": "Root/full locked resolution and analysis pass; Popover source matches accepted main.",
