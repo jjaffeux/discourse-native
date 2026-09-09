@@ -2697,7 +2697,7 @@
     },
     "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+    "browserInspectionTaskId": null,
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
@@ -2782,6 +2782,13 @@
         "dialog"
       ],
       "resumeCondition": "Existing implementation/review backlog substantially reduced; current tasks may finish."
+    },
+    "browserInspectionBlocker": {
+      "status": "active",
+      "reason": "admin_security_policy_unverified",
+      "reportedByTask": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+      "observation": "First official Progress browser navigation denied because browser could not verify admin-enforced security policy. No rendered page comparison occurred; no retry or alternate route attempted. Progress immediately released browser slot.",
+      "unaffectedWork": "Existing captured sources and evidence, local integration, focused tests and builds."
     }
   },
   "visualFidelity": {
