@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**22 of 64 components are merged locally.** 17 existing components are in progress; 25 are planned.
+**23 of 64 components are merged locally.** 16 existing components are in progress; 25 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -18,7 +18,6 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
 | toggle | independent review | 17e7778e | 01a08579-4e43-7ce2-9919-546137c84a24 |
-| progress | independent review | 1c21a435 | 01a08558-73d7-7d01-9b97-39615e28df0e |
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | table | independent review | b3107cab | 01a08558-73ce-7a51-bfd4-8e0f48d5f675 |
@@ -30,7 +29,7 @@ Branch preparation does not mark a component merged or visually verified.
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | button-group | Implementation and checks | — | — |
 | carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
-| toast | Implementation and checks | — | — |
+| toast | Implementation and checks | — | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
 | alert | independent review | 38002135 | 01a08558-ae1e-7843-8cff-724c8e877ba5 |
 | chart | independent review | c782a940 | 01a08558-4ae6-7db2-bdd6-ee52e8570ff3 |
 
@@ -55,7 +54,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 15 | toggle | in_progress | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
-| 18 | progress | in_progress | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | — |
+| 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
@@ -1203,7 +1202,7 @@ Status: merged. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-sli
 
 ### progress
 
-Status: in_progress. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/ui-progress.
+Status: merged. Task: 01a083ce-313e-7f70-a1a8-e645f31235c8. Branch: codex/ui-progress.
 
 **acceptanceCriteria**
 

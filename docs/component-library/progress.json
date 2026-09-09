@@ -1105,7 +1105,7 @@
     },
     {
       "id": "progress",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
       "branch": "codex/ui-progress",
       "dependencies": [
@@ -1146,9 +1146,9 @@
         "No iOS/Linux device run or spoken VoiceOver verification was performed; browser and native font rasterizers differ, so review establishes measured geometry, behavior and palette mapping rather than pixel equality."
       ],
       "implementationCommit": "4b0cbff9d3a2574f4c409ad8a45737a16fcb7692",
-      "mergeCommit": null,
+      "mergeCommit": "15da313eb259c51c6bbed5974895b6616c32c84c",
       "nativeInspectionStatus": "completed",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
       "reviewBranch": "codex/review-progress"
     },
@@ -2418,8 +2418,12 @@
         "Implementation source is prepared without a desktop lease. Official rendered browser comparison, native styleguide/production fixture inspection, macOS build provenance, exhaustive remaining transient notification migration and affected legacy-test updates remain owned by the new review task.",
         "No iOS or Linux device run was performed."
       ],
-      "implementationCommit": "212577a5f8750c120e0ab09ac4ea3f5a023b92e0",
-      "mergeCommit": null
+      "implementationCommit": "2c4bed89bc49e1df3dfd5f23315f97cb5c3b30fd",
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
+      "reviewClientThreadId": "client-new-thread:bc9d1205-04e1-4739-b614-dba4df508721",
+      "reviewBranch": "codex/review-toast"
     },
     {
       "id": "alert",
@@ -2841,15 +2845,6 @@
           "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a"
         },
         {
-          "component": "progress",
-          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
-          "branch": "codex/review-progress",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
-          "headCommit": "1c21a43597a31f55b7bab4a325d879dde8bcf9f4",
-          "status": "independent_review",
-          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8"
-        },
-        {
           "component": "textarea",
           "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
           "branch": "codex/review-textarea",
@@ -3142,17 +3137,6 @@
           "branch": "codex/review-table",
           "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
           "implementationBranch": "codex/ui-table",
-          "status": "in_progress"
-        },
-        {
-          "component": "progress",
-          "title": "Review and merge Progress",
-          "taskId": "01a08558-73d7-7d01-9b97-39615e28df0e",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/59ee/discourse-native",
-          "branch": "codex/review-progress",
-          "implementationTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
-          "implementationBranch": "codex/ui-progress",
           "status": "in_progress"
         },
         {
