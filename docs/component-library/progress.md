@@ -71,7 +71,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
 | 60 | chart | planned | — | — | tooltip | — |
 | 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
-| 62 | sidebar | review_ready | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | sheet, tooltip, collapsible, input | — |
+| 62 | sidebar | review_ready | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | — |
 | 63 | input-otp | planned | — | — | input, field | — |
 | 64 | questionnaire | planned | — | — | field, button, progress, card, dialog, native-select | — |
 
@@ -158,7 +158,7 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/ui-sha
 
 ### Documentation layout and Sidebar adoption
 
-Status: in_progress. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/styleguide-shadcn-layout.
+Status: review_ready. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/styleguide-shadcn-layout.
 
 **acceptanceCriteria**
 
@@ -173,6 +173,8 @@ Status: in_progress. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/s
 - Documentation uses a local neutral light/dark DTokens theme and the host font. Example themes continue to resolve from the original host theme; no app setting is changed.
 - Short page introductions replace engineering notes at the top. Baseline components remain labelled; full notes and reference coverage stay available in a disclosure.
 - Reference measurements and native review are recorded in docs/component-library/styleguide-design.md.
+- Explicit viewport presets retain their actual logical widths and scroll within the 640px article. A visible scrollbar supports mouse dragging.
+- Compact Sidebar examples use a 500px breakpoint and a 500px-tall preview; the public component default remains 768px.
 
 **migrations**
 
@@ -181,6 +183,20 @@ Status: in_progress. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/s
 **retainedAlternatives**
 
 - Documentation-only compact toolbar controls retain native Flutter interaction owners until their owning Button/Select catalogue work. They are private to the styleguide and do not replace public components.
+
+**verification**
+
+- 160 affected tests passed at f19ded8b: flutter test --no-pub test/styleguide test/d_sidebar_test.dart test/d_button_adoption_test.dart --test-randomize-ordering-seed=2847364191. Log: /private/tmp/styleguide-review-final-tests.log.
+- After the final explicit-scrollbar change, all 14 styleguide-page tests passed with seed 1283551953, including mouse dragging a 1024px preview, returning to 360px, retained sample state, and real DSidebar desktop/mobile composition. Log: /private/tmp/styleguide-preview-scroll-tests.log.
+- Root and full-profile flutter analyze --no-pub are clean; formatting and git diff --check pass. Full-profile locked pub get passed without changing any lockfile or SDK pin.
+- Final standalone macOS build passes at 6d8c63edcbcd8372408a4a5ec8ccc9d8479e5bbb. Its isolated kernel matches the workspace build: SHA256 90f5d1b5d4689ca2a660441be25859071c9f9c9f15bf3dc10817147efc373342. Deep strict signature verification passes.
+- Native dark/light documentation, independent preview theme, code/state retention, 360px/200% swatches, centered Card, actual narrow-window Sidebar search/selection, Escape/focus return, and compact desktop Sidebar demo were inspected. Exact source checkpoints, evidence and limits: docs/component-library/styleguide-design.md.
+
+**limitations**
+
+- The Mac locked before the final explicit-scrollbar screenshot. Its appearance and native drag remain unverified; the mouse-drag widget test passes.
+- Native synthetic Cmd/Ctrl+K and horizontal-scroll attempts produced no visible response. Keyboard bindings pass widget tests. Some native AX trees were sparse; no spoken VoiceOver, iOS/Linux device or pixel-diff claim is made.
+- The docs shell is the first Sidebar adoption. Forum and Chat retain their domain-specific adapters. Button, Select, Input, Sheet and other remaining catalogue entries are still unfinished.
 
 ### direction
 
@@ -887,12 +903,13 @@ Status: review_ready. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/
 
 - Full mapping, API and dependency boundary: docs/component-library/sidebar.md. Official base-nova registry hash 02b1ea430fb246da062048f0161a01d1b34a2c787f6974958c9b20a3142120a6.
 - Provider exposes controlled/uncontrolled desktop and separate mobile state, configurable bounded-width breakpoint and scoped Cmd/Ctrl+B. Native modal route owns focus/dismissal; site colors/fonts/radius update live.
-- Actual Flutter imports are completed Tooltip,Separator,Skeleton. Sheet/Input/Collapsible remain pending catalogue owners; native modal/TextField and local disclosure composition do not claim those tasks complete. Frozen dependency metadata is preserved for coordinator reconciliation.
+- Operational Flutter dependencies are the completed Tooltip, Separator and Skeleton components. Sheet/Input/Collapsible remain pending catalogue owners; native modal/TextField and local disclosure composition do not claim those tasks complete. The frozen website dependency graph stays unchanged in catalogue.json.
 - Native review fixed floating icon2px overflow by painting its border outside layout and gave the mobile shortcut subtree initial focus. Pointer actions own keyboard focus; iOS/Android48px hit areas preserve compact visuals; leaving mobile clears obsolete openMobile. Public API remains stable.
 
 **migrations**
 
-- Public barrel export and six independent sidebar_examples.dart examples registered. Coordinator owns first application adoption in the corrected styleguide shell.
+- Public barrel export and six independent sidebar_examples.dart examples registered.
+- The actual ComponentStyleguidePage adopts DSidebarProvider, DSidebar, content/groups/menus/buttons/header and trigger, including its responsive modal navigation.
 
 **retainedAlternatives**
 
@@ -904,12 +921,13 @@ Status: review_ready. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/
 - Final21 focused Sidebar,example and existing styleguide tests passed with seed9092026, including pointer-to-keyboard,macOS modal Escape,breakpoint reset,iOS/Android hit areas and floating icon geometry regressions.
 - Native comparison and exact evidence/limits: docs/component-library/sidebar-native.md. Final isolated bundle matches build kernel SHA256 b400402635cd61ec213815b387448a848a08bca5fe36f6081f43ee86191488a7; deep strict ad-hoc signature passes.
 - macOS inspected reference dark/light/icon modes; native all six examples,documentation30px,360px RTL200 Forest/Plum live open modal,controlled pointer/Return toggle,immediate Escape,loading/error/retry,submenu selection/disclosure and scrolling. App/tab cleanup verified and slot released.
+- Coordinator integration passed the 160 affected tests plus the final 14 styleguide-page tests. Compact menu semantic bounds have a dedicated regression; native first-adoption observations and final-scrollbar limit are recorded in docs/component-library/styleguide-design.md.
 
 **limitations**
 
 - Native CUA Cmd/Ctrl+B attempts did not visibly toggle; exact bindings pass widget tests. Return,Tab and Escape visibly verified. No spoken VoiceOver or iOS/Linux device run.
 - Reference/native capture dimensions differ; intrinsic metrics and visual comparison,not pixel-diff equality. Sample labels/caller icons and app font/palette differ.
-- Coordinator owns first docs-shell adoption and its final native check. Live forum/Chat adapters remain retained; pending Sheet/Input/Collapsible/Dropdown Menu owners are not declared complete.
+- The documentation shell is the first verified adoption. Live forum/Chat adapters remain retained; pending Sheet/Input/Collapsible/Dropdown Menu owners are not declared complete.
 
 ### Final audit
 
