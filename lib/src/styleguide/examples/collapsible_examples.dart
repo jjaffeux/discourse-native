@@ -677,8 +677,8 @@ class _FileTreeState extends State<_FileTree> {
             onChanged: (value) {
               if (value != null) setState(() => outline = value == 'outline');
             },
-            children: [
-              const DTabList<String>(
+            children: const [
+              DTabList<String>(
                 children: [
                   DTabTrigger(value: 'explorer', child: Text('Explorer')),
                   DTabTrigger(value: 'outline', child: Text('Outline')),
