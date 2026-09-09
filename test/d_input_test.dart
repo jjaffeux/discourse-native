@@ -3,8 +3,9 @@ import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -478,6 +479,113 @@ void main() {
       await tester.tap(find.byType(TextField), warnIfMissed: false);
       await tester.pump();
       expect(focus.hasFocus, isFalse);
+    },
+  );
+
+  testWidgets(
+    'the box takes the text cursor and a press in its padding focuses the editor',
+    (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      Widget build(bool enabled) =>
+          host(DInput(focusNode: focus, hintText: 'Email', enabled: enabled));
+      await tester.pumpWidget(build(true));
+      final surface = find.byType(AnimatedContainer);
+      expect(
+        tester.getTopLeft(find.byType(TextField)),
+        tester.getTopLeft(surface) + const Offset(11, 6),
+      );
+      final padding = tester.getTopLeft(surface) + const Offset(4, 4);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: padding);
+      await tester.pump();
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.text,
+      );
+      await tester.tapAt(padding);
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+      await tester.pumpWidget(build(false));
+      await tester.pump();
+      expect(focus.hasFocus, isFalse);
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.forbidden,
+      );
+      await tester.tapAt(padding);
+      await tester.pump();
+      expect(focus.hasFocus, isFalse);
+    },
+  );
+
+  testWidgets('a suffix action wins the surrounding surface gesture', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    var presses = 0;
+    await tester.pumpWidget(
+      host(
+        DInput(
+          focusNode: focus,
+          suffix: IconButton(
+            tooltip: 'Clear',
+            onPressed: () => presses++,
+            icon: const Icon(Icons.clear),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.clear));
+    await tester.pump();
+    expect(presses, 1);
+    expect(focus.hasFocus, isFalse);
+  });
+
+  testWidgets('invalid label uses the destructive field color', (tester) async {
+    await tester.pumpWidget(host(DInput(labelText: 'Email', invalid: true)));
+    final label = tester.widget<DefaultTextStyle>(
+      find
+          .ancestor(
+            of: find.text('Email'),
+            matching: find.byType(DefaultTextStyle),
+          )
+          .first,
+    );
+    final context = tester.element(find.byType(DInput));
+    expect(label.style.color, DTokens.of(context).destructive);
+  });
+
+  testWidgets(
+    'focus ring paints immediately while colors use reference easing',
+    (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      await tester.pumpWidget(host(DInput(focusNode: focus)));
+      CustomPaint paint() => tester
+          .widgetList<CustomPaint>(
+            find.descendant(
+              of: find.byType(DInput),
+              matching: find.byType(CustomPaint),
+            ),
+          )
+          .singleWhere((widget) => widget.child is AnimatedContainer);
+      AnimatedContainer surface() => tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byType(DInput),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      expect(paint().foregroundPainter, isNull);
+      expect(surface().curve, Curves.fastOutSlowIn);
+      focus.requestFocus();
+      await tester.pump();
+      expect(paint().foregroundPainter, isNotNull);
+      focus.unfocus();
+      await tester.pump();
+      expect(paint().foregroundPainter, isNull);
     },
   );
 
