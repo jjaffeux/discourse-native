@@ -128,6 +128,11 @@ the active font and text scaler. New LTR/RTL tests first reproduced truncation,
 then passed for both the ordinary value and a selected custom value of 1000.
 The earlier pass remains valid for unchanged table and action behavior.
 
+Reviewer follow-up `0f50f53e` also removes the visible Actions heading from the
+48px icon column, matching the official empty header and avoiding clipped text.
+The column retains its semantic label. The existing action regression now checks
+that the heading is absent before opening the menu and present inside it.
+
 The inspection session briefly produced a partially blank capture after a
 sequence containing an unsupported key name. Reopening only the isolated
 fixture restored rendering; the keyboard interaction was repeated successfully
@@ -141,13 +146,21 @@ Menu/Table checks passed with seed `9092026`. Root and `profiles/full`
 `flutter analyze --no-pub` passed without diagnostics. The fixture built with
 `flutter build macos --debug --no-pub -t tool/data_table_review.dart`.
 
-The corrected isolated bundle is
+The page-size correction's isolated bundle is
 `/private/tmp/data-table-review-4f70.9Joknh/Data Table Review 4f70.app`, identifier
 `org.discourse.native.datatable.4f70`. Its kernel matches the original build:
 `67fa17530f6572f94536b8f92a7e5b9de376e2f82dc6058b12d093cf870cc307`.
 Deep strict signature verification passed. Only the copied bundle's name,
 identifier, URL registration and ad-hoc signing metadata changed; repository
 runner, provisioning, release settings, pubspecs and lockfiles were untouched.
+
+The final action-heading correction is built from
+`0f50f53e2fc1539415c61f2bbf4a0f1ca36b2dbd` at
+`/private/tmp/data-table-review-0f50.jYpaUM/Data Table Review 0f50.app`, identifier
+`org.discourse.native.datatable.0f50`. Original and copied kernels both hash to
+`172da87b7d27513776ea9236ede53641569191faaef784ac4b42528aab0558e6`;
+deep strict signing verification passed. All 18 Data Table/example tests passed
+with seed `9092026`, root analysis was clean, and the macOS rebuild succeeded.
 
 The initial bundle was
 `/private/tmp/data-table-review-3191.Xaw99t/Data Table Review 3191.app`, identifier
