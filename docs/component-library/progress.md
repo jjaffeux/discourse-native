@@ -29,7 +29,7 @@ Branch preparation does not mark a component merged or visually verified.
 | context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | Implementation and checks | — | — |
 | navigation-menu | independent review | 57ee8393 | 01a08621-0e86-7a62-82b9-6a8eca71227f |
-| breadcrumb | Implementation and checks | — | — |
+| breadcrumb | independent review | cd9c542d | 01a08623-9d6e-7393-b3e8-fb4c402b8c71 |
 | pagination | Implementation and checks | — | — |
 | calendar | Implementation and checks | — | — |
 | date-picker | Implementation and checks | — | — |
@@ -2461,6 +2461,7 @@ Status: in_progress. Task: 01a08606-c290-7772-8b90-e5358efa6752. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Breadcrumb (01a08623-9d6e-7393-b3e8-fb4c402b8c71) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance.
 
 ### pagination
 
