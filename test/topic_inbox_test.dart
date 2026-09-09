@@ -26,6 +26,7 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/components/d_popover.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -2072,6 +2073,7 @@ void main() {
     await _scrollReaderToTop(tester);
     await tester.tap(find.text('Manage details'));
     await tester.pumpAndSettle();
+    expect(find.byType(DPopoverContent), findsOneWidget);
     expect(find.text('Details: Topic 1 · Available'), findsOneWidget);
 
     shell.store.put(
@@ -2085,10 +2087,11 @@ void main() {
 
     await shell.jumpToCurrentTopicIndex(2);
     await tester.pumpAndSettle();
+    expect(find.byType(DPopoverContent), findsNothing);
     expect(find.text('Details: Updated topic · Saving'), findsNothing);
     expect(shell.currentContent?.topicId, 1);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'keeps the source list mounted across topic selection, back, and window resizing',

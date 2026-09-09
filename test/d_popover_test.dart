@@ -1,0 +1,402 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets(
+    'uncontrolled trigger opens, focuses content, and Escape restores',
+    (tester) async {
+      await tester.pumpWidget(_app(const _TestPopover()));
+
+      final trigger = tester.widget<DButton>(
+        find.widgetWithText(DButton, 'Open'),
+      );
+      trigger.focusNode!.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Popover title'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Popover title'), findsNothing);
+      expect(trigger.focusNode!.hasFocus, isTrue);
+    },
+  );
+
+  testWidgets('touch opening does not summon the nested text editor', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const _TestPopover()));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Popover title'), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isFalse,
+    );
+  });
+
+  testWidgets('outside press and close composition report distinct reasons', (
+    tester,
+  ) async {
+    final reasons = <DPopoverChangeReason>[];
+    await tester.pumpWidget(_app(_TestPopover(onReason: reasons.add)));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
+    expect(reasons.last, DPopoverChangeReason.outsidePress);
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(reasons.last, DPopoverChangeReason.closePress);
+  });
+
+  testWidgets('controlled state only changes when its owner accepts request', (
+    tester,
+  ) async {
+    final open = ValueNotifier(false);
+    final accept = ValueNotifier(false);
+    addTearDown(open.dispose);
+    addTearDown(accept.dispose);
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<bool>(
+          valueListenable: accept,
+          builder: (context, accepts, child) => ValueListenableBuilder<bool>(
+            valueListenable: open,
+            builder: (context, value, child) => _TestPopover(
+              open: value,
+              onOpen: (requested, reason) {
+                if (accepts) open.value = requested;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Popover title'), findsNothing);
+
+    accept.value = true;
+    await tester.pump();
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Popover title'), findsOneWidget);
+  });
+
+  testWidgets('controller is borrowed and ignores calls after detaching', (
+    tester,
+  ) async {
+    final controller = DPopoverController();
+    final mounted = ValueNotifier(true);
+    addTearDown(() {
+      mounted.dispose();
+      controller.dispose();
+    });
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<bool>(
+          valueListenable: mounted,
+          builder: (context, value, child) => value
+              ? _TestPopover(controller: controller)
+              : const Text('Removed'),
+        ),
+      ),
+    );
+    controller.open();
+    await tester.pumpAndSettle();
+    expect(controller.isOpen, isTrue);
+
+    mounted.value = false;
+    await tester.pumpAndSettle();
+    controller.open();
+    expect(controller.isOpen, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('bottom start geometry uses 4px gap and logical RTL alignment', (
+    tester,
+  ) async {
+    Future<void> verify(TextDirection direction) async {
+      await tester.pumpWidget(
+        _app(
+          Directionality(
+            key: ValueKey(direction),
+            textDirection: direction,
+            child: const Align(
+              alignment: Alignment.center,
+              child: _TestPopover(align: DPopoverAlign.start),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final trigger = tester.getRect(find.widgetWithText(DButton, 'Open'));
+      final popup = tester.getRect(find.byType(DPopoverContent));
+      expect(popup.top, closeTo(trigger.bottom + 4, 0.1));
+      if (direction == TextDirection.ltr) {
+        expect(popup.left, closeTo(trigger.left, 0.1));
+      } else {
+        expect(popup.right, closeTo(trigger.right, 0.1));
+      }
+    }
+
+    await verify(TextDirection.ltr);
+    await verify(TextDirection.rtl);
+  });
+
+  testWidgets('collision flips at an edge and constrains a narrow viewport', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        const SizedBox(
+          width: 220,
+          height: 180,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: _TestPopover(
+              width: 288,
+              collisionBoundary: Rect.fromLTWH(290, 210, 220, 180),
+            ),
+          ),
+        ),
+        size: const Size(220, 180),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final trigger = tester.getRect(find.widgetWithText(DButton, 'Open'));
+    final popup = tester.getRect(find.byType(DPopoverContent));
+    expect(popup.bottom, lessThanOrEqualTo(trigger.top - 4 + 0.1));
+    expect(popup.left, greaterThanOrEqualTo(295));
+    expect(popup.right, lessThanOrEqualTo(505));
+  });
+
+  testWidgets('custom anchor moves while the open overlay tracks it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const _MovingAnchorTest()));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MovingAnchorTestState>(
+      find.byType(_MovingAnchorTest),
+    );
+    expect(state._controller.isOpen, isTrue);
+    expect(tester.takeException(), isNull);
+    expect(find.byType(DPopoverContent, skipOffstage: false), findsOneWidget);
+    final before = tester.getRect(find.byType(DPopoverContent));
+    await tester.tap(find.text('Move'));
+    await tester.pumpAndSettle();
+    final after = tester.getRect(find.byType(DPopoverContent));
+    expect(after.left, greaterThan(before.left + 100));
+  });
+
+  testWidgets('surface keeps independent semantics and reads live theme', (
+    tester,
+  ) async {
+    final dark = ValueNotifier(false);
+    addTearDown(dark.dispose);
+    await tester.pumpWidget(
+      ValueListenableBuilder<bool>(
+        valueListenable: dark,
+        builder: (context, value, child) => MaterialApp(
+          theme: value ? AppTheme.dark : AppTheme.light,
+          home: const Scaffold(body: Center(child: _TestPopover())),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final semantics = tester.getSemantics(find.byType(DPopoverContent));
+    expect(semantics.label, contains('Test popover'));
+    expect(find.byType(TextField), findsOneWidget);
+    final light = _surfaceDecoration(tester).color;
+
+    dark.value = true;
+    await tester.pumpAndSettle();
+    expect(find.text('Popover title'), findsOneWidget);
+    expect(_surfaceDecoration(tester).color, isNot(light));
+  });
+
+  testWidgets('large text and reduced motion remain bounded', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        const MediaQuery(
+          data: MediaQueryData(
+            textScaler: TextScaler.linear(2),
+            disableAnimations: true,
+          ),
+          child: _TestPopover(width: 210),
+        ),
+        size: const Size(240, 400),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pump();
+    expect(find.text('Popover title'), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(DPopoverContent)).width,
+      lessThanOrEqualTo(230),
+    );
+    expect(tester.takeException(), isNull);
+  });
+}
+
+BoxDecoration _surfaceDecoration(WidgetTester tester) => tester
+    .widgetList<DecoratedBox>(
+      find.descendant(
+        of: find.byType(DPopoverContent),
+        matching: find.byType(DecoratedBox),
+      ),
+    )
+    .map((widget) => widget.decoration)
+    .whereType<BoxDecoration>()
+    .firstWhere((decoration) => decoration.border != null);
+
+Widget _app(Widget child, {Size size = const Size(800, 600)}) => MaterialApp(
+  theme: AppTheme.light,
+  home: MediaQuery(
+    data: MediaQueryData(size: size),
+    child: Scaffold(body: Center(child: child)),
+  ),
+);
+
+class _TestPopover extends StatelessWidget {
+  const _TestPopover({
+    this.open,
+    this.onOpen,
+    this.onReason,
+    this.controller,
+    this.align = DPopoverAlign.center,
+    this.width = 220,
+    this.collisionBoundary,
+  });
+
+  final bool? open;
+  final DPopoverOpenChange? onOpen;
+  final ValueChanged<DPopoverChangeReason>? onReason;
+  final DPopoverController? controller;
+  final DPopoverAlign align;
+  final double width;
+  final Rect? collisionBoundary;
+
+  @override
+  Widget build(BuildContext context) => DPopover(
+    open: open,
+    controller: controller,
+    onOpenChange: (value, reason) {
+      onReason?.call(reason);
+      onOpen?.call(value, reason);
+    },
+    content: DPopoverContent(
+      width: width,
+      align: align,
+      collisionBoundary: collisionBoundary,
+      semanticLabel: 'Test popover',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const DPopoverHeader(
+            children: [
+              DPopoverTitle(child: Text('Popover title')),
+              DPopoverDescription(child: Text('Description')),
+            ],
+          ),
+          const TextField(decoration: InputDecoration(labelText: 'Width')),
+          DPopoverClose(
+            builder: (context, close) =>
+                DButton(label: const Text('Close'), onPressed: close),
+          ),
+        ],
+      ),
+    ),
+    child: DPopoverTrigger(
+      builder: (context, trigger) => DButton(
+        label: const Text('Open'),
+        variant: DButtonVariant.outline,
+        hasPopup: true,
+        expanded: trigger.open,
+        focusNode: trigger.focusNode,
+        onPressed: trigger.toggle,
+      ),
+    ),
+  );
+}
+
+class _MovingAnchorTest extends StatefulWidget {
+  const _MovingAnchorTest();
+
+  @override
+  State<_MovingAnchorTest> createState() => _MovingAnchorTestState();
+}
+
+class _MovingAnchorTestState extends State<_MovingAnchorTest> {
+  bool _right = false;
+  final _controller = DPopoverController();
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 600,
+    height: 180,
+    child: DPopover(
+      controller: _controller,
+      content: DPopoverContent(
+        width: 140,
+        side: DPopoverSide.bottom,
+        align: DPopoverAlign.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Moving content'),
+            DButton(
+              label: const Text('Move'),
+              onPressed: () => setState(() => _right = true),
+            ),
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Align(
+            alignment: _right ? Alignment.topRight : Alignment.topLeft,
+            child: const DPopoverAnchor(child: SizedBox.square(dimension: 20)),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: DPopoverTrigger(
+              builder: (context, trigger) => DButton(
+                label: const Text('Open'),
+                focusNode: trigger.focusNode,
+                onPressed: trigger.toggle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}

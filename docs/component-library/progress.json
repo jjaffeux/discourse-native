@@ -1645,18 +1645,45 @@
     },
     {
       "id": "popover",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a084fb-b319-7053-8265-8cdfd4e2c2bd",
+      "branch": "codex/ui-popover",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "acceptanceCriteria": [
+        "Provide one public DPopover owner with DPopoverTrigger, DPopoverContent, DPopoverAnchor, DPopoverHeader, DPopoverTitle, DPopoverDescription and DPopoverClose composition, borrowed-or-owned DPopoverController lifecycle, uncontrolled defaultOpen and controlled open/onOpenChange behavior with explicit change reasons.",
+        "Match frozen base-nova geometry at 100%: 288px default content width, 10px padding and gap, 4px default side offset, 10px (lg) host-relative radius, 14px/20px text with medium title and muted description, 1px foreground/10% exterior ring, medium shadow, and 100ms 95%-scale/fade/8px side-aware entrance; read live palette, font and radius tokens while open and eliminate motion when reduced motion is enabled.",
+        "Support top/bottom/left/right/inline-start/inline-end sides; start/center/end alignment; side and alignment offsets; configurable collision boundary/padding and flip/shift/none policies; custom DPopoverAnchor geometry; continuous anchor tracking through layout/scroll; narrow constraints, large text and RTL logical positioning without overflow.",
+        "Open from pointer or keyboard trigger activation, move focus into nested interactive content except touch opening, expose a named semantic container and independent nested controls, dismiss by trigger/close/Escape/outside press/lifecycle/anchor removal, restore the trigger or prior focus, and tolerate controlled callbacks or child removal during open/close without stale overlays or disposing borrowed focus/controller resources.",
+        "Add self-contained actual-component styleguide examples and accurate snippets for Basic, all Align values, With Form using currently available native fields/DLabel pending Input and Field owners, RTL physical/logical sides, controlled state/close, custom moving anchor, collision/scroll edge behavior, live theme, large text and reduced motion.",
+        "Audit core and bundled-plugin anchored panels. Adopt only genuine rich non-menu popovers while preserving callback, persistence, permission, async and touch-sheet ownership; retain menus, Select, Combobox, Hover Card, navigation menus, dialogs and Tooltip under their specialized owners and record shared positioning follow-up.",
+        "Pass touched formatting, focused interaction/accessibility/positioning/styleguide/downstream tests, root and full-profile locked dependency resolution and static analysis, and an isolated uniquely identified macOS debug fixture build mounting actual adopted production widgets; record exact source/kernel/signature evidence and keep status in_progress awaiting serialized reference/native inspection."
+      ],
+      "decisions": [
+        "Frozen documentation fetched byte-for-byte from https://ui.shadcn.com/docs/components/base/popover.md: SHA256 833273ce2ef2e83164a1824c0e6151452d4fc5f7d602c4871f9705bdef163587. Registry source https://ui.shadcn.com/r/styles/base-nova/popover.json: SHA256 ba5fe84f353f6c0fd2133a2ab893f5e8861fc60dc4dea548a7ec875acaa37b2c. Base UI API snapshot https://base-ui.com/react/components/popover.md: SHA256 e50617eaad64fbc205f0ff730bb60001f9152e319a24c4d08e9cdc154cc863bf.",
+        "Public composition is DPopover root with builder-based DPopoverTrigger, styled DPopoverContent, optional DPopoverAnchor, header/title/description, builder-based DPopoverClose and a borrowed-or-owned DPopoverController. Builders keep DButton or another nested control as the sole semantic action instead of layering competing gesture/button nodes.",
+        "Measured mapping is recorded in docs/component-library/popover.md: 288px width, 10px content gap/padding, 2px header gap, host-radius lg factor 1.0, 14/20 text, weight-500 title, muted description, foreground alpha multiplied by 10% for the 1px ring, Tailwind medium shadow, 4px side gap and 100ms 0.95-scale/fade/8px side slide. Open overlays read live DTokens and inherited text scaling; reduced motion finishes immediately.",
+        "Base UI collision behavior maps to explicit side/align flip, shift and none policies inside a safe-area or caller Rect. A paint-transform tracker requests overlay layout only when the trigger/custom anchor moves or resizes; bounded content scrolls when collision space or accessible text makes it taller than the available side.",
+        "Keyboard opening focuses the first nested control; touch opening focuses the popup scope to avoid summoning an editor. Escape, outside/trigger/close press, lifecycle loss, controller action and trigger removal dismiss safely and restore trigger/previous focus. The named explicit semantic container does not merge independently interactive descendants."
+      ],
+      "migrations": [
+        "TopicInboxHeader plugin-property details now uses DPopover on pointer platforms, including Assign's real management surface. Live topic-store and plugin listenables, navigation-revision dismissal, plugin callbacks/permissions and compact/custom headers are preserved; iOS/Android retains the established touch sheet."
+      ],
+      "retainedAlternatives": [
+        "showAnchoredPicker category/tag/time-range/assignment pickers, ChoiceMenuAnchor, CommandMenuAnchor, MenuAnchor, PopupMenuButton, Select, Combobox, Hover Card, navigation menus, dialogs and Tooltip remain specialized owners for selection/command keyboard models, search/large lists, result futures, modal or hover behavior. Their shared collision needs are deferred until their catalogue owners exist.",
+        "With Form uses Flutter Form and native TextFormField/InputDecoration while Input and Field remain separate in-progress catalogue tasks; no substitute public Input or Field owner was created."
+      ],
+      "verification": [
+        "Frozen page, base-nova registry and Base UI API fetches matched the recorded SHA256 values; docs/component-library/popover.md records CSS-to-Flutter geometry, typography, colors, radius, shadow, motion, state and native adaptations.",
+        "flutter pub get --enforce-lockfile at root and profiles/full completed with Flutter 3.47.2; the incidental root dependency-classification rewrite was reverted and all pins/lockfiles are byte-unchanged.",
+        "flutter analyze --no-pub at root and profiles/full passed with no issues. Touched Dart formatting and git diff --check passed.",
+        "Focused component/styleguide/shell checks passed: 30 tests with seed 826145 across d_popover, popover examples, styleguide page and DButton adoption, plus the real macOS TopicInboxHeader property-details live-update/navigation-dismissal test. The dedicated Popover suite covers 10 controlled/uncontrolled, input/focus, semantics, theme, exact gap/RTL alignment, collision, movement, reduced-motion and lifecycle cases.",
+        "The full TopicInbox test file exposed three inherited Android compact-geometry failures; the compact assignment failure reproduces unchanged at the required base commit 9d7a49e797dff14c908369315d035a1437d49c07 in an isolated clean worktree. The Popover-owned macOS migration test passes independently."
+      ],
+      "limitations": [
+        "awaiting_slot: Badge currently owns desktop focus. No CUA/browser/native app launch, reference-rendered comparison, VoiceOver speech, or iOS/Linux device inspection was performed. Status remains in_progress and is not mergeable until the queued native/reference review completes."
+      ],
       "implementationCommit": null,
       "mergeCommit": null
     },
