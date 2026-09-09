@@ -15,17 +15,29 @@ final messageScrollerExamples = ComponentExamples(
     StyleguideExample(
       title: 'Streaming and previous context',
       description:
-          'Auto-follow stays at the live edge until the reader scrolls away. New turns retain a 64px preview of context.',
+          'Send an offline turn, stop a streaming reply, or reset to empty. Choose entry motion while new turns retain a 64px preview of context.',
       code: _streamingCode,
-      states: const ['live edge', 'reader paused', 'new turn'],
+      states: const [
+        'live edge',
+        'reader paused',
+        'new turn',
+        'composer',
+        'empty',
+        'animation preset',
+      ],
       builder: (_) => const _StreamingExample(),
     ),
     StyleguideExample(
       title: 'Anchoring and group chat',
       description:
-          'Stable message IDs survive variable row heights; the saved marker opens as the initial anchor.',
+          'Stable message IDs survive variable row heights. Choose which role anchors a newly appended turn.',
       code: _anchoringCode,
-      states: const ['saved anchor', 'variable height', 'grouped sender'],
+      states: const [
+        'saved anchor',
+        'variable height',
+        'grouped sender',
+        'anchor role',
+      ],
       builder: (_) => const _AnchoringExample(),
     ),
     StyleguideExample(
@@ -47,7 +59,7 @@ final messageScrollerExamples = ComponentExamples(
     StyleguideExample(
       title: 'Commands, visibility and scroll state',
       description:
-          'Typed commands target stable IDs and expose edge, anchor and visible-message state.',
+          'Typed commands and a hover-preview outline target stable IDs and expose edge, anchor and visible-message state.',
       code: _commandsCode,
       states: const ['start', 'center', 'end', 'nearest'],
       builder: (_) => const _CommandsExample(),
@@ -82,21 +94,30 @@ class _StreamingExampleState extends State<_StreamingExample> {
   final _messages = <String>[
     'Can you summarize the release notes?',
     'Yes — the update improves navigation and offline recovery.',
-    'What changed for keyboard users?',
   ];
+  final _prompt = TextEditingController(
+    text: 'What changed for keyboard users?',
+  );
   Timer? _timer;
   var _streaming = false;
   var _previousContext = 64.0;
+  var _animation = _EntryAnimation.slide;
+  String? _tool;
 
   @override
   void dispose() {
     _timer?.cancel();
+    _prompt.dispose();
     super.dispose();
   }
 
   void _streamReply() {
     if (_streaming) return;
     setState(() {
+      final prompt = _prompt.text.trim();
+      _messages.add(
+        '${_tool == null ? '' : '[$_tool] '}${prompt.isEmpty ? 'Tell me more about this update.' : prompt}',
+      );
       _streaming = true;
       _messages.add('Keyboard focus now remains anchored');
     });
@@ -118,14 +139,37 @@ class _StreamingExampleState extends State<_StreamingExample> {
 
   @override
   Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      DButton(
-        label: const Text('Stream reply'),
-        onPressed: _streaming ? null : _streamReply,
-        loading: _streaming,
-        variant: DButtonVariant.secondary,
-        tooltip: 'Append a gradually growing message',
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          DButton(
+            label: Text(_streaming ? 'Stop reply' : 'Stream reply'),
+            onPressed: _streaming
+                ? () {
+                    _timer?.cancel();
+                    setState(() => _streaming = false);
+                  }
+                : _streamReply,
+            variant: DButtonVariant.secondary,
+          ),
+          DTooltip(
+            message: 'Start an empty offline conversation',
+            child: DButton(
+              label: const Text('Reset conversation'),
+              onPressed: () {
+                _timer?.cancel();
+                setState(() {
+                  _streaming = false;
+                  _messages.clear();
+                });
+              },
+              variant: DButtonVariant.outline,
+            ),
+          ),
+        ],
       ),
       const SizedBox(height: 8),
       Text('Previous context: ${_previousContext.round()}px'),
@@ -137,24 +181,213 @@ class _StreamingExampleState extends State<_StreamingExample> {
         semanticLabel: 'Previous context',
         onChanged: (value) => setState(() => _previousContext = value),
       ),
+      const SizedBox(height: 8),
+      DSelect<_EntryAnimation>(
+        value: _animation,
+        semanticLabel: 'Entry animation',
+        entries: [
+          for (final preset in _EntryAnimation.values)
+            DSelectOption(
+              value: preset,
+              label: preset.label,
+              child: Text(preset.label),
+            ),
+        ],
+        onChanged: (value) {
+          if (value != null) setState(() => _animation = value);
+        },
+      ),
+      const SizedBox(height: 12),
+      _Frame(
+        child: _messages.isEmpty
+            ? const DEmpty(
+                children: [
+                  DEmptyHeader(
+                    children: [
+                      DEmptyMedia(
+                        variant: DEmptyMediaVariant.icon,
+                        child: Icon(Icons.chat_bubble_outline),
+                      ),
+                      DEmptyTitle('New conversation'),
+                      DEmptyDescription(
+                        'Send a message to start this offline demo.',
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            : DMessageScrollerProvider(
+                autoScroll: true,
+                previousItemPeek: _previousContext,
+                child: DMessageScroller(
+                  children: [
+                    DMessageScrollerViewport.builder(
+                      itemCount: _messages.length,
+                      itemIdBuilder: (index) => 'stream-$index',
+                      scrollAnchorBuilder: (index) => index.isEven,
+                      announcementBuilder: (index) => _messages[index],
+                      busy: _streaming,
+                      contentPadding: const EdgeInsets.all(16),
+                      itemBuilder: (context, index) => _MessageRow(
+                        text: _messages[index],
+                        outgoing: index.isEven,
+                        sender: index.isEven ? 'You' : 'Nova',
+                        animate: index == _messages.length - 1,
+                        animation: _animation,
+                      ),
+                    ),
+                    const DMessageScrollerButton(),
+                  ],
+                ),
+              ),
+      ),
+      const SizedBox(height: 12),
+      DInputGroup(
+        semanticLabel: 'Offline message composer',
+        children: [
+          DInputGroupTextarea(
+            controller: _prompt,
+            semanticLabel: 'Message prompt',
+            minLines: 2,
+            maxLines: 3,
+          ),
+          DInputGroupAddon(
+            alignment: DInputGroupAddonAlignment.blockEnd,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                DDropdownMenu(
+                  content: DDropdownMenuContent(
+                    side: DPopoverSide.top,
+                    width: 220,
+                    semanticLabel: 'Offline composer tools',
+                    children: [
+                      for (final tool in const [
+                        'Photos & files',
+                        'Create image',
+                        'Deep research',
+                        'Web search',
+                      ])
+                        DDropdownMenuItem(
+                          onPressed: () => setState(() => _tool = tool),
+                          child: Text(tool),
+                        ),
+                    ],
+                  ),
+                  child: DDropdownMenuTrigger(
+                    builder: (context, menu) => DInputGroupButton.icon(
+                      icon: const Icon(Icons.add),
+                      tooltip: 'Composer tools',
+                      hasPopup: true,
+                      focusNode: menu.focusNode,
+                      onPressed: menu.toggle,
+                      size: DInputGroupButtonSize.iconSmall,
+                      variant: DButtonVariant.outline,
+                    ),
+                  ),
+                ),
+                DInputGroupButton.icon(
+                  icon: const Icon(Icons.arrow_upward),
+                  tooltip: 'Send message',
+                  onPressed: _streaming ? null : _streamReply,
+                  size: DInputGroupButtonSize.iconSmall,
+                  variant: DButtonVariant.primary,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Text('Offline demo · next message: ${_tool ?? 'plain text'}'),
+    ],
+  );
+}
+
+class _AnchoringExample extends StatefulWidget {
+  const _AnchoringExample();
+
+  @override
+  State<_AnchoringExample> createState() => _AnchoringExampleState();
+}
+
+class _AnchoringExampleState extends State<_AnchoringExample> {
+  var _role = 'user';
+  var _count = 12;
+  var _anchor = 7;
+  var _reset = 0;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      DToggleGroup<String>(
+        values: [_role],
+        allowEmptySelection: false,
+        semanticLabel: 'Scroll anchor role',
+        items: const [
+          DToggleGroupItem(
+            value: 'user',
+            child: Text('User'),
+            semanticLabel: 'Anchor user messages',
+          ),
+          DToggleGroupItem(
+            value: 'assistant',
+            child: Text('Assistant'),
+            semanticLabel: 'Anchor assistant messages',
+          ),
+        ],
+        onChanged: (values) => setState(() {
+          _role = values.single;
+          _anchor = _role == 'user' ? 7 : 8;
+          _count = 12;
+          _reset++;
+        }),
+      ),
+      const SizedBox(height: 8),
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: DButton(
+          label: const Text('Append turn'),
+          onPressed: () => setState(() {
+            _anchor = _count + (_role == 'user' ? 0 : 1);
+            _count += 2;
+          }),
+          variant: DButtonVariant.secondary,
+        ),
+      ),
       const SizedBox(height: 12),
       _Frame(
         child: DMessageScrollerProvider(
-          autoScroll: true,
-          previousItemPeek: _previousContext,
+          key: ValueKey(_reset),
+          initialPosition: DMessageScrollerInitialPosition.lastAnchor,
           child: DMessageScroller(
             children: [
               DMessageScrollerViewport.builder(
-                itemCount: _messages.length,
-                itemIdBuilder: (index) => 'stream-$index',
-                announcementBuilder: (index) => _messages[index],
+                itemCount: _count,
+                itemIdBuilder: (index) => 'group-$index',
+                scrollAnchorBuilder: (index) => index == _anchor,
                 contentPadding: const EdgeInsets.all(16),
-                itemBuilder: (context, index) => _MessageRow(
-                  text: _messages[index],
-                  outgoing: index.isOdd,
-                  sender: index.isOdd ? 'You' : 'Nova',
-                  animate: index == _messages.length - 1,
+                itemBuilder: (context, index) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (index == _anchor)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: DMarker(child: Text('Saved position')),
+                      ),
+                    _MessageRow(
+                      text: index == 5
+                          ? 'This longer group-chat response changes height but the saved message identity remains stable.'
+                          : 'Message ${index + 1} in the design review',
+                      sender: ['Mina', 'Kai', 'Rae'][index % 3],
+                      outgoing: index % 4 == 3,
+                    ),
+                  ],
                 ),
+              ),
+              const DMessageScrollerButton(
+                direction: DMessageScrollerDirection.start,
               ),
               const DMessageScrollerButton(),
             ],
@@ -162,48 +395,6 @@ class _StreamingExampleState extends State<_StreamingExample> {
         ),
       ),
     ],
-  );
-}
-
-class _AnchoringExample extends StatelessWidget {
-  const _AnchoringExample();
-
-  @override
-  Widget build(BuildContext context) => _Frame(
-    child: DMessageScrollerProvider(
-      initialPosition: DMessageScrollerInitialPosition.lastAnchor,
-      child: DMessageScroller(
-        children: [
-          DMessageScrollerViewport.builder(
-            itemCount: 12,
-            itemIdBuilder: (index) => 'group-$index',
-            scrollAnchorBuilder: (index) => index == 7,
-            contentPadding: const EdgeInsets.all(16),
-            itemBuilder: (context, index) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (index == 7)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: DMarker(child: Text('Saved position')),
-                  ),
-                _MessageRow(
-                  text: index == 5
-                      ? 'This longer group-chat response changes height but the saved message identity remains stable.'
-                      : 'Message ${index + 1} in the design review',
-                  sender: ['Mina', 'Kai', 'Rae'][index % 3],
-                  outgoing: index % 4 == 3,
-                ),
-              ],
-            ),
-          ),
-          const DMessageScrollerButton(
-            direction: DMessageScrollerDirection.start,
-          ),
-          const DMessageScrollerButton(),
-        ],
-      ),
-    ),
   );
 }
 
@@ -339,6 +530,7 @@ class _CommandsExample extends StatefulWidget {
 
 class _CommandsExampleState extends State<_CommandsExample> {
   final _controller = DMessageScrollerController();
+  var _outlineExpanded = false;
 
   @override
   void dispose() {
@@ -374,8 +566,24 @@ class _CommandsExampleState extends State<_CommandsExample> {
             onPressed: _controller.scrollToEnd,
             variant: DButtonVariant.secondary,
           ),
+          DHoverCard(
+            trigger: DHoverCardTrigger(
+              builder: (context, trigger) => Semantics(
+                expanded: _outlineExpanded,
+                child: DButton(
+                  label: const Text('Transcript outline'),
+                  focusNode: trigger.focusNode,
+                  variant: DButtonVariant.outline,
+                  onPressed: () =>
+                      setState(() => _outlineExpanded = !_outlineExpanded),
+                ),
+              ),
+            ),
+            content: DHoverCardContent(child: _outline(preview: true)),
+          ),
         ],
       ),
+      if (_outlineExpanded) ...[const SizedBox(height: 8), _outline()],
       const SizedBox(height: 8),
       AnimatedBuilder(
         animation: _controller,
@@ -392,6 +600,7 @@ class _CommandsExampleState extends State<_CommandsExample> {
               DMessageScrollerViewport.builder(
                 itemCount: 40,
                 itemIdBuilder: (index) => 'command-$index',
+                scrollAnchorBuilder: (index) => index % 8 == 0,
                 contentPadding: const EdgeInsets.all(16),
                 itemBuilder: (context, index) => _MessageRow(
                   text: 'Addressable message ${index + 1}',
@@ -407,6 +616,30 @@ class _CommandsExampleState extends State<_CommandsExample> {
         ),
       ),
     ],
+  );
+
+  Widget _outline({bool preview = false}) => AnimatedBuilder(
+    key: ValueKey('transcript-outline-$preview'),
+    animation: _controller,
+    builder: (context, _) => Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (var index = 0; index < 40; index += 8)
+          DButton(
+            label: Text('Turn ${index ~/ 8 + 1}'),
+            variant: _controller.state.currentAnchorId == 'command-$index'
+                ? DButtonVariant.secondary
+                : DButtonVariant.ghost,
+            onPressed: () => _controller.scrollToMessage(
+              'command-$index',
+              options: const DMessageScrollerScrollOptions(
+                behavior: DMessageScrollerScrollBehavior.smooth,
+              ),
+            ),
+          ),
+      ],
+    ),
   );
 }
 
@@ -536,18 +769,29 @@ class _Frame extends StatelessWidget {
   }
 }
 
+enum _EntryAnimation {
+  slide('Slide and fade'),
+  fade('Fade'),
+  none('No animation');
+
+  const _EntryAnimation(this.label);
+  final String label;
+}
+
 class _MessageRow extends StatelessWidget {
   const _MessageRow({
     required this.text,
     required this.sender,
     this.outgoing = false,
     this.animate = false,
+    this.animation = _EntryAnimation.slide,
   });
 
   final String text;
   final String sender;
   final bool outgoing;
   final bool animate;
+  final _EntryAnimation animation;
 
   @override
   Widget build(BuildContext context) {
@@ -578,7 +822,7 @@ class _MessageRow extends StatelessWidget {
         ),
       ],
     );
-    if (!animate) return message;
+    if (!animate || animation == _EntryAnimation.none) return message;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
@@ -589,7 +833,10 @@ class _MessageRow extends StatelessWidget {
       builder: (context, value, child) => Opacity(
         opacity: value,
         child: Transform.translate(
-          offset: Offset(0, 8 * (1 - value)),
+          offset: Offset(
+            0,
+            animation == _EntryAnimation.slide ? 8 * (1 - value) : 0,
+          ),
           child: child,
         ),
       ),
@@ -630,7 +877,7 @@ const _historyCode = '''DMessageScrollerViewport.builder(
 
 const _commandsCode = '''controller.scrollToMessage(
   'message-24',
-  const DMessageScrollerScrollOptions(
+  options: const DMessageScrollerScrollOptions(
     alignment: DMessageScrollerAlignment.center,
   ),
 );''';

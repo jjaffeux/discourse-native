@@ -1,9 +1,17 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/message_scroller_examples.dart';
-import 'package:discourse_native/src/ui/components/d_message_scroller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  Widget exampleHost(WidgetBuilder builder) => MaterialApp(
+    home: Scaffold(
+      body: SingleChildScrollView(
+        child: SizedBox(width: 360, child: Builder(builder: builder)),
+      ),
+    ),
+  );
+
   test('accounts for every frozen behavior family', () {
     final text = messageScrollerExamples.examples
         .expand(
@@ -86,5 +94,110 @@ void main() {
       find.byType(DMessageScrollerViewport),
     );
     expect(viewport.itemId(23), 'command-23');
+  });
+
+  testWidgets('composer owners reset, select a tool, send and stop a reply', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      exampleHost(messageScrollerExamples.examples.first.builder),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DInputGroup), findsOneWidget);
+    expect(find.byType(DDropdownMenu), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((widget) => widget is DSelect<Object?>),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Reset conversation'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DEmpty), findsOneWidget);
+
+    final tools = find.byWidgetPredicate(
+      (widget) =>
+          widget is DInputGroupButton && widget.tooltip == 'Composer tools',
+    );
+    await tester.ensureVisible(tools);
+    await tester.tap(tools);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Web search'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Offline demo · next message: Web search'),
+      findsOneWidget,
+    );
+
+    final send = find.byWidgetPredicate(
+      (widget) =>
+          widget is DInputGroupButton && widget.tooltip == 'Send message',
+    );
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pump();
+    expect(find.byType(DEmpty), findsNothing);
+    expect(
+      tester
+          .widget<DMessageScrollerViewport>(
+            find.byType(DMessageScrollerViewport),
+          )
+          .resolvedBusy,
+      isTrue,
+    );
+    await tester.ensureVisible(find.text('Stop reply'));
+    await tester.tap(find.text('Stop reply'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DMessageScrollerViewport>(
+            find.byType(DMessageScrollerViewport),
+          )
+          .resolvedBusy,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('anchor role uses Toggle Group and changes new-turn anchoring', (
+    tester,
+  ) async {
+    final example = messageScrollerExamples.examples.singleWhere(
+      (candidate) => candidate.title.startsWith('Anchoring'),
+    );
+    await tester.pumpWidget(exampleHost(example.builder));
+    await tester.pumpAndSettle();
+    expect(find.byType(DToggleGroup<String>), findsOneWidget);
+    await tester.tap(find.text('Assistant'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Append turn'));
+    await tester.pumpAndSettle();
+    final viewport = tester.widget<DMessageScrollerViewport>(
+      find.byType(DMessageScrollerViewport),
+    );
+    expect(viewport.itemCount, 14);
+    expect(viewport.itemIsAnchor(13), isTrue);
+    expect(viewport.itemIsAnchor(12), isFalse);
+  });
+
+  testWidgets('outline preview has an accessible click-to-open jump list', (
+    tester,
+  ) async {
+    final example = messageScrollerExamples.examples.singleWhere(
+      (candidate) => candidate.title.startsWith('Commands'),
+    );
+    await tester.pumpWidget(exampleHost(example.builder));
+    await tester.pumpAndSettle();
+    expect(find.byType(DHoverCard), findsOneWidget);
+    await tester.tap(find.text('Transcript outline'));
+    await tester.pumpAndSettle();
+    final turn = find.descendant(
+      of: find.byKey(const ValueKey('transcript-outline-false')),
+      matching: find.text('Turn 3'),
+    );
+    await tester.tap(turn);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpAndSettle();
+    expect(find.text('Addressable message 17'), findsOneWidget);
   });
 }

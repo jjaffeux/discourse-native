@@ -562,7 +562,7 @@ void main() {
               DMessageScrollerViewport.builder(
                 itemCount: 1000,
                 itemIdBuilder: (index) => 'row-$index',
-                scrollAnchorBuilder: (index) => index.isEven,
+                scrollAnchorBuilder: (index) => index % 200 == 0,
                 itemBuilder: (_, index) => SizedBox(
                   height: 40 + (index % 4) * 11,
                   child: Text('Virtual $index'),
@@ -576,11 +576,13 @@ void main() {
     );
     await tester.pump();
     expect(find.text('Virtual 900'), findsNothing);
+    expect(controller.state.currentAnchorId, 'row-0');
     expect(controller.scrollToMessage('row-900'), isTrue);
     await tester.pump();
     await tester.pump();
     expect(find.text('Virtual 900'), findsOneWidget);
     expect(controller.state.visibleMessageIds, contains('row-900'));
+    expect(controller.state.currentAnchorId, 'row-800');
   });
 
   testWidgets(

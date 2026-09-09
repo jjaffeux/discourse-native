@@ -76,6 +76,16 @@ Tooltip. The styleguide source accounts for each through runnable behavioral
 examples or explicit final-owner composition; no networking or fake substitute
 primitive is introduced into Message Scroller.
 
+The independent review filled the handoff's omitted compositions. Streaming
+now has an actual Input Group composer, Dropdown Menu tool choice, reset-to-Empty
+state, Tooltip, Select entry-motion presets, and an interruptible reply. Tool
+choices label the next offline fixture message; they do not perform uploads or
+external searches. Anchoring uses the accepted Toggle Group to select which
+role starts the next turn. The command example marks real anchor ids and uses
+the accepted Hover Card for its outline preview. Its trigger also opens the
+same jump list inline for keyboard and touch users, preserving Hover Card's
+non-focus-taking, supplementary-preview contract.
+
 ## Production adoption
 
 `ChatMessageStream` is the one shared channel/thread transcript owner. It now
@@ -120,6 +130,8 @@ the implementation handoff and corrected these behavioral defects:
   landing and margin correction.
 - Reader intent explicitly stops an in-flight scroll activity, so a canceled
   smooth command cannot continue moving underneath the reader.
+- Sparse virtualized outlines distinguish unmounted past anchors from future
+  anchors; the current turn no longer jumps to an offscreen future id.
 
 The review also locks owned-versus-borrowed controller, list-controller,
 focus-node and scroll-controller disposal behavior in a permanent regression.

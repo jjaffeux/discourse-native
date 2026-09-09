@@ -50,6 +50,7 @@ class _MessageScrollerReview extends StatefulWidget {
 }
 
 class _MessageScrollerReviewState extends State<_MessageScrollerReview> {
+  final _pageScroll = ScrollController();
   var _dark = false;
   var _narrow = false;
   var _large = false;
@@ -61,8 +62,20 @@ class _MessageScrollerReviewState extends State<_MessageScrollerReview> {
 
   @override
   void dispose() {
+    _pageScroll.dispose();
     unawaited(widget.host.close());
     super.dispose();
+  }
+
+  void _scrollPage(double direction) {
+    if (!_pageScroll.hasClients) return;
+    final position = _pageScroll.position;
+    _pageScroll.jumpTo(
+      (position.pixels + direction * position.viewportDimension * .7).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
   }
 
   @override
@@ -74,8 +87,23 @@ class _MessageScrollerReviewState extends State<_MessageScrollerReview> {
         : AppTheme.light,
     home: Builder(
       builder: (context) => Scaffold(
-        appBar: AppBar(title: const Text('Message Scroller Review 0ff5')),
+        appBar: AppBar(
+          title: const Text('Message Scroller Review a0b4'),
+          actions: [
+            DButton(
+              label: const Text('Page up'),
+              onPressed: () => _scrollPage(-1),
+              variant: DButtonVariant.ghost,
+            ),
+            DButton(
+              label: const Text('Page down'),
+              onPressed: () => _scrollPage(1),
+              variant: DButtonVariant.ghost,
+            ),
+          ],
+        ),
         body: ListView(
+          controller: _pageScroll,
           padding: const EdgeInsets.all(24),
           children: [
             Wrap(

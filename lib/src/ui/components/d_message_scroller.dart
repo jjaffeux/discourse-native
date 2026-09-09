@@ -1328,7 +1328,9 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       for (var index = 0; index < _anchors.length; index++) {
         if (!_anchors[index]) continue;
         final top = _rowTop(_ids[index]);
-        if (top == null || top <= readingLine - _scroll.offset) {
+        if (top == null
+            ? index <= first
+            : top <= readingLine - _scroll.offset) {
           currentAnchor = _ids[index];
         } else {
           break;
