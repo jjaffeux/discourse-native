@@ -972,14 +972,24 @@
     },
     {
       "id": "toggle",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08567-ac29-7dd0-ba78-1717a5235bd0",
+      "branch": "codex/ui-toggle",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match frozen base-nova default and outline variants, icon/text and icon-only compositions, 28/32/36px small/default/large artwork, disabled and Arabic RTL examples.",
+        "Provide genuine controlled pressed state and internally owned uncontrolled default state with change callbacks, borrowed focus-node lifecycle, pointer/touch/keyboard/semantic activation and disabled guards.",
+        "Match live palette/font/radius tokens, muted selected/hover/press surfaces, input-token outline, visible exterior focus/invalid rings, 48px touch targets, text scaling, narrow layout and reduced motion without resetting state.",
+        "Audit independent app on/off controls and migrate appropriate voice toolbar toggles while retaining async/domain ownership; retain momentary commands, navigation, tabs and mutually exclusive selection controls with specific reasons.",
+        "Register exhaustive interactive styleguide examples and verify focused component/styleguide/consumer tests plus root and full-profile static analysis before direct reviewer handoff."
+      ],
+      "decisions": [
+        "Frozen Markdown SHA-256 df0f3e67987ad00fc40be86458c43a330126f3babfd31134644c7fc0284ec7cc verified on 2026-09-09; base-nova registry and Base UI behavior API inspected directly.",
+        "CSS pixels map one-to-one to Flutter logical pixels at 100% text scale: h/min-w 28,32,36; horizontal padding 10; icon gap 4; icons 14 small and16 otherwise; font 12.8 small and14 otherwise; small radius min(.8x host radius,12), regular/large host radius.",
+        "DToggle will expose controlled pressed/onPressedChanged and DToggle.defaultPressed uncontrolled ownership. Borrowed FocusNode is never disposed; internally created focus state is owned by the widget."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
