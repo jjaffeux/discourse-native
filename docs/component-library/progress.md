@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**26 of 64 components are merged locally.** 14 existing components are in progress; 24 are planned.
+**26 of 64 components are merged locally.** 15 existing components are in progress; 23 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -74,7 +74,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 37 | select | planned | — | — | popover, scroll-area | — |
 | 38 | native-select | in_progress | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | — |
 | 39 | field | in_progress | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | — |
-| 40 | input-group | planned | — | — | input, textarea, button, kbd, spinner | — |
+| 40 | input-group | in_progress | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner | — |
 | 41 | button-group | in_progress | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | — |
 | 42 | command | planned | — | — | input, dialog, scroll-area | — |
 | 43 | combobox | planned | — | — | input, popover, command | — |
@@ -2054,6 +2054,52 @@ Status: in_progress. Task: 01a084bf-dd8a-7c13-86dd-63d635b7bf97. Branch: codex/u
 - awaiting_slot: Mac locked; coordinator reports independent first-browser-navigation admin-policy failure. No CUA/browser/native access, retry or bypass attempted. Reference-rendered/native inspection and VoiceOver remain unverified; status in_progress, not review_ready or mergeable.
 - Unmerged Switch/Textarea/selection/Slider examples retain explicit temporary controls. Responsive custom-error composition retains one native FormField/TextField because completed DInput exposes no custom error builder; documented in field.md. No completed control API or state owner was redesigned.
 - send_message_to_thread remains absent from available tool inventory. Progress record and final head/artifact report carry the coordinator handoff.
+
+### input-group
+
+Status: in_progress. Task: 01a085af-d606-7281-ac25-34c83adc855e. Branch: codex/ui-input-group.
+
+**acceptanceCriteria**
+
+- Reproduce the frozen Base UI/base-nova Input Group documented composition, addon alignments, icon/text/button/Kbd/Dropdown/Spinner/Textarea/custom-input/RTL examples and complete public API; record source hashes and visual/behavior mapping.
+- Compose final shared DInput, DTextarea, DButton, DKbd and DSpinner owners with unified surfaces, precise focus/error geometry, independent addon actions, bounded native editor semantics and preserved controller/Form/focus/IME lifecycle.
+- Support live host palettes/font/radius, keyboard and touch, narrow/scaled/RTL layouts and reduced motion; demonstrate every documented state and required final-owner composition.
+- Expose the joined input/action geometry required by Button Group so its local Input Group handoff fixture can be replaced without reducing example coverage, preserving independent input and button semantics, focus, actions, RTL and scaling.
+- Audit and migrate appropriate core/plugin compound fields and existing prototype compositions, preserving domain behavior; coordinate Empty, Field and Button Group directly and document retained alternatives.
+- Run meaningful focused component/consumer tests and root/full-profile analysis, prepare source-exact production fixtures, then create a new reviewer to complete official browser/native acceptance and local main merge. Every prepared dependency must first be accepted and merged in main.
+
+**decisions**
+
+- Prepared source includes Textarea accepted-review commit 4ca5aaa85681ced6dd2668a8158b7551ee176f73, merged into this isolated branch to unblock Input Group implementation. Final acceptance and main merge remain gated on Textarea's accepted main revision.
+- DInputGroup owns only the joined border/fill/focus-within/invalid surface. DInputGroupInput subclasses DInput and DInputGroupTextarea subclasses DTextarea; DInputGroupControlScope suppresses standalone surfaces while preserving editor/Form/controller/focus/IME owners.
+- DInput and DTextarea gained a non-visual semanticLabel for grouped controls so accessible names do not require visible labels. Standalone labels, helpers, validation and existing app migrations remain unchanged.
+- DInputGroupAddon supports inline-start, inline-end, block-start and block-end logical alignment. Addon taps focus the control, while nested DInputGroupButton instances retain independent DButton actions and semantics.
+- DInputGroupButton composes DButton with input-group xs/icon-xs/sm/icon-sm sizing and host-radius-minus-3 button radius, exposing the public composition needed by Button Group's handoff fixture.
+
+**migrations**
+
+- Registered public barrel export and eight actual Input Group styleguide examples.
+- Spinner's former local Input Group validation example now composes public DInputGroup/DInputGroupInput/DInputGroupTextarea/DInputGroupButton while preserving inline spinner, block footer, validation, disabled and local send behavior.
+- Button Group's local handoff fixture is in its separate worktree and must be replaced by that reviewer after this implementation commit/reviewer ID are available.
+
+**retainedAlternatives**
+
+- Dropdown, Popover and Field examples use local non-overlay stand-ins where adjacent owners are still unmerged; no duplicate overlay/menu/Form owner is introduced.
+- Rich Chat/post composer editors remain specialized production owners until their catalogue Input Group/Bubble/Message composer migrations are audited by the relevant owners.
+
+**verification**
+
+- Focused implementation tests passed: flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart --test-randomize-ordering-seed=497094161 (14 tests). Coverage includes compact 32px inline geometry, touch hit bounds, custom-control invalid reporting, block textarea footer, Form save/reset/validation, independent editor/button semantics/actions, narrow 320px RTL at 200% text across Light/Dark/Forest/Plum, and Button Group handoff editing while loading.
+- Affected Input/Textarea regression set passed: flutter test --no-pub test/d_input_group_test.dart test/styleguide/input_group_examples_test.dart test/d_input_test.dart test/d_textarea_test.dart test/styleguide/input_examples_test.dart test/styleguide/textarea_examples_test.dart --test-randomize-ordering-seed=3777303596 (52 tests).
+- Spinner styleguide fixture replacement passed: flutter test --no-pub test/styleguide/spinner_examples_test.dart --test-randomize-ordering-seed=670442656 (13 tests).
+- Migrated Chat search consumers passed focused verification: flutter test --no-pub test/chat_navigation_test.dart --plain-name 'open new and existing direct messages from search', plus chat_shell_integration_test.dart plain-name cases for scoped channel search Escape, drawer reset, site-enabled search, sort menu viewport, global search tab traversal, header inline search toggle, Command-F refocus and exact message navigation.
+- Root flutter analyze --no-pub passed; profiles/full flutter analyze --no-pub passed; git diff --check passed.
+
+**limitations**
+
+- Official browser-rendered comparison and native macOS inspection have not been performed in this implementation task.
+- Final acceptance must integrate Textarea's accepted main merge, then notify/coordinate with Button Group reviewer 01a0859e-170c-7821-b0fd-9ff24a9bfaac before either component is merged.
+- No iOS/Linux device or spoken VoiceOver verification.
 
 ### button-group
 

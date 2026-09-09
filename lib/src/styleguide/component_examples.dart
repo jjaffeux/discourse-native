@@ -9,6 +9,7 @@ import 'examples/collapsible_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
+import 'examples/input_group_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
@@ -33,6 +34,7 @@ final componentExamples = <String, ComponentExamples>{
   'alert': alertExamples,
   'table': tableExamples,
   'textarea': textareaExamples,
+  'input-group': inputGroupExamples,
   'collapsible': collapsibleExamples,
   'input': inputExamples,
   'radio-group': radioGroupExamples,
