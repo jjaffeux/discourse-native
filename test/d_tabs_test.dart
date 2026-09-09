@@ -255,6 +255,114 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Tab enters an enabled trigger when controlled selection is unavailable',
+    (tester) async {
+      for (final value in <String?>[null, 'missing', 'two']) {
+        final first = FocusNode();
+        addTearDown(first.dispose);
+        await mount(
+          tester,
+          DTabs<String>.controlled(
+            value: value,
+            children: [
+              DTabList<String>(
+                children: [
+                  DTabTrigger(
+                    value: 'one',
+                    focusNode: first,
+                    child: const Text('One'),
+                  ),
+                  const DTabTrigger(
+                    value: 'two',
+                    enabled: false,
+                    child: Text('Two'),
+                  ),
+                  const DTabTrigger(value: 'three', child: Text('Three')),
+                ],
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(first.hasFocus, isTrue, reason: 'controlled value $value');
+        await mount(tester, const SizedBox());
+      }
+    },
+  );
+
+  testWidgets('manual roving focus remains the next Tab entry point', (
+    tester,
+  ) async {
+    final first = FocusNode();
+    final third = FocusNode();
+    final outside = FocusNode();
+    addTearDown(first.dispose);
+    addTearDown(third.dispose);
+    addTearDown(outside.dispose);
+    late StateSetter rebuild;
+    await mount(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          rebuild = setState;
+          return Column(
+            children: [
+              DTabs<String>(
+                initialValue: 'one',
+                children: [
+                  DTabList<String>(
+                    children: [
+                      DTabTrigger(
+                        value: 'one',
+                        focusNode: first,
+                        child: const Text('One'),
+                      ),
+                      const DTabTrigger(
+                        value: 'two',
+                        enabled: false,
+                        child: Text('Two'),
+                      ),
+                      DTabTrigger(
+                        value: 'three',
+                        focusNode: third,
+                        child: const Text('Three'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              TextButton(
+                focusNode: outside,
+                onPressed: () {},
+                child: const Text('Outside'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    first.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(third.hasFocus, isTrue);
+    expect(find.text('Panel three'), findsNothing);
+    rebuild(() {});
+    await tester.pumpAndSettle();
+
+    outside.requestFocus();
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(third.hasFocus, isTrue);
+  });
+
   testWidgets('automatic focus activates, loops, and follows RTL', (
     tester,
   ) async {

@@ -98,6 +98,8 @@ class DTabs<T> extends StatefulWidget {
 class _DTabsState<T> extends State<DTabs<T>> {
   final List<_DTabTriggerState<T>> _triggers = [];
   late T? _value = widget.initialValue;
+  _DTabTriggerState<T>? _highlightedTrigger;
+  T? _highlightedForValue;
   bool _reconcileScheduled = false;
   bool _updatingController = false;
 
@@ -129,6 +131,7 @@ class _DTabsState<T> extends State<DTabs<T>> {
   void _controllerChanged() {
     if (!mounted) return;
     setState(() {});
+    _scheduleReconcile();
     if (!_updatingController) {
       widget.onSelectionChanged?.call(
         DTabChange(value: value, reason: DTabChangeReason.controller),
@@ -148,6 +151,7 @@ class _DTabsState<T> extends State<DTabs<T>> {
 
   void unregister(_DTabTriggerState<T> trigger) {
     _triggers.remove(trigger);
+    if (identical(_highlightedTrigger, trigger)) _highlightedTrigger = null;
     _scheduleReconcile();
   }
 
@@ -161,10 +165,11 @@ class _DTabsState<T> extends State<DTabs<T>> {
   }
 
   void _reconcile() {
-    if (widget._controlled) return;
     final enabled = _orderedTriggers().where((item) => item.isEnabled).toList();
     final selected = _triggers.where((item) => item.widget.value == value);
     final selectedTrigger = selected.firstOrNull;
+    _reconcileHighlight(enabled, selectedTrigger);
+    if (widget._controlled) return;
     if (selectedTrigger != null && selectedTrigger.isEnabled) return;
 
     if (value == null && !widget.selectFirstOnMount) return;
@@ -174,6 +179,48 @@ class _DTabsState<T> extends State<DTabs<T>> {
               : DTabChangeReason.missing
         : DTabChangeReason.disabled;
     _setValue(enabled.firstOrNull?.widget.value, reason: reason);
+  }
+
+  void _reconcileHighlight(
+    List<_DTabTriggerState<T>> enabled,
+    _DTabTriggerState<T>? selected,
+  ) {
+    final focused = enabled
+        .where((item) => item.focusNode.hasFocus)
+        .firstOrNull;
+    final selectionChanged = _highlightedForValue != value;
+    final next =
+        focused ??
+        (!selectionChanged &&
+                _highlightedTrigger != null &&
+                enabled.contains(_highlightedTrigger)
+            ? _highlightedTrigger
+            : null) ??
+        (selected?.isEnabled ?? false ? selected : null) ??
+        enabled.firstOrNull;
+    _highlightedForValue = value;
+    if (identical(next, _highlightedTrigger)) return;
+    setState(() => _highlightedTrigger = next);
+  }
+
+  bool isTabStop(_DTabTriggerState<T> trigger) {
+    final highlighted = _highlightedTrigger;
+    if (highlighted != null && highlighted.isEnabled) {
+      return identical(trigger, highlighted);
+    }
+    final enabled = _orderedTriggers().where((item) => item.isEnabled);
+    final selected = enabled
+        .where((item) => item.widget.value == value)
+        .firstOrNull;
+    return identical(trigger, selected ?? enabled.firstOrNull);
+  }
+
+  void highlight(_DTabTriggerState<T> trigger) {
+    if (!trigger.isEnabled || identical(_highlightedTrigger, trigger)) return;
+    setState(() {
+      _highlightedTrigger = trigger;
+      _highlightedForValue = value;
+    });
   }
 
   void select(T value) {
@@ -230,6 +277,7 @@ class _DTabsState<T> extends State<DTabs<T>> {
       }
     }
     final next = enabled[nextIndex];
+    highlight(next);
     next.focusNode.requestFocus();
     next.ensureVisible();
     if (activate) select(next.widget.value);
@@ -560,7 +608,8 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final originalSkip = widget.focusNode == null
         ? false
         : _borrowedSkipTraversal ?? false;
-    focusNode.skipTraversal = originalSkip || !selected || !enabled;
+    focusNode.skipTraversal =
+        originalSkip || !root.state.isTabStop(this) || !enabled;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final line = list.variant == DTabListVariant.line;
     final radius = tokens.radius * .8;
@@ -651,6 +700,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         onShowHoverHighlight: (value) => setState(() => _hovered = value),
         onShowFocusHighlight: (value) => setState(() => _focused = value),
         onFocusChange: (focused) {
+          if (focused) root.state.highlight(this);
           if (focused && list.activateOnFocus) root.state.select(widget.value);
         },
         shortcuts: const {
