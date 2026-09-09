@@ -106,3 +106,19 @@ Native comparison of all Switch examples and representative migrated surfaces
 remains pending. Additional Voice room/editor and AI composer native fixture
 coverage may be extended during the review slot; their actual-widget regression
 suites run now. No iOS/Linux device or spoken VoiceOver verification is claimed.
+
+## Isolated macOS bundle
+
+Source commit: `404a1748bc0a11faa01f425ee74f920cc8bddb5e`.
+Build: `flutter build macos --debug --no-pub -t tool/switch_review_main.dart`.
+Bundle: `/private/tmp/discourse-switch-review-404a1748/Discourse Switch Review.app`.
+The original worktree build and isolated bundle have the same kernel SHA256:
+`3b08262090a788c933ea6f36ecd28644a5998f25aad3b4d9968b2b4347395ee1`.
+
+The copy has bundle ID `org.discourse.switch-review` and URL scheme
+`discourse-switch-review`; `codesign --verify --deep --strict --verbose=2`
+passed after ad-hoc signing. Only the isolated copy removes the APS entitlement.
+Workspace runner configuration and the user's main-checkout app were preserved.
+The full trace, source equality and source hash are recorded in
+[switch-review-build.json](switch-review-build.json). This bundle has **not been
+launched or natively inspected**; it is queued for the serialized desktop slot.

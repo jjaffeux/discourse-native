@@ -892,6 +892,10 @@ Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/u
 - Two real-widget local fixture tests passed; Settings persists in memory; actual Preferences, Chat settings, Poll, Local date, Group manage and Voice diagnostics mount without credentials/network. Log /private/tmp/switch-fixture-tests.log.
 - Routed Chat staff threading regression passed: flutter test --no-pub test/chat_shell_integration_test.dart --plain-name "staff toggle threading from routed channel settings"; /private/tmp/switch-chat-tests.log.
 - Formatting of touched Dart files and git diff --check passed.
+- Isolated macOS debug build passed from 404a1748bc0a11faa01f425ee74f920cc8bddb5e: flutter build macos --debug --no-pub -t tool/switch_review_main.dart. The main checkout/running app was untouched.
+- Review bundle /private/tmp/discourse-switch-review-404a1748/Discourse Switch Review.app; bundle ID org.discourse.switch-review; URL scheme discourse-switch-review. Ad-hoc deep strict codesign verification passed. Only the isolated copy removes APS entitlement.
+- Kernel SHA256 3b08262090a788c933ea6f36ecd28644a5998f25aad3b4d9968b2b4347395ee1 matches source build and isolated copy. Tracked lib/test/tool source equality to implementation commit passed. Complete trace: docs/component-library/switch-review-build.json; signature log /private/tmp/discourse-switch-review-404a1748/codesign.log.
+- Final profiles/full flutter analyze --no-pub passed; /private/tmp/switch-full-final-analyze.log.
 
 **limitations**
 
