@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**33 of 64 components are merged locally.** 12 existing components are in progress; 19 are planned.
+**33 of 64 components are merged locally.** 13 existing components are in progress; 18 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -89,7 +89,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
-| 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
+| 57 | bubble | in_progress | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | — |
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
@@ -2390,6 +2390,48 @@ Status: merged. Task: 01a0842f-af4f-7341-95c2-06a97f4ff0c4. Branch: codex/ui-mar
 - No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.
 - The native fixture mounts the actual shared StreamDaySeparator used by Topic and Chat with local callbacks; no authenticated live account or network session was opened.
 - Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette mapping, motion, interaction and native semantics were compared directly.
+
+### bubble
+
+Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/ui-bubble.
+
+**acceptanceCriteria**
+
+- Implement DBubble, DBubbleContent, DBubbleReactions and DBubbleGroup as generic presentational composition covering all seven frozen variants, logical start/end alignment, content sizing through 80% of the row, full-width-capable ghost content, edge reactions and consecutive-message grouping without absorbing later Message ownership.
+- Match base-nova geometry and state treatment at 100%: 12x8px content inset, 14/22.75px host-font text, transparent or semantic 1px border, host-radius xl factor 1.4, 4px internal and 8px group gaps, live semantic variant colors, and 6x2px reaction inset with 4px gap, pill radius and 3px exterior background ring.
+- Support real button/link content roles, pointer hover/press, visible outside-only focus, Enter/Space keyboard behavior, controlled disabled/busy/selected/invalid state, borrowed-or-owned FocusNode lifecycle, static grouped reaction descriptions and independent interactive reaction labels/counts/states with meaning beyond color.
+- Support 48px touch action targets without enlarged desktop artwork, ambient selection for presentational content, inherited text scaling, narrow wrapping, RTL logical positioning, reduced motion and live light/dark/custom palette, font and radius changes without resetting local or composed state.
+- Provide exhaustive actual-component examples and accurate snippets for Composition, Variants, Alignment, Bubble Group, Links and Buttons, Reactions, Show More/Collapsible, Tooltip, Popover and narrow/scaled/RTL edges; reconcile the final Sonner-linked action feedback with accepted Toast rather than creating a notifier.
+- Audit core and bundled-plugin bubble, quote, message, action and reaction surfaces; migrate only safe presentational ownership while preserving Markdown, editor/IME, reply/selection/long-press, permissions, async mutation, virtualization, streaming and domain callbacks, and record specific retained owners.
+- Pass touched formatting, focused Bubble/component-composition/styleguide/downstream tests, root and profiles/full locked dependency resolution and static analysis, and a macOS styleguide build; hand exact source to a new reviewer that waits for accepted Popover, integrates current main, completes Toast composition and rendered/native acceptance, fixes findings and performs the final local main merge.
+
+**decisions**
+
+- Frozen Markdown SHA256 6863ccd2854a6d590991fc58cb8b5ddcb82fe88d25185100b7bf111021267a82 reproduced exactly; inspected base-nova registry SHA256 be11ab3fa78ec7bd4736f4ab98c16a2d5a230536206d5a4fd06259422b55cb14. docs/component-library/bubble.md records measured mapping, API scope and native adaptations.
+- Catalogue aggregation was disambiguated: Bubble owns primary/default, secondary, muted, tinted, outline, ghost and destructive variants plus start/end alignment; link/ghost child-button variants, icon-xs/xs sizes, top side and type=button remain properties of composed content/reaction controls rather than duplicate Bubble props.
+- DBubble direct children allow native Stack ownership of edge reactions while DBubbleContent and DBubbleReactions read the inherited Bubble variant/alignment. DBubbleGroup supplies only the frozen 8px sender-group spacing; conversation author/time/status semantics remain outside Bubble.
+- Interactive DBubbleContent exposes button/link semantics, controlled disabled/busy/selected/invalid information and caller callbacks. Its omitted FocusNode is internally owned; a supplied node is borrowed. Static content stays selectable through an ambient SelectionArea while action content disables ambiguous selection.
+- Static reaction glyphs collapse to one descriptive image semantic. Interactive rows omit that grouping and compose accepted DButton controls with visible count/check/error/spinner state. Flutter interactive reaction rows use a 45% rather than 75% translation so their center remains inside bounded hit testing while retaining the edge overlap.
+- Source preparation integrated exact Popover review pin d99562f0f6973c9dc3f566eea02d9b00c6de4f7b from codex/review-popover, reviewer 01a08558-ae1e-7843-8cff-7221a399ea5c, including b410f9da and lifecycle fix 8281dda2. This is prepared evidence, not acceptance; Bubble cannot merge it ahead of Popover's accepted main revision.
+- The frozen Sonner calls only report example actions. Source examples use explicit local live result state and do not invent a notifier. Toast reviewer 01a08592-b1eb-7ad2-bebb-3ddea00f2702 remains the final DToast owner and Bubble review must complete that accepted composition.
+
+**retainedAlternatives**
+
+- ChatMessageTile retains speaker/chained layout, avatars, CookedHtml/preview, body selection keys, uploads, edit/pin/bookmark/delivery state, threads, hover/long-press actions and virtualization. Replacing the row here would pre-empt Message/Message Scroller and risk domain behavior; their later owner can compose Bubble safely.
+- Chat and topic-post ReactionPill/ReactionPills retain site emoji lookup, reactor hover panels/touch sheets, permissions, async toggle guards and mutation errors. DBubbleReactions provides the generic arbitrary-control boundary for later composition without importing these models.
+- Voice room ListTile chat and quoted/post content retain their room, list and rich-content owners. Attachment implementation task 01a085d4-9afd-7082-8081-f8b1f8f66287 retains media/upload/action lifecycle; Bubble accepts its future widget composition without duplicating it.
+
+**verification**
+
+- Root and profiles/full flutter pub get --enforce-lockfile completed from committed dependencies after fresh-worktree package setup; dependency pins and lockfiles remain unchanged.
+- All 84 focused Bubble, Bubble styleguide, complete styleguide-page, Collapsible, Tooltip and prepared Popover tests passed with random seed 6863. Coverage includes all variants, exact width/alignment/group geometry, RTL reaction anchoring, grouped semantics, pointer/keyboard activation, disabled/busy/selected/invalid information, 48px touch targets, 200% narrow RTL rendering, local callbacks, async reactions, disclosure and real Popover opening.
+- Root and profiles/full flutter analyze --no-pub were run during source preparation; profiles/full passed and the final root rerun is recorded after the last mechanical const correction. Dart formatting and git diff --check are part of final source verification.
+
+**limitations**
+
+- Source task performed no browser/CUA/native launch, visual screenshot comparison, VoiceOver speech, iOS or Linux device run. The new reviewer owns the required first official rendered/native inspection under the desktop lease and must keep the styleguide status non-implemented until acceptance.
+- Popover pin d99562f0f6973c9dc3f566eea02d9b00c6de4f7b is unaccepted preparation. Bubble reviewer must wait for Popover's accepted local-main merge, integrate accepted current main and verify overlap so this branch cannot introduce an unaccepted parent.
+- Final DToast composition for the frozen Sonner-linked action feedback remains blocked on Toast reviewer 01a08592-b1eb-7ad2-bebb-3ddea00f2702 and is an explicit Bubble review obligation; no duplicate notifier was added.
 
 ### chart
 
