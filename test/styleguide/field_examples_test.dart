@@ -76,6 +76,38 @@ void main() {
     },
   );
 
+  testWidgets('merged Textarea keeps one multiline Form and semantics owner', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(host(const FieldEditorsExample()));
+      await tester.tap(find.text('Feedback'));
+      await tester.pump();
+
+      final textarea = find.byType(DTextarea);
+      expect(textarea, findsOneWidget);
+      expect(find.byType(TextFormField), findsNothing);
+      final widget = tester.widget<DTextarea>(textarea);
+      expect(widget.focusNode!.hasFocus, isTrue);
+      expect(widget.labelText, 'Feedback');
+      expect(widget.helperText, 'Share your thoughts about our service.');
+
+      final editable = find.descendant(
+        of: textarea,
+        matching: find.byType(EditableText),
+      );
+      final node = tester.getSemantics(editable);
+      expect(node.label, startsWith('Feedback'));
+      expect(
+        node.getSemanticsData().hasAction(SemanticsAction.setText),
+        isTrue,
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('merged Checkbox row toggles once by label and Space', (
     tester,
   ) async {

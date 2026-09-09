@@ -35,51 +35,54 @@ class _EditorState extends State<_Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      if (widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        required: widget.required,
-        child: widget.lines == 1
-            ? DInput(
-                focusNode: _focus,
-                hintText: widget.placeholder,
-                obscureText: widget.obscure,
-                isRequired: widget.required,
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              )
-            : TextFormField(
-                focusNode: _focus,
-                maxLines: widget.lines,
-                obscureText: widget.obscure,
-                decoration: InputDecoration(
-                  hintText: widget.placeholder,
-                  errorMaxLines: 4,
-                  border: const OutlineInputBorder(),
-                ),
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              ),
-      ),
-      if (!widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    if (widget.lines > 1) {
+      return DField(
+        children: [
+          DTextarea(
+            focusNode: _focus,
+            labelText: widget.label,
+            helperText: widget.description,
+            maxLines: widget.lines,
+            hintText: widget.placeholder,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ],
+      );
+    }
+    return DField(
+      children: [
+        DFieldLabel(
+          focusNode: _focus,
+          excludeSemantics: true,
+          child: Text(widget.label),
+        ),
+        if (widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          required: widget.required,
+          child: DInput(
+            focusNode: _focus,
+            hintText: widget.placeholder,
+            obscureText: widget.obscure,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ),
+        if (!widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+      ],
+    );
+  }
 }
 
 class _Choice extends StatefulWidget {
@@ -400,51 +403,54 @@ class _EditorState extends State<_Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      if (widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        required: widget.required,
-        child: widget.lines == 1
-            ? DInput(
-                focusNode: _focus,
-                hintText: widget.placeholder,
-                obscureText: widget.obscure,
-                isRequired: widget.required,
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              )
-            : TextFormField(
-                focusNode: _focus,
-                maxLines: widget.lines,
-                obscureText: widget.obscure,
-                decoration: InputDecoration(
-                  hintText: widget.placeholder,
-                  errorMaxLines: 4,
-                  border: const OutlineInputBorder(),
-                ),
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              ),
-      ),
-      if (!widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    if (widget.lines > 1) {
+      return DField(
+        children: [
+          DTextarea(
+            focusNode: _focus,
+            labelText: widget.label,
+            helperText: widget.description,
+            maxLines: widget.lines,
+            hintText: widget.placeholder,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ],
+      );
+    }
+    return DField(
+      children: [
+        DFieldLabel(
+          focusNode: _focus,
+          excludeSemantics: true,
+          child: Text(widget.label),
+        ),
+        if (widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          required: widget.required,
+          child: DInput(
+            focusNode: _focus,
+            hintText: widget.placeholder,
+            obscureText: widget.obscure,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ),
+        if (!widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+      ],
+    );
+  }
 }
 
 class _Choice extends StatefulWidget {
@@ -668,51 +674,54 @@ class _EditorState extends State<_Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      if (widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        required: widget.required,
-        child: widget.lines == 1
-            ? DInput(
-                focusNode: _focus,
-                hintText: widget.placeholder,
-                obscureText: widget.obscure,
-                isRequired: widget.required,
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              )
-            : TextFormField(
-                focusNode: _focus,
-                maxLines: widget.lines,
-                obscureText: widget.obscure,
-                decoration: InputDecoration(
-                  hintText: widget.placeholder,
-                  errorMaxLines: 4,
-                  border: const OutlineInputBorder(),
-                ),
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              ),
-      ),
-      if (!widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    if (widget.lines > 1) {
+      return DField(
+        children: [
+          DTextarea(
+            focusNode: _focus,
+            labelText: widget.label,
+            helperText: widget.description,
+            maxLines: widget.lines,
+            hintText: widget.placeholder,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ],
+      );
+    }
+    return DField(
+      children: [
+        DFieldLabel(
+          focusNode: _focus,
+          excludeSemantics: true,
+          child: Text(widget.label),
+        ),
+        if (widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          required: widget.required,
+          child: DInput(
+            focusNode: _focus,
+            hintText: widget.placeholder,
+            obscureText: widget.obscure,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ),
+        if (!widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+      ],
+    );
+  }
 }
 
 class _Choice extends StatefulWidget {
@@ -924,51 +933,54 @@ class _EditorState extends State<_Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      if (widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        required: widget.required,
-        child: widget.lines == 1
-            ? DInput(
-                focusNode: _focus,
-                hintText: widget.placeholder,
-                obscureText: widget.obscure,
-                isRequired: widget.required,
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              )
-            : TextFormField(
-                focusNode: _focus,
-                maxLines: widget.lines,
-                obscureText: widget.obscure,
-                decoration: InputDecoration(
-                  hintText: widget.placeholder,
-                  errorMaxLines: 4,
-                  border: const OutlineInputBorder(),
-                ),
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              ),
-      ),
-      if (!widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    if (widget.lines > 1) {
+      return DField(
+        children: [
+          DTextarea(
+            focusNode: _focus,
+            labelText: widget.label,
+            helperText: widget.description,
+            maxLines: widget.lines,
+            hintText: widget.placeholder,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ],
+      );
+    }
+    return DField(
+      children: [
+        DFieldLabel(
+          focusNode: _focus,
+          excludeSemantics: true,
+          child: Text(widget.label),
+        ),
+        if (widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          required: widget.required,
+          child: DInput(
+            focusNode: _focus,
+            hintText: widget.placeholder,
+            obscureText: widget.obscure,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ),
+        if (!widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+      ],
+    );
+  }
 }
 
 class _Choice extends StatefulWidget {
@@ -1175,51 +1187,54 @@ class _EditorState extends State<_Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      if (widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        required: widget.required,
-        child: widget.lines == 1
-            ? DInput(
-                focusNode: _focus,
-                hintText: widget.placeholder,
-                obscureText: widget.obscure,
-                isRequired: widget.required,
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              )
-            : TextFormField(
-                focusNode: _focus,
-                maxLines: widget.lines,
-                obscureText: widget.obscure,
-                decoration: InputDecoration(
-                  hintText: widget.placeholder,
-                  errorMaxLines: 4,
-                  border: const OutlineInputBorder(),
-                ),
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              ),
-      ),
-      if (!widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    if (widget.lines > 1) {
+      return DField(
+        children: [
+          DTextarea(
+            focusNode: _focus,
+            labelText: widget.label,
+            helperText: widget.description,
+            maxLines: widget.lines,
+            hintText: widget.placeholder,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ],
+      );
+    }
+    return DField(
+      children: [
+        DFieldLabel(
+          focusNode: _focus,
+          excludeSemantics: true,
+          child: Text(widget.label),
+        ),
+        if (widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          required: widget.required,
+          child: DInput(
+            focusNode: _focus,
+            hintText: widget.placeholder,
+            obscureText: widget.obscure,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ),
+        if (!widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+      ],
+    );
+  }
 }
 
 class _Choice extends StatefulWidget {
@@ -1438,51 +1453,54 @@ class _EditorState extends State<_Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      if (widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        required: widget.required,
-        child: widget.lines == 1
-            ? DInput(
-                focusNode: _focus,
-                hintText: widget.placeholder,
-                obscureText: widget.obscure,
-                isRequired: widget.required,
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              )
-            : TextFormField(
-                focusNode: _focus,
-                maxLines: widget.lines,
-                obscureText: widget.obscure,
-                decoration: InputDecoration(
-                  hintText: widget.placeholder,
-                  errorMaxLines: 4,
-                  border: const OutlineInputBorder(),
-                ),
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              ),
-      ),
-      if (!widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    if (widget.lines > 1) {
+      return DField(
+        children: [
+          DTextarea(
+            focusNode: _focus,
+            labelText: widget.label,
+            helperText: widget.description,
+            maxLines: widget.lines,
+            hintText: widget.placeholder,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ],
+      );
+    }
+    return DField(
+      children: [
+        DFieldLabel(
+          focusNode: _focus,
+          excludeSemantics: true,
+          child: Text(widget.label),
+        ),
+        if (widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          required: widget.required,
+          child: DInput(
+            focusNode: _focus,
+            hintText: widget.placeholder,
+            obscureText: widget.obscure,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ),
+        if (!widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+      ],
+    );
+  }
 }
 
 class _Choice extends StatefulWidget {
@@ -1803,51 +1821,54 @@ class _EditorState extends State<_Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      if (widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        required: widget.required,
-        child: widget.lines == 1
-            ? DInput(
-                focusNode: _focus,
-                hintText: widget.placeholder,
-                obscureText: widget.obscure,
-                isRequired: widget.required,
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              )
-            : TextFormField(
-                focusNode: _focus,
-                maxLines: widget.lines,
-                obscureText: widget.obscure,
-                decoration: InputDecoration(
-                  hintText: widget.placeholder,
-                  errorMaxLines: 4,
-                  border: const OutlineInputBorder(),
-                ),
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              ),
-      ),
-      if (!widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    if (widget.lines > 1) {
+      return DField(
+        children: [
+          DTextarea(
+            focusNode: _focus,
+            labelText: widget.label,
+            helperText: widget.description,
+            maxLines: widget.lines,
+            hintText: widget.placeholder,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ],
+      );
+    }
+    return DField(
+      children: [
+        DFieldLabel(
+          focusNode: _focus,
+          excludeSemantics: true,
+          child: Text(widget.label),
+        ),
+        if (widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          required: widget.required,
+          child: DInput(
+            focusNode: _focus,
+            hintText: widget.placeholder,
+            obscureText: widget.obscure,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ),
+        if (!widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+      ],
+    );
+  }
 }
 
 class _Choice extends StatefulWidget {
@@ -2085,51 +2106,54 @@ class _EditorState extends State<_Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      if (widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        required: widget.required,
-        child: widget.lines == 1
-            ? DInput(
-                focusNode: _focus,
-                hintText: widget.placeholder,
-                obscureText: widget.obscure,
-                isRequired: widget.required,
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              )
-            : TextFormField(
-                focusNode: _focus,
-                maxLines: widget.lines,
-                obscureText: widget.obscure,
-                decoration: InputDecoration(
-                  hintText: widget.placeholder,
-                  errorMaxLines: 4,
-                  border: const OutlineInputBorder(),
-                ),
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              ),
-      ),
-      if (!widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    if (widget.lines > 1) {
+      return DField(
+        children: [
+          DTextarea(
+            focusNode: _focus,
+            labelText: widget.label,
+            helperText: widget.description,
+            maxLines: widget.lines,
+            hintText: widget.placeholder,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ],
+      );
+    }
+    return DField(
+      children: [
+        DFieldLabel(
+          focusNode: _focus,
+          excludeSemantics: true,
+          child: Text(widget.label),
+        ),
+        if (widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          required: widget.required,
+          child: DInput(
+            focusNode: _focus,
+            hintText: widget.placeholder,
+            obscureText: widget.obscure,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ),
+        if (!widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+      ],
+    );
+  }
 }
 
 class _Choice extends StatefulWidget {
@@ -2435,51 +2459,54 @@ class _EditorState extends State<_Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      DFieldLabel(
-        focusNode: _focus,
-        excludeSemantics: true,
-        child: Text(widget.label),
-      ),
-      if (widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-      DFieldControl(
-        label: widget.label,
-        description: widget.description,
-        required: widget.required,
-        child: widget.lines == 1
-            ? DInput(
-                focusNode: _focus,
-                hintText: widget.placeholder,
-                obscureText: widget.obscure,
-                isRequired: widget.required,
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              )
-            : TextFormField(
-                focusNode: _focus,
-                maxLines: widget.lines,
-                obscureText: widget.obscure,
-                decoration: InputDecoration(
-                  hintText: widget.placeholder,
-                  errorMaxLines: 4,
-                  border: const OutlineInputBorder(),
-                ),
-                validator: widget.required
-                    ? (value) => value == null || value.trim().isEmpty
-                          ? 'Required'
-                          : null
-                    : null,
-              ),
-      ),
-      if (!widget.helpBefore && widget.description != null)
-        DFieldDescription(child: Text(widget.description!)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    if (widget.lines > 1) {
+      return DField(
+        children: [
+          DTextarea(
+            focusNode: _focus,
+            labelText: widget.label,
+            helperText: widget.description,
+            maxLines: widget.lines,
+            hintText: widget.placeholder,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ],
+      );
+    }
+    return DField(
+      children: [
+        DFieldLabel(
+          focusNode: _focus,
+          excludeSemantics: true,
+          child: Text(widget.label),
+        ),
+        if (widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+        DFieldControl(
+          label: widget.label,
+          description: widget.description,
+          required: widget.required,
+          child: DInput(
+            focusNode: _focus,
+            hintText: widget.placeholder,
+            obscureText: widget.obscure,
+            isRequired: widget.required,
+            validator: widget.required
+                ? (value) =>
+                      value == null || value.trim().isEmpty ? 'Required' : null
+                : null,
+          ),
+        ),
+        if (!widget.helpBefore && widget.description != null)
+          DFieldDescription(child: Text(widget.description!)),
+      ],
+    );
+  }
 }
 
 class _Choice extends StatefulWidget {

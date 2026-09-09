@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show Tristate;
+import 'dart:ui' show SemanticsAction, Tristate;
 
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
@@ -1243,6 +1243,27 @@ void main() {
         expect(editor.value, 'Lounge');
         expect(editor.flagsCollection.isTextField, isTrue);
         expect(editor.flagsCollection.isRequired, Tristate.isTrue);
+
+        final description = find.byType(DTextarea);
+        final descriptionEditable = find.descendant(
+          of: description,
+          matching: find.byType(EditableText),
+        );
+        final descriptionSemantics = tester.getSemantics(descriptionEditable);
+        expect(descriptionSemantics.label, 'Description');
+        await tester.tap(find.text('Description'));
+        await tester.pump();
+        expect(
+          tester.widget<EditableText>(descriptionEditable).focusNode.hasFocus,
+          isTrue,
+        );
+        expect(
+          tester
+              .getSemantics(descriptionEditable)
+              .getSemanticsData()
+              .hasAction(SemanticsAction.setText),
+          isTrue,
+        );
 
         final save = find.widgetWithText(DButton, 'Save');
         expect(tester.widget<DButton>(save).onPressed, isNotNull);

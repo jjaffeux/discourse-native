@@ -86,11 +86,15 @@ class _VoiceRoomEditorDialogState extends State<VoiceRoomEditorDialog> {
               autofocus: true,
               onChanged: (_) => setState(() {}),
             ),
-            DTextarea(
-              controller: _description,
-              labelText: 'Description',
-              minLines: 2,
-              maxLines: 5,
+            DField(
+              children: [
+                DTextarea(
+                  controller: _description,
+                  labelText: 'Description',
+                  minLines: 2,
+                  maxLines: 5,
+                ),
+              ],
             ),
             DSwitchTile(
               value: _isPublic,
