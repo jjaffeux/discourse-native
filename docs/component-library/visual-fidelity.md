@@ -41,6 +41,12 @@ actual rounded class. A fixed Tailwind fallback or additive offset can agree
 at the reference's 10px base and still be wrong for an app palette. The Badge
 browser review confirmed these factors in the live stylesheet on 2026-09-09.
 
+Map source `input` colors to `DTokens.colors.outlineVariant` and source `border`
+to `DTokens.border`. They are separate semantic roles even when an app palette
+currently gives them equal colors. CSS opacity modifiers multiply existing
+alpha: use `color.withValues(alpha: color.a * factor)`. Replacing alpha can make
+a translucent input background substantially brighter than the reference.
+
 Use proven Flutter focus, semantics, keyboard, scrolling, selection and overlay
 owners. Style their visuals to match shadcn. Platform-specific spinner artwork,
 Material field outlines, or native switch shapes are not automatic substitutes
