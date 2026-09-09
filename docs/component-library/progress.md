@@ -2505,6 +2505,24 @@ Status: in_progress. Task: 01a085d9-7909-7fd0-b1b8-30a76c6ab2af. Branch: codex/u
 
 - Implementation task created from latest local main with the tested parent source pinned for isolated preparation. It must create its own independent review/merge task; parent acceptance and all required examples remain mandatory.
 
+**retainedAlternatives**
+
+- ChatMessageTile retains speaker/chained layout, avatars, CookedHtml/preview, body selection keys, uploads, edit/pin/bookmark/delivery state, threads, hover/long-press actions and virtualization. Replacing the row here would pre-empt Message/Message Scroller and risk domain behavior; their later owner can compose Bubble safely.
+- Chat and topic-post ReactionPill/ReactionPills retain site emoji lookup, reactor hover panels/touch sheets, permissions, async toggle guards and mutation errors. DBubbleReactions provides the generic arbitrary-control boundary for later composition without importing these models.
+- Voice room ListTile chat and quoted/post content retain their room, list and rich-content owners. Attachment implementation task 01a085d4-9afd-7082-8081-f8b1f8f66287 retains media/upload/action lifecycle; Bubble accepts its future widget composition without duplicating it.
+
+**verification**
+
+- Root and profiles/full flutter pub get --enforce-lockfile completed from committed dependencies after fresh-worktree package setup; dependency pins and lockfiles remain unchanged.
+- All 84 focused Bubble, Bubble styleguide, complete styleguide-page, Collapsible, Tooltip and prepared Popover tests passed with random seed 6863. Coverage includes all variants, exact width/alignment/group geometry, RTL reaction anchoring, grouped semantics, pointer/keyboard activation, disabled/busy/selected/invalid information, 48px touch targets, 200% narrow RTL rendering, local callbacks, async reactions, disclosure and real Popover opening.
+- Root and profiles/full flutter analyze --no-pub were run during source preparation; profiles/full passed and the final root rerun is recorded after the last mechanical const correction. Dart formatting and git diff --check are part of final source verification.
+
+**limitations**
+
+- Source task performed no browser/CUA/native launch, visual screenshot comparison, VoiceOver speech, iOS or Linux device run. The new reviewer owns the required first official rendered/native inspection under the desktop lease and must keep the styleguide status non-implemented until acceptance.
+- Popover pin d99562f0f6973c9dc3f566eea02d9b00c6de4f7b is unaccepted preparation. Bubble reviewer must wait for Popover's accepted local-main merge, integrate accepted current main and verify overlap so this branch cannot introduce an unaccepted parent.
+- Final DToast composition for the frozen Sonner-linked action feedback remains blocked on Toast reviewer 01a08592-b1eb-7ad2-bebb-3ddea00f2702 and is an explicit Bubble review obligation; no duplicate notifier was added.
+
 ### message-scroller
 
 Status: in_progress. Task: 01a08606-ce86-7be2-b92f-59676b40cb40. Branch: codex/ui-message-scroller.
@@ -2612,3 +2630,4 @@ Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sid
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+
