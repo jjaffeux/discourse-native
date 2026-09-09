@@ -5,10 +5,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../styleguide_example.dart';
 
 final alertExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'A compact callout for user attention.',
   notes:
-      'Base-nova Alert, Title, Description and Action. Visual/native review is pending. '
+      'Base-nova Alert, Title, Description and Action. Reference and native review passed. '
       'The only Alert variants are normal and destructive; outline/xs belong to Button. '
       'Actions use the completed DButton owner with extra-small reference geometry and native hit bounds. '
       'Wide actions move below text at narrow widths or large text. '

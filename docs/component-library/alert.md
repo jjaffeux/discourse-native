@@ -188,3 +188,23 @@ UserSummary refresh, Badges loading/pagination, Assign's loaded-list failure and
 Preferences status. These now use DAlert while preserving retry, loading and
 announcement behavior. Their focused tests and the Alert/styleguide tests pass;
 root and full-profile analysis report no issues.
+
+## Final rendered and native acceptance
+
+The earlier `awaiting_slot` notes are superseded. The independent reviewer used
+the official Base UI Alert documentation to compare the basic, destructive,
+action, custom-color and RTL examples in light and dark themes. The Flutter
+styleguide matched the reference's compact border, radius, inset, icon/text
+alignment and action placement. Its action changed from Enable to Disable and
+updated the message, the Plum palette resolved live, and the 360 px Arabic RTL
+examples wrapped without clipping or overlap.
+
+The exact-source uniquely identified macOS bundle recorded in
+`evidence/alert/final-review-build.json` was launched for the native gate.
+Production ComposerTagRemovalNotice, GroupsPage and GifPicker alerts were
+inspected in light and dark modes, RTL and 200% text. Dismiss and retry remained
+separate accessible buttons; dismissal removed the notice, Groups retry reached
+its loaded state, and narrow action content reflowed beneath the message without
+collision. The styleguide alert exposed a distinct semantic container with its
+action as a separate control. This acceptance is for macOS only; no iOS or Linux
+device result is claimed.

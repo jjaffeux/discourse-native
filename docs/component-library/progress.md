@@ -89,7 +89,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
 | 52 | carousel | in_progress | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | — |
 | 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
-| 54 | alert | in_progress | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | — |
+| 54 | alert | review_ready | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | — |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
@@ -2158,7 +2158,7 @@ Status: in_progress. Task: 01a0857a-fcd6-7880-90c0-501e72f034df. Branch: codex/u
 
 ### alert
 
-Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/ui-alert.
+Status: review_ready. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/ui-alert.
 
 **acceptanceCriteria**
 
@@ -2166,12 +2166,12 @@ Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/u
 - Match basic, destructive, action, custom-color and RTL reference compositions using original Lucide artwork. Preserve compact action placement and reflow at narrow/large text.
 - Expose live-region opt-out for static notices; preserve child keyboard focus, semantics and callback ownership without adding timers/controllers or form state to passive Alert.
 - Audit core and bundled plugin inline banners; migrate appropriate error/status notices with existing callbacks, async states and permissions unchanged; record retained alternatives.
-- Verify focused component and migration tests, root/full-profile analysis, format, exact-source unique signed macOS actual-production fixture; keep native/reference comparison pending until explicit desktop slot.
+- Verify focused component and migration tests, root/full-profile analysis, format and an exact-source unique signed macOS actual-production fixture; complete official reference comparison and native inspection before merge.
 
 **decisions**
 
 - Four-part passive DAlert owner with exact base-nova source metrics, two actual variants, live tokens, multiplied destructive alpha, measured action reflow and platform live-region opt-out. Source/artwork hashes and geometry in docs/component-library/alert.md.
-- Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate.
+- Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. The independent rendered/native gate passed, so Alert examples are implemented.
 - Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; retained every non-Alert progress row and merged owner. Final DButton extraSmall replaces temporary small example action; inline adapters retain callbacks and coordinator Group/Sidebar/Topic Inbox fixes.
 - Independent review found and reconciled four additional eligible persistent inline owners: UserSummary refresh, Badges loading/pagination, Assign loaded-list failure and Preferences loading/saved/error status. Their existing retry, loading, semantic announcement and status-color behavior remains app-owned.
 
@@ -2188,10 +2188,7 @@ Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/u
 - 107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity checks passed (three component tests repeated). Root and full-profile enforced-lockfile resolution and static analysis passed; 18 touched Dart files formatted; git diff --check clean. Pins/locks unchanged.
 - Unique local macOS debug bundle Alert Review 38df / org.discourse.alertreview38df / discourse-alert-review-38df built from implementation commit with zero lib/fixture diff. Source app.dill and both copied kernels SHA256 e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99. Deep strict ad-hoc signature verification passed; temporary runner settings restored. Exact paths in evidence/alert/build.json.
 - Integration: 129 focused component and migrated adapter tests passed; 2 styleguide tests then passed including explicit final extraSmall Button toggle behavior. Root/full-profile analysis passed. Unique Alert Integration Review 38df bundle built from 1efab06c; app.dill/framework/copied kernels all SHA256 43527a2e8cdda4ec7f3e8ed7079ac9ecab5bef98560d03cd866bbbbfcff2ddb8. Restricted-free local debug/JIT/network signed readback and deep strict signature verification passed. Exact source/path/entitlements in evidence/alert/integration-build.json.
-
-**limitations**
-
-- awaiting_slot: native review blocked by locked Mac; browser verification separately denied by admin policy. No CUA/browser/native launch, policy retry or workaround. Rendered comparison and changed production native inspection still required.
+- Independent review: 62 post-fix Alert/UserSummary/Assign/Badges/Preferences tests passed, in addition to the integrated 150-test bundle. Root and full-profile analysis passed. Exact-source Alert Final Review ae77 bundle kernel SHA256 35ef7625a0ab8edb79a52d99f812bc5e529a0cca7863df0f90c404dfe1723645; deep strict signature and restricted-identity checks passed. Official Base UI basic/destructive/action/custom/RTL examples were compared in light/dark. Native macOS production fixtures passed light/dark, retry/dismiss, RTL and 200% text checks; styleguide action, live Plum palette and 360px RTL were accepted. Evidence: evidence/alert/final-review-build.json. No iOS/Linux claim.
 
 ### marker
 
