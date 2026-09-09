@@ -39,7 +39,7 @@ Branch preparation does not mark a component merged or visually verified.
 | message-scroller | Implementation and checks | — | — |
 | data-table | Implementation and checks | — | — |
 | input-otp | Implementation and checks | — | — |
-| questionnaire | independent review | a6149429 | 01a08633-c9ed-7062-86c4-16b0835eb303 |
+| questionnaire | accepted | 23df91f5 | 01a08633-c9ed-7062-86c4-16b0835eb303 |
 
 ## Component implementation
 
@@ -60,7 +60,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | merged | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | a492253dc0abaed3f424df1b59c5a11b266d5b60 |
-| 16 | toggle-group | in_progress | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | — |
+| 16 | toggle-group | implemented | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
@@ -1163,7 +1163,7 @@ Status: merged. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/ui-tog
 
 ### toggle-group
 
-Status: in_progress. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
+Status: implemented. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
 
 **acceptanceCriteria**
 
@@ -2907,11 +2907,15 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 - Root and profiles/full flutter pub get --enforce-lockfile passed without lockfile or SDK-pin changes; flutter analyze --no-pub passed in both profiles with no diagnostics.
 - Touched Dart formatting and git diff --check passed. flutter build macos --debug -t tool/questionnaire_review_main.dart --no-pub produced build/macos/Build/Products/Debug/Discourse.app.
 - The source-exact local-data macOS fixture mounts all nine public examples and exposes light/dark/forest/plum, RTL, 100/200% text, reduced-motion and 216px/wide controls.
+- Independent review re-downloaded every frozen official source and reproduced the recorded SHA-256 hashes. The rendered Base UI reference was measured at 1024px and 375px in light/dark states; root, progress, type, choice, input and action geometry matched the Flutter mapping.
+- Independent review added direct regressions and corrections for editable-field shortcut suppression with active-IME guarding, focus transfer after shortcut selection while disabled choices consume no slot, freeform Enter navigation, and logical RTL slide direction. Final focused Questionnaire coverage passed 23 tests; 139 composed Field/Input/Button/Progress/Card/Dialog/Native Select owner regressions passed.
+- The exact-source uniquely identified macOS fixture was built, ad-hoc signed and deep/strict verified. Native inspection exercised the three-step flow, empty validation, radio and checkbox keyboard behavior, disabled shortcut mapping, ordinary freeform editing, progress/action changes and the public example geometry. The final kernel SHA-256 was 77e51f8523b54537b4ad78eddd62f7d4a49b95b5c611d001ee4642329245261c.
+- Independent-review root and profiles/full flutter analyze --no-pub were clean; locked pub resolution, touched formatting and git diff --check passed. Accepted source commit: 23df91f5fd8e400fdf2f558dbd912cf7e03236d1.
 
 **limitations**
 
-- Implementation verification built but did not launch or visually accept the macOS fixture. The fresh independent reviewer owns first official browser comparison, real native interaction/accessibility inspection, resulting fixes, final implemented promotion and local-main merge.
-- No iOS/Linux device, spoken VoiceOver session or production consumer claim is made.
+- Official browser comparison and native macOS inspection are complete. Native IME composition itself was not synthesized; active-composition behavior is covered by a direct widget regression.
+- No iOS/Linux device, spoken VoiceOver session or production consumer claim is made. Native accessibility-tree inspection is not a spoken-reader or cross-platform claim.
 
 ### Final audit
 

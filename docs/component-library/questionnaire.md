@@ -113,10 +113,39 @@ examples with local data and explicit theme, RTL, 200%-text, reduced-motion and
 216px-width controls; it is the source-exact macOS review target, not a substitute
 for a production adopter that does not exist.
 
-## Verification handoff
+## Independent acceptance
 
-Implementation-task checks and exact outcomes are recorded in `progress.json`.
-The independent reviewer still owns first official rendered-browser comparison,
-real macOS styleguide inspection, any resulting fixes, final `implemented`
-promotion and the local-main merge. No iOS/Linux device or spoken VoiceOver
-claim is made by this implementation task.
+The independent review re-downloaded every frozen source above and reproduced
+all recorded SHA-256 hashes. The official rendered Base UI example was inspected
+at 1024px and 375px in light and dark states. Its 448px wide root, 16px vertical
+rhythm, progress and heading typography, choice padding/minimum height, 32px
+desktop input/actions, selection/focus treatment and narrow wrapping matched the
+mapping above.
+
+Review found and corrected four behavior/parity gaps:
+
+- ordinary letter/number shortcuts are suppressed while a native text editor is
+  active, while Control/Command+Enter remains available outside active IME
+  composition;
+- shortcut selection focuses the selected enabled choice and keeps disabled
+  choices out of shortcut numbering;
+- submitting a non-empty freeform answer with Enter advances or submits; and
+- item slide transitions use logical direction and therefore mirror in RTL.
+
+Direct widget regressions cover each correction, including an active composing
+range. The final focused Questionnaire suite passed 23 tests and 139 composed
+Field/Input/Button/Progress/Card/Dialog/Native Select owner regressions passed.
+Root and `profiles/full` analysis were clean; locked dependency resolution,
+formatting and `git diff --check` passed.
+
+The uniquely identified exact-source macOS fixture was built, ad-hoc signed and
+verified with deep/strict codesign. Native inspection exercised the complete
+three-step flow, empty validation, radio and checkbox keyboard behavior,
+disabled shortcut mapping, ordinary freeform editing, progress/action changes
+and public-example geometry. Final kernel SHA-256:
+`77e51f8523b54537b4ad78eddd62f7d4a49b95b5c611d001ee4642329245261c`.
+
+No iOS/Linux device or spoken VoiceOver claim is made. Active native IME
+composition was not synthesized in CUA; that edge is covered by the direct
+widget test and native accessibility-tree inspection is not a spoken-reader or
+cross-platform claim.

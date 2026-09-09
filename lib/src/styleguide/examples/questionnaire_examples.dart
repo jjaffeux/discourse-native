@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final questionnaireExamples = ComponentExamples(
-  status: ComponentStatus.planned,
+  status: ComponentStatus.implemented,
   description:
       'A one-question-at-a-time form for fixed, multiple, freeform and intentionally skipped answers.',
   notes:

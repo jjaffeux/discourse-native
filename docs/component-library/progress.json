@@ -3671,12 +3671,12 @@
     },
     {
       "id": "questionnaire",
-      "status": "in_progress",
+      "status": "implemented",
       "taskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
       "branch": "codex/ui-questionnaire",
       "reviewTaskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
       "reviewBranch": "codex/review-questionnaire",
-      "reviewStatus": "independent_review",
+      "reviewStatus": "accepted",
       "dependencies": [
         "field",
         "button",
@@ -3716,16 +3716,21 @@
         "127 affected owner regressions passed together for Field, Input rendering/state, Button reference/adoption, Progress, Card, Dialog and Native Select.",
         "Root and profiles/full flutter pub get --enforce-lockfile passed without lockfile or SDK-pin changes; flutter analyze --no-pub passed in both profiles with no diagnostics.",
         "Touched Dart formatting and git diff --check passed. flutter build macos --debug -t tool/questionnaire_review_main.dart --no-pub produced build/macos/Build/Products/Debug/Discourse.app.",
-        "The source-exact local-data macOS fixture mounts all nine public examples and exposes light/dark/forest/plum, RTL, 100/200% text, reduced-motion and 216px/wide controls."
+        "The source-exact local-data macOS fixture mounts all nine public examples and exposes light/dark/forest/plum, RTL, 100/200% text, reduced-motion and 216px/wide controls.",
+        "Independent review re-downloaded every frozen official source and reproduced the recorded SHA-256 hashes. The rendered Base UI reference was measured at 1024px and 375px in light/dark states; root, progress, type, choice, input and action geometry matched the Flutter mapping.",
+        "Independent review added direct regressions and corrections for editable-field shortcut suppression with active-IME guarding, focus transfer after shortcut selection while disabled choices consume no slot, freeform Enter navigation, and logical RTL slide direction. Final focused Questionnaire coverage passed 23 tests; 139 composed Field/Input/Button/Progress/Card/Dialog/Native Select owner regressions passed.",
+        "The exact-source uniquely identified macOS fixture was built, ad-hoc signed and deep/strict verified. Native inspection exercised the three-step flow, empty validation, radio and checkbox keyboard behavior, disabled shortcut mapping, ordinary freeform editing, progress/action changes and the public example geometry. The final kernel SHA-256 was 77e51f8523b54537b4ad78eddd62f7d4a49b95b5c611d001ee4642329245261c.",
+        "Independent-review root and profiles/full flutter analyze --no-pub were clean; locked pub resolution, touched formatting and git diff --check passed. Accepted source commit: 23df91f5fd8e400fdf2f558dbd912cf7e03236d1."
       ],
       "limitations": [
-        "Implementation verification built but did not launch or visually accept the macOS fixture. The fresh independent reviewer owns first official browser comparison, real native interaction/accessibility inspection, resulting fixes, final implemented promotion and local-main merge.",
-        "No iOS/Linux device, spoken VoiceOver session or production consumer claim is made."
+        "Official browser comparison and native macOS inspection are complete. Native IME composition itself was not synthesized; active-composition behavior is covered by a direct widget regression.",
+        "No iOS/Linux device, spoken VoiceOver session or production consumer claim is made. Native accessibility-tree inspection is not a spoken-reader or cross-platform claim."
       ],
       "implementationCommit": "3cedb9ad6c72ae9fc8eab26df7dd757704aeb111",
+      "reviewCommit": "23df91f5fd8e400fdf2f558dbd912cf7e03236d1",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6d37/discourse-native",
-      "queueStage": "independent_review",
+      "queueStage": "ready_for_merge",
       "implementationBrief": "Implement the full reference Questionnaire state machine and API, including Composition, Multiple Selection, Freeform Answer, Explicit Skip, Shortcuts, Custom Validation, Controlled, Resume, Conditional Items, Navigation State, Custom Progress, Animated Items, Card, Dialog, Accessibility and Unstyled modes. Correctly own typed answers, item identity, conditional visibility, visited/navigation/progress state, skipped-vs-empty answers, async validation cancellation, controlled acceptance, reset and serializable/resumable state. Preserve focus/keyboard shortcuts/announcements and readable transitions with reduced motion/narrow/RTL/large text. Use final Field/Button/Progress/Card/Dialog/Native Select owners and keep persistence/network/domain branching adapters outside generic widgets. Audit core/plugin surveys/onboarding/stepped forms; migrate appropriate real flows without altering required questions, permission or validation rules. Implement the reference behavior fully even if no current app usage exists, documenting the audit. Add meaningful state-transition, resume/conditional/backtracking/async-validation and real-consumer regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/questionnaire",
@@ -4016,11 +4021,11 @@
           "taskId": "01a08633-c9ed-7062-86c4-16b0835eb303",
           "branch": "codex/review-questionnaire",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6384/discourse-native",
-          "headCommit": "a6149429781c662c76967ef6339aad3b95207ba6",
-          "status": "independent_review",
+          "headCommit": "23df91f5fd8e400fdf2f558dbd912cf7e03236d1",
+          "status": "accepted",
           "implementationTaskId": "01a08606-ca34-7a13-b7ec-79b90b5ebd8f",
           "implementationBranch": "codex/ui-questionnaire",
-          "phase": "official_browser_and_native_acceptance"
+          "phase": "ready_for_merge"
         },
         {
           "component": "menubar",
