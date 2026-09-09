@@ -9,8 +9,10 @@ final tooltipExamples = ComponentExamples(
   description: 'A brief description that appears on hover or keyboard focus.',
   status: ComponentStatus.implemented,
   notes:
-      'Tooltip reproduces the frozen base-nova surface and arrow. The composed '
-      'triggers use the accepted DButton owner. '
+      'Tooltip reproduces the frozen base-nova surface and arrow. The reference '
+      'compositions use the accepted outline and icon-sm DButton owners. '
+      'Leaving the trigger or popup dismisses only a hover-engaged hint; keyboard, '
+      'controller and parent-controlled openings wait for their own dismissal. '
       'Tooltips supplement a named trigger; put essential instructions inline. '
       'Hover or Tab to a control, move into its tooltip, and press Escape to dismiss. '
       'Long press is a native app extension; it never invokes the child action. '
@@ -25,7 +27,11 @@ final tooltipExamples = ComponentExamples(
       states: const ['Hover', 'Keyboard focus', 'Long press', 'Escape'],
       code: '''DTooltip(
   message: 'Add to library',
-  child: DButton(label: const Text('Hover'), onPressed: addToLibrary),
+  child: DButton(
+    label: const Text('Hover'),
+    variant: DButtonVariant.outline,
+    onPressed: addToLibrary,
+  ),
 )''',
       builder: (_) => const _Usage(),
     ),
@@ -39,7 +45,8 @@ final tooltipExamples = ComponentExamples(
                      DTooltipSide.bottom, DTooltipSide.right])
     DTooltip(
       message: 'Add to library', side: side,
-      child: DButton(label: Text(side.name), onPressed: addToLibrary),
+      child: DButton(label: Text(side.name),
+        variant: DButtonVariant.outline, onPressed: addToLibrary),
     ),
 ])''',
       builder: (_) => _Space(
@@ -56,7 +63,11 @@ final tooltipExamples = ComponentExamples(
               DTooltip(
                 message: 'Add to library',
                 side: side,
-                child: DButton(label: Text(side.name), onPressed: () {}),
+                child: DButton(
+                  label: Text(side.name),
+                  variant: DButtonVariant.outline,
+                  onPressed: () {},
+                ),
               ),
           ],
         ),
@@ -65,20 +76,22 @@ final tooltipExamples = ComponentExamples(
     StyleguideExample(
       title: 'With keyboard shortcut',
       description:
-          'Save Changes with the S keycap. The example binds S through Shortcuts/Actions; Tooltip only presents it.',
+          'Save Changes with the S keycap on the outline icon-sm button. DButton.iconOnly composes this DTooltip from its tooltip and shortcut. The example binds S through Shortcuts/Actions; Tooltip only presents it.',
       states: const [
         'Icon trigger',
         'DKbd',
         'Shortcut feedback',
         'Action ownership',
       ],
-      code: '''DTooltip(
-  message: 'Save Changes',
+      code: '''// DButton.iconOnly wraps its control in
+// DTooltip(message: tooltip, shortcut: shortcut).
+DButton.iconOnly(
+  icon: saveIcon, // The 16px Lucide Save artwork.
+  tooltip: 'Save Changes',
   shortcut: const DShortcut(SingleActivator(LogicalKeyboardKey.keyS)),
-  child: DButton(
-    semanticLabel: 'Save Changes', label: saveIcon, // A 16px icon.
-    onPressed: save,
-  ),
+  size: DButtonSize.small,
+  variant: DButtonVariant.outline,
+  onPressed: save,
 ) // Keep the S binding in the surrounding Shortcuts/Actions.''',
       builder: (_) => const _Keyboard(),
     ),
@@ -90,13 +103,21 @@ final tooltipExamples = ComponentExamples(
       code: '''DTooltip(
   message: 'This feature is currently unavailable',
   focusable: true,
-  child: const DButton(label: Text('Disabled'), onPressed: null),
+  child: const DButton(
+    label: Text('Disabled'),
+    variant: DButtonVariant.outline,
+    onPressed: null,
+  ),
 )''',
       builder: (_) => const _Space(
         child: DTooltip(
           message: 'This feature is currently unavailable',
           focusable: true,
-          child: DButton(label: Text('Disabled'), onPressed: null),
+          child: DButton(
+            label: Text('Disabled'),
+            variant: DButtonVariant.outline,
+            onPressed: null,
+          ),
         ),
       ),
     ),
@@ -115,7 +136,8 @@ final tooltipExamples = ComponentExamples(
       (DTooltipSide.inlineEnd, 'نهاية السطر'),
     ])
       DTooltip(message: 'إضافة إلى المكتبة', side: side,
-        child: DButton(label: Text(label), onPressed: addToLibrary)),
+        child: DButton(label: Text(label),
+          variant: DButtonVariant.outline, onPressed: addToLibrary)),
   ],
 ))''',
       builder: (_) => _Space(
@@ -136,7 +158,11 @@ final tooltipExamples = ComponentExamples(
                 DTooltip(
                   message: 'إضافة إلى المكتبة',
                   side: side,
-                  child: DButton(label: Text(label), onPressed: () {}),
+                  child: DButton(
+                    label: Text(label),
+                    variant: DButtonVariant.outline,
+                    onPressed: () {},
+                  ),
                 ),
             ],
           ),
@@ -318,6 +344,7 @@ class _UsageState extends State<_Usage> {
           message: 'Add to library',
           child: DButton(
             label: const Text('Hover'),
+            variant: DButtonVariant.outline,
             onPressed: () => setState(() => count++),
           ),
         ),
@@ -383,16 +410,15 @@ class _KeyboardState extends State<_Keyboard> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _Space(
-            child: DTooltip(
-              message: 'Save Changes',
+            child: DButton.iconOnly(
+              icon: const _SaveIcon(),
+              tooltip: 'Save Changes',
               shortcut: const DShortcut(
                 SingleActivator(LogicalKeyboardKey.keyS),
               ),
-              child: DButton(
-                semanticLabel: 'Save Changes',
-                label: const _SaveIcon(),
-                onPressed: save,
-              ),
+              size: DButtonSize.small,
+              variant: DButtonVariant.outline,
+              onPressed: save,
             ),
           ),
           Text('Saved: $count'),
