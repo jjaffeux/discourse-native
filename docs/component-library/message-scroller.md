@@ -34,7 +34,7 @@ models remain with callers. A production adapter may disable initial-position
 application when it already has a richer server-provided target; this is the
 narrow adaptation used by Discourse Chat. Likewise, the existing reversed chat
 virtualizer retains its proven physical-index identity and resize preservation,
-  while the generic default uses stable-id child identity and first-visible-row
+while the generic default uses stable-id child identity and first-visible-row
 restoration.
 
 New stable anchor rows settle near the start with 64px of previous context and
@@ -143,6 +143,14 @@ the implementation handoff and corrected these behavioral defects:
 
 The review also locks owned-versus-borrowed controller, list-controller,
 focus-node and scroll-controller disposal behavior in a permanent regression.
+The first native pass found one additional large-history-prepend defect: the
+virtualizer could evict the held row before restoration measured it. The fix
+mounts that stable row first, then restores its measured offset. Permanent
+regressions cover the actual history example and normal/reversed transcripts.
 The offline review entry point mounts all seven catalogue examples plus actual
 production channel and thread `ChatMessageStream` adapters through the bundled
 chat plugin's real session and store, with an in-memory offline transport.
+
+Exact native/reference observations, source hashes, follow-up verification and
+device/interaction limits are recorded in
+`evidence/message-scroller/native-review.json`.

@@ -29,6 +29,12 @@
   },
   "postFix": {
     "status": "pending_native_recheck",
+    "sourceCommit": "378611767d74cef68f2ef4d94fbe00bd9d015ffb",
+    "libTree": "c68d0122d717ed9012268a5914a89cdcd1df1c7b",
+    "bundlePath": "/tmp/message-scroller-recheck-a0b4.zpmGT5/MessageScrollerReview-a0b4.app",
+    "kernelSha256": "1af321e76edcd3100f78e4ff02e12469663611cf933f3bfe3403a05f92939445",
+    "verification": "154 combined focused checks passed on reconciled main with seed 4022656358; root/full analysis and macOS debug build passed. Isolated bundle signature passed deep/strict verification; its kernel hash equals the build. Production runner settings are unchanged.",
+    "acceptedParents": "Message bf86d92e26feee925739f3d7ee90f26ee05721d7 and Scroll Area 655be577246f1f247e1e71199d32add8366deffc are ancestors. Message tile and reaction presentation are source-equivalent to the first inspected bundle.",
     "change": "A prepended held row evicted from the virtualizer cache is first remounted by stable index, then restored to its measured viewport offset.",
     "regressions": [
       "The actual Load history example failed before the fix and preserves row 20 across two ten-row prepends after it.",
