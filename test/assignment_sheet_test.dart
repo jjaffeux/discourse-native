@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
@@ -10,6 +11,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -549,16 +551,15 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final dropdown = tester.widget<DropdownButton<String>>(
-          find.descendant(
-            of: find.byKey(const Key('assignment-status')),
-            matching: find.byType(DropdownButton<String>),
-          ),
+        final select = tester.widget<DSelectField<String>>(
+          find.byKey(const Key('assignment-status')),
         );
-        expect(dropdown.isExpanded, isTrue);
-        final label = tester.widget<Text>(find.text(longStatus).first);
-        expect(label.maxLines, 1);
-        expect(label.overflow, TextOverflow.ellipsis);
+        expect(select.isExpanded, isTrue);
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text(longStatus).first,
+        );
+        expect(paragraph.maxLines, 1);
+        expect(paragraph.overflow, TextOverflow.ellipsis);
       },
     );
 
@@ -625,15 +626,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final dropdown = tester.widget<DropdownButton<String>>(
-        find.descendant(
-          of: find.byKey(const Key('assignment-status')),
-          matching: find.byType(DropdownButton<String>),
-        ),
+      final select = tester.widget<DSelectField<String>>(
+        find.byKey(const Key('assignment-status')),
       );
-      expect(dropdown.value, 'Waiting on legacy review');
+      expect(select.initialValue, 'Waiting on legacy review');
       expect(
-        dropdown.items?.map((item) => item.value),
+        select.items.map((item) => item.value),
         contains('Waiting on legacy review'),
       );
 

@@ -845,16 +845,20 @@ void main() {
         expect(find.text('Default Speaker'), findsOneWidget);
         expect(find.text('Desk camera'), findsOneWidget);
 
-        final pickers = find.byType(DropdownButtonFormField<String>);
-        await tester.tap(pickers.at(0));
+        final pickers = find.byType(DSelectField<String>);
+        Finder trigger(int index) => find.descendant(
+          of: pickers.at(index),
+          matching: find.byKey(const Key('d-select-trigger-visual')),
+        );
+        await tester.tap(trigger(0));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Travel microphone').last);
         await tester.pumpAndSettle();
-        await tester.tap(pickers.at(1));
+        await tester.tap(trigger(1));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Headphones').last);
         await tester.pumpAndSettle();
-        await tester.tap(pickers.at(2));
+        await tester.tap(trigger(2));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Travel camera').last);
         await tester.pumpAndSettle();
@@ -1151,16 +1155,14 @@ void main() {
         isEmpty,
       );
 
-      await tester.tap(find.byType(DropdownButton<VoiceRole>));
-      await tester.pumpAndSettle();
       await tester.tap(
-        find
-            .widgetWithText(
-              DropdownMenuItem<VoiceRole>,
-              VoiceRole.moderator.name,
-            )
-            .last,
+        find.descendant(
+          of: find.byType(DSelect<VoiceRole>),
+          matching: find.byKey(const Key('d-select-trigger-visual')),
+        ),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(VoiceRole.moderator.name).last);
       await tester.pumpAndSettle();
       await tester.enterText(username, '  jordan  ');
       await tester.tap(find.byTooltip('Add member'));

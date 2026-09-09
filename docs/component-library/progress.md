@@ -1987,8 +1987,8 @@ Status: in_progress. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/u
 **verification**
 
 - Frozen Markdown hash and registry/source/API inspection passed; concrete reference mapping is recorded in docs/component-library/select.md.
-- flutter analyze --no-pub lib test/d_select_test.dart test/preferences_page_test.dart passed with no diagnostics.
-- flutter test --no-pub test/d_select_test.dart test/preferences_page_test.dart passed: 35 tests covering styleguide mounting across narrow 200% RTL live palettes, keyboard/typeahead/focus restoration, disabled/read-only states, Form validation/save/reset, selected-row alignment, Button Group handoff, controlled-null, multiple selection, dynamic items and borrowed resource ownership.
+- flutter analyze --no-pub lib test/d_select_test.dart test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart passed with no diagnostics.
+- flutter test --no-pub test/d_select_test.dart test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart passed: 115 tests covering styleguide mounting across narrow 200% RTL live palettes, keyboard/typeahead/focus restoration, disabled/read-only states, Form validation/save/reset, selected-row alignment, Button Group handoff, controlled-null, multiple selection, dynamic items, borrowed resource ownership and Assign/Voice/Preferences consumer behavior.
 - git diff --check passed.
 
 **limitations**
