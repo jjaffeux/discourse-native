@@ -106,6 +106,26 @@ void main() {
     expect(tester.getRect(find.byKey(const ValueKey('avatar'))).left, 0);
   });
 
+  testWidgets('preserves direct-child order and intrinsic auxiliary width', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const DMessage(
+          children: [
+            DMessageAvatar(),
+            DMessageContent(children: [SizedBox(height: 20)]),
+            SizedBox(key: ValueKey('auxiliary'), width: 10, height: 10),
+          ],
+        ),
+      ),
+    );
+
+    final auxiliary = tester.getRect(find.byKey(const ValueKey('auxiliary')));
+    expect(auxiliary.width, 10);
+    expect(auxiliary.right, 400);
+  });
+
   testWidgets('groups consecutive rows with the reference 8px gap', (
     tester,
   ) async {
