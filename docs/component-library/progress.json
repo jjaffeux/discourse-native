@@ -196,7 +196,7 @@
         "Composition uses ordinary children and directional Flutter layout. Spinner owns no Button/Badge/Input Group/Empty APIs and no loading completion, errors or cancellation state.",
         "DSpinner defaults to 16 logical pixels, follows inherited IconTheme color and uses DTokens.foreground as fallback; explicit color and SVG view-box strokeWidth are supported. Stroke scales with size. Whole-panel callers retain 24px boxes and constrained inline callers retain their existing dimensions; DButton now uses the 16px default.",
         "Use a native loadingSpinner semantics role and a single caller-localizable live label, with semanticLabel=null for decorative artwork. DButton retains its existing name, Loading value, disabled state, tooltip and async ownership.",
-        "Reduced motion pauses the reference SVG rotation at its current position while keeping indeterminate busy semantics. Default and custom motion stops for inactive apps and disabled ticker subtrees and resumes without disposing borrowed state. DMotion.spin matches Tailwind\u2019s 1s linear infinite animation.",
+        "Reduced motion pauses the reference SVG rotation at its current position while keeping indeterminate busy semantics. Default and custom motion stops for inactive apps and disabled ticker subtrees and resumes without disposing borrowed state. DMotion.spin matches Tailwind’s 1s linear infinite animation.",
         "No networking, completion callbacks, error state, focus nodes or overlay ownership were added to DSpinner. Example completion/validation/cancellation controls use local sample state.",
         "Visual mapping in docs/component-library/spinner-reference.md records exact SVG path/view box/stroke/cycle and companion Button/Badge/Input Group/Empty/Item source geometry. App theme colors, surface radius and font family remain native integration points; large text can wrap instead of clipping status text.",
         "Implementation, reference mapping, consumer regressions and final native correction checks are complete. Spinner is review_ready for the coordinator; only this component row and its generated evidence are updated. Device/VoiceOver gaps and the unassigned native keyboard incident remain explicit limitations."
@@ -240,7 +240,7 @@
         "Coordinator combined-main verification: 738 focused component, styleguide, Button-adoption and affected loading/account/media/Chat/Voice consumer tests passed, seed 1778345709. The exact command and output are in /private/tmp/component-spinner-integration-tests.log. All 87 touched Dart files were formatted; merge-introduced duplicate imports and directive ordering were corrected. Final flutter analyze --no-pub is clean (7.7s), git diff --check passes, and generic Spinner/example source remains byte-identical to the reviewed native-inspected branch. The existing f5549d51 adoption guard was preserved and passed in the combined run."
       ],
       "limitations": [
-        "iOS and Linux devices were not run; target-platform widget tests do not substitute for device testing. flutter devices listed macOS 26.6.2 (darwin-arm64), Chrome and a wireless iPhone on iOS 26.6; no Linux device was available. The wireless phone was not used or modified. VoiceOver spoken output and authenticated app screens have not been inspected. The final SVG app\u2019s six examples, actual core/GIF fixtures and three final example corrections were inspected on macOS.",
+        "iOS and Linux devices were not run; target-platform widget tests do not substitute for device testing. flutter devices listed macOS 26.6.2 (darwin-arm64), Chrome and a wireless iPhone on iOS 26.6; no Linux device was available. The wireless phone was not used or modified. VoiceOver spoken output and authenticated app screens have not been inspected. The final SVG app’s six examples, actual core/GIF fixtures and three final example corrections were inspected on macOS.",
         "Forced-semantics diagnostic crash reproduces with pre-migration native consumers. The new DSpinner is not necessary to trigger it, but its framework/fixture root cause is unresolved. Reports and exact reproduction are retained in docs/component-library/spinner-native.md and ignored local artifacts; no forced-semantics instrumentation is committed.",
         "On the first relaunch for the three final example corrections, the native Theme menu stopped responding after typed search. Verified Spinner Fidelity PID 13780 was at 97.6% CPU, with no crash report; a one-second passive sample showed repeated FlutterKeyboardManager/FlutterChannelKeyResponder/FlutterEmbedderKeyResponder message processing. Cause remains unassigned. Sample SHA-256 7fc2c30a768983cea7dd552c4f042f98fae0b80c8c4d6fcd0e2a0020ef8887fd. The app quit normally through its native menu. Final correction inspection subsequently passed using pointer-only navigation under a new slot grant; that success does not establish a cause or fix for the keyboard event loop."
       ],
@@ -270,7 +270,7 @@
         "Reference scope remains the frozen Kbd page (SHA256 3dd0b0dacf86f4b701ae35df3efe453ba1e9995a542e0a4a004a252f5bdd7978). Inspected actual official base-nova registry source (SHA256 4cfe2ba8e19f4d19d090eb039e3f1c041c9cfb379ce948237a9b5018203f7a6c) and rendered light/dark reference. The detailed source-to-Flutter measurements and narrow adaptations are in docs/component-library/kbd-visual-mapping.md; catalogue scope is unchanged.",
         "Existing app Actions/Shortcuts and app_shortcuts.dart remain binding owners. The Kbd library owns presentation and optional non-consuming hardware feedback only; Button, Tooltip and Input Group remain their separately scheduled catalogue entries.",
         "Native APIs are DKbd(label) / DKbd.child with required spoken label, DKbdGroup(children) with wrapping/direction/spacing/semantic label, DKbdTheme for ancestor tooltip colors, and retained typed DShortcut/DShortcutKeycaps APIs. No CSS prop string or parallel action registry is introduced.",
-        "Default keycaps use explicit DiscourseTypography.xs (12 px), 16 px leading, weight 500 and zero tracking with the host sans-serif family. Live DTokens supply muted colors and small radius (site base \u00d7 0.6). Surfaces are borderless with 20 px minima and 4 px horizontal padding; icons default to 12 px. Intrinsic growth and wrapping preserve native text scaling. Tooltip tint follows its actual foreground at 20% light / 10% dark for contrast on the existing surface. Apple and Linux notation describe unchanged app bindings.",
+        "Default keycaps use explicit DiscourseTypography.xs (12 px), 16 px leading, weight 500 and zero tracking with the host sans-serif family. Live DTokens supply muted colors and small radius (site base × 0.6). Surfaces are borderless with 20 px minima and 4 px horizontal padding; icons default to 12 px. Intrinsic growth and wrapping preserve native text scaling. Tooltip tint follows its actual foreground at 20% light / 10% dark for contrast on the existing surface. Apple and Linux notation describe unchanged app bindings.",
         "Optional non-consuming shortcut feedback preserves sequence progression, is disabled for static hints, uses logical activator equality through theme rebuilds, and clears on visibility, app lifecycle and view focus changes. The group has spoken English defaults with caller semanticLabel overrides; sequences visibly say then.",
         "Seven public-library examples cover the two reference key groups before additional text/symbol/custom-icon states, groups/sequences/inline typography, platform formatting, working button/tooltip, focusable search input, RTL/LTR islands and narrow/large-text/empty groups. Existing Button/Tooltip and native input composition remain visibly identified as separate catalogue work."
       ],
@@ -287,7 +287,7 @@
         "DTooltip/rail overlay positioning, gestures and native menu/sheet ownership remain with their scheduled Tooltip/menu/sheet components; this task changes only their Kbd presentation and necessary wrapping/semantics."
       ],
       "verification": [
-        "Official frozen page and base-nova registry source read. Hidden-browser light/dark renders and computed styles confirmed 20 px height, 4 px padding/group gap, 12/16 px medium type, no border and the relative small radius. Read the coordinator\u2019s updated visual-fidelity contract; documented mapping in docs/component-library/kbd-visual-mapping.md.",
+        "Official frozen page and base-nova registry source read. Hidden-browser light/dark renders and computed styles confirmed 20 px height, 4 px padding/group gap, 12/16 px medium type, no border and the relative small radius. Read the coordinator’s updated visual-fidelity contract; documented mapping in docs/component-library/kbd-visual-mapping.md.",
         "flutter pub get --enforce-lockfile passed in root and profiles/full without lockfile or Flutter pin changes.",
         "flutter analyze --no-pub passed with no issues in root and profiles/full after the final explicit typography metrics. All touched Dart files were formatted; git diff --check passed.",
         "flutter test --no-pub test/ui/d_kbd_test.dart test/styleguide/kbd_examples_test.dart test/keyboard_shortcuts_help_test.dart test/d_button_test.dart test/d_tooltip_test.dart test/forum_tabs_integration_test.dart: 70 passed after the geometry/color corrections, covering reference dimensions and palettes, live tooltip tint, semantics, keyboard actions, lifecycle cleanup, help wheel scrolling/Escape and rail/tab integrations.",
@@ -295,7 +295,7 @@
         "flutter test --no-pub test/forum_tabs_integration_test.dart test/content_navigation_controls_test.dart test/draft_list_test.dart test/keyboard_navigation_test.dart test/styleguide/styleguide_page_test.dart: 91 passed during migration. Rail number-shortcut test rerun after removing the obsolete intrinsic-height wrapper passed.",
         "flutter test --no-pub test/forum_search_clear_accessibility_test.dart test/poll_composer_panel_test.dart test/ui/d_kbd_test.dart: 43 passed during migration, covering search-hint scaling, preserved clear-focus/query state, typed Local Dates menu hints, permissions and dispatch.",
         "Isolated macOS styleguide and local-data harness built with flutter build macos --debug --no-pub. Product Discourse Kbd Review at /private/tmp/discourse-kbd-native-4bea uses verified bundle/signature org.discourse.kbd.review4bea. Runner, signing, diagnostics and fake-data fixtures remain outside the repository; the primary app was not launched or modified.",
-        "Native CUA inspected corrected Kbd rendering in Light, Dark and Plum, including 360 px / 200% input and tooltip compositions, RTL input, focus/typing, pointer activation and F6 (counter 0\u21922). Actual ForumSearch accepted a query and omitted the supplementary hint when narrow. Actual shortcut help wheel-scrolled to its final Search row at 200% text and Escape dismissed it. Native AX exported meaningful chord/key labels through the normal semantics lifecycle.",
+        "Native CUA inspected corrected Kbd rendering in Light, Dark and Plum, including 360 px / 200% input and tooltip compositions, RTL input, focus/typing, pointer activation and F6 (counter 0→2). Actual ForumSearch accepted a query and omitted the supplementary hint when narrow. Actual shortcut help wheel-scrolled to its final Search row at 200% text and Escape dismissed it. Native AX exported meaningful chord/key labels through the normal semantics lifecycle.",
         "The final explicit metric guard preserves the values used by the palettes just inspected natively. The first example was subsequently arranged into the two centered reference groups with default 4 px gaps; the final arrangement is covered by the widget matrix. The isolated native app was quit and confirmed absent from cua.listApps; the serialized desktop slot was released.",
         "Coordinator reviewed the full API and migrations, exact Base Nova source mapping, corrected compact keycap metrics, native inspection and documented modifier-injection limitation. Reconciled Separator imports and example registration while retaining the newer shadcn Typography styles; combined checks follow.",
         "Coordinator integration: 176 selected tests passed (seed 2125845405) covering Kbd, the whole styleguide, Button/Tooltip, keyboard help, search, forum tabs and composer/Local Dates menu dispatch. That command also requested a nonexistent local_date_shortcut_test.dart; it was a test-path error, not a failing case. The two actual Local Dates component/lifecycle test files then passed all 6 cases. After resolving alphabetical import ordering, flutter analyze --no-pub passed with no issues. Reviewed final import deduplication, format and git diff --check."
@@ -407,7 +407,7 @@
         "Reference sources and hashes, native adaptations and pending rendered comparison recorded in docs/component-library/button.md.",
         "Coordinator touch-target correction: small legacy inset surfaces keep 32px paint/40px desktop targets but clamp iOS/Android targets to 48px independently.",
         "Browser/export comparison corrected Small leading to22.4px, dark input-token alpha multiplication, leading loading padding, and responsive Size composition; added exact Arabic reference composition.",
-        "Radius follow-up: xs/icon-xs=min(.8\u00d7base,10px), sm/icon-sm=min(.8\u00d7base,12px), regular/large=base per official theming scale; preserves caller radius overrides."
+        "Radius follow-up: xs/icon-xs=min(.8×base,10px), sm/icon-sm=min(.8×base,12px), regular/large=base per official theming scale; preserves caller radius overrides."
       ],
       "migrations": [
         "All existing direct Button imports migrated to discourse_ui.dart; obsolete theme/d_button.dart removed.",
@@ -476,7 +476,7 @@
         "53 Divider/VerticalDivider usages in core shell files now use public DSeparator: list rows and loading-list boundaries, user/preferences/group panes, sheets, pickers and native-menu compositions, topic/date streams, diagnostics, drafts, badges, bookmarks, search, uploads and the instance rail. Horizontal height and vertical width become orientation-independent space; prior 17/24 spacing and specialized colors are preserved.",
         "19 dividing rules migrated in Assign, Chat, Discourse Events, GIFs, Local Dates, Poll and Voice plugins. Existing permission checks, list lazy construction, async ownership and callbacks are unchanged; Chat unread marker keeps its error color and visible New label, Assign keeps its ledger color.",
         "The styleguide pane separator uses DSeparator. Public barrel export and dedicated separator_examples.dart registration added. Existing barrel imports were extended and redundant baseline control imports removed where a new complete barrel import already supplies them.",
-        "Three equivalent container rules migrated: forum tab gaps retain 1\u00d718 geometry and hover/selected visibility, MessageInboxTitle retains its 18px line and 10px margins through space: 21, and instance sidebar section boundaries retain their sliver insets and spacing.",
+        "Three equivalent container rules migrated: forum tab gaps retain 1×18 geometry and hover/selected visibility, MessageInboxTitle retains its 18px line and 10px margins through space: 21, and instance sidebar section boundaries retain their sliver insets and spacing.",
         "Updated the existing anchored picker, topic day separator, group list geometry and forum tab tests to assert public DSeparator boundaries while preserving their behavior assertions. Audited all lib/src/plugins modules, packages (including vendored Dart libraries) and profiles; no additional authored package/profile separators were found."
       ],
       "retainedAlternatives": [
@@ -600,7 +600,7 @@
       "decisions": [
         "Frozen Badge Markdown matches the catalogue hash; captured official base-nova registry, examples and Lucide artwork with exact hashes and source-to-Flutter mapping in docs/component-library/badge.md.",
         "Public DBadge supports six treatments, static/action/link composition, decorative leading/trailing widgets, custom live colors, disabled callbacks, invalid/name/value/live semantics and owned-or-borrowed focus. Pointer activation transfers keyboard focus; links use Enter and actions use Enter/Space.",
-        "Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 2.6\u00d7 configured radius (10.4px at host default 4; reference 26px at 10), using the live website globals override, not rounded-full.",
+        "Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 2.6× configured radius (10.4px at host default 4; reference 26px at 10), using the live website globals override, not rounded-full.",
         "Spinner remains the only implementation dependency. Button is baseline only for example controls; Badge imports no unfinished Button code. Six full styleguide sections retain the redesigned documentation shell.",
         "Native comparison is pending the coordinator slot and unlocked desktop; automated passing checks and successful debug builds are not review_ready."
       ],
@@ -855,7 +855,7 @@
         "label"
       ],
       "acceptanceCriteria": [
-        "Match base-nova 32\u00d718.4/16 and 24\u00d714/12 track/thumb geometry, 1px inset, directional 14/10px travel, semantic colors, focus/error rings, disabled opacity and 150ms motion.",
+        "Match base-nova 32×18.4/16 and 24×14/12 track/thumb geometry, 1px inset, directional 14/10px travel, semantic colors, focus/error rings, disabled opacity and 150ms motion.",
         "Provide controlled and uncontrolled switch, read-only and disabled behavior, focus/keyboard/touch/semantics, FormField validation/save/reset and live controlled updates.",
         "Reproduce default, description, choice-card, disabled, invalid, sizes and RTL examples without implementing pending Field.",
         "Migrate core and bundled plugin switches preserving async, permission and persistence owners; cover real local-data fixtures and focused regressions.",
@@ -1035,7 +1035,7 @@
       "decisions": [
         "Label is merged. Slider is demonstrative and not an implementation dependency; use baseline DButton local controls pending Slider. Native inspection awaits coordinator slot.",
         "Five public Progress parts reproduce base-nova geometry and inherited theme; exact source hashes, API, metrics and justified indeterminate/native semantics adaptations are recorded in docs/component-library/evidence/progress/implementation.md.",
-        "Range is 0\u2013100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.",
+        "Range is 0–100 by default, min/max clamping handles finite extremes, null/non-finite is unknown; read-only API composes caller state. Track-only layout preserves external 2px constraints.",
         "Six real-component examples cover reference basic timer, label/value, controlled (temporary DButton), RTL, async/range edges and explicit parts; status remains baseline until native review."
       ],
       "migrations": [
@@ -1076,7 +1076,7 @@
       ],
       "decisions": [
         "Frozen Skeleton Markdown hash matches cab955b03db8fe7a9f4e5bc71be4f72054782d29476b19fb2029f569a880df16; documented props are empty. Web className geometry maps to Flutter dimensions, BorderRadiusGeometry, FractionallySizedBox and AspectRatio; RTL language controls are demo state, not Skeleton props.",
-        "Move and extend the existing shell rendering owner while matching the official source: muted fill, medium radius (site base \u00d7 0.8), and a 2-second 1 \u2192 0.5 \u2192 1 pulse using Cubic(0.4,0,0.6,1). This supersedes the earlier legacy 675ms/0.62 timing decision.",
+        "Move and extend the existing shell rendering owner while matching the official source: muted fill, medium radius (site base × 0.8), and a 2-second 1 → 0.5 → 1 pulse using Cubic(0.4,0,0.6,1). This supersedes the earlier legacy 675ms/0.62 timing decision.",
         "DSkeletonRegion is presentational loading composition, not a request/state owner. Explicit expand:true preserves existing bounded application loading panels; default intrinsic region sizing supports inline library compositions.",
         "Render the frozen Card frame explicitly from registry measurements (16px padding, 4px header gap, 16px section gap, foreground/10 outer ring, xl radius). Remove generic framed panels elsewhere. Local demonstration state controls sit outside reference compositions; no Material Card/Skeleton styling is substituted.",
         "DSkeletonRegion adds keyboard-focus exclusion to the preserved pointer/semantics exclusions. DSkeleton.animate=false opts a shape out; region animate=false, reduced motion and TickerMode disable the shared pulse.",
@@ -1110,7 +1110,7 @@
         "Historical, before the shadcn fidelity correction: After the native palette fix: flutter test test/ui/d_skeleton_test.dart test/styleguide/component_tokens_test.dart test/styleguide/skeleton_examples_test.dart --no-pub --test-randomize-ordering-seed=random: 35 passed, seed 465275359. That former derived-fill/contrast regression was subsequently removed by the source-fidelity correction; it is not a current design criterion.",
         "Formatted all 16 touched Dart files with dart format; final dart format --output=none --set-exit-if-changed and git diff --check passed.",
         "Historical, before the shadcn fidelity correction: macOS 26.6.2 arm64 CUA: selected exact isolated app path and raised it under the coordinator-granted slot. Visually inspected all seven example groups. Geometry: circle/diameter pointer changes, Tab focus with visible halo, arrow keys changed diameter 56 to 64, pulse pause/static companion.",
-        "Historical, before the shadcn fidelity correction: Native Light: caught the old white-on-white fill, rebuilt the derived token fix and confirmed visible avatar/lines. Exercised Loading \u2192 Ready \u2192 Error \u2192 Retry. Native Forest: 360px preview, 200% text, RTL and reduced motion together; inspected avatar/card/text/form placeholders and ready form rendering.",
+        "Historical, before the shadcn fidelity correction: Native Light: caught the old white-on-white fill, rebuilt the derived token fix and confirmed visible avatar/lines. Exercised Loading → Ready → Error → Retry. Native Forest: 360px preview, 200% text, RTL and reduced motion together; inspected avatar/card/text/form placeholders and ready form rendering.",
         "Historical, before the shadcn fidelity correction: Native Plum: inspected pulsing table rows; dragged the horizontal scrollbar to reveal later columns and verified Ready retained the position. Inspected explicit RTL avatar placement and mirrored asymmetric corners. Reported completion to release the inspection slot.",
         "flutter devices reported macOS, Chrome and a wireless iPhone; native interaction was performed only on macOS.",
         "Coordinator review: migrated Use site radius, Retry, Follow and form Save example actions to public DButton.flat. flutter test test/styleguide/skeleton_examples_test.dart --no-pub --test-randomize-ordering-seed=random passed 18 tests, seed 3352427373; final analysis and isolated native build passed. This cleanup followed the recorded styleguide native inspection.",
@@ -1275,7 +1275,7 @@
       ],
       "decisions": [
         "Frozen Card Markdown and all seven APIs covered. Registry raw SHA256 e73e3fe00ab2e14c4db1dccb1ff5c67041a94c0926ac3216c1dc6dd6dee9d7e0; decoded source 645c3d73e387a99f1492220cc619453b0c7f5454134ee3cd548be7a80f7eccde. Exact metrics and complete adoption audit: docs/component-library/card.md.",
-        "Passive DCard with Header/Title/Description/Action/Content/Footer; 16/12px spacing, shared override, 1px foreground/10 outer ring, live radius \u00d71.4, explicit typography and native Material ink without elevation or action. Semantic container preserves existing grouping.",
+        "Passive DCard with Header/Title/Description/Action/Content/Footer; 16/12px spacing, shared override, 1px foreground/10 outer ring, live radius ×1.4, explicit typography and native Material ink without elevation or action. Semantic container preserves existing grouping.",
         "Direct footer children and explicit footer slot remove bottom padding. Leading/trailing edge slots clip images; edgeToEdge and joinNext express shared-spacing negative margins. Header reflows below 240px or above 150% text using stable Flex topology, preserving child element/focus.",
         "Eight runnable local-state examples reproduce reference compositions before application states. Adjacent Button link/outline/secondary/submit, Input email/password visuals, Badge and Toggle Group remain explicitly pending owners. Bundled package image has no network fallback.",
         "Examples reuse already-merged Label, Aspect Ratio and Skeleton; the frozen catalogue dependency remains typography."
@@ -1297,7 +1297,7 @@
         "Seed 834729: final Card/examples run passed 12 tests, including 1fr/auto LTR/RTL geometry, shared spacing, direct footer, image/joined content, retained editing, keyboard activation, 200% reflow and unchanged header action element/focus.",
         "macOS debug local fixture build succeeded. Isolated /tmp/DiscourseCard5995.app uses org.discourse.native.card5995 and discourse-card5995 scheme. Deep/strict ad-hoc signature and App.framework payload byte matching verified. Native screenshots and AX evidence are inline in the Card task; ignored build/card-review/native-manifest.json and byte-match.json record the inspected build.",
         "Exclusive macOS native pass compared official rendered Card metrics and light/dark screenshots with all eight examples, Plum palette, RTL, narrow layout and 200% text. Exercised login, spacing draft retention, terms acceptance, image details, disabled/selected/busy/error/empty states; inspected actual bundled styleguide. Real local-data Groups, Members, Activity, Poll, Events, Chat and Badge fixtures exercised navigation, retry, vote, RSVP and join/unfollow callbacks.",
-        "Coordinator reviewed stable clean Card HEAD 31663949f52a70ff90f791641a156e272cd8fd90, its seven passive APIs, exact 16/12px spacing and 1.4\u00d7 radius, retained action elements/focus during header reflow, direct footer spacing, eight complete examples and core/plugin adoptions. Native inspection and isolated app closure are complete, including official light/dark comparison, narrow/RTL/200%/Plum examples and real Groups/Members/Activity/Poll/Events/Chat/Badge fixtures; device and other surface limitations remain explicit. Applied pre-reviewed reconciliation with both-parent fingerprints verified, preserving current Tooltip and Avatar within Event Card surfaces.",
+        "Coordinator reviewed stable clean Card HEAD 31663949f52a70ff90f791641a156e272cd8fd90, its seven passive APIs, exact 16/12px spacing and 1.4× radius, retained action elements/focus during header reflow, direct footer spacing, eight complete examples and core/plugin adoptions. Native inspection and isolated app closure are complete, including official light/dark comparison, narrow/RTL/200%/Plum examples and real Groups/Members/Activity/Poll/Events/Chat/Badge fixtures; device and other surface limitations remain explicit. Applied pre-reviewed reconciliation with both-parent fingerprints verified, preserving current Tooltip and Avatar within Event Card surfaces.",
         "Coordinator combined-main verification: all 466 focused library/styleguide/Tooltip and affected core, Chat, Poll, Events, preferences, directory, aggregate and Voice tests passed, seed 3790819455; log /private/tmp/component-card-integration-tests.log. The full profile passed 63 Card/Skeleton/Aspect Ratio component and example cases, seed 2853461005; log /private/tmp/component-card-full-tests.log. Root and full analysis are clean (11.3s and 3.2s); full-profile locked pub get passed with no lockfile/pin changes. All 19 touched Dart files are formatted and git diff --check passes. Generic Card, its eight examples and adopted Skeleton source exactly match the reviewed branch. All previously merged Tooltip, Avatar, Spinner, Skeleton, Aspect Ratio and Label owners remain present in changed application source."
       ],
       "limitations": [
@@ -1390,16 +1390,45 @@
       "dependencies": [
         "typography"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null,
-      "clientThreadId": "client-new-thread:0d60fd76-4af6-49d1-860d-71a07204285e",
-      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native"
+      "acceptanceCriteria": [
+        "Port base-nova table/header/body/footer/row/head/cell/caption with 14/20 typography, 40px heads, 8px cell padding, 1px section rules, caption gap 16px, muted alpha hover/expanded and controlled selected state.",
+        "Support column sizing and spanning footer cells, shared column alignment, intrinsic horizontal overflow, RTL reading order, large text growth, semantic headers and keyboard-accessible composed actions; borrowed scroll controllers survive disposal.",
+        "Provide self-contained default seven-invoice, footer, product actions, selected/expanded and Arabic RTL styleguide examples using production DTable.",
+        "Audit core and plugin tables; migrate appropriate presentation preserving business callbacks, permissions and scrolling; document concrete specialized retained owners.",
+        "Pass touched format, root/full analysis and focused component/adoption tests; build exact-source uniquely identified signed macOS fixture, then await desktop slot for reference/native comparison."
+      ],
+      "decisions": [
+        "Single generic eager DTable owner with immutable typed sections/rows, widget cells/caption, Flutter column sizing and spanning footer layout; source mapping and exact frozen source hashes in table.md.",
+        "Controlled selected/expanded presentation, semantic table/rows/headers/cells and child-owned native actions/Form; live palette/font, RTL, reduced-motion alpha multiplication and intrinsic overflow.",
+        "Task worktree /Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native; no Users/Poll changes or unmerged component dependencies."
+      ],
+      "migrations": [
+        "Prometheus AlertTables presentation migrated; plugin collapse/link/timezone/quote permission/order/scrollbar/sizing behavior retained.",
+        "Skeleton ready-state table example migrated with its authored spacing."
+      ],
+      "retainedAlternatives": [
+        "Users pinned virtualized synchronized grid retained for specific scrolling/width persistence/hover isolation contracts; Data Table owner review boundary, Chart/Resizable adjacent ownership preserved.",
+        "CookedHtml authored DOM tables remain with HtmlWidget CSS/spans/selection; Typography frozen 16/24 full-grid article examples remain distinct.",
+        "Responsive discovery/group/member lists and Poll result bars are not generic presentation tables; detailed audit in table.md."
+      ],
+      "verification": [
+        "flutter pub get --enforce-lockfile (root and profiles/full): passed; Flutter 3.47.2 and lockfiles unchanged.",
+        "dart format touched Dart files and git diff --check: passed.",
+        "flutter analyze --no-pub (root): no issues; profiles/full: no issues.",
+        "flutter test --no-pub test/d_table_test.dart test/alert_tables_test.dart test/alert_data_test.dart test/alert_links_test.dart test/prometheus_alert_receiver_plugin_test.dart test/styleguide/styleguide_page_test.dart test/styleguide/skeleton_examples_test.dart --test-randomize-ordering-seed=9092026: 65 passed.",
+        "Widget checks: source geometry, spanning alignment/caption, semantic table-row-header-cell hierarchy, selected semantics, live multiplied alpha/reduced motion, borrowed controller, RTL large-text horizontal scrolling, keyboard menu edit and all examples at 360px/200%.",
+        "Native review fixture entrypoint tool/table_review.dart prepared; build provenance follows after source commit.",
+        "flutter build macos --debug --no-pub -t tool/table_review.dart: passed in isolated checkout; copied /tmp/table-review-7328/Table Review 7328.app, ID org.discourse.tablereview7328, URL scheme discourse-table-review-7328.",
+        "Build source f98c86e983088205647b11c97c6027ce706ad8dd; tracked lib/fixture/pin/root-lock bytes unchanged, temporary runner edits restored. Copied kernel equals original build kernel SHA256 8f46827b04e593cd6fa1f05daea14e315b1a00c42a60f4cf5291ea4b622a6e79.",
+        "Copied Info.plist ID corrected after debug configuration override; ad-hoc codesign and codesign --verify --deep --strict passed. Detailed build log/provenance/signature in /tmp/table-review-7328/. Native app has not been launched."
+      ],
+      "limitations": [
+        "awaiting_slot: native Mac locked; no browser/native inspection authorization. Actual reference-rendered comparison and native styleguide + AlertTables fixture inspection remain required; status stays in_progress.",
+        "Actions temporarily compose existing StyleguideAction/DButton and native MenuAnchor until Button/Dropdown Menu owners merge.",
+        "No VoiceOver or iOS/Linux device inspection, and no visual/pixel parity claim."
+      ],
+      "implementationCommit": "f98c86e983088205647b11c97c6027ce706ad8dd",
+      "mergeCommit": null
     },
     {
       "id": "scroll-area",
@@ -1422,7 +1451,7 @@
         "DScrollArea uses one native position per enabled axis; DScrollBar decorates existing native scrolling, with composable DScrollViewport, DScrollThumb and DScrollCorner. Live tokens, 7px capsule in 10px track, 16px minimum thumb and keyboard focus ring.",
         "Tags, Horizontal, RTL, combined overflow and lazy-controller composition are actual public-component styleguide examples; remain baseline pending native visual gate.",
         "Coordinator keyboard follow-up: only overflowing areas enter root Tab traversal; descendant focus/state survive content and viewport resize transitions. Shift+Space pages upward; unrelated Ctrl/Alt/Meta and Shift-modified keys bubble.",
-        "Browser-only review completed and released: measured light/dark/RTL/keyboard reference, corrected exterior-only focus ring with alpha multiplication, rounded-md\u00d70.8 and rendered photo150\u00d7200 dimensions. Font-loaded actual examples/production fixtures exported; scroll-area-render-review.md and hashed rendered artifacts preserve findings."
+        "Browser-only review completed and released: measured light/dark/RTL/keyboard reference, corrected exterior-only focus ring with alpha multiplication, rounded-md×0.8 and rendered photo150×200 dimensions. Font-loaded actual examples/production fixtures exported; scroll-area-render-review.md and hashed rendered artifacts preserve findings."
       ],
       "migrations": [
         "DSidebarContent and explicit wide styleguide preview scrollbar (width/state/controller preservation).",
@@ -1460,16 +1489,40 @@
       "taskId": "01a08445-7647-7a83-a366-e06252405043",
       "branch": "codex/ui-collapsible",
       "dependencies": [],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "acceptanceCriteria": [
+        "Composable DCollapsible root, trigger and content support controlled/default open state, disabled activation, nested scopes and borrowed focus ownership without app dependencies.",
+        "Match captured base-nova unstyled disclosure primitive and measured demo/Basic/Settings Panel/File Tree/RTL composition; incidental Button variants remain Button concerns.",
+        "Verify Enter/Space, expanded/disabled semantics, visible focus, focus restoration on collapse, lazy unmount and explicit keep-mounted editing retention, transition reversal and reduced motion.",
+        "Audit core/plugin disclosure owners and migrate appropriate single panels preserving editing, callbacks, permissions, async and scroll ownership; document retained sliver/Accordion alternatives.",
+        "Provide actual-component local examples and production fixtures; pass touched format, root/full analysis and focused component/migration checks on pinned Flutter; isolated signed native bundle and reference/native inspection required before review_ready."
+      ],
+      "decisions": [
+        "Frozen markdown SHA256 verified; base-nova wrappers have no visual classes or animation. Sources/registry/Base UI/Lucide URLs and hashes plus CSS mapping: docs/component-library/evidence/collapsible/implementation.md and sources.json.",
+        "Public DCollapsible/Trigger/Content expose composition, controlled/default state, disabled focusable triggers, passive state builder, borrowed focus nodes and explicit retained/lazy content with optional reduced-motion-aware height animation. Browser hiddenUntilFound maps to host-controlled open for search, not an inert native prop.",
+        "Actual order, Basic, Settings, nested File Tree, RTL and lifecycle/Form examples use merged Card and available DButton/StyleguideAction/native editing. Input/Field/Tabs remain pending and exact dependent button/editor visuals are explicitly identified for reconciliation."
+      ],
+      "migrations": [
+        "Events More options and Local Dates Display options replace ExpansionTile with retained DCollapsible editor composition, preserving controllers, selection, values, permissions, stale guards, asynchronous pickers and Apply outputs.",
+        "Prometheus AlertTables groups use controlled DCollapsible, preserving group refresh/default override, lazy content, horizontal scroll ownership, quote/link callbacks and compact app sizing. Stable PageStorage key retains horizontal offset across collapse."
+      ],
+      "retainedAlternatives": [
+        "Persisted InstanceSidebar lazy sliver groups retain their sliver disclosure; box content would change eager/lazy scroll ownership.",
+        "Composer reply excerpt retains constrained header/Expanded scrolling adaptation; topic inbound links and Chat deleted-message reveals are one-way domain show-more actions.",
+        "AI summary/inbox AnimatedSize are asynchronous/responsive layout transitions. Markdown collapsed projection state belongs to source editing. Sidebar styleguide submenu reconciliation remains with coordinator to avoid adjacent ownership changes."
+      ],
+      "verification": [
+        "Flutter 3.47.2; flutter pub get --enforce-lockfile at root and profiles/full passed with pins/lockfiles unchanged.",
+        "Touched dart format and git diff --check passed; flutter analyze --no-pub at root and profiles/full passed.",
+        "61 focused tests passed: test/ui/d_collapsible_test.dart, test/styleguide/collapsible_examples_test.dart, test/collapsible_editor_migration_test.dart, test/collapsible_review_fixture_test.dart, test/event_composer_test.dart, test/plugins/local_dates/local_date_composer_sheet_lifecycle_test.dart, test/plugins/local_dates/local_date_composer_component_test.dart, test/alert_tables_test.dart, test/prometheus_alert_receiver_plugin_test.dart, test/styleguide/styleguide_page_test.dart.",
+        "Isolated Collapsible Review 3c15 macOS debug app built from e05de6002a37f1dfbc7483a29f921086dffb0d3d; restored source equality and deep strict ad-hoc signature verification passed. Embedded/built kernel SHA256 57c4799f2342c03b9638bccf126114ce1f70ecc2dfcea46f9a2a472e850955f2. Exact path/identity/temporary signing adaptations: docs/component-library/evidence/collapsible/native-build.json. No launch."
+      ],
+      "limitations": [
+        "awaiting_slot: no browser/native launch or CUA; Mac locked and no desktop slot granted. Native styleguide plus all three production fixtures and rendered reference comparison remain required; tests do not establish VoiceOver/device/pixel parity.",
+        "Input/Field/Tabs are not merged; sanctioned native editing/action composition is explicit. Baseline DButton xs/link appearance requires adjacent owner reconciliation."
+      ],
+      "implementationCommit": "e05de6002a37f1dfbc7483a29f921086dffb0d3d",
       "mergeCommit": null,
-      "clientThreadId": "client-new-thread:3ae88a0b-d1be-463a-8697-9fdb5d1be78a",
-      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native"
+      "nativeReviewStatus": "awaiting_slot"
     },
     {
       "id": "accordion",
@@ -1986,18 +2039,35 @@
     },
     {
       "id": "alert",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
+      "branch": "codex/ui-alert",
       "dependencies": [
         "typography"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "acceptanceCriteria": [
+        "Implement DAlert, DAlertTitle, DAlertDescription and DAlertAction with default/destructive and custom live-token colors; exact base-nova 10/8px padding plus 1px border, 16px icon with 2px offset, 8px column and 2px row gaps, 14/20 typography and proportional lg radius.",
+        "Match basic, destructive, action, custom-color and RTL reference compositions using original Lucide artwork. Preserve compact action placement and reflow at narrow/large text.",
+        "Expose live-region opt-out for static notices; preserve child keyboard focus, semantics and callback ownership without adding timers/controllers or form state to passive Alert.",
+        "Audit core and bundled plugin inline banners; migrate appropriate error/status notices with existing callbacks, async states and permissions unchanged; record retained alternatives.",
+        "Verify focused component and migration tests, root/full-profile analysis, format, exact-source unique signed macOS actual-production fixture; keep native/reference comparison pending until explicit desktop slot."
+      ],
+      "decisions": [
+        "Four-part passive DAlert owner with exact base-nova source metrics, two actual variants, live tokens, multiplied destructive alpha, measured action reflow and platform live-region opt-out. Source/artwork hashes and geometry in docs/component-library/alert.md.",
+        "Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate."
+      ],
+      "migrations": [
+        "Inline errors: topic feed, categories, tags, groups/group, aggregate, activity pagination, draft refresh, revision history, GIF paging. Composer tag removal notice retains dismissal and controller lifetime."
+      ],
+      "retainedAlternatives": [
+        "Page-scale states owned by Empty; historical cooked post notices, chat deleted/read runs, recording/diagnostic indicators, specialized tables, field validation, media errors and Toast/Dialog content retained with specific audit rationale in alert.md."
+      ],
+      "verification": [
+        "107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity tests passed. Root and full-profile enforced-lockfile resolution completed. Native build evidence pending."
+      ],
+      "limitations": [
+        "awaiting_slot: Mac locked; no browser/native access authorized. Rendered comparison, native styleguide and changed production-surface inspection remain required; no VoiceOver/device/pixel-parity claim."
+      ],
       "implementationCommit": null,
       "mergeCommit": null
     },
@@ -2305,7 +2375,8 @@
       "01a08437-208f-7332-b373-192eaada5844",
       "01a0843e-76da-7911-ac98-49bd6dba8384",
       "01a08445-7647-7a83-a366-e06252405043",
-      "01a0844a-0669-7780-92e8-33cc4314f64a"
+      "01a0844a-0669-7780-92e8-33cc4314f64a",
+      "01a08454-55a6-7681-8da9-bec8b23899a4"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -2362,27 +2433,19 @@
       ],
       "activeTasks": [
         {
-          "component": "collapsible",
-          "taskId": "01a08445-7647-7a83-a366-e06252405043",
-          "branch": "codex/ui-collapsible",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native",
-          "baseCommit": "6cc49d3a",
-          "status": "implementation"
-        },
-        {
-          "component": "table",
-          "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
-          "branch": "codex/ui-table",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native",
-          "baseCommit": "dbb3391ed0803a20f5becb2ca40fde6cf81bd5e2",
-          "status": "implementation"
-        },
-        {
           "component": "input",
           "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
           "branch": "codex/ui-input",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/faaa/discourse-native",
           "status": "browser_and_renderer_review"
+        },
+        {
+          "component": "alert",
+          "taskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
+          "branch": "codex/ui-alert",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native",
+          "baseCommit": "84e073f8266773c830c0d03d1ad2c1b3caa3fdb2",
+          "status": "implementation"
         }
       ],
       "nativeReadyTasks": [
@@ -2498,6 +2561,22 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native",
           "headCommit": "53aae77ed4bdaddaa15c1094e4f754011608bd0f",
           "status": "awaiting_native_review"
+        },
+        {
+          "component": "collapsible",
+          "taskId": "01a08445-7647-7a83-a366-e06252405043",
+          "branch": "codex/ui-collapsible",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native",
+          "headCommit": "1d147ba1ad247bdefc2f473f9347ebd5078cfffb",
+          "status": "awaiting_browser_and_native_review"
+        },
+        {
+          "component": "table",
+          "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
+          "branch": "codex/ui-table",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native",
+          "headCommit": "32cc5ca1666a0f13e92024a10d9a9aec208a8858",
+          "status": "awaiting_browser_and_native_review"
         }
       ]
     },
@@ -2542,7 +2621,7 @@
       },
       "button": {
         "taskId": "01a083ac-5fd5-78b1-9263-7e3218a878b6",
-        "issue": "Small/extra-small rounded-md uses radius\u00d7.8, not radius-minus-2; verify exact registry classes and preserve host custom-radius scale. Live proportional theme mapping independently confirmed during Badge browser review.",
+        "issue": "Small/extra-small rounded-md uses radius×.8, not radius-minus-2; verify exact registry classes and preserve host custom-radius scale. Live proportional theme mapping independently confirmed during Badge browser review.",
         "status": "resolved_awaiting_native_review"
       },
       "input": {
@@ -2573,14 +2652,19 @@
       }
     },
     "integrationPreparation": {
-      "status": "preparing",
+      "status": "combined_source_reconciliation",
       "branch": "codex/component-library-integration-review",
       "worktree": "/private/tmp/discourse-component-integration-b104",
       "components": [
         "button",
         "input"
       ],
-      "purpose": "Temporary combined source/testing checkout to prepare file-input Button API reconciliation. This is not a catalogue/main merge, does not satisfy native acceptance, and does not make unmerged dependencies available for new task dispatch."
+      "purpose": "Temporary combined source/testing checkout to prepare file-input Button API reconciliation. This is not a catalogue/main merge, does not satisfy native acceptance, and does not make unmerged dependencies available for new task dispatch.",
+      "combinedCommit": "24cfd472",
+      "componentHeads": {
+        "button": "f32de5cc356a561c3a3d26c75aeb855e0ad28307",
+        "input": "43437c9a271e8352d71684a634654e11f3028d15"
+      }
     }
   },
   "visualFidelity": {
@@ -2652,8 +2736,8 @@
       "Final standalone macOS build passes at 6d8c63edcbcd8372408a4a5ec8ccc9d8479e5bbb. Its isolated kernel matches the workspace build: SHA256 90f5d1b5d4689ca2a660441be25859071c9f9c9f15bf3dc10817147efc373342. Deep strict signature verification passes.",
       "Native dark/light documentation, independent preview theme, code/state retention, 360px/200% swatches, centered Card, actual narrow-window Sidebar search/selection, Escape/focus return, and compact desktop Sidebar demo were inspected. Exact source checkpoints, evidence and limits: docs/component-library/styleguide-design.md.",
       "Real application flutter build macos --debug --no-pub passed from 07539c2c57533835094f70b02e07cfbbba92896a in the isolated coordinator checkout. Its complete Git tree f288c94ea575d48a3585b1ca6355e4d35ce0ddf3 exactly matches merged main 0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5. The running app in the main checkout build directory was preserved. Log: /private/tmp/styleguide-real-app-final-build.log.",
-      "Coordinator exported and visually inspected Light/Dark Foundations at 1270\u00d7847 logical pixels / 2\u00d7 output with the Flutter widget-test renderer and explicitly loaded SFNS/Material fonts. Source c5d37bd1 has identical styleguide/Sidebar code to final 6d8c63ed. Export harness completed successfully; /private/tmp/styleguide-b104-render.log. PNGs/provenance: /Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/styleguide-current-{dark,light}.png and styleguide-preview-provenance.json. This is a test-renderer preview, not native desktop verification.",
-      "Coordinator inspected the live official Button documentation in CUA Chrome at a matched 1270\u00d7847 viewport after discovering browser control remains available independently of the Mac lock. The live h1 measures 30px / 36px, weight 600 and -0.75px tracking, matching the documentation shell specification. Compared live dark reference canvas/panel/navigation with the current Flutter test export. Temporary browser viewport was reset and the created tab closed before granting Button the browser-only comparison slot. This still does not verify native application interactions."
+      "Coordinator exported and visually inspected Light/Dark Foundations at 1270×847 logical pixels / 2× output with the Flutter widget-test renderer and explicitly loaded SFNS/Material fonts. Source c5d37bd1 has identical styleguide/Sidebar code to final 6d8c63ed. Export harness completed successfully; /private/tmp/styleguide-b104-render.log. PNGs/provenance: /Users/joffreyjaffeux/.codex/visualizations/2026/09/08/01a0816f-d4e0-7f93-9d6b-baeaf6961181/styleguide-current-{dark,light}.png and styleguide-preview-provenance.json. This is a test-renderer preview, not native desktop verification.",
+      "Coordinator inspected the live official Button documentation in CUA Chrome at a matched 1270×847 viewport after discovering browser control remains available independently of the Mac lock. The live h1 measures 30px / 36px, weight 600 and -0.75px tracking, matching the documentation shell specification. Compared live dark reference canvas/panel/navigation with the current Flutter test export. Temporary browser viewport was reset and the created tab closed before granting Button the browser-only comparison slot. This still does not verify native application interactions."
     ],
     "limitations": [
       "The Mac locked before the final explicit-scrollbar screenshot. Its appearance and native drag remain unverified; the mouse-drag widget test passes.",
@@ -2690,7 +2774,7 @@
       "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "branch": "codex/component-fidelity-follow-up",
       "status": "awaiting_native_review",
-      "reason": "The captured Sidebar floating class is rounded-lg, which maps to the base radius; the prior implementation used \u00d71.2. Correct paint and border to the actual theme scale.",
+      "reason": "The captured Sidebar floating class is rounded-lg, which maps to the base radius; the prior implementation used ×1.2. Correct paint and border to the actual theme scale.",
       "implementationCommit": "6a99b2d29cf15f404db598894557fbd7e75649fc",
       "mergeCommit": null,
       "bundle": "/private/tmp/DiscourseComponentFidelityB104-6a99b2d2.app",
@@ -2708,7 +2792,7 @@
       "verification": [
         "Before: reproduced the fixed70px row overflow in the actual narrow200% DiagnosticsPanel.",
         "After:31 Diagnostics panel/acceptance tests plus1 font-loaded production render test passed, seed909515. Root/full analysis clean.",
-        "Actual360\u00d71000 production panel exported at100%/200% with SFNS and MaterialIcons,2\u00d7 raster. Request lifecycle seed verified to show status200 and120ms durations. Method labels remain on one line.",
+        "Actual360×1000 production panel exported at100%/200% with SFNS and MaterialIcons,2× raster. Request lifecycle seed verified to show status200 and120ms durations. Method labels remain on one line.",
         "Committed-source macOS build succeeded;1386 tracked source files match commit, app.dill/built/copied kernels match, deep strict signature passes. Bundle has not been launched."
       ],
       "implementationCommit": "a872962fe3b02c7bd7d596fcb517707d36c13619",

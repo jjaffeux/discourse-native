@@ -63,7 +63,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
 | 52 | carousel | planned | — | — | button | — |
 | 53 | toast | planned | — | — | button | — |
-| 54 | alert | planned | — | — | typography | — |
+| 54 | alert | in_progress | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | — |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
 | 56 | marker | in_progress | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | — |
 | 57 | bubble | planned | — | — | button, collapsible, popover, tooltip | — |
@@ -1422,6 +1422,49 @@ Status: in_progress. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/u
 
 Status: in_progress. Task: 01a0844a-0669-7780-92e8-33cc4314f64a. Branch: codex/ui-table.
 
+**acceptanceCriteria**
+
+- Port base-nova table/header/body/footer/row/head/cell/caption with 14/20 typography, 40px heads, 8px cell padding, 1px section rules, caption gap 16px, muted alpha hover/expanded and controlled selected state.
+- Support column sizing and spanning footer cells, shared column alignment, intrinsic horizontal overflow, RTL reading order, large text growth, semantic headers and keyboard-accessible composed actions; borrowed scroll controllers survive disposal.
+- Provide self-contained default seven-invoice, footer, product actions, selected/expanded and Arabic RTL styleguide examples using production DTable.
+- Audit core and plugin tables; migrate appropriate presentation preserving business callbacks, permissions and scrolling; document concrete specialized retained owners.
+- Pass touched format, root/full analysis and focused component/adoption tests; build exact-source uniquely identified signed macOS fixture, then await desktop slot for reference/native comparison.
+
+**decisions**
+
+- Single generic eager DTable owner with immutable typed sections/rows, widget cells/caption, Flutter column sizing and spanning footer layout; source mapping and exact frozen source hashes in table.md.
+- Controlled selected/expanded presentation, semantic table/rows/headers/cells and child-owned native actions/Form; live palette/font, RTL, reduced-motion alpha multiplication and intrinsic overflow.
+- Task worktree /Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native; no Users/Poll changes or unmerged component dependencies.
+
+**migrations**
+
+- Prometheus AlertTables presentation migrated; plugin collapse/link/timezone/quote permission/order/scrollbar/sizing behavior retained.
+- Skeleton ready-state table example migrated with its authored spacing.
+
+**retainedAlternatives**
+
+- Users pinned virtualized synchronized grid retained for specific scrolling/width persistence/hover isolation contracts; Data Table owner review boundary, Chart/Resizable adjacent ownership preserved.
+- CookedHtml authored DOM tables remain with HtmlWidget CSS/spans/selection; Typography frozen 16/24 full-grid article examples remain distinct.
+- Responsive discovery/group/member lists and Poll result bars are not generic presentation tables; detailed audit in table.md.
+
+**verification**
+
+- flutter pub get --enforce-lockfile (root and profiles/full): passed; Flutter 3.47.2 and lockfiles unchanged.
+- dart format touched Dart files and git diff --check: passed.
+- flutter analyze --no-pub (root): no issues; profiles/full: no issues.
+- flutter test --no-pub test/d_table_test.dart test/alert_tables_test.dart test/alert_data_test.dart test/alert_links_test.dart test/prometheus_alert_receiver_plugin_test.dart test/styleguide/styleguide_page_test.dart test/styleguide/skeleton_examples_test.dart --test-randomize-ordering-seed=9092026: 65 passed.
+- Widget checks: source geometry, spanning alignment/caption, semantic table-row-header-cell hierarchy, selected semantics, live multiplied alpha/reduced motion, borrowed controller, RTL large-text horizontal scrolling, keyboard menu edit and all examples at 360px/200%.
+- Native review fixture entrypoint tool/table_review.dart prepared; build provenance follows after source commit.
+- flutter build macos --debug --no-pub -t tool/table_review.dart: passed in isolated checkout; copied /tmp/table-review-7328/Table Review 7328.app, ID org.discourse.tablereview7328, URL scheme discourse-table-review-7328.
+- Build source f98c86e983088205647b11c97c6027ce706ad8dd; tracked lib/fixture/pin/root-lock bytes unchanged, temporary runner edits restored. Copied kernel equals original build kernel SHA256 8f46827b04e593cd6fa1f05daea14e315b1a00c42a60f4cf5291ea4b622a6e79.
+- Copied Info.plist ID corrected after debug configuration override; ad-hoc codesign and codesign --verify --deep --strict passed. Detailed build log/provenance/signature in /tmp/table-review-7328/. Native app has not been launched.
+
+**limitations**
+
+- awaiting_slot: native Mac locked; no browser/native inspection authorization. Actual reference-rendered comparison and native styleguide + AlertTables fixture inspection remain required; status stays in_progress.
+- Actions temporarily compose existing StyleguideAction/DButton and native MenuAnchor until Button/Dropdown Menu owners merge.
+- No VoiceOver or iOS/Linux device inspection, and no visual/pixel parity claim.
+
 ### scroll-area
 
 Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/ui-scroll-area.
@@ -1476,6 +1519,43 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 ### collapsible
 
 Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-collapsible.
+
+**acceptanceCriteria**
+
+- Composable DCollapsible root, trigger and content support controlled/default open state, disabled activation, nested scopes and borrowed focus ownership without app dependencies.
+- Match captured base-nova unstyled disclosure primitive and measured demo/Basic/Settings Panel/File Tree/RTL composition; incidental Button variants remain Button concerns.
+- Verify Enter/Space, expanded/disabled semantics, visible focus, focus restoration on collapse, lazy unmount and explicit keep-mounted editing retention, transition reversal and reduced motion.
+- Audit core/plugin disclosure owners and migrate appropriate single panels preserving editing, callbacks, permissions, async and scroll ownership; document retained sliver/Accordion alternatives.
+- Provide actual-component local examples and production fixtures; pass touched format, root/full analysis and focused component/migration checks on pinned Flutter; isolated signed native bundle and reference/native inspection required before review_ready.
+
+**decisions**
+
+- Frozen markdown SHA256 verified; base-nova wrappers have no visual classes or animation. Sources/registry/Base UI/Lucide URLs and hashes plus CSS mapping: docs/component-library/evidence/collapsible/implementation.md and sources.json.
+- Public DCollapsible/Trigger/Content expose composition, controlled/default state, disabled focusable triggers, passive state builder, borrowed focus nodes and explicit retained/lazy content with optional reduced-motion-aware height animation. Browser hiddenUntilFound maps to host-controlled open for search, not an inert native prop.
+- Actual order, Basic, Settings, nested File Tree, RTL and lifecycle/Form examples use merged Card and available DButton/StyleguideAction/native editing. Input/Field/Tabs remain pending and exact dependent button/editor visuals are explicitly identified for reconciliation.
+
+**migrations**
+
+- Events More options and Local Dates Display options replace ExpansionTile with retained DCollapsible editor composition, preserving controllers, selection, values, permissions, stale guards, asynchronous pickers and Apply outputs.
+- Prometheus AlertTables groups use controlled DCollapsible, preserving group refresh/default override, lazy content, horizontal scroll ownership, quote/link callbacks and compact app sizing. Stable PageStorage key retains horizontal offset across collapse.
+
+**retainedAlternatives**
+
+- Persisted InstanceSidebar lazy sliver groups retain their sliver disclosure; box content would change eager/lazy scroll ownership.
+- Composer reply excerpt retains constrained header/Expanded scrolling adaptation; topic inbound links and Chat deleted-message reveals are one-way domain show-more actions.
+- AI summary/inbox AnimatedSize are asynchronous/responsive layout transitions. Markdown collapsed projection state belongs to source editing. Sidebar styleguide submenu reconciliation remains with coordinator to avoid adjacent ownership changes.
+
+**verification**
+
+- Flutter 3.47.2; flutter pub get --enforce-lockfile at root and profiles/full passed with pins/lockfiles unchanged.
+- Touched dart format and git diff --check passed; flutter analyze --no-pub at root and profiles/full passed.
+- 61 focused tests passed: test/ui/d_collapsible_test.dart, test/styleguide/collapsible_examples_test.dart, test/collapsible_editor_migration_test.dart, test/collapsible_review_fixture_test.dart, test/event_composer_test.dart, test/plugins/local_dates/local_date_composer_sheet_lifecycle_test.dart, test/plugins/local_dates/local_date_composer_component_test.dart, test/alert_tables_test.dart, test/prometheus_alert_receiver_plugin_test.dart, test/styleguide/styleguide_page_test.dart.
+- Isolated Collapsible Review 3c15 macOS debug app built from e05de6002a37f1dfbc7483a29f921086dffb0d3d; restored source equality and deep strict ad-hoc signature verification passed. Embedded/built kernel SHA256 57c4799f2342c03b9638bccf126114ce1f70ecc2dfcea46f9a2a472e850955f2. Exact path/identity/temporary signing adaptations: docs/component-library/evidence/collapsible/native-build.json. No launch.
+
+**limitations**
+
+- awaiting_slot: no browser/native launch or CUA; Mac locked and no desktop slot granted. Native styleguide plus all three production fixtures and rendered reference comparison remain required; tests do not establish VoiceOver/device/pixel parity.
+- Input/Field/Tabs are not merged; sanctioned native editing/action composition is explicit. Baseline DButton xs/link appearance requires adjacent owner reconciliation.
 
 ### resizable
 
@@ -1562,6 +1642,39 @@ Status: in_progress. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/u
 
 - awaiting_slot: browser slot released with original dark theme and viewport restored; native app/device/VoiceOver inspection remains required before review_ready or merge.
 - No native CUA/app launch. Font-loaded widget screenshots are not device rendering, VoiceOver or OS-popup parity evidence.
+
+### alert
+
+Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/ui-alert.
+
+**acceptanceCriteria**
+
+- Implement DAlert, DAlertTitle, DAlertDescription and DAlertAction with default/destructive and custom live-token colors; exact base-nova 10/8px padding plus 1px border, 16px icon with 2px offset, 8px column and 2px row gaps, 14/20 typography and proportional lg radius.
+- Match basic, destructive, action, custom-color and RTL reference compositions using original Lucide artwork. Preserve compact action placement and reflow at narrow/large text.
+- Expose live-region opt-out for static notices; preserve child keyboard focus, semantics and callback ownership without adding timers/controllers or form state to passive Alert.
+- Audit core and bundled plugin inline banners; migrate appropriate error/status notices with existing callbacks, async states and permissions unchanged; record retained alternatives.
+- Verify focused component and migration tests, root/full-profile analysis, format, exact-source unique signed macOS actual-production fixture; keep native/reference comparison pending until explicit desktop slot.
+
+**decisions**
+
+- Four-part passive DAlert owner with exact base-nova source metrics, two actual variants, live tokens, multiplied destructive alpha, measured action reflow and platform live-region opt-out. Source/artwork hashes and geometry in docs/component-library/alert.md.
+- Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate.
+
+**migrations**
+
+- Inline errors: topic feed, categories, tags, groups/group, aggregate, activity pagination, draft refresh, revision history, GIF paging. Composer tag removal notice retains dismissal and controller lifetime.
+
+**retainedAlternatives**
+
+- Page-scale states owned by Empty; historical cooked post notices, chat deleted/read runs, recording/diagnostic indicators, specialized tables, field validation, media errors and Toast/Dialog content retained with specific audit rationale in alert.md.
+
+**verification**
+
+- 107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity tests passed. Root and full-profile enforced-lockfile resolution completed. Native build evidence pending.
+
+**limitations**
+
+- awaiting_slot: Mac locked; no browser/native access authorized. Rendered comparison, native styleguide and changed production-surface inspection remain required; no VoiceOver/device/pixel-parity claim.
 
 ### marker
 
