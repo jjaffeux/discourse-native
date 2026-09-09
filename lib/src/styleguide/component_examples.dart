@@ -102,7 +102,6 @@ final componentExamples = <String, ComponentExamples>{
   'toggle': toggleExamples,
   'toast': toastExamples,
   'button': buttonExamples,
-  'calendar': calendarExamples,
   'tooltip': tooltipExamples,
   'select': selectExamples,
 };

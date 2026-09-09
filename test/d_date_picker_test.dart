@@ -315,6 +315,85 @@ void main() {
     },
   );
 
+  testWidgets('editable input ignores active IME composition', (tester) async {
+    final changes = <DCalendarDate?>[];
+    await pump(
+      tester,
+      DDatePickerInput(
+        initialValue: DCalendarDate(2025, 6, 1),
+        onChanged: changes.add,
+      ),
+    );
+
+    await tester.tap(find.byType(TextField));
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'February 29, 2025',
+        selection: TextSelection.collapsed(offset: 17),
+        composing: TextRange(start: 0, end: 17),
+      ),
+    );
+    await tester.pump();
+
+    expect(changes, isEmpty);
+    expect(find.text('Enter a valid date'), findsNothing);
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'February 29, 2025',
+        selection: TextSelection.collapsed(offset: 17),
+      ),
+    );
+    await tester.pump();
+    expect(changes, isEmpty);
+  });
+
+  testWidgets('editable popover dismisses with Escape and outside press', (
+    tester,
+  ) async {
+    final reasons = <DPopoverChangeReason>[];
+    await pump(
+      tester,
+      DDatePickerInput(
+        defaultOpen: true,
+        onOpenChange: (open, reason) => reasons.add(reason),
+      ),
+    );
+    expect(find.byType(DCalendar), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(DCalendar), findsNothing);
+    expect(reasons.last, DPopoverChangeReason.escape);
+
+    await tester.tap(find.bySemanticsLabel('Select date'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DCalendar), findsOneWidget);
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
+    expect(find.byType(DCalendar), findsNothing);
+    expect(reasons.last, DPopoverChangeReason.outsidePress);
+  });
+
+  testWidgets('disabled editable picker cannot be opened imperatively', (
+    tester,
+  ) async {
+    final popover = DPopoverController();
+    addTearDown(popover.dispose);
+    await pump(
+      tester,
+      DDatePickerInput(
+        enabled: false,
+        defaultOpen: true,
+        popoverController: popover,
+      ),
+    );
+
+    popover.open();
+    await tester.pumpAndSettle();
+    expect(find.byType(DCalendar), findsNothing);
+  });
+
   testWidgets('time input reports only strict typed wall-clock values', (
     tester,
   ) async {

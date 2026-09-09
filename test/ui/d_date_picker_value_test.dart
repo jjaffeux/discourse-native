@@ -27,8 +27,9 @@ void main() {
         codec.tryParse('February 29, 2025', const Locale('en', 'US')),
         isNull,
       );
+      expect(codec.tryParse('2026-2-3', const Locale('en', 'US')), isNull);
       expect(
-        codec.tryParse('2026-2-3', const Locale('en', 'US')),
+        codec.tryParse('2026-02-03', const Locale('en', 'US')),
         DateTime(2026, 2, 3),
       );
     });
@@ -112,14 +113,19 @@ void main() {
         isNull,
       );
       expect(
-        parser.tryParse(
-          'in 10000 years',
-          reference: reference,
-          locale: locale,
-        ),
+        parser.tryParse('in 10000 years', reference: reference, locale: locale),
         isNull,
       );
     });
+  });
+
+  test('natural picker configuration requires an explicit clock', () {
+    expect(
+      () => DDatePickerInput(
+        naturalDateParser: const DEnglishNaturalDateParser(),
+      ),
+      throwsAssertionError,
+    );
   });
 
   group('DTimeValue', () {
