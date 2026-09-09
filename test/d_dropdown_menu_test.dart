@@ -265,6 +265,22 @@ void main() {
     expect(find.text('Item'), findsNothing);
   });
 
+  testWidgets('lifecycle suspension dismisses an uncontrolled menu', (
+    tester,
+  ) async {
+    await pumpMenu(tester);
+    await open(tester);
+    expect(find.text('Disabled API'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(find.text('Disabled API'), findsNothing);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('Disabled API'), findsNothing);
+  });
+
   testWidgets('live theme and text scaling preserve open choice state', (
     tester,
   ) async {
