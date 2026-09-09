@@ -19,5 +19,7 @@
     "file-disabled.png": "4b5a63e7648d1639bd0253dff29bfe0b2c2792b8fa470d2451d512a82029dbe8",
     "file-enabled.png": "05e9281b0aacd98daacbb3fb167f8340a0a586a87a1552f004b8622035df995a",
     "light-invalid.png": "05e758f72a004496b6cbda8209706cf81d56a1f63640d87db661c69f77ffe56c"
-  }
+  },
+  "implementationCommit": "3201d96b51f86abbb638218eee8d0178ef168938",
+  "nativeKernelSha256": "ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f"
 }

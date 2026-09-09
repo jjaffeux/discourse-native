@@ -371,3 +371,11 @@ from `220342b7` selectively; no temporary integration branch was merged. The pix
 test crops actual Choose file and No file chosen Text bounds separately, confirms
 enabled/disabled bounds match, and verifies each glyph region's half-opacity.
 This supersedes the earlier outstanding Button reconciliation notes.
+
+Final Button integration source 3201d96b51f86abbb638218eee8d0178ef168938 merges pinned main9d7a49e; all non-Input progress rows and merged Button/Avatar owners preserved. File trigger uses sibling Button extraSmall24px and scoped disabledOpacity1; pixel checks use actual independent label rectangles. Desktop/mobile styleguide test verifies bounded descendant editor and independent functioning Clear search. All371 affected tests (seed928374611), root/full analysis, three pixel and three export tests pass. Unique signed review bundle refreshed with empty entitlements, deep strict verification and matching source/copy kernel SHA256 ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f. Unlaunched awaiting_slot; no CUA.
+
+Logs: `/tmp/input-integration-focused.log`, `/tmp/input-integration-analysis.log`,
+`/tmp/input-integration-full-analysis.log`, `/tmp/input-integration-pixels.log`,
+`/tmp/input-integration-renders.log`, `/tmp/input-integration-native-build.log`.
+Native follow-up must check independent Clear search, fields/sibling controls,
+actual Add Site/Poll editing, full styleguide and final Button file example.
