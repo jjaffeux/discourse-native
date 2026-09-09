@@ -135,6 +135,7 @@ class DScrollArea extends StatefulWidget {
     this.thumbVisibility = true,
     this.borderRadius,
     this.corner = const DScrollCorner(),
+    this.physics,
   }) : assert(horizontalController == null || axes == DScrollAxes.both),
        assert(
          controller == null ||
@@ -154,6 +155,7 @@ class DScrollArea extends StatefulWidget {
   final bool thumbVisibility;
   final BorderRadius? borderRadius;
   final Widget corner;
+  final ScrollPhysics? physics;
 
   @override
   State<DScrollArea> createState() => _DScrollAreaState();
@@ -227,6 +229,7 @@ class _DScrollAreaState extends State<DScrollArea> {
           ? Axis.horizontal
           : Axis.vertical,
       padding: widget.padding,
+      physics: widget.physics,
       child: content,
     );
     content = DScrollBar(
