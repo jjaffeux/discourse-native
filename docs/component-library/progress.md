@@ -934,6 +934,7 @@ Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/u
 - Native transparent 48px targets; borrowed focus node ownership; reference 150ms cubic(.4,0,.2,1) motion with reduced-motion zero duration.
 - 2026-09-09 coordinator fidelity correction: rounded-lg now equals base radius; input maps to colors.outlineVariant separately from border. Every Switch opacity modifier multiplies token alpha, including card selected/hover and focus/invalid states. Controlled Form/reset and app callbacks unchanged.
 - Browser correction: FieldTitle uses 14/20px leading (86px choice card at 384px); invalid descriptions stay muted. Added explicit source-faithful Invalid example and centered Size rows with associated labels. Live CSS shows both wrapper and track focus rings, now preserved.
+- Exterior ring correction: animated 3px outside-only strokes preserve dual card/control rings without tinting translucent interiors. Desktop rows are intrinsic; Android/iOS/Fuchsia retain 48px minimum. Size composition has 20px gap. Poll/Group adapters add 8px vertical padding after fixture inspection exposed adjacent-field crowding.
 
 **migrations**
 
@@ -979,13 +980,15 @@ Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/u
 - Restored website dark theme, no viewport override used, closed sole comparison tab and explicitly released browser slot before build. No native app launched.
 - Final browser-corrected root and profiles/full flutter analyze --no-pub passed; touched Dart format and git diff --check clean. Logs /private/tmp/switch-browser-final-analyze.log and /private/tmp/switch-browser-final-full-analyze.log.
 - Refreshed browser-corrected macOS debug review bundle: /private/tmp/discourse-switch-review-9ab5a887/Discourse Switch Review.app. Source 9ab5a887cbf71b021022454f91cbdcd8f6041a4b; kernel SHA256 4545ebfacea1b7417d4f2e5820a2fa1a2be8c2714f208b015b608b5ff0df7d59 matches original build; tracked lib/test/tool equality and deep strict ad-hoc signature verification passed. Trace docs/component-library/switch-review-build.json. Native inspection remains awaiting_slot; bundle not launched.
+- Exterior ring and desktop geometry regressions passed in 221 affected tests seed 782312; final Size/Poll/Group changes passed 59 component/fixture/export/consumer checks. Inspected refreshed 20 component and 14 app-fixture font-loaded exports against committed primary references. No CUA/browser/native launch. Logs /private/tmp/switch-exterior-final-tests.log and /private/tmp/switch-exterior-adapter-tests.log.
+- Exterior correction root/full analysis clean; exact-source macOS debug build passed. Isolated bundle /private/tmp/discourse-switch-review-41ac9023/Discourse Switch Review 41ac9023.app; unique identifier org.discourse.switch-review-41ac9023 and scheme discourse-switch-review-41ac9023. Deep strict ad-hoc signature and source/copy kernel equality passed: f38fcf8e1c62d6f708ae2fae2d5e8af18ecbe869964cb49beed17931d2fde589. Trace docs/component-library/switch-review-build.json. No launch; native awaiting_slot.
 
 **limitations**
 
 - No iOS/Linux device run or spoken VoiceOver claim. Native text wrapping adapts CSS text balancing.
 - Review launcher covers representative migrated production surfaces. Voice room/editor and AI composer are covered by actual-widget regressions; additional native fixture coverage can be completed during review.
 - Browser comparison complete; native Mac remains locked. No native app launch/inspection, nativeInspectionStatus awaiting_slot; not review_ready or mergeable.
-- Browser Geist/Noto Arabic and native SF/SF Arabic shaping/canvas pixels differ; no pixel-equality claim. Shared DTokens.focusRing aliases host primary while reference neutral uses independent gray. Size row spacing grows to preserve separate 48px native touch targets.
+- Browser Geist/Noto Arabic and native SF/SF Arabic shaping/canvas pixels differ; no pixel-equality claim. Shared DTokens.focusRing aliases host primary while reference neutral uses independent gray. Desktop rows are intrinsic; touch platforms retain 48px targets.
 
 ### slider
 

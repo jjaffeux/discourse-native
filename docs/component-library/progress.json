@@ -835,7 +835,8 @@
         "Choice cards use source 10px inset + 1px border, 8px horizontal/2px description/20px group gaps, selected/hover treatment and the observed wrapper/track focus rings.",
         "Native transparent 48px targets; borrowed focus node ownership; reference 150ms cubic(.4,0,.2,1) motion with reduced-motion zero duration.",
         "2026-09-09 coordinator fidelity correction: rounded-lg now equals base radius; input maps to colors.outlineVariant separately from border. Every Switch opacity modifier multiplies token alpha, including card selected/hover and focus/invalid states. Controlled Form/reset and app callbacks unchanged.",
-        "Browser correction: FieldTitle uses 14/20px leading (86px choice card at 384px); invalid descriptions stay muted. Added explicit source-faithful Invalid example and centered Size rows with associated labels. Live CSS shows both wrapper and track focus rings, now preserved."
+        "Browser correction: FieldTitle uses 14/20px leading (86px choice card at 384px); invalid descriptions stay muted. Added explicit source-faithful Invalid example and centered Size rows with associated labels. Live CSS shows both wrapper and track focus rings, now preserved.",
+        "Exterior ring correction: animated 3px outside-only strokes preserve dual card/control rings without tinting translucent interiors. Desktop rows are intrinsic; Android/iOS/Fuchsia retain 48px minimum. Size composition has 20px gap. Poll/Group adapters add 8px vertical padding after fixture inspection exposed adjacent-field crowding."
       ],
       "migrations": [
         "lib/src/plugins/chat/chat_channel_info_view.dart",
@@ -877,15 +878,17 @@
         "Final correction verification: 63 focused tests passed with seed 782311 (21 Switch, 2 production fixture, 39 affected Settings/Preferences/AI tests, 1 font export). /private/tmp/switch-fidelity-final-tests.log.",
         "Restored website dark theme, no viewport override used, closed sole comparison tab and explicitly released browser slot before build. No native app launched.",
         "Final browser-corrected root and profiles/full flutter analyze --no-pub passed; touched Dart format and git diff --check clean. Logs /private/tmp/switch-browser-final-analyze.log and /private/tmp/switch-browser-final-full-analyze.log.",
-        "Refreshed browser-corrected macOS debug review bundle: /private/tmp/discourse-switch-review-9ab5a887/Discourse Switch Review.app. Source 9ab5a887cbf71b021022454f91cbdcd8f6041a4b; kernel SHA256 4545ebfacea1b7417d4f2e5820a2fa1a2be8c2714f208b015b608b5ff0df7d59 matches original build; tracked lib/test/tool equality and deep strict ad-hoc signature verification passed. Trace docs/component-library/switch-review-build.json. Native inspection remains awaiting_slot; bundle not launched."
+        "Refreshed browser-corrected macOS debug review bundle: /private/tmp/discourse-switch-review-9ab5a887/Discourse Switch Review.app. Source 9ab5a887cbf71b021022454f91cbdcd8f6041a4b; kernel SHA256 4545ebfacea1b7417d4f2e5820a2fa1a2be8c2714f208b015b608b5ff0df7d59 matches original build; tracked lib/test/tool equality and deep strict ad-hoc signature verification passed. Trace docs/component-library/switch-review-build.json. Native inspection remains awaiting_slot; bundle not launched.",
+        "Exterior ring and desktop geometry regressions passed in 221 affected tests seed 782312; final Size/Poll/Group changes passed 59 component/fixture/export/consumer checks. Inspected refreshed 20 component and 14 app-fixture font-loaded exports against committed primary references. No CUA/browser/native launch. Logs /private/tmp/switch-exterior-final-tests.log and /private/tmp/switch-exterior-adapter-tests.log.",
+        "Exterior correction root/full analysis clean; exact-source macOS debug build passed. Isolated bundle /private/tmp/discourse-switch-review-41ac9023/Discourse Switch Review 41ac9023.app; unique identifier org.discourse.switch-review-41ac9023 and scheme discourse-switch-review-41ac9023. Deep strict ad-hoc signature and source/copy kernel equality passed: f38fcf8e1c62d6f708ae2fae2d5e8af18ecbe869964cb49beed17931d2fde589. Trace docs/component-library/switch-review-build.json. No launch; native awaiting_slot."
       ],
       "limitations": [
         "No iOS/Linux device run or spoken VoiceOver claim. Native text wrapping adapts CSS text balancing.",
         "Review launcher covers representative migrated production surfaces. Voice room/editor and AI composer are covered by actual-widget regressions; additional native fixture coverage can be completed during review.",
         "Browser comparison complete; native Mac remains locked. No native app launch/inspection, nativeInspectionStatus awaiting_slot; not review_ready or mergeable.",
-        "Browser Geist/Noto Arabic and native SF/SF Arabic shaping/canvas pixels differ; no pixel-equality claim. Shared DTokens.focusRing aliases host primary while reference neutral uses independent gray. Size row spacing grows to preserve separate 48px native touch targets."
+        "Browser Geist/Noto Arabic and native SF/SF Arabic shaping/canvas pixels differ; no pixel-equality claim. Shared DTokens.focusRing aliases host primary while reference neutral uses independent gray. Desktop rows are intrinsic; touch platforms retain 48px targets."
       ],
-      "implementationCommit": "9ab5a887cbf71b021022454f91cbdcd8f6041a4b",
+      "implementationCommit": "41ac9023ab4c30de27f386d22d3e4a833170d88b",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot",
       "browserInspectionStatus": "completed"
@@ -2251,13 +2254,6 @@
       ],
       "activeTasks": [
         {
-          "component": "switch",
-          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-          "branch": "codex/ui-switch",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
-          "status": "source_and_renderer_correction"
-        },
-        {
           "component": "input",
           "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
           "branch": "codex/ui-input",
@@ -2278,6 +2274,13 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3d0a/discourse-native",
           "baseCommit": "cd1de63a04b60c5cdaa11f18e585a78d5f9eb1f9",
           "status": "implementation"
+        },
+        {
+          "component": "native-select",
+          "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
+          "branch": "codex/ui-native-select",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/89bf/discourse-native",
+          "status": "browser_and_source_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2347,12 +2350,12 @@
           "status": "awaiting_native_review"
         },
         {
-          "component": "native-select",
-          "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
-          "branch": "codex/ui-native-select",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/89bf/discourse-native",
-          "headCommit": "c72b9417e4ef27ed1d8fea92a704dd18036a0ad8",
-          "status": "awaiting_browser_and_native_review"
+          "component": "switch",
+          "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
+          "branch": "codex/ui-switch",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
+          "headCommit": "6793b50801f15e3735f7186441a0ed8588768ed3",
+          "status": "awaiting_native_review"
         }
       ]
     },
@@ -2372,7 +2375,7 @@
     },
     "pendingCoordinatorNativeReview": "Use Component Fidelity B104 at 6a99b2d2 after unlock to inspect title Escape/save failure, final styleguide preview scrollbar and corrected floating Sidebar radius.",
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+    "browserInspectionTaskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
@@ -2412,16 +2415,16 @@
       },
       "switch": {
         "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
-        "status": "in_progress",
+        "status": "resolved_awaiting_native_review",
         "issue": "After the completed source/browser corrections, Radio actual exports identified BoxShadow rings tinting translucent interiors. Switch still uses BoxShadow for track and card rings; its dark invalid export shows a red-filled unchecked track. Verify against reference-dark-invalid and replace rings with exterior-only strokes, preserving observed dual ring geometry and actual input fill. Also remove or narrowly adapt the unconditional 48px DSwitchTile content minimum on pointer platforms; its whole label row is clickable and native touch targets do not justify much taller desktop reference examples. Preserve touch48 and necessary app-adapter spacing."
       },
       "native-select": {
         "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
-        "status": "resolved_awaiting_native_review",
-        "issue": "Live open-menu theme updates now implemented with MenuAnchor. Finish plain-option type-ahead and complete audit/migration of appropriate remaining simple selectors; do not defer only because custom Select is pending."
+        "status": "in_progress",
+        "issue": "Broadened migration and Form/live-popup corrections complete. Coordinator reproduced stale type-ahead starting position after prefix expiry and parent selection changes; scratch regression expected broccoli but got blueberry. Correct during official rendered comparison. Also verify CSS padding border-box geometry against actual text/artwork bounds."
       }
     },
-    "browserInspectionPurpose": "Coordinator Native Select character navigation reference check; Scroll Area released its browser slot."
+    "browserInspectionPurpose": "Native Select reference comparison; coordinator released its temporary tab."
   },
   "visualFidelity": {
     "status": "merged",
