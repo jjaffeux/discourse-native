@@ -39,8 +39,10 @@ typedef DPopoverPlacementResolver =
     Offset? Function(DPopoverPlacement placement);
 
 /// Read-only geometry offered to an optional component-specific placement
-/// resolver. Returning null retains the ordinary side/alignment candidate;
-/// returned offsets still pass through Popover collision correction.
+/// resolver. [defaultOffset] and every non-null returned [Offset] are
+/// overlay-local content origins. Returning null selects [defaultOffset]; every
+/// returned origin still passes through the configured Popover collision
+/// policy and boundary correction.
 @immutable
 class DPopoverPlacement {
   const DPopoverPlacement({
@@ -756,12 +758,15 @@ class DPopoverContent extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   /// Optional component-specific positioning. It receives only resolved
-  /// geometry; Popover remains the collision, lifecycle and overlay owner.
+  /// geometry and returns an overlay-local content origin. Returning null uses
+  /// [DPopoverPlacement.defaultOffset]; Popover remains the collision,
+  /// lifecycle and overlay owner.
   final DPopoverPlacementResolver? placementResolver;
 
   /// Whether the styled surface supplies its own [SingleChildScrollView].
-  /// Set false when the content owns a lazy or independently controlled
-  /// viewport. The popover never owns or disposes that viewport's controller.
+  /// Set false when the caller owns a bounded lazy or independently controlled
+  /// viewport and therefore accepts responsibility for overflow. The popover
+  /// never owns or disposes that viewport's controller.
   final bool scrollable;
 
   @override
