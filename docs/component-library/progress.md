@@ -19,13 +19,13 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head |
 | --- | --- | --- |
 | textarea | Reference and native review | 058bb044 |
-| switch | Integration checks | 901f1227 |
+| switch | Native review; Mac locked | b851adbb |
 | slider | Reference and native review | bbd35fec |
 | progress | Reference and native review | 1c21a435 |
 | empty | Input Group composition, reference and native review | 9d4ebc9e |
 | item | Integration checks | c74fea70 |
 | table | Reference and native review | b3107cab |
-| scroll-area | Integration checks | 5f4e0133 |
+| scroll-area | Native review | 5f4e58a3 |
 | collapsible | Reference and native review | 684faacd |
 | resizable | Reference and native review | a7e26a93 |
 | popover | Control composition, reference and native review | cb7f9e2e |
@@ -1088,6 +1088,7 @@ Status: in_progress. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/u
 - Exterior ring and desktop geometry regressions passed in 221 affected tests seed 782312; final Size/Poll/Group changes passed 59 component/fixture/export/consumer checks. Inspected refreshed 20 component and 14 app-fixture font-loaded exports against committed primary references. No CUA/browser/native launch. Logs /private/tmp/switch-exterior-final-tests.log and /private/tmp/switch-exterior-adapter-tests.log.
 - Exterior correction root/full analysis clean; exact-source macOS debug build passed. Isolated bundle /private/tmp/discourse-switch-review-41ac9023/Discourse Switch Review 41ac9023.app; unique identifier org.discourse.switch-review-41ac9023 and scheme discourse-switch-review-41ac9023. Deep strict ad-hoc signature and source/copy kernel equality passed: f38fcf8e1c62d6f708ae2fae2d5e8af18ecbe869964cb49beed17931d2fde589. Trace docs/component-library/switch-review-build.json. No launch; native awaiting_slot.
 - Pinned-main 7df72ef2 integrated preserving final Button/Input and all non-Switch rows. 267 focused integration tests passed seed782313; root/full analysis clean. Exact-source isolated signed bundle /private/tmp/discourse-switch-review-c637efb3/Discourse Switch Review c637efb3.app; kernel d4dfbbf790b2cbabee6780474a496f94dcb6ea3f938a4c103bbb5c741bb21fe5. Signature and entitlement read-back verified with restricted APS/team/application identifiers absent. No desktop access; awaiting_slot.
+- Integrated pinned Radio/Checkbox main e612ad7b preserving all final owners and non-Switch rows. 90 focused integration tests passed seed 782314; root/full analysis clean. Unique exact-source bundle /private/tmp/discourse-switch-review-3243a88c/Discourse Switch Review 3243a88c.app; kernel 9af57c435d269a4f97355921a29131f3f232007988984017e3db2f2413655917. Explicit restricted-free debug/JIT entitlements read back exactly; strict deep signature verified. Runner identities/pins/locks unchanged. No UI access; native review pending.
 
 **limitations**
 
@@ -1631,6 +1632,7 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 - Rendered-review final executable source 1514d822c89c30e32cc5d46419682c6541d7e3ad: clean source equality after runner restoration; isolated macOS debug build succeeded; unique ID verified; build/copied kernel SHA256 42b26b4ed21e2f0a366893cbc3822dc84a8a1e590396b476a20c9a7c554e8192; deep strict signature passed. No native launch.
 - Backlog preparation: merged pinned main00f82d280a602c4ec86be3a24664f4052e6c1477; preserved all non-Scroll-Area progress rows and current shared owners.109 affected component/Sidebar/styleguide/production tests passed seed1438380230; root/full analysis clean. No unchanged browser/export review repeated.
 - Final pinned-main native preparation source ad0647a4d46b756b87d5b9c5c0ca526e26cb2e17: isolated build passed; clean source equality and build/copied kernel SHA256 cb549143dbb2b4307b93a606c34e0090c8d9026ab36684d07c2b710c01ac6579 verified. Deep strict signature and exact read-back of sandbox/JIT/network client+server entitlements passed; no APS/team/application IDs. Native remains awaiting_slot.
+- Final17-component baseline: mergede612ad7b at source 3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e without conflicts, other progress rows equal pinned main.114 targeted integration tests pass seed4102292575; root/full analysis clean. Unique isolated debug build, clean source equality, copied kernel SHA256 1361361d520ac8cb0e836ed7581c2e4713c6777a666fc625977f382feda4acc0, strict signature and restricted-free sandbox/JIT/network entitlement read-back verified. No UI use.
 
 **limitations**
 
