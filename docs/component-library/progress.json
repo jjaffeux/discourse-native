@@ -1008,14 +1008,18 @@
         "7 focused Toggle component/example tests passed with randomized seed 9052026, covering controlled/uncontrolled ownership, pointer/Space/Enter/semantic activation, disabled guards, exact artwork and touch targets, state surfaces/rings, live theme/RTL/200%/reduced-motion retention and all frozen examples.",
         "258 Toggle, Voice adoption, retained composer toolbar and full styleguide tests passed with randomized seed 9052027.",
         "Root and profiles/full flutter analyze --no-pub passed without diagnostics; root and full locked dependency resolution passed without dependency changes. Touched Dart formatting and git diff --check passed.",
-        "Unlaunched ordinary macOS styleguide debug build passed from source commit 271c1bddbd8332741e185d9924be7690e5628646. Toggle source SHA-256 966db63c7d1c41da694fd605f0970e692124beda4a2ac58324f122df50126176; kernel SHA-256 6ccefa7874e4d9b6f42d5c68ec3da012e6fc581a43c273961a069bd15150725c. This is build evidence only, not an isolated review bundle."
+        "Unlaunched ordinary macOS styleguide debug build passed from source commit 271c1bddbd8332741e185d9924be7690e5628646 and was refreshed after latest-main/evidence reconciliation at 564051345421a6d603504046daeb8455583821dd. Toggle source SHA-256 966db63c7d1c41da694fd605f0970e692124beda4a2ac58324f122df50126176; refreshed kernel SHA-256 14d093ab5748a9c23a36c9b7c1480fa8ca642f2e58a06e003dab753978e306f5. This is build evidence only, not an isolated review bundle."
       ],
       "limitations": [
         "Official browser/reference comparison and native light/dark/custom/RTL/200% hover/focus/pressed/disabled inspection remain for the independent reviewer.",
         "The ordinary unlaunched build retains project developer entitlements and must not be used as the isolated review bundle. No native launch, CUA/browser action, spoken VoiceOver, physical iOS or Linux run, or pixel-equality claim was made by the implementer."
       ],
       "implementationCommit": "271c1bddbd8332741e185d9924be7690e5628646",
-      "mergeCommit": null
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08579-4e43-7ce2-9919-546137c84a24",
+      "reviewBranch": "codex/review-toggle",
+      "reviewedBranchHead": "564051345421a6d603504046daeb8455583821dd"
     },
     {
       "id": "toggle-group",
