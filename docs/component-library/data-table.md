@@ -95,3 +95,7 @@ in light/dark/custom palettes, 360px, 200% text and RTL. It must exercise actual
 filter input, sort Asc/Desc, repeated visibility toggles, page size/page buttons,
 mixed/all/none selection, row menu keyboard focus/restoration and dynamic data.
 Do not claim iOS/Linux or spoken VoiceOver without actual checks.
+
+That review is owned by task `01a0863a-ff5a-7fe1-bc5c-5f0809bfd69a` on
+`codex/review-data-table`; see `data-table-review-handoff.md` for exact commits
+and the current-main dependency gate.
