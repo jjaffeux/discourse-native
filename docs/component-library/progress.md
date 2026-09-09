@@ -26,7 +26,7 @@ Branch preparation does not mark a component merged or visually verified.
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | combobox | Implementation and checks | — | — |
 | dropdown-menu | independent review | 48599440 | 01a085cf-f401-7813-80da-7c687de8a5d5 |
-| context-menu | Implementation and checks | — | — |
+| context-menu | independent review | e9b29538 | 01a0861f-38ca-7122-b18f-5f286ab90ccb |
 | menubar | Implementation and checks | — | — |
 | navigation-menu | Implementation and checks | — | — |
 | breadcrumb | Implementation and checks | — | — |
@@ -2414,6 +2414,7 @@ Status: in_progress. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/u
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Verified independent reviewer Review and merge Context Menu (01a0861f-38ca-7122-b18f-5f286ab90ccb) owns fixes, accepted Dropdown Menu reconciliation, first required rendered/native acceptance and final local main merge. Source d1c954fe and handoff e9b29538 are verified local commits; implementation is not accepted by this handoff.
 
 ### menubar
 

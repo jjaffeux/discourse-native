@@ -2640,16 +2640,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Context Menu (01a0861f-38ca-7122-b18f-5f286ab90ccb) owns fixes, accepted Dropdown Menu reconciliation, first required rendered/native acceptance and final local main merge. Source d1c954fe and handoff e9b29538 are verified local commits; implementation is not accepted by this handoff."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "d1c954fefb5d461be217d443f5bf51330b7f24e7",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d38b/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement the complete reference Context Menu, Trigger, Content, item/group/label/separator/submenu, shortcut, checkbox/radio and destructive APIs, including Basic, Submenu, Shortcuts, Groups, Icons, Checkboxes, Radio, Destructive, Sides and RTL. Reuse the final Dropdown Menu owner for common menu content/navigation/selection instead of creating another independent menu engine. Add the actual context invocation semantics: secondary pointer at its position, keyboard context-menu/Shift-F10 where appropriate, touch long-press adaptation, disabled handling, edge collision and trigger/reader focus restoration. Preserve nested menu deepest Escape, pointer ownership, typeahead/roving navigation and scoped accelerators. Audit core/plugin context menus and migrate suitable actions preserving domain guards and values. Coordinate source extensions directly with Dropdown Menu reviewer; prepared source is not accepted until its main merge.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/context-menu",
@@ -2667,7 +2668,12 @@
           "implementationCommit": "a78b361526738a94865e72a682137484e8bb46a1",
           "mergeCommit": null
         }
-      ]
+      ],
+      "reviewTaskId": "01a0861f-38ca-7122-b18f-5f286ab90ccb",
+      "reviewBranch": "codex/review-context-menu",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/8c70/discourse-native",
+      "reviewHandoffCommit": "e9b295386d4f10e82e93b7aa6875a0a8d20598b1",
+      "reviewStatus": "in_progress"
     },
     {
       "id": "menubar",
@@ -3749,7 +3755,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T12:23:20+00:00",
+    "updatedAt": "2026-09-09T12:27:59+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -3980,14 +3986,6 @@
           "phase": "reference_and_dependency_preparation"
         },
         {
-          "component": "context-menu",
-          "taskId": "01a08606-5dce-7b91-9ee6-7713872f1fa7",
-          "branch": "codex/ui-context-menu",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d38b/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
           "component": "menubar",
           "taskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
           "branch": "codex/ui-menubar",
@@ -4004,6 +4002,16 @@
           "implementationTaskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
           "implementationBranch": "codex/ui-hover-card",
           "headCommit": "4d0a7058de7b91c74aa579195dea5e25741a2abf"
+        },
+        {
+          "component": "context-menu",
+          "taskId": "01a0861f-38ca-7122-b18f-5f286ab90ccb",
+          "branch": "codex/review-context-menu",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8c70/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-5dce-7b91-9ee6-7713872f1fa7",
+          "implementationBranch": "codex/ui-context-menu",
+          "headCommit": "e9b295386d4f10e82e93b7aa6875a0a8d20598b1"
         }
       ],
       "nativeReadyTasks": []
@@ -4312,6 +4320,18 @@
           "implementationTaskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
           "implementationBranch": "codex/ui-hover-card",
           "implementationCommit": "c03c39b5bf037e33dd84e86db6216ee3b7febaa9",
+          "status": "in_progress"
+        },
+        {
+          "component": "context-menu",
+          "title": "Review and merge Context Menu",
+          "taskId": "01a0861f-38ca-7122-b18f-5f286ab90ccb",
+          "hostId": "local",
+          "branch": "codex/review-context-menu",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8c70/discourse-native",
+          "implementationTaskId": "01a08606-5dce-7b91-9ee6-7713872f1fa7",
+          "implementationBranch": "codex/ui-context-menu",
+          "implementationCommit": "d1c954fefb5d461be217d443f5bf51330b7f24e7",
           "status": "in_progress"
         }
       ],
