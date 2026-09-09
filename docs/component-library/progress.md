@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**51 of 64 components are merged locally.** 13 existing components are in progress; 0 are planned.
+**52 of 64 components are merged locally.** 12 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -16,7 +16,6 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
-| toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | alert-dialog | independent review | c8c6f049 | 01a086a4-4ba7-7a63-9af8-23f4a345f270 |
 | button-group | independent review | 97554ada | 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 |
 | combobox | independent review | 55dcf257 | 01a08628-7889-7dd2-a93c-c854fcdf1e9a |
@@ -49,7 +48,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | merged | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | a492253dc0abaed3f424df1b59c5a11b266d5b60 |
-| 16 | toggle-group | review_ready | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | — |
+| 16 | toggle-group | merged | 01a085ce-ca89-7af3-8375-946721be90c6 | codex/ui-toggle-group | toggle | b77f25c9ac779f324dd3853590df0ce0dd27eaa9 |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
@@ -1152,7 +1151,7 @@ Status: merged. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/ui-tog
 
 ### toggle-group
 
-Status: review_ready. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
+Status: merged. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/ui-toggle-group.
 
 **acceptanceCriteria**
 
@@ -1185,6 +1184,7 @@ Status: review_ready. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/
 - Exact-source macOS bundle /private/tmp/toggle-group-review-9a0d7a34.6q7VMA/ready/Toggle Group Review 9A0D7A34.app used identifier org.discourse.togglegroup.review9a0d7a34. Copied App.framework SHA256 f4f665946edda732d0c2fb8138a6b27a3acf576eba5a860c95b2a19dbeb2d273 matched the source build and deep strict ad-hoc verification passed with no push entitlement.
 - Native acceptance exercised all nine examples, pointer selection, horizontal arrows and Home/End, dynamic controller updates, disabled blocking, joined focus layering, light/dark/Forest/Plum, RTL, reduced motion, 200% text and narrow layout. The real production Composer changed live markup between [grid] and [grid mode=carousel].
 - Final candidate f7c3fec516639bedf0e52137d8bc5c5e98d143a9 reconciled the accepted history onto main b2f425545756bf78798ae2e1635b261f1719b14d without relevant source overlap. The same 72 focused checks passed with seed 9052046; root and profiles/full flutter analyze --no-pub and locked resolution remained clean.
+- The repository main checkout merged the reviewed candidate with --no-ff as b77f25c9ac779f324dd3853590df0ce0dd27eaa9. No remote push, release or provisioning action was performed.
 
 **limitations**
 
