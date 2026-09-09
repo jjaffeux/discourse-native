@@ -2078,16 +2078,17 @@
       ],
       "migrations": [
         "Reduced lib/src/shell/select.dart to a compatibility export and moved DSelect/DSelectField rendering to lib/src/ui/components/d_select.dart; discourse_ui and discourse_plugin_sdk export the new owner.",
-        "All current core/plugin callers in Preferences, Poll, Local Dates, Chat, Assign and Voice now render through the new owner via DSelect or the compatibility DSelectField adapter while preserving DropdownMenuItem enabled state, InputDecoration labels/help/errors, Form callbacks and controlled values."
+        "Reconciled accepted Native Select main metadata 5a26e5713719988f69930a7f02b3373b530d050a and preserved its plain/simple Preferences, Poll, Local Dates, Chat, Assign, Voice, Bookmark, Invite, Group and status consumers; rich DSelect remains a public component/styleguide owner rather than replacing those accepted native adaptations."
       ],
       "retainedAlternatives": [
         "DSelectField remains a source-compatibility FormField adapter only; it translates DropdownMenuItem/InputDecoration into DSelect entries and does not retain the old DropdownButton renderer.",
-        "Accepted Native Select work is not cherry-picked. Its reviewer 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 owns plain/simple consumer migration; Select's reviewer must reconcile accepted main and retain only app usages that genuinely need the rich popup."
+        "Accepted DNativeSelect remains the owner for plain/simple platform-adapted selection. DSelect is retained for rich composed selection that needs its custom popup, grouping, selected alignment, typeahead or multiple-selection surface."
       ],
       "verification": [
         "Frozen Markdown hash and registry/source/API inspection passed; concrete reference mapping is recorded in docs/component-library/select.md.",
-        "flutter analyze --no-pub lib test/d_select_test.dart test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart passed with no diagnostics.",
-        "flutter test --no-pub test/d_select_test.dart test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart passed: 115 tests covering styleguide mounting across narrow 200% RTL live palettes, keyboard/typeahead/focus restoration, disabled/read-only states, Form validation/save/reset, selected-row alignment, Button Group handoff, controlled-null, multiple selection, dynamic items, borrowed resource ownership and Assign/Voice/Preferences consumer behavior.",
+        "Root and profiles/full flutter analyze --no-pub passed with no diagnostics after reconciling accepted Native Select main.",
+        "flutter test --no-pub test/d_select_test.dart test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart --test-randomize-ordering-seed=391447 passed: 115 tests covering styleguide mounting across narrow 200% RTL live palettes, keyboard/typeahead/focus restoration, disabled/read-only states, Form validation/save/reset, selected-row alignment, Button Group handoff, controlled-null, multiple selection, dynamic items, borrowed resource ownership and accepted Native Select consumer behavior.",
+        "flutter build macos --debug --no-pub -t lib/styleguide_main.dart succeeded unlaunched from source head f3966666d772f5835a804a17f86eacb5bdf30a37; kernel SHA256 a20eb06d6f350a0d2cec122b1ddcd3f873c9d4f88772fd443c8ba0abe057383d, org.discourse.native.dev, CDHash 059b47bf1c10d2135b76bdaca92f5316ee920185, TeamIdentifier 6T3LU73T8S.",
         "git diff --check passed."
       ],
       "limitations": [
@@ -2096,6 +2097,11 @@
       ],
       "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
       "mergeCommit": null,
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e158/discourse-native",
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
+      "reviewBranch": "codex/review-select",
+      "reviewedBranchHead": "f3966666d772f5835a804a17f86eacb5bdf30a37",
       "preparedDependencies": [
         {
           "id": "popover",

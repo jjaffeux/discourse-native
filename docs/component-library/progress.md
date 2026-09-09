@@ -21,7 +21,7 @@ Branch preparation does not mark a component merged or visually verified.
 | accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
-| select | Implementation and checks | — | — |
+| select | Implementation and checks | — | 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | input-group | Implementation and checks | — | — |
 | button-group | independent review | a0cca310 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
@@ -2031,18 +2031,19 @@ Status: in_progress. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/u
 **migrations**
 
 - Reduced lib/src/shell/select.dart to a compatibility export and moved DSelect/DSelectField rendering to lib/src/ui/components/d_select.dart; discourse_ui and discourse_plugin_sdk export the new owner.
-- All current core/plugin callers in Preferences, Poll, Local Dates, Chat, Assign and Voice now render through the new owner via DSelect or the compatibility DSelectField adapter while preserving DropdownMenuItem enabled state, InputDecoration labels/help/errors, Form callbacks and controlled values.
+- Reconciled accepted Native Select main metadata 5a26e5713719988f69930a7f02b3373b530d050a and preserved its plain/simple Preferences, Poll, Local Dates, Chat, Assign, Voice, Bookmark, Invite, Group and status consumers; rich DSelect remains a public component/styleguide owner rather than replacing those accepted native adaptations.
 
 **retainedAlternatives**
 
 - DSelectField remains a source-compatibility FormField adapter only; it translates DropdownMenuItem/InputDecoration into DSelect entries and does not retain the old DropdownButton renderer.
-- Accepted Native Select work is not cherry-picked. Its reviewer 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 owns plain/simple consumer migration; Select's reviewer must reconcile accepted main and retain only app usages that genuinely need the rich popup.
+- Accepted DNativeSelect remains the owner for plain/simple platform-adapted selection. DSelect is retained for rich composed selection that needs its custom popup, grouping, selected alignment, typeahead or multiple-selection surface.
 
 **verification**
 
 - Frozen Markdown hash and registry/source/API inspection passed; concrete reference mapping is recorded in docs/component-library/select.md.
-- flutter analyze --no-pub lib test/d_select_test.dart test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart passed with no diagnostics.
-- flutter test --no-pub test/d_select_test.dart test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart passed: 115 tests covering styleguide mounting across narrow 200% RTL live palettes, keyboard/typeahead/focus restoration, disabled/read-only states, Form validation/save/reset, selected-row alignment, Button Group handoff, controlled-null, multiple selection, dynamic items, borrowed resource ownership and Assign/Voice/Preferences consumer behavior.
+- Root and profiles/full flutter analyze --no-pub passed with no diagnostics after reconciling accepted Native Select main.
+- flutter test --no-pub test/d_select_test.dart test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart --test-randomize-ordering-seed=391447 passed: 115 tests covering styleguide mounting across narrow 200% RTL live palettes, keyboard/typeahead/focus restoration, disabled/read-only states, Form validation/save/reset, selected-row alignment, Button Group handoff, controlled-null, multiple selection, dynamic items, borrowed resource ownership and accepted Native Select consumer behavior.
+- flutter build macos --debug --no-pub -t lib/styleguide_main.dart succeeded unlaunched from source head f3966666d772f5835a804a17f86eacb5bdf30a37; kernel SHA256 a20eb06d6f350a0d2cec122b1ddcd3f873c9d4f88772fd443c8ba0abe057383d, org.discourse.native.dev, CDHash 059b47bf1c10d2135b76bdaca92f5316ee920185, TeamIdentifier 6T3LU73T8S.
 - git diff --check passed.
 
 **limitations**
