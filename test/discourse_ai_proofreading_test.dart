@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DSwitch;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -388,7 +389,7 @@ void main() {
     }
     expect(
       tester
-          .widget<Switch>(
+          .widget<DSwitch>(
             find.byKey(const ValueKey('composer-proofread-switch')),
           )
           .value,
@@ -400,7 +401,7 @@ void main() {
 
     expect(
       tester
-          .widget<Switch>(
+          .widget<DSwitch>(
             find.byKey(const ValueKey('composer-proofread-switch')),
           )
           .value,
@@ -416,7 +417,7 @@ void main() {
     );
     expect(
       tester
-          .widget<Switch>(
+          .widget<DSwitch>(
             find.byKey(const ValueKey('composer-proofread-switch')),
           )
           .value,
@@ -434,7 +435,7 @@ void main() {
     await tester.pump();
     expect(
       tester
-          .widget<Switch>(
+          .widget<DSwitch>(
             find.byKey(const ValueKey('composer-proofread-switch')),
           )
           .value,
@@ -500,7 +501,7 @@ void main() {
 
     expect(
       tester
-          .widget<Switch>(
+          .widget<DSwitch>(
             find.byKey(const ValueKey('composer-proofread-switch')),
           )
           .value,
