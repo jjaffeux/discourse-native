@@ -26,7 +26,7 @@ Branch preparation does not mark a component merged or visually verified.
 | native-select | independent review | 986eb063 | 01a08558-4ae6-7db2-bdd6-ee1b7d91d022 |
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | input-group | Implementation and checks | — | — |
-| button-group | independent review | 407de2e2 | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
+| button-group | independent review | — | 01a0859e-170c-7821-b0fd-9ff24a9bfaac |
 | dropdown-menu | Implementation and checks | — | — |
 | carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
 | toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
@@ -2110,14 +2110,14 @@ Status: in_progress. Task: 01a08581-831f-7751-b714-096b5aebf86a. Branch: codex/u
 - Focused Button Group/styleguide/ContentNavigationControls tests passed after current-main integration: flutter test --no-pub test/d_button_group_test.dart test/styleguide/button_group_examples_test.dart test/content_navigation_controls_test.dart --test-randomize-ordering-seed=random --reporter expanded, 33 passed, seed 3618609876.
 - Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed after review integration with no issues. flutter build macos --debug --no-pub passed and produced build/macos/Build/Products/Debug/Discourse.app.
 - After merging current main fb790fcd, the focused Button Group/styleguide/ContentNavigationControls test set passed again: 33 passed, seed 182403803. Root and profiles/full flutter analyze --no-pub passed with no issues, git diff --check passed, and flutter build macos --debug --no-pub rebuilt build/macos/Build/Products/Debug/Discourse.app.
-- Created the persisted reviewer task `Review and merge Button Group` (`01a0859e-170c-7821-b0fd-9ff24a9bfaac`) in isolated worktree `/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native` on `codex/review-button-group`; it owns dependency reconciliation, remaining rendered/native review, fixes, verification and the final local-main merge.
+- Created the persisted reviewer task `Review and merge Button Group` (`01a0859e-170c-7821-b0fd-9ff24a9bfaac`) in isolated worktree `/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native` on `codex/review-button-group`; it owns dependency reconciliation, remaining rendered/native review, fixes, verification and the final local-main merge. Implementation source is 6ef8c3fe883cc0d0d2e6456341e59def884fab4d, original source/evidence handoff HEAD is e8130ce7405fed927b51e9eeb99fe287086ee15e, and implementation ownership-ledger commit a0cca310458ad1d5f7096d75d4116b04718dbf09 is merged into the review branch.
 
 **limitations**
 
 - The styleguide has complete accounted sections, but Input Group, library Dropdown Menu, rich Select and Popover use explicitly labeled local handoff fixtures because those final owners are still pending or in review. Native Select is not substituted. The new Button Group reviewer owns coordinating their final replacements.
 - No shared desktop lease was available during source implementation. Official rendered-page comparison, native macOS interaction/visual inspection, VoiceOver, iOS and Linux device checks remain for the new reviewer.
 - DInput joined-edge painting was source- and widget-tested after replacing its uniform BoxDecoration with an equivalent animated custom decoration, but requires rendered pixel comparison in final review.
-- Current main fb790fcd records Input Group as in_progress under task 01a085af-d606-7281-ac25-34c83adc855e on codex/ui-input-group, after dispatch commit af91afb9. Dropdown Menu and rich Select remain planned, and Popover remains in_progress under review branch codex/review-popover. Button Group remains in_progress and its styleguide remains baseline until those final public components can replace the local handoff fixtures.
+- Current main f0f9b056 records Input Group as in_progress under task 01a085af-d606-7281-ac25-34c83adc855e on codex/ui-input-group, after dispatch commit af91afb9. Dropdown Menu source implementation is in progress under task 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 on codex/ui-dropdown-menu; Button Group awaits its accepted public DDropdownMenu API SHA for the frozen Dropdown Menu composition. Rich Select remains planned, and Popover remains in_progress under review branch codex/review-popover. Button Group remains in_progress and its styleguide remains baseline until those final public components can replace the local handoff fixtures.
 - The desktop lease was busy during this review continuation, held by Alert with other reviewers already queued. The mistaken queue request under an unrelated reviewer ID was cancelled immediately; no Button Group browser/native/CUA action was performed and no desktop lease is currently held.
 
 ### dropdown-menu
