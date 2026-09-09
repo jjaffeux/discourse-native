@@ -4,6 +4,7 @@ import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
 import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
+import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/direction_examples.dart';
@@ -25,6 +26,7 @@ import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
 import 'examples/switch_examples.dart';
 import 'examples/table_examples.dart';
+import 'examples/textarea_examples.dart';
 import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
@@ -33,12 +35,14 @@ import 'styleguide_example.dart';
 final componentExamples = <String, ComponentExamples>{
   'alert': alertExamples,
   'table': tableExamples,
+  'textarea': textareaExamples,
   'collapsible': collapsibleExamples,
   'input': inputExamples,
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
   'empty': emptyExamples,
   'card': cardExamples,
+  'chart': chartExamples,
   'resizable': resizableExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,
