@@ -19,7 +19,7 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head |
 | --- | --- | --- |
 | textarea | Reference and native review | 058bb044 |
-| switch | Native review; Mac locked | 901f1227 |
+| switch | Integration checks | 901f1227 |
 | slider | Reference and native review | bbd35fec |
 | progress | Reference and native review | 1c21a435 |
 | empty | Integration checks | 403d8888 |
@@ -28,7 +28,7 @@ Branch preparation does not mark a component merged or visually verified.
 | scroll-area | Native review | 5f4e0133 |
 | collapsible | Reference and native review | 684faacd |
 | resizable | Reference and native review | a7e26a93 |
-| popover | Reference and native review | cb7f9e2e |
+| popover | Control composition, reference and native review | cb7f9e2e |
 | dialog | Reference and native review | 715ab477 |
 | native-select | Native review | 986eb063 |
 | field | Control composition, reference and native review | 09869a67 |

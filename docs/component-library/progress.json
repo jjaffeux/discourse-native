@@ -2638,17 +2638,17 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native",
           "headCommit": "c74fea70b254abbdbef8d3704abee8452dd5adc1",
           "status": "main_integration_preparation"
-        }
-      ],
-      "nativeReadyTasks": [
+        },
         {
           "component": "switch",
           "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
           "branch": "codex/ui-switch",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
           "headCommit": "901f1227",
-          "status": "awaiting_native_unlock"
-        },
+          "status": "main_integration_preparation"
+        }
+      ],
+      "nativeReadyTasks": [
         {
           "component": "scroll-area",
           "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
@@ -2753,7 +2753,7 @@
           "branch": "codex/ui-popover",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a12a/discourse-native",
           "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
-          "status": "awaiting_browser_and_native_review",
+          "status": "awaiting_browser_native_and_control_reconciliation",
           "headCommit": "cb7f9e2e474529b1ac2559f1226d47590202e23f"
         }
       ]
