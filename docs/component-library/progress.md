@@ -21,7 +21,7 @@ Branch preparation does not mark a component merged or visually verified.
 | accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
 | hover-card | Implementation and checks | — | — |
 | alert-dialog | Implementation and checks | — | — |
-| sheet | Implementation and checks | — | — |
+| sheet | Implementation and checks | — | 01a0862f-b27f-76d2-a441-8a77594aedc8 |
 | drawer | Implementation and checks | — | — |
 | select | independent review | 69e5ec66 | 01a085e1-1106-7ba1-a30c-15a8a7a5bd22 |
 | input-group | independent review | bc39e7f4 | 01a085d3-1acf-7361-9dc8-fc4a99de7c45 |
