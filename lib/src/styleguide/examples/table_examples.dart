@@ -171,6 +171,22 @@ class _TableActionsExampleState extends State<TableActionsExample> {
   int _nextId = 3;
   int? _expanded;
   String _status = '';
+
+  final _focusNodes = <int, FocusNode>{};
+
+  FocusNode _focusNode(int id) => _focusNodes.putIfAbsent(
+    id,
+    () => FocusNode(debugLabel: 'Table product action $id'),
+  );
+
+  @override
+  void dispose() {
+    for (final node in _focusNodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -205,6 +221,7 @@ class _TableActionsExampleState extends State<TableActionsExample> {
                   DTableCell(
                     alignment: AlignmentDirectional.centerEnd,
                     child: MenuAnchor(
+                      childFocusNode: _focusNode(product.$1),
                       onOpen: () => setState(() => _expanded = product.$1),
                       onClose: () => setState(() => _expanded = null),
                       menuChildren: [
@@ -241,6 +258,7 @@ class _TableActionsExampleState extends State<TableActionsExample> {
                         hasPopup: true,
                         tooltip: 'Open menu for ${product.$2}',
                         icon: const Icon(Icons.more_horiz),
+                        focusNode: _focusNode(product.$1),
                         onPressed: () => controller.isOpen
                             ? controller.close()
                             : controller.open(),
@@ -368,6 +386,13 @@ class _ProductTableState extends State<ProductTable> {
     (0, 'Wireless Mouse', '$29.99'), (1, 'Mechanical Keyboard', '$129.99'), (2, 'USB-C Hub', '$49.99')];
   int nextId = 3;
   int? expanded;
+  final focusNodes = <int, FocusNode>{};
+  FocusNode focusNode(int id) => focusNodes.putIfAbsent(id, FocusNode.new);
+  @override
+  void dispose() {
+    for (final node in focusNodes.values) { node.dispose(); }
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) => DTable(
     header: const DTableHeader(rows: [DTableRow(cells: [
@@ -378,6 +403,7 @@ class _ProductTableState extends State<ProductTable> {
       DTableRow(key: ValueKey(p.$1), expanded: expanded == p.$1, cells: [
         DTableCell(child: Text(p.$2)), DTableCell(child: Text(p.$3)),
         DTableCell(alignment: AlignmentDirectional.centerEnd, child: MenuAnchor(
+          childFocusNode: focusNode(p.$1),
           onOpen: () => setState(() => expanded = p.$1),
           onClose: () => setState(() => expanded = null),
           menuChildren: [for (final action in ['Edit', 'Duplicate', 'Delete'])
@@ -389,6 +415,7 @@ class _ProductTableState extends State<ProductTable> {
             }), child: Text(action)),
           ],
           builder: (context, menu, child) => DButton(
+            focusNode: focusNode(p.$1),
             onPressed: () => menu.isOpen ? menu.close() : menu.open(),
             label: Text('Open menu for ${p.$2}')),
         )),
