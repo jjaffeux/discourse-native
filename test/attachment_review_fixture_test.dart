@@ -58,9 +58,15 @@ void main() {
     );
 
     await tester.tap(find.byTooltip('Use dark theme'));
+    await tester.tap(find.byTooltip('Use custom palette and radius'));
     await tester.tap(find.byTooltip('Use right-to-left'));
     await tester.tap(find.byTooltip('Use 200% text'));
+    await tester.tap(find.byTooltip('Use reduced motion'));
+    await tester.tap(find.byTooltip('Use narrow canvas'));
     await tester.pump();
+    expect(find.byTooltip('Use default palette'), findsOneWidget);
+    expect(find.byTooltip('Use standard motion'), findsOneWidget);
+    expect(find.byTooltip('Use wide canvas'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
