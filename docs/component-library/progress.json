@@ -1526,7 +1526,7 @@
     },
     {
       "id": "table",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
       "branch": "codex/ui-table",
       "dependencies": [
@@ -1566,16 +1566,20 @@
         "Integration: merged pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; all non-Table progress rows preserved exactly. Table examples now compose merged DButton; retained custom spans/semantics, AlertTables/Skeleton adapters and Users boundary.",
         "Integration root/full enforced-lockfile resolution and analysis passed. 50 focused Table/AlertTables/Skeleton/styleguide tests passed seed 9092026; final trigger-size follow-up: all 7 DTable tests passed.",
         "Superseding native artifact source 80c801e69ee94b8f1d02ca71ccb489bc53aec257, /tmp/table-review-7328/Table Review 7328.app; final ID org.discourse.tablereview7328 and URL scheme discourse-table-review-7328 verified. Copied kernel equals built SHA256 ec4e523c98e3978b530bf4adda8f52ce452864c006d8d9bb3d54f0c392c54e4a.",
-        "Ad-hoc debug entitlement read-back equals only allow-jit, allow-unsigned-executable-memory and disable-library-validation; no restricted entitlements. Deep strict signature verification passed; tracked source/fixture/pin/lock equality passed and runner edits restored. App not launched; awaiting_slot."
+        "Ad-hoc debug entitlement read-back equals only allow-jit, allow-unsigned-executable-memory and disable-library-validation; no restricted entitlements. Deep strict signature verification passed; tracked source/fixture/pin/lock equality passed and runner edits restored.",
+        "Independent reviewer reran the final 66-test Table/AlertTables/Skeleton/styleguide bundle with seed 9092026 after fixes; all passed. Root analysis passed in 66.8s, profiles/full analysis passed in 11.7s, touched formatting and git diff --check passed, and lockfiles remained unchanged.",
+        "Approved browser comparison inspected the official Base UI Table default, Footer, Actions and RTL examples in light and dark themes. Native default/dark/Forest renders matched the compact geometry, alignment, rules, footer/caption spacing and 32px action trigger; production AlertTables links, dates, actions, collapse persistence, quote permissions, empty-to-ready transition, Local Dates, dark RTL and 200% text were exercised without overflow.",
+        "Native keyboard review found and fixed initial menu-item focus plus trigger-focus restoration. The final exact-source app confirmed Return opens Actions with Edit focused, activates Edit, restores trigger focus and reopens on the next Return.",
+        "Final exact-source macOS bundle /tmp/table-review-fdec-907ddaf1/Table Review fdec final.app was built from 907ddaf18f703ed3aed95c5456705d73b97dc20f with ID org.discourse.tablereviewfdecfinal, URL scheme discourse-table-review-fdec-final and matching copied/built kernel SHA256 d5db668fc8233f8772cf612ccf79a9797d527539ec132ab2a0f9475680356282. Deep strict ad-hoc signature passed; entitlement read-back contains only allow-jit, allow-unsigned-executable-memory and disable-library-validation."
       ],
       "limitations": [
-        "awaiting_slot: native Mac locked; no browser/native inspection authorization. Actual reference-rendered comparison and native styleguide + AlertTables fixture inspection remain required; status stays in_progress.",
-        "Actions temporarily compose merged DButton and native MenuAnchor until Dropdown Menu merges.",
-        "No VoiceOver or iOS/Linux device inspection, and no visual/pixel parity claim."
+        "Actions temporarily compose merged DButton and native MenuAnchor until Dropdown Menu merges; the temporary composition is keyboard-functional and restores trigger focus.",
+        "Native horizontal trackpad scrolling was not conclusively established during CUA inspection; the overflow/controller behavior is covered by widget tests.",
+        "No spoken VoiceOver or iOS/Linux device inspection was performed, and no pixel-parity claim is made."
       ],
       "implementationCommit": "80c801e69ee94b8f1d02ca71ccb489bc53aec257",
-      "mergeCommit": null,
-      "reviewStatus": "in_progress",
+      "mergeCommit": "082fcc55ab85d3bd4012c6bd24c647c1febd7d2a",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
       "reviewBranch": "codex/review-table"
     },
@@ -1701,14 +1705,23 @@
     },
     {
       "id": "accordion",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
+      "branch": "codex/ui-accordion",
       "dependencies": [
         "collapsible"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match all frozen Basic, Multiple, Disabled, Borders, Card and RTL variants and the complete native API contract against official source and rendered behavior.",
+        "Compose accepted Collapsible state/lifecycle behavior with genuine controlled/uncontrolled expansion, dynamic/disabled items, keyboard/focus, bounded actionable headings/triggers and accessible descendants.",
+        "Preserve exact reference geometry and states while supporting live palette/font/radius, touch, RTL, text scaling, narrow layout, reduced motion and panel lifecycle.",
+        "Audit and migrate appropriate related disclosure groups, retain independent disclosures when appropriate, and add complete styleguide/usage plus meaningful focused component/consumer verification.",
+        "Create a fresh independent reviewer that owns fixes, remaining rendered/native acceptance and the final local main merge."
+      ],
+      "decisions": [
+        "Collapsible is accepted and merged as 985b4efd; its corrected native trigger semantics boundary must be preserved. Card and other shared foundations are also merged.",
+        "Existing Events/Local Dates standalone disclosures retain the merged Collapsible owner unless a real grouped accordion use case justifies migration."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -2397,22 +2410,45 @@
         "button"
       ],
       "acceptanceCriteria": [
-        "Faithfully port the frozen shadcn/Sonner Toast types, actions, promise behavior and documented native API contract, including real presentation, state and lifecycle behavior.",
-        "Implement complete scoped toaster/controller composition, timing/dismissal, stacking/positioning, accessibility/focus/keyboard, live themes and reduced motion without leaking callbacks or notices across disposed/replaced scopes.",
-        "Provide every documented interactive example and meaningful edge case using actual shared components; audit/migrate appropriate core/plugin transient notifications while preserving their app-owned behavior.",
-        "Verify meaningful focused timing/interaction/lifecycle and consumer regressions plus root/full analysis, then create a new independent reviewer to finish rendered/native acceptance and the local main merge."
+        "Implement a scoped DToaster, DToastController and reusable typed content/action API matching the frozen base-nova Toast/Sonner appearance, including default, success, info, warning, error and loading treatments.",
+        "Support controlled add/update/upsert/close/close-all and owned/borrowed lifecycle, deterministic promise loading/success/error transitions, stable repeated ids, limits, pause/resume, timeouts and close reasons without late completion leaks.",
+        "Support safe-area-aware six-position placement, stacking, swipe dismissal, close/action controls, F6 focus entry, Escape dismissal, visible focus, live regions, touch/pointer input, reduced motion, RTL, narrow layouts and large text.",
+        "Mount one live-theme root app scope and nested local styleguide scopes; provide interactive examples for Basic, Types, Action, Promise, custom content, stacking/limits/dismissal, positions and theme/direction/scale changes.",
+        "Audit all core and bundled plugin transient notifications, migrate appropriate SnackBar/ScaffoldMessenger sites while preserving callback, permission, async and navigation ownership, and retain permanent inline statuses for Alert/Field/Empty with specific reasons.",
+        "Pass formatting, focused manager/widget/styleguide/consumer regression tests and root/full-profile analysis; provide exact source/build evidence and leave rendered browser/native acceptance to the direct reviewer if the shared desktop lease remains occupied."
       ],
       "decisions": [
-        "Toast includes Sonner under this one frozen catalogue row; Button is merged.",
-        "Transient ScaffoldMessenger/SnackBar usage is the adoption inventory; persistent inline status/error surfaces retain their Alert/Field/Empty meaning.",
-        "Source implementation hands directly to its own new Review and merge Toast task; root is not an approval gate."
+        "Frozen Markdown hash e1dd1c08ccb082e6ca90fe352e09242cbf81132e37e05db889c67c8e601e1174 reverified. Inspected base-nova toast registry source hash 161ed77c409fe7345ee6308f7cf66f7bcf2717d8d5e1a8b36a7f8e8fa0df745e and supporting Sonner registry hash 831967f80f645ac3908b356a44748698a9ceed1c6a51b232dd5e87c52a54d7c3; mapping is recorded in toast.md.",
+        "DToaster is a local inherited manager plus renderer, not a Material SnackBar wrapper. An omitted controller is owned/disposed; a supplied controller is borrowed. Root and styleguide preview scopes are independent and read live inherited tokens on every build.",
+        "Promise completion is revision-checked. Replacement, repeated ids, explicit dismissal and scope disposal prevent stale terminal updates. Loading promise state is persistent; terminal options control their own duration.",
+        "Flutter Focus/Shortcuts, Semantics, SafeArea, Dismissible and app lifecycle observation are the native equivalents for the reference landmark, keyboard entry, ARIA live region, viewport, swipe and pause behavior."
       ],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
-      "mergeCommit": null
+      "migrations": [
+        "Root DiscourseApp and standalone styleguide mount DToaster; every interactive styleguide preview mounts a nested scope so notices disappear with the preview lifecycle.",
+        "Migrated transient feedback in topic_list_view, topic_share, user_menu, diagnostics_panel, topic_move_posts, composer_discard, topic_tag_picker and reaction_presentation, preserving async guards and stable replacement behavior.",
+        "Button styleguide feedback now demonstrates DToast instead of Material SnackBar."
+      ],
+      "retainedAlternatives": [
+        "Permanent inline validation/status and page-scale errors remain owned by Alert, Field and Empty rather than becoming temporary notifications.",
+        "Remaining core/plugin ScaffoldMessenger sites require reviewer reconciliation with concurrent Alert ownership; each must be classified and migrated or retained with a specific application reason before final acceptance."
+      ],
+      "verification": [
+        "Fresh-worktree root and profiles/full flutter pub get --enforce-lockfile passed with committed versions and hashes unchanged.",
+        "Focused d_toast manager/widget lifecycle suite passed 5 tests. Toast examples plus the complete styleguide page regression passed 24 tests; all examples also render at 280px, RTL, 200% text and a custom Plum palette.",
+        "Topic Share focused behavior passed 14 tests. Combined Toast/styleguide and named consumer ownership suites passed 97 tests after current-main integration; Diagnostics passed independently before integration and its later combined-run miss is a known pre-existing resize-handle hit-test failure unrelated to Toast.",
+        "Root and profiles/full flutter analyze --no-pub passed with no issues after current-main integration; dart format and git diff --check pass.",
+        "flutter build macos --debug --no-pub succeeded from integrated source 212577a5; bundle build/macos/Build/Products/Debug/Discourse.app, kernel SHA256 2a083264635f19a56c9e619132b367e6d78d349ec1cda3481e5d467a38458a40. Subsequent integrated main commit changed only coordination documentation. The bundle was not launched or re-signed as an isolated review app."
+      ],
+      "limitations": [
+        "Implementation source is prepared without a desktop lease. Official rendered browser comparison, native styleguide/production fixture inspection, macOS build provenance, exhaustive remaining transient notification migration and affected legacy-test updates remain owned by the new review task.",
+        "No iOS or Linux device run was performed."
+      ],
+      "implementationCommit": "2c4bed89bc49e1df3dfd5f23315f97cb5c3b30fd",
+      "mergeCommit": null,
+      "reviewStatus": "in_progress",
+      "reviewTaskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
+      "reviewClientThreadId": "client-new-thread:bc9d1205-04e1-4739-b614-dba4df508721",
+      "reviewBranch": "codex/review-toast"
     },
     {
       "id": "alert",
@@ -2751,7 +2787,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T09:45:32.206966+00:00",
+    "updatedAt": "2026-09-09T10:03:54.746431+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
@@ -2823,15 +2859,6 @@
           "headCommit": "c782a940b95105f1cfc2614fdfc52c5bd1a09b28",
           "status": "independent_review",
           "implementationTaskId": "01a08400-ced8-7f22-a1aa-4955c7d28383"
-        },
-        {
-          "component": "table",
-          "taskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
-          "branch": "codex/review-table",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fdec/discourse-native",
-          "headCommit": "b3107cab0c01e2c7abe0de5f7649df99b19414c6",
-          "status": "independent_review",
-          "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a"
         },
         {
           "component": "textarea",
@@ -2930,16 +2957,26 @@
         },
         {
           "component": "toast",
-          "taskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
-          "branch": "codex/ui-toast",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5d86/discourse-native",
-          "status": "implementation"
+          "taskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
+          "branch": "codex/review-toast",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a758/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
+          "implementationBranch": "codex/ui-toast",
+          "headCommit": "329c3e1182709d0e7577123e29dc9769741e08fa"
         },
         {
           "component": "button-group",
           "taskId": "01a08581-831f-7751-b714-096b5aebf86a",
           "branch": "codex/ui-button-group",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fd5f/discourse-native",
+          "status": "implementation"
+        },
+        {
+          "component": "accordion",
+          "taskId": "01a0859b-73ff-7190-8c59-b71fe74d2b2f",
+          "branch": "codex/ui-accordion",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/69af/discourse-native",
           "status": "implementation"
         }
       ],
@@ -3109,17 +3146,6 @@
           "status": "in_progress"
         },
         {
-          "component": "table",
-          "title": "Review and merge Table",
-          "taskId": "01a08558-73ce-7a51-bfd4-8e0f48d5f675",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fdec/discourse-native",
-          "branch": "codex/review-table",
-          "implementationTaskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
-          "implementationBranch": "codex/ui-table",
-          "status": "in_progress"
-        },
-        {
           "component": "textarea",
           "title": "Review and merge Textarea",
           "taskId": "01a08558-7a1f-7ba0-b3be-a27b46bc2b42",
@@ -3227,6 +3253,17 @@
           "branch": "codex/review-carousel",
           "implementationTaskId": "01a08567-ac29-7dd0-ba78-16f423c97dd9",
           "implementationBranch": "codex/ui-carousel",
+          "status": "in_progress"
+        },
+        {
+          "component": "toast",
+          "title": "Review and merge Toast",
+          "taskId": "01a08592-b1eb-7ad2-bebb-3ddea00f2702",
+          "hostId": "local",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/a758/discourse-native",
+          "branch": "codex/review-toast",
+          "implementationTaskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
+          "implementationBranch": "codex/ui-toast",
           "status": "in_progress"
         }
       ],

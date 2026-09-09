@@ -101,7 +101,7 @@ void main() {
         registry: _localDates(),
         onQuote: (_) {},
       );
-      final table = find.byType(Table);
+      final table = find.byType(DTable);
       final date = find.byType(LocalDateInline);
       final nameWidth =
           tester.getTopLeft(date).dx -
@@ -230,7 +230,7 @@ void main() {
       expect(_button('Open Alertmanager'), findsNothing);
       expect(_button('Quote Alert'), findsNothing);
       expect(
-        tester.widget<Table>(find.byType(Table)).children.single.children,
+        tester.widget<DTable>(find.byType(DTable)).body.rows.single.cells,
         hasLength(3),
       );
     },
