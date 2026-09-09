@@ -1373,7 +1373,8 @@
         "Single DEmpty owner exports all six slots plus plain/icon media; arbitrary child composition leaves input/Form/focus/semantics/controller lifetime to native children. 24/16/8/10px spacing, 384px slots, 32/16px media, 14/20 medium tight title and 14/22.75 muted description; proportional xl/lg radii and multiplied alpha.",
         "Seven self-contained actual-widget examples including outline, background, avatar/group, RTL and working native search Form. StyleguideAction is sanctioned while full Button is pending; Input Group example reconciliation explicitly deferred to its owner. Avatar fallback samples are local data.",
         "Component examples remain baseline and progress remains in_progress until reference-rendered comparison and native fixture inspection pass. No desktop access used.",
-        "Independent implementation/check/build work is committed and parked awaiting_slot. Coordinator must perform serialized reference-rendered/native styleguide and production comparison before review_ready; no merge or remote writes performed."
+        "Independent implementation/check/build work is committed and parked awaiting_slot. Coordinator must perform serialized reference-rendered/native styleguide and production comparison before review_ready; no merge or remote writes performed.",
+        "Integration update: merged pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 into codex/ui-empty; all 17 merged components and Group/Sidebar/Topic Inbox fixes retained, every non-Empty progress row matches pinned main exactly. Earlier baseline Button/native TextFormField notes are superseded: actual examples now compose final DButton variants/sizes and DInput Form/prefix/suffix APIs. Badge/Checkbox/Radio owners retained unchanged; no substitute Input Group."
       ],
       "migrations": [
         "Core page owners: no-sites (preserved h1/add-site callback), aggregate, categories, tags, drafts, user activity/pull-to-refresh, topic feed/retry key, groups directory/shared group state, users directory/progress, badge catalogue, signed-out private messages/connecting/error.",
@@ -1391,17 +1392,17 @@
         "Additional changed-owner regression: 142 tests passed, seed 3270558952, covering group page/host, activity section lifecycle/totals, connection/session (including private messages), native fixture and final component API. Log /tmp/empty-extra-tests.log.",
         "Final root flutter analyze --no-pub passed with no diagnostics in 3.3s; all 30 touched Dart files formatted, git diff --check passed; no pubspec, lockfile or pin changes. Downstream 244-test seed was 2113997266.",
         "Final fixed-height centering/arbitrary-title and viewport-preserving offline fixture checks: 6 tests passed; /tmp/empty-tight-fixture-tests.log. Final root analysis clean in 3.0s, full-profile final analysis clean in 3.1s.",
-        "macOS debug offline fixture/styleguide built successfully from clean source b5730d9ff6b6d58b19b392270459723e891a7361 (tree f689d8b50a0854148913fcc29ee268d057e1c079). Isolated review bundle /private/tmp/DiscourseEmptyReview-01a0843e.app; ID org.discourse.native.empty.01a0843e; scheme discourse-empty-review-01a0843e. Source/copied kernel SHA256 d87ca41a3c701fb7ea7fbcf7369d7c6fc487deaeaaec9894a390027c3cc458a4. Deep strict signature verification passed. Evidence: evidence/empty/native-preparation.json. No launch performed; user main-checkout build untouched."
+        "macOS debug offline fixture/styleguide built successfully from clean source b5730d9ff6b6d58b19b392270459723e891a7361 (tree f689d8b50a0854148913fcc29ee268d057e1c079). Isolated review bundle /private/tmp/DiscourseEmptyReview-01a0843e.app; ID org.discourse.native.empty.01a0843e; scheme discourse-empty-review-01a0843e. Source/copied kernel SHA256 d87ca41a3c701fb7ea7fbcf7369d7c6fc487deaeaaec9894a390027c3cc458a4. Deep strict signature verification passed. Evidence: evidence/empty/native-preparation.json. No launch performed; user main-checkout build untouched.",
+        "Pinned integration root and full-profile enforced-lockfile resolution passed. Root analysis clean (9.4s), full-profile analysis clean (2.0s). 172 focused integration tests passed, seed 1576441260: Empty examples/component/native fixture, Groups/group page, aggregate/users, Topic Inbox and Button adoption; log /tmp/empty-integration-tests.log. Formatting and git diff --check passed.",
+        "Integrated offline fixture built from clean source 8bdc0386d7434dc5c440c1e8132b4b95edca7d13, tree fdfd00b8c4510428a56897cb34fba7462c3a50fd. Review bundle /private/tmp/DiscourseEmptyReview-8bdc0386.app, ID org.discourse.native.empty.8bdc0386, scheme discourse-empty-review-8bdc0386. Source/copy kernel SHA256 d76f9bb4ef47a699f8f90b68e61ed100dc5ff65a916bebbe731994313f78bda8. Explicit ad-hoc debug/JIT entitlements omit restricted developer/push/team identifiers; signed readback exactly matches and deep strict signature passes. Evidence evidence/empty/native-preparation-integrated.json supersedes earlier bundle. Runner identities/pins/locks unchanged from pinned main. Not launched; signature verification does not prove launch eligibility."
       ],
       "limitations": [
-        "awaiting_slot: reference browser-rendered comparison and native styleguide/production inspection pending; no CUA/app/browser launch permitted or attempted.",
-        "Native search composition must reconcile with Input Group after that separate component merges; it is not claimed as an Input Group implementation. Button remains baseline. Dash rendering and text wrapping await matched reference comparison.",
-        "No iOS/Linux device, VoiceOver speech or pixel parity claim. Native fixture covers the named representative production owners; other migrations have widget regression evidence only."
+        "awaiting_slot / in_progress: required reference-rendered comparison and native styleguide/production inspection remain pending. Mac locked; browser separately denied admin-policy verification. No CUA/browser/native launch, policy retry or workaround attempted.",
+        "Input Group example reconciliation remains pending that component; final DInput composition is functional but is not an Input Group implementation. Dash/text-wrapping visual parity awaits comparison.",
+        "No iOS/Linux device, VoiceOver speech, pixel-parity or native-launch eligibility claim. Review bundle is statically verified only."
       ],
-      "implementationCommit": "b5730d9ff6b6d58b19b392270459723e891a7361",
-      "mergeCommit": null,
-      "clientThreadId": "client-new-thread:330d4db7-b0df-4b68-9fdc-9a7b94c9c4b0",
-      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native"
+      "implementationCommit": "8bdc0386d7434dc5c440c1e8132b4b95edca7d13",
+      "mergeCommit": null
     },
     {
       "id": "item",
@@ -2618,14 +2619,6 @@
       "nextComponents": [],
       "activeTasks": [
         {
-          "component": "empty",
-          "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
-          "branch": "codex/ui-empty",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native",
-          "headCommit": "403d88880e977dda279b9180445a5f6b7d74f9aa",
-          "status": "main_integration_preparation"
-        },
-        {
           "component": "item",
           "taskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd",
           "branch": "codex/ui-item",
@@ -2757,6 +2750,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native",
           "status": "awaiting_browser_and_native_review",
           "headCommit": "38002135f93007ea04bc19873bd8bdf2e379f346"
+        },
+        {
+          "component": "empty",
+          "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
+          "branch": "codex/ui-empty",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native",
+          "headCommit": "9d4ebc9eabb5066721a2fe853f74f71fc16f445f",
+          "status": "awaiting_browser_native_and_input_group_reconciliation"
         }
       ]
     },
@@ -2861,10 +2862,8 @@
         "button": "f32de5cc356a561c3a3d26c75aeb855e0ad28307",
         "input": "a7550c39004087bc8509efdbdb8f0b2a82ca779b"
       },
-      "verification": "Input owner integrated reviewed corrections and pinned merged main directly in its branch at37573a27, source3201d96b. All371 affected tests and root/full analysis pass; native final Button/file/search-suffix review is queued. Temporary combined checkout is retained for evidence only.",
-      "remaining": [
-        "Input native review and coordinator final main merge."
-      ]
+      "verification": "Input owner integrated reviewed corrections and pinned merged main directly in its branch at37573a27, source3201d96b. All371 affected tests and root/full analysis pass; native final Button/file/search-suffix review is queued. Temporary combined checkout is retained for evidence only. Superseded work is complete: Input passed final native review and merged locally as7df72ef; this temporary combined checkout must not be merged.",
+      "remaining": []
     },
     "dispatchPolicy": {
       "status": "clear_review_backlog",
