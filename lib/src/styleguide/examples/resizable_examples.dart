@@ -8,7 +8,7 @@ import '../styleguide_example.dart';
 
 final resizableExamples = ComponentExamples(
   description: 'Resizable horizontal, vertical and nested panel layouts.',
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   notes:
       'Base Nova: 1px divider, optional 4×24px rounded pill. Sizes use explicit '
       'DResizableSize.pixels or .percent; percentages exclude divider space. '
@@ -18,8 +18,7 @@ final resizableExamples = ComponentExamples(
       'collapse, double-click restores the default. RTL mirrors horizontal input. '
       'Native transparent targets are 24px on desktop and at least 48px on iOS/Android; hitExtent can enlarge them further. '
       'Infeasible minima are clipped and excess maximum space stays empty; switch '
-      'responsive modes before that point. Layout is not a Form input. '
-      'Native and reference-rendered comparison is awaiting the desktop slot.',
+      'responsive modes before that point. Layout is not a Form input.',
   examples: [
     for (final variant in ['Horizontal', 'Vertical', 'Handle', 'Nested'])
       StyleguideExample(

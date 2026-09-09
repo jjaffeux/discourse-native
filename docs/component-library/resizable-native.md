@@ -1,3 +1,29 @@
+# Independent rendered and native acceptance
+
+Completed on 2026-09-09 with the unchanged source-matched bundle documented
+below. The approved in-app browser loaded the official Base UI Resizable page;
+the frozen 384px horizontal, vertical, visible-handle, nested and RTL examples
+were compared directly with the Flutter examples. The one-pixel rules,
+centered 4x24px pills, 200px reference cards, nested 50/50 and 25/75 geometry,
+semantic border colors and relative radius treatment matched the recorded
+mapping. Native host-font rasterization can wrap the compact Sidebar label where
+the browser's Geist metrics fit it on one line; the component correctly keeps
+the host font and text scaling rather than substituting the browser font.
+
+The exact `/tmp/discourse-resizable-integration-0629571a/ResizableIntegration.app`
+launched successfully. Its native accessibility tree exposed independent named
+adjustable sliders for each group handle and the Users, Chat and pane adapters.
+Keyboard arrows resized a focused nested handle. The controlled fixture
+collapsed from 369px to 0px, restored to 369px, and disabled its handles.
+Pointer drags committed Users 160px to 228px, Chat 160px to 226px and the local
+pane 208px to 267px. The actual styleguide rendered the horizontal and visible
+handle examples in dark/light documentation canvases, RTL, 200% text, reduced
+motion and its explicit 360px viewport without overflow or lost semantics.
+
+No source correction or rebuild was required. No authenticated data was used.
+No iOS/Linux device or spoken VoiceOver pass was performed, and no pixel-equality
+claim is made across the browser and native rasterizers.
+
 # Current integrated review bundle
 
 Supersedes the older bundle/evidence below. Integration only; **awaiting_slot**.

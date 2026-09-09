@@ -1,4 +1,4 @@
-# Resizable — implementation and pending native review
+# Resizable
 
 Reference scope: frozen 2026-09-08 Base UI / Base Nova page, including its
 2025-02-02 v4 API migration. The newly downloaded Markdown exactly matches the
@@ -140,11 +140,19 @@ Flutter remains 3.47.2 and lockfiles/pins unchanged. Voice compatibility code wa
 not changed. This task uses the user's focused verification override, not the
 blanket full-suite gate in CLAUDE.md.
 
-**Awaiting native slot.** No browser/CUA/app launch has occurred. Native reference
-render comparison, actual styleguide and production-fixture inspection,
-VoiceOver, and iOS/Linux device interaction remain unverified. Tests and source
-measurements do not establish pixel parity. The progress row stays in_progress
-and examples baseline until the coordinator grants and completes native review.
+Independent review compared the official Base UI page with the exact signed
+macOS fixture. The 384px horizontal, vertical, visible-handle and nested
+compositions retained the measured one-pixel rules, centered 4x24px pills,
+host-relative radius, compact labels and semantic palette mapping. The actual
+styleguide remained usable in dark and light documentation canvases, horizontal
+RTL, 200% text, reduced motion and the explicit 360px viewport.
+
+Native accessibility exposed each handle as a separately named adjustable
+slider. Keyboard arrows visibly resized a focused nested handle; controlled
+collapse/expand and disabled state behaved correctly. Pointer drags updated and
+committed the actual Users column, Chat thread and persisted-pane adapters.
+VoiceOver speech and iOS/Linux device interaction remain unverified; browser and
+native font rasterization differ, so this is not a pixel-equality claim.
 
 ## Preserved primary sources
 
