@@ -516,6 +516,8 @@ class DButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveSemanticLabel =
+        semanticLabel ?? (_iconOnly ? tooltip : null);
     final theme = Theme.of(context);
     final buttons = theme.discourseButtons;
     final tokens = DTokens.of(context);
@@ -823,7 +825,7 @@ class DButton extends StatelessWidget {
       result = DTooltip(
         message: tooltip,
         shortcut: shortcut,
-        excludeFromSemantics: semanticLabel != null,
+        excludeFromSemantics: effectiveSemanticLabel != null,
         child: result,
       );
     }
@@ -834,7 +836,7 @@ class DButton extends StatelessWidget {
         link: isLink,
         enabled: enabled,
         liveRegion: loading,
-        label: semanticLabel,
+        label: effectiveSemanticLabel,
         value: loading ? loadingSemanticLabel : null,
         child: result,
       ),

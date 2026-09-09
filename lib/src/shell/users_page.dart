@@ -20,6 +20,10 @@ import 'user_directory_controller.dart';
 
 const String _identityColumnWidthKey = 'identity';
 
+bool _usesTouchTargets(ThemeData theme) =>
+    theme.platform == TargetPlatform.iOS ||
+    theme.platform == TargetPlatform.android;
+
 String _metricColumnWidthKey(UserDirectoryColumn column) =>
     'metric.${column.type.name}.${column.id}';
 
@@ -567,100 +571,112 @@ class _UsersPageState extends State<UsersPage> {
                   children: [
                     for (var index = 0; index < draft.length; index++) ...[
                       if (index > 0) const DSeparator(space: 1),
-                      CheckboxListTile(
-                        key: ValueKey('users-manage-column-${draft[index].id}'),
-                        value: draft[index].enabled,
-                        dense: true,
-                        visualDensity: VisualDensity.compact,
-                        minTileHeight: 48,
-                        minVerticalPadding: 6,
-                        horizontalTitleGap: 12,
-                        contentPadding: EdgeInsets.zero,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        titleAlignment: ListTileTitleAlignment.center,
-                        title: Text(
-                          draft[index].label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          switch (draft[index].type) {
-                            UserDirectoryColumnType.automatic => 'Activity',
-                            UserDirectoryColumnType.userField => 'User field',
-                            UserDirectoryColumnType.plugin => 'Plugin',
-                          },
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        secondary: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            DButton.iconOnly(
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CheckboxListTile(
                               key: ValueKey(
-                                'users-column-up-${draft[index].id}',
+                                'users-manage-column-${draft[index].id}',
                               ),
-                              tooltip: 'Move ${draft[index].label} up',
-                              onPressed: index == 0
-                                  ? null
-                                  : () => updateDialog(() {
-                                      final moved = draft.removeAt(index);
-                                      draft.insert(index - 1, moved);
-                                      draft = [
-                                        for (
-                                          var draftIndex = 0;
-                                          draftIndex < draft.length;
-                                          draftIndex++
-                                        )
-                                          draft[draftIndex].copyWith(
-                                            position: draftIndex + 1,
-                                          ),
-                                      ];
-                                    }),
-                              size: DButtonSize.small,
-                              variant: DButtonVariant.transparent,
-                              icon: const DIcon(DIcons.arrowUp, size: 13),
+                              value: draft[index].enabled,
+                              dense: true,
+                              visualDensity: VisualDensity.compact,
+                              minTileHeight: 48,
+                              minVerticalPadding: 6,
+                              horizontalTitleGap: 12,
+                              contentPadding: EdgeInsets.zero,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              titleAlignment: ListTileTitleAlignment.center,
+                              title: Text(
+                                draft[index].label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                switch (draft[index].type) {
+                                  UserDirectoryColumnType.automatic =>
+                                    'Activity',
+                                  UserDirectoryColumnType.userField =>
+                                    'User field',
+                                  UserDirectoryColumnType.plugin => 'Plugin',
+                                },
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              onChanged: (enabled) => updateDialog(() {
+                                draft[index] = draft[index].copyWith(
+                                  enabled: enabled ?? false,
+                                );
+                              }),
                             ),
-                            DButton.iconOnly(
-                              key: ValueKey(
-                                'users-column-down-${draft[index].id}',
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              DButton.iconOnly(
+                                key: ValueKey(
+                                  'users-column-up-${draft[index].id}',
+                                ),
+                                tooltip: 'Move ${draft[index].label} up',
+                                onPressed: index == 0
+                                    ? null
+                                    : () => updateDialog(() {
+                                        final moved = draft.removeAt(index);
+                                        draft.insert(index - 1, moved);
+                                        draft = [
+                                          for (
+                                            var draftIndex = 0;
+                                            draftIndex < draft.length;
+                                            draftIndex++
+                                          )
+                                            draft[draftIndex].copyWith(
+                                              position: draftIndex + 1,
+                                            ),
+                                        ];
+                                      }),
+                                size: DButtonSize.small,
+                                insetSurface: true,
+                                variant: DButtonVariant.transparent,
+                                icon: const DIcon(DIcons.arrowUp, size: 13),
                               ),
-                              tooltip: 'Move ${draft[index].label} down',
-                              onPressed: index == draft.length - 1
-                                  ? null
-                                  : () => updateDialog(() {
-                                      final moved = draft.removeAt(index);
-                                      draft.insert(index + 1, moved);
-                                      draft = [
-                                        for (
-                                          var draftIndex = 0;
-                                          draftIndex < draft.length;
-                                          draftIndex++
-                                        )
-                                          draft[draftIndex].copyWith(
-                                            position: draftIndex + 1,
-                                          ),
-                                      ];
-                                    }),
-                              size: DButtonSize.small,
-                              variant: DButtonVariant.transparent,
-                              icon: Transform.rotate(
-                                angle: math.pi,
-                                child: const DIcon(DIcons.arrowUp, size: 13),
+                              DButton.iconOnly(
+                                key: ValueKey(
+                                  'users-column-down-${draft[index].id}',
+                                ),
+                                tooltip: 'Move ${draft[index].label} down',
+                                onPressed: index == draft.length - 1
+                                    ? null
+                                    : () => updateDialog(() {
+                                        final moved = draft.removeAt(index);
+                                        draft.insert(index + 1, moved);
+                                        draft = [
+                                          for (
+                                            var draftIndex = 0;
+                                            draftIndex < draft.length;
+                                            draftIndex++
+                                          )
+                                            draft[draftIndex].copyWith(
+                                              position: draftIndex + 1,
+                                            ),
+                                        ];
+                                      }),
+                                size: DButtonSize.small,
+                                insetSurface: true,
+                                variant: DButtonVariant.transparent,
+                                icon: Transform.rotate(
+                                  angle: math.pi,
+                                  child: const DIcon(DIcons.arrowUp, size: 13),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        onChanged: (enabled) => updateDialog(() {
-                          draft[index] = draft[index].copyWith(
-                            enabled: enabled ?? false,
-                          );
-                        }),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ],
@@ -889,7 +905,9 @@ class _DirectoryToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controlHeight = DButton.iconOnlyDimensionFor(DButtonSize.small);
+    final controlHeight = _usesTouchTargets(theme)
+        ? 48.0
+        : DButton.iconOnlyDimensionFor(DButtonSize.small);
     final search = SizedBox(
       height: controlHeight,
       child: TextField(

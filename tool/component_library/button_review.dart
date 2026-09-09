@@ -1,17 +1,63 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/user_directory.dart';
+import 'package:discourse_native/src/models/user_summary.dart' as model;
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_card.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/user_summary.dart';
+import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
+import '../../test/support/fakes.dart';
+
 /// Isolated review entrypoint: local data only, mounting real app controls.
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-  runApp(const ButtonReview());
+  final site = instance(
+    'example.com',
+  ).copyWith(user: const DiscourseUser(id: 7, username: 'reader'));
+  final controller = ShellController(
+    instanceStore: FakeInstanceStore([site]),
+    api: FakeDiscourseApi(
+      user: site.user,
+      summary: const model.UserSummary(
+        canSeeSummaryStats: true,
+        canSeeUserActions: true,
+        likesGiven: 7,
+        likesReceived: 8,
+        topicCount: 2,
+        postCount: 3,
+        bookmarkCount: 1,
+        topCategories: [
+          model.UserSummaryCategory(
+            id: 5,
+            name: 'Support',
+            slug: 'support',
+            color: '0088CC',
+            topicCount: 2,
+            postCount: 7,
+          ),
+        ],
+      ),
+      feeds: const {'/latest.json': []},
+    ),
+    authenticator: FakeAuthenticator()
+      ..keys['https://example.com'] = 'local-review',
+    drafts: FakeDraftStore(),
+    forumTabs: FakeForumTabStore(),
+    trackers: FakeSiteTracker.reset(),
+    updater: FakeUpdater(),
+    updateStore: FakeUpdateStore(),
+  );
+  await controller.load();
+  runApp(ShellScope(controller: controller, child: const ButtonReview()));
 }
 
 class ButtonReview extends StatefulWidget {
@@ -22,6 +68,8 @@ class ButtonReview extends StatefulWidget {
 
 class _ButtonReviewState extends State<ButtonReview> {
   StyleguideTheme theme = StyleguideTheme.light;
+  bool touch = false;
+  bool narrow = false;
   bool rtl = false;
   bool large = false;
   String message = 'No application action yet';
@@ -29,7 +77,9 @@ class _ButtonReviewState extends State<ButtonReview> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: theme.resolve(AppTheme.light),
+    theme: theme
+        .resolve(AppTheme.light)
+        .copyWith(platform: touch ? TargetPlatform.iOS : TargetPlatform.macOS),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
         textScaler: TextScaler.linear(large ? 2 : 1),
@@ -37,7 +87,9 @@ class _ButtonReviewState extends State<ButtonReview> {
       ),
       child: Directionality(
         textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-        child: child!,
+        child: Center(
+          child: SizedBox(width: narrow ? 360 : double.infinity, child: child!),
+        ),
       ),
     ),
     home: Builder(
@@ -60,6 +112,62 @@ class _ButtonReviewState extends State<ButtonReview> {
                           onPressed: () => Navigator.of(context).push<void>(
                             MaterialPageRoute(
                               builder: (_) => const ComponentStyleguidePage(),
+                            ),
+                          ),
+                        ),
+                        DButton(
+                          label: Text(
+                            touch ? 'Pointer targets' : 'Touch targets',
+                          ),
+                          onPressed: () => setState(() => touch = !touch),
+                        ),
+                        DButton(
+                          label: Text(narrow ? 'Wide' : 'Narrow'),
+                          onPressed: () => setState(() => narrow = !narrow),
+                        ),
+                        DButton(
+                          label: const Text('Users directory'),
+                          onPressed: () => Navigator.of(context).push<void>(
+                            MaterialPageRoute(
+                              builder: (_) => Scaffold(
+                                appBar: AppBar(
+                                  title: const Text('Users review'),
+                                ),
+                                body: UsersPage(
+                                  siteUrl: 'https://example.com',
+                                  data: const UsersPageData(
+                                    columns: _columns,
+                                    availableColumns: _columns,
+                                    canManageColumns: true,
+                                    loaded: true,
+                                  ),
+                                  onPeriodChanged: (value) => setState(
+                                    () => message = 'Period ${value.name}',
+                                  ),
+                                  onManageColumns: (columns) async {
+                                    setState(
+                                      () => message =
+                                          'Column order ${columns.map((c) => c.id).join(', ')}',
+                                    );
+                                    return true;
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        DButton(
+                          label: const Text('User summary'),
+                          onPressed: () => Navigator.of(context).push<void>(
+                            MaterialPageRoute(
+                              builder: (_) => Scaffold(
+                                appBar: AppBar(
+                                  title: const Text('Summary review'),
+                                ),
+                                body: const UserSummaryView(
+                                  siteUrl: 'https://example.com',
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -141,3 +249,24 @@ class _ButtonReviewState extends State<ButtonReview> {
     ),
   );
 }
+
+const _columns = [
+  UserDirectoryColumn(
+    id: 1,
+    name: 'likes_received',
+    type: UserDirectoryColumnType.automatic,
+    position: 1,
+  ),
+  UserDirectoryColumn(
+    id: 2,
+    name: 'post_count',
+    type: UserDirectoryColumnType.automatic,
+    position: 2,
+  ),
+  UserDirectoryColumn(
+    id: 3,
+    name: 'days_visited',
+    type: UserDirectoryColumnType.automatic,
+    position: 3,
+  ),
+];

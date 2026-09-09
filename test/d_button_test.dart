@@ -529,8 +529,8 @@ void main() {
 
           _expectButtonSemantics(
             tester,
-            label: semanticLabel ?? '',
-            tooltip: semanticLabel == null ? 'Add' : '',
+            label: semanticLabel ?? 'Add',
+            tooltip: '',
             loading: loading,
           );
           expect(

@@ -1033,6 +1033,66 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets('directory controls retain full targets on $platform', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      List<UserDirectoryColumn>? saved;
+      await _pump(
+        tester,
+        UsersPage(
+          siteUrl: 'https://example.com',
+          data: const UsersPageData(
+            items: [_sam],
+            columns: [_likes, _replies],
+            availableColumns: [_likes, _replies],
+            canManageColumns: true,
+            loaded: true,
+          ),
+          onPeriodChanged: (_) {},
+          onManageColumns: (columns) async {
+            saved = columns;
+            return true;
+          },
+        ),
+        theme: AppTheme.light.copyWith(platform: platform),
+      );
+      final dimension = platform == TargetPlatform.iOS ? 48.0 : 40.0;
+      expect(
+        tester.getSize(find.byKey(const ValueKey('users-search'))).height,
+        dimension,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('users-period-filter')))
+            .height,
+        dimension,
+      );
+      await tester.tap(find.byKey(const ValueKey('users-columns')));
+      await tester.pumpAndSettle();
+      final down = find.byKey(const ValueKey('users-column-down-1'));
+      final up = find.byKey(const ValueKey('users-column-up-2'));
+      for (final button in [down, up]) {
+        expect(tester.getSize(button), Size.square(dimension));
+        expect(tester.getSemantics(button).rect.size, Size.square(dimension));
+        expect(
+          tester.getSemantics(button).label,
+          tester.widget<DButton>(button).tooltip,
+        );
+      }
+      // The bottom outside the painted icon must still activate the action.
+      final target = tester.getRect(down);
+      await tester.tapAt(Offset(target.center.dx, target.bottom - 1));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('users-save-columns')));
+      await tester.pumpAndSettle();
+      expect(saved!.map((column) => column.id), [2, 1]);
+      semantics.dispose();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'staff column editor includes disabled plugin and user-field columns',
     (tester) async {
@@ -1113,8 +1173,8 @@ void main() {
         tester.widget<DButton>(firstDown).variant,
         DButtonVariant.transparent,
       );
-      expect(tester.getSize(firstUp), const Size.square(40));
-      expect(tester.getSize(firstDown), const Size.square(40));
+      expect(tester.getSize(firstUp), const Size.square(48));
+      expect(tester.getSize(firstDown), const Size.square(48));
       expect(tester.getTopRight(firstUp).dx, tester.getTopLeft(firstDown).dx);
 
       expect(

@@ -4,7 +4,8 @@ The coordinator granted a browser-only comparison slot while the Mac was locked.
 The official [Base UI Button page](https://ui.shadcn.com/docs/components/base/button)
 was inspected through CUA Chrome at 1270×847 and 360×700 logical viewports.
 The temporary viewport was reset, the original dark theme restored and the
-comparison tab closed. No native application was opened or controlled.
+comparison tab closed. No native application was opened during that browser-only phase. The later
+exclusive native review is recorded in [button-native-review.md](button-native-review.md).
 
 ## Method and scope
 
@@ -106,18 +107,17 @@ Root/full-profile analysis is clean. The export harness passes; logs are
 `/private/tmp/button-browser-analysis.log` and
 `/private/tmp/button-browser-full-analysis.log`.
 
-This completes the **browser-versus-widget-export** comparison only. The actual
-macOS production-widget fixture, platform text shaping, native focus/activation
-and application rendering still require the coordinator's native slot after
-unlock. No spoken VoiceOver, iOS/Linux device run, native screenshot or automated
-pixel-diff claim is made. Status remains `in_progress` / `awaiting_slot`.
+This phase completed the **browser-versus-widget-export** comparison. Actual
+native review was subsequently completed; see [native review](button-native-review.md).
+The build checkpoints below are historical and superseded by V8. No spoken
+VoiceOver, iOS/Linux device run or automated pixel-diff claim is made.
 
 Existing host adaptations remain: configured palette/font/radius, focus color,
 native font underline placement (Flutter has no independent text underline-offset
 property), and sRGB state-color interpolation instead of CSS OKLCH mixing.
 The last two are explicitly visible limitations, not claims of exact parity.
 
-## Source and pending native bundle
+## Historical build checkpoints
 
 Compared implementation: `6db474b8c16529a28d77a168d9ac9dc4fb885647`. The final byte-verified macOS
 fixture build is `/private/tmp/DiscourseButtonReview-3a88-v3.app`, with identifier
@@ -163,7 +163,7 @@ All 28 affected Button/reference/example tests pass; root/full-profile analysis
 and the export harness pass. Logs: `/private/tmp/button-radius-tests.log`,
 `/private/tmp/button-radius-analysis.log`,
 `/private/tmp/button-radius-full-analysis.log`, and
-`/private/tmp/button-radius-exports.log`. Native verification is still pending.
+`/private/tmp/button-radius-exports.log`. Native verification was pending at this checkpoint.
 
 Corrected radius implementation: `4483071a2b1e4a147fb9627a8b5de9713a2138b8`. The source-byte-verified,
 unlaunched replacement bundle is `/private/tmp/DiscourseButtonReview-3a88-v4.app`,

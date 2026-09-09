@@ -858,14 +858,11 @@ class _CategoryCount extends StatelessWidget {
     width: 76,
     child: count <= 0
         ? const Text('—', textAlign: TextAlign.center)
-        : Semantics(
-            button: true,
-            label: semanticLabel,
-            child: DButton(
-              variant: DButtonVariant.link,
-              onPressed: onTap,
-              label: ExcludeSemantics(child: Text('$count')),
-            ),
+        : DButton(
+            variant: DButtonVariant.link,
+            semanticLabel: semanticLabel,
+            onPressed: onTap,
+            label: Text('$count'),
           ),
   );
 }

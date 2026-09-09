@@ -1,7 +1,8 @@
 # Button implementation and reference mapping
 
 Task: `01a083ac-5fd5-78b1-9263-7e3218a878b6`, branch `codex/ui-button`,
-base `2e894b5e`. Implementation and native comparison are in progress.
+base `2e894b5e`. Button owner implementation and native review are complete;
+coordinator integration review remains. See [native evidence](button-native-review.md).
 
 ## Sources
 
@@ -15,7 +16,7 @@ Retrieved 2026-09-09 with read-only HTTPS requests:
   preserved at `reference/button.json`, SHA256
   `9ba7e870178813f0552b818a913a2792fb500c779e36395740b4973e3025d427`.
 - [Rendered documentation](https://ui.shadcn.com/docs/components/base/button).
-  Browser comparison is complete; native application inspection remains pending.
+  Browser and isolated native application comparisons are complete.
   See [the rendered comparison](button-rendered-comparison.md).
 - Exact Lucide and Tabler example SVG URLs and hashes are recorded in
   `reference/button-icons.json`. Reusable Button accepts caller-supplied artwork;
@@ -121,14 +122,11 @@ creation, composer, settings, and plugin actions.
   signed-out connection and web-voting states with self-contained callbacks and
   theme/RTL/text controls. It opens the unchanged public styleguide.
 
-## Pending native evidence
+## Native evidence
 
-The Mac is locked. The browser-only slot allowed actual reference comparison
-with widget-test exports; see [comparison evidence](button-rendered-comparison.md).
-No native application was touched. Native visual comparison, real-widget interactions,
-custom palettes and large-text/RTL review remain required; this component is
-not review_ready. No iOS/Linux device run, spoken VoiceOver or pixel-diff parity
-is claimed by widget tests.
+The isolated native review is complete. See [native review](button-native-review.md)
+for screenshots, interactions, corrections, source hashes and integration limits.
+The checkpoints below are historical build records superseded by final V8.
 
 ### Native-ready checkpoint
 
@@ -148,7 +146,7 @@ Final build log: `/private/tmp/button-review-final-build.log`.
 
 All seven examples also pass the 260px/200%/RTL/reduced-motion layout check
 in Light, Dark, Forest and Plum. Async/navigation examples pass separately
-(`/private/tmp/button-custom-tests.log`). Native inspection remains pending.
+(`/private/tmp/button-custom-tests.log`). Native inspection was pending at this historical checkpoint.
 
 ### Coordinator touch-target correction
 
@@ -175,5 +173,11 @@ passes. Every Dart source matches `/private/tmp/button-build-source-v2.json`,
 SHA256 `fd7a457448ac5deab7de70468358ad86f0989940cd6da835d53d733cf8c756e5`.
 Kernel SHA256:
 `b229b90dee48bcda90cefc31e8a9f4ee398673f7400a8da4b9f3566ede5fbc26`.
-Use this V2 bundle for the pending native comparison; the original bundle is
+At this checkpoint V2 replaced the original bundle; both are now superseded by V8. The original bundle is
 superseded. Build log: `/private/tmp/button-review-v2-build.log`.
+
+## Final native review
+
+See [Button native review](button-native-review.md) for actual screenshots,
+source provenance, Users touch-target corrections, native accessibility fixes,
+final checks and the coordinator-owned root styleguide AX integration boundary.
