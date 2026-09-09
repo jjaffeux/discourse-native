@@ -224,6 +224,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
         widget is DSwitch ||
         widget is DSwitchTile ||
         widget is Switch ||
+        widget is DMultiSlider ||
         widget is Slider ||
         widget is DropdownButton ||
         widget is DropdownMenu ||

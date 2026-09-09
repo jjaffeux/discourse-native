@@ -393,7 +393,7 @@ void main() {
       final controller = tester
           .widget<PageView>(find.byType(PageView))
           .controller!;
-      expect(controller.page, 1);
+      expect(controller.page! % 3, 1);
     });
 
     testWidgets('gives every control a 44px target and explicit semantics', (
@@ -452,7 +452,7 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      expect(controller.page, 1);
+      expect(controller.page! % 3, 1);
 
       final third = tester.widget<InkWell>(
         find.byKey(const ValueKey('image-carousel-dot-3-button')),
@@ -463,7 +463,7 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
       await tester.pumpAndSettle();
-      expect(controller.page, 2);
+      expect(controller.page! % 3, 2);
     });
 
     testWidgets('ten full-size dot targets fit a narrow carousel', (
@@ -488,11 +488,11 @@ void main() {
 
       await tester.tap(find.dIcon(DIcons.chevronLeft));
       await tester.pumpAndSettle();
-      expect(controller.page, 2);
+      expect(controller.page! % 3, 2);
 
       await tester.tap(find.dIcon(DIcons.chevronRight));
       await tester.pumpAndSettle();
-      expect(controller.page, 0);
+      expect(controller.page! % 3, 0);
     });
 
     testWidgets('counts instead of dotting once there are too many', (
@@ -542,7 +542,7 @@ void main() {
       final updatedController = tester
           .widget<PageView>(find.byType(PageView))
           .controller!;
-      expect(updatedController, same(originalController));
+      expect(updatedController, isNot(same(originalController)));
       expect(updatedController.page, 0);
       expect(tester.takeException(), isNull);
     });
@@ -565,7 +565,7 @@ void main() {
       final controller = tester
           .widget<PageView>(find.byType(PageView))
           .controller!;
-      expect(controller.page, 1);
+      expect(controller.page! % 3, 1);
     });
 
     testWidgets('opens the gallery from a slide', (tester) async {

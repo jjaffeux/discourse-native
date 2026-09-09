@@ -132,7 +132,7 @@ task. The reviewer owns fixes, verification, integration and local main merge
 without returning to the coordinator for approval. Follow the committed
 [review and merge procedure](review-and-merge.md), including shared desktop
 and main-checkout leases. The 17 backlog reviewers run independently; keep
-up to four new implementation tasks running as dependencies become available.
+up to five new implementation tasks running as dependencies become available.
 Each component implementation uses its own isolated worktree from latest main
 and `codex/ui-<component>` branch. Preserve original implementation task and
 branch history alongside the reviewer task and branch in progress. Source
@@ -160,10 +160,17 @@ Record decisions, migrations and retained alternatives, verification commands
 and outcomes, limitations, implementation commit, then merge commit. Regenerate
 `progress.md` with `dart run tool/render_component_progress.dart` and commit each
 update. A merge SHA must be recorded in a follow-up commit because a commit
-cannot embed its own final SHA. Start a dependent task only after local main
-contains its dependencies and their progress updates; independent tasks may
-start while other components are still in progress. Each implementer and reviewer edits only
-its assigned progress row; the reviewer preserves all other rows on merge.
+cannot embed its own final SHA. Start dependent tasks from accepted dependencies
+on latest local main by default. To overlap source work with pending final
+review, an isolated task may integrate a committed, tested parent implementation
+from its review branch. Record the exact parent commit, branch, reviewer and
+source-readiness evidence; coordinate API changes directly. This permits source
+preparation only. Before the dependent can merge, its reviewer must verify that
+every parent is accepted and merged in current main, integrate those accepted
+revisions, resolve overlap and verify the affected behavior. Never merge an
+unaccepted parent into main through its dependent. Each implementer and reviewer
+edits only its assigned progress row; the reviewer preserves all other rows on
+merge.
 
 After all 64 component rows are merged, create a final separate audit task to
 improve shared code, API consistency, composition, themes, accessibility,

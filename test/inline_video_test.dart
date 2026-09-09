@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart' show DSpinner, DSlider;
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -728,11 +728,11 @@ void main() {
       await tester.pump();
       session.update(showAppControls: false);
       await tester.pump();
-      expect(find.byType(Slider), findsNothing);
+      expect(find.byType(DSlider), findsNothing);
       expect(find.byTooltip('Pause'), findsNothing);
       session.update(showAppControls: true, supportsFullscreen: false);
       await tester.pump();
-      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(DSlider), findsOneWidget);
       expect(find.byTooltip('Enter full screen'), findsNothing);
       session.update(
         supportsFullscreen: true,

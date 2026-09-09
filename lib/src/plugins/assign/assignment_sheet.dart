@@ -375,18 +375,14 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               key: const Key('assignment-note'),
               controller: _noteController,
               enabled: !_saving,
               minLines: 3,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                hintText: 'Note (optional)',
-                border: OutlineInputBorder(),
-              ),
+              hintText: 'Note (optional)',
             ),
             if (widget.statusesEnabled && statuses.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -465,7 +461,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
           if (_loadingSuggestions)
             const AnchoredPickerProgress()
           else if (_suggestions != null) ...[
-            if (_searching) const LinearProgressIndicator(),
+            if (_searching)
+              const DProgress(semanticsLabel: 'Searching assignments'),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 180),
               child: _results.isEmpty && !_searching

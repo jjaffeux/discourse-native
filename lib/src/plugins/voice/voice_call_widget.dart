@@ -86,10 +86,12 @@ class VoiceCallWidget extends StatelessWidget {
                     DTooltip(
                       message: call.muted ? 'Unmute' : 'Mute',
                       labelTrigger: true,
-                      child: IconButton(
-                        tooltip: '',
-                        onPressed: () =>
+                      excludeFromSemantics: true,
+                      child: DToggle.iconOnly(
+                        pressed: call.muted,
+                        onPressedChanged: (_) =>
                             port.dispatch(VoiceCallAction.toggleMuted),
+                        semanticLabel: call.muted ? 'Unmute' : 'Mute',
                         icon: DIcon(
                           call.muted
                               ? DIcons.microphoneSlash

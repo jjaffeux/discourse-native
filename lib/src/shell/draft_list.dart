@@ -365,7 +365,6 @@ class _Drafts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       builder: (context, lane) => RefreshIndicator(
@@ -379,28 +378,19 @@ class _Drafts extends StatelessWidget {
                 slivers: [
                   if (feed.error case final error?)
                     SliverToBoxAdapter(
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            DIcon(
-                              DIcons.triangleExclamation,
-                              size: 18,
-                              color: theme.colorScheme.onErrorContainer,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(child: Text(error)),
-                            DButton(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: DAlert(
+                          variant: DAlertVariant.destructive,
+                          icon: const DIcon(DIcons.triangleExclamation),
+                          description: DAlertDescription(child: Text(error)),
+                          action: DAlertAction(
+                            child: DButton(
                               label: const Text('Retry'),
                               onPressed: () => unawaited(onRefresh()),
                               variant: DButtonVariant.link,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -740,35 +730,20 @@ class _DraftState extends StatelessWidget {
   final Future<void> Function()? onAction;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 332),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
             children: [
-              DIcon(icon, size: 48, color: theme.colorScheme.primary),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleLarge,
-              ),
-              if (body case final body?) ...[
-                const SizedBox(height: 6),
-                Text(
-                  body,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-              if (actionLabel case final label?) ...[
-                const SizedBox(height: 18),
+              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+              DEmptyTitle(title),
+              if (body case final body?) DEmptyDescription(body),
+            ],
+          ),
+          if (actionLabel case final label?)
+            DEmptyContent(
+              children: [
                 DButton(
                   label: Text(label),
                   onPressed: onAction == null
@@ -777,10 +752,9 @@ class _DraftState extends StatelessWidget {
                   variant: DButtonVariant.primary,
                 ),
               ],
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

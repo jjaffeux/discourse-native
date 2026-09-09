@@ -468,18 +468,19 @@ class _BrowseMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    child: SingleChildScrollView(
+      child: DEmpty(
         children: [
-          DIcon(icon, size: 28),
-          const SizedBox(height: 10),
-          Text(message, textAlign: TextAlign.center),
-          if (action case final label?) ...[
-            const SizedBox(height: 12),
-            DButton(label: Text(label), onPressed: onAction),
-          ],
+          DEmptyHeader(
+            children: [
+              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+              DEmptyTitle(message),
+            ],
+          ),
+          if (action case final label?)
+            DEmptyContent(
+              children: [DButton(label: Text(label), onPressed: onAction)],
+            ),
         ],
       ),
     ),

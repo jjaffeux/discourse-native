@@ -483,33 +483,54 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             if (_status == 'private') _field('allowed-groups'),
             _field('url'),
             _field('location'),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               controller: _description,
               minLines: 3,
               maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: 'Description (Markdown)',
-              ),
+              labelText: 'Description (Markdown)',
             ),
-            ExpansionTile(
-              title: const Text('More options'),
-              children: [
-                _field('max-attendees'),
-                _field('reminders'),
-                _field('image'),
-                for (final name in widget.settings.customFields)
-                  if (!_textFields.containsKey(name)) _field(name),
-                for (final entry in _booleanFields.entries)
-                  if (entry.key != 'all-day')
-                    DCheckbox(
-                      contentPadding: EdgeInsets.zero,
-                      title: DLabel(child: Text(entry.value)),
-                      value: _booleans[entry.key],
-                      onChanged: (value) =>
-                          setState(() => _booleans[entry.key] = value!),
+            DCollapsible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DCollapsibleTrigger(
+                    builder: (context, state) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('More options')),
+                          Icon(
+                            state.open ? Icons.expand_less : Icons.expand_more,
+                            size: 16,
+                          ),
+                        ],
+                      ),
                     ),
-              ],
+                  ),
+                  DCollapsibleContent(
+                    keepMounted: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _field('max-attendees'),
+                        _field('reminders'),
+                        _field('image'),
+                        for (final name in widget.settings.customFields)
+                          if (!_textFields.containsKey(name)) _field(name),
+                        for (final entry in _booleanFields.entries)
+                          if (entry.key != 'all-day')
+                            DCheckbox(
+                              contentPadding: EdgeInsets.zero,
+                              title: DLabel(child: Text(entry.value)),
+                              value: _booleans[entry.key],
+                              onChanged: (value) =>
+                                  setState(() => _booleans[entry.key] = value!),
+                            ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             if (_error != null)
               Padding(

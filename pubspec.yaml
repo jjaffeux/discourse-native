@@ -162,6 +162,9 @@ flutter:
     - packages/discourse_native/src/styleguide/assets/item/song-0.svg
     - packages/discourse_native/src/styleguide/assets/item/song-1.svg
     - packages/discourse_native/src/styleguide/assets/item/song-2.svg
+    - packages/discourse_native/src/styleguide/assets/scroll_area/ornella.jpg
+    - packages/discourse_native/src/styleguide/assets/scroll_area/tom.jpg
+    - packages/discourse_native/src/styleguide/assets/scroll_area/vladimir.jpg
     - packages/discourse_native/src/styleguide/assets/discourse.png
     - assets/fonts/JetBrainsMono-OFL.txt
   fonts:

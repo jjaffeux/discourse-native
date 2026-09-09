@@ -505,7 +505,9 @@ class _EventDirectoryState extends State<EventDirectory> {
           ),
         SizedBox(
           height: 2,
-          child: _loading ? const LinearProgressIndicator() : null,
+          child: _loading
+              ? const DProgress(semanticsLabel: 'Loading events')
+              : null,
         ),
       ],
     ),

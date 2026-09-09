@@ -186,7 +186,10 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (controller.loading)
-                  const LinearProgressIndicator(minHeight: 2),
+                  const DProgress(
+                    semanticsLabel: 'Loading revision',
+                    track: DProgressTrack(height: 2),
+                  ),
                 if (controller.error case final error?) ...[
                   _InlineError(message: error),
                   const SizedBox(height: 12),
@@ -809,20 +812,11 @@ class _HiddenDiff extends StatelessWidget {
 
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message});
-
   final String message;
-
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(4),
-    ),
-    child: Text(
-      message,
-      style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
-    ),
+  Widget build(BuildContext context) => DAlert(
+    variant: DAlertVariant.destructive,
+    description: DAlertDescription(child: Text(message)),
   );
 }
 

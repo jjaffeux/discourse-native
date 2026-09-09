@@ -1,0 +1,50 @@
+{
+  "retrieved": "2026-09-09",
+  "sources": [
+    {
+      "file": "docs/component-library/reference/scroll-area/registry.json",
+      "url": "https://ui.shadcn.com/r/styles/base-nova/scroll-area.json",
+      "sha256": "be6cdcfbf02a2fa091ec92cb2bc34e35b8a4e4b3a2d041973cfcd68396e6da1d"
+    },
+    {
+      "file": "docs/component-library/reference/scroll-area/documentation.md",
+      "url": "https://ui.shadcn.com/docs/components/base/scroll-area.md",
+      "sha256": "f40c4a5ed0108ef8a84f5ffdd4ee1b4571f1cd3f2cbc26d88512ffe5c9ba041b"
+    },
+    {
+      "file": "docs/component-library/reference/scroll-area/base-thumb.tsx",
+      "url": "https://raw.githubusercontent.com/mui/base-ui/master/packages/react/src/scroll-area/thumb/ScrollAreaThumb.tsx",
+      "sha256": "fa29ceb659aed174ac4ddf13068a89a3e4af78aff43fc35d901382b6dc1e3e7e"
+    },
+    {
+      "file": "docs/component-library/reference/scroll-area/base-scrollbar.tsx",
+      "url": "https://raw.githubusercontent.com/mui/base-ui/master/packages/react/src/scroll-area/scrollbar/ScrollAreaScrollbar.tsx",
+      "sha256": "0658fb17cb20fba0b41c617c8e02d2fda928b5fd7a67d168ba923254385ff48e"
+    },
+    {
+      "file": "docs/component-library/reference/scroll-area/base-viewport.tsx",
+      "url": "https://raw.githubusercontent.com/mui/base-ui/master/packages/react/src/scroll-area/viewport/ScrollAreaViewport.tsx",
+      "sha256": "2de647b48d3863d681fb319b62528df01068a1342ea5986100302492323c7932"
+    },
+    {
+      "file": "docs/component-library/reference/scroll-area/base-constants.ts",
+      "url": "https://raw.githubusercontent.com/mui/base-ui/master/packages/react/src/scroll-area/constants.ts",
+      "sha256": "9fc45414ac2ce0857c5ee7100a7a66bfd9955afe56afd8ea5d5851f365f8928c"
+    },
+    {
+      "file": "lib/src/styleguide/assets/scroll_area/ornella.jpg",
+      "url": "https://images.unsplash.com/photo-1465869185982-5a1a7522cbcb?auto=format&fit=crop&w=300&q=80",
+      "sha256": "5f7a23fb8c910af9b05894336f51e6eeccd5aa69998fdccee2069d4088517b1b"
+    },
+    {
+      "file": "lib/src/styleguide/assets/scroll_area/tom.jpg",
+      "url": "https://images.unsplash.com/photo-1548516173-3cabfa4607e9?auto=format&fit=crop&w=300&q=80",
+      "sha256": "c8df3f768d669275e42653483fd1ae3b4a945c7ea69e408969de5044c1938eef"
+    },
+    {
+      "file": "lib/src/styleguide/assets/scroll_area/vladimir.jpg",
+      "url": "https://images.unsplash.com/photo-1494337480532-3725c85fd2ab?auto=format&fit=crop&w=300&q=80",
+      "sha256": "338e359133ed59ac7e1b360e7df710c82d4d3ba5f55c42ba8f83dae6dcedf535"
+    }
+  ]
+}
