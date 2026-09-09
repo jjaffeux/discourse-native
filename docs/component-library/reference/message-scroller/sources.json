@@ -25,7 +25,7 @@
       "path": "headless-0.3.1.js",
       "package": "@shadcn/react@0.3.1",
       "sha256": "03dce661e70800afb5dbae6f7916241cee029e15676892bda9937d3cb3a7e033",
-      "note": "Published behavior implementation; committed copy adds one terminal newline."
+      "note": "Byte-exact captured published behavior implementation."
     }
   ],
   "license": "MIT; see ../LICENSE.shadcn.md"
