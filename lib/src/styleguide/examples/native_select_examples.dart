@@ -129,20 +129,22 @@ final nativeSelectExamples = ComponentExamples(
       description:
           'Exact composition from the official Base UI Native Select page.',
       code: '''DNativeSelect<String>(
-  placeholder: 'Disabled',
+  placeholder: 'Select priority',
   entries: const [
-    DNativeSelectOption(value: 'apple', label: 'Apple'),
-    DNativeSelectOption(value: 'banana', label: 'Banana'),
-    DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+    DNativeSelectOption(value: 'low', label: 'Low'),
+    DNativeSelectOption(value: 'medium', label: 'Medium'),
+    DNativeSelectOption(value: 'high', label: 'High'),
+    DNativeSelectOption(value: 'critical', label: 'Critical'),
   ],
   onChanged: null,
 )''',
       builder: (_) => const DNativeSelect<String>(
-        placeholder: 'Disabled',
+        placeholder: 'Select priority',
         entries: [
-          DNativeSelectOption(value: 'apple', label: 'Apple'),
-          DNativeSelectOption(value: 'banana', label: 'Banana'),
-          DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+          DNativeSelectOption(value: 'low', label: 'Low'),
+          DNativeSelectOption(value: 'medium', label: 'Medium'),
+          DNativeSelectOption(value: 'high', label: 'High'),
+          DNativeSelectOption(value: 'critical', label: 'Critical'),
         ],
         onChanged: null,
       ),
@@ -152,21 +154,23 @@ final nativeSelectExamples = ComponentExamples(
       description:
           'Exact composition from the official Base UI Native Select page.',
       code: '''DNativeSelect<String>(
-  placeholder: 'Error state',
+  placeholder: 'Select role',
   entries: const [
-    DNativeSelectOption(value: 'apple', label: 'Apple'),
-    DNativeSelectOption(value: 'banana', label: 'Banana'),
-    DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+    DNativeSelectOption(value: 'admin', label: 'Admin'),
+    DNativeSelectOption(value: 'editor', label: 'Editor'),
+    DNativeSelectOption(value: 'viewer', label: 'Viewer'),
+    DNativeSelectOption(value: 'guest', label: 'Guest'),
   ],
   onChanged: (_) {},
   invalid: true,
 )''',
       builder: (_) => DNativeSelect<String>(
-        placeholder: 'Error state',
+        placeholder: 'Select role',
         entries: const [
-          DNativeSelectOption(value: 'apple', label: 'Apple'),
-          DNativeSelectOption(value: 'banana', label: 'Banana'),
-          DNativeSelectOption(value: 'blueberry', label: 'Blueberry'),
+          DNativeSelectOption(value: 'admin', label: 'Admin'),
+          DNativeSelectOption(value: 'editor', label: 'Editor'),
+          DNativeSelectOption(value: 'viewer', label: 'Viewer'),
+          DNativeSelectOption(value: 'guest', label: 'Guest'),
         ],
         onChanged: (_) {},
         invalid: true,
