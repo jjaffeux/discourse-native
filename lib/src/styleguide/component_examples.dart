@@ -10,6 +10,7 @@ import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/radio_group_examples.dart';
+import 'examples/resizable_examples.dart';
 import 'examples/separator_examples.dart';
 import 'examples/sidebar_examples.dart';
 import 'examples/skeleton_examples.dart';
@@ -24,6 +25,7 @@ final componentExamples = <String, ComponentExamples>{
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
   'card': cardExamples,
+  'resizable': resizableExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,

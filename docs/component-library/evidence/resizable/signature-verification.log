@@ -1,0 +1,14 @@
+--prepared:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/MacOS/__preview.dylib
+--validated:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/MacOS/__preview.dylib
+--prepared:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/Frameworks/App.framework/Versions/Current/.
+--prepared:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/Frameworks/objective_c.framework/Versions/Current/.
+--validated:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/Frameworks/objective_c.framework/Versions/Current/.
+--prepared:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/MacOS/Discourse.debug.dylib
+--validated:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/MacOS/Discourse.debug.dylib
+--prepared:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.
+--validated:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.
+--prepared:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.
+--validated:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.
+--validated:/private/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app/Contents/Frameworks/App.framework/Versions/Current/.
+/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app: valid on disk
+/tmp/discourse-resizable-review-c1fc/DiscourseResizableReview.app: satisfies its Designated Requirement
