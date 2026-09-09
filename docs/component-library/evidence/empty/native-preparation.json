@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "b5730d9ff6b6d58b19b392270459723e891a7361",
+  "sourceTree": "f689d8b50a0854148913fcc29ee268d057e1c079",
+  "sourceCleanAtBuild": true,
+  "sourceBundle": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native/build/macos/Build/Products/Debug/Discourse.app",
+  "reviewBundle": "/private/tmp/DiscourseEmptyReview-01a0843e.app",
+  "bundleId": "org.discourse.native.empty.01a0843e",
+  "urlScheme": "discourse-empty-review-01a0843e",
+  "buildCommand": "flutter build macos --debug --no-pub -t tool/component_fixtures/empty_main.dart",
+  "buildLog": "/tmp/empty-macos-final-build.log",
+  "sourceKernelSha256": "d87ca41a3c701fb7ea7fbcf7369d7c6fc487deaeaaec9894a390027c3cc458a4",
+  "copiedKernelSha256": "d87ca41a3c701fb7ea7fbcf7369d7c6fc487deaeaaec9894a390027c3cc458a4",
+  "signatureVerificationCommand": "codesign --verify --deep --strict --verbose=2 /private/tmp/DiscourseEmptyReview-01a0843e.app",
+  "signatureVerification": "--prepared:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/MacOS/__preview.dylib\n--validated:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/MacOS/__preview.dylib\n--prepared:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/Frameworks/App.framework/Versions/Current/.\n--prepared:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--prepared:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/MacOS/Discourse.debug.dylib\n--validated:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/MacOS/Discourse.debug.dylib\n--prepared:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--prepared:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/private/tmp/DiscourseEmptyReview-01a0843e.app/Contents/Frameworks/App.framework/Versions/Current/.\n/private/tmp/DiscourseEmptyReview-01a0843e.app: valid on disk\n/private/tmp/DiscourseEmptyReview-01a0843e.app: satisfies its Designated Requirement\n",
+  "launched": false,
+  "reviewStatus": "awaiting_slot"
+}
