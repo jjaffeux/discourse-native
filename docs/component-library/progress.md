@@ -2462,10 +2462,11 @@ Status: in_progress. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/u
 - Root and profiles/full flutter analyze --no-pub passed with no diagnostics after enforced locked resolution; no lockfile or Flutter pin changed.
 - Exact-source isolated macOS styleguide build succeeded at /tmp/discourse-navigation-review.SF87jt/source/build/macos/Build/Products/Debug/Navigation Menu Review 43ef3bca.app with bundle ID org.discourse.navigationmenureview.r43ef3bca. Navigation Menu, Popover and example sources match review commit ca405f0e; ad-hoc permitted-debug re-sign and deep strict verification passed; kernel SHA-256 cd6886d74ae2d7e2ee582e25e961a8f3c4eee05ad1c19443c047d2d5ac905fe1.
 - Read-only core and bundled-plugin navigation audit found no suitable production migration; retained specialized owners are recorded explicitly.
+- A second FIFO desktop lease was acquired at 2026-09-09T14:38:56Z after the coordinator reported fresh native access. The first approved CUA getState call again reported that the Mac was locked and automatic unlock failed; lease 83a9d71be9a44428acd3cbf4821aa9ab was released immediately without touching the shared desktop.
 
 **limitations**
 
-- Official rendered browser comparison and first actual native macOS inspection remain incomplete. After acquiring the FIFO desktop lease, the approved CUA surface reported that the Mac was locked and automatic unlock failed; the reviewer released the lease immediately and did not claim browser/native acceptance.
+- Official rendered browser comparison and first actual native macOS inspection remain incomplete. Two independently acquired FIFO desktop leases, including a retry after the coordinator reported fresh access, both reached the approved CUA surface while the Mac was locked and automatic unlock failed. Each lease was released immediately; browser/native acceptance is not claimed.
 - No iOS or Linux device run or spoken VoiceOver pass was performed. Widget tests, analysis and build/signature evidence are not native inspection.
 
 ### breadcrumb
