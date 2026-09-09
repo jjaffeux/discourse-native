@@ -87,6 +87,43 @@ Widget fixture({
 );
 
 void main() {
+  testWidgets(
+    'content-width menu buttons expose their actual semantic hit bounds',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: SizedBox(
+                width: 240,
+                child: DSidebarMenuItem(
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: IntrinsicWidth(
+                      child: DSidebarMenuButton(
+                        onPressed: () {},
+                        child: const Text('Card'),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final button = find.byType(DSidebarMenuButton);
+        expect(
+          tester.getSemantics(button).rect.width,
+          tester.getSize(button).width,
+        );
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
   testWidgets('floating icon panel keeps32px inside its painted ring', (
     tester,
   ) async {

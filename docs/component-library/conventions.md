@@ -68,8 +68,13 @@ scrolling, removal during callbacks, and async completion ownership.
 - Launch inside the app using the palette button in the bottom-left rail, or
   run `flutter run -d macos -t lib/styleguide_main.dart --no-pub` for independent
   sample data without app credentials or requests.
+- The documentation shell uses the shared DSidebar component. Keep its compact
+  navigation, 640px reading width, neutral local theme and preview/code panels
+  aligned with [the measured design](styleguide-design.md). Previews receive
+  the original app theme, not the documentation canvas theme.
 - Each component owns `lib/src/styleguide/examples/<component>_examples.dart`.
-  Register its `ComponentExamples` in `component_examples.dart`. Only mark it
+  Register its `ComponentExamples` in `component_examples.dart`, with a short
+  `description` for the page introduction and detailed `notes` for its disclosure. Only mark it
   `implemented` after acceptance and verification. The initial Button, Tooltip
   and Select groups are explicitly **baseline**, not completed catalogue work.
 - Add runnable `StyleguideExample` entries for all variants, states, composition

@@ -4,6 +4,8 @@ import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final directionExamples = ComponentExamples(
+  description:
+      'Set the reading direction for a component or part of your interface.',
   status: ComponentStatus.implemented,
   notes:
       'Import discourse_ui.dart; no additional dependency is needed. '

@@ -25,11 +25,15 @@ class ComponentExamples {
   const ComponentExamples({
     required this.status,
     required this.examples,
+    this.description = '',
     this.notes = '',
   });
 
   final ComponentStatus status;
   final List<StyleguideExample> examples;
+
+  /// A short introduction for the documentation page.
+  final String description;
   final String notes;
 }
 

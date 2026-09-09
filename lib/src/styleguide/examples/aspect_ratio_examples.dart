@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final aspectRatioExamples = ComponentExamples(
+  description:
+      'A container that keeps its content at a consistent aspect ratio.',
   status: ComponentStatus.implemented,
   notes:
       'DAspectRatio(ratio: width / height, child: ...) accepts any finite '

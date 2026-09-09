@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../styleguide_example.dart';
 
 final tooltipExamples = ComponentExamples(
+  description: 'A brief description that appears on hover or keyboard focus.',
   status: ComponentStatus.implemented,
   notes:
       'Tooltip reproduces the frozen base-nova surface and arrow. The composed '

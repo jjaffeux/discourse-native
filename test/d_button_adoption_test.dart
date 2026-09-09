@@ -12,6 +12,8 @@ final _materialButtonConstructor = RegExp(
 // adding another raw Material button requires reviewing this boundary.
 const _intentionalMaterialButtons = <String, int>{
   'lib/src/theme/d_button.dart': 1, // DButton's rendering primitive.
+  // Documentation-only 32px toolbar geometry; examples still use DButton.
+  'lib/src/styleguide/styleguide_chrome.dart': 1,
   // Native menu and rich-text focus examples, including their usage snippets.
   'lib/src/styleguide/examples/direction_examples.dart': 2,
   'lib/src/styleguide/examples/typography_examples.dart': 2,

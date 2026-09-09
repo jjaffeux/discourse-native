@@ -22,11 +22,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.light, home: const ComponentStyleguidePage()),
     );
+    await tester.tap(find.byKey(const ValueKey('styleguide-navigation')));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('styleguide-search')),
       'skeleton',
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('styleguide-component-skeleton')),
     );

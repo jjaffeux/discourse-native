@@ -4,6 +4,7 @@ import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final skeletonExamples = ComponentExamples(
+  description: 'Show a placeholder while content is loading.',
   status: ComponentStatus.implemented,
   notes:
       'Import discourse_ui.dart. Geometry uses logical pixels and live site '

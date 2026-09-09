@@ -507,7 +507,11 @@ library** styleguide, including before a forum has loaded. Search components
 and reference capabilities, interact with examples, and preview light, dark,
 custom site palettes, viewport widths, text scaling, direction, and reduced
 motion. Closing the styleguide returns to the mounted workspace. Preview
-settings and sample data are local to the styleguide. Run it independently
+settings and sample data are local to the styleguide. The documentation canvas
+has its own neutral light/dark toggle; previews retain the app palette. Use
+Cmd/Ctrl+K to search, or the Sidebar trigger to browse on a narrow window.
+Advanced preview controls are under the settings icon; each panel can reveal
+and copy its usage code. Run it independently
 with `flutter run -d macos -t lib/styleguide_main.dart --no-pub`.
 See the [component library progress](docs/component-library/progress.md) and
 [conventions](docs/component-library/conventions.md) for the frozen catalogue,

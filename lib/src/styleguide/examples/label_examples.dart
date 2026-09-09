@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final labelExamples = ComponentExamples(
+  description: 'An accessible label for a form control.',
   status: ComponentStatus.implemented,
   notes:
       'Import package:discourse_native/discourse_ui.dart. DLabel accepts child, '

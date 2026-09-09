@@ -90,9 +90,11 @@ metadata; this task leaves the frozen dependency list unchanged.
 
 ## Adoption inventory
 
-The first app adoption is the corrected styleguide shell, owned concurrently
-by the coordinator. This task exports/registers independent examples and does
-not modify styleguide_page.dart,styleguide_chrome.dart or foundation_examples.dart.
+The first app adoption is the corrected styleguide shell, integrated by the
+coordinator using the public provider, panel, content, group, menu, button,
+header and trigger parts. The component task exports/registers six independent
+examples; [the coordinator's review](styleguide-design.md) records the actual
+application adoption and its native verification.
 
 Retained app owners require dedicated adapter work rather than a blind wrapper:
 
@@ -126,6 +128,12 @@ Final implementation checkpoint: `47aabf60e65dff047cdf80dd6e29203a93fb8012`.
 Final21 focused tests pass; root/full analysis and formatting are clean.
 [Native comparison, build provenance, cleanup and limitations](sidebar-native.md)
 records the actual macOS inspection and its native-discovered fixes.
+
+Coordinator integration adds compact button semantic boundaries, verifies the
+actual styleguide navigation, and sets the compact demos' breakpoint to 500px
+while preserving the component default of 768px. The operational progress
+dependencies are Tooltip, Separator and Skeleton; the frozen website reference
+graph remains unchanged in catalogue.json.
 
 Pointer activation requests focus before calling the action. On iOS/Android,
 menu/trigger/action hit areas have48px minimum bounds around compact visuals.
