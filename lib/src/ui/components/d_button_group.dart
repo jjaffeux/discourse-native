@@ -210,10 +210,10 @@ class _ButtonGroupFlex extends Flex {
 
   @override
   RenderFlex createRenderObject(BuildContext context) => _RenderButtonGroup(
+    focusedIndex,
     direction: direction,
     mainAxisSize: mainAxisSize,
     textDirection: Directionality.of(context),
-    focusedIndex: focusedIndex,
   );
 
   @override
@@ -227,12 +227,12 @@ class _ButtonGroupFlex extends Flex {
 }
 
 class _RenderButtonGroup extends RenderFlex {
-  _RenderButtonGroup({
+  _RenderButtonGroup(
+    this._focusedIndex, {
     required super.direction,
     required super.mainAxisSize,
     required super.textDirection,
-    required int? focusedIndex,
-  }) : _focusedIndex = focusedIndex;
+  });
 
   int? _focusedIndex;
   set focusedIndex(int? value) {
