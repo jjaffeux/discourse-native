@@ -1,0 +1,206 @@
+{
+  "theme": {
+    "classes": "geist_798ff10f-module__HGtJha__variable geist_4e2d599d-module__VB9uPW__variable geist_mono_3f173115-module__-5hxnG__variable noto_sans_arabic_43e4c719-module__-KZrLG__variable noto_sans_hebrew_1a1cc4a4-module__bpro2a__variable [--header-height:calc(var(--spacing)*14)] lg:[--header-height:calc(var(--spacing)*16)] dark",
+    "colorScheme": "dark"
+  },
+  "switches": [
+    {
+      "html": "<span data-unchecked=\"\" role=\"switch\" tabindex=\"0\" id=\"base-ui-_R_k3aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"switch\" data-size=\"default\" class=\"peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50\" aria-labelledby=\"airplane-mode-label\"><span data-unchecked=\"\" data-slot=\"switch-thumb\" class=\"pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground\"></span></span>",
+      "id": "base-ui-_R_k3aanpfknqbr6lb_",
+      "label": null,
+      "labelledby": "airplane-mode-label",
+      "thumb": {
+        "bg": "lab(98.26 0 0)",
+        "height": "16px",
+        "translate": "0px",
+        "width": "16px"
+      },
+      "track": {
+        "bg": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.12)",
+        "border": "rgba(0, 0, 0, 0)",
+        "height": 18.3984375,
+        "radius": "1.67772e+07px",
+        "shadow": "none",
+        "width": 32,
+        "x": 626.65625,
+        "y": 425.796875
+      }
+    },
+    {
+      "html": "<span data-unchecked=\"\" role=\"switch\" tabindex=\"0\" id=\"base-ui-_R_14vaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"switch\" data-size=\"default\" class=\"peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50\" aria-labelledby=\"switch-focus-mode-label\"><span data-unchecked=\"\" data-slot=\"switch-thumb\" class=\"pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground\"></span></span>",
+      "id": "base-ui-_R_14vaanpfknqbr6lb_",
+      "label": null,
+      "labelledby": "switch-focus-mode-label",
+      "thumb": {
+        "bg": "lab(98.26 0 0)",
+        "height": "16px",
+        "translate": "0px",
+        "width": "16px"
+      },
+      "track": {
+        "bg": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.12)",
+        "border": "rgba(0, 0, 0, 0)",
+        "height": 18.3984375,
+        "radius": "1.67772e+07px",
+        "shadow": "none",
+        "width": 32,
+        "x": 854,
+        "y": 1319.75
+      }
+    },
+    {
+      "html": "<span data-unchecked=\"\" role=\"switch\" tabindex=\"0\" id=\"base-ui-_R_4lbaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"switch\" data-size=\"default\" class=\"peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50\" aria-labelledby=\"switch-share-label\"><span data-unchecked=\"\" data-slot=\"switch-thumb\" class=\"pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground\"></span></span>",
+      "id": "base-ui-_R_4lbaanpfknqbr6lb_",
+      "label": null,
+      "labelledby": "switch-share-label",
+      "thumb": {
+        "bg": "lab(98.26 0 0)",
+        "height": "16px",
+        "translate": "0px",
+        "width": "16px"
+      },
+      "track": {
+        "bg": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.12)",
+        "border": "rgba(0, 0, 0, 0)",
+        "height": 18.3984375,
+        "radius": "1.67772e+07px",
+        "shadow": "none",
+        "width": 32,
+        "x": 843,
+        "y": 1796.375
+      }
+    },
+    {
+      "html": "<span data-checked=\"\" role=\"switch\" tabindex=\"0\" id=\"base-ui-_R_55baanpfknqbr6lb_\" aria-checked=\"true\" data-slot=\"switch\" data-size=\"default\" class=\"peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50\" aria-labelledby=\"switch-notifications-label\"><span data-checked=\"\" data-slot=\"switch-thumb\" class=\"pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground\"></span></span>",
+      "id": "base-ui-_R_55baanpfknqbr6lb_",
+      "label": null,
+      "labelledby": "switch-notifications-label",
+      "thumb": {
+        "bg": "lab(7.78201 -0.0000149012 0)",
+        "height": "16px",
+        "translate": "calc(100% - 2px)",
+        "width": "16px"
+      },
+      "track": {
+        "bg": "lab(90.952 0 -0.0000119209)",
+        "border": "rgba(0, 0, 0, 0)",
+        "height": 18.3984375,
+        "radius": "1.67772e+07px",
+        "shadow": "none",
+        "width": 32,
+        "x": 843,
+        "y": 1902.375
+      }
+    },
+    {
+      "html": "<span data-disabled=\"\" data-unchecked=\"\" role=\"switch\" tabindex=\"-1\" aria-disabled=\"true\" id=\"base-ui-_R_lnaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"switch\" data-size=\"default\" class=\"peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50\" aria-labelledby=\"switch-disabled-unchecked-label\"><span data-disabled=\"\" data-unchecked=\"\" data-slot=\"switch-thumb\" class=\"pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground\"></span></span>",
+      "id": "base-ui-_R_lnaanpfknqbr6lb_",
+      "label": null,
+      "labelledby": "switch-disabled-unchecked-label",
+      "thumb": {
+        "bg": "lab(98.26 0 0)",
+        "height": "16px",
+        "translate": "0px",
+        "width": "16px"
+      },
+      "track": {
+        "bg": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.12)",
+        "border": "rgba(0, 0, 0, 0)",
+        "height": 18.3984375,
+        "radius": "1.67772e+07px",
+        "shadow": "none",
+        "width": 32,
+        "x": 645.2578125,
+        "y": 2428.421875
+      }
+    },
+    {
+      "html": "<span data-unchecked=\"\" role=\"switch\" tabindex=\"0\" id=\"base-ui-_R_163aanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"switch\" data-size=\"default\" aria-invalid=\"true\" class=\"peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50\" aria-labelledby=\"switch-terms-label\"><span data-unchecked=\"\" data-slot=\"switch-thumb\" class=\"pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground\"></span></span>",
+      "id": "base-ui-_R_163aanpfknqbr6lb_",
+      "label": null,
+      "labelledby": "switch-terms-label",
+      "thumb": {
+        "bg": "lab(98.26 0 0)",
+        "height": "16px",
+        "translate": "0px",
+        "width": "16px"
+      },
+      "track": {
+        "bg": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.12)",
+        "border": "oklab(0.704006 0.176798 0.0722319 / 0.5)",
+        "height": 18.3984375,
+        "radius": "1.67772e+07px",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.704006 0.176798 0.0722319 / 0.4) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "width": 32,
+        "x": 854,
+        "y": 2962.25
+      }
+    },
+    {
+      "html": "<span data-unchecked=\"\" role=\"switch\" tabindex=\"0\" id=\"base-ui-_R_2mfaanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"switch\" data-size=\"sm\" class=\"peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50\" aria-labelledby=\"switch-size-sm-label\"><span data-unchecked=\"\" data-slot=\"switch-thumb\" class=\"pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground\"></span></span>",
+      "id": "base-ui-_R_2mfaanpfknqbr6lb_",
+      "label": null,
+      "labelledby": "switch-size-sm-label",
+      "thumb": {
+        "bg": "lab(98.26 0 0)",
+        "height": "12px",
+        "translate": "0px",
+        "width": "12px"
+      },
+      "track": {
+        "bg": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.12)",
+        "border": "rgba(0, 0, 0, 0)",
+        "height": 14,
+        "radius": "1.67772e+07px",
+        "shadow": "none",
+        "width": 24,
+        "x": 614,
+        "y": 3497.25
+      }
+    },
+    {
+      "html": "<span data-unchecked=\"\" role=\"switch\" tabindex=\"0\" id=\"base-ui-_R_36faanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"switch\" data-size=\"default\" class=\"peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50\" aria-labelledby=\"switch-size-default-label\"><span data-unchecked=\"\" data-slot=\"switch-thumb\" class=\"pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground\"></span></span>",
+      "id": "base-ui-_R_36faanpfknqbr6lb_",
+      "label": null,
+      "labelledby": "switch-size-default-label",
+      "thumb": {
+        "bg": "lab(98.26 0 0)",
+        "height": "16px",
+        "translate": "0px",
+        "width": "16px"
+      },
+      "track": {
+        "bg": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.12)",
+        "border": "rgba(0, 0, 0, 0)",
+        "height": 18.3984375,
+        "radius": "1.67772e+07px",
+        "shadow": "none",
+        "width": 32,
+        "x": 614,
+        "y": 3534.296875
+      }
+    },
+    {
+      "html": "<span data-unchecked=\"\" role=\"switch\" tabindex=\"0\" id=\"base-ui-_R_56raanpfknqbr6lb_\" aria-checked=\"false\" data-slot=\"switch\" data-size=\"default\" dir=\"rtl\" class=\"peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50\" aria-labelledby=\"switch-focus-mode-rtl-label\"><span data-unchecked=\"\" data-slot=\"switch-thumb\" class=\"pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] rtl:group-data-[size=default]/switch:data-checked:-translate-x-[calc(100%-2px)] rtl:group-data-[size=sm]/switch:data-checked:-translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 rtl:group-data-[size=default]/switch:data-unchecked:-translate-x-0 rtl:group-data-[size=sm]/switch:data-unchecked:-translate-x-0 dark:data-unchecked:bg-foreground\"></span></span>",
+      "id": "base-ui-_R_56raanpfknqbr6lb_",
+      "label": null,
+      "labelledby": "switch-focus-mode-rtl-label",
+      "thumb": {
+        "bg": "lab(98.26 0 0)",
+        "height": "16px",
+        "translate": "0px",
+        "width": "16px"
+      },
+      "track": {
+        "bg": "oklab(0.999998 -0.00000980496 0.0000234246 / 0.12)",
+        "border": "rgba(0, 0, 0, 0)",
+        "height": 18.3984375,
+        "radius": "1.67772e+07px",
+        "shadow": "none",
+        "width": 32,
+        "x": 502,
+        "y": 4086.25
+      }
+    }
+  ]
+}

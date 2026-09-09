@@ -179,7 +179,7 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
                   hasEvents: events.isNotEmpty,
                   recording: widget.readState().enabled,
                 )
-              : Scrollbar(
+              : DScrollBar(
                   controller: _timeline,
                   child: ListView.builder(
                     key: const ValueKey('voice-diagnostics-timeline'),
@@ -403,7 +403,7 @@ class _CaptureControls extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SwitchListTile.adaptive(
+              DSwitchTile(
                 key: const ValueKey('voice-capture-switch'),
                 contentPadding: EdgeInsets.zero,
                 value: state.enabled,

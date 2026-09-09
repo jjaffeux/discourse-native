@@ -93,19 +93,16 @@ class _ProofreadToggle extends StatelessWidget {
                     const SizedBox(width: 4),
                   ],
                   ExcludeSemantics(
-                    child: IgnorePointer(
-                      child: SizedBox(
-                        width: 38,
-                        height: 30,
-                        child: Transform.scale(
-                          scale: 0.72,
-                          child: Switch.adaptive(
-                            key: const ValueKey('composer-proofread-switch'),
-                            value: enabled,
-                            onChanged: interactive ? (_) {} : null,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          ),
+                    child: ExcludeFocus(
+                      child: IgnorePointer(
+                        child: DSwitch(
+                          key: const ValueKey('composer-proofread-switch'),
+                          size: DSwitchSize.small,
+                          value: enabled,
+                          onChanged: interactive
+                              ? (value) =>
+                                    controller.setEnabled(composer, value)
+                              : null,
                         ),
                       ),
                     ),
