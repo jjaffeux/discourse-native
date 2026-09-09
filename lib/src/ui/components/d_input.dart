@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/input_group_scope.dart';
+import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_label.dart';
@@ -25,11 +27,13 @@ import 'd_label.dart';
 class DInput extends FormField<String> {
   DInput({
     super.key,
+    this.editorKey,
     this.controller,
     this.value,
     String? initialValue,
     this.focusNode,
     this.labelText,
+    this.semanticLabel,
     this.hintText,
     this.helperText,
     this.errorText,
@@ -73,10 +77,11 @@ class DInput extends FormField<String> {
          builder: (state) => (state as _DInputState)._build(),
        );
 
+  final Key? editorKey;
   final TextEditingController? controller;
   final String? value;
   final FocusNode? focusNode;
-  final String? labelText, hintText, helperText, errorText;
+  final String? labelText, semanticLabel, hintText, helperText, errorText;
   final bool invalid;
 
   /// Exposes required semantics; the caller supplies the validation rule.
@@ -114,6 +119,7 @@ class DInput extends FormField<String> {
 class _DInputState extends FormFieldState<String> {
   TextEditingController? _ownedController;
   FocusNode? _ownedFocus;
+  DInputGroupControlScope? _group;
   late final String _resetValue;
   bool _syncing = false;
   DInput get input => widget as DInput;
@@ -135,6 +141,16 @@ class _DInputState extends FormFieldState<String> {
 
   void _focusChanged() {
     if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = DInputGroupControlScope.maybeOf(context);
+    if (!identical(next, _group)) {
+      _group?.remove(_focus);
+      _group = next;
+    }
   }
 
   void _changed() {
@@ -165,6 +181,7 @@ class _DInputState extends FormFieldState<String> {
       setValue(input.value);
     }
     if (oldWidget.focusNode != input.focusNode) {
+      _group?.remove(oldWidget.focusNode ?? _ownedFocus!);
       (oldWidget.focusNode ?? _ownedFocus!).removeListener(_focusChanged);
       _ownedFocus?.dispose();
       _ownedFocus = input.focusNode == null ? FocusNode() : null;
@@ -200,6 +217,7 @@ class _DInputState extends FormFieldState<String> {
 
   @override
   void dispose() {
+    _group?.remove(_focus);
     _controller.removeListener(_changed);
     _focus.removeListener(_focusChanged);
     _ownedController?.dispose();
@@ -209,6 +227,13 @@ class _DInputState extends FormFieldState<String> {
 
   Widget _build() {
     final t = DTokens.of(context);
+    final joined = DJoinedControlScope.maybeOf(context);
+    final radius =
+        joined?.resolveRadius(
+          BorderRadius.circular(t.radius),
+          Directionality.of(context),
+        ) ??
+        BorderRadius.circular(t.radius);
     final error = input.errorText ?? errorText;
     final isInvalid = input.invalid || error != null;
     final touch = switch (Theme.of(context).platform) {
@@ -223,6 +248,84 @@ class _DInputState extends FormFieldState<String> {
       letterSpacing: 0,
       color: t.foreground,
     );
+    final group = _group;
+    final enabled = input.enabled && (group?.enabled ?? true);
+    group?.report(_focus, enabled, isInvalid);
+    final editor = TextFieldTapRegion(
+      child: Row(
+        children: [
+          if (input.prefix != null) ...[
+            input.prefix!,
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Semantics(
+              // Keep the editable role bounded to this editor. Without
+              // a boundary it can merge into an entire page on macOS.
+              container: true,
+              label: input.semanticLabel ?? input.labelText,
+              isRequired: input.isRequired,
+              validationResult: isInvalid
+                  ? SemanticsValidationResult.invalid
+                  : SemanticsValidationResult.none,
+              child: TextField(
+                key: input.editorKey,
+                controller: _controller,
+                focusNode: _focus,
+                enabled: enabled,
+                readOnly: input.readOnly,
+                autofocus: input.autofocus,
+                style: style,
+                decoration: InputDecoration(
+                  isCollapsed: true,
+                  isDense: true,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  filled: false,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: input.hintText,
+                  hintStyle: style.copyWith(color: t.mutedForeground),
+                  counterText: '',
+                ),
+                cursorColor: t.foreground,
+                keyboardType: input.keyboardType,
+                textInputAction: input.textInputAction,
+                textCapitalization: input.textCapitalization,
+                obscureText: input.obscureText,
+                obscuringCharacter: input.obscuringCharacter,
+                autocorrect: input.autocorrect,
+                enableSuggestions: input.enableSuggestions,
+                enableInteractiveSelection: input.enableInteractiveSelection,
+                inputFormatters: input.inputFormatters,
+                autofillHints: input.autofillHints,
+                maxLength: input.maxLength,
+                maxLengthEnforcement: input.maxLengthEnforcement,
+                textAlign: input.textAlign,
+                textDirection: input.textDirection,
+                undoController: input.undoController,
+                contextMenuBuilder: input.contextMenuBuilder,
+                onChanged: input.onChanged,
+                onSubmitted: input.onSubmitted,
+                onEditingComplete: input.onEditingComplete,
+                onTap: input.onTap,
+                onTapOutside: input.onTapOutside,
+              ),
+            ),
+          ),
+          if (input.suffix != null) ...[
+            const SizedBox(width: 8),
+            input.suffix!,
+          ],
+        ],
+      ),
+    );
+    if (group != null) {
+      return Padding(padding: group.inputPadding, child: editor);
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -248,78 +351,10 @@ class _DInputState extends FormFieldState<String> {
             enabled: input.enabled,
             invalid: isInvalid,
             focused: _focus.hasFocus,
-            child: TextFieldTapRegion(
-              child: Row(
-                children: [
-                  if (input.prefix != null) ...[
-                    input.prefix!,
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Semantics(
-                      // Keep the editable role bounded to this editor. Without
-                      // a boundary it can merge into an entire page on macOS.
-                      container: true,
-                      label: input.labelText,
-                      isRequired: input.isRequired,
-                      validationResult: isInvalid
-                          ? SemanticsValidationResult.invalid
-                          : SemanticsValidationResult.none,
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focus,
-                        enabled: input.enabled,
-                        readOnly: input.readOnly,
-                        autofocus: input.autofocus,
-                        style: style,
-                        decoration: InputDecoration(
-                          isCollapsed: true,
-                          isDense: true,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          errorBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                          filled: false,
-                          contentPadding: EdgeInsets.zero,
-                          hintText: input.hintText,
-                          hintStyle: style.copyWith(color: t.mutedForeground),
-                          counterText: '',
-                        ),
-                        cursorColor: t.foreground,
-                        keyboardType: input.keyboardType,
-                        textInputAction: input.textInputAction,
-                        textCapitalization: input.textCapitalization,
-                        obscureText: input.obscureText,
-                        obscuringCharacter: input.obscuringCharacter,
-                        autocorrect: input.autocorrect,
-                        enableSuggestions: input.enableSuggestions,
-                        enableInteractiveSelection:
-                            input.enableInteractiveSelection,
-                        inputFormatters: input.inputFormatters,
-                        autofillHints: input.autofillHints,
-                        maxLength: input.maxLength,
-                        maxLengthEnforcement: input.maxLengthEnforcement,
-                        textAlign: input.textAlign,
-                        textDirection: input.textDirection,
-                        undoController: input.undoController,
-                        contextMenuBuilder: input.contextMenuBuilder,
-                        onChanged: input.onChanged,
-                        onSubmitted: input.onSubmitted,
-                        onEditingComplete: input.onEditingComplete,
-                        onTap: input.onTap,
-                        onTapOutside: input.onTapOutside,
-                      ),
-                    ),
-                  ),
-                  if (input.suffix != null) ...[
-                    const SizedBox(width: 8),
-                    input.suffix!,
-                  ],
-                ],
-              ),
-            ),
+            borderRadius: radius,
+            joinedAxis: joined?.axis,
+            omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
+            child: editor,
           ),
         ),
         if (error != null || input.helperText != null) ...[
@@ -366,11 +401,17 @@ class _InputSurface extends StatelessWidget {
     required this.enabled,
     required this.invalid,
     required this.focused,
+    this.borderRadius,
+    this.joinedAxis,
+    this.omitLeadingBorder = false,
     this.verticalPadding = 5,
     this.fadeDisabled = true,
   });
   final Widget child;
   final bool enabled, invalid, focused;
+  final BorderRadius? borderRadius;
+  final Axis? joinedAxis;
+  final bool omitLeadingBorder;
   final double verticalPadding;
   final bool fadeDisabled;
   @override
@@ -399,8 +440,8 @@ class _InputSurface extends StatelessWidget {
             horizontal: 10,
             vertical: verticalPadding,
           ),
-          decoration: BoxDecoration(
-            color: dark
+          decoration: _InputSurfaceDecoration(
+            backgroundColor: dark
                 ? t.colors.outlineVariant.withValues(
                     alpha: t.colors.outlineVariant.a * (enabled ? .3 : .8),
                   )
@@ -409,12 +450,14 @@ class _InputSurface extends StatelessWidget {
                 : t.colors.outlineVariant.withValues(
                     alpha: t.colors.outlineVariant.a * .5,
                   ),
-            borderRadius: BorderRadius.circular(t.radius),
-            border: Border.all(color: border),
+            borderRadius: borderRadius ?? BorderRadius.circular(t.radius),
+            borderColor: border,
+            joinedAxis: joinedAxis,
+            omitLeadingBorder: omitLeadingBorder,
           ),
           foregroundDecoration: _InputRingDecoration(
             color: invalid || focused ? ring : ring.withValues(alpha: 0),
-            radius: t.radius,
+            radius: borderRadius ?? BorderRadius.circular(t.radius),
           ),
           child: IconTheme.merge(
             data: IconThemeData(size: 16, color: t.mutedForeground),
@@ -426,12 +469,97 @@ class _InputSurface extends StatelessWidget {
   }
 }
 
+class _InputSurfaceDecoration extends Decoration {
+  const _InputSurfaceDecoration({
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.borderRadius,
+    required this.joinedAxis,
+    required this.omitLeadingBorder,
+  });
+
+  final Color backgroundColor;
+  final Color borderColor;
+  final BorderRadius borderRadius;
+  final Axis? joinedAxis;
+  final bool omitLeadingBorder;
+
+  @override
+  EdgeInsetsGeometry get padding => const EdgeInsets.all(1);
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _InputSurfacePainter(this);
+
+  @override
+  Decoration? lerpFrom(Decoration? a, double t) => a is _InputSurfaceDecoration
+      ? _InputSurfaceDecoration(
+          backgroundColor: Color.lerp(a.backgroundColor, backgroundColor, t)!,
+          borderColor: Color.lerp(a.borderColor, borderColor, t)!,
+          borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
+          joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
+          omitLeadingBorder: t < .5 ? a.omitLeadingBorder : omitLeadingBorder,
+        )
+      : super.lerpFrom(a, t);
+
+  @override
+  Decoration? lerpTo(Decoration? b, double t) =>
+      b is _InputSurfaceDecoration ? b.lerpFrom(this, t) : super.lerpTo(b, t);
+}
+
+class _InputSurfacePainter extends BoxPainter {
+  const _InputSurfacePainter(this.decoration);
+  final _InputSurfaceDecoration decoration;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final rect = offset & configuration.size!;
+    final rrect = decoration.borderRadius.toRRect(rect);
+    canvas.drawRRect(rrect, Paint()..color = decoration.backgroundColor);
+    final outline = rrect.deflate(.5);
+    final borderPaint = Paint()
+      ..color = decoration.borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    if (!decoration.omitLeadingBorder || decoration.joinedAxis == null) {
+      canvas.drawRRect(outline, borderPaint);
+      return;
+    }
+    final direction = configuration.textDirection ?? TextDirection.ltr;
+    final clip = switch (decoration.joinedAxis!) {
+      Axis.vertical => Rect.fromLTRB(
+        rect.left - 1,
+        rect.top + 1.01,
+        rect.right + 1,
+        rect.bottom + 1,
+      ),
+      Axis.horizontal when direction == TextDirection.rtl => Rect.fromLTRB(
+        rect.left - 1,
+        rect.top - 1,
+        rect.right - 1.01,
+        rect.bottom + 1,
+      ),
+      Axis.horizontal => Rect.fromLTRB(
+        rect.left + 1.01,
+        rect.top - 1,
+        rect.right + 1,
+        rect.bottom + 1,
+      ),
+    };
+    canvas
+      ..save()
+      ..clipRect(clip)
+      ..drawRRect(outline, borderPaint)
+      ..restore();
+  }
+}
+
 /// Paint only the exterior annulus: a spread shadow would also tint the
 /// translucent input fill. Keeping a Decoration preserves color interpolation.
 class _InputRingDecoration extends Decoration {
   const _InputRingDecoration({required this.color, required this.radius});
   final Color color;
-  final double radius;
+  final BorderRadius radius;
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
       _InputRingPainter(this);
@@ -439,14 +567,14 @@ class _InputRingDecoration extends Decoration {
   Decoration? lerpFrom(Decoration? a, double t) => a is _InputRingDecoration
       ? _InputRingDecoration(
           color: Color.lerp(a.color, color, t)!,
-          radius: a.radius + (radius - a.radius) * t,
+          radius: BorderRadius.lerp(a.radius, radius, t)!,
         )
       : super.lerpFrom(a, t);
   @override
   Decoration? lerpTo(Decoration? b, double t) => b is _InputRingDecoration
       ? _InputRingDecoration(
           color: Color.lerp(color, b.color, t)!,
-          radius: radius + (b.radius - radius) * t,
+          radius: BorderRadius.lerp(radius, b.radius, t)!,
         )
       : super.lerpTo(b, t);
 }
@@ -457,10 +585,7 @@ class _InputRingPainter extends BoxPainter {
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     final rect = offset & configuration.size!;
-    final inner = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(decoration.radius),
-    );
+    final inner = decoration.radius.toRRect(rect);
     canvas.drawDRRect(
       inner.inflate(3),
       inner,
@@ -597,9 +722,8 @@ class _DFileInputState extends FormFieldState<List<String>> {
                                 ...Theme.of(context).extensions.values.where(
                                   (value) => value is! DiscourseButtonTheme,
                                 ),
-                                Theme.of(
-                                  context,
-                                ).discourseButtons.copyWith(disabledOpacity: 1),
+                                Theme.of(context).discourseButtons
+                                    .copyWith(disabledOpacity: 1),
                               ],
                             ),
                             child: DButton(

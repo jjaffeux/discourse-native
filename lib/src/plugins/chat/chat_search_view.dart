@@ -244,31 +244,31 @@ class _SearchControls extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: TextField(
-                style: Theme.of(context).textTheme.bodyMedium,
-                key: const ValueKey('chat-search-field'),
-                controller: controller,
-                focusNode: focusNode,
-                autofocus: true,
-                textInputAction: TextInputAction.search,
-                onChanged: onChanged,
-                decoration: InputDecoration(
-                  hintText: 'Search messages',
-                  prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 18),
-                  suffixIcon: state.query.isEmpty
-                      ? null
-                      : DTooltip(
-                          message: 'Clear search',
-                          labelTrigger: true,
-                          child: IconButton(
-                            onPressed: onClear,
-                            icon: const DIcon(DIcons.xmark, size: 16),
-                            tooltip: '',
-                          ),
-                        ),
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                ),
+              child: DInputGroup(
+                children: [
+                  DInputGroupInput(
+                    editorKey: const ValueKey('chat-search-field'),
+                    controller: controller,
+                    focusNode: focusNode,
+                    autofocus: true,
+                    semanticLabel: 'Search messages',
+                    hintText: 'Search messages',
+                    textInputAction: TextInputAction.search,
+                    onChanged: onChanged,
+                  ),
+                  const DInputGroupAddon(
+                    child: DIcon(DIcons.magnifyingGlass, size: 18),
+                  ),
+                  if (state.query.isNotEmpty)
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      child: DInputGroupButton.icon(
+                        onPressed: onClear,
+                        icon: const DIcon(DIcons.xmark, size: 16),
+                        tooltip: 'Clear search',
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 8),

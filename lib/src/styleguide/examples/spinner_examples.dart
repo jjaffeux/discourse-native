@@ -98,28 +98,23 @@ const DButton(
           'editing without losing text. No requests are made.',
       states: const ['Inline end', 'Block end', 'Disabled', 'Error', 'Success'],
       code: '''TextField(
-  enabled: !validating,
-  decoration: InputDecoration(
-    hintText: 'Send a message...',
-    isCollapsed: true,
-    border: InputBorder.none,
-    // The surrounding group supplies the border and padding.
-    suffixIcon: validating ? const Center(
-      widthFactor: 1, heightFactor: 1,
-      child: DSpinner(semanticLabel: 'Validating subject'),
-    ) : null,
-  ),
-)
-// Below a multiline TextField:
-Row(children: [
-  if (validating) const DSpinner(semanticLabel: null),
-  const SizedBox(width: DSpacing.sm),
-  Expanded(child: Text(validating ? 'Validating…' : 'Ready')),
-  IconButton(
-    tooltip: 'Send message',
-    onPressed: validating ? null : send,
-    icon: const Icon(Icons.arrow_upward),
-  ),
+DInputGroup(children: [
+  DInputGroupInput(enabled: !validating, hintText: 'Send a message...',
+    semanticLabel: 'Subject'),
+  if (validating) const DInputGroupAddon(
+    alignment: DInputGroupAddonAlignment.inlineEnd,
+    child: DSpinner(semanticLabel: 'Validating subject')),
+])
+DInputGroup(invalid: error != null, children: [
+  DInputGroupTextarea(enabled: !validating, minLines: 3, maxLines: 4,
+    semanticLabel: 'Message'),
+  DInputGroupAddon(alignment: DInputGroupAddonAlignment.blockEnd,
+    child: Row(children: [
+      if (validating) const DSpinner(semanticLabel: null),
+      Expanded(child: Text(status)),
+      DInputGroupButton.icon(icon: Icon(Icons.arrow_upward),
+        tooltip: 'Send message', onPressed: validating ? null : send),
+    ])),
 ])''',
       builder: (_) => const _SpinnerInputs(),
     ),
@@ -430,16 +425,6 @@ class _SpinnerInputsState extends State<_SpinnerInputs> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final textStyle = Theme.of(context).textTheme.bodySmall;
-    const bareInput = InputDecoration(
-      hintText: 'Send a message...',
-      border: InputBorder.none,
-      enabledBorder: InputBorder.none,
-      disabledBorder: InputBorder.none,
-      focusedBorder: InputBorder.none,
-      filled: false,
-      isCollapsed: true,
-      contentPadding: EdgeInsets.zero,
-    );
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: ConstrainedBox(
@@ -447,97 +432,66 @@ class _SpinnerInputsState extends State<_SpinnerInputs> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SpinnerInputSurface(
-              disabled: _validating,
-              child: Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(10, 5, 8, 5),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Semantics(
-                        label: 'Subject',
-                        child: TextField(
-                          key: const ValueKey('spinner-subject'),
-                          enabled: !_validating,
-                          style: textStyle,
-                          decoration: bareInput,
-                        ),
-                      ),
-                    ),
-                    if (_validating) ...[
-                      const SizedBox(width: 6),
-                      DSpinner(
-                        color: tokens.mutedForeground,
-                        semanticLabel: 'Validating subject',
-                      ),
-                    ],
-                  ],
+            DInputGroup(
+              children: [
+                DInputGroupInput(
+                  key: const ValueKey('spinner-subject'),
+                  enabled: !_validating,
+                  hintText: 'Send a message...',
+                  semanticLabel: 'Subject',
                 ),
-              ),
+                if (_validating)
+                  DInputGroupAddon(
+                    alignment: DInputGroupAddonAlignment.inlineEnd,
+                    child: DSpinner(
+                      color: tokens.mutedForeground,
+                      semanticLabel: 'Validating subject',
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: DSpacing.lg),
-            _SpinnerInputSurface(
-              disabled: _validating,
+            DInputGroup(
               invalid: _error != null,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsetsDirectional.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    child: Semantics(
-                      label: 'Message',
-                      child: TextField(
-                        key: const ValueKey('spinner-message'),
-                        enabled: !_validating,
-                        minLines: 3,
-                        maxLines: 4,
-                        style: textStyle,
-                        decoration: bareInput,
+              children: [
+                DInputGroupTextarea(
+                  key: const ValueKey('spinner-message'),
+                  enabled: !_validating,
+                  minLines: 3,
+                  maxLines: 4,
+                  hintText: 'Send a message...',
+                  semanticLabel: 'Message',
+                ),
+                DInputGroupAddon(
+                  alignment: DInputGroupAddonAlignment.blockEnd,
+                  child: Row(
+                    children: [
+                      if (_validating) ...[
+                        const DSpinner(semanticLabel: null),
+                        const SizedBox(width: DSpacing.sm),
+                      ],
+                      Expanded(
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(_status),
+                        ),
                       ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 8),
-                    child: IconTheme.merge(
-                      data: IconThemeData(color: tokens.mutedForeground),
-                      child: Row(
-                        children: [
-                          if (_validating) ...[
-                            const DSpinner(semanticLabel: null),
-                            const SizedBox(width: DSpacing.sm),
-                          ],
-                          Expanded(
-                            child: Semantics(
-                              liveRegion: true,
-                              child: Text(
-                                _status,
-                                style: Theme.of(context).textTheme.labelLarge!
-                                    .copyWith(color: tokens.mutedForeground),
+                      const SizedBox(width: DSpacing.sm),
+                      DInputGroupButton.icon(
+                        key: const ValueKey('spinner-send'),
+                        icon: const Icon(Icons.arrow_upward, size: 14),
+                        tooltip: 'Send message',
+                        variant: DButtonVariant.primary,
+                        onPressed: _validating
+                            ? null
+                            : () => setState(
+                                () => _status = 'Message sent locally',
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: DSpacing.sm),
-                          DButton(
-                            key: const ValueKey('spinner-send'),
-                            semanticLabel: 'Send message',
-                            tooltip: 'Send message',
-                            padding: const EdgeInsets.all(5),
-                            variant: DButtonVariant.primary,
-                            onPressed: _validating
-                                ? null
-                                : () => setState(
-                                    () => _status = 'Message sent locally',
-                                  ),
-                            label: const Icon(Icons.arrow_upward, size: 14),
-                          ),
-                        ],
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             if (_error != null) ...[
               const SizedBox(height: DSpacing.sm),
@@ -577,56 +531,6 @@ class _SpinnerInputsState extends State<_SpinnerInputs> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SpinnerInputSurface extends StatefulWidget {
-  const _SpinnerInputSurface({
-    required this.child,
-    required this.disabled,
-    this.invalid = false,
-  });
-  final Widget child;
-  final bool disabled;
-  final bool invalid;
-
-  @override
-  State<_SpinnerInputSurface> createState() => _SpinnerInputSurfaceState();
-}
-
-class _SpinnerInputSurfaceState extends State<_SpinnerInputSurface> {
-  bool _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    final ring = widget.invalid ? tokens.destructive : tokens.focusRing;
-    return Focus(
-      onFocusChange: (value) => setState(() => _focused = value),
-      child: Opacity(
-        opacity: widget.disabled ? 0.5 : 1,
-        child: Container(
-          decoration: BoxDecoration(
-            color: widget.disabled
-                ? tokens.border.withValues(alpha: 0.5)
-                : tokens.background,
-            border: Border.all(
-              color: widget.invalid || _focused ? ring : tokens.border,
-            ),
-            borderRadius: tokens.borderRadius,
-            boxShadow: widget.invalid || _focused
-                ? [
-                    BoxShadow(
-                      color: ring.withValues(alpha: widget.invalid ? 0.2 : 0.5),
-                      spreadRadius: 3,
-                    ),
-                  ]
-                : null,
-          ),
-          child: widget.child,
         ),
       ),
     );

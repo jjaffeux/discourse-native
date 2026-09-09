@@ -3,6 +3,7 @@ import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
 import 'examples/button_examples.dart';
+import 'examples/button_group_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
@@ -13,6 +14,7 @@ import 'examples/direction_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
+import 'examples/input_group_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
@@ -41,6 +43,7 @@ final componentExamples = <String, ComponentExamples>{
   'alert': alertExamples,
   'table': tableExamples,
   'textarea': textareaExamples,
+  'input-group': inputGroupExamples,
   'collapsible': collapsibleExamples,
   'input': inputExamples,
   'radio-group': radioGroupExamples,
@@ -73,6 +76,7 @@ final componentExamples = <String, ComponentExamples>{
   'tabs': tabsExamples,
   'toggle': toggleExamples,
   'button': buttonExamples,
+  'button-group': buttonGroupExamples,
   'tooltip': tooltipExamples,
   'select': baselineSelectExamples,
 };
