@@ -389,9 +389,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   }
 
   void _showCopied(String message) {
-    ScaffoldMessenger.maybeOf(context)
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    DToast.show(context, message, id: 'diagnostics-copy');
   }
 }
 
@@ -677,15 +675,11 @@ class _TopicScrollCapturePanel extends StatelessWidget {
         : controller.buildJsonReport());
     await Clipboard.setData(ClipboardData(text: report));
     if (!context.mounted) return;
-    ScaffoldMessenger.maybeOf(context)
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            compact ? 'Performance report copied' : 'Scroll capture copied',
-          ),
-        ),
-      );
+    DToast.show(
+      context,
+      compact ? 'Performance report copied' : 'Scroll capture copied',
+      id: 'diagnostics-copy',
+    );
   }
 }
 

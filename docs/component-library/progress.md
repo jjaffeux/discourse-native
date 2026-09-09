@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**21 of 64 components are merged locally.** 16 existing components are in progress; 27 are planned.
+**21 of 64 components are merged locally.** 17 existing components are in progress; 26 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -89,7 +89,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 50 | calendar | planned | — | — | button, select | — |
 | 51 | date-picker | planned | — | — | calendar, popover, input | — |
 | 52 | carousel | in_progress | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | — |
-| 53 | toast | planned | — | — | button | — |
+| 53 | toast | in_progress | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | — |
 | 54 | alert | in_progress | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | — |
 | 55 | attachment | planned | — | — | dialog, spinner | — |
 | 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
@@ -1977,6 +1977,47 @@ Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-16f423c97dd9. Branch: codex/u
 
 - Button is the implementation dependency and is merged; Card composition is also merged. Frozen sections include Sizes, Spacing, Orientation, Options, API, Events, Plugins and RTL. Reproduce complete documented behavior and native API counterparts, including responsive slide extents/spacing, horizontal/vertical and direction-aware navigation, previous/next enabled states, scrolling/selection events and controller lifecycle, options, and the demonstrated autoplay plugin behavior with correct interaction/reduced-motion/disposal handling. Inspect official Embla-linked behavior to define the actual supported native contract; no inert options or ornamental plugin API. Audit shell/composer_image_gallery.dart, shell/lightbox.dart, other media/page-view owners and plugins for appropriate adoption. Preserve zoom/pan, media lifecycle, keyboard navigation, accessibility and domain state; record retained grids or specialized viewers rather than converting inappropriate surfaces simply to add a usage. Provide real migrated local-data fixtures and all documented Card compositions.
 - Implementation uses the direct reviewer workflow; root is not an approval gate.
+
+### toast
+
+Status: in_progress. Task: 01a0857a-fcd6-7880-90c0-501e72f034df. Branch: codex/ui-toast.
+
+**acceptanceCriteria**
+
+- Implement a scoped DToaster, DToastController and reusable typed content/action API matching the frozen base-nova Toast/Sonner appearance, including default, success, info, warning, error and loading treatments.
+- Support controlled add/update/upsert/close/close-all and owned/borrowed lifecycle, deterministic promise loading/success/error transitions, stable repeated ids, limits, pause/resume, timeouts and close reasons without late completion leaks.
+- Support safe-area-aware six-position placement, stacking, swipe dismissal, close/action controls, F6 focus entry, Escape dismissal, visible focus, live regions, touch/pointer input, reduced motion, RTL, narrow layouts and large text.
+- Mount one live-theme root app scope and nested local styleguide scopes; provide interactive examples for Basic, Types, Action, Promise, custom content, stacking/limits/dismissal, positions and theme/direction/scale changes.
+- Audit all core and bundled plugin transient notifications, migrate appropriate SnackBar/ScaffoldMessenger sites while preserving callback, permission, async and navigation ownership, and retain permanent inline statuses for Alert/Field/Empty with specific reasons.
+- Pass formatting, focused manager/widget/styleguide/consumer regression tests and root/full-profile analysis; provide exact source/build evidence and leave rendered browser/native acceptance to the direct reviewer if the shared desktop lease remains occupied.
+
+**decisions**
+
+- Frozen Markdown hash e1dd1c08ccb082e6ca90fe352e09242cbf81132e37e05db889c67c8e601e1174 reverified. Inspected base-nova toast registry source hash 161ed77c409fe7345ee6308f7cf66f7bcf2717d8d5e1a8b36a7f8e8fa0df745e and supporting Sonner registry hash 831967f80f645ac3908b356a44748698a9ceed1c6a51b232dd5e87c52a54d7c3; mapping is recorded in toast.md.
+- DToaster is a local inherited manager plus renderer, not a Material SnackBar wrapper. An omitted controller is owned/disposed; a supplied controller is borrowed. Root and styleguide preview scopes are independent and read live inherited tokens on every build.
+- Promise completion is revision-checked. Replacement, repeated ids, explicit dismissal and scope disposal prevent stale terminal updates. Loading promise state is persistent; terminal options control their own duration.
+- Flutter Focus/Shortcuts, Semantics, SafeArea, Dismissible and app lifecycle observation are the native equivalents for the reference landmark, keyboard entry, ARIA live region, viewport, swipe and pause behavior.
+
+**migrations**
+
+- Root DiscourseApp and standalone styleguide mount DToaster; every interactive styleguide preview mounts a nested scope so notices disappear with the preview lifecycle.
+- Migrated transient feedback in topic_list_view, topic_share, user_menu, diagnostics_panel, topic_move_posts, composer_discard, topic_tag_picker and reaction_presentation, preserving async guards and stable replacement behavior.
+- Button styleguide feedback now demonstrates DToast instead of Material SnackBar.
+
+**retainedAlternatives**
+
+- Permanent inline validation/status and page-scale errors remain owned by Alert, Field and Empty rather than becoming temporary notifications.
+- Remaining core/plugin ScaffoldMessenger sites require reviewer reconciliation with concurrent Alert ownership; each must be classified and migrated or retained with a specific application reason before final acceptance.
+
+**verification**
+
+- Fresh-worktree root and profiles/full flutter pub get --enforce-lockfile passed with committed versions and hashes unchanged.
+- Focused d_toast manager/widget lifecycle suite passed 5 tests. Styleguide page regression suite passed 15 tests; a mistyped nonexistent test path was an invocation error, not a product failure.
+
+**limitations**
+
+- Implementation source is prepared without a desktop lease. Official rendered browser comparison, native styleguide/production fixture inspection, macOS build provenance, exhaustive remaining transient notification migration and affected legacy-test updates remain owned by the new review task.
+- No iOS or Linux device run was performed.
 
 ### alert
 

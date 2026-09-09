@@ -777,12 +777,14 @@ class _DoNotDisturbTile extends StatelessWidget {
                   : 'On, until ${localizations.formatMediumDate(until!.toLocal())} '
                         '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(until.toLocal()))}'
             : 'Off';
-        final messenger = ScaffoldMessenger.maybeOf(context);
+        final toastController = DToast.maybeOf(context);
 
         Future<void> resume() async {
           final error = await controller.doNotDisturb.resume(siteUrl);
-          if (error != null && messenger?.mounted == true) {
-            messenger!.showSnackBar(SnackBar(content: Text(error)));
+          if (error != null && toastController?.isDisposed == false) {
+            toastController!.add(
+              DToastOptions(description: error, type: DToastType.error),
+            );
           }
         }
 

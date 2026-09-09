@@ -2295,18 +2295,43 @@
     },
     {
       "id": "toast",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a0857a-fcd6-7880-90c0-501e72f034df",
+      "branch": "codex/ui-toast",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "acceptanceCriteria": [
+        "Implement a scoped DToaster, DToastController and reusable typed content/action API matching the frozen base-nova Toast/Sonner appearance, including default, success, info, warning, error and loading treatments.",
+        "Support controlled add/update/upsert/close/close-all and owned/borrowed lifecycle, deterministic promise loading/success/error transitions, stable repeated ids, limits, pause/resume, timeouts and close reasons without late completion leaks.",
+        "Support safe-area-aware six-position placement, stacking, swipe dismissal, close/action controls, F6 focus entry, Escape dismissal, visible focus, live regions, touch/pointer input, reduced motion, RTL, narrow layouts and large text.",
+        "Mount one live-theme root app scope and nested local styleguide scopes; provide interactive examples for Basic, Types, Action, Promise, custom content, stacking/limits/dismissal, positions and theme/direction/scale changes.",
+        "Audit all core and bundled plugin transient notifications, migrate appropriate SnackBar/ScaffoldMessenger sites while preserving callback, permission, async and navigation ownership, and retain permanent inline statuses for Alert/Field/Empty with specific reasons.",
+        "Pass formatting, focused manager/widget/styleguide/consumer regression tests and root/full-profile analysis; provide exact source/build evidence and leave rendered browser/native acceptance to the direct reviewer if the shared desktop lease remains occupied."
+      ],
+      "decisions": [
+        "Frozen Markdown hash e1dd1c08ccb082e6ca90fe352e09242cbf81132e37e05db889c67c8e601e1174 reverified. Inspected base-nova toast registry source hash 161ed77c409fe7345ee6308f7cf66f7bcf2717d8d5e1a8b36a7f8e8fa0df745e and supporting Sonner registry hash 831967f80f645ac3908b356a44748698a9ceed1c6a51b232dd5e87c52a54d7c3; mapping is recorded in toast.md.",
+        "DToaster is a local inherited manager plus renderer, not a Material SnackBar wrapper. An omitted controller is owned/disposed; a supplied controller is borrowed. Root and styleguide preview scopes are independent and read live inherited tokens on every build.",
+        "Promise completion is revision-checked. Replacement, repeated ids, explicit dismissal and scope disposal prevent stale terminal updates. Loading promise state is persistent; terminal options control their own duration.",
+        "Flutter Focus/Shortcuts, Semantics, SafeArea, Dismissible and app lifecycle observation are the native equivalents for the reference landmark, keyboard entry, ARIA live region, viewport, swipe and pause behavior."
+      ],
+      "migrations": [
+        "Root DiscourseApp and standalone styleguide mount DToaster; every interactive styleguide preview mounts a nested scope so notices disappear with the preview lifecycle.",
+        "Migrated transient feedback in topic_list_view, topic_share, user_menu, diagnostics_panel, topic_move_posts, composer_discard, topic_tag_picker and reaction_presentation, preserving async guards and stable replacement behavior.",
+        "Button styleguide feedback now demonstrates DToast instead of Material SnackBar."
+      ],
+      "retainedAlternatives": [
+        "Permanent inline validation/status and page-scale errors remain owned by Alert, Field and Empty rather than becoming temporary notifications.",
+        "Remaining core/plugin ScaffoldMessenger sites require reviewer reconciliation with concurrent Alert ownership; each must be classified and migrated or retained with a specific application reason before final acceptance."
+      ],
+      "verification": [
+        "Fresh-worktree root and profiles/full flutter pub get --enforce-lockfile passed with committed versions and hashes unchanged.",
+        "Focused d_toast manager/widget lifecycle suite passed 5 tests. Styleguide page regression suite passed 15 tests; a mistyped nonexistent test path was an invocation error, not a product failure."
+      ],
+      "limitations": [
+        "Implementation source is prepared without a desktop lease. Official rendered browser comparison, native styleguide/production fixture inspection, macOS build provenance, exhaustive remaining transient notification migration and affected legacy-test updates remain owned by the new review task.",
+        "No iOS or Linux device run was performed."
+      ],
       "implementationCommit": null,
       "mergeCommit": null
     },
