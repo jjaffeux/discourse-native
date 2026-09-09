@@ -1,0 +1,1566 @@
+{
+  "flutter-neutral-light-ring-ghost-idle": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-ghost-focus": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-ghost-invalid-idle": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-ghost-invalid-focus": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-outline-idle": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-outline-focus": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-outline-invalid-idle": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-outline-invalid-focus": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-destructive-idle": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-destructive-focus": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-destructive-invalid-idle": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ring-destructive-invalid-focus": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-0": [
+    {
+      "size": "Size(59.8, 20.0)",
+      "variant": "primary",
+      "text": "Default",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(79.9, 20.0)",
+      "variant": "secondary",
+      "text": "Secondary",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(84.7, 20.0)",
+      "variant": "destructive",
+      "text": "Destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(59.5, 20.0)",
+      "variant": "outline",
+      "text": "Outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(52.4, 20.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(42.0, 20.0)",
+      "variant": "link",
+      "text": "Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-1": [
+    {
+      "size": "Size(76.7, 20.0)",
+      "variant": "secondary",
+      "text": "Verified",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(90.2, 20.0)",
+      "variant": "outline",
+      "text": "Bookmark",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-2": [
+    {
+      "size": "Size(80.3, 20.0)",
+      "variant": "destructive",
+      "text": "Deleting",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(96.0, 20.0)",
+      "variant": "secondary",
+      "text": "Generating",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-3": [
+    {
+      "size": "Size(90.2, 20.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(117.4, 20.0)",
+      "variant": "secondary",
+      "text": "Secondary link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(122.2, 20.0)",
+      "variant": "destructive",
+      "text": "Destructive link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(97.1, 20.0)",
+      "variant": "outline",
+      "text": "Outline link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(90.0, 20.0)",
+      "variant": "ghost",
+      "text": "Ghost link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(79.5, 20.0)",
+      "variant": "link",
+      "text": "Link link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(63.9, 20.0)",
+      "variant": "primary",
+      "text": "Count 0",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(84.7, 20.0)",
+      "variant": "primary",
+      "text": "Unavailable",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(94.6, 20.0)",
+      "variant": "primary",
+      "text": "Invalid status",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-4": [
+    {
+      "size": "Size(43.4, 20.0)",
+      "variant": "primary",
+      "text": "Blue",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(52.8, 20.0)",
+      "variant": "primary",
+      "text": "Green",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(39.3, 20.0)",
+      "variant": "primary",
+      "text": "Sky",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(55.5, 20.0)",
+      "variant": "primary",
+      "text": "Purple",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(40.3, 20.0)",
+      "variant": "primary",
+      "text": "Red",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(84.1, 20.0)",
+      "variant": "primary",
+      "text": "Site palette",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-5": [
+    {
+      "size": "Size(39.6, 20.0)",
+      "variant": "primary",
+      "text": "شارة",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(43.1, 20.0)",
+      "variant": "secondary",
+      "text": "ثانوي",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(42.6, 20.0)",
+      "variant": "destructive",
+      "text": "مدمر",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(51.4, 20.0)",
+      "variant": "outline",
+      "text": "مخطط",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(65.6, 20.0)",
+      "variant": "secondary",
+      "text": "متحقق",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(95.9, 20.0)",
+      "variant": "outline",
+      "text": "إشارة مرجعية",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(301.7, 20.0)",
+      "variant": "secondary",
+      "text": "تم التحقق من حالة الحساب وجميع المعلومات المطلوبة",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-reference-variants": [
+    {
+      "size": "Size(59.8, 20.0)",
+      "variant": "primary",
+      "text": "Default",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(79.9, 20.0)",
+      "variant": "secondary",
+      "text": "Secondary",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(84.7, 20.0)",
+      "variant": "destructive",
+      "text": "Destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(59.5, 20.0)",
+      "variant": "outline",
+      "text": "Outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(52.4, 20.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-ghost-hover": [
+    {
+      "size": "Size(52.4, 20.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-link-focus": [
+    {
+      "size": "Size(90.2, 20.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-link-hover": [
+    {
+      "size": "Size(90.2, 20.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-light-text-link-hover": [
+    {
+      "size": "Size(42.0, 20.0)",
+      "variant": "link",
+      "text": "Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-ghost-idle": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-ghost-focus": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-ghost-invalid-idle": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-ghost-invalid-focus": [
+    {
+      "size": "Size(50.9, 20.0)",
+      "variant": "ghost",
+      "text": "ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-outline-idle": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-outline-focus": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-outline-invalid-idle": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-outline-invalid-focus": [
+    {
+      "size": "Size(57.4, 20.0)",
+      "variant": "outline",
+      "text": "outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-destructive-idle": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-destructive-focus": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-destructive-invalid-idle": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ring-destructive-invalid-focus": [
+    {
+      "size": "Size(83.4, 20.0)",
+      "variant": "destructive",
+      "text": "destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-0": [
+    {
+      "size": "Size(59.8, 20.0)",
+      "variant": "primary",
+      "text": "Default",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(79.9, 20.0)",
+      "variant": "secondary",
+      "text": "Secondary",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(84.7, 20.0)",
+      "variant": "destructive",
+      "text": "Destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(59.5, 20.0)",
+      "variant": "outline",
+      "text": "Outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(52.4, 20.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(42.0, 20.0)",
+      "variant": "link",
+      "text": "Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-1": [
+    {
+      "size": "Size(76.7, 20.0)",
+      "variant": "secondary",
+      "text": "Verified",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(90.2, 20.0)",
+      "variant": "outline",
+      "text": "Bookmark",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-2": [
+    {
+      "size": "Size(80.3, 20.0)",
+      "variant": "destructive",
+      "text": "Deleting",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(96.0, 20.0)",
+      "variant": "secondary",
+      "text": "Generating",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-3": [
+    {
+      "size": "Size(90.2, 20.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(117.4, 20.0)",
+      "variant": "secondary",
+      "text": "Secondary link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(122.2, 20.0)",
+      "variant": "destructive",
+      "text": "Destructive link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(97.1, 20.0)",
+      "variant": "outline",
+      "text": "Outline link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(90.0, 20.0)",
+      "variant": "ghost",
+      "text": "Ghost link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(79.5, 20.0)",
+      "variant": "link",
+      "text": "Link link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(63.9, 20.0)",
+      "variant": "primary",
+      "text": "Count 0",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(84.7, 20.0)",
+      "variant": "primary",
+      "text": "Unavailable",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(94.6, 20.0)",
+      "variant": "primary",
+      "text": "Invalid status",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-4": [
+    {
+      "size": "Size(43.4, 20.0)",
+      "variant": "primary",
+      "text": "Blue",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(52.8, 20.0)",
+      "variant": "primary",
+      "text": "Green",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(39.3, 20.0)",
+      "variant": "primary",
+      "text": "Sky",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(55.5, 20.0)",
+      "variant": "primary",
+      "text": "Purple",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(40.3, 20.0)",
+      "variant": "primary",
+      "text": "Red",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(84.1, 20.0)",
+      "variant": "primary",
+      "text": "Site palette",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-5": [
+    {
+      "size": "Size(39.6, 20.0)",
+      "variant": "primary",
+      "text": "شارة",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(43.1, 20.0)",
+      "variant": "secondary",
+      "text": "ثانوي",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(42.6, 20.0)",
+      "variant": "destructive",
+      "text": "مدمر",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(51.4, 20.0)",
+      "variant": "outline",
+      "text": "مخطط",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(65.6, 20.0)",
+      "variant": "secondary",
+      "text": "متحقق",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(95.9, 20.0)",
+      "variant": "outline",
+      "text": "إشارة مرجعية",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(301.7, 20.0)",
+      "variant": "secondary",
+      "text": "تم التحقق من حالة الحساب وجميع المعلومات المطلوبة",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-reference-variants": [
+    {
+      "size": "Size(59.8, 20.0)",
+      "variant": "primary",
+      "text": "Default",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(79.9, 20.0)",
+      "variant": "secondary",
+      "text": "Secondary",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(84.7, 20.0)",
+      "variant": "destructive",
+      "text": "Destructive",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(59.5, 20.0)",
+      "variant": "outline",
+      "text": "Outline",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(52.4, 20.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-ghost-hover": [
+    {
+      "size": "Size(52.4, 20.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-link-focus": [
+    {
+      "size": "Size(90.2, 20.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-link-hover": [
+    {
+      "size": "Size(90.2, 20.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-neutral-dark-text-link-hover": [
+    {
+      "size": "Size(42.0, 20.0)",
+      "variant": "link",
+      "text": "Link",
+      "radius": 26.0,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-light-0-rtl200": [
+    {
+      "size": "Size(101.7, 36.0)",
+      "variant": "primary",
+      "text": "Default",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(141.7, 36.0)",
+      "variant": "secondary",
+      "text": "Secondary",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(151.4, 36.0)",
+      "variant": "destructive",
+      "text": "Destructive",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(101.1, 36.0)",
+      "variant": "outline",
+      "text": "Outline",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(86.8, 36.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(65.9, 36.0)",
+      "variant": "link",
+      "text": "Link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    }
+  ],
+  "flutter-light-3-rtl200": [
+    {
+      "size": "Size(148.4, 36.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(202.8, 36.0)",
+      "variant": "secondary",
+      "text": "Secondary link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(212.5, 36.0)",
+      "variant": "destructive",
+      "text": "Destructive link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(162.1, 36.0)",
+      "variant": "outline",
+      "text": "Outline link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(147.9, 36.0)",
+      "variant": "ghost",
+      "text": "Ghost link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(127.0, 36.0)",
+      "variant": "link",
+      "text": "Link link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(109.7, 36.0)",
+      "variant": "primary",
+      "text": "Count 0",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(151.4, 36.0)",
+      "variant": "primary",
+      "text": "Unavailable",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(171.3, 36.0)",
+      "variant": "primary",
+      "text": "Invalid status",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    }
+  ],
+  "flutter-light-5-rtl200": [
+    {
+      "size": "Size(61.3, 36.0)",
+      "variant": "primary",
+      "text": "شارة",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(68.3, 36.0)",
+      "variant": "secondary",
+      "text": "ثانوي",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(67.3, 36.0)",
+      "variant": "destructive",
+      "text": "مدمر",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(84.8, 36.0)",
+      "variant": "outline",
+      "text": "مخطط",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(99.1, 36.0)",
+      "variant": "secondary",
+      "text": "متحقق",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(159.7, 36.0)",
+      "variant": "outline",
+      "text": "إشارة مرجعية",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(328.0, 68.0)",
+      "variant": "secondary",
+      "text": "تم التحقق من حالة الحساب وجميع المعلومات المطلوبة",
+      "radius": 10.4,
+      "visualHeight": 68.0
+    }
+  ],
+  "flutter-dark-0-rtl200": [
+    {
+      "size": "Size(101.7, 36.0)",
+      "variant": "primary",
+      "text": "Default",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(141.7, 36.0)",
+      "variant": "secondary",
+      "text": "Secondary",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(151.4, 36.0)",
+      "variant": "destructive",
+      "text": "Destructive",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(101.1, 36.0)",
+      "variant": "outline",
+      "text": "Outline",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(86.8, 36.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(65.9, 36.0)",
+      "variant": "link",
+      "text": "Link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    }
+  ],
+  "flutter-dark-3-rtl200": [
+    {
+      "size": "Size(148.4, 36.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(202.8, 36.0)",
+      "variant": "secondary",
+      "text": "Secondary link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(212.5, 36.0)",
+      "variant": "destructive",
+      "text": "Destructive link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(162.1, 36.0)",
+      "variant": "outline",
+      "text": "Outline link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(147.9, 36.0)",
+      "variant": "ghost",
+      "text": "Ghost link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(127.0, 36.0)",
+      "variant": "link",
+      "text": "Link link",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(109.7, 36.0)",
+      "variant": "primary",
+      "text": "Count 0",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(151.4, 36.0)",
+      "variant": "primary",
+      "text": "Unavailable",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(171.3, 36.0)",
+      "variant": "primary",
+      "text": "Invalid status",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    }
+  ],
+  "flutter-dark-5-rtl200": [
+    {
+      "size": "Size(61.3, 36.0)",
+      "variant": "primary",
+      "text": "شارة",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(68.3, 36.0)",
+      "variant": "secondary",
+      "text": "ثانوي",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(67.3, 36.0)",
+      "variant": "destructive",
+      "text": "مدمر",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(84.8, 36.0)",
+      "variant": "outline",
+      "text": "مخطط",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(99.1, 36.0)",
+      "variant": "secondary",
+      "text": "متحقق",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(159.7, 36.0)",
+      "variant": "outline",
+      "text": "إشارة مرجعية",
+      "radius": 10.4,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(328.0, 68.0)",
+      "variant": "secondary",
+      "text": "تم التحقق من حالة الحساب وجميع المعلومات المطلوبة",
+      "radius": 10.4,
+      "visualHeight": 68.0
+    }
+  ],
+  "flutter-forest-0-rtl200": [
+    {
+      "size": "Size(101.7, 36.0)",
+      "variant": "primary",
+      "text": "Default",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(141.7, 36.0)",
+      "variant": "secondary",
+      "text": "Secondary",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(151.4, 36.0)",
+      "variant": "destructive",
+      "text": "Destructive",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(101.1, 36.0)",
+      "variant": "outline",
+      "text": "Outline",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(86.8, 36.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(65.9, 36.0)",
+      "variant": "link",
+      "text": "Link",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    }
+  ],
+  "flutter-forest-3-rtl200": [
+    {
+      "size": "Size(148.4, 36.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(202.8, 36.0)",
+      "variant": "secondary",
+      "text": "Secondary link",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(212.5, 36.0)",
+      "variant": "destructive",
+      "text": "Destructive link",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(162.1, 36.0)",
+      "variant": "outline",
+      "text": "Outline link",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(147.9, 36.0)",
+      "variant": "ghost",
+      "text": "Ghost link",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(127.0, 36.0)",
+      "variant": "link",
+      "text": "Link link",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(109.7, 36.0)",
+      "variant": "primary",
+      "text": "Count 0",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(151.4, 36.0)",
+      "variant": "primary",
+      "text": "Unavailable",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(171.3, 36.0)",
+      "variant": "primary",
+      "text": "Invalid status",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    }
+  ],
+  "flutter-forest-5-rtl200": [
+    {
+      "size": "Size(61.3, 36.0)",
+      "variant": "primary",
+      "text": "شارة",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(68.3, 36.0)",
+      "variant": "secondary",
+      "text": "ثانوي",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(67.3, 36.0)",
+      "variant": "destructive",
+      "text": "مدمر",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(84.8, 36.0)",
+      "variant": "outline",
+      "text": "مخطط",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(99.1, 36.0)",
+      "variant": "secondary",
+      "text": "متحقق",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(159.7, 36.0)",
+      "variant": "outline",
+      "text": "إشارة مرجعية",
+      "radius": 15.600000000000001,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(328.0, 68.0)",
+      "variant": "secondary",
+      "text": "تم التحقق من حالة الحساب وجميع المعلومات المطلوبة",
+      "radius": 15.600000000000001,
+      "visualHeight": 68.0
+    }
+  ],
+  "flutter-plum-0-rtl200": [
+    {
+      "size": "Size(101.7, 36.0)",
+      "variant": "primary",
+      "text": "Default",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(141.7, 36.0)",
+      "variant": "secondary",
+      "text": "Secondary",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(151.4, 36.0)",
+      "variant": "destructive",
+      "text": "Destructive",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(101.1, 36.0)",
+      "variant": "outline",
+      "text": "Outline",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(86.8, 36.0)",
+      "variant": "ghost",
+      "text": "Ghost",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(65.9, 36.0)",
+      "variant": "link",
+      "text": "Link",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    }
+  ],
+  "flutter-plum-3-rtl200": [
+    {
+      "size": "Size(148.4, 36.0)",
+      "variant": "primary",
+      "text": "Open Link",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(202.8, 36.0)",
+      "variant": "secondary",
+      "text": "Secondary link",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(212.5, 36.0)",
+      "variant": "destructive",
+      "text": "Destructive link",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(162.1, 36.0)",
+      "variant": "outline",
+      "text": "Outline link",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(147.9, 36.0)",
+      "variant": "ghost",
+      "text": "Ghost link",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(127.0, 36.0)",
+      "variant": "link",
+      "text": "Link link",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(109.7, 36.0)",
+      "variant": "primary",
+      "text": "Count 0",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(151.4, 36.0)",
+      "variant": "primary",
+      "text": "Unavailable",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(171.3, 36.0)",
+      "variant": "primary",
+      "text": "Invalid status",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    }
+  ],
+  "flutter-plum-5-rtl200": [
+    {
+      "size": "Size(61.3, 36.0)",
+      "variant": "primary",
+      "text": "شارة",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(68.3, 36.0)",
+      "variant": "secondary",
+      "text": "ثانوي",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(67.3, 36.0)",
+      "variant": "destructive",
+      "text": "مدمر",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(84.8, 36.0)",
+      "variant": "outline",
+      "text": "مخطط",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(99.1, 36.0)",
+      "variant": "secondary",
+      "text": "متحقق",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(159.7, 36.0)",
+      "variant": "outline",
+      "text": "إشارة مرجعية",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(328.0, 68.0)",
+      "variant": "secondary",
+      "text": "تم التحقق من حالة الحساب وجميع المعلومات المطلوبة",
+      "radius": 31.200000000000003,
+      "visualHeight": 68.0
+    }
+  ],
+  "flutter-migrations-plum-rtl200": [
+    {
+      "size": "Size(29.5, 36.0)",
+      "variant": "primary",
+      "text": "1",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(59.7, 36.0)",
+      "variant": "primary",
+      "text": "123",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(113.1, 36.0)",
+      "variant": "secondary",
+      "text": "Member",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(64.8, 36.0)",
+      "variant": "primary",
+      "text": "99+",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    }
+  ],
+  "flutter-profile-plum-rtl200": [
+    {
+      "size": "Size(29.5, 36.0)",
+      "variant": "primary",
+      "text": "1",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(59.7, 36.0)",
+      "variant": "primary",
+      "text": "123",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(113.1, 36.0)",
+      "variant": "secondary",
+      "text": "Member",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(64.8, 36.0)",
+      "variant": "primary",
+      "text": "99+",
+      "radius": 31.200000000000003,
+      "visualHeight": 36.0
+    },
+    {
+      "size": "Size(44.8, 20.0)",
+      "variant": "primary",
+      "text": "staff",
+      "radius": 31.200000000000003,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(98.8, 20.0)",
+      "variant": "outline",
+      "text": "123 badges",
+      "radius": 31.200000000000003,
+      "visualHeight": 20.0
+    }
+  ],
+  "flutter-profile-root200-plum": [
+    {
+      "size": "Size(44.8, 20.0)",
+      "variant": "primary",
+      "text": "staff",
+      "radius": 10.4,
+      "visualHeight": 20.0
+    },
+    {
+      "size": "Size(98.8, 20.0)",
+      "variant": "outline",
+      "text": "123 badges",
+      "radius": 10.4,
+      "visualHeight": 20.0
+    }
+  ]
+}

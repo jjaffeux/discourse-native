@@ -1,0 +1,28 @@
+{
+  "kind": "Native macOS CUA screenshots and AX observations",
+  "inspectedSource": "3201d96b51f86abbb638218eee8d0178ef168938",
+  "inspectedKernelSha256": "ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f",
+  "bundle": "/private/tmp/DiscourseInputReview-01a083ad.app",
+  "slotReleased": true,
+  "appQuitVerified": true,
+  "files": {
+    "add-site-edit.png": "9f544319deb7212245a438fafb5a0dc3c34c4e0ad2d1d5419c7d3e6228fdcf33",
+    "add-site-edit.txt": "9c925477214e28c26a927caaeb9617f02f47e4626f767a5b0b663921e71207f9",
+    "dark-retained.png": "579fe8f9cedc91e30bb24ddcb22069dfb396960c9b95976a9a886a0fadfd1bb9",
+    "file-cancel.txt": "82afcbf4b6c79dda9d38af8d6abf7a825a410f69995ed621ed8704580f97cc10",
+    "file-final-button.png": "9cc481e32d93b3d79c9863b7eb875692287c2ae05a8a1f998df61e2d9652498a",
+    "form-saved.txt": "82afcbf4b6c79dda9d38af8d6abf7a825a410f69995ed621ed8704580f97cc10",
+    "light-edit.png": "894e3b95c53a61ac818967912587f6a3349cee5a889ae9605a9bd53f7005ccc5",
+    "light-edit.txt": "007707a1188c0ea0d9f3a11e08bf03a291baf654fce98531638c5d4249e65974",
+    "mobile-search.png": "2fca4350d176efc13c8669d70c95162b6d1d70eac86522bbe4715cb5cb54982e",
+    "mobile-search.txt": "7f08c08ea9a41ac1777e11779de8688e8778543ffd5a016d2ca64e6db79df2e5",
+    "narrow-form-200-rtl.png": "322a8505b49f2c86775d1d7e609f4055ca11741a255b66e5160847219bfdddf9",
+    "plum-200-rtl.png": "c83f5bbefa4a36fb70059c99b5bb317874701451cd3c1e87fa0fac5a38bcad66",
+    "poll-edit.png": "475069ceb139724d0d8b7c5e9955b7d08d6c2b1d627218259005437f146c1c98",
+    "poll-edit.txt": "878cb74f5ca2773e9b4c12f0d6bc43f0bf3024d156000b37ef30deabb1687807",
+    "search-clear-independent.png": "86a4d1db95782cc01ee0083790d2141d2756ee7f785d2623079ef40c109980db",
+    "search-clear-independent.txt": "f16abbae767a846209ab8fd65b8e656d5b0239761895ca216231eb3b978077f1",
+    "secure-controlled-200-rtl.png": "f64d1a6179e5b1652e0afa1276a29928fc63ef78165c59ef1d0c7bbe3070b5b0",
+    "secure-controlled.txt": "4e7c9484648a5cc1c6146df65e364650dbafe00889fce3e7c05bd7760eb76a06"
+  }
+}

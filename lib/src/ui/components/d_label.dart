@@ -6,7 +6,7 @@ import 'd_typography.dart';
 
 /// Wrapping, non-selectable text for a native control's label slot.
 ///
-/// Put this in [CheckboxListTile.title], [SwitchListTile.title], or
+/// Put this in DCheckbox.title, [SwitchListTile.title], or
 /// [RadioListTile.title]. That owner associates the label with its control,
 /// combines their semantics, and provides touch activation and keyboard focus.
 /// The label adds no gesture handler or tab stop. Standalone labels are ordinary

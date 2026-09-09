@@ -1,7 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';

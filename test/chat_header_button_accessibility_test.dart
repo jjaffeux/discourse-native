@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -8,7 +9,6 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,7 +44,7 @@ void main() {
       expect(
         tester.getSemantics(button),
         isSemantics(
-          tooltip: 'Chat, unread messages',
+          label: 'Chat, unread messages',
           isButton: true,
           hasEnabledState: true,
           isEnabled: true,
@@ -101,12 +101,12 @@ void main() {
       expect(label.style?.color, Colors.white);
 
       final node = tester.getSemantics(button);
-      expect(node.tooltip, 'Chat, 103 urgent messages');
-      expect(node.label, isEmpty);
+      expect(node.label, 'Chat, 103 urgent messages');
+      expect(node.tooltip, isEmpty);
       expect(
         node,
         isSemantics(
-          tooltip: 'Chat, 103 urgent messages',
+          label: 'Chat, 103 urgent messages',
           isButton: true,
           hasEnabledState: true,
           isEnabled: true,

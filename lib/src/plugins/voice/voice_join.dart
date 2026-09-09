@@ -104,11 +104,11 @@ class _VoiceMeshPrivacyDialogState extends State<VoiceMeshPrivacyDialog> {
           'harmless, but join only if you are comfortable with it.',
         ),
         const SizedBox(height: 12),
-        CheckboxListTile.adaptive(
+        DCheckbox(
           value: _dontShowAgain,
           onChanged: (value) => setState(() => _dontShowAgain = value ?? false),
           title: const DLabel(child: Text("Don't show this again")),
-          controlAffinity: ListTileControlAffinity.leading,
+
           contentPadding: EdgeInsets.zero,
         ),
       ],

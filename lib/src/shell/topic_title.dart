@@ -234,6 +234,8 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
         cursor: SystemMouseCursors.text,
         child: DTooltip(
           message: value.text.isEmpty ? _savedTitle : value.text,
+          // The visible editor owns Escape and needs no duplicate value hint.
+          disabled: focused || _saving,
           child: Stack(
             alignment: Alignment.centerLeft,
             clipBehavior: widget.showEditingFrame ? Clip.none : Clip.hardEdge,

@@ -39,6 +39,44 @@ const _weeklyFocus = Group(
 const _design = Group(id: 4, name: 'design', userCount: 8);
 
 void main() {
+  testWidgets(
+    'large RTL member count wraps beside the migrated membership badge',
+    (tester) async {
+      await _pump(
+        tester,
+        const MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: GroupsPage(
+              siteUrl: 'https://example.invalid',
+              data: GroupsPageData(
+                loaded: true,
+                groups: [
+                  Group(
+                    id: 1,
+                    name: 'review-members',
+                    fullName: 'Community members',
+                    userCount: 123,
+                    isGroupUser: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        size: const Size(312, 700),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final count = tester.getRect(find.text('123 members'));
+      final badge = tester.getRect(find.text('Member'));
+      expect(count.height, greaterThan(badge.height));
+      expect(count.left, greaterThanOrEqualTo(badge.right));
+      expect(count.right, lessThanOrEqualTo(312));
+    },
+  );
+
   for (final (width, columns, platform) in [
     (390.0, 1, TargetPlatform.macOS),
     (700.0, 2, TargetPlatform.macOS),

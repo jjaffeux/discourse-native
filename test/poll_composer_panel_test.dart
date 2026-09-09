@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -238,8 +239,9 @@ void main() {
         await tester.enterText(
           find.byWidgetPredicate(
             (widget) =>
-                widget is TextField &&
-                widget.decoration?.labelText == fieldLabel,
+                (widget is DInput && widget.labelText == fieldLabel) ||
+                (widget is TextField &&
+                    widget.decoration?.labelText == fieldLabel),
           ),
           poll ? 'Late title' : '2026-08-12',
         );
