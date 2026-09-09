@@ -412,3 +412,9 @@ No browser was opened or modified during this pass. No behavioral defect found.
 Marked the example catalogue implemented after this gate; this status-only change
 removes the stale implementation-pending banner without changing Input behavior.
 Native device coverage is macOS only; no physical iOS/Linux or spoken VoiceOver run.
+
+Final status-only checkpoint `460c0f21d2afabdc45fb69765c719435a52c3336` passed seven example tests and native
+rebuild. Refreshed unique signed bundle (empty entitlements, deep strict verified),
+source/copy kernel `66925e1943f9e996c4162e03d4378fa3de71d32df6cbe6325769e008c499f734`.
+Not relaunched after release. Logs: `/tmp/input-native-status-test.log`,
+`/tmp/input-native-status-build.log`. Reviewed behavior is unchanged.
