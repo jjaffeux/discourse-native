@@ -2090,7 +2090,7 @@
     },
     {
       "id": "native-select",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
       "branch": "codex/ui-native-select",
       "dependencies": [
@@ -2139,8 +2139,8 @@
         "The open popup is intentionally Flutter-owned, so neither the font-loaded browser comparison nor native inspection claims OS-popup parity."
       ],
       "implementationCommit": "f9baeaa86c2bd88058ab815687543587aeec5296",
-      "mergeCommit": null,
-      "reviewStatus": "review_ready",
+      "mergeCommit": "0cdec859288cb2fa0369f64e1a9c1c022dc033e4",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee1b7d91d022",
       "reviewBranch": "codex/review-native-select"
     },
