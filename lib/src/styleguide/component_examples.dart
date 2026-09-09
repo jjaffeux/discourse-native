@@ -3,6 +3,7 @@ import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
+import 'examples/breadcrumb_examples.dart';
 import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/carousel_examples.dart';
@@ -12,6 +13,7 @@ import 'examples/collapsible_examples.dart';
 import 'examples/command_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/dropdown_menu_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
@@ -61,8 +63,10 @@ final componentExamples = <String, ComponentExamples>{
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,
   'badge': badgeExamples,
+  'breadcrumb': breadcrumbExamples,
   'direction': directionExamples,
   'dialog': dialogExamples,
+  'dropdown-menu': dropdownMenuExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
