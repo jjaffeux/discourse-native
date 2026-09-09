@@ -66,6 +66,102 @@ void main() {
     expect(reasons.last, DPopoverChangeReason.closePress);
   });
 
+  testWidgets('nested popover owns Escape and pointer interaction first', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const _NestedPopoverTest()));
+    await tester.tap(find.text('Open parent'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open child'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Parent content'), findsOneWidget);
+    expect(find.text('Child content'), findsOneWidget);
+    await tester.tap(find.text('Use child'));
+    await tester.pumpAndSettle();
+    expect(find.text('Parent content'), findsOneWidget);
+    expect(find.text('Child content'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Child content'), findsNothing);
+    expect(find.text('Parent content'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Parent content'), findsNothing);
+  });
+
+  testWidgets('nested MenuAnchor dismisses before its parent popover', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const _MenuPopoverTest()));
+    await tester.tap(find.text('Open parent'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open menu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Menu choice'), findsOneWidget);
+    expect(find.text('Parent content'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Menu choice'), findsNothing);
+    expect(find.text('Parent content'), findsOneWidget);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.escape);
+
+    await tester.tap(find.text('Open menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Menu choice'));
+    await tester.pumpAndSettle();
+    expect(find.text('Parent content'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Parent content'), findsNothing);
+  });
+
+  testWidgets('outside field keeps focus after pointer dismissal', (
+    tester,
+  ) async {
+    final outsideFocus = FocusNode();
+    addTearDown(outsideFocus.dispose);
+    await tester.pumpWidget(
+      _app(
+        SizedBox(
+          width: 700,
+          height: 500,
+          child: Stack(
+            children: [
+              const Align(
+                alignment: Alignment.bottomCenter,
+                child: _TestPopover(),
+              ),
+              Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: 260,
+                  child: TextField(
+                    focusNode: outsideFocus,
+                    decoration: const InputDecoration(
+                      labelText: 'Outside field',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextField, 'Outside field'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Popover title'), findsNothing);
+    expect(outsideFocus.hasFocus, isTrue);
+  });
+
   testWidgets('controlled state only changes when its owner accepts request', (
     tester,
   ) async {
@@ -335,6 +431,92 @@ class _TestPopover extends StatelessWidget {
         hasPopup: true,
         expanded: trigger.open,
         focusNode: trigger.focusNode,
+        onPressed: trigger.toggle,
+      ),
+    ),
+  );
+}
+
+class _NestedPopoverTest extends StatelessWidget {
+  const _NestedPopoverTest();
+
+  @override
+  Widget build(BuildContext context) => DPopover(
+    content: DPopoverContent(
+      width: 240,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Parent content'),
+          DPopover(
+            content: DPopoverContent(
+              width: 160,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Child content'),
+                  DButton(label: const Text('Use child'), onPressed: () {}),
+                ],
+              ),
+            ),
+            child: DPopoverTrigger(
+              builder: (context, trigger) => DButton(
+                label: const Text('Open child'),
+                focusNode: trigger.focusNode,
+                hasPopup: true,
+                expanded: trigger.open,
+                onPressed: trigger.toggle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+    child: DPopoverTrigger(
+      builder: (context, trigger) => DButton(
+        label: const Text('Open parent'),
+        focusNode: trigger.focusNode,
+        hasPopup: true,
+        expanded: trigger.open,
+        onPressed: trigger.toggle,
+      ),
+    ),
+  );
+}
+
+class _MenuPopoverTest extends StatelessWidget {
+  const _MenuPopoverTest();
+
+  @override
+  Widget build(BuildContext context) => DPopover(
+    content: DPopoverContent(
+      width: 220,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Parent content'),
+          MenuAnchor(
+            menuChildren: [
+              MenuItemButton(
+                onPressed: () {},
+                child: const Text('Menu choice'),
+              ),
+            ],
+            builder: (context, controller, child) => DButton(
+              label: const Text('Open menu'),
+              hasPopup: true,
+              onPressed: controller.open,
+            ),
+          ),
+        ],
+      ),
+    ),
+    child: DPopoverTrigger(
+      builder: (context, trigger) => DButton(
+        label: const Text('Open parent'),
+        focusNode: trigger.focusNode,
+        hasPopup: true,
+        expanded: trigger.open,
         onPressed: trigger.toggle,
       ),
     ),

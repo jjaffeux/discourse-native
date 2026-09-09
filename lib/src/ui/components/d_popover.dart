@@ -130,6 +130,21 @@ class DPopover extends StatefulWidget {
   State<DPopover> createState() => _DPopoverState();
 }
 
+class _DPopoverLayers {
+  static final List<_DPopoverState> _open = <_DPopoverState>[];
+
+  static void activate(_DPopoverState state) {
+    _open
+      ..remove(state)
+      ..add(state);
+  }
+
+  static void deactivate(_DPopoverState state) => _open.remove(state);
+
+  static bool isTopmost(_DPopoverState state) =>
+      _open.isNotEmpty && identical(_open.last, state);
+}
+
 class _DPopoverState extends State<DPopover>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _portal = OverlayPortalController();
@@ -154,6 +169,7 @@ class _DPopoverState extends State<DPopover>
   bool _initialized = false;
   bool _syncScheduled = false;
   bool _suspended = false;
+  bool _restoreFocusForNextClose = true;
   DPopoverInteraction _interaction = DPopoverInteraction.imperative;
 
   DPopoverController get _controller => widget.controller ?? _ownedController;
@@ -163,7 +179,7 @@ class _DPopoverState extends State<DPopover>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     GestureBinding.instance.pointerRouter.addGlobalRoute(_globalPointer);
-    FocusManager.instance.addEarlyKeyEventHandler(_keyEvent);
+    FocusManager.instance.addEarlyKeyEventHandler(_observeGlobalKey);
     _controller._attach(this);
   }
 
@@ -192,7 +208,7 @@ class _DPopoverState extends State<DPopover>
       if (_suspended) {
         _setOpen(false, immediate: true);
       } else if (widget.open != null) {
-        _setOpen(widget.open!);
+        _setOpen(widget.open!, restoreFocus: _restoreFocusForNextClose);
       } else if (!_initialized) {
         _setOpen(widget.defaultOpen);
       }
@@ -211,6 +227,9 @@ class _DPopoverState extends State<DPopover>
   ) {
     if (!mounted || value == _open) return;
     _interaction = interaction;
+    if (!value) {
+      _restoreFocusForNextClose = reason != DPopoverChangeReason.outsidePress;
+    }
     if (widget.open == null) _setOpen(value);
     widget.onOpenChange?.call(value, reason);
   }
@@ -224,6 +243,7 @@ class _DPopoverState extends State<DPopover>
     _open = value;
     final noMotion = immediate || MediaQuery.disableAnimationsOf(context);
     if (value) {
+      _DPopoverLayers.activate(this);
       _previousFocus = FocusManager.instance.primaryFocus;
       _portal.show();
       if (noMotion) {
@@ -241,6 +261,7 @@ class _DPopoverState extends State<DPopover>
         }
       });
     } else {
+      _DPopoverLayers.deactivate(this);
       if (noMotion) {
         _animation.value = 0;
         _portal.hide();
@@ -248,7 +269,7 @@ class _DPopoverState extends State<DPopover>
       } else {
         _animation.reverse();
       }
-      if (restoreFocus && widget.restoreFocus) {
+      if (restoreFocus && _restoreFocusForNextClose && widget.restoreFocus) {
         final target = _triggerFocus?.canRequestFocus == true
             ? _triggerFocus
             : _previousFocus;
@@ -258,6 +279,7 @@ class _DPopoverState extends State<DPopover>
           }
         });
       }
+      _restoreFocusForNextClose = true;
     }
     if (mounted) setState(() {});
     _controller._changed();
@@ -283,12 +305,17 @@ class _DPopoverState extends State<DPopover>
   }
 
   void _globalPointer(PointerEvent event) {
-    if (!_open || event is! PointerDownEvent) return;
+    if (!_open ||
+        !_DPopoverLayers.isTopmost(this) ||
+        event is! PointerDownEvent) {
+      return;
+    }
     final point = event.position;
     if (_globalRect(_surfaceKey.currentContext)?.contains(point) ?? false) {
       return;
     }
     if (_globalRect(_triggerContext)?.contains(point) ?? false) return;
+    if (_openDescendantMenus().isNotEmpty) return;
     _request(
       false,
       DPopoverChangeReason.outsidePress,
@@ -296,13 +323,38 @@ class _DPopoverState extends State<DPopover>
     );
   }
 
-  KeyEventResult _keyEvent(KeyEvent event) {
-    if (!_open || event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (event.logicalKey != LogicalKeyboardKey.escape) {
-      return KeyEventResult.ignored;
+  List<MenuController> _openDescendantMenus() {
+    final surfaceContext = _surfaceKey.currentContext;
+    if (surfaceContext is! Element) return const [];
+    final surroundingMenu = MenuController.maybeOf(surfaceContext);
+    final found = <MenuController>[];
+    void visit(Element element) {
+      final menu = MenuController.maybeOf(element);
+      if (menu != null &&
+          !identical(menu, surroundingMenu) &&
+          menu.isOpen &&
+          !found.contains(menu)) {
+        found.add(menu);
+      }
+      element.visitChildElements(visit);
     }
-    _request(false, DPopoverChangeReason.escape, DPopoverInteraction.keyboard);
-    return KeyEventResult.handled;
+
+    surfaceContext.visitChildElements(visit);
+    return found;
+  }
+
+  KeyEventResult _observeGlobalKey(KeyEvent event) {
+    if (_open &&
+        _DPopoverLayers.isTopmost(this) &&
+        event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
+      final menus = _openDescendantMenus();
+      if (menus.isNotEmpty) {
+        menus.last.close();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
   }
 
   DPopoverInteraction _interactionFor(PointerDeviceKind kind) => switch (kind) {
@@ -374,9 +426,23 @@ class _DPopoverState extends State<DPopover>
           content: widget.content,
           direction: Directionality.of(context),
           animation: _curve,
-          child: FocusScope(
-            node: _surfaceFocus,
-            child: KeyedSubtree(key: _surfaceKey, child: widget.content),
+          child: Actions(
+            actions: {
+              DismissIntent: CallbackAction<DismissIntent>(
+                onInvoke: (intent) {
+                  _request(
+                    false,
+                    DPopoverChangeReason.escape,
+                    DPopoverInteraction.keyboard,
+                  );
+                  return null;
+                },
+              ),
+            },
+            child: FocusScope(
+              node: _surfaceFocus,
+              child: KeyedSubtree(key: _surfaceKey, child: widget.content),
+            ),
           ),
         ),
       ),
@@ -451,9 +517,10 @@ class _DPopoverState extends State<DPopover>
 
   @override
   void dispose() {
+    _DPopoverLayers.deactivate(this);
     _controller._detach(this);
     GestureBinding.instance.pointerRouter.removeGlobalRoute(_globalPointer);
-    FocusManager.instance.removeEarlyKeyEventHandler(_keyEvent);
+    FocusManager.instance.removeEarlyKeyEventHandler(_observeGlobalKey);
     WidgetsBinding.instance.removeObserver(this);
     _curve.dispose();
     _animation.dispose();
