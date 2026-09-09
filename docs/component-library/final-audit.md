@@ -56,6 +56,9 @@ Sidebar.
 - The focused post-fix matrix passed 100 tests with randomized seed `9092028`:
   styleguide page, Drawer, Label, Aspect Ratio, Tooltip, Textarea, Switch and
   Collapsible coverage.
+- On the current-main candidate, root and `profiles/full` analysis passed and
+  the complete styleguide plus DCalendar, DDatePicker, EventCalendar and
+  TopicCalendar matrix passed all 415 tests with randomized seed `9092029`.
 - The exact `f15c6f67` source built as a macOS debug styleguide. The isolated
   bundle used identifier
   `org.discourse.native.component-library-final-audit.f15c6f67`; copied and
