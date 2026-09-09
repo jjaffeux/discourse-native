@@ -49,7 +49,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 12 | checkbox | merged | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | 13466a062d19c247905ccc65adc615c8d0d6273d |
 | 13 | radio-group | merged | 01a083ce-313b-7da0-aa51-3687fd556604 | codex/ui-radio-group | label | 62e7d25adeb8c125faca2a6476cbb800660a2025 |
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
-| 15 | toggle | in_progress | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | — |
+| 15 | toggle | review_ready | 01a08567-ac29-7dd0-ba78-1717a5235bd0 | codex/ui-toggle | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | merged | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | 15da313eb259c51c6bbed5974895b6616c32c84c |
@@ -1101,7 +1101,7 @@ Status: merged. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-swi
 
 ### toggle
 
-Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/ui-toggle.
+Status: review_ready. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/ui-toggle.
 
 **acceptanceCriteria**
 
@@ -1120,6 +1120,7 @@ Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/u
 - SelectedIcon supports the reference pressed bookmark fill while ordinary icon/child composition remains reusable by later Toggle Group without implementing group selection here.
 - The Button dependency is merged. Frozen examples cover default/outline, icon and text composition, default/sm/lg sizes, disabled and RTL plus public API behavior. Implement native pressed-toggle semantics and genuine controlled/uncontrolled toggling with keyboard/hover/press/focus and disabled state, matching measured reference artwork. Audit independent on/off formatting/view controls and plugin toolbar controls where appropriate; do not recast momentary actions, tab/navigation items or mutually exclusive selection as independent Toggle. Keep rich editor/IME/domain command ownership with app adapters. Toggle Group is a later catalogue component; build reusable Toggle suitable for composition without duplicating Toggle Group. Notify root when the final reviewer is created and after Toggle merges so Toggle Group can start.
 - Implementation uses the direct reviewer workflow; root is not an approval gate.
+- Independent review kept symmetric 10px horizontal padding: the live documented Lucide examples do not carry the registry's optional data-icon annotation, and their rendered geometry measures 10px on both edges. The temporary source-only icon-edge interpretation was reverted before acceptance.
 
 **migrations**
 
@@ -1139,11 +1140,16 @@ Status: in_progress. Task: 01a08567-ac29-7dd0-ba78-1717a5235bd0. Branch: codex/u
 - 258 Toggle, Voice adoption, retained composer toolbar and full styleguide tests passed with randomized seed 9052027.
 - Root and profiles/full flutter analyze --no-pub passed without diagnostics; root and full locked dependency resolution passed without dependency changes. Touched Dart formatting and git diff --check passed.
 - Unlaunched ordinary macOS styleguide debug build passed from source commit 271c1bddbd8332741e185d9924be7690e5628646 and was refreshed after latest-main/evidence reconciliation at 564051345421a6d603504046daeb8455583821dd. Toggle source SHA-256 966db63c7d1c41da694fd605f0970e692124beda4a2ac58324f122df50126176; refreshed kernel SHA-256 14d093ab5748a9c23a36c9b7c1480fa8ca642f2e58a06e003dab753978e306f5. This is build evidence only, not an isolated review bundle.
+- Independent reviewer reran 81 focused Toggle, Voice and exact-fixture tests with randomized seed 9052032 after latest-main integration; root and profiles/full flutter analyze --no-pub, locked dependency resolution and git diff --check passed.
+- Official live Base UI examples were inspected in light and dark, including 28/32/36px sizes, 14/16px icons, 4px gaps, 10px symmetric documented-example padding, 8px radius, outline/muted surfaces, disabled opacity, pressed state and RTL logical ordering.
+- Exact-source isolated macOS bundle /private/tmp/discourse-toggle-review-d39eb0f3/Discourse Toggle Review d39eb0f3.app was launched. Real Voice mute, deafen, camera, sharing, hand and recording adapters changed state/action labels in both directions while Media settings remained momentary. Default/outline/text/size/disabled/RTL/controlled/uncontrolled/icon-only/invalid examples passed across Light, Dark, Forest, Plum, RTL and 200% text; Space and Return activated focused toggles.
+- The isolated bundle uses ID org.discourse.toggle-review-d39eb0f3 and scheme discourse-toggle-review-d39eb0f3. Built and copied kernel SHA-256 values both equal 3eea3bb75a19aeab195e3ced4e91c3d6b2d01fe5fc46aad6fb9dc49d75334529; deep strict ad-hoc signature and restricted entitlement readback passed.
+- Final reconciliation integrated local main 6b8ec8f85ce2270d56321a57f9a41abe05355e0f while preserving every non-Toggle progress row and all component registrations. Main's Voice changes were confined to Empty/Textarea consumers outside VoiceToolbarControl. All 71 Toggle, Voice and fixture tests passed with seed 9052033; root and profiles/full analysis and branch-relative diff checks passed.
 
 **limitations**
 
-- Official browser/reference comparison and native light/dark/custom/RTL/200% hover/focus/pressed/disabled inspection remain for the independent reviewer.
-- The ordinary unlaunched build retains project developer entitlements and must not be used as the isolated review bundle. No native launch, CUA/browser action, spoken VoiceOver, physical iOS or Linux run, or pixel-equality claim was made by the implementer.
+- No physical iOS/Linux device run or spoken VoiceOver verification was performed.
+- Browser and native font rasterizers differ; review establishes measured geometry, palette mapping and behavior rather than pixel equality. The final native bundle is source-specific to d39eb0f3; the subsequent latest-main merge did not touch Toggle, its tokens/theme, Voice adapter or review fixture.
 
 ### slider
 
