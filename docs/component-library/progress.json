@@ -1495,17 +1495,17 @@
       "acceptanceCriteria": [
         "Export all seven passive Card composition APIs, with default/small metrics and live shared spacing; preserve child focus, selection, callbacks and lifecycle.",
         "Match base-nova surface, foreground ring, radius, title/description metrics, header action alignment, footer border/shading, absent parts and clipped edge images; document registry hashes and CSS mapping.",
-        "Reproduce frozen login, small, spacing, edge-to-edge terms, image and RTL examples with local state; document pending Button/Input/Badge/Toggle Group owners.",
+        "Reproduce frozen login, small, spacing, edge-to-edge terms, image and RTL examples with local state and accepted final Button/Input/Badge/Toggle Group/Label/Field owners.",
         "Audit core and every bundled plugin presentation owner; migrate appropriate group/member/activity, Chat, Poll, Events and Skeleton surfaces while preserving domain behavior; justify retained alternatives.",
         "Pass format, static analysis and focused seeded component/example/adoption/downstream tests; inspect byte-matched isolated macOS styleguide and real local-data production fixtures in exclusive desktop slot across palettes/narrow/200%/RTL."
       ],
       "decisions": [
         "Frozen Card Markdown and all seven APIs covered. Registry raw SHA256 e73e3fe00ab2e14c4db1dccb1ff5c67041a94c0926ac3216c1dc6dd6dee9d7e0; decoded source 645c3d73e387a99f1492220cc619453b0c7f5454134ee3cd548be7a80f7eccde. Exact metrics and complete adoption audit: docs/component-library/card.md.",
-        "Passive DCard with Header/Title/Description/Action/Content/Footer; 16/12px spacing, shared override, 1px foreground/10 outer ring, live radius \u00d71.4, explicit typography and native Material ink without elevation or action. Semantic container preserves existing grouping.",
+        "Passive DCard with Header/Title/Description/Action/Content/Footer; 16/12px spacing, shared override, 1px foreground/10 outer ring, live radius ×1.4, explicit typography and native Material ink without elevation or action. Semantic container preserves existing grouping.",
         "Direct footer children and explicit footer slot remove bottom padding. Leading/trailing edge slots clip images; edgeToEdge and joinNext express shared-spacing negative margins. Header reflows below 240px or above 150% text using stable Flex topology, preserving child element/focus.",
-        "Eight runnable local-state examples reproduce reference compositions before application states. Adjacent Button link/outline/secondary/submit, Input email/password visuals, Badge and Toggle Group remain explicitly pending owners. Bundled package image has no network fallback.",
-        "Examples reuse already-merged Label, Aspect Ratio and Skeleton; the frozen catalogue dependency remains typography.",
-        "Required final compositions are assigned to Finish and review Card compositions (01a086cd-3f9c-75b0-bda3-7d65d96604a0). The original component merge remains accepted; complete examples require this independent review, fixes, affected native acceptance and local follow-up merge."
+        "Eight runnable local-state examples reproduce reference compositions before application states. Final acceptance supersedes the original pending-owner notes: accepted Button primary/outline/link, Input, Field/Label metadata, secondary Badge and controlled Toggle Group now own their controls. Bundled package image has no network fallback.",
+        "Final examples use accepted Button, Input, Label/Field, Badge and Toggle Group without changing passive Card APIs or production adopters; the frozen catalogue dependency remains typography.",
+        "Final compositions independently reviewed by Finish and review Card compositions (01a086cd-3f9c-75b0-bda3-7d65d96604a0); rendered/native acceptance and final-owner reconciliation are in docs/component-library/card-final-composition-review.md. Original component merge and implementation identity remain unchanged."
       ],
       "migrations": [
         "Core Groups directory, compact members, activity and requests; Preferences, Badge and Category directories; Aggregate passive panels. Existing navigation, permission, callbacks, fields and state ownership preserved.",
@@ -1524,13 +1524,15 @@
         "Seed 834729: final Card/examples run passed 12 tests, including 1fr/auto LTR/RTL geometry, shared spacing, direct footer, image/joined content, retained editing, keyboard activation, 200% reflow and unchanged header action element/focus.",
         "macOS debug local fixture build succeeded. Isolated /tmp/DiscourseCard5995.app uses org.discourse.native.card5995 and discourse-card5995 scheme. Deep/strict ad-hoc signature and App.framework payload byte matching verified. Native screenshots and AX evidence are inline in the Card task; ignored build/card-review/native-manifest.json and byte-match.json record the inspected build.",
         "Exclusive macOS native pass compared official rendered Card metrics and light/dark screenshots with all eight examples, Plum palette, RTL, narrow layout and 200% text. Exercised login, spacing draft retention, terms acceptance, image details, disabled/selected/busy/error/empty states; inspected actual bundled styleguide. Real local-data Groups, Members, Activity, Poll, Events, Chat and Badge fixtures exercised navigation, retry, vote, RSVP and join/unfollow callbacks.",
-        "Coordinator reviewed stable clean Card HEAD 31663949f52a70ff90f791641a156e272cd8fd90, its seven passive APIs, exact 16/12px spacing and 1.4\u00d7 radius, retained action elements/focus during header reflow, direct footer spacing, eight complete examples and core/plugin adoptions. Native inspection and isolated app closure are complete, including official light/dark comparison, narrow/RTL/200%/Plum examples and real Groups/Members/Activity/Poll/Events/Chat/Badge fixtures; device and other surface limitations remain explicit. Applied pre-reviewed reconciliation with both-parent fingerprints verified, preserving current Tooltip and Avatar within Event Card surfaces.",
-        "Coordinator combined-main verification: all 466 focused library/styleguide/Tooltip and affected core, Chat, Poll, Events, preferences, directory, aggregate and Voice tests passed, seed 3790819455; log /private/tmp/component-card-integration-tests.log. The full profile passed 63 Card/Skeleton/Aspect Ratio component and example cases, seed 2853461005; log /private/tmp/component-card-full-tests.log. Root and full analysis are clean (11.3s and 3.2s); full-profile locked pub get passed with no lockfile/pin changes. All 19 touched Dart files are formatted and git diff --check passes. Generic Card, its eight examples and adopted Skeleton source exactly match the reviewed branch. All previously merged Tooltip, Avatar, Spinner, Skeleton, Aspect Ratio and Label owners remain present in changed application source."
+        "Coordinator reviewed stable clean Card HEAD 31663949f52a70ff90f791641a156e272cd8fd90, its seven passive APIs, exact 16/12px spacing and 1.4× radius, retained action elements/focus during header reflow, direct footer spacing, eight complete examples and core/plugin adoptions. Native inspection and isolated app closure are complete, including official light/dark comparison, narrow/RTL/200%/Plum examples and real Groups/Members/Activity/Poll/Events/Chat/Badge fixtures; device and other surface limitations remain explicit. Applied pre-reviewed reconciliation with both-parent fingerprints verified, preserving current Tooltip and Avatar within Event Card surfaces.",
+        "Coordinator combined-main verification: all 466 focused library/styleguide/Tooltip and affected core, Chat, Poll, Events, preferences, directory, aggregate and Voice tests passed, seed 3790819455; log /private/tmp/component-card-integration-tests.log. The full profile passed 63 Card/Skeleton/Aspect Ratio component and example cases, seed 2853461005; log /private/tmp/component-card-full-tests.log. Root and full analysis are clean (11.3s and 3.2s); full-profile locked pub get passed with no lockfile/pin changes. All 19 touched Dart files are formatted and git diff --check passes. Generic Card, its eight examples and adopted Skeleton source exactly match the reviewed branch. All previously merged Tooltip, Avatar, Spinner, Skeleton, Aspect Ratio and Label owners remain present in changed application source.",
+        "Final composition acceptance: all eight native examples inspected in isolated macOS bundle 49e27ca6, kernel SHA256 7e5e09b5d7274a04332e50e23068fdf4c5e100109acd514c4bb44e513a7d34e6. Official light/dark metrics and screenshots compared; native light/dark/Forest/Plum, Arabic shaping, Next/Done validation, retained drafts, 360px/200% RTL spacing keyboard reveal, terms scrolling and local actions/states passed. Exact 260px is widget coverage. Evidence and cleanup limitation: docs/component-library/card-final-composition-review.md.",
+        "Final candidate 2daaaa10 on main 80649ca1 passed 127 Card/Button/Input/Badge/Toggle Group/Field/example/Voice tests, seed 9082026, and clean root/full analysis. Existing owners resolved and merged Toggle Group off-screen focus and missing Voice test DToaster; Card retains a focused visibility regression. Generic Card and production adopters are unchanged."
       ],
       "limitations": [
         "iOS and Linux native device inspection unavailable in this macOS session. Widget tests and platform overrides are not device testing.",
         "No VoiceOver audit; some native accessibility snapshots were sparse. Widget tests verify semantic grouping and keyboard/focus behavior. Preferences, Categories, Aggregate, Voice diagnostics and cooked/request fallback migrations have focused test coverage but were not individually inspected natively.",
-        "Adjacent Button/Input/Badge/Toggle Group visuals remain pending their owners, as documented in the examples. Native inspected build displayed baseline status before the final metadata-only promotion to implemented."
+        "Original pending-owner limitation is resolved. Native fonts, site colors/radii and the bundled cover differ from the browser; no pixel-equality claim. Cleanup hit an owned reference-tab session denial; UI stopped and desktop was released without bypass. Isolated-app cleanup was requested from the next FIFO reviewer, not claimed complete here."
       ],
       "implementationCommit": "4c0dcc6b4fea696768722afae8837d80fbd43b40",
       "mergeCommit": "a73f465ac86105fdda35f5b56f8b491da4b3936d",
@@ -1583,7 +1585,13 @@
           "sha256": "718dec761e0ad426b53d4673d206ab6dbfbbff5757f9714b883a04126f75db3e"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "review_ready",
+        "reviewStatus": "review_ready",
+        "browserInspectionStatus": "completed",
+        "nativeInspectionStatus": "completed",
+        "reviewedSourceCommit": "2daaaa10d74a96f26d9a4cbeabf4045ceeeed80a",
+        "nativeSourceCommit": "49e27ca655373749b9099325ac78f56b27313824",
+        "evidence": "docs/component-library/card-final-composition-review.md"
       }
     },
     {
@@ -4743,7 +4751,7 @@
           "taskId": "01a086cd-3f9c-75b0-bda3-7d65d96604a0",
           "branch": "codex/review-card-compositions",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cf56/discourse-native",
-          "status": "final_composition_review",
+          "status": "review_ready",
           "implementationTaskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
           "implementationBranch": "codex/ui-card"
         },
@@ -5169,7 +5177,7 @@
           "implementationTaskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
           "implementationBranch": "codex/ui-card",
           "implementationCommit": "4c0dcc6b4fea696768722afae8837d80fbd43b40",
-          "status": "final_composition_review"
+          "status": "review_ready"
         },
         {
           "component": "avatar",
@@ -5291,7 +5299,13 @@
           "sha256": "718dec761e0ad426b53d4673d206ab6dbfbbff5757f9714b883a04126f75db3e"
         },
         "scope": "Complete the documented examples and relevant shared-component/adopter composition using accepted final owners, remove temporary controls and obsolete pending-owner notes, independently verify affected source and native/reference behavior, and merge the follow-up locally.",
-        "status": "in_progress"
+        "status": "review_ready",
+        "reviewStatus": "review_ready",
+        "browserInspectionStatus": "completed",
+        "nativeInspectionStatus": "completed",
+        "reviewedSourceCommit": "2daaaa10d74a96f26d9a4cbeabf4045ceeeed80a",
+        "nativeSourceCommit": "49e27ca655373749b9099325ac78f56b27313824",
+        "evidence": "docs/component-library/card-final-composition-review.md"
       },
       {
         "component": "avatar",

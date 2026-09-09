@@ -55,13 +55,23 @@ state, rather than inventing Card variants.
 
 The login, small report, adjustable spacing, terms, image and Arabic examples
 precede application states. They use local callbacks and input controllers.
-DButton is the existing baseline; the frozen adjacent `link`, `outline`,
-`secondary` and `submit` props belong to Button. TextFormField email/password
-visuals belong to pending Input; its required validation/editing work locally.
-Featured text awaits Badge, and spacing controls await Toggle Group. These
-are visible pending owners, not claimed Card variants. The image uses the
-already bundled package asset, grayscale and reference 60%/40% brightness plus its 35% black overlay,
-without runtime network fallback.
+The final compositions use accepted `DButton` primary, outline and link
+treatments; `DInput` email/password editors; associated `DField`,
+`DFieldLabel` and `DFieldControl` metadata; a secondary `DBadge`; and a
+controlled outline `DToggleGroup` for the four spacing values. Flutter owns
+form submission through one local callback, shared by the Login button and
+password editor's Done/Return action, rather than an HTML button `type`.
+The email editor's Next action focuses the password editor. Associated labels
+retain the frozen Label's 14px line height, and the report list uses the
+Lucide/Feather chevron's original stroke path and 2px top inset.
+The password recovery anchor keeps its 14px/20px normal-weight foreground text
+and unpadded inline bounds. A local layout adapter measures inherited scaled
+text and constrains the accepted `DButton` link owner; wrapping may increase
+height, without creating a separate interaction or focus owner.
+Validation, drafts, editing selection, focus and spacing selection remain
+local and survive theme, direction, text-scale and width reflow. The image uses
+the already bundled package asset, grayscale and reference 60%/40% brightness
+plus its 35% black overlay, without runtime network fallback.
 
 ## Presentation audit
 
@@ -120,6 +130,11 @@ Retained alternatives and concrete ownership reasons:
   Chat/Voice UserCard data and plugin post-card adapters remain domain owners.
 
 ## Verification
+
+The separately accepted final-owner composition follow-up is documented in
+[card-final-composition-review.md](card-final-composition-review.md). It
+supersedes the original pending-owner notes, while preserving the seven-part
+API, production adopters and the original evidence below.
 
 Recorded seeded tests, native comparison evidence and platform limitations are
 in the Card progress row. Native fixtures are temporary build artifacts and

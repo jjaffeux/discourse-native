@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../styleguide_example.dart';
 
@@ -11,11 +12,9 @@ final cardExamples = ComponentExamples(
       'The seven passive Card parts use base-nova metrics. Install by importing '
       'package:discourse_native/discourse_ui.dart. Spacing is shared by all parts; '
       'footer is an explicit root slot. Child widgets own interactions and state. '
-      'DButton is the available baseline: outline/secondary styling and submit '
-      'props await Button. TextFormField is temporary pending Input, including '
-      'email/password visuals. Featured text awaits Badge; spacing buttons await '
-      'Toggle Group. No example makes requests. At narrow/large text the header '
-      'action moves below its text to keep both readable.',
+      'The frozen compositions use the accepted Button, Input, Label, Field, Badge '
+      'and Toggle Group owners. No example makes requests. At narrow/large text '
+      'the header action moves below its text to keep both readable.',
   examples: [
     StyleguideExample(
       title: 'Login',
@@ -66,8 +65,7 @@ final cardExamples = ComponentExamples(
       title: 'Shared spacing',
       description:
           'Change 16/20/24/32px while retaining your input and local status.',
-      code:
-          '// Keep spacing in local state. Every part reads this value.\n$_loginCode',
+      code: _spacingCode,
       builder: (_) => const _Login(configurableSpacing: true),
     ),
     StyleguideExample(
@@ -79,8 +77,10 @@ final cardExamples = ComponentExamples(
     description: DCardDescription(child: Text('Review the terms before accepting the agreement.'))),
   DCardContent(edgeToEdge: true, joinNext: true, child: termsScrollView),
 ], footer: DCardFooter(child: Wrap(spacing: 8, children: [
-  DButton(onPressed: decline, label: Text('Decline')),
-  DButton(onPressed: accept, label: Text('Accept')),
+  DButton(onPressed: decline, variant: DButtonVariant.outline,
+    label: Text('Decline')),
+  DButton(onPressed: accept, variant: DButtonVariant.primary,
+    label: Text('Accept')),
 ])))""",
       builder: (_) => const _Terms(),
     ),
@@ -95,9 +95,11 @@ final cardExamples = ComponentExamples(
   children: [DCardHeader(
     title: DCardTitle(child: Text('Design systems meetup')),
     description: DCardDescription(child: Text('A practical talk on component APIs, accessibility, and shipping faster.')),
-    action: DCardAction(child: Text('Featured')),
+    action: DCardAction(child: DBadge(
+      variant: DBadgeVariant.secondary, child: Text('Featured'))),
   )],
-  footer: DCardFooter(child: DButton(onPressed: viewEvent, label: Text('View Event'))),
+  footer: DCardFooter(child: DButton(onPressed: viewEvent,
+    variant: DButtonVariant.primary, label: Text('View Event'))),
 )""",
       builder: (_) => const _ImageCard(),
     ),
@@ -136,17 +138,53 @@ const _loginCode = """DCard(spacing: spacing, children: [
     action: DCardAction(child: DButton(onPressed: signUp,
       variant: DButtonVariant.link, label: Text('Sign Up'))),
   ),
-  DCardContent(child: Form(key: formKey, child: Column(children: [
-    DLabel(child: Text('Email')),
-    TextFormField(keyboardType: TextInputType.emailAddress,
-      decoration: InputDecoration(hintText: 'm@example.com'), validator: validateEmail),
-    DLabel(child: Text('Password')),
-    TextFormField(obscureText: true, validator: validatePassword),
+  DCardContent(child: Form(key: formKey, child: Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    DField(children: [
+      DFieldLabel(focusNode: emailFocus, excludeSemantics: true,
+        style: TextStyle(height: 1),
+        child: Text('Email')),
+      DFieldControl(label: 'Email', required: true, child: DInput(
+        focusNode: emailFocus, keyboardType: TextInputType.emailAddress,
+        textInputAction: TextInputAction.next,
+        onSubmitted: (_) => passwordFocus.requestFocus(),
+        hintText: 'm@example.com', isRequired: true, validator: validateEmail)),
+    ]),
+    SizedBox(height: 24),
+    DField(children: [
+      Wrap(alignment: WrapAlignment.spaceBetween, children: [
+        DFieldLabel(focusNode: passwordFocus, excludeSemantics: true,
+          style: TextStyle(height: 1),
+          child: Text('Password')),
+        // Inline text bounds, no padding; DButton retains native activation.
+        recoveryLink,
+      ]),
+      DFieldControl(label: 'Password', required: true, child: DInput(
+        focusNode: passwordFocus, obscureText: true, isRequired: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => submit(),
+        validator: validatePassword)),
+    ]),
   ]))),
-], footer: DCardFooter(child: Column(children: [
-  DButton(onPressed: submit, label: Text('Login')),
-  DButton(onPressed: google, label: Text('Login with Google')),
+], footer: DCardFooter(child: Column(
+  crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+  DButton(onPressed: submit, variant: DButtonVariant.primary, label: Text('Login')),
+  SizedBox(height: 8),
+  DButton(onPressed: google, variant: DButtonVariant.outline,
+    label: Text('Login with Google')),
 ])))""";
+
+const _spacingCode = """DToggleGroup<double>(
+  values: [spacing],
+  onChanged: (values) => setState(() => spacing = values.single),
+  allowEmptySelection: false,
+  variant: DToggleVariant.outline,
+  size: DToggleSize.small,
+  items: [16, 20, 24, 32].map((value) => DToggleGroupItem(
+    value: value.toDouble(), child: Text('\${value}px'))).toList(),
+)
+
+$_loginCode""";
 
 class _Frame extends StatelessWidget {
   const _Frame({required this.child, this.width = 384});
@@ -165,12 +203,12 @@ class _Frame extends StatelessWidget {
 Widget _button(
   String text,
   VoidCallback? callback, {
-  bool link = false,
+  DButtonVariant variant = DButtonVariant.primary,
   DButtonSize size = DButtonSize.regular,
 }) => DButton(
   onPressed: callback,
   size: size,
-  variant: link ? DButtonVariant.link : DButtonVariant.standard,
+  variant: variant,
   label: Builder(
     builder: (context) => DefaultTextStyle(
       style: DefaultTextStyle.of(context).style,
@@ -191,16 +229,24 @@ class _LoginState extends State<_Login> {
   final _form = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   double _spacing = 16;
   String _status = '';
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
   void _notice(String value) => setState(() => _status = value);
+
+  void _submit() =>
+      _notice(_form.currentState!.validate() ? 'Signed in locally' : '');
+
   @override
   Widget build(BuildContext context) {
     final ar = widget.arabic;
@@ -210,16 +256,28 @@ class _LoginState extends State<_Login> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.configurableSpacing) ...[
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final value in [16.0, 20.0, 24.0, 32.0])
-                  _button(
-                    '${value.toInt()}px',
-                    () => setState(() => _spacing = value),
-                  ),
-              ],
+            Align(
+              alignment: Alignment.center,
+              child: DToggleGroup<double>(
+                values: [_spacing],
+                onChanged: (values) {
+                  if (values.isNotEmpty) {
+                    setState(() => _spacing = values.single);
+                  }
+                },
+                allowEmptySelection: false,
+                variant: DToggleVariant.outline,
+                size: DToggleSize.small,
+                semanticLabel: 'Card spacing',
+                items: [
+                  for (final value in [16.0, 20.0, 24.0, 32.0])
+                    DToggleGroupItem(
+                      value: value,
+                      semanticLabel: '${value.toInt()} pixel spacing',
+                      child: Text('${value.toInt()}px'),
+                    ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -229,15 +287,12 @@ class _LoginState extends State<_Login> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _button(ar ? 'تسجيل الدخول' : 'Login', () {
-                    if (_form.currentState!.validate()) {
-                      _notice('Signed in locally');
-                    }
-                  }),
+                  _button(ar ? 'تسجيل الدخول' : 'Login', _submit),
                   const SizedBox(height: 8),
                   _button(
                     ar ? 'تسجيل الدخول باستخدام Google' : 'Login with Google',
                     () => _notice('Google login selected'),
+                    variant: DButtonVariant.outline,
                   ),
                 ],
               ),
@@ -260,7 +315,7 @@ class _LoginState extends State<_Login> {
                   child: _button(
                     ar ? 'إنشاء حساب' : 'Sign Up',
                     () => _notice('Sign up selected'),
-                    link: true,
+                    variant: DButtonVariant.link,
                   ),
                 ),
               ),
@@ -270,43 +325,72 @@ class _LoginState extends State<_Login> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      DLabel(child: Text(ar ? 'البريد الإلكتروني' : 'Email')),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          hintText: 'm@example.com',
-                          labelText: ar ? 'البريد الإلكتروني' : 'Email',
-                        ),
-                        validator: (value) =>
-                            value != null && value.contains('@')
-                            ? null
-                            : 'Enter an email address',
-                      ),
-                      const SizedBox(height: 24),
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      DField(
                         children: [
-                          DLabel(child: Text(ar ? 'كلمة المرور' : 'Password')),
-                          _button(
-                            ar ? 'نسيت كلمة المرور؟' : 'Forgot your password?',
-                            () => _notice('Password recovery selected'),
-                            link: true,
+                          DFieldLabel(
+                            focusNode: _emailFocus,
+                            excludeSemantics: true,
+                            style: const TextStyle(height: 1),
+                            child: Text(ar ? 'البريد الإلكتروني' : 'Email'),
+                          ),
+                          DFieldControl(
+                            label: ar ? 'البريد الإلكتروني' : 'Email',
+                            required: true,
+                            child: DInput(
+                              controller: _email,
+                              focusNode: _emailFocus,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              onSubmitted: (_) => _passwordFocus.requestFocus(),
+                              hintText: 'm@example.com',
+                              isRequired: true,
+                              validator: (value) =>
+                                  value != null && value.contains('@')
+                                  ? null
+                                  : 'Enter an email address',
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _password,
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          labelText: ar ? 'كلمة المرور' : 'Password',
-                        ),
-                        validator: (value) => value != null && value.isNotEmpty
-                            ? null
-                            : 'Enter a password',
+                      const SizedBox(height: 24),
+                      DField(
+                        children: [
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              DFieldLabel(
+                                focusNode: _passwordFocus,
+                                excludeSemantics: true,
+                                style: const TextStyle(height: 1),
+                                child: Text(ar ? 'كلمة المرور' : 'Password'),
+                              ),
+                              _RecoveryLink(
+                                label: ar
+                                    ? 'نسيت كلمة المرور؟'
+                                    : 'Forgot your password?',
+                                onPressed: () =>
+                                    _notice('Password recovery selected'),
+                              ),
+                            ],
+                          ),
+                          DFieldControl(
+                            label: ar ? 'كلمة المرور' : 'Password',
+                            required: true,
+                            child: DInput(
+                              controller: _password,
+                              focusNode: _passwordFocus,
+                              obscureText: true,
+                              isRequired: true,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _submit(),
+                              validator: (value) =>
+                                  value != null && value.isNotEmpty
+                                  ? null
+                                  : 'Enter a password',
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -323,6 +407,51 @@ class _LoginState extends State<_Login> {
       ),
     );
   }
+}
+
+// The reference uses an inline anchor here, not a padded Button. Only its
+// layout/text are adapted; the accepted DButton owns focus and activation.
+class _RecoveryLink extends StatelessWidget {
+  const _RecoveryLink({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final style = DefaultTextStyle.of(context).style.copyWith(
+        fontSize: 14,
+        height: 20 / 14,
+        fontWeight: FontWeight.w400,
+        color: DTokens.of(context).foreground,
+      );
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: constraints.maxWidth);
+      final size = painter.size;
+      painter.dispose();
+      return SizedBox.fromSize(
+        size: size,
+        child: DButton(
+          onPressed: onPressed,
+          isLink: true,
+          variant: DButtonVariant.link,
+          padding: EdgeInsets.zero,
+          label: Builder(
+            builder: (context) => DefaultTextStyle(
+              style: style.copyWith(
+                decoration: DefaultTextStyle.of(context).style.decoration,
+              ),
+              child: Text(label),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _Reports extends StatefulWidget {
@@ -358,6 +487,7 @@ class _ReportsState extends State<_Reports> {
                         _status = 'Charts and delivery schedules are available',
                   ),
                   size: DButtonSize.small,
+                  variant: DButtonVariant.outline,
                 ),
               ],
             ),
@@ -389,10 +519,24 @@ class _ReportsState extends State<_Reports> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.chevron_right,
-                              size: 16,
-                              color: DTokens.of(context).mutedForeground,
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              // Lucide/Feather chevron-right. License retained
+                              // in reference/empty/LICENSE.lucide.
+                              child: SvgPicture.string(
+                                '<svg xmlns="http://www.w3.org/2000/svg" '
+                                'viewBox="0 0 24 24" fill="none" '
+                                'stroke="currentColor" stroke-width="2" '
+                                'stroke-linecap="round" stroke-linejoin="round">'
+                                '<path d="m9 18 6-6-6-6"/></svg>',
+                                width: 16,
+                                height: 16,
+                                excludeFromSemantics: true,
+                                colorFilter: ColorFilter.mode(
+                                  DTokens.of(context).mutedForeground,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(child: Text(text)),
@@ -431,7 +575,11 @@ class _TermsState extends State<_Terms> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _button('Decline', () => setState(() => _status = 'Declined')),
+                _button(
+                  'Decline',
+                  () => setState(() => _status = 'Declined'),
+                  variant: DButtonVariant.outline,
+                ),
                 _button('Accept', () => setState(() => _status = 'Accepted')),
               ],
             ),
@@ -552,7 +700,12 @@ class _ImageCardState extends State<_ImageCard> {
                 'A practical talk on component APIs, accessibility, and shipping faster.',
               ),
             ),
-            action: DCardAction(child: Text('Featured')),
+            action: DCardAction(
+              child: DBadge(
+                variant: DBadgeVariant.secondary,
+                child: Text('Featured'),
+              ),
+            ),
           ),
           if (_opened)
             const DCardContent(
@@ -591,7 +744,11 @@ class _StatesState extends State<_States> {
               'Error',
               'Empty',
             ])
-              _button(state, () => setState(() => _state = state)),
+              _button(
+                state,
+                () => setState(() => _state = state),
+                variant: DButtonVariant.outline,
+              ),
           ],
         ),
         const SizedBox(height: 16),
