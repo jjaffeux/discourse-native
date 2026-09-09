@@ -449,7 +449,7 @@ final class _EventCalendarState extends State<EventCalendar> {
                   constraints.maxHeight,
                   weeks * (36 + (lanes + 1) * rowHeight),
                 );
-                return Scrollbar(
+                return DScrollBar(
                   controller: _monthScroll,
                   child: SingleChildScrollView(
                     controller: _monthScroll,

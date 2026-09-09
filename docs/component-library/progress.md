@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**18 of 64 components are merged locally.** 16 existing components are in progress; 30 are planned.
+**20 of 64 components are merged locally.** 15 existing components are in progress; 29 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -19,13 +19,12 @@ Branch preparation does not mark a component merged or visually verified.
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
 | textarea | independent review | 058bb044 | 01a08558-7a1f-7ba0-b3be-a27b46bc2b42 |
-| slider | independent review | bbd35fec | 01a08558-7a1d-7451-8024-e357bd0861e8 |
 | progress | independent review | 1c21a435 | 01a08558-73d7-7d01-9b97-39615e28df0e |
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | table | independent review | b3107cab | 01a08558-73ce-7a51-bfd4-8e0f48d5f675 |
-| scroll-area | independent review | 5f4e58a3 | 01a08558-4ae8-7152-9db9-ee52e4100dbe |
 | collapsible | independent review | 684faacd | 01a08558-a79c-7911-8f75-53b3528fc08f |
+| tabs | Implementation and checks | — | — |
 | resizable | independent review | a7e26a93 | 01a08558-7acd-73d3-a690-2e5ceb920d6c |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
@@ -55,7 +54,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 14 | switch | merged | 01a083ce-319b-7bc3-a5c9-371087710718 | codex/ui-switch | label | e2d7743cdeaed5be8ad8adbb896e2de8f655ca6d |
 | 15 | toggle | planned | — | — | button | — |
 | 16 | toggle-group | planned | — | — | toggle | — |
-| 17 | slider | in_progress | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | — |
+| 17 | slider | merged | 01a083ce-313a-7362-ada6-57dc14221509 | codex/ui-slider | label | e646022a0fd5524daab612e3bbfa9fe3de6db7a5 |
 | 18 | progress | in_progress | 01a083ce-313e-7f70-a1a8-e645f31235c8 | codex/ui-progress | label | — |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
@@ -64,10 +63,10 @@ Branch preparation does not mark a component merged or visually verified.
 | 23 | empty | in_progress | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | — |
 | 24 | item | in_progress | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
 | 25 | table | in_progress | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | — |
-| 26 | scroll-area | in_progress | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | — |
+| 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
-| 29 | tabs | planned | — | — | button | — |
+| 29 | tabs | in_progress | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | — |
 | 30 | resizable | in_progress | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | — |
 | 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
 | 32 | hover-card | planned | — | — | popover, avatar | — |
@@ -1100,7 +1099,7 @@ Status: merged. Task: 01a083ce-319b-7bc3-a5c9-371087710718. Branch: codex/ui-swi
 
 ### slider
 
-Status: in_progress. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-slider.
+Status: merged. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/ui-slider.
 
 **acceptanceCriteria**
 
@@ -1147,12 +1146,14 @@ Status: in_progress. Task: 01a083ce-313a-7362-ada6-57dc14221509. Branch: codex/u
 - API follow-up bundle /private/tmp/DiscourseSliderReview-01a083ce-r2.app built from be5f02ff2df29fc42b97ecb36fee30ef6df24d1c; ID org.discourse.native.slider.01a083ce.r2; scheme discourse-slider-review-01a083ce-r2. Source/copy kernel SHA256 6349ee6787314d4f9383576ac85d65e68435eb3d440bbef9762e2a7cec40988c; clean source equality and Credits stamp; codesign --verify --deep --strict passes. Current evidence docs/component-library/evidence/slider/native-preparation.json. Never launched.
 - Reset/integration pass: 31 focused field, component, controlled, swap, production fixture and styleguide tests pass.
 - Pinned-main reset pass: 31 focused tests and root/full analysis pass. Exact source 6792e34b950b780fbeb93a4aea82c57bd537f2b0, bundle /private/tmp/DiscourseSliderReview-6792e34b.app, ID org.discourse.native.slider.6792e34b, scheme discourse-slider-6792e34b, matching kernel SHA256 b37dbe5b00805e4e9cfb90f15ecf2ed5d59303b365afb296a83617ad847ad8b7. Ad-hoc strict deep signature passes; signed sandbox, allow-jit, get-task-allow and network entitlements verified; no restricted developer entitlements. Runner identities/pin/locks unchanged; every non-Slider progress row equals pinned main. No native/browser/CUA launch.
+- Independent reviewer reran 230 focused Slider, Form, collision, styleguide, production migration, media, Voice, topic, Chat and keyboard tests with seed 4982; root and profiles/full flutter analyze --no-pub passed with no issues. Locked dependency resolution and git diff --check were clean.
+- Latest-main reconciliation integrated reviewed Switch and Scroll Area through 41b74494 while preserving their exports, examples, migrations and progress rows. The same 230 focused checks passed with seed 4983; root and profiles/full analysis and git diff --check remained clean.
+- Official Base UI browser comparison completed in light and dark across default, range, multiple-thumb, vertical, controlled, disabled and RTL examples. The exact-source macOS bundle was launched and its real topic, participant-volume and inline-video controls inspected in light/dark, RTL, 2x text, disabled, removal/restoration and external playback states. Native styleguide default/range/multiple/vertical/controlled/Plum/buffered examples passed; LTR/RTL keyboard direction and independent slider accessibility nodes were verified. No functional source defect was found.
 
 **limitations**
 
-- Mac locked; no native desktop/reference-browser inspection performed. Awaiting coordinator slot; no visual/native parity claim.
-- Native bundle is prepared but unlaunched; status remains in_progress / awaiting_slot. Source examples remain baseline until the actual native/reference comparison gate passes.
-- API follow-up source, automated checks and refreshed r2 bundle complete; no native/CUA/reference-browser, iOS/Linux device or VoiceOver speech inspection performed. Remains in_progress / awaiting_slot.
+- No iOS/Linux device run or spoken VoiceOver verification was performed.
+- Browser and native font rasterizers differ; the review establishes measured geometry, styling and behavior rather than pixel equality.
 
 ### progress
 
@@ -1596,7 +1597,7 @@ Status: in_progress. Task: 01a0844a-0669-7780-92e8-33cc4314f64a. Branch: codex/u
 
 ### scroll-area
 
-Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/ui-scroll-area.
+Status: merged. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/ui-scroll-area.
 
 **acceptanceCriteria**
 
@@ -1605,13 +1606,13 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 - Verify wheel, thumb drag, touch and keyboard scrolling, RTL, visibility, resizing and controller replacement/removal without disposing borrowed resources.
 - Reproduce Tags/Horizontal/RTL reference examples and local combined/lazy composition; preserve styleguide explicit 360/768/1024 widths and state during preview changes.
 - Audit core/plugins, migrate appropriate Sidebar and wide-preview scrollbar ownership, document retained specialized timelines/menus and any additional migrations.
-- Pass focused component/downstream tests, root/full-profile analysis and isolated signed macOS fixture build; remain in_progress awaiting serialized reference/native comparison.
+- Pass focused component/downstream tests, root/full-profile analysis, isolated signed macOS fixture build, reference comparison and native macOS inspection.
 
 **decisions**
 
 - Source mapping, native adaptations and full adoption audit: docs/component-library/scroll-area.md; hashed official registry/Markdown/Base UI behavior and reference photos in reference/scroll-area/sources.json.
 - DScrollArea uses one native position per enabled axis; DScrollBar decorates existing native scrolling, with composable DScrollViewport, DScrollThumb and DScrollCorner. Live tokens, 7px capsule in 10px track, 16px minimum thumb and keyboard focus ring.
-- Tags, Horizontal, RTL, combined overflow and lazy-controller composition are actual public-component styleguide examples; remain baseline pending native visual gate.
+- Tags, Horizontal, RTL, combined overflow and lazy-controller composition are actual public-component styleguide examples; independent native acceptance promoted the styleguide entry to implemented.
 - Coordinator keyboard follow-up: only overflowing areas enter root Tab traversal; descendant focus/state survive content and viewport resize transitions. Shift+Space pages upward; unrelated Ctrl/Alt/Meta and Shift-modified keys bubble.
 - Browser-only review completed and released: measured light/dark/RTL/keyboard reference, corrected exterior-only focus ring with alpha multiplication, rounded-md×0.8 and rendered photo150×200 dimensions. Font-loaded actual examples/production fixtures exported; scroll-area-render-review.md and hashed rendered artifacts preserve findings.
 
@@ -1641,13 +1642,15 @@ Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/u
 - Backlog preparation: merged pinned main00f82d280a602c4ec86be3a24664f4052e6c1477; preserved all non-Scroll-Area progress rows and current shared owners.109 affected component/Sidebar/styleguide/production tests passed seed1438380230; root/full analysis clean. No unchanged browser/export review repeated.
 - Final pinned-main native preparation source ad0647a4d46b756b87d5b9c5c0ca526e26cb2e17: isolated build passed; clean source equality and build/copied kernel SHA256 cb549143dbb2b4307b93a606c34e0090c8d9026ab36684d07c2b710c01ac6579 verified. Deep strict signature and exact read-back of sandbox/JIT/network client+server entitlements passed; no APS/team/application IDs. Native remains awaiting_slot.
 - Final17-component baseline: mergede612ad7b at source 3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e without conflicts, other progress rows equal pinned main.114 targeted integration tests pass seed4102292575; root/full analysis clean. Unique isolated debug build, clean source equality, copied kernel SHA256 1361361d520ac8cb0e836ed7581c2e4713c6777a666fc625977f382feda4acc0, strict signature and restricted-free sandbox/JIT/network entitlement read-back verified. No UI use.
+- Independent macOS native review launched that exact signed bundle: accepted light/dark Tags geometry, RTL leading scrollbar, bundled horizontal photos, vertical wheel and thumb drag, horizontal thumb drag, two-axis corner composition, and native accessibility separation. Migrated Sidebar and Code scrolled; Alerts and Diagnostics ready states rendered, with Diagnostics rows unclipped.
+- Independent review branch: root and profiles/full flutter pub get --enforce-lockfile completed without lockfile changes; 109 focused component/styleguide/Sidebar/production tests passed with seed238741; root and profiles/full flutter analyze --no-pub found no issues; git diff --check passed.
+- Latest-main reconciliation integrated reviewed Switch and preserved its exports/migrations. 27 overlapping Scroll Area/styleguide/Voice tests passed with seed238742; root analysis and git diff --check remained clean.
 
 **limitations**
 
-- Mac locked: no CUA, browser/native launch or visual comparison performed. Remain in_progress awaiting_slot; not mergeable until coordinator visual/native review.
 - No iOS/Linux device or VoiceOver testing; no pixel-parity claim.
-- Browser slot released with original dark theme restored, viewport reset and task tab closed. Native slot remains pending. At360px/200%, retained DiagnosticsPanel fixed-height rows overflow14px (14 exceptions); coordinator owns separate fix. Exact artifacts: reference/scroll-area/rendered/fixture-narrow200-diagnostics.png and fixture-render-errors.json.
-- Prior captured Diagnostics row overflow is historical: pinned main now supplies coordinator row-sizing fix, preserved in this branch and covered by merged focused tests. Native review remains pending.
+- No physical touch-device or native trackpad pass; touch, reduced-motion, large-text, resize and controller lifecycle behavior are covered by focused widget/render evidence.
+- The captured Diagnostics large-text overflow artifact is historical; the main-owned row-sizing fix is integrated and the independent native fixture showed unclipped rows.
 
 ### collapsible
 
@@ -1691,6 +1694,24 @@ Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/u
 
 - Browser/native review remains required and forbidden in this locked/admin-policy-denied session. No CUA, browser navigation, native launch or workaround performed.
 - Field/Tabs composition remains explicit; disclosure button skins are passive builders, not nested DButtons.
+
+### tabs
+
+Status: in_progress. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/ui-tabs.
+
+**acceptanceCriteria**
+
+- Match the frozen Base UI/base-nova default/line, horizontal/vertical, disabled, icon, RTL and Card composition examples with explicit source-to-native geometry and behavior mapping.
+- Implement complete controlled/uncontrolled selection and public composition/controller APIs, native tab semantics, focus/keyboard behavior, dynamic/disabled entries and panel state lifecycle.
+- Support live host theme/font/radius, light/dark/custom palettes, touch, narrow layouts, text scaling, RTL and reduced motion without substituting platform-default appearance.
+- Audit and migrate appropriate forum/topic/group/preferences and plugin tab surfaces while keeping navigation, unread state, permissions and domain state in app adapters.
+- Provide complete interactive examples, accurate usage, meaningful component/consumer tests, root/full-profile analysis and honest exact-source rendered/native evidence.
+- Create a new independent Review and merge Tabs Codex task; it owns fixes, remaining verification and final local main merge under shared leases without coordinator approval.
+
+**decisions**
+
+- Button dependency and Card composition owner are merged.
+- Collapsible File Tree composition has a direct dependency handoff between Tabs and reviewer 01a08558-a79c-7911-8f75-53b3528fc08f; retain explicit follow-up until the final DTabs composition is verified.
 
 ### resizable
 

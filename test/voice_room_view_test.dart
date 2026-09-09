@@ -700,9 +700,15 @@ void main() {
       await tester.tap(find.text('Local volume'));
       await tester.pumpAndSettle();
 
-      final slider = tester.widget<Slider>(find.byType(Slider));
+      final slider = tester.widget<DSlider>(find.byType(DSlider));
       expect(slider.value, 0.4);
-      slider.onChanged!(0.7);
+      final sliderRect = tester.getRect(find.byType(DSlider));
+      await tester.tapAt(
+        Offset(
+          sliderRect.left + 6 + (sliderRect.width - 12) * 0.7,
+          sliderRect.center.dy,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(harness.media.sessions.single.participantVolumes.single, (

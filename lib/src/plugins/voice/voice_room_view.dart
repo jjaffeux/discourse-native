@@ -1365,10 +1365,8 @@ Future<void> _showParticipantVolume(
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
         title: const Text('Participant volume'),
-        content: Slider(
+        content: VoiceParticipantVolumeSlider(
           value: volume,
-          divisions: 10,
-          label: '${(volume * 100).round()}%',
           onChanged: (value) {
             setState(() => volume = value);
             unawaited(
@@ -2121,5 +2119,29 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
         label: const Text('Done'),
       ),
     ],
+  );
+}
+
+/// Local participant-volume input; persistence and call ownership stay in the caller.
+class VoiceParticipantVolumeSlider extends StatelessWidget {
+  const VoiceParticipantVolumeSlider({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+  final double value;
+  final ValueChanged<double>? onChanged;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 280,
+    height: 48,
+    child: DSlider(
+      value: value,
+      max: 1,
+      step: 0.1,
+      semanticLabel: 'Participant volume',
+      semanticFormatterCallback: (value) => '${(value * 100).round()}%',
+      onChanged: onChanged,
+    ),
   );
 }
