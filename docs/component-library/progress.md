@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**35 of 64 components are merged locally.** 16 existing components are in progress; 13 are planned.
+**35 of 64 components are merged locally.** 17 existing components are in progress; 12 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -97,7 +97,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 58 | message | planned | — | — | attachment, avatar, bubble, marker | — |
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
 | 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
-| 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
+| 61 | data-table | in_progress | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | — |
 | 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
 | 63 | input-otp | planned | — | — | input, field | — |
 | 64 | questionnaire | planned | — | — | field, button, progress, card, dialog, native-select | — |
@@ -2552,6 +2552,28 @@ Status: merged. Task: 01a08400-ced8-7f22-a1aa-4955c7d28383. Branch: codex/ui-cha
 
 - Browser comparison and macOS native fixture/styleguide inspection are complete; evidence is recorded in chart-browser-review.md and chart-native.md.
 - No iOS/Linux device or VoiceOver speech testing was performed; macOS accessibility-tree inspection and test image geometry are not cross-platform or pixel-parity evidence.
+
+### data-table
+
+Status: in_progress. Task: 01a08606-ca45-73b1-9be1-7486d4e3fe1d. Branch: codex/ui-data-table.
+
+**acceptanceCriteria**
+
+- Provide typed stable row and column identifiers, cell/header builders and controlled or controller-owned sorting, per-column filtering, visibility, stable row selection and 1-based pagination without importing TanStack or application services.
+- Reproduce the frozen payment table and reusable column-header, pagination and column-toggle compositions with real Table, Checkbox, Input, Dropdown Menu, Button and Badge owners; preserve independent row actions, empty results and RTL reading order.
+- Clamp pagination and prune stale column state while preserving valid stable-ID selection across data replacement; expose manual/server operation callbacks without owning loading, errors, fetching or caches.
+- Audit structured core/plugin datasets and migrate suitable bounded tables only, retaining card and infinite-feed surfaces with explicit reasons; cover interaction, semantics, keyboard, live themes, reduced motion, narrow width, 200 percent text and RTL.
+- Pass touched formatting, root and full-profile analysis and focused component/example/adoption tests; prepare exact-source real-widget macOS fixtures for the independent reviewer to complete official browser/native acceptance and local main merge.
+
+**decisions**
+
+- Frozen Markdown SHA256 verified as 31d46187a08d79ce41dd8991599ce86ff2d6fba0b99ae4ebff84cfbccce6cff4 on 2026-09-09; official repository source pinned at 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048.
+- Prepared Dropdown Menu source is pinned only for isolated development at codex/review-dropdown-menu-candidate d273c27e788bb3991c773c7432e0b8c927715651; its reviewer reports 47 focused tests and clean root/full analysis, but acceptance/main merge remains a reviewer gate.
+- Pagination is owned by task 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 on codex/ui-pagination. Its planned 1-based controller API is coordinated directly; no temporary pagination renderer will be introduced, and Data Table review remains gated on its accepted main merge.
+
+**limitations**
+
+- Initial implementation starts while Pagination and final Dropdown Menu acceptance are pending. Prepared pins enable isolated source work only; they cannot reach main through Data Table.
 
 ### sidebar
 

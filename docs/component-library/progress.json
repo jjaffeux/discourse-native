@@ -2997,9 +2997,9 @@
     },
     {
       "id": "data-table",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08606-ca45-73b1-9be1-7486d4e3fe1d",
+      "branch": "codex/ui-data-table",
       "dependencies": [
         "table",
         "pagination",
@@ -3007,12 +3007,24 @@
         "input",
         "dropdown-menu"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Provide typed stable row and column identifiers, cell/header builders and controlled or controller-owned sorting, per-column filtering, visibility, stable row selection and 1-based pagination without importing TanStack or application services.",
+        "Reproduce the frozen payment table and reusable column-header, pagination and column-toggle compositions with real Table, Checkbox, Input, Dropdown Menu, Button and Badge owners; preserve independent row actions, empty results and RTL reading order.",
+        "Clamp pagination and prune stale column state while preserving valid stable-ID selection across data replacement; expose manual/server operation callbacks without owning loading, errors, fetching or caches.",
+        "Audit structured core/plugin datasets and migrate suitable bounded tables only, retaining card and infinite-feed surfaces with explicit reasons; cover interaction, semantics, keyboard, live themes, reduced motion, narrow width, 200 percent text and RTL.",
+        "Pass touched formatting, root and full-profile analysis and focused component/example/adoption tests; prepare exact-source real-widget macOS fixtures for the independent reviewer to complete official browser/native acceptance and local main merge."
+      ],
+      "decisions": [
+        "Frozen Markdown SHA256 verified as 31d46187a08d79ce41dd8991599ce86ff2d6fba0b99ae4ebff84cfbccce6cff4 on 2026-09-09; official repository source pinned at 3ba91b1cc83e1bbe4ab35a422ff2a694849c5048.",
+        "Prepared Dropdown Menu source is pinned only for isolated development at codex/review-dropdown-menu-candidate d273c27e788bb3991c773c7432e0b8c927715651; its reviewer reports 47 focused tests and clean root/full analysis, but acceptance/main merge remains a reviewer gate.",
+        "Pagination is owned by task 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 on codex/ui-pagination. Its planned 1-based controller API is coordinated directly; no temporary pagination renderer will be introduced, and Data Table review remains gated on its accepted main merge."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
-      "limitations": [],
+      "limitations": [
+        "Initial implementation starts while Pagination and final Dropdown Menu acceptance are pending. Prepared pins enable isolated source work only; they cannot reach main through Data Table."
+      ],
       "implementationCommit": null,
       "mergeCommit": null
     },
