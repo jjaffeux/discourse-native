@@ -2073,14 +2073,22 @@ Status: in_progress. Task: 01a08606-5dcc-7381-bbbb-719367c8f574. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Match the frozen Base UI/base-nova Sheet complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.
-- Complete all documented capabilities and applicable native keyboard/focus/semantics/touch/overlay lifecycle behavior, narrow and 200% text layouts, RTL, reduced motion and live host palette/font/radius.
-- Audit core and plugin usages and migrate appropriate surfaces using shared component owners, preserving domain state, permissions and callbacks; document retained alternatives and finish all required final-owner examples.
-- Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance.
+- Provide one public generic Sheet owner exported from discourse_ui.dart with typed DSheetController<T>, DSheet/DSheetTrigger/DSheetContent/DSheetHeader/DSheetTitle/DSheetDescription/DSheetFooter/DSheetClose composition and a showDSheet<T> helper using the nearest Navigator by default.
+- Reuse the accepted Dialog route/session/focus/dismissal ownership rather than creating an independent modal state machine: preserve controlled and local open state, borrowed controller lifecycle, typed results, coalesced async submission, nested overlays, route removal, outside/Escape/back policies, initial focus, closed-loop traversal and focus restoration.
+- Match frozen base-nova source at 100% scale: black/10 blurred backdrop, popover surface and foreground, text-sm body, 16px content gaps, large shadow, 200ms ease-in-out opacity plus 40px edge travel, one-pixel edge border, side panels at 75% width capped at 384px from 640px, auto-height top/bottom panels, 16px header/footer padding, 2px header title/description gap, auto-pushed column footer with 8px gaps, 16px medium heading and 14px muted description, and a 28px ghost close button at physical top/right 12px.
+- Implement physical top/right/bottom/left sides plus logical start/end resolution, with RTL examples that intentionally select the opposite physical side while keeping the reference's physical top/right close placement; support custom or omitted corner close buttons and footer close composition.
+- Keep sheet content usable with safe areas, keyboard view insets, independently scrollable long bodies, narrow widths and 200% text without clipping fixed headers/footers; respect reduced motion and update live caller-scoped theme, font, radius, direction and media settings while open.
+- Expose modal route and title semantics plus independent fields and controls, visible focus, keyboard/touch/pointer activation, barrier labeling, and at least 48px invisible touch affordances where the compact reference visuals require them.
+- Reproduce the documented default edit-profile, all sides, No Close Button and Arabic RTL compositions in the searchable styleguide with actual library components and self-contained state; do not substitute temporary Field/Button/Input owners when accepted owners exist.
+- Audit core and bundled-plugin side and bottom panels; migrate suitable non-gesture showShellSheet usages while retaining business state and typed results, and coordinate exact caller ownership with Drawer so drag/snap/handle interactions keep the separately owned Drawer primitive.
+- Format touched Dart, run focused Sheet/Dialog/styleguide/adoption regressions plus root and profiles/full static analysis, and prepare source-exact native fixtures for the reviewer to complete official-browser and macOS acceptance in light/dark/custom, narrow/large-text/RTL/reduced-motion states.
 
 **decisions**
 
 - User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.
+- Frozen official Sheet Markdown was verified byte-for-byte at SHA-256 d5b0e4ef28a6fa9de830479fab61e6c8d6b8b05698dc6c109b710c4a0112d9d3. The captured base-nova registry source is SHA-256 72b36d92af7fcbc9bd2d1d4ef0cbc65f4fc8178f7bb2bedaf657460f15011cf4 and identifies Sheet as a styled Base UI Dialog rather than a gesture/detent owner.
+- The mandatory Silk D-Sheet source was consulted. Its scroll-container, detent-marker, swipeable-backdrop and travel state machine belongs to the separately queued Drawer component; Sheet deliberately maps the frozen shadcn Dialog-backed fixed-edge popup and does not claim Silk drag/snap behavior.
+- Implementation starts from accepted Dialog merge 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 on current local main 77ee9b047528d43fcbcd4a31d464182f9640b835 and coordinates shared route presentation plus app-adoption boundaries directly with Drawer task 01a08606-5dd1-75a2-9dbb-a652188d7bd5.
 
 ### drawer
 
@@ -2806,3 +2814,4 @@ Status: in_progress. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/u
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
+
