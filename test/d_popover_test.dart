@@ -374,6 +374,35 @@ void main() {
     expect(popup.right, lessThanOrEqualTo(505));
   });
 
+  testWidgets('custom placement receives geometry and remains collision-safe', (
+    tester,
+  ) async {
+    DPopoverPlacement? placement;
+    await tester.pumpWidget(
+      _app(
+        _TestPopover(
+          placementResolver: (value) {
+            placement = value;
+            return const Offset(-1000, -1000);
+          },
+        ),
+        size: const Size(320, 240),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(placement, isNotNull);
+    expect(placement!.target, isNot(Rect.zero));
+    expect(placement!.contentSize, isNot(Size.zero));
+    expect(placement!.defaultOffset, isNot(const Offset(-1000, -1000)));
+    expect(placement!.direction, TextDirection.ltr);
+    final popup = tester.getRect(find.byType(DPopoverContent));
+    expect(popup.left, greaterThanOrEqualTo(placement!.boundary.left));
+    expect(popup.top, greaterThanOrEqualTo(placement!.boundary.top));
+  });
+
   testWidgets('custom anchor moves while the open overlay tracks it', (
     tester,
   ) async {
@@ -472,6 +501,7 @@ class _TestPopover extends StatelessWidget {
     this.align = DPopoverAlign.center,
     this.width = 220,
     this.collisionBoundary,
+    this.placementResolver,
   });
 
   final bool? open;
@@ -481,6 +511,7 @@ class _TestPopover extends StatelessWidget {
   final DPopoverAlign align;
   final double width;
   final Rect? collisionBoundary;
+  final DPopoverPlacementResolver? placementResolver;
 
   @override
   Widget build(BuildContext context) => DPopover(
@@ -494,6 +525,7 @@ class _TestPopover extends StatelessWidget {
       width: width,
       align: align,
       collisionBoundary: collisionBoundary,
+      placementResolver: placementResolver,
       semanticLabel: 'Test popover',
       child: Column(
         mainAxisSize: MainAxisSize.min,
