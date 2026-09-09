@@ -35,6 +35,32 @@ void main() {
     },
   );
 
+  testWidgets('topmost popover owns Escape ahead of ancestor shortcuts', (
+    tester,
+  ) async {
+    var ancestorEscapes = 0;
+    await tester.pumpWidget(
+      _app(
+        CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): () {
+              ancestorEscapes += 1;
+            },
+          },
+          child: const _TestPopover(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Popover title'), findsNothing);
+    expect(ancestorEscapes, 0);
+  });
+
   testWidgets('touch opening does not summon the nested text editor', (
     tester,
   ) async {
