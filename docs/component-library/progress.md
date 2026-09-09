@@ -724,7 +724,7 @@ Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/u
 
 - Frozen Badge Markdown matches the catalogue hash; captured official base-nova registry, examples and Lucide artwork with exact hashes and source-to-Flutter mapping in docs/component-library/badge.md.
 - Public DBadge supports six treatments, static/action/link composition, decorative leading/trailing widgets, custom live colors, disabled callbacks, invalid/name/value/live semantics and owned-or-borrowed focus. Pointer activation transfers keyboard focus; links use Enter and actions use Enter/Space.
-- Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 8× configured radius (32px at the default 4), not rounded-full.
+- Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 2.6× configured radius (10.4px at host default 4; reference 26px at 10), using the live website globals override, not rounded-full.
 - Spinner remains the only implementation dependency. Button is baseline only for example controls; Badge imports no unfinished Button code. Six full styleguide sections retain the redesigned documentation shell.
 - Native comparison is pending the coordinator slot and unlocked desktop; automated passing checks and successful debug builds are not review_ready.
 
@@ -747,12 +747,13 @@ Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/u
 - 254 focused component/example/real-fixture/core/Chat tests passed with seed 792026; command/output /private/tmp/badge-final-tests.log. Narrow large-text Chat overflow fixed and regression strengthened.
 - Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub pass without diagnostics. Touched Dart formatted; git diff --check passes.
 - Isolated macOS debug build succeeded; bundle org.discourse.native.badge.bebb9 / Badge Review BEBB9. Deep strict ad-hoc signature verification passes. Complete relevant Dart source matches the checkout; kernel and source-manifest hashes recorded in badge-native.md.
-- Native slot requested from coordinator; no CUA or native inspection used while the Mac is locked.
+- Coordinator-granted browser-only comparison completed; theme restored, own tab closed and slot released. No native app launched while Mac locked. Evidence and exact export harness in evidence/badge/.
 - Exact final test command: flutter test --no-pub test/d_badge_test.dart test/badge_migrations_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart test/groups_page_test.dart test/group_page_test.dart test/user_card_test.dart test/user_card_target_accessibility_test.dart test/user_card_account_lifecycle_test.dart test/user_menu_message_accessibility_test.dart test/plugin_user_menu_widget_test.dart test/chat_drawer_test.dart test/chat_shell_integration_test.dart test/topic_list_view_lifecycle_test.dart --test-randomize-ordering-seed=792026 --reporter expanded. All 254 pass.
+- Browser corrections pass 39 focused tests, seed 792027, and widget-renderer export test. Radius source scale and bundled SVG paths verified against live computed styles.
 
 **limitations**
 
-- Actual reference/native rendered comparison is still required before review_ready; Mac is locked and the desktop slot has not been granted.
+- Native rendered comparison remains required before review_ready; Mac remains locked. Browser reference versus macOS-targeted widget-renderer comparison is complete.
 - No iOS/Linux device or spoken VoiceOver verification. Native font underline offset differs from CSS underline-offset:4; custom Tailwind OKLCH examples use clipped 8-bit sRGB conversions.
 
 ### input

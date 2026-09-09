@@ -600,7 +600,7 @@
       "decisions": [
         "Frozen Badge Markdown matches the catalogue hash; captured official base-nova registry, examples and Lucide artwork with exact hashes and source-to-Flutter mapping in docs/component-library/badge.md.",
         "Public DBadge supports six treatments, static/action/link composition, decorative leading/trailing widgets, custom live colors, disabled callbacks, invalid/name/value/live semantics and owned-or-borrowed focus. Pointer activation transfers keyboard focus; links use Enter and actions use Enter/Space.",
-        "Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 8\u00d7 configured radius (32px at the default 4), not rounded-full.",
+        "Preserve 20px default visuals, 12/16px medium type, 12px artwork and 4px gaps. Large labels grow/wrap, touch actions reserve 48px, and rounded-4xl maps to 2.6\u00d7 configured radius (10.4px at host default 4; reference 26px at 10), using the live website globals override, not rounded-full.",
         "Spinner remains the only implementation dependency. Button is baseline only for example controls; Badge imports no unfinished Button code. Six full styleguide sections retain the redesigned documentation shell.",
         "Native comparison is pending the coordinator slot and unlocked desktop; automated passing checks and successful debug builds are not review_ready."
       ],
@@ -620,14 +620,15 @@
         "254 focused component/example/real-fixture/core/Chat tests passed with seed 792026; command/output /private/tmp/badge-final-tests.log. Narrow large-text Chat overflow fixed and regression strengthened.",
         "Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub pass without diagnostics. Touched Dart formatted; git diff --check passes.",
         "Isolated macOS debug build succeeded; bundle org.discourse.native.badge.bebb9 / Badge Review BEBB9. Deep strict ad-hoc signature verification passes. Complete relevant Dart source matches the checkout; kernel and source-manifest hashes recorded in badge-native.md.",
-        "Native slot requested from coordinator; no CUA or native inspection used while the Mac is locked.",
-        "Exact final test command: flutter test --no-pub test/d_badge_test.dart test/badge_migrations_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart test/groups_page_test.dart test/group_page_test.dart test/user_card_test.dart test/user_card_target_accessibility_test.dart test/user_card_account_lifecycle_test.dart test/user_menu_message_accessibility_test.dart test/plugin_user_menu_widget_test.dart test/chat_drawer_test.dart test/chat_shell_integration_test.dart test/topic_list_view_lifecycle_test.dart --test-randomize-ordering-seed=792026 --reporter expanded. All 254 pass."
+        "Coordinator-granted browser-only comparison completed; theme restored, own tab closed and slot released. No native app launched while Mac locked. Evidence and exact export harness in evidence/badge/.",
+        "Exact final test command: flutter test --no-pub test/d_badge_test.dart test/badge_migrations_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart test/groups_page_test.dart test/group_page_test.dart test/user_card_test.dart test/user_card_target_accessibility_test.dart test/user_card_account_lifecycle_test.dart test/user_menu_message_accessibility_test.dart test/plugin_user_menu_widget_test.dart test/chat_drawer_test.dart test/chat_shell_integration_test.dart test/topic_list_view_lifecycle_test.dart --test-randomize-ordering-seed=792026 --reporter expanded. All 254 pass.",
+        "Browser corrections pass 39 focused tests, seed 792027, and widget-renderer export test. Radius source scale and bundled SVG paths verified against live computed styles."
       ],
       "limitations": [
-        "Actual reference/native rendered comparison is still required before review_ready; Mac is locked and the desktop slot has not been granted.",
+        "Native rendered comparison remains required before review_ready; Mac remains locked. Browser reference versus macOS-targeted widget-renderer comparison is complete.",
         "No iOS/Linux device or spoken VoiceOver verification. Native font underline offset differs from CSS underline-offset:4; custom Tailwind OKLCH examples use clipped 8-bit sRGB conversions."
       ],
-      "implementationCommit": "299671abd77fb176781e966e67f12b34e1e52edd",
+      "implementationCommit": "302f4c3b3082d87a0e2fd1a1b46be873e7d14c27",
       "mergeCommit": null,
       "nativeInspectionStatus": "awaiting_slot"
     },
@@ -2181,14 +2182,6 @@
       ],
       "activeTasks": [
         {
-          "component": "badge",
-          "taskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
-          "branch": "codex/ui-badge",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native",
-          "headCommit": "86bae370725c2f7db22bda5a7f999690ef1336bd",
-          "status": "browser_and_test_renderer_review"
-        },
-        {
           "component": "native-select",
           "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
           "branch": "codex/ui-native-select",
@@ -2209,6 +2202,14 @@
           "branch": "codex/ui-chart",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native",
           "baseCommit": "ea0f8913"
+        },
+        {
+          "component": "radio-group",
+          "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
+          "branch": "codex/ui-radio-group",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5b3e/discourse-native",
+          "headCommit": "6ed00d067dd074946f7f03c069aff6363fc42479",
+          "status": "color_and_card_fidelity_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2246,14 +2247,6 @@
           "status": "awaiting_native_review"
         },
         {
-          "component": "radio-group",
-          "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
-          "branch": "codex/ui-radio-group",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5b3e/discourse-native",
-          "headCommit": "6ed00d067dd074946f7f03c069aff6363fc42479",
-          "status": "awaiting_native_review"
-        },
-        {
           "component": "scroll-area",
           "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
           "branch": "codex/ui-scroll-area",
@@ -2276,6 +2269,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c1fc/discourse-native",
           "status": "awaiting_native_review",
           "headCommit": "69d4d9ce62b14478bf331792ed81e6f15637efa5"
+        },
+        {
+          "component": "badge",
+          "taskId": "01a083ac-c98c-7fe0-878d-54ee3bcbebb9",
+          "branch": "codex/ui-badge",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9051/discourse-native",
+          "headCommit": "45d85a99e12e9907a8c8d3ed882c8920b52d0f18",
+          "status": "awaiting_native_review"
         }
       ]
     },
@@ -2300,7 +2301,7 @@
       "radio-group": {
         "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
         "issue": "Read-only API review resolved. Remaining visual source review: use actual input token with multiplicative alpha; audit referenced choice-card padding/border/background and proportional radius against Field composition, currently uses arbitrary radius+4/padding16/full primary border. Complete during browser comparison.",
-        "status": "queued_for_free_execution_slot"
+        "status": "in_progress"
       },
       "slider": {
         "taskId": "01a083ce-313a-7362-ada6-57dc14221509",
@@ -2336,6 +2337,11 @@
         "taskId": "01a083ce-319b-7bc3-a5c9-371087710718",
         "issue": "Use actual input token for unchecked track and multiply alpha for dark /80. Choice card rounded-lg is base radius, not radius+4. Complete source corrections and browser comparison before native readiness.",
         "status": "in_progress"
+      },
+      "native-select": {
+        "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
+        "status": "in_progress",
+        "issue": "Live open-menu theme updates now implemented with MenuAnchor. Finish plain-option type-ahead and complete audit/migration of appropriate remaining simple selectors; do not defer only because custom Select is pending."
       }
     }
   },
