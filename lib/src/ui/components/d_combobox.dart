@@ -455,6 +455,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     _open = combobox.defaultOpen;
     _highlighted = combobox.highlightedValue;
     _controller._attach(this);
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     focusNode.addListener(_focusChanged);
     textController.addListener(_textChanged);
     final selected = selectedValues.firstOrNull;
@@ -728,6 +729,32 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     }
   }
 
+  bool _handleHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    final selection = textController.selection;
+    final towardPreviousChip = event.logicalKey == LogicalKeyboardKey.arrowLeft
+        ? Directionality.of(context) == TextDirection.ltr
+        : event.logicalKey == LogicalKeyboardKey.arrowRight &&
+              Directionality.of(context) == TextDirection.rtl;
+    if (!focusNode.hasFocus ||
+        !combobox.multiple ||
+        selectedValues.isEmpty ||
+        query.isNotEmpty ||
+        !selection.isCollapsed ||
+        selection.extentOffset > 0 ||
+        !towardPreviousChip) {
+      return false;
+    }
+    final chipFocus = chipFocusFor(selectedValues.last);
+    if (chipFocus == null || !chipFocus.canRequestFocus) return false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && focusNode.hasFocus && chipFocus.canRequestFocus) {
+        chipFocus.requestFocus();
+      }
+    });
+    return true;
+  }
+
   MapEntry<T, V>? _entryFor<V>(Map<T, V> entries, T value) =>
       entries.entries.where((entry) => _equal(entry.key, value)).firstOrNull;
 
@@ -814,6 +841,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   @override
   void dispose() {
     _controller._detach(this);
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     focusNode.removeListener(_focusChanged);
     textController.removeListener(_textChanged);
     _ownedController.dispose();
@@ -1191,8 +1219,8 @@ class _DComboboxItemState<T> extends State<DComboboxItem<T>> {
       ),
     );
     if (_isComboboxTouchPlatform(context)) {
-      item = SizedBox(
-        height: DSpacing.touchTarget,
+      item = ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: DSpacing.touchTarget),
         child: Center(child: item),
       );
     }
