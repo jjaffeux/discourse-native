@@ -361,8 +361,54 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
   }
 
   void _focusIndex(int index) {
-    setState(() => _rovingIndex = index);
-    _focusFor(widget.items[index]).requestFocus();
+    final previousIndex = _rovingIndex;
+    if (previousIndex != index) {
+      setState(() => _rovingIndex = index);
+    }
+    final item = widget.items[index];
+    final node = _focusFor(item);
+    node.requestFocus();
+    _revealAfterLayout(item.value);
+  }
+
+  void _handleItemFocusChanged(int index, bool focused) {
+    if (!focused) return;
+    final previousIndex = _rovingIndex;
+    if (previousIndex != index) {
+      setState(() => _rovingIndex = index);
+      _revealAfterLayout(widget.items[index].value);
+    }
+  }
+
+  void _revealAfterLayout(T value) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final index = widget.items.indexWhere((item) => item.value == value);
+      if (index < 0) return;
+      final node = _focusFor(widget.items[index]);
+      if (!node.hasFocus) return;
+      final itemContext = node.context;
+      final renderObject = itemContext?.findRenderObject();
+      final scrollable = itemContext == null
+          ? null
+          : Scrollable.maybeOf(itemContext, axis: widget.orientation);
+      if (renderObject == null ||
+          !renderObject.attached ||
+          scrollable == null) {
+        return;
+      }
+      // Apply both policies so the nearest hidden edge is revealed. Flutter
+      // flips them for left/up axis directions, which also covers horizontal
+      // RTL without deriving direction from declaration order.
+      scrollable.position.ensureVisible(
+        renderObject,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+      scrollable.position.ensureVisible(
+        renderObject,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
   }
 
   @override
@@ -444,11 +490,8 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               size: size,
               focusNode: _focusFor(item),
               autofocus: item.autofocus,
-              onFocusChanged: (focused) {
-                if (focused && _rovingIndex != index) {
-                  setState(() => _rovingIndex = index);
-                }
-              },
+              onFocusChanged: (focused) =>
+                  _handleItemFocusChanged(index, focused),
               visualStyle: style,
             )
           : DToggle(
@@ -468,11 +511,8 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               size: size,
               focusNode: _focusFor(item),
               autofocus: item.autofocus,
-              onFocusChanged: (focused) {
-                if (focused && _rovingIndex != index) {
-                  setState(() => _rovingIndex = index);
-                }
-              },
+              onFocusChanged: (focused) =>
+                  _handleItemFocusChanged(index, focused),
               visualStyle: style,
               child: item.child,
             );
