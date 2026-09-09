@@ -1670,14 +1670,24 @@
     },
     {
       "id": "tabs",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
+      "branch": "codex/ui-tabs",
       "dependencies": [
         "button"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova default/line, horizontal/vertical, disabled, icon, RTL and Card composition examples with explicit source-to-native geometry and behavior mapping.",
+        "Implement complete controlled/uncontrolled selection and public composition/controller APIs, native tab semantics, focus/keyboard behavior, dynamic/disabled entries and panel state lifecycle.",
+        "Support live host theme/font/radius, light/dark/custom palettes, touch, narrow layouts, text scaling, RTL and reduced motion without substituting platform-default appearance.",
+        "Audit and migrate appropriate forum/topic/group/preferences and plugin tab surfaces while keeping navigation, unread state, permissions and domain state in app adapters.",
+        "Provide complete interactive examples, accurate usage, meaningful component/consumer tests, root/full-profile analysis and honest exact-source rendered/native evidence.",
+        "Create a new independent Review and merge Tabs Codex task; it owns fixes, remaining verification and final local main merge under shared leases without coordinator approval."
+      ],
+      "decisions": [
+        "Button dependency and Card composition owner are merged.",
+        "Collapsible File Tree composition has a direct dependency handoff between Tabs and reviewer 01a08558-a79c-7911-8f75-53b3528fc08f; retain explicit follow-up until the final DTabs composition is verified."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -2612,7 +2622,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T08:50:35.202597+00:00",
+    "updatedAt": "2026-09-09T08:59:20.129904+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 4,
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
@@ -2804,6 +2814,13 @@
           "headCommit": "32ce1f96e1a1648bd5f29d8268c8b37855d3e39b",
           "status": "independent_review",
           "implementationTaskId": "01a084bf-dd8a-7c13-86dd-63f2e60d20cd"
+        },
+        {
+          "component": "tabs",
+          "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
+          "branch": "codex/ui-tabs",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/599c/discourse-native",
+          "status": "implementation"
         }
       ],
       "nativeReadyTasks": []
@@ -3326,6 +3343,12 @@
         "status": "waiting_for_popover_merge",
         "requestedBy": "01a08558-aec4-7591-ac85-682a1eae4290",
         "nextAction": "Dispatch Dropdown Menu implementation from main after Popover lands; implementer creates its own final reviewer. Required for Item and Table compositions."
+      },
+      "tabs": {
+        "status": "implementation",
+        "taskId": "01a08560-5018-7e52-aa73-14ff2ce6cc28",
+        "requestedBy": "01a08558-a79c-7911-8f75-53b3528fc08f",
+        "nextAction": "Tabs implementer creates final review/merge task and coordinates the documented Collapsible File Tree composition directly; retain the outstanding composition until verified."
       }
     }
   }
