@@ -7,18 +7,17 @@ import '../styleguide_example.dart';
 const _assets = 'packages/discourse_native/src/styleguide/assets/item/';
 
 final itemExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description: 'Content with media, a title, a description, and actions.',
   notes:
-      'Source implementation ready; reference/native review pending. Item is '
+      'Reference and native review complete. Item is '
       'passive unless onPressed is supplied. Link navigation remains caller-owned. '
       'Use Field for editable inputs. Default and sm share padding; sm changes '
       'image and group sizing. Native large text reflows and removes clamps. '
       'At narrow widths content and actions stack. All artwork is bundled from '
       'the reference sources. Actions use final Button outline/ghost variants '
-      'and accessible round icon buttons. Dropdown Menu is unmerged: '
-      'the Dropdown example uses an explicitly temporary MenuAnchor with actual '
-      'passive Items. It is not a completed Dropdown Menu port.',
+      'and accessible round icon buttons. The Dropdown example composes accepted '
+      'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
     for (final kind in [
       'Basic',
@@ -48,27 +47,19 @@ const _descriptions = {
   'Basic':
       'Frozen Basic Item and verified profile link; actions report locally.',
   'Variant': 'Default, outline and muted at the reference 448px width.',
-  'Size':
-      'Default, sm and xs. Notice the smaller description and zero content gap in xs.',
-  'Icon':
-      'Security Alert with the reference ShieldAlert artwork and Review action.',
-  'Avatar':
-      'Evil Rabbit and overlapping team avatars. Invite actions update local status.',
-  'Image':
-      'Three song links with bundled grayscale reference artwork and trailing duration.',
+  'Size': 'Default, sm and xs. Notice the smaller description and zero content gap in xs.',
+  'Icon': 'Security Alert with the reference ShieldAlert artwork and Review action.',
+  'Avatar': 'Evil Rabbit and overlapping team avatars. Invite actions update local status.',
+  'Image': 'Three song links with bundled grayscale reference artwork and trailing duration.',
   'Group':
       'People at 384px, followed by an explicit ItemSeparator composition.',
-  'Header':
-      'Three model cards with full-width reference photos. Narrow widths reflow the grid.',
+  'Header': 'Three model cards with full-width reference photos. Narrow widths reflow the grid.',
   'Link': 'Documentation and external-resource links dispatch local callbacks.',
   'Dropdown':
-      'Temporary native menu composition; select a person. Dropdown Menu visuals await its owner.',
-  'RTL':
-      'Frozen Arabic basic and verified items with directional content and action placement.',
-  'Composition':
-      'All parts: full-width header/footer, avatar, two content columns and independent action.',
-  'States':
-      'Enabled and disabled links; a secondary action does not open the row. Tab and Return/Space work independently.',
+      'Accepted Dropdown Menu composition with passive compact person Items.',
+  'RTL': 'Frozen Arabic basic and verified items with directional content and action placement.',
+  'Composition': 'All parts: full-width header/footer, avatar, two content columns and independent action.',
+  'States': 'Enabled and disabled links; a secondary action does not open the row. Tab and Return/Space work independently.',
 };
 
 const _codes = {
@@ -128,18 +119,20 @@ const _codes = {
     DItemDescription(child: Text('Learn how to get started with our components.'))]),
   DItemActions(children: [chevronRightIcon]),
 ])""",
-  'Dropdown':
-      """// Temporary MenuAnchor until Dropdown Menu merges. Menu owns interaction.
-MenuAnchor(menuChildren: [
-  MenuItemButton(onPressed: selectPerson, child: SizedBox(width: 192,
-    child: DItem(size: DItemSize.xs, padding: EdgeInsets.all(8), children: [
+  'Dropdown': """DDropdownMenu(
+  content: DDropdownMenuContent(width: 192, align: DPopoverAlign.end,
+    children: [DDropdownMenuGroup(children: [
+  DDropdownMenuItem(onPressed: selectPerson, child:
+    DItem(size: DItemSize.xs, padding: EdgeInsets.all(8), children: [
       DItemMedia(child: avatar26),
       DItemContent(spacing: 0, children: [DItemTitle(child: Text('shadcn')),
         DItemDescription(height: 1, child: Text('shadcn@vercel.com'))]),
-    ]))),
-], builder: (context, controller, child) => DButton(variant: DButtonVariant.outline, hasPopup: true,
-  expanded: controller.isOpen, label: Text('Select'),
-  onPressed: () => controller.isOpen ? controller.close() : controller.open()))""",
+    ])),
+  )])]),
+  child: DDropdownMenuTrigger(builder: (context, state) => DButton(
+    variant: DButtonVariant.outline, hasPopup: true, expanded: state.open,
+    focusNode: state.focusNode, label: Text('Select'),
+    onPressed: state.toggle)))""",
   'RTL': """DDirection(textDirection: TextDirection.rtl, child: DItem(
   variant: DItemVariant.outline, children: [DItemContent(children: [
     DItemTitle(child: Text('عنصر أساسي')),
@@ -511,41 +504,50 @@ class _ItemExampleState extends State<_ItemExample> {
           ),
         ],
       ),
-      'Dropdown' => MenuAnchor(
-        menuChildren: [
-          for (final person in ['shadcn', 'maxleiter', 'evilrabbit'])
-            MenuItemButton(
-              onPressed: () => _notice('Selected $person'),
-              child: SizedBox(
-                width: 192,
-                child: DItem(
-                  size: DItemSize.xs,
-                  padding: const EdgeInsets.all(8),
-                  children: [
-                    DItemMedia(child: _avatar(person, dimension: 26)),
-                    DItemContent(
-                      spacing: 0,
+      'Dropdown' => DDropdownMenu(
+        content: DDropdownMenuContent(
+          semanticLabel: 'People menu',
+          width: 192,
+          align: DPopoverAlign.end,
+          children: [
+            DDropdownMenuGroup(
+              children: [
+                for (final person in ['shadcn', 'maxleiter', 'evilrabbit'])
+                  DDropdownMenuItem(
+                    semanticLabel: '$person, $person@vercel.com',
+                    onPressed: () => _notice('Selected $person'),
+                    child: DItem(
+                      size: DItemSize.xs,
+                      padding: const EdgeInsets.all(8),
                       children: [
-                        DItemTitle(child: Text(person)),
-                        DItemDescription(
-                          height: 1,
-                          child: Text('$person@vercel.com'),
+                        DItemMedia(child: _avatar(person, dimension: 26)),
+                        DItemContent(
+                          spacing: 0,
+                          children: [
+                            DItemTitle(child: Text(person)),
+                            DItemDescription(
+                              height: 1,
+                              child: Text('$person@vercel.com'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+              ],
             ),
-        ],
-        builder: (context, controller, _) => DButton(
-          variant: DButtonVariant.outline,
-          hasPopup: true,
-          expanded: controller.isOpen,
-          label: const Text('Select'),
-          icon: _icon('chevron-down'),
-          onPressed: () =>
-              controller.isOpen ? controller.close() : controller.open(),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton(
+            variant: DButtonVariant.outline,
+            hasPopup: true,
+            expanded: state.open,
+            focusNode: state.focusNode,
+            label: const Text('Select'),
+            icon: _icon('chevron-down'),
+            onPressed: state.toggle,
+          ),
         ),
       ),
       'Composition' => DItem(

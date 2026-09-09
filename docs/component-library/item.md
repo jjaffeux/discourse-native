@@ -8,8 +8,8 @@ every non-Item progress row are preserved. Only Item progress metadata belongs t
 Independent reviewer task `01a08558-aec4-7591-ac85-682a1eae4290` merged the
 implementation branch with history, compared the frozen reference in a live
 browser, inspected the exact-source macOS fixture, and fixed the only observed
-Item defect. Final acceptance remains gated only on replacing the explicitly
-temporary menu composition after Dropdown Menu is accepted into `main`.
+Item defect. The final candidate composes Dropdown Menu from its accepted main
+merge `5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787`.
 
 ## Source evidence
 
@@ -93,11 +93,11 @@ Button outline/small styling and the Avatar/Group examples use final accessible
 round outline/ghost icon-only buttons. The composition example uses final Badge
 for the member role. The fixture uses final controlled Checkboxes; the Form-state
 regression composes final DInput. No temporary radio choice exists to replace.
-Dropdown Menu remains unmerged. Its example is explicitly a temporary
-MenuAnchor/MenuItemButton composition with passive xs Items and explicit padding,
-not an implementation of the Dropdown Menu catalogue row. The owner must replace
-that wrapper during serialized integration. Item does not import other worktrees.
-The styleguide status stays baseline until that final dependency reconciliation.
+The Dropdown example uses accepted `DDropdownMenu`, trigger, content, group and
+ordinary item primitives with passive xs Items and explicit padding. Its menu
+owns focus, selection, dismissal and trigger focus restoration; Item remains the
+compact content-row owner. No unmerged dependency is imported. The styleguide is
+implemented after independent reference/native acceptance.
 
 ## Application adoption and audit
 
@@ -178,5 +178,6 @@ Form save/reset and edits through large-text RTL reflow.
 
 The earlier source-owner limitation above is historical. The independent review
 subsequently completed browser/native inspection through the repository's
-serialized desktop lease, without an admin-policy retry or workaround. Dropdown
-Menu composition remains the sole acceptance dependency.
+serialized desktop lease, without an admin-policy retry or workaround. The
+accepted Dropdown composition passed its focused selection, semantics,
+dismissal and trigger-focus-restoration regression in the final candidate.

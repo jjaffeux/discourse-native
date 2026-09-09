@@ -42,7 +42,9 @@ with local data and callbacks. It uses final controlled Checkbox settings and
 opens the actual styleguide through the final Button. Item examples now use final
 Button outline/small and accessible round icon-only outline/ghost actions, plus
 Badge role composition. The Form regression uses final DInput. There is no
-reference radio choice to replace. Dropdown Menu remains explicitly temporary.
+reference radio choice to replace. This earlier bundle predates the accepted
+Dropdown Menu composition, which was verified by focused widget tests in the
+final latest-main candidate without repeating the unchanged Item native pass.
 
 ## Build, signature and signed entitlement readback
 

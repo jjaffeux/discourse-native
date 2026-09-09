@@ -64,7 +64,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 21 | avatar | merged | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | 5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0 |
 | 22 | card | merged | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | a73f465ac86105fdda35f5b56f8b491da4b3936d |
 | 23 | empty | merged | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | fb790fcd2356a9acc7cd488ca587eaafb4d91ccb |
-| 24 | item | implemented | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
+| 24 | item | review_ready | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | — |
 | 25 | table | merged | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | 082fcc55ab85d3bd4012c6bd24c647c1febd7d2a |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
@@ -1571,7 +1571,7 @@ Status: merged. Task: 01a0843e-76da-7911-ac98-49bd6dba8384. Branch: codex/ui-emp
 
 ### item
 
-Status: implemented. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
+Status: review_ready. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/ui-item.
 
 **acceptanceCriteria**
 
@@ -1581,17 +1581,18 @@ Status: implemented. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/u
 - Prove geometry, live tokens, RTL, narrow/large text reflow, reduced motion, focus lifecycle, disabled interaction, child action isolation and group semantics with meaningful widget tests.
 - Self-contained real-component styleguide covers every documented example and pending Button/Dropdown dependency reconciliation explicitly; source/artwork URLs and hashes retained.
 - Audit core/plugin rows, migrate tag directory presentation and assignment detail rows while preserving lazy builders, per-row state, callbacks, permission guards and complete assignment notes; leave Empty/Alert regions to their owners.
-- Run touched format, root/full static analysis, focused component/styleguide/migration checks. Build distinct native fixture/styleguide bundle with source/kernel/signature provenance; remain in_progress awaiting serialized reference/native comparison.
+- Run touched format, root/full static analysis, focused component/styleguide/migration checks, and distinct source-exact native fixture/styleguide verification with recorded kernel/signature provenance.
 
 **decisions**
 
 - Own Item only on main base 402fe578. Proposed migrations: TagsPage row presentation and AssignmentDetailRow; shared tags empty/error regions overlap Empty/Alert and remain untouched. Thread messaging tool absent in this task; handoff via progress/final.
 - One generic owner exports all ten parts; full source hashes, CSS/logical metrics, semantics/layout/keyboard/native adaptations and audit are in docs/component-library/item.md.
-- Thirteen actual-component examples use bundled reference artwork. Button has been reconciled with its final merged owner; Dropdown uses an explicitly temporary MenuAnchor composition pending its owning branch. No unmerged dependency imported.
-- Source/check/build ready; awaiting_slot. Coordinator must perform actual reference comparison and native styleguide plus production fixture inspection before review_ready/merge.
+- Thirteen actual-component examples use bundled reference artwork. The implementation's temporary MenuAnchor was historical preparation only and did not reach the accepted candidate.
+- Independent review compared the live official Base UI Item page and exact-source native production fixture under the serialized desktop lease.
 - Bounded integration merges pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 via 1462873c; all 17 merged components, coordinator Group/Sidebar/Topic Inbox fixes and every non-Item progress row preserved.
-- Final Button outline/small and accessible round icon-only outline/ghost actions, Badge role composition, controlled Checkbox fixture settings and DInput Form regression replace applicable temporary composition. No radio choices require replacement. Dropdown Menu remains an explicit pending owner.
-- Integration source/check/build ready; awaiting_slot and pending Dropdown Menu composition. No generic Item implementation changes or additional component/task ownership taken.
+- Final Button outline/small and accessible round icon-only outline/ghost actions, Badge role composition, controlled Checkbox fixture settings and DInput Form regression replace applicable temporary composition. No radio choices require replacement.
+- Native RTL/200% inspection exposed inherited ellipsis on intentionally unclamped assignment notes; review fix fcc26238982fb062a84b4f964995d7026e547af7 uses clip only when maxLines is null and preserves explicit clamp ellipsis.
+- The final current-main candidate composes accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 with passive xs Items; menu focus, selection, dismissal and restoration remain Dropdown-owned.
 
 **migrations**
 
@@ -1617,13 +1618,16 @@ Status: implemented. Task: 01a084bf-dd8a-7c13-86dd-63f2e60d20cd. Branch: codex/u
 - Pinned-main integration: Item/styleguide examples/TagsPage/AssignmentSheet suites passed; fixture control-width/settled-scroll correction then passed final 11 Item/fixture tests including final Checkbox pointer/Space isolation and final Input Form retention. Root and full-profile analysis pass after final changes.
 - Integrated exact-source macOS build from 68402409 succeeded: ItemReview82f4Integrated.app / org.discourse.itemreview82f4integrated / discourse-item-review-82f4-integrated. Explicit local debug/JIT entitlement signed readback is restricted-free across main app/frameworks/dylibs; strict deep signature passes and no embedded profile remains.
 - Integrated copied/build kernel SHA256 cf0a1efc46876ee29e0fc93fcee132e6b14977e82d0f1dd725c472b55df48122. Source/runner equality to 68402409 and all pins/locks equality to e612ad7b verified; all non-Item progress and coordinator Group/Sidebar/Topic Inbox source preserved. See item-build.md and reference/item/integration-build.json.
+- Live official Base UI comparison confirmed the 448px Item width, 10x12 default/sm and 8x10 xs padding, 10/8 gaps, 1px border, 10px radius and 14/20 text geometry in light and dark rendering.
+- Initial native production-fixture inspection exercised tag navigation, assignment editing and permission-disabled rows. RTL, dark and 200% text exposed the unclamped-note ellipsis defect fixed in fcc26238.
+- Corrected exact-source ItemReviewD14aFinal.app uses org.discourse.itemreviewd14afinal / discourse-item-review-d14a-final; build and copied kernels match SHA256 b792631873ef9e75576a154432c7f7e6eb9c6d0d9915843c2f945fa2d4675013 and deep strict signing passed with only recorded debug/JIT/network entitlements.
+- Corrected native confirmation showed every line of both real assignment notes at RTL/dark/200% without ellipsis and retained Edit assignment 2 activation.
+- Final accepted Dropdown composition plus Item/component/migration suites passed 35 tests with seed 9092026; root and full-profile flutter analyze --no-pub, Dart formatting and git diff --check passed. Dependency resolution used existing enforced lockfiles without changes.
 
 **limitations**
 
-- in_progress awaiting_slot: no browser/native slot granted; actual reference comparison and native styleguide/production fixture inspection remain required.
-- Dropdown Menu composition remains explicit pending its owner; Events row candidates retained for coordinator review.
-- No iOS/Linux device, VoiceOver, authenticated screen or pixel-parity validation. Cross-thread messaging API unavailable in this task.
-- Mac locked; browser separately denied admin-policy verification. No CUA/browser/native launch, policy retry or workaround attempted during integration.
+- No iOS/Linux device, spoken VoiceOver, authenticated screen or pixel-parity validation. macOS Accessibility roles/actions and focused widget semantics were inspected.
+- Events participant/day rows remain candidate follow-ups for their Calendar/Dialog/Events owners; this review did not change their async or navigation authority.
 
 ### table
 

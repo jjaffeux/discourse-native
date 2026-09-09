@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/item_examples.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,22 +43,41 @@ void main() {
       }
     },
   );
-  testWidgets('temporary dropdown selects a person and dismisses', (
-    tester,
-  ) async {
-    final example = itemExamples.examples.singleWhere(
-      (e) => e.title == 'Dropdown',
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: Builder(builder: example.builder)),
-      ),
-    );
-    await tester.tap(find.text('Select'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('maxleiter'));
-    await tester.pumpAndSettle();
-    expect(find.text('Selected maxleiter'), findsOneWidget);
-    expect(find.text('shadcn@vercel.com'), findsNothing);
-  });
+  testWidgets(
+    'accepted dropdown selects a person, dismisses, and restores focus',
+    (tester) async {
+      final example = itemExamples.examples.singleWhere(
+        (e) => e.title == 'Dropdown',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      );
+      await tester.tap(find.text('Select'));
+      await tester.pumpAndSettle();
+      expect(find.text('shadcn@vercel.com'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.text('maxleiter')),
+        matchesSemantics(
+          label: 'maxleiter, maxleiter@vercel.com',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          hasTapAction: true,
+        ),
+      );
+      await tester.tap(find.text('maxleiter'));
+      await tester.pumpAndSettle();
+      expect(find.text('Selected maxleiter'), findsOneWidget);
+      expect(find.text('shadcn@vercel.com'), findsNothing);
+      expect(
+        tester
+            .widget<DButton>(find.widgetWithText(DButton, 'Select'))
+            .focusNode
+            ?.hasFocus,
+        isTrue,
+      );
+    },
+  );
 }
