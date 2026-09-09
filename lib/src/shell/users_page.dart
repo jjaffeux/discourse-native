@@ -2124,9 +2124,12 @@ class _TableState extends StatelessWidget {
             const SizedBox(height: 16),
             SizedBox(
               width: 110,
-              child: LinearProgressIndicator(
-                color: palette.green,
-                backgroundColor: palette.line,
+              child: DProgress(
+                semanticsLabel: 'Loading users',
+                track: DProgressTrack(
+                  color: palette.line,
+                  child: DProgressIndicator(color: palette.green),
+                ),
               ),
             ),
           ],
