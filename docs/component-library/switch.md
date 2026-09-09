@@ -109,14 +109,14 @@ suites run now. No iOS/Linux device or spoken VoiceOver verification is claimed.
 
 ## Isolated macOS bundle
 
-Source commit: `c637efb393b9bec314cae0c85edca7ae241bf472`.
+Source commit: `3243a88cf2a9a1cfee96af7877386379089ab6c5`.
 Build: `flutter build macos --debug --no-pub -t tool/switch_review_main.dart`.
-Bundle: `/private/tmp/discourse-switch-review-c637efb3/Discourse Switch Review c637efb3.app`.
+Bundle: `/private/tmp/discourse-switch-review-3243a88c/Discourse Switch Review 3243a88c.app`.
 The original worktree build and isolated bundle have the same kernel SHA256:
-`d4dfbbf790b2cbabee6780474a496f94dcb6ea3f938a4c103bbb5c741bb21fe5`.
+`9af57c435d269a4f97355921a29131f3f232007988984017e3db2f2413655917`.
 
-The copy has bundle ID `org.discourse.switch-review-c637efb3` and URL scheme
-`discourse-switch-review-c637efb3`; `codesign --verify --deep --strict --verbose=2`
+The copy has bundle ID `org.discourse.switch-review-3243a88c` and URL scheme
+`discourse-switch-review-3243a88c`; `codesign --verify --deep --strict --verbose=2`
 passed after ad-hoc signing. Only the isolated copy removes the APS entitlement.
 Workspace runner configuration and the user's main-checkout app were preserved.
 The full trace, source equality and source hash are recorded in
@@ -210,3 +210,8 @@ following removal of the temporary export test. Native status stays awaiting_slo
 ## Pinned-main integration
 
 Merged pinned main `7df72ef294826616e8ba24c31c6129d8e9041fec` into the Switch branch. Final Button/Input ownership and exports are preserved; all non-Switch progress rows exactly match pinned main. Resolved the obsolete Chat import and selected final Button examples alongside Switch. Existing merged app adapters/finders passed 267 focused integration tests, seed782313. Root/full analysis clean. No unchanged reference/export work repeated and no CUA/browser/native apps accessed. Refreshed exact-source review bundle has unique identifiers, verified signature and entitlement read-back with restricted APS/team/application identifiers absent. Native review remains awaiting_slot.
+
+
+## Radio/Checkbox baseline refresh
+
+Integrated pinned main `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7`. Switch artwork is unchanged; final Radio/Checkbox ownership, exports, coordinator fixes and all non-Switch progress rows are preserved. Label demo notes now reflect completed Checkbox and Switch owners. Poll toggle settings retain DSwitchTile and app-specific spacing. 90 focused integration tests passed, seed 782314; root/full analysis clean. No reference comparisons/exports repeated and no CUA/browser/native access attempted. Unique exact-source bundle verified with explicit debug/JIT entitlements and restricted APS/team/application identifiers absent. Runner configuration, pins and locks unchanged. Native review remains pending a new grant and available desktop.

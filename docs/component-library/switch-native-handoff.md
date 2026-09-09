@@ -31,3 +31,12 @@ but the previously released exclusive slot has not been reassigned to Switch.
 Coordinator messaging remains unavailable in this task. Switch is ready to
 resume native review as soon as the coordinator grants the slot again; no
 desktop access was attempted after release.
+
+## Current prepared baseline
+
+Radio/Checkbox main e612ad7b is integrated. Current source: `3243a88cf2a9a1cfee96af7877386379089ab6c5`.
+Bundle: `/private/tmp/discourse-switch-review-3243a88c/Discourse Switch Review 3243a88c.app`.
+Kernel SHA256: `9af57c435d269a4f97355921a29131f3f232007988984017e3db2f2413655917`.
+90 focused checks and root/full analysis pass. Signature/explicit debug-JIT
+entitlement read-back verified; no restricted identifiers. No UI grant was
+provided for this refresh and no desktop/browser access occurred. Ready and parked.
