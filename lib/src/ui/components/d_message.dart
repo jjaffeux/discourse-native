@@ -389,8 +389,8 @@ class DMessageStatus extends StatelessWidget {
       child: Text(
         value,
         style: state == DMessageDeliveryState.failed
-            ? TextStyle(color: tokens.destructive, fontWeight: FontWeight.w400)
-            : const TextStyle(fontWeight: FontWeight.w400),
+            ? TextStyle(color: tokens.destructive)
+            : null,
       ),
     );
   }

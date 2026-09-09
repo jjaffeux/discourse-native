@@ -266,6 +266,13 @@ void main() {
     final status = tester.getSemantics(find.byType(DMessageStatus));
     expect(status.label, 'Failed to send');
     expect(status.flagsCollection.isLiveRegion, isTrue);
+    final statusText = tester.widget<RichText>(
+      find.descendant(
+        of: find.byType(DMessageStatus),
+        matching: find.byType(RichText),
+      ),
+    );
+    expect(statusText.text.style?.fontWeight, FontWeight.w500);
     final retry = find.bySemanticsLabel('Retry');
     expect(retry, findsOneWidget);
     await tester.tap(retry);
