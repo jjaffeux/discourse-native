@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-
 import 'package:discourse_native/src/data/invites_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -151,7 +150,7 @@ void main() {
         : invitePage([inviteRow(1)], redeemed: 1);
     await controller.load();
     await pumpList(tester);
-    await tester.tap(find.byType(DropdownButtonFormField<InviteFilter>));
+    await tester.tap(find.byType(DNativeSelect<InviteFilter>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Redeemed (1)').last);
     await tester.pumpAndSettle();
@@ -248,10 +247,7 @@ void main() {
     );
     await tester.enterText(field('Email (optional)'), 'sam@example.com');
     await tapText(tester, 'Send invitation email');
-    await tester.enterText(
-      field('Custom message (optional)'),
-      'Welcome aboard',
-    );
+    await tester.enterText(find.byType(DTextarea), 'Welcome aboard');
     await tapText(tester, 'Create and send email');
     expect(find.text('Invitation email sent.'), findsOneWidget);
     final body = transport.requests

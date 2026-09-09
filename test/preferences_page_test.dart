@@ -256,7 +256,7 @@ void main() {
 
       await _pumpPage(tester, fixture, width: 1000);
 
-      expect(find.byType(DSelectField<PreferenceSection>), findsNothing);
+      expect(find.byType(DNativeSelect<PreferenceSection>), findsNothing);
       expect(find.text('Preferences'), findsNothing);
       final notifications = find.byKey(
         const ValueKey('preferences-section-notifications'),
@@ -726,7 +726,7 @@ void main() {
       expect(find.text('Chat'), findsNothing);
       expect(
         tester
-            .widget<DSelectField<int>>(find.byType(DSelectField<int>))
+            .widget<DNativeSelect<int>>(find.byType(DNativeSelect<int>))
             .onChanged,
         isNull,
       );
@@ -765,18 +765,19 @@ void main() {
       await tester.tap(chat);
       await tester.pumpAndSettle();
 
-      expect(
-        tester
-            .widget<DSelectField<ChatSeparateSidebarPreference>>(
-              find.byType(DSelectField<ChatSeparateSidebarPreference>),
-            )
-            .onChanged,
-        isNotNull,
+      await tester.tap(
+        find.byType(DNativeSelect<ChatSeparateSidebarPreference>),
       );
-      await tester.tap(find.text('When chat is in fullscreen'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Always'));
+      await tester.tap(find.text('Always').last);
       await tester.pumpAndSettle();
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .draft!
+            .chatSeparateSidebarMode,
+        ChatSeparateSidebarPreference.always,
+      );
       await tester.tap(_save(PreferenceSection.chat));
       await tester.pumpAndSettle();
 

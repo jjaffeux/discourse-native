@@ -91,13 +91,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final note = tester.widget<TextField>(
+      final note = tester.widget<DTextarea>(
         find.byKey(const Key('assignment-note')),
       );
       expect(note.minLines, 3);
-      expect(note.decoration?.labelText, isNull);
-      expect(note.decoration?.hintText, 'Note (optional)');
-      expect(note.decoration?.border, isA<OutlineInputBorder>());
+      expect(note.labelText, isNull);
+      expect(note.hintText, 'Note (optional)');
 
       final unassignFinder = find.byKey(const Key('assignment-unassign'));
       final unassign = _materialButton(
@@ -551,15 +550,13 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final select = tester.widget<DSelectField<String>>(
+        final dropdown = tester.widget<DNativeSelect<String>>(
           find.byKey(const Key('assignment-status')),
         );
-        expect(select.isExpanded, isTrue);
-        final paragraph = tester.renderObject<RenderParagraph>(
-          find.text(longStatus).first,
-        );
-        expect(paragraph.maxLines, 1);
-        expect(paragraph.overflow, TextOverflow.ellipsis);
+        expect(dropdown.placeholderEnabled, isFalse);
+        final label = tester.widget<Text>(find.text(longStatus).first);
+        expect(label.maxLines, 1);
+        expect(label.overflow, TextOverflow.ellipsis);
       },
     );
 
@@ -626,12 +623,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final select = tester.widget<DSelectField<String>>(
+      final dropdown = tester.widget<DNativeSelect<String>>(
         find.byKey(const Key('assignment-status')),
       );
-      expect(select.initialValue, 'Waiting on legacy review');
+      expect(dropdown.initialValue, 'Waiting on legacy review');
       expect(
-        select.items.map((item) => item.value),
+        dropdown.entries.whereType<DNativeSelectOption<String>>().map(
+          (item) => item.value,
+        ),
         contains('Waiting on legacy review'),
       );
 

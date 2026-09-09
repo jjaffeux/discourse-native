@@ -227,16 +227,19 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           title: 'Membership',
           description: 'Choose who can discover and join this group.',
         ),
-        DropdownButtonFormField<String>(
+        DNativeSelect<String>.controlled(
+          isExpanded: true,
+          placeholderEnabled: false,
           key: const ValueKey('membership-admission'),
-          initialValue: controller.admission,
-          decoration: const InputDecoration(labelText: 'Who can join?'),
-          items: const [
-            DropdownMenuItem(value: 'closed', child: Text('Invitation only')),
-            DropdownMenuItem(value: 'request', child: Text('Request approval')),
-            DropdownMenuItem(value: 'free', child: Text('Anyone can join')),
+          value: controller.admission,
+          label: 'Who can join?',
+          entries: const [
+            DNativeSelectOption(value: 'closed', label: 'Invitation only'),
+            DNativeSelectOption(value: 'request', label: 'Request approval'),
+            DNativeSelectOption(value: 'free', label: 'Anyone can join'),
           ],
           onChanged: (value) => controller.setAdmission(value ?? 'closed'),
+          initialValue: controller.admission,
         ),
         DSwitchTile(
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -366,16 +369,25 @@ class _GroupManageFormState extends State<_GroupManageForm> {
     bool obscure = false,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 14),
-    child: TextFormField(
-      style: Theme.of(context).textTheme.bodyMedium,
-      key: ValueKey('group-field-$key'),
-      controller: controller.textController(key),
-      minLines: obscure ? 1 : lines,
-      maxLines: obscure ? 1 : lines,
-      obscureText: obscure,
-      keyboardType: numeric ? TextInputType.number : TextInputType.text,
-      decoration: InputDecoration(labelText: label, hintText: hint),
-    ),
+    child: lines > 1 && !obscure
+        ? DTextarea(
+            key: ValueKey('group-field-$key'),
+            controller: controller.textController(key),
+            minLines: lines,
+            maxLines: lines,
+            labelText: label,
+            hintText: hint,
+          )
+        : TextFormField(
+            style: Theme.of(context).textTheme.bodyMedium,
+            key: ValueKey('group-field-$key'),
+            controller: controller.textController(key),
+            minLines: obscure ? 1 : lines,
+            maxLines: obscure ? 1 : lines,
+            obscureText: obscure,
+            keyboardType: numeric ? TextInputType.number : TextInputType.text,
+            decoration: InputDecoration(labelText: label, hintText: hint),
+          ),
   );
 }
 
@@ -395,19 +407,30 @@ class _ProfileFields extends StatelessWidget {
     Widget field(String key, String label, {int lines = 1, String? hint}) =>
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
-          child: TextFormField(
-            style: Theme.of(context).textTheme.bodyMedium,
-            key: ValueKey('group-field-$key'),
-            controller: controllers[key],
-            minLines: lines,
-            maxLines: lines,
-            enabled: key != 'name' || !group.automatic,
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: hint,
-              errorText: errors[key],
-            ),
-          ),
+          child: lines > 1
+              ? DTextarea(
+                  key: ValueKey('group-field-$key'),
+                  controller: controllers[key],
+                  minLines: lines,
+                  maxLines: lines,
+                  enabled: key != 'name' || !group.automatic,
+                  labelText: label,
+                  hintText: hint,
+                  errorText: errors[key],
+                )
+              : TextFormField(
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  key: ValueKey('group-field-$key'),
+                  controller: controllers[key],
+                  minLines: lines,
+                  maxLines: lines,
+                  enabled: key != 'name' || !group.automatic,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    hintText: hint,
+                    errorText: errors[key],
+                  ),
+                ),
         );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -502,16 +525,19 @@ class _LevelField extends StatelessWidget {
     final values = <int>{0, 1, 2, 3, 4, value}.toList()..sort();
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: DropdownButtonFormField<int>(
-        initialValue: value,
-        decoration: InputDecoration(labelText: label),
-        items: [
+      child: DNativeSelect<int>.controlled(
+        isExpanded: true,
+        placeholderEnabled: false,
+        value: value,
+        label: label,
+        entries: [
           for (final option in values)
-            DropdownMenuItem(value: option, child: Text(_levelLabel(option))),
+            DNativeSelectOption(value: option, label: _levelLabel(option)),
         ],
         onChanged: (next) {
           if (next != null) onChanged(next);
         },
+        initialValue: value,
       ),
     );
   }
@@ -533,16 +559,19 @@ class _InteractionLevelField extends StatelessWidget {
     final values = <int>{0, 1, 2, 3, 4, 99, value}.toList()..sort();
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: DropdownButtonFormField<int>(
-        initialValue: value,
-        decoration: InputDecoration(labelText: label),
-        items: [
+      child: DNativeSelect<int>.controlled(
+        isExpanded: true,
+        placeholderEnabled: false,
+        value: value,
+        label: label,
+        entries: [
           for (final option in values)
-            DropdownMenuItem(value: option, child: Text(_levelLabel(option))),
+            DNativeSelectOption(value: option, label: _levelLabel(option)),
         ],
         onChanged: (next) {
           if (next != null) onChanged(next);
         },
+        initialValue: value,
       ),
     );
   }

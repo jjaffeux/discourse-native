@@ -431,11 +431,12 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   setState(() => _booleans['all-day'] = value!),
             ),
             if (!_booleans['all-day']!) _field('timezone'),
-            DropdownButtonFormField<String>(
+            DNativeSelect<String>.controlled(
               isExpanded: true,
-              initialValue: _recurrence,
-              decoration: const InputDecoration(labelText: 'Repeats'),
-              items: [
+              placeholderEnabled: false,
+              value: _recurrence,
+              label: 'Repeats',
+              entries: [
                 for (final value in {
                   '',
                   'every_day',
@@ -446,51 +447,48 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   'every_month',
                   _recurrence,
                 })
-                  DropdownMenuItem(
+                  DNativeSelectOption(
                     value: value,
-                    child: Text(
-                      eventRecurrenceLabel(value) ?? 'Does not repeat',
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    label: eventRecurrenceLabel(value) ?? 'Does not repeat',
                   ),
               ],
               onChanged: (value) => setState(() => _recurrence = value!),
+              initialValue: _recurrence,
             ),
             if (_recurrence.isNotEmpty) _field('recurrence-until'),
-            DropdownButtonFormField<String>(
+            DNativeSelect<String>.controlled(
               isExpanded: true,
-              initialValue: _status,
-              decoration: const InputDecoration(labelText: 'Participation'),
-              items: [
+              placeholderEnabled: false,
+              value: _status,
+              label: 'Participation',
+              entries: [
                 for (final value in {
                   'public',
                   'private',
                   'standalone',
                   _status,
                 })
-                  DropdownMenuItem(
+                  DNativeSelectOption(
                     value: value,
-                    child: Text(switch (value) {
+                    label: switch (value) {
                       'public' => 'Public',
                       'private' => 'Private groups',
                       'standalone' => 'No attendance tracking',
                       _ => value,
-                    }),
+                    },
                   ),
               ],
               onChanged: (value) => setState(() => _status = value!),
+              initialValue: _status,
             ),
             if (_status == 'private') _field('allowed-groups'),
             _field('url'),
             _field('location'),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               controller: _description,
               minLines: 3,
               maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: 'Description (Markdown)',
-              ),
+              labelText: 'Description (Markdown)',
             ),
             DCollapsible(
               child: Column(

@@ -86,10 +86,9 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                 helperText: 'Required',
               ),
             ),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DTextarea(
               controller: _description,
-              decoration: const InputDecoration(labelText: 'Description'),
+              labelText: 'Description',
               minLines: 2,
               maxLines: 5,
             ),
@@ -113,17 +112,18 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               keyboardType: TextInputType.number,
               labelText: 'Maximum participants',
             ),
-            DSelectField<VoiceQualityProfile>(
-              initialValue: _quality,
-              decoration: const InputDecoration(
-                labelText: 'Maximum media quality',
-              ),
+            DNativeSelect<VoiceQualityProfile>.controlled(
+              isExpanded: true,
+              placeholderEnabled: false,
+              value: _quality,
+              label: 'Maximum media quality',
               onChanged: (value) =>
                   setState(() => _quality = value ?? _quality),
-              items: [
+              entries: [
                 for (final value in VoiceQualityProfile.values)
-                  DropdownMenuItem(value: value, child: Text(value.name)),
+                  DNativeSelectOption(value: value, label: value.name),
               ],
+              initialValue: _quality,
             ),
             DInput(
               controller: _chatChannel,
