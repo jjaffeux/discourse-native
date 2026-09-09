@@ -2498,10 +2498,12 @@ Status: in_progress. Task: 01a08606-5dce-7b91-9ee6-7713872f1fa7. Branch: codex/u
 - Frozen Context Menu Markdown SHA256 reproduced exactly as ec20bd0ef47abb75872c1294d1563f0f279d3da5861177d8f2c588d8eb5f6895; base-nova registry SHA256 recorded as 57bfdd236a7f4cb83625edf4c33265ce009738947666d00311034a88f6868756 on 2026-09-09.
 - Independent review rerun: 64 focused Context Menu/Dropdown Menu/Popover/styleguide/InstanceActions/modal lifecycle tests passed with seed 826145; root and profiles/full analysis were clean; the exact-source signed macOS bundle kernel matched its build at SHA256 b26f476a523afa6d28849f22b3049719ea3ba50bc9055d021e1557a02fe05342.
 - Independent partial rendered/native review: official light/dark geometry confirmed 14/20 text, 28px rows, 6px gaps, 4px popup padding, 8px items, 10px popup, ring and shadow. Native macOS confirmed secondary-pointer placement, selection callback, Context Menu key, first focus, End/submenu navigation, deepest Escape, outside dismissal, retained checkbox/radio semantics, Forest tokens and 360px/200%-text/reduced-motion RTL collision behavior.
+- Current-main candidate 7431e6386578f56801131c0574fb2d7e2e80c79d reconciles accepted Dropdown Menu merge 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 without modifying its source. The 64-test matrix and root/full analysis passed again; rebuilt and isolated signed macOS kernels matched at SHA256 63a6c24bdedee148bad6d808b4017644769578fa585229b4a07767ca3c9641e4.
 
 **limitations**
 
 - Native Shift+F10 was not established through the available key synthesizer; long-press/reader action, the real forum-rail surface and the complete top/right/bottom/left/inline-end sweep remain pending. No iOS/Linux device or spoken VoiceOver pass is claimed.
+- On the final accepted-parent desktop turn, the single approved probe reported that the Mac was locked and automatic unlock failed. The lease was released immediately; final native acceptance and merge require a manual unlock.
 
 ### menubar
 

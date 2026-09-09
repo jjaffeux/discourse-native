@@ -87,21 +87,24 @@ navigation actions, not action menus. Specialized Choice/Command/category/tag
 anchors and ordinary toolbar dropdowns are Dropdown Menu/adaptor concerns, not
 context invocation migrations.
 
-## Prepared dependency pin
+## Accepted dependency
 
 - Parent: Dropdown Menu
 - Reviewer: `01a085cf-f401-7813-80da-7c687de8a5d5`
-- Reviewed/current-main candidate branch: `codex/review-dropdown-menu-candidate`
-- Exact source pin: `d273c27e788bb3991c773c7432e0b8c927715651`
-- Evidence supplied by the parent reviewer: 47 focused Dropdown/Popover/Table/
-  styleguide tests pass with seed `826145`; root and `profiles/full` analysis
-  are clean. Native/browser acceptance and final main merge remain pending.
+- Accepted review branch: `codex/review-dropdown-menu-accepted`
+- Accepted local-main merge: `5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787`
+- Progress follow-up: `a5ad2b5883e7b16e1ef3535f8836b5a86581c2bd`
+- Parent evidence: 48 focused Dropdown/Popover/Table/styleguide tests pass
+  with seed `826145`; root and `profiles/full` analysis are clean. Official
+  rendered and native acceptance covered light/dark composition,
+  keyboard/typeahead, checkbox/radio retention, submenu/Escape focus, RTL,
+  scaling, lifecycle dismissal and the production Table actions.
 
 The parent API has no public virtual-pointer anchor. Context Menu therefore
 keeps the 1px point-anchor adaptation locally while reusing all common menu
-content/navigation/selection. No shared parent API was changed. Final review is
-gated on the Dropdown Menu accepted merge SHA and must reconcile any correction
-from its native review.
+content/navigation/selection. No shared parent API was changed. The final
+Context Menu candidate is based on the accepted parent revision without local
+changes to the Dropdown Menu source.
 
 ## Review boundary
 
@@ -144,6 +147,18 @@ The Mac locked during the remaining Sides sweep. The desktop lease was released
 immediately and the waiting request was cancelled. Native Shift+F10 could not
 be established through the available key synthesizer, long-press/reader action
 and the real forum-rail surface remain to inspect, and the full top/right/
-bottom/left/inline-end sweep remains incomplete. No acceptance or merge is
-claimed. Dropdown Menu also remains unaccepted after its next reviewer attempt
-encountered the same locked host.
+bottom/left/inline-end sweep remains incomplete. No Context Menu acceptance or
+merge was claimed at that checkpoint; Dropdown Menu was still pending then.
+
+After Dropdown Menu was accepted on local main, the reviewer rebuilt Context
+Menu from that exact source in current-main candidate `7431e6386578f56801131c0574fb2d7e2e80c79d`.
+The 64-test focused matrix passed again with seed `826145`; root and
+`profiles/full` analysis were clean. The rebuilt debug macOS styleguide and its
+isolated strictly signed copy matched at kernel SHA256
+`63a6c24bdedee148bad6d808b4017644769578fa585229b4a07767ca3c9641e4`.
+
+When Context Menu reached the desktop FIFO again, the single approved probe
+reported that the Mac was locked and automatic unlock failed. The lease was
+released immediately. The remaining Sides, long-press/reader-action and real
+forum-rail inspections still require a manually unlocked Mac; the candidate
+therefore remains unaccepted and unmerged.
