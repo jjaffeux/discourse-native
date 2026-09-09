@@ -450,24 +450,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                   ],
                   const SizedBox(height: 32),
                   if (example != null) ...[
-                    if (group!.examples.length > 1) ...[
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: SizedBox(
-                          width: 320,
-                          child: StyleguideChoice<int>(
-                            label: 'Example',
-                            value: _exampleIndex,
-                            options: {
-                              for (var i = 0; i < group.examples.length; i++)
-                                i: group.examples[i].title,
-                            },
-                            onChanged: _selectExample,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
                     _examplePanel(context, hostTheme, example),
                     const SizedBox(height: 32),
                     Semantics(
@@ -808,6 +790,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           ),
           for (var i = 0; i < examples.length; i++)
             StyleguideAction(
+              key: ValueKey('styleguide-example-$i'),
               label: examples[i].title,
               selected: i == _exampleIndex,
               alignment: AlignmentDirectional.centerStart,
