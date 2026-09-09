@@ -2434,6 +2434,7 @@ Status: in_progress. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/u
 - DMenubar owns only persistent top-level coordination: one active menu, logical arrow/Home/End roving focus, Enter/Space/open-direction entry, pointer hover switching and final trigger restoration. DDropdownMenu remains the popup/item/typeahead/submenu lifecycle owner.
 - Use a 32px minimum root with internal horizontal scrolling only when narrow or scaled layouts cannot fit persistent triggers. This preserves source geometry and command labels without a RenderFlex overflow.
 - Keep Base UI's browser modal implementation detail with the shared Dropdown Menu lifecycle rather than expose an inert boolean; keep operating-system application menus outside this generic in-app widget.
+- Independent review retains the source-exact 24px trigger and 32px bar on macOS/Linux, while iOS uses a 48px minimum trigger hit surface so persistent commands remain touch-accessible.
 
 **migrations**
 
@@ -2454,11 +2455,14 @@ Status: in_progress. Task: 01a08606-5dd4-7b80-b330-d7ebfff967f9. Branch: codex/u
 - The same randomized run verified all six frozen styleguide groups register and mount in light, dark and plum palettes at 216px/200%/RTL/reduced-motion; composition state and exact-Lucide destructive example interactions pass.
 - flutter pub get --enforce-lockfile and flutter analyze --no-pub passed at repository root and profiles/full; Flutter 3.47.2 and both lockfile hashes remained unchanged.
 - Exact source 3aef780c8aa4ad042d464c1c6cdf9c419e996c58 built successfully as the real styleguide macOS target. Isolated copied fixture /private/tmp/discourse-menubar-review-3aef780c/Discourse Menubar Review 3aef.app has bundle ID org.discourse.menubarreview.3aef780c, kernel SHA-256 600eac87a4634f5e62bb10408817018fd4771572ee728a0f2c4c452a750c3644, passing deep strict ad-hoc signature and three permitted debug entitlements; all 7 signed executables are free of application/team/APS identifiers. See evidence/menubar/build-identity.json. This is build provenance, not native inspection.
+- Independent review added controlled-state coordination, borrowed-controller disposal and iOS 48px touch-target regressions. The refreshed Menubar/styleguide matrix passes 17 tests with seed 1320190751, and root analysis is clean.
+- Dropdown Menu candidate 9d4b2952273119f445a6548c9c1ed4018def0a4c has byte-identical d_dropdown_menu.dart and d_popover.dart blobs to this Menubar candidate. This confirms prepared source/API equivalence but does not replace the parent's required native acceptance.
+- Review source 6a0da1e58bea257c89451f74e88759cf474fb7b2 built successfully as the real macOS styleguide target. The unlaunched isolated fixture /private/tmp/discourse-menubar-review-6a0d.9a6Kmo/Discourse Menubar Review 6a0d.app uses bundle org.discourse.menubarreview.6a0d and kernel SHA-256 5d1c409d3317f7ffc9f6aea4a53a311c2168b10cc07486e369c62c591f8afd17; deep strict ad-hoc verification passes, its only main entitlements are sandbox/allow-jit/get-task-allow, and 0 of 7 signed executables contain application/team/APS identifiers. The copied provisioning profile was removed from this isolated fixture without changing repository provisioning.
 
 **limitations**
 
-- Prepared Dropdown Menu candidate is not yet accepted. The Menubar reviewer must integrate its accepted local-main revision and verify overlap before merge.
-- The implementation task has not claimed official browser visual comparison or native macOS inspection. The new independent reviewer owns those first actual checks, fixes, status promotion and final local-main merge; iOS/Linux and spoken VoiceOver remain unverified.
+- Prepared Dropdown Menu candidate is not yet accepted. Its reviewer reports three freshly granted approved-CUA attempts still found macOS locked and automatic unlock unavailable; Dropdown Menu therefore remains unmerged and blocks Menubar acceptance.
+- Official rendered browser comparison and native macOS inspection remain unperformed because the approved desktop surface is locked. Menubar remains baseline and cannot merge until the host is manually unlocked, Dropdown Menu is accepted on local main, and Menubar completes its own queued desktop pass. iOS/Linux device behavior and spoken VoiceOver remain unverified.
 
 ### navigation-menu
 

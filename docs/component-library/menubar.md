@@ -24,7 +24,7 @@
 | base-nova source | Flutter owner | Exact mapping |
 | --- | --- | --- |
 | `flex h-8 items-center gap-0.5 rounded-lg border p-[3px]` | `DMenubar` | horizontal `Flex`, 32px minimum border box, 2px gaps, 3px padding, 1px `DTokens.border`, host `lg` radius |
-| trigger `rounded-sm px-1.5 py-[2px] text-sm font-medium` | `DMenubarTrigger` | host `sm` radius (`base × 0.6`), 6px horizontal / 2px vertical padding, 14px / 20px leading, weight 500 |
+| trigger `rounded-sm px-1.5 py-[2px] text-sm font-medium` | `DMenubarTrigger` | macOS/Linux use the source-exact 24px minimum, host `sm` radius (`base × 0.6`), 6px horizontal / 2px vertical padding, 14px / 20px leading and weight 500; iOS retains the same visible styling in a 48px minimum touch surface |
 | `hover:bg-muted aria-expanded:bg-muted` | trigger state surface | live `DTokens.muted` for hover, press, keyboard focus and expanded state |
 | content `min-w-36`, `rounded-lg`, `p-1`, ring, shadow, 8px side / -4px align offset | `DMenubarContent` + accepted `DDropdownMenuContent` | 144px minimum, host `lg` radius, 4px padding, live popover tokens, 8px / -4px defaults and collision-aware portal |
 | item `gap-1.5 rounded-md px-1.5 py-1 text-sm` | `DMenubarItem` | accepted menu row with 6px gaps/padding, 4px vertical padding, host `md` radius (`base × 0.8`), 14px / 20px text |
