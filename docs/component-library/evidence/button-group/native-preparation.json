@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "412091d0af4a9f18f1b40904ba01cac6105051bc",
+  "sourceTree": "8996071638ac2af0bec2f6f52e3ca252ba10dd82",
+  "sourceCleanAtBuild": true,
+  "buildCommand": "flutter build macos --debug --no-pub -t tool/button_group_review_main.dart",
+  "sourceBundle": "/Users/joffreyjaffeux/.codex/worktrees/9bb7/discourse-native/build/macos/Build/Products/Debug/Discourse.app",
+  "reviewBundle": "/private/tmp/ButtonGroupReview-412091d0.app",
+  "bundleId": "org.discourse.native.buttongroup.412091d0",
+  "urlScheme": "discourse-button-group-412091d0",
+  "kernelSha256": "d988eb4b32c68017fda4926c2823ead96cbf9e7d0b9f5ab94480b7a8019fdd7f",
+  "entrypointSha256": "f8319e4aeeec84fce7c3587ea683b57db8da4f29d81dd2fa9123d63db562f41b",
+  "componentSha256": "2aff952f3c528db4875a92263f9ccd45b5acab129fac7f86f97ae83add0c0c09",
+  "examplesSha256": "3da2a237c5434aea0c027f4c46fe500f838f60cfd2cfd8bcb60f9a1bb45dc9de",
+  "entitlementsSha256": "8f244f8dfa7d6411fa2d2da5114a59a1a474927dfecf14362b32d95915698bab",
+  "signedEntitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.device.audio-input",
+    "com.apple.security.device.camera",
+    "com.apple.security.files.user-selected.read-write",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "signatureVerification": "codesign --verify --deep --strict passed",
+  "nativeInspectionStatus": "blocked_before_launch_mac_locked",
+  "desktopLeaseReleased": true,
+  "notes": "The normal Discourse bundle and provisioning were not modified or launched. The isolated copy has a unique identity and restricted ad-hoc debug entitlements. Approved CUA could not unlock the Mac; no workaround was attempted."
+}
