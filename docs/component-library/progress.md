@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**18 of 64 components are merged locally.** 16 existing components are in progress; 30 are planned.
+**19 of 64 components are merged locally.** 15 existing components are in progress; 30 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -24,7 +24,6 @@ Branch preparation does not mark a component merged or visually verified.
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | table | independent review | b3107cab | 01a08558-73ce-7a51-bfd4-8e0f48d5f675 |
-| scroll-area | independent review | 5f4e58a3 | 01a08558-4ae8-7152-9db9-ee52e4100dbe |
 | collapsible | independent review | 684faacd | 01a08558-a79c-7911-8f75-53b3528fc08f |
 | resizable | independent review | a7e26a93 | 01a08558-7acd-73d3-a690-2e5ceb920d6c |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
@@ -64,7 +63,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 23 | empty | in_progress | 01a0843e-76da-7911-ac98-49bd6dba8384 | codex/ui-empty | typography, avatar, kbd | — |
 | 24 | item | in_progress | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
 | 25 | table | in_progress | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | — |
-| 26 | scroll-area | in_progress | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | — |
+| 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | planned | — | — | button | — |
@@ -1596,7 +1595,7 @@ Status: in_progress. Task: 01a0844a-0669-7780-92e8-33cc4314f64a. Branch: codex/u
 
 ### scroll-area
 
-Status: in_progress. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/ui-scroll-area.
+Status: merged. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/ui-scroll-area.
 
 **acceptanceCriteria**
 

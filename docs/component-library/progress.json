@@ -1542,12 +1542,12 @@
     },
     {
       "id": "scroll-area",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
       "branch": "codex/ui-scroll-area",
       "reviewTaskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
       "reviewBranch": "codex/review-scroll-area",
-      "reviewStatus": "review_ready",
+      "reviewStatus": "merged",
       "dependencies": [
         "separator"
       ],
@@ -1599,7 +1599,7 @@
         "The captured Diagnostics large-text overflow artifact is historical; the main-owned row-sizing fix is integrated and the independent native fixture showed unclipped rows."
       ],
       "implementationCommit": "3e40cb9e1afc3441bc4f8e3d9fb2f6b2adf40f6e",
-      "mergeCommit": null,
+      "mergeCommit": "655be577246f1f247e1e71199d32add8366deffc",
       "nativeReviewStatus": "passed"
     },
     {
@@ -2665,15 +2665,6 @@
       "nextComponents": [],
       "activeTasks": [
         {
-          "component": "scroll-area",
-          "taskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
-          "branch": "codex/review-scroll-area",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c76e/discourse-native",
-          "headCommit": "5f4e58a31772cc5edb40a670cab0264e278f93fe",
-          "status": "independent_review",
-          "implementationTaskId": "01a083e1-420b-7711-b8e8-f268576dcc3b"
-        },
-        {
           "component": "native-select",
           "taskId": "01a08558-4ae6-7db2-bdd6-ee1b7d91d022",
           "branch": "codex/review-native-select",
@@ -2853,7 +2844,8 @@
       },
       "scroll-area": {
         "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
-        "status": "resolved_awaiting_native_review",
+        "status": "resolved_and_merged",
+        "mergeCommit": "655be577246f1f247e1e71199d32add8366deffc",
         "issue": "Radio renderer comparison confirms a shared focus-ring bug: BoxShadow(spreadRadius:3) paints underneath transparent content. DScrollArea viewport focus ring currently uses that pattern and can tint the entire scrolled content. Replace with an exterior-only ring, verify actual focused exports and retain keyboard/state behavior."
       },
       "button": {
@@ -2951,17 +2943,6 @@
       "leaseTool": "tool/component_review_lock.py",
       "futureHandoff": "Each implementation creates a new reviewer Codex task that owns completion and local main merge.",
       "reviewTasks": [
-        {
-          "component": "scroll-area",
-          "title": "Review and merge Scroll Area",
-          "taskId": "01a08558-4ae8-7152-9db9-ee52e4100dbe",
-          "hostId": "local",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c76e/discourse-native",
-          "branch": "codex/review-scroll-area",
-          "implementationTaskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
-          "implementationBranch": "codex/ui-scroll-area",
-          "status": "in_progress"
-        },
         {
           "component": "native-select",
           "title": "Review and merge Native Select",
