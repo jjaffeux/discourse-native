@@ -9,6 +9,7 @@ import 'examples/foundation_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
+import 'examples/popover_examples.dart';
 import 'examples/radio_group_examples.dart';
 import 'examples/separator_examples.dart';
 import 'examples/sidebar_examples.dart';
@@ -33,6 +34,7 @@ final componentExamples = <String, ComponentExamples>{
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'label': labelExamples,
+  'popover': popoverExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
   'spinner': spinnerExamples,
