@@ -33,16 +33,20 @@ class _PaginationReviewAppState extends State<PaginationReviewApp> {
     theme: theme
         .resolve(AppTheme.light)
         .copyWith(platform: TargetPlatform.macOS),
-    builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(context).copyWith(
-        textScaler: TextScaler.linear(largeText ? 2 : 1),
-        disableAnimations: reducedMotion,
-      ),
-      child: Directionality(
-        textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-        child: child!,
-      ),
-    ),
+    builder: (context, child) {
+      final media = MediaQuery.of(context);
+      return MediaQuery(
+        data: media.copyWith(
+          size: Size(narrow ? 216 : media.size.width, media.size.height),
+          textScaler: TextScaler.linear(largeText ? 2 : 1),
+          disableAnimations: reducedMotion,
+        ),
+        child: Directionality(
+          textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+          child: child!,
+        ),
+      );
+    },
     home: Scaffold(
       appBar: AppBar(title: const Text('Pagination review — local data')),
       body: ListView(
