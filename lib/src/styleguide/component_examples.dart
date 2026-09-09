@@ -8,6 +8,7 @@ import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
+import 'examples/data_table_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/dropdown_menu_examples.dart';
@@ -55,6 +56,7 @@ final componentExamples = <String, ComponentExamples>{
   'aspect-ratio': aspectRatioExamples,
   'avatar': avatarExamples,
   'badge': badgeExamples,
+  'data-table': dataTableExamples,
   'direction': directionExamples,
   'dialog': dialogExamples,
   'dropdown-menu': dropdownMenuExamples,
