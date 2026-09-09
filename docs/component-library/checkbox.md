@@ -18,9 +18,7 @@ shadcn MIT license and the Base UI MIT license.
 | [Base UI CheckboxRoot source](https://raw.githubusercontent.com/mui/base-ui/master/packages/react/src/checkbox/root/CheckboxRoot.tsx) | `4cfe969f4d1b3f046f3024d37fd48f4dc9abe6961877cda54290856e40d76605` |
 
 The [official page](https://ui.shadcn.com/docs/components/base/checkbox) and
-[Base UI API](https://base-ui.com/react/components/checkbox) were read. No
-rendered browser comparison has occurred: all CUA/browser interaction is
-serialized by the coordinator, and the desktop is currently locked.
+[Base UI API](https://base-ui.com/react/components/checkbox) were read. Rendered browser comparison was completed in the coordinator-granted browser-only slot on 2026-09-09. The original dark theme and viewport were restored, the temporary tab closed, and the slot released. Native desktop inspection remains pending.
 
 ## Visual mapping
 
@@ -28,7 +26,7 @@ serialized by the coordinator, and the desktop is currently locked.
 | --- | --- |
 | `size-4`, border, `rounded-[4px]` | 16×16 logical pixels, 1px token border, fixed 4px radius |
 | `size-3.5`, Lucide Check | 14×14 painter, 24-unit viewbox, path (20,6)→(9,17)→(4,12), 2-unit round stroke/caps/joins |
-| `border-input`, dark `bg-input/30` | live DTokens.border and its 30% dark fill |
+| `border-input`, dark `bg-input/30` | live tokens.colors.outlineVariant and its multiplicative 30% dark fill |
 | Checked primary background/border and primary foreground | live primary/primaryForeground |
 | Focus-visible ring 3 and ring/50 | 3px outer ring, focusRing at 50%; no hover/pressed fill absent from source |
 | Invalid border/ring | destructive border, 3px 20% ring in light; 50% border and 40% ring in dark; checked keeps primary border |
@@ -37,15 +35,9 @@ serialized by the coordinator, and the desktop is currently locked.
 | Label gap 2 and text-sm/medium | 8px horizontal gap, DLabel 14px/500; basic leading 1 |
 | FieldContent gap .5, leading-snug and description leading-normal | 2px description gap; 1.375 title leading and 1.5 description leading; description controls align at top +1px |
 | transition-colors / transition-none indicator | 150ms color container, instantaneous artwork; zero duration with disableAnimations |
-| `after:-inset-x-3`, `after:-inset-y-2` | 40×32 pointer target, 48×48 touch target; transparent area around fixed 16px artwork |
+| `after:-inset-x-3`, `after:-inset-y-2` | bare 40×32 pointer target, labeled pointer rows follow 16px artwork / intrinsic label height; 48px touch minimum |
 
-The target reserves actual native layout space so hit/semantic bounds stay
-inside the parent (Flutter does not hit-test overflowing children outside
-parent bounds). Consequently tightly stacked pointer rows can be taller than
-CSS's overlapping pseudo-element targets. Labels wrap and scale naturally;
-RTL uses directional layout, padding and start alignment. Host fonts and
-semantic palettes remain live; the checkbox's explicit 4px source radius does
-not follow a theme's unrelated general radius.
+Bare targets reserve native layout space because Flutter does not hit-test overflowing children. Labeled pointer rows follow source typography (basic Label 14/14, field title 14/19.25, description 14/21) and retain 48px touch minimums. RTL uses directional layout. Host fonts and semantic palettes remain live; the checkbox has fixed 4px source radius.
 
 Mixed state is a native API extension represented by nullable bool when
 `tristate` is enabled. Activation changes mixed to true, then toggles boolean
@@ -170,3 +162,11 @@ Source/copied kernels match SHA256
 Deep strict ad-hoc signature verification passes. Updated provenance is in
 `checkbox-native-provenance.json`. The bundle was not launched; native status
 remains `awaiting_slot`, not `review_ready`.
+
+## Browser and font-loaded Flutter comparison (2026-09-09)
+
+Evidence is in `evidence/checkbox/`. Official light/dark screenshots and computed geometry cover default, focus, disabled, invalid, description, card, group, table and RTL at 360px. Flutter exports load system Latin, Arabic and Hebrew fonts and cover every actual example, light/dark card focus, Forest/Plum RTL at 200%, and real legal/Voice privacy fixtures. These are test-renderer exports, not native app inspection.
+
+Corrections: input uses outlineVariant independently of general border; opacity factors multiply existing alpha; 3px foreground border rings paint strictly outside the translucent control. Pixel tests use partially transparent input/focus/error tokens to detect interior contamination. Labeled rows now follow intrinsic source leading. Cards reserve border-plus-padding, follow live radius and move keyboard focus emphasis to the outer card. Groups use regular-weight labels and tables use 14/20 text, 37px body and 40px header rows.
+
+The app retains its fonts, palettes and radius. Browser Geist/Noto and native SF shaping can differ in widths and breaks. The native Minus mixed extension remains explicit. Exported real Voice privacy content scrolls at 200%; its checkbox and actions remain reachable. No native app was launched. Status remains `awaiting_slot`.

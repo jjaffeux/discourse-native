@@ -34,6 +34,8 @@ class DCheckbox extends StatefulWidget {
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
+    this.showFocusRing = true,
+    this.onShowFocusHighlight,
     this.contentPadding = EdgeInsets.zero,
   }) : _controlled = true,
        assert(tristate || value != null);
@@ -52,6 +54,8 @@ class DCheckbox extends StatefulWidget {
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
+    this.showFocusRing = true,
+    this.onShowFocusHighlight,
     this.contentPadding = EdgeInsets.zero,
   }) : value = defaultValue,
        _controlled = false,
@@ -71,6 +75,10 @@ class DCheckbox extends StatefulWidget {
   final String? semanticLabel;
   final FocusNode? focusNode;
   final bool autofocus;
+
+  /// Disable only when an enclosing choice surface draws the focus ring.
+  final bool showFocusRing;
+  final ValueChanged<bool>? onShowFocusHighlight;
   final EdgeInsetsGeometry contentPadding;
   final bool _controlled;
 
@@ -131,14 +139,18 @@ class _DCheckboxState extends State<DCheckbox> {
     final border = checked
         ? tokens.primary
         : widget.invalid
-        ? (dark ? tokens.destructive.withValues(alpha: .5) : tokens.destructive)
-        : _focusVisible
+        ? (dark
+              ? tokens.destructive.withValues(alpha: tokens.destructive.a * .5)
+              : tokens.destructive)
+        : _focusVisible && widget.showFocusRing
         ? tokens.focusRing
-        : tokens.border;
+        : tokens.colors.outlineVariant;
     final ring = widget.invalid
-        ? tokens.destructive.withValues(alpha: dark ? .4 : .2)
-        : _focusVisible
-        ? tokens.focusRing.withValues(alpha: .5)
+        ? tokens.destructive.withValues(
+            alpha: tokens.destructive.a * (dark ? .4 : .2),
+          )
+        : _focusVisible && widget.showFocusRing
+        ? tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5)
         : null;
     final artwork = AnimatedContainer(
       duration: DMotion.duration(context, const Duration(milliseconds: 150)),
@@ -148,13 +160,20 @@ class _DCheckboxState extends State<DCheckbox> {
         color: checked
             ? tokens.primary
             : dark
-            ? tokens.border.withValues(alpha: .3)
+            ? tokens.colors.outlineVariant.withValues(
+                alpha: tokens.colors.outlineVariant.a * .3,
+              )
             : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: border),
-        boxShadow: ring == null
-            ? null
-            : [BoxShadow(color: ring, spreadRadius: 3)],
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: ring ?? Colors.transparent,
+          width: 3,
+          strokeAlign: BorderSide.strokeAlignOutside,
+        ),
       ),
       child: Center(
         child: CustomPaint(
@@ -173,7 +192,7 @@ class _DCheckboxState extends State<DCheckbox> {
             child: Center(child: artwork),
           )
         : ConstrainedBox(
-            constraints: BoxConstraints(minHeight: touch ? 48 : 32),
+            constraints: BoxConstraints(minHeight: touch ? 48 : 16),
             child: Row(
               crossAxisAlignment: widget.subtitle == null
                   ? CrossAxisAlignment.center
@@ -194,7 +213,7 @@ class _DCheckboxState extends State<DCheckbox> {
                       DLabel(
                         style:
                             TextStyle(
-                              height: widget.subtitle == null ? 1 : 1.375,
+                              height: widget.title is DLabel ? 1 : 1.375,
                               color: widget.invalid ? tokens.destructive : null,
                             ).merge(
                               widget.title is DLabel
@@ -229,7 +248,10 @@ class _DCheckboxState extends State<DCheckbox> {
       mouseCursor: _enabled
           ? SystemMouseCursors.basic
           : SystemMouseCursors.forbidden,
-      onShowFocusHighlight: (value) => setState(() => _focusVisible = value),
+      onShowFocusHighlight: (value) {
+        setState(() => _focusVisible = value);
+        widget.onShowFocusHighlight?.call(value);
+      },
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
       },

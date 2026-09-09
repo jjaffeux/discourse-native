@@ -22,7 +22,7 @@ final checkboxExamples = ComponentExamples(
           'Click the label or press Space while focused. Each checkbox keeps its own local state.',
       states: const ['Default', 'Checked', 'Description', 'Disabled'],
       code:
-          '''DCheckbox.defaultValue(title: Text('Accept terms and conditions'))
+          '''DCheckbox.defaultValue(title: DLabel(child: Text('Accept terms and conditions')))
 DCheckbox.defaultValue(
   defaultValue: true,
   title: Text('Accept terms and conditions'),
@@ -32,7 +32,9 @@ DCheckbox.defaultValue(enabled: false, title: Text('Enable notifications'))''',
       builder: (_) => const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DCheckbox.defaultValue(title: Text('Accept terms and conditions')),
+          DCheckbox.defaultValue(
+            title: DLabel(child: Text('Accept terms and conditions')),
+          ),
           SizedBox(height: 20),
           DCheckbox.defaultValue(
             defaultValue: true,
@@ -115,24 +117,42 @@ DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
   DCheckbox.defaultValue(defaultValue: true, title: Text('Hard disks')),
   DCheckbox.defaultValue(title: Text('Connected servers')),
 ])''',
-      builder: (_) => const Column(
+      builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DLabel(child: Text('Show these items on the desktop:')),
-          SizedBox(height: 8),
-          Text('Select the items you want to show on the desktop.'),
-          SizedBox(height: 12),
-          DCheckbox.defaultValue(defaultValue: true, title: Text('Hard disks')),
-          SizedBox(height: 12),
-          DCheckbox.defaultValue(
-            defaultValue: true,
-            title: Text('External disks'),
+          const DLabel(
+            style: TextStyle(height: 20 / 14),
+            child: Text('Show these items on the desktop:'),
           ),
-          SizedBox(height: 12),
-          DCheckbox.defaultValue(title: Text('CDs, DVDs, and iPods')),
-          SizedBox(height: 12),
-          DCheckbox.defaultValue(title: Text('Connected servers')),
+          const SizedBox(height: 2),
+          Text(
+            'Select the items you want to show on the desktop.',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.5,
+              color: DTokens.of(context).mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (final (index, name) in [
+            'Hard disks',
+            'External disks',
+            'CDs, DVDs, and iPods',
+            'Connected servers',
+          ].indexed) ...[
+            if (index > 0) const SizedBox(height: 12),
+            DCheckbox.defaultValue(
+              defaultValue: index < 2,
+              title: DLabel(
+                style: const TextStyle(
+                  height: 1.375,
+                  fontWeight: FontWeight.w400,
+                ),
+                child: Text(name),
+              ),
+            ),
+          ],
         ],
       ),
     ),
@@ -233,67 +253,81 @@ class _SelectionTableState extends State<_SelectionTable> {
         scrollDirection: Axis.horizontal,
         child: SizedBox(
           width: 560,
-          child: Table(
-            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-            columnWidths: const {
-              0: FixedColumnWidth(40),
-              1: FlexColumnWidth(2),
-              2: FlexColumnWidth(3),
-              3: FlexColumnWidth(),
-            },
-            border: TableBorder(
-              horizontalInside: BorderSide(color: DTokens.of(context).border),
-            ),
-            children: [
-              TableRow(
-                children: [
-                  DCheckbox(
-                    value: selected.isEmpty
-                        ? false
-                        : selected.length == people.length
-                        ? true
-                        : null,
-                    tristate: true,
-                    semanticLabel: 'Select all people',
-                    onChanged: (_) => setState(
-                      () => selected = selected.length == people.length
-                          ? {}
-                          : people.toSet(),
-                    ),
-                  ),
-                  const Text('Name'),
-                  const Text('Email'),
-                  const Text('Role'),
-                ],
+          child: DefaultTextStyle.merge(
+            style: const TextStyle(fontSize: 14, height: 20 / 14),
+            child: Table(
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              columnWidths: const {
+                0: FixedColumnWidth(32),
+                1: FlexColumnWidth(2),
+                2: FlexColumnWidth(3),
+                3: FlexColumnWidth(),
+              },
+              border: TableBorder(
+                horizontalInside: BorderSide(color: DTokens.of(context).border),
               ),
-              for (final (index, person) in people.indexed)
+              children: [
                 TableRow(
-                  decoration: BoxDecoration(
-                    color: selected.contains(person)
-                        ? DTokens.of(context).muted.withValues(alpha: .5)
-                        : null,
-                  ),
                   children: [
                     DCheckbox(
-                      value: selected.contains(person),
-                      semanticLabel: 'Select $person',
-                      onChanged: (value) => setState(() {
-                        value == true
-                            ? selected.add(person)
-                            : selected.remove(person);
-                      }),
+                      value: selected.isEmpty
+                          ? false
+                          : selected.length == people.length
+                          ? true
+                          : null,
+                      tristate: true,
+                      semanticLabel: 'Select all people',
+                      onChanged: (_) => setState(
+                        () => selected = selected.length == people.length
+                            ? {}
+                            : people.toSet(),
+                      ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(person),
+                    const SizedBox(
+                      height: 40,
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text('Name'),
+                      ),
                     ),
-                    Text(
-                      '${person.toLowerCase().replaceAll(' ', '.')}@example.com',
-                    ),
-                    Text(const ['Admin', 'User', 'User', 'Editor'][index]),
+                    const Text('Email'),
+                    const Text('Role'),
                   ],
                 ),
-            ],
+                for (final (index, person) in people.indexed)
+                  TableRow(
+                    decoration: BoxDecoration(
+                      color: selected.contains(person)
+                          ? DTokens.of(context).muted.withValues(
+                              alpha: DTokens.of(context).muted.a * .5,
+                            )
+                          : null,
+                    ),
+                    children: [
+                      DCheckbox(
+                        value: selected.contains(person),
+                        semanticLabel: 'Select $person',
+                        onChanged: (value) => setState(() {
+                          value == true
+                              ? selected.add(person)
+                              : selected.remove(person);
+                        }),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.5),
+                        child: Text(
+                          person,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      Text(
+                        '${person.toLowerCase().replaceAll(' ', '.')}@example.com',
+                      ),
+                      Text(const ['Admin', 'User', 'User', 'Editor'][index]),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -362,6 +396,7 @@ class _NotificationCard extends StatefulWidget {
 class _NotificationCardState extends State<_NotificationCard> {
   bool checked = false;
   bool hovered = false;
+  bool focusVisible = false;
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
@@ -369,25 +404,46 @@ class _NotificationCardState extends State<_NotificationCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => hovered = true),
       onExit: (_) => setState(() => hovered = false),
-      child: DecoratedBox(
+      child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(tokens.radius + 4),
+          borderRadius: BorderRadius.circular(tokens.radius),
           border: Border.all(
-            color: checked
-                ? tokens.primary.withValues(alpha: dark ? .2 : .3)
+            color: focusVisible
+                ? tokens.focusRing
+                : checked
+                ? tokens.primary.withValues(
+                    alpha: tokens.primary.a * (dark ? .2 : .3),
+                  )
                 : tokens.border,
           ),
           color: hovered
-              ? tokens.muted.withValues(alpha: .5)
+              ? tokens.muted.withValues(alpha: tokens.muted.a * .5)
               : checked
-              ? tokens.primary.withValues(alpha: dark ? .1 : .05)
+              ? tokens.primary.withValues(
+                  alpha: tokens.primary.a * (dark ? .1 : .05),
+                )
               : null,
+        ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(tokens.radius),
+          border: Border.all(
+            color: focusVisible
+                ? tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5)
+                : Colors.transparent,
+            width: 3,
+            strokeAlign: BorderSide.strokeAlignOutside,
+          ),
         ),
         child: DCheckbox(
           value: checked,
+          showFocusRing: false,
+          onShowFocusHighlight: (value) => setState(() => focusVisible = value),
           onChanged: (value) => setState(() => checked = value == true),
           contentPadding: const EdgeInsets.all(10),
-          title: const Text('Enable notifications'),
+          title: const DLabel(
+            style: TextStyle(height: 20 / 14),
+            child: Text('Enable notifications'),
+          ),
           subtitle: const Text(
             'You can enable or disable notifications at any time.',
           ),
