@@ -131,3 +131,25 @@ wide widths, text scaling/RTL, Local Dates, quote permission, collapse through
 refresh and empty→ready. Validate mouse/trackpad horizontal scrolling and
 keyboard access. No browser/native slot, VoiceOver, iOS/Linux device inspection
 or pixel-parity claim has been made during independent implementation.
+
+
+## Prepared build evidence
+
+- Source commit: `f98c86e983088205647b11c97c6027ce706ad8dd`.
+- Build: `flutter build macos --debug --no-pub -t tool/table_review.dart`.
+- Copied bundle: `/tmp/table-review-7328/Table Review 7328.app`.
+- Verified final ID: `org.discourse.tablereview7328`; URL scheme:
+  `discourse-table-review-7328`; display name: `Table Review 7328`.
+- Xcode's debug settings overrode the temporary xcconfig bundle ID. The copied
+  bundle's Info.plist was corrected, then the entire copy was ad-hoc signed and
+  `codesign --verify --deep --strict --verbose=2` passed. The copied kernel
+  remained byte-identical to the original build kernel after this correction.
+- Kernel SHA256:
+  `8f46827b04e593cd6fa1f05daea14e315b1a00c42a60f4cf5291ea4b622a6e79`.
+- Every tracked `lib/` source, fixture entrypoint, root lock and Flutter pin was
+  hashed before and after building and matched. Temporary runner changes were
+  restored. Subsequent handoff commit changes documentation only.
+- Logs, source hashes and signature output:
+  `/tmp/table-review-7328/build.log`, `provenance.json`, `signature.log`.
+- No build touched `/Users/joffreyjaffeux/Code/discourse-native/build`.
+  The prepared app has not been launched. Status remains **awaiting_slot**.

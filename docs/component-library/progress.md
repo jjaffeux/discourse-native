@@ -1411,6 +1411,9 @@ Status: in_progress. Task: 01a0844a-0669-7780-92e8-33cc4314f64a. Branch: codex/u
 - flutter test --no-pub test/d_table_test.dart test/alert_tables_test.dart test/alert_data_test.dart test/alert_links_test.dart test/prometheus_alert_receiver_plugin_test.dart test/styleguide/styleguide_page_test.dart test/styleguide/skeleton_examples_test.dart --test-randomize-ordering-seed=9092026: 65 passed.
 - Widget checks: source geometry, spanning alignment/caption, semantic table-row-header-cell hierarchy, selected semantics, live multiplied alpha/reduced motion, borrowed controller, RTL large-text horizontal scrolling, keyboard menu edit and all examples at 360px/200%.
 - Native review fixture entrypoint tool/table_review.dart prepared; build provenance follows after source commit.
+- flutter build macos --debug --no-pub -t tool/table_review.dart: passed in isolated checkout; copied /tmp/table-review-7328/Table Review 7328.app, ID org.discourse.tablereview7328, URL scheme discourse-table-review-7328.
+- Build source f98c86e983088205647b11c97c6027ce706ad8dd; tracked lib/fixture/pin/root-lock bytes unchanged, temporary runner edits restored. Copied kernel equals original build kernel SHA256 8f46827b04e593cd6fa1f05daea14e315b1a00c42a60f4cf5291ea4b622a6e79.
+- Copied Info.plist ID corrected after debug configuration override; ad-hoc codesign and codesign --verify --deep --strict passed. Detailed build log/provenance/signature in /tmp/table-review-7328/. Native app has not been launched.
 
 **limitations**
 
