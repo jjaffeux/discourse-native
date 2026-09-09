@@ -205,23 +205,23 @@ class _PreferencesPageState extends State<PreferencesPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                DSelectField<PreferenceSection>(
-                  key: ValueKey(('preferences-section', selected)),
-                  initialValue: selected,
+                DNativeSelect<PreferenceSection>.controlled(
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Preference section',
-                  ),
-                  items: [
+                  placeholderEnabled: false,
+                  key: ValueKey(('preferences-section', selected)),
+                  value: selected,
+                  label: 'Preference section',
+                  entries: [
                     for (final section in sections)
-                      DropdownMenuItem(
+                      DNativeSelectOption(
                         value: section,
-                        child: Text(_sectionTitle(section, pluginSections)),
+                        label: _sectionTitle(section, pluginSections),
                       ),
                   ],
                   onChanged: (section) {
                     if (section != null) _selectSection(section);
                   },
+                  initialValue: selected,
                 ),
                 const SizedBox(height: 28),
                 _buildSection(
@@ -541,22 +541,21 @@ class _NotificationsForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PreferenceCard(
       children: [
-        DSelectField<int>(
+        DNativeSelect<int>.controlled(
+          isExpanded: true,
+          placeholderEnabled: false,
           key: ValueKey((
             'like-notification-frequency',
             preferences.likeNotificationFrequency,
           )),
-          initialValue: preferences.likeNotificationFrequency,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Like notifications',
-            helperText: 'Choose when likes should create a notification.',
-          ),
-          items: const [
-            DropdownMenuItem(value: 0, child: Text('Always')),
-            DropdownMenuItem(value: 1, child: Text('First time and daily')),
-            DropdownMenuItem(value: 2, child: Text('First time')),
-            DropdownMenuItem(value: 3, child: Text('Never')),
+          value: preferences.likeNotificationFrequency,
+          label: 'Like notifications',
+          description: 'Choose when likes should create a notification.',
+          entries: const [
+            DNativeSelectOption(value: 0, label: 'Always'),
+            DNativeSelectOption(value: 1, label: 'First time and daily'),
+            DNativeSelectOption(value: 2, label: 'First time'),
+            DNativeSelectOption(value: 3, label: 'Never'),
           ],
           onChanged: enabled
               ? (value) {
@@ -567,6 +566,7 @@ class _NotificationsForm extends StatelessWidget {
                   );
                 }
               : null,
+          initialValue: preferences.likeNotificationFrequency,
         ),
         const SizedBox(height: 20),
         SwitchListTile.adaptive(
@@ -606,24 +606,23 @@ class _TrackingForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PreferenceCard(
       children: [
-        DSelectField<int>(
+        DNativeSelect<int>.controlled(
+          isExpanded: true,
+          placeholderEnabled: false,
           key: ValueKey((
             'new-topic-duration',
             preferences.newTopicDurationMinutes,
           )),
-          initialValue: preferences.newTopicDurationMinutes,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Consider topics new',
-            helperText: 'Controls which topics appear as new to this account.',
-          ),
-          items: const [
-            DropdownMenuItem(value: -1, child: Text('Until I view them')),
-            DropdownMenuItem(value: 1440, child: Text('For one day')),
-            DropdownMenuItem(value: 2880, child: Text('For two days')),
-            DropdownMenuItem(value: 10080, child: Text('For one week')),
-            DropdownMenuItem(value: 20160, child: Text('For two weeks')),
-            DropdownMenuItem(value: -2, child: Text('Since my last visit')),
+          value: preferences.newTopicDurationMinutes,
+          label: 'Consider topics new',
+          description: 'Controls which topics appear as new to this account.',
+          entries: const [
+            DNativeSelectOption(value: -1, label: 'Until I view them'),
+            DNativeSelectOption(value: 1440, label: 'For one day'),
+            DNativeSelectOption(value: 2880, label: 'For two days'),
+            DNativeSelectOption(value: 10080, label: 'For one week'),
+            DNativeSelectOption(value: 20160, label: 'For two weeks'),
+            DNativeSelectOption(value: -2, label: 'Since my last visit'),
           ],
           onChanged: enabled
               ? (value) {
@@ -634,29 +633,29 @@ class _TrackingForm extends StatelessWidget {
                   );
                 }
               : null,
+          initialValue: preferences.newTopicDurationMinutes,
         ),
         const SizedBox(height: 20),
-        DSelectField<int>(
+        DNativeSelect<int>.controlled(
+          isExpanded: true,
+          placeholderEnabled: false,
           key: ValueKey((
             'auto-track-duration',
             preferences.autoTrackTopicsAfterMsecs,
           )),
-          initialValue: preferences.autoTrackTopicsAfterMsecs,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Automatically track topics',
-            helperText: 'Track a topic after you have read it for this long.',
-          ),
-          items: const [
-            DropdownMenuItem(value: -1, child: Text('Never')),
-            DropdownMenuItem(value: 0, child: Text('Immediately')),
-            DropdownMenuItem(value: 30000, child: Text('After 30 seconds')),
-            DropdownMenuItem(value: 60000, child: Text('After 1 minute')),
-            DropdownMenuItem(value: 120000, child: Text('After 2 minutes')),
-            DropdownMenuItem(value: 180000, child: Text('After 3 minutes')),
-            DropdownMenuItem(value: 240000, child: Text('After 4 minutes')),
-            DropdownMenuItem(value: 300000, child: Text('After 5 minutes')),
-            DropdownMenuItem(value: 600000, child: Text('After 10 minutes')),
+          value: preferences.autoTrackTopicsAfterMsecs,
+          label: 'Automatically track topics',
+          description: 'Track a topic after you have read it for this long.',
+          entries: const [
+            DNativeSelectOption(value: -1, label: 'Never'),
+            DNativeSelectOption(value: 0, label: 'Immediately'),
+            DNativeSelectOption(value: 30000, label: 'After 30 seconds'),
+            DNativeSelectOption(value: 60000, label: 'After 1 minute'),
+            DNativeSelectOption(value: 120000, label: 'After 2 minutes'),
+            DNativeSelectOption(value: 180000, label: 'After 3 minutes'),
+            DNativeSelectOption(value: 240000, label: 'After 4 minutes'),
+            DNativeSelectOption(value: 300000, label: 'After 5 minutes'),
+            DNativeSelectOption(value: 600000, label: 'After 10 minutes'),
           ],
           onChanged: enabled
               ? (value) {
@@ -667,23 +666,23 @@ class _TrackingForm extends StatelessWidget {
                   );
                 }
               : null,
+          initialValue: preferences.autoTrackTopicsAfterMsecs,
         ),
         const SizedBox(height: 20),
-        DSelectField<int>(
+        DNativeSelect<int>.controlled(
+          isExpanded: true,
+          placeholderEnabled: false,
           key: ValueKey((
             'reply-notification-level',
             preferences.notificationLevelWhenReplying,
           )),
-          initialValue: preferences.notificationLevelWhenReplying,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'When I reply to a topic',
-            helperText: 'Choose the notification level applied after a reply.',
-          ),
-          items: const [
-            DropdownMenuItem(value: 3, child: Text('Watch the topic')),
-            DropdownMenuItem(value: 2, child: Text('Track the topic')),
-            DropdownMenuItem(value: 1, child: Text('Keep the current level')),
+          value: preferences.notificationLevelWhenReplying,
+          label: 'When I reply to a topic',
+          description: 'Choose the notification level applied after a reply.',
+          entries: const [
+            DNativeSelectOption(value: 3, label: 'Watch the topic'),
+            DNativeSelectOption(value: 2, label: 'Track the topic'),
+            DNativeSelectOption(value: 1, label: 'Keep the current level'),
           ],
           onChanged: enabled
               ? (value) {
@@ -694,6 +693,7 @@ class _TrackingForm extends StatelessWidget {
                   );
                 }
               : null,
+          initialValue: preferences.notificationLevelWhenReplying,
         ),
       ],
     );
@@ -805,33 +805,32 @@ class _InterfaceForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PreferenceCard(
       children: [
-        DSelectField<BookmarkAutoDeletePreference>(
+        DNativeSelect<BookmarkAutoDeletePreference>.controlled(
+          isExpanded: true,
+          placeholderEnabled: false,
           key: ValueKey((
             'bookmark-auto-delete',
             preferences.bookmarkAutoDeletePreference,
           )),
-          initialValue: preferences.bookmarkAutoDeletePreference,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Automatically delete bookmarks',
-            helperText: 'Choose what happens after a bookmark reminder.',
-          ),
-          items: const [
-            DropdownMenuItem(
+          value: preferences.bookmarkAutoDeletePreference,
+          label: 'Automatically delete bookmarks',
+          description: 'Choose what happens after a bookmark reminder.',
+          entries: const [
+            DNativeSelectOption(
               value: BookmarkAutoDeletePreference.never,
-              child: Text('Never'),
+              label: 'Never',
             ),
-            DropdownMenuItem(
+            DNativeSelectOption(
               value: BookmarkAutoDeletePreference.whenReminderSent,
-              child: Text('After the reminder is sent'),
+              label: 'After the reminder is sent',
             ),
-            DropdownMenuItem(
+            DNativeSelectOption(
               value: BookmarkAutoDeletePreference.onOwnerReply,
-              child: Text('When the topic owner replies'),
+              label: 'When the topic owner replies',
             ),
-            DropdownMenuItem(
+            DNativeSelectOption(
               value: BookmarkAutoDeletePreference.clearReminder,
-              child: Text('When the reminder is cleared'),
+              label: 'When the reminder is cleared',
             ),
           ],
           onChanged: enabled
@@ -839,6 +838,7 @@ class _InterfaceForm extends StatelessWidget {
                   if (value != null) onBookmarkChanged(value);
                 }
               : null,
+          initialValue: preferences.bookmarkAutoDeletePreference,
         ),
       ],
     );

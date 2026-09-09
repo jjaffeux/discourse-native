@@ -683,22 +683,18 @@ class _AssignedQueryControls extends StatelessWidget {
         ),
       ),
     );
-    final order = DropdownButtonFormField<AssignedGroupOrder?>(
-      key: ValueKey('assigned-order-${query.order?.wireName ?? 'default'}'),
-      initialValue: query.order,
+    final order = DNativeSelect<AssignedGroupOrder>.controlled(
       isExpanded: true,
-      decoration: const InputDecoration(
-        border: OutlineInputBorder(),
-        isDense: true,
-      ),
-      items: const [
-        DropdownMenuItem(value: null, child: Text('Default order')),
-        DropdownMenuItem(
+      placeholder: 'Default order',
+      key: ValueKey('assigned-order-${query.order?.wireName ?? 'default'}'),
+      value: query.order,
+      entries: const [
+        DNativeSelectOption(
           value: AssignedGroupOrder.activity,
-          child: Text('Activity'),
+          label: 'Activity',
         ),
-        DropdownMenuItem(value: AssignedGroupOrder.posts, child: Text('Posts')),
-        DropdownMenuItem(value: AssignedGroupOrder.views, child: Text('Views')),
+        DNativeSelectOption(value: AssignedGroupOrder.posts, label: 'Posts'),
+        DNativeSelectOption(value: AssignedGroupOrder.views, label: 'Views'),
       ],
       onChanged: (value) => onQueryChanged(
         AssignedGroupTopicQuery(
@@ -707,6 +703,7 @@ class _AssignedQueryControls extends StatelessWidget {
           search: query.search,
         ),
       ),
+      initialValue: query.order,
     );
     final direction = DTooltip(
       message: query.ascending ? 'Descending' : 'Ascending',

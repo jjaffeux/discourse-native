@@ -694,7 +694,8 @@ Widget _postActionsHost(
   platform,
   SizedBox(
     width: 240,
-    height: 100,
+    // Accommodate the final Button touch targets in both action rows.
+    height: 120,
     child: PostActions(
       siteUrl: _site,
       post: post,

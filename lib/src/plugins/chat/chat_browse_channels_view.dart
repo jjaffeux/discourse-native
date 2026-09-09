@@ -163,20 +163,17 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
               Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<ChatChannelBrowseStatus>(
-                      key: const ValueKey('chat-browse-status'),
-                      initialValue: _status,
+                    child: DNativeSelect<ChatChannelBrowseStatus>.controlled(
                       isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Status',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: [
+                      placeholderEnabled: false,
+                      key: const ValueKey('chat-browse-status'),
+                      value: _status,
+                      label: 'Status',
+                      entries: [
                         for (final status in ChatChannelBrowseStatus.values)
-                          DropdownMenuItem(
+                          DNativeSelectOption(
                             value: status,
-                            child: Text(_statusLabel(status)),
+                            label: _statusLabel(status),
                           ),
                       ],
                       onChanged: (status) {
@@ -184,29 +181,28 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                         setState(() => _status = status);
                         unawaited(_load(reset: true));
                       },
+                      initialValue: _status,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: DropdownButtonFormField<ChatChannelJoinedFilter>(
-                      key: const ValueKey('chat-browse-joined'),
-                      initialValue: _joined,
+                    child: DNativeSelect<ChatChannelJoinedFilter>.controlled(
                       isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Membership',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: [
+                      placeholderEnabled: false,
+                      key: const ValueKey('chat-browse-joined'),
+                      value: _joined,
+                      label: 'Membership',
+                      entries: [
                         for (final joined in ChatChannelJoinedFilter.values)
-                          DropdownMenuItem(
+                          DNativeSelectOption(
                             value: joined,
-                            child: Text(_joinedLabel(joined)),
+                            label: _joinedLabel(joined),
                           ),
                       ],
                       onChanged: (joined) {
                         if (joined != null) setState(() => _joined = joined);
                       },
+                      initialValue: _joined,
                     ),
                   ),
                 ],
