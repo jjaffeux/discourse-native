@@ -1,6 +1,6 @@
 # Drawer reference mapping
 
-Captured 2026-09-09 from the frozen official sources.
+Captured 2026-09-10 from the frozen official sources.
 
 - shadcn Markdown: `https://ui.shadcn.com/docs/components/base/drawer.md`
   SHA-256 `e3fca4a3433436c5eb043a1075f04d064f97add28e4d89872a9a01fe493cc63a`
@@ -18,8 +18,12 @@ content-sized and capped at viewport height minus 96px. Side content is 75% of
 the viewport and becomes 384px at 640px and wider. Header and footer padding is
 16px; header title/description gap is 2px and footer action gap is 8px. The
 title is 16px medium with heading font; the description/body is 14px with 20px
-leading. The optional handle has a 12px-deep hit strip and a 96×4px visual on
-the vertical axis, rotated to 4×96px on the horizontal axis.
+leading. Vertical headers center below the 768px breakpoint and use logical
+start alignment from that breakpoint onward. The optional handle has a
+12px-deep hit strip and a 96×4px visual on the vertical axis, rotated to
+4×96px on the horizontal axis. It hugs the content-facing edge, follows the
+direction-specific flex order, and fades independently from the content when a
+nested drawer opens.
 
 The overlay is black at 10% plus a 4px backdrop blur. Its opacity follows the
 remaining swipe progress, with a 50% minimum while snap points are active.

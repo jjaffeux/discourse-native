@@ -1576,6 +1576,32 @@ class DDrawerContent extends StatelessWidget {
       _ => null,
     };
     final bleed = bleedBackground ?? tokens.surface;
+    final nestedOpacity = scope.nestedDepth > 0 && !scope.swiping ? 0.0 : 1.0;
+    final drawerContent = Flexible(
+      fit: scope.hasSnapPoints || !vertical || height != null
+          ? FlexFit.tight
+          : FlexFit.loose,
+      child: AnimatedOpacity(
+        opacity: nestedOpacity,
+        duration: DMotion.duration(context, const Duration(milliseconds: 300)),
+        curve: const Cubic(.45, 1.005, 0, 1),
+        child: Column(
+          mainAxisSize: vertical && !scope.hasSnapPoints && height == null
+              ? MainAxisSize.min
+              : MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
+      ),
+    );
+    final swipeHandle = AnimatedOpacity(
+      opacity: nestedOpacity,
+      duration: DMotion.duration(context, const Duration(milliseconds: 200)),
+      child: const DDrawerSwipeHandle(),
+    );
+    final handleLast =
+        direction == DDrawerSwipeDirection.up ||
+        direction == DDrawerSwipeDirection.left;
     final contentColumn = Flex(
       direction: vertical ? Axis.vertical : Axis.horizontal,
       mainAxisSize: vertical && !scope.hasSnapPoints && height == null
@@ -1583,19 +1609,9 @@ class DDrawerContent extends StatelessWidget {
           : MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (scope.showSwipeHandle) const DDrawerSwipeHandle(),
-        Flexible(
-          fit: scope.hasSnapPoints || !vertical || height != null
-              ? FlexFit.tight
-              : FlexFit.loose,
-          child: Column(
-            mainAxisSize: vertical && !scope.hasSnapPoints && height == null
-                ? MainAxisSize.min
-                : MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
-        ),
+        if (scope.showSwipeHandle && !handleLast) swipeHandle,
+        drawerContent,
+        if (scope.showSwipeHandle && handleLast) swipeHandle,
       ],
     );
     Widget body = Material(
@@ -1610,12 +1626,7 @@ class DDrawerContent extends StatelessWidget {
         letterSpacing: 0,
         color: tokens.foreground,
       ),
-      child: AnimatedOpacity(
-        opacity: scope.nestedDepth > 0 && !scope.swiping ? 0 : 1,
-        duration: DMotion.duration(context, const Duration(milliseconds: 300)),
-        curve: const Cubic(.45, 1.005, 0, 1),
-        child: contentColumn,
-      ),
+      child: contentColumn,
     );
     body = Stack(
       clipBehavior: Clip.none,
@@ -1699,7 +1710,16 @@ class DDrawerSwipeHandle extends StatelessWidget {
           child: SizedBox(
             width: vertical ? double.infinity : 12,
             height: vertical ? 12 : double.infinity,
-            child: Center(child: handle),
+            child: Align(
+              alignment: switch (content.direction) {
+                DDrawerSwipeDirection.down => Alignment.bottomCenter,
+                DDrawerSwipeDirection.up => Alignment.topCenter,
+                DDrawerSwipeDirection.right => Alignment.centerRight,
+                DDrawerSwipeDirection.left => Alignment.centerLeft,
+                _ => Alignment.center,
+              },
+              child: handle,
+            ),
           ),
         ),
       ),
@@ -1722,7 +1742,11 @@ class DDrawerHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 0),
       child: DefaultTextStyle.merge(
-        textAlign: textAlign ?? (vertical ? TextAlign.center : TextAlign.start),
+        textAlign:
+            textAlign ??
+            (vertical && MediaQuery.sizeOf(context).width < 768
+                ? TextAlign.center
+                : TextAlign.start),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
