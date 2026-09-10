@@ -62,4 +62,32 @@ editing when the pencil cannot fit.
   categories and discovery tags. It supplies palette, width, text scale,
   direction, empty-result and search-error controls without account writes.
 
-Native review and local merge evidence will be recorded after execution.
+The implementation commit is `a4ff463a`. Integration with the concurrent
+composer taxonomy-button and topic-navigation work preserved `TopicTaxonomyButton`
+and added Native anchors/triggers around it. The integration run passed 84
+composer, header and adoption checks, plus root analysis. A further six focused
+read-only/category navigation checks passed after the final link-semantics fix.
+
+The actual macOS fixture was built with `flutter build macos --debug --no-pub
+--target tool/topic_taxonomy_review_main.dart`. Its isolated ad-hoc bundle
+`org.discourse.native.topic-taxonomy-review` passed deep/strict signature
+verification and launched successfully. Restricted push/team/application
+identity entitlements were omitted; the real app's signing settings were unchanged.
+The inspected integrated kernel SHA-256 was
+`276b9787f4e2c70ae16d6ebbdc22ad3c32498660f9cc9cdc39eb806a3d6112bb`.
+
+Native inspection covered dark and light headers, category search for `todo`
+and Enter selection with a changed tint, the empty subcategory list and Remove
+subcategory, tag browsing with no tag save, selecting `approved`, creating
+`native-review` with Enter, and selected-tag removal. Browsing changes the fake
+shell route, so Restore/Reset topic returns to the topic before subsequent
+editing; the normal stale-topic error guard was also observed. Plum at 320px,
+200% text and RTL retained reachable category and tag-overflow controls, wrapping
+menu rows, and a readable category-search error. Escape dismissed the menu.
+Native AX exposed separate category edit/browse controls and tag checkboxes/browse
+links. Spoken VoiceOver, iOS and Linux device sessions were not run.
+
+The isolated app was quit using its native menu, its process disappearance was
+verified, and the desktop lease was released. The Native kit's existing
+styleguide/color capability evidence remains in `button-custom-colors.md`;
+this review exercised the actual production header and editors.

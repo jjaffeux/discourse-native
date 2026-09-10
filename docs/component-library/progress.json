@@ -486,7 +486,7 @@
         "mergeVerification": "Merged with --no-ff from the main checkout. The merge tree exactly matches verified branch commit 3309eff1a84de9e289a9387c5316e7da58275816."
       },
       "topicTaxonomyMigration": {
-        "status": "implemented",
+        "status": "verified",
         "taskId": "01a08d19-7072-7dc2-8a77-2dcebba886b6",
         "branch": "codex/topic-taxonomy-ui-kit",
         "dependencies": [
@@ -506,7 +506,16 @@
           "Use Native popovers for pointer input and Native drawers for touch; keep search visible while results scroll.",
           "Pass focused interactions, analysis and a native fixture mounting the production widgets before the authorized local main merge."
         ],
-        "evidence": "docs/component-library/topic-taxonomy-migration.md"
+        "evidence": "docs/component-library/topic-taxonomy-migration.md",
+        "implementationCommit": "a4ff463a",
+        "integrationBranch": "codex/topic-taxonomy-ui-kit-merge",
+        "nativeKernelSha256": "276b9787f4e2c70ae16d6ebbdc22ad3c32498660f9cc9cdc39eb806a3d6112bb",
+        "verification": [
+          "151 focused tests passed; the final link-semantics fix passed six focused category/read-only checks.",
+          "Integration with current main preserved TopicTaxonomyButton and passed 84 composer/header/adoption checks and root analysis.",
+          "Actual macOS production fixture: dark/light and Plum, 320px/200%/RTL, search and Enter category selection, empty subcategory removal, tag browse/select/create/remove, and search errors.",
+          "Native AX exposes independent edit/browse controls and checkbox/link pairs. Isolated app quit, process disappearance verified and desktop lease released. No iOS/Linux device or spoken VoiceOver session."
+        ]
       }
     },
     {

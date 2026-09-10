@@ -28,8 +28,8 @@ The example also includes a disabled tinted button.
 
 `tool/button_custom_colors_review_main.dart` mounts that actual example with
 light/dark/custom palettes, width, text-scale and direction controls. It uses
-local sample data and does not access accounts. Production category/tag pickers
-remain the existing app adapters; this follow-up adds the requested kit capacity.
+local sample data and does not access accounts. This follow-up supplied the kit capacity. The later production adoption is
+documented in [Topic taxonomy migration](topic-taxonomy-migration.md).
 
 ## Verification
 
