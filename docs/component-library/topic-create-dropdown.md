@@ -7,9 +7,8 @@ placement, dismissal, menu navigation, and trigger focus. Recent draft icons,
 titles, the four-item limit, resume behavior, and the all-drafts destination
 remain application-owned.
 
-The migration exposed an autofocus gap in asynchronous menus. The user
-authorized finishing the fix and merging on 2026-09-10. Menu autofocus now
-waits for the first enabled item to register, applies once, and respects
+The migration exposed an autofocus gap in asynchronous menus. Menu autofocus
+now waits for the first enabled item to register, applies once, and respects
 `autofocus: false` and an existing item focus. Loading completion after dismissal
 cannot reopen the menu or move focus.
 
@@ -25,9 +24,11 @@ Flutter 3.47.2 / Dart 3.13.2, macOS, 2026-09-10:
   empty/error responses, dismissal during loading, keyboard navigation and
   restoration, separate callbacks, scaled text, RTL corners, icons, the four-row
   limit, draft resumption, and navigation to all drafts.
-- The two existing `draft_list_test.dart` assertions about sidebar font weight
-  and a `Row` trailing layout fail identically with both production files
-  restored to baseline `a75a0e8e`. They are unrelated to this migration.
+- An initial run exposed two stale sidebar assertions, also reproduced with
+  both production files restored to baseline `a75a0e8e`. Current main fixed
+  those assertions independently. After integration with `fa01bb4b`, all
+  **107** focused component/application tests and all **27** draft-list tests
+  passed, including the newly merged draft editing behavior.
 
 ## Native inspection
 
