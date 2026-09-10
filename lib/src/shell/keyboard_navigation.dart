@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
 
@@ -83,30 +86,108 @@ class ReadingShortcuts extends StatefulWidget {
     super.key,
     required this.commands,
     required this.child,
+    this.sequenceContext,
   });
 
   final Map<ReadingCommand, bool Function()> commands;
   final Widget child;
+  final Object? sequenceContext;
 
   @override
   State<ReadingShortcuts> createState() => _ReadingShortcutsState();
 }
 
 class _ReadingShortcutsState extends State<ReadingShortcuts> {
+  static final _scopes = <_ReadingShortcutsState>[];
+
+  // Flutter calls every early handler even when one returns handled. Dispatch
+  // reading commands together so a sequence cannot also move the post cursor.
+  static KeyEventResult _dispatchKey(KeyEvent event) {
+    final scopes = List.of(_scopes);
+    for (final sequences in [true, false]) {
+      for (final scope in scopes) {
+        if (!scope.mounted ||
+            scope.widget.commands.keys.any(
+                  (command) => command.prefix != null,
+                ) !=
+                sequences) {
+          continue;
+        }
+        final result = scope._handleKey(event);
+        if (result != KeyEventResult.ignored) return result;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  List<ReadingCommand> _pendingSequence = const [];
+  Timer? _sequenceTimer;
+  LogicalKeyboardKey? _heldSequenceKey;
+
   @override
   void initState() {
     super.initState();
-    FocusManager.instance.addEarlyKeyEventHandler(_handleKey);
+    if (_scopes.isEmpty) {
+      FocusManager.instance.addEarlyKeyEventHandler(_dispatchKey);
+    }
+    _scopes.add(this);
+    FocusManager.instance.addListener(_resetSequence);
+  }
+
+  @override
+  void didUpdateWidget(ReadingShortcuts oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sequenceContext != widget.sequenceContext) _resetSequence();
+  }
+
+  void _resetSequence() {
+    _sequenceTimer?.cancel();
+    _sequenceTimer = null;
+    _pendingSequence = const [];
   }
 
   @override
   void dispose() {
-    FocusManager.instance.removeEarlyKeyEventHandler(_handleKey);
+    _resetSequence();
+    FocusManager.instance.removeListener(_resetSequence);
+    _scopes.remove(this);
+    if (_scopes.isEmpty) {
+      FocusManager.instance.removeEarlyKeyEventHandler(_dispatchKey);
+    }
     super.dispose();
   }
 
   KeyEventResult _handleKey(KeyEvent event) {
+    if (event.logicalKey == _heldSequenceKey) {
+      if (event is KeyUpEvent) _heldSequenceKey = null;
+      return KeyEventResult.handled;
+    }
+    if (_pendingSequence.isNotEmpty && event is KeyDownEvent) {
+      final pending = _pendingSequence;
+      _resetSequence();
+      if (!navigationShortcutsAllowed(context)) return KeyEventResult.ignored;
+      for (final command in pending) {
+        if (!command.accepts(event)) continue;
+        _heldSequenceKey = event.logicalKey;
+        widget.commands[command]?.call();
+        // A completed sequence must not fall through to the single-key post
+        // command when there is no adjacent topic to open.
+        return KeyEventResult.handled;
+      }
+    }
+    final sequences = [
+      for (final command in widget.commands.keys)
+        if (command.prefix?.accepts(event, HardwareKeyboard.instance) == true)
+          command,
+    ];
+    if (sequences.isNotEmpty && navigationShortcutsAllowed(context)) {
+      _resetSequence();
+      _pendingSequence = sequences;
+      _sequenceTimer = Timer(const Duration(seconds: 1), _resetSequence);
+      return KeyEventResult.handled;
+    }
     for (final entry in widget.commands.entries) {
+      if (entry.key.prefix != null) continue;
       if (!entry.key.accepts(event)) continue;
       if (!navigationShortcutsAllowed(
         context,
@@ -120,7 +201,8 @@ class _ReadingShortcutsState extends State<ReadingShortcuts> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) =>
+      Listener(onPointerDown: (_) => _resetSequence(), child: widget.child);
 }
 
 class KeyboardSelection extends StatelessWidget {

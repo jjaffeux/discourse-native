@@ -65,6 +65,12 @@ SingleActivator refreshTabShortcutForPlatform(TargetPlatform platform) =>
     : const SingleActivator(LogicalKeyboardKey.f5, includeRepeats: false);
 
 enum ReadingCommand {
+  openNextTopic('Open next topic', [
+    SingleActivator(LogicalKeyboardKey.keyJ, includeRepeats: false),
+  ], prefix: SingleActivator(LogicalKeyboardKey.keyG, includeRepeats: false)),
+  openPreviousTopic('Open previous topic', [
+    SingleActivator(LogicalKeyboardKey.keyK, includeRepeats: false),
+  ], prefix: SingleActivator(LogicalKeyboardKey.keyG, includeRepeats: false)),
   nextTopic('Next topic in the list', [
     SingleActivator(LogicalKeyboardKey.keyJ, shift: true),
   ]),
@@ -88,10 +94,11 @@ enum ReadingCommand {
   ]),
   help('Keyboard shortcuts', [CharacterActivator('?', includeRepeats: false)]);
 
-  const ReadingCommand(this.label, this.shortcuts);
+  const ReadingCommand(this.label, this.shortcuts, {this.prefix});
 
   final String label;
   final List<ShortcutActivator> shortcuts;
+  final SingleActivator? prefix;
 
   bool accepts(KeyEvent event) => shortcuts.any(
     (shortcut) => shortcut.accepts(event, HardwareKeyboard.instance),

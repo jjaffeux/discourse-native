@@ -20,6 +20,137 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  for (final size in [desktop, phone]) {
+    testWidgets('G J and G K open adjacent topics at ${size.width}px', (
+      tester,
+    ) async {
+      final setup = await _setup(tester, size: size);
+      setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+      await tester.pumpAndSettle();
+      final source = setup.shell.topicListContent;
+
+      await _openAdjacent(tester, next: true);
+      expect(setup.shell.currentContent?.topicId, 2);
+      expect(setup.shell.currentContent?.postNumber, 2);
+      expect(setup.shell.topicListContent, source);
+      expect(setup.shell.contentStack, hasLength(2));
+      expect(_selectedPosts(tester), isEmpty);
+
+      await _openAdjacent(tester, next: false);
+      expect(setup.shell.currentContent?.topicId, 1);
+      await _openAdjacent(tester, next: false);
+      expect(setup.shell.currentContent?.topicId, 1);
+      expect(_selectedPosts(tester), isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'expired and interrupted topic sequences leave J as a post command',
+    (tester) async {
+      final setup = await _setup(tester);
+      setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.pump(const Duration(milliseconds: 1100));
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentContent?.topicId, 1);
+      expect(_selectedPosts(tester), isNotEmpty);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentContent?.topicId, 1);
+      await _openAdjacent(tester, next: true);
+      expect(setup.shell.currentContent?.topicId, 2);
+    },
+  );
+
+  testWidgets('a topic sequence is cancelled when another topic opens', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final rows = setup.api.feeds['/latest.json']!;
+    setup.shell.openTopicFromList(rows.first);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    setup.shell.openTopicFromList(rows[1]);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pumpAndSettle();
+    expect(setup.shell.currentContent?.topicId, 2);
+    expect(_selectedPosts(tester), isNotEmpty);
+  });
+
+  testWidgets(
+    'holding a completed topic sequence does not repeat or move posts',
+    (tester) async {
+      final setup = await _setup(tester);
+      setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyJ);
+      await tester.pumpAndSettle();
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyJ);
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentContent?.topicId, 2);
+      expect(_selectedPosts(tester), isEmpty);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyJ);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.pumpAndSettle();
+      expect(_selectedPosts(tester), isNotEmpty);
+    },
+  );
+
+  for (final outcome in [
+    'finish',
+    'change topic',
+    'change tab',
+    'return to tab',
+    'focus search',
+  ]) {
+    testWidgets('adjacent topic pagination respects $outcome', (tester) async {
+      final gate = Completer<void>();
+      final setup = await _setup(tester, nextPageGate: gate);
+      final rows = setup.api.feeds['/latest.json']!;
+      final originalTab = setup.shell.activeTabId!;
+      setup.shell.openTopicFromList(rows.last);
+      await tester.pumpAndSettle();
+      await _openAdjacent(tester, next: true, settle: false);
+      await _openAdjacent(tester, next: true, settle: false);
+      expect(
+        setup.api.feedPaths.where((path) => path == '/latest.json?page=1'),
+        hasLength(1),
+      );
+      if (outcome == 'change topic') {
+        setup.shell.openTopicFromList(rows.first);
+      } else if (outcome == 'change tab') {
+        setup.shell.createTab();
+      } else if (outcome == 'return to tab') {
+        setup.shell.createTab();
+        setup.shell.selectTab(originalTab);
+      } else if (outcome == 'focus search') {
+        await tester.tap(find.byType(EditableText).first);
+      }
+      await tester.pump();
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentContent?.topicId, switch (outcome) {
+        'finish' => 31,
+        'change topic' => 1,
+        'change tab' => null,
+        _ => 30,
+      });
+      if (outcome == 'finish') {
+        await _openAdjacent(tester, next: true);
+        expect(setup.shell.currentContent?.topicId, 31);
+        expect(_selectedPosts(tester), isEmpty);
+      }
+      expect(tester.takeException(), isNull);
+    }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+  }
   for (final openWithKeyboard in [false, true]) {
     testWidgets(
       'opening a topic with ${openWithKeyboard ? 'the keyboard' : 'the mouse'} keeps one row border as the cursor moves',
@@ -202,7 +333,10 @@ void main() {
       LogicalKeyboardKey.keyO,
       LogicalKeyboardKey.enter,
       LogicalKeyboardKey.keyU,
+      LogicalKeyboardKey.keyG,
       LogicalKeyboardKey.keyJ,
+      LogicalKeyboardKey.keyG,
+      LogicalKeyboardKey.keyK,
       LogicalKeyboardKey.keyR,
     ]) {
       await tester.sendKeyEvent(key);
@@ -220,6 +354,8 @@ void main() {
       findsOneWidget,
     );
     await _moveTopic(tester, next: true, handled: false);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
@@ -416,6 +552,25 @@ Iterable<BorderSide> _topicBorders(WidgetTester tester, int topicId) sync* {
     if (side != null && side.style == BorderStyle.solid && side.color.a > 0) {
       yield side;
     }
+  }
+}
+
+Future<void> _openAdjacent(
+  WidgetTester tester, {
+  required bool next,
+  bool settle = true,
+}) async {
+  expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyG), isTrue);
+  expect(
+    await tester.sendKeyEvent(
+      next ? LogicalKeyboardKey.keyJ : LogicalKeyboardKey.keyK,
+    ),
+    isTrue,
+  );
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
   }
 }
 
