@@ -4679,9 +4679,11 @@
         "mergeCommit": "42c9f2d437d53364b5b00ff94a67cd65668ae5af",
         "alignmentFollowUp": {
           "branch": "codex/fix-sidebar-action-alignment",
-          "status": "verified",
+          "status": "merged",
           "scope": "Vertically center trailing actions and badges within the primary row instead of using a fixed top offset.",
-          "verification": "51 Sidebar, Sidebar example and styleguide-page tests passed; fatal-info root analysis clean; native macOS project-row alignment, menu opening and Share feedback verified in the current dark app palette."
+          "verification": "51 Sidebar, Sidebar example and styleguide-page tests passed; fatal-info root analysis clean; native macOS project-row alignment, menu opening and Share feedback verified in the current dark app palette.",
+          "implementationCommit": "77e194f1753cd6dfb35e3fe5d2175408d8dd3f93",
+          "mergeCommit": "59174ab5f99ccd66fd90b7f1d17c1aa68ff39e4c"
         }
       }
     },
