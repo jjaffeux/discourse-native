@@ -4603,7 +4603,7 @@
         "Coordinator integration passed the 160 affected tests plus the final 14 styleguide-page tests. Compact menu semantic bounds have a dedicated regression; native first-adoption observations and final-scrollbar limit are recorded in docs/component-library/styleguide-design.md.",
         "Merged separately into local main at 93bfcf65f64868c92340f9aec8236d77585c3cd8; documentation adoption and semantic-bound corrections are included by 0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5. The integrated real application build passes.",
         "2026-09-10: project action dropdowns verified with borrowed focus ownership, expanded visibility and semantics, keyboard/outside dismissal and 360px RTL/200% tests; actual macOS dark/light desktop/mobile previews and official reference inspected. See sidebar.md project action dropdown verification.",
-        "Main-sidebar follow-up accepted by reviewer 01a08b90-a915-7e83-a5c4-af5ea7981e23 on codex/review-main-sidebar-ui-kit: intrinsic/dry layout and nested scope fixes, accurate Chat region, 401 focused checks, root/full analysis and official/native review complete. Evidence and final local merge are tracked in mainSidebarMigration and docs/component-library/sidebar-main-migration.md."
+        "Main-sidebar follow-up accepted by reviewer 01a08b90-a915-7e83-a5c4-af5ea7981e23 on codex/review-main-sidebar-ui-kit: intrinsic/dry layout and nested scope fixes, accurate Chat region, 401 focused checks, root/full analysis and official/native review complete. Evidence and final local merge are tracked in mainSidebarMigration and docs/component-library/sidebar-main-migration.md. Local main merge: cae585a4e5423c082dbae3bb6220c3e79c3e7df1."
       ],
       "limitations": [
         "Native CUA Cmd/Ctrl+B attempts did not visibly toggle; exact bindings pass widget tests. Return,Tab and Escape visibly verified. No spoken VoiceOver or iOS/Linux device run.",
@@ -4690,7 +4690,7 @@
       "mainSidebarMigration": {
         "taskId": "01a08b5d-17c8-7de0-9c87-9679d9695d60",
         "branch": "codex/main-sidebar-ui-kit",
-        "status": "review_ready",
+        "status": "merged",
         "dependencies": [
           "collapsible",
           "scroll-area",
@@ -4712,7 +4712,7 @@
         ],
         "implementationCommit": "eea76c81dc985c945218a7764279f51332e3725c",
         "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
-        "reviewStatus": "accepted",
+        "reviewStatus": "merged",
         "reviewBranch": "codex/review-main-sidebar-ui-kit",
         "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/dce5/discourse-native",
         "reviewSourceCommit": "d910666280c2168a18912ca09a4baacbd16bc9fb",
@@ -4735,7 +4735,11 @@
           "No physical iOS/Linux or spoken VoiceOver verification.",
           "Long labels remain ellipsized at the saved 200px minimum, with full native accessibility names.",
           "Rendering comparison accounts for the app font/palette/radius mapping; no pixel-equality claim."
-        ]
+        ],
+        "candidateCommit": "453adcbdabc5d2c80c9b8b26ee8c83ece6a42e09",
+        "mainBaseline": "b9ff6ebc5eff4c39cb30fc1bf291031efcfe781f",
+        "mergeCommit": "cae585a4e5423c082dbae3bb6220c3e79c3e7df1",
+        "mergedAt": "2026-09-10T14:07:35.863394+00:00"
       }
     },
     {
