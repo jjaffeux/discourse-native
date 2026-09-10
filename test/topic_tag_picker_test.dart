@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/anchored_picker.dart';
 import 'package:discourse_native/src/shell/topic_tag_picker.dart';
+import 'package:discourse_native/src/shell/topic_taxonomy_picker.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -27,25 +29,27 @@ void main() {
       MaterialApp(
         theme: AppTheme.dark.copyWith(platform: platform),
         home: Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () async {
-                onClosed(
-                  await showTopicTagPicker(
-                    context: context,
-                    anchorContext: context,
-                    selectedTags: selectedTags,
-                    onTagNavigate: onTagNavigate,
-                    capabilities: const TopicComposerCapabilities(
-                      canTagTopics: true,
-                      maxTagsPerTopic: 2,
+          body: TopicTaxonomyPickerAnchor(
+            child: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  onClosed(
+                    await showTopicTagPicker(
+                      context: context,
+                      anchorContext: context,
+                      selectedTags: selectedTags,
+                      onTagNavigate: onTagNavigate,
+                      capabilities: const TopicComposerCapabilities(
+                        canTagTopics: true,
+                        maxTagsPerTopic: 2,
+                      ),
+                      search: (_) async =>
+                          const TopicTagSearch(tags: [design, mobile, support]),
                     ),
-                    search: (_) async =>
-                        const TopicTagSearch(tags: [design, mobile, support]),
-                  ),
-                );
-              },
-              child: const Text('Open tags'),
+                  );
+                },
+                child: const Text('Open tags'),
+              ),
             ),
           ),
         ),
@@ -186,10 +190,7 @@ void main() {
   ) async {
     final results = <List<TopicTag>?>[];
     await openPicker(tester, onClosed: results.add);
-    expect(
-      tester.widget<AnchoredPickerOption>(option(support.name)).enabled,
-      isFalse,
-    );
+    expect(tester.widget<DCheckbox>(option(support.name)).enabled, isFalse);
 
     await tester.tap(option(design.name));
     await tester.pumpAndSettle();
@@ -199,10 +200,7 @@ void main() {
       selectedTags: results.last!,
       onClosed: results.add,
     );
-    expect(
-      tester.widget<AnchoredPickerOption>(option(support.name)).enabled,
-      isTrue,
-    );
+    expect(tester.widget<DCheckbox>(option(support.name)).enabled, isTrue);
 
     await tester.tap(option(support.name));
     await tester.pumpAndSettle();
@@ -222,6 +220,53 @@ void main() {
 
     expect(find.byType(TopicTagPicker), findsNothing);
     expect(results, [null]);
+  });
+
+  testWidgets(
+    'keyboard traversal keeps browse separate from disabled selection',
+    (tester) async {
+      final results = <List<TopicTag>?>[];
+      final opened = <TopicTag>[];
+      await openPicker(
+        tester,
+        onClosed: results.add,
+        onTagNavigate: (tag, {newTab = false}) => opened.add(tag),
+      );
+      // Input → selected checkbox/link pairs → the unselected tag's link.
+      // Its checkbox is disabled because the topic is already at its tag limit.
+      for (var index = 0; index < 5; index++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(opened, [support]);
+      expect(results, [null]);
+      expect(find.byType(TopicTagPicker), findsNothing);
+    },
+  );
+
+  testWidgets('long results scroll independently of the search field', (
+    tester,
+  ) async {
+    final tags = [
+      for (var index = 0; index < 40; index++)
+        TopicTag(id: 100 + index, name: 'region-$index'),
+    ];
+    final results = <List<TopicTag>?>[];
+    await openPicker(tester, selectedTags: tags, onClosed: results.add);
+    final query = find.byKey(const ValueKey('topic-tag-picker-query'));
+    final queryBounds = tester.getRect(query);
+    final popupBounds = tester.getRect(find.byType(DPopoverContent));
+    await tester.ensureVisible(option('region-39'));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(query), queryBounds);
+    expect(tester.getRect(find.byType(DPopoverContent)), popupBounds);
+    expect(option('region-39').hitTestable(), findsOneWidget);
+    await tester.tap(option('region-39'));
+    await tester.pumpAndSettle();
+    expect(results.single, tags.take(39).toList());
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('search finds selected tags and Enter can remove a match', (
@@ -288,14 +333,14 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.byType(AnchoredPickerProgress), findsOneWidget);
+    expect(find.byType(TopicTaxonomyPickerProgress), findsOneWidget);
     expect(createRow, findsOneWidget);
     expect(tester.element(createRow), same(createElement));
 
     pendingSearch.complete(const TopicTagSearch());
     await tester.pumpAndSettle();
 
-    expect(find.byType(AnchoredPickerProgress), findsNothing);
+    expect(find.byType(TopicTaxonomyPickerProgress), findsNothing);
     expect(createRow, findsOneWidget);
     expect(tester.element(createRow), same(createElement));
   });
