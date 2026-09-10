@@ -85,3 +85,17 @@ touch-platform behavior were widget tests, not device sessions.
 The follow-up implementation is `59e4b4e6`, merged from the main checkout with
 `--no-ff` as `a5d1bbb11b5af9b8bf08a530a7d5a6b106bc1644`. The merge tree exactly
 matches the tested source.
+
+## Close after mouse selection
+
+A desktop mouse press blurred the popup's search input before selecting an
+option. The combobox then restored input focus, which immediately reopened the
+dropdown. Mouse regressions reproduced this for both local and asynchronous
+category searches, including choosing the already selected category.
+
+The shared Native Combobox now includes its popup in the editor's
+`TextFieldTapRegion`. Option presses retain focus and honor `closeOnSelect`;
+outside clicks still dismiss and blur. No selector-specific dismissal workaround
+or new public option is needed. All 133 focused Combobox, Popover, styleguide,
+category/tag selector, composer and topic-list tests passed with seed `69318`.
+Root `dart analyze` reported no issues.

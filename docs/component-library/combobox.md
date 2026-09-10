@@ -68,6 +68,10 @@ value, focus, Form and IME owner.
   there is no eligible highlight, including while async results are replaced.
   Escape dismisses and restores the accepted single label.
   Pointer hover can own highlight without moving editor focus.
+- The popup belongs to the editor's `TextFieldTapRegion`. A mouse press on an
+  option preserves editor focus, so selection closes according to
+  `closeOnSelect` without focus restoration reopening the menu. Clicks outside
+  the combobox still dismiss it and leave the editor.
 - Multiple selection toggles values, clears the filter and closes by default;
   `closeOnSelect: false` preserves an open rapid-entry workflow. Remove actions and
   Backspace on an empty query remove chips. From an empty editor, the
