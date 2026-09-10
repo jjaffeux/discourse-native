@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -158,8 +159,13 @@ class _MenuRegistration {
 class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   final _items = <Object, _MenuRegistration>{};
   final _scrollController = ScrollController();
+  _DDropdownMenuContentState? _parentContent;
   _DropdownMenuItemSurfaceState? _hoveredItem;
-  DDropdownMenuController? _activeSubmenu;
+  _DDropdownMenuSubState? _activeSubmenu;
+  _DropdownMenuItemSurfaceState? _pendingHover;
+  Offset? _submenuOrigin;
+  Offset? _pointerPosition;
+  Timer? _hoverTimer;
   String _search = '';
   Timer? _searchTimer;
   bool _autofocused = false;
@@ -171,6 +177,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   void unregister(Object owner) {
     _items.remove(owner);
     if (identical(_hoveredItem, owner)) _hoveredItem = null;
+    if (identical(_pendingHover, owner)) _cancelPendingHover();
   }
 
   bool get hasActivePointerHighlight =>
@@ -184,11 +191,93 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
 
   void hover(_DropdownMenuItemSurfaceState item) {
     if (identical(_hoveredItem, item)) return;
+    if (!item.widget.preserveSubmenuOnFocus) closeActiveSubmenu();
     _hoveredItem = item;
     _refreshItemHighlights();
+    item.widget.onHover?.call(true);
+  }
+
+  void pointerHover(_DropdownMenuItemSurfaceState item, PointerEvent event) {
+    if (!item.widget.enabled) return;
+    final position = event.position;
+    final previous = _pointerPosition;
+    if (position == previous &&
+        (identical(_pendingHover, item) || identical(_hoveredItem, item))) {
+      return;
+    }
+    _pointerPosition = position;
+    final activeTrigger = identical(_activeSubmenu?._focusNode, item._focus);
+    if (!activeTrigger &&
+        event.kind == PointerDeviceKind.mouse &&
+        _movingTowardSubmenu(position, previous)) {
+      _cancelPendingHover();
+      _pendingHover = item;
+      // Continue protecting a slow diagonal path, but let a deliberate pause
+      // over another row select it without requiring another pointer event.
+      _hoverTimer = Timer(const Duration(milliseconds: 300), () {
+        _cancelPendingHover();
+        _submenuOrigin = null;
+        if (mounted && item.mounted && item.widget.enabled) hover(item);
+      });
+      return;
+    }
+    _cancelPendingHover();
+    _submenuOrigin = null;
+    hover(item);
+    _pointerPosition = position;
+    if (identical(_activeSubmenu?._focusNode, item._focus)) {
+      _submenuOrigin = position;
+    }
+  }
+
+  bool _movingTowardSubmenu(Offset position, Offset? previous) {
+    final origin = _submenuOrigin;
+    final submenu = _activeSubmenu;
+    final popup = submenu?._contentKey.currentContext?.findRenderObject();
+    if (origin == null ||
+        previous == null ||
+        submenu == null ||
+        !submenu._controller.isOpen ||
+        popup is! RenderBox ||
+        !popup.attached ||
+        !popup.hasSize) {
+      return false;
+    }
+    final bounds = MatrixUtils.transformRect(
+      popup.getTransformTo(null),
+      Offset.zero & popup.size,
+    );
+    // Use the rendered near edge, so RTL, collision flips, vertical shifts,
+    // scrolling and nested overlay transforms all use the actual destination.
+    final edge = bounds.center.dx > origin.dx ? bounds.left : bounds.right;
+    final distance = edge - origin.dx;
+    if (distance == 0 || (position.dx - previous.dx) * distance <= 0) {
+      return false;
+    }
+    final progress = (position.dx - origin.dx) / distance;
+    if (progress <= 0 || progress > 1) return false;
+    const tolerance = 8.0;
+    final top = origin.dy + (bounds.top - tolerance - origin.dy) * progress;
+    final bottom =
+        origin.dy + (bounds.bottom + tolerance - origin.dy) * progress;
+    return position.dy >= top && position.dy <= bottom;
+  }
+
+  void _cancelPendingHover() {
+    _hoverTimer?.cancel();
+    _hoverTimer = null;
+    _pendingHover = null;
+  }
+
+  void cancelPointerIntent() {
+    _cancelPendingHover();
+    _submenuOrigin = null;
+    _pointerPosition = null;
+    _parentContent?.cancelPointerIntent();
   }
 
   void unhover(_DropdownMenuItemSurfaceState item) {
+    if (identical(_pendingHover, item)) _cancelPendingHover();
     if (!identical(_hoveredItem, item)) return;
     _hoveredItem = null;
     _refreshItemHighlights();
@@ -197,22 +286,24 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   bool isHovered(_DropdownMenuItemSurfaceState item) =>
       identical(_hoveredItem, item);
 
-  void activateSubmenu(DDropdownMenuController controller) {
-    if (identical(_activeSubmenu, controller)) return;
-    _activeSubmenu?.close();
-    _activeSubmenu = controller;
+  void activateSubmenu(_DDropdownMenuSubState submenu) {
+    if (identical(_activeSubmenu, submenu)) return;
+    closeActiveSubmenu();
+    _activeSubmenu = submenu;
     _refreshItemHighlights();
   }
 
-  void deactivateSubmenu(DDropdownMenuController controller) {
-    if (identical(_activeSubmenu, controller)) {
+  void deactivateSubmenu(_DDropdownMenuSubState submenu) {
+    if (identical(_activeSubmenu, submenu)) {
+      cancelPointerIntent();
       _activeSubmenu = null;
       _refreshItemHighlights();
     }
   }
 
   void closeActiveSubmenu() {
-    _activeSubmenu?.close();
+    cancelPointerIntent();
+    _activeSubmenu?._controller.close();
     _activeSubmenu = null;
     _refreshItemHighlights();
   }
@@ -279,6 +370,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    cancelPointerIntent();
     final key = event.logicalKey;
     final direction = Directionality.of(context);
     if (key == LogicalKeyboardKey.arrowDown) {
@@ -322,6 +414,9 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _parentContent = context
+        .dependOnInheritedWidgetOfExactType<_DropdownMenuContentScope>()
+        ?.state;
     if (!widget.autofocus || _autofocused) return;
     _autofocused = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -331,6 +426,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
 
   @override
   void dispose() {
+    _cancelPendingHover();
     _searchTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
@@ -349,25 +445,28 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     );
     return _DropdownMenuContentScope(
       state: this,
-      child: Semantics(
-        container: true,
-        explicitChildNodes: true,
-        label: widget.semanticLabel,
-        child: Focus(
-          canRequestFocus: false,
-          skipTraversal: true,
-          onKeyEvent: _onKey,
-          child: DefaultTextStyle(
-            style: textStyle,
-            child: IconTheme.merge(
-              data: IconThemeData(color: tokens.foreground, size: 16),
-              child: _DropdownMenuOverflowViewport(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: widget.children,
+      child: MouseRegion(
+        onExit: (_) => cancelPointerIntent(),
+        child: Semantics(
+          container: true,
+          explicitChildNodes: true,
+          label: widget.semanticLabel,
+          child: Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onKeyEvent: _onKey,
+            child: DefaultTextStyle(
+              style: textStyle,
+              child: IconTheme.merge(
+                data: IconThemeData(color: tokens.foreground, size: 16),
+                child: _DropdownMenuOverflowViewport(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(4),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: widget.children,
+                  ),
                 ),
               ),
             ),
@@ -789,6 +888,7 @@ class _DropdownMenuRadioScope<T> extends InheritedWidget {
 /// A nested menu. Its focus node is shared between the parent roving-focus item
 /// and the popover trigger, so Escape and directional closing restore exactly
 /// to the owning row.
+/// Mouse movement toward the popup protects it from incidental sibling hovers.
 class DDropdownMenuSub extends StatefulWidget {
   const DDropdownMenuSub({
     super.key,
@@ -818,6 +918,7 @@ class DDropdownMenuSub extends StatefulWidget {
 
 class _DDropdownMenuSubState extends State<DDropdownMenuSub> {
   final _controller = DDropdownMenuController();
+  final _contentKey = GlobalKey<_DDropdownMenuContentState>();
   late final _focusNode = FocusNode(
     debugLabel:
         'Dropdown item ${widget.semanticLabel ?? _plainText(widget.trigger)}',
@@ -832,7 +933,7 @@ class _DDropdownMenuSubState extends State<DDropdownMenuSub> {
 
   @override
   void dispose() {
-    _parent?.deactivateSubmenu(_controller);
+    _parent?.deactivateSubmenu(this);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -848,12 +949,13 @@ class _DDropdownMenuSubState extends State<DDropdownMenuSub> {
       controller: _controller,
       onOpenChange: (open, _) {
         if (open) {
-          _parent?.activateSubmenu(_controller);
+          _parent?.activateSubmenu(this);
         } else {
-          _parent?.deactivateSubmenu(_controller);
+          _parent?.deactivateSubmenu(this);
         }
       },
       content: DDropdownMenuContent(
+        key: _contentKey,
         isSubmenu: true,
         side: DPopoverSide.inlineEnd,
         sideOffset: 0,
@@ -980,6 +1082,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      _content?.cancelPointerIntent();
       final custom = widget.onKey?.call(event);
       if (custom == KeyEventResult.handled) return custom!;
       if (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -1086,14 +1189,8 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
           // Menus use the platform's default cursor (shadcn `cursor-default`),
           // while hover/focus styling communicates the active row.
           cursor: SystemMouseCursors.basic,
-          onEnter: (_) {
-            if (!widget.enabled) return;
-            if (!widget.preserveSubmenuOnFocus) {
-              _content?.closeActiveSubmenu();
-            }
-            _content?.hover(this);
-            widget.onHover?.call(true);
-          },
+          onEnter: (event) => _content?.pointerHover(this, event),
+          onHover: (event) => _content?.pointerHover(this, event),
           onExit: (_) {
             _content?.unhover(this);
             widget.onHover?.call(false);
@@ -1113,6 +1210,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
               behavior: HitTestBehavior.opaque,
               onTapDown: widget.enabled
                   ? (_) {
+                      _content?.cancelPointerIntent();
                       _focus.requestFocus();
                       setState(() => _pressed = true);
                     }
