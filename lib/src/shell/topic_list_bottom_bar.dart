@@ -10,6 +10,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'keyboard_navigation.dart';
 import 'shell_controller.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 
 typedef _AdjacentTopics = ({int? previous, int? next, bool more, bool busy});
@@ -100,8 +101,8 @@ class TopicListBottomBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           DSeparator(color: Theme.of(context).shell.divider),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 51),
+          SizedBox(
+            height: topicBottomBarHeight - 1,
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: Row(
