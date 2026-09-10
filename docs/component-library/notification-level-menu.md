@@ -102,3 +102,9 @@ The final component/app and shared-menu test logs are
 `/tmp/notification-level-app-final-tests.log` and
 `/tmp/notification-level-overflow-tests.log`; the final desktop-specific
 dropdown suite is `/tmp/notification-level-dropdown-final.log` (31 passed).
+
+Final integration against main `7c343736` passed all 125 component, notification,
+and topic-inbox tests again, with clean static analysis. The native-reviewed
+notification components, adapters, and examples are unchanged in this candidate.
+Logs: `/tmp/notification-level-final-main-tests.log` and
+`/tmp/notification-level-final-main-analysis.log`.
