@@ -10,6 +10,8 @@ import 'package:html/dom.dart' as dom;
 
 import '../data/site_image_repository.dart';
 import '../plugin_api/plugin_registry.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'image_decode.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
@@ -497,6 +499,50 @@ final class SiteImageWidgetFactory extends WidgetFactory {
 
   @override
   Widget? buildImageWidget(BuildTree tree, ImageSource src) {
+    final image = _buildImageContent(tree, src);
+    if (image == null || !_isAvatar(tree)) return image;
+    final label = src.image?.alt ?? src.image?.title;
+    return DAvatar.frame(
+      semanticLabel: label,
+      decorative: label == null || label.isEmpty,
+      child: image,
+    );
+  }
+
+  static bool _isAvatar(BuildTree tree) =>
+      tree.element.localName == 'img' &&
+      tree.element.classes.any(
+        const {'avatar', 'onebox-avatar', 'onebox-avatar-inline'}.contains,
+      );
+
+  static const _avatarFallback = DAvatarFallback(
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: DIcon(DIcons.user, size: 16),
+    ),
+  );
+
+  @override
+  Widget? onErrorBuilder(
+    BuildContext context,
+    BuildTree tree, [
+    dynamic error,
+    dynamic data,
+  ]) => data is ImageSource && _isAvatar(tree)
+      ? _avatarFallback
+      : super.onErrorBuilder(context, tree, error, data);
+
+  @override
+  Widget? onLoadingBuilder(
+    BuildContext context,
+    BuildTree tree, [
+    double? loadingProgress,
+    dynamic data,
+  ]) => data is ImageSource && _isAvatar(tree)
+      ? _avatarFallback
+      : super.onLoadingBuilder(context, tree, loadingProgress, data);
+
+  Widget? _buildImageContent(BuildTree tree, ImageSource src) {
     final uri = Uri.tryParse(src.url);
     if (uri == null ||
         uri.scheme == 'asset' ||

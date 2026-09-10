@@ -1057,12 +1057,10 @@ class _MessageRow extends StatelessWidget {
       align: align,
       children: [
         DMessageAvatar(
-          child: CircleAvatar(
-            radius: 16,
-            child: Text(
-              sender.characters.first,
-              semanticsLabel: '$sender avatar',
-            ),
+          child: DAvatar(
+            dimension: 32,
+            semanticLabel: '$sender avatar',
+            fallback: DAvatarFallback(child: Text(sender.characters.first)),
           ),
         ),
         DMessageContent(

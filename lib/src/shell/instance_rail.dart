@@ -1563,7 +1563,7 @@ class _InstanceAvatar extends StatelessWidget {
       ),
     );
 
-    return ClipRRect(
+    return DAvatar.frame(
       borderRadius: BorderRadius.circular(8),
       child: AvatarImage(
         url: instance.iconUrl,
