@@ -133,8 +133,10 @@ class ComposerTarget {
     this.initialCategoryId,
     this.initialTags = const [],
     this.targetRecipients,
+    String? draftKey,
   }) : policy = null,
        data = const {},
+       _draftKey = draftKey,
        mode =
            mode ??
            (editingPostId == null ? ComposerMode.reply : ComposerMode.postEdit),
@@ -159,7 +161,8 @@ class ComposerTarget {
        replyToUsername = null,
        replyingToWhisper = false,
        editingPostId = null,
-       editingPostNumber = null;
+       editingPostNumber = null,
+       _draftKey = null;
 
   final String siteUrl;
   final String? tabId;
@@ -174,6 +177,7 @@ class ComposerTarget {
   final int? initialCategoryId;
   final List<TopicTag> initialTags;
   final String? targetRecipients;
+  final String? _draftKey;
 
   final int? replyToPostNumber;
 
@@ -201,12 +205,14 @@ class ComposerTarget {
   bool get isTaxonomyEdit => isCategoryEdit || isTagsEdit;
   bool get isPlugin => mode == ComposerMode.plugin;
 
-  String get draftKey => switch (mode) {
-    ComposerMode.newTopic => ComposerDraft.newTopicDraftKey,
-    ComposerMode.privateMessage => ComposerDraft.newPrivateMessageDraftKey,
-    ComposerMode.plugin => policy!.draftKey,
-    _ => 'topic_$topicId',
-  };
+  String get draftKey =>
+      _draftKey ??
+      switch (mode) {
+        ComposerMode.newTopic => ComposerDraft.newTopicDraftKey,
+        ComposerMode.privateMessage => ComposerDraft.newPrivateMessageDraftKey,
+        ComposerMode.plugin => policy!.draftKey,
+        _ => 'topic_$topicId',
+      };
 
   ComposerTarget replyingTo(
     int? postNumber,
@@ -229,6 +235,7 @@ class ComposerTarget {
       initialCategoryId: initialCategoryId,
       initialTags: initialTags,
       targetRecipients: targetRecipients,
+      draftKey: _draftKey,
     );
   }
 }

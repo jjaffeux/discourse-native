@@ -37,7 +37,6 @@ import '../models/bookmark.dart';
 import '../models/bookmark_feed.dart';
 import '../models/category_feed.dart';
 import '../models/category_sidebar.dart';
-import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
@@ -7066,6 +7065,7 @@ class ShellController extends FrameSafeNotifier
     required bool permitted,
     required bool revealContent,
     ContentRoute? sourceRoute,
+    UserDraft? listedDraft,
   }) async {
     final instance = currentInstance;
     final route = sourceRoute ?? currentContent;
@@ -7117,6 +7117,7 @@ class ShellController extends FrameSafeNotifier
       slug: '',
       topicTitle: 'New topic',
       mode: ComposerMode.newTopic,
+      draftKey: listedDraft?.key,
       originFeedId: originFeedId,
       initialCategoryId: categoryId,
     );
@@ -7127,7 +7128,7 @@ class ShellController extends FrameSafeNotifier
     );
     _setComposer(composer);
     if (revealContent) _mobilePane = MobilePane.content;
-    _composerDrafts.startRestore(composer);
+    _composerDrafts.startRestore(composer, listedDraft: listedDraft);
     final enrichment = _enrichNewTopicComposer(
       composer,
       instance: instance,
@@ -13508,7 +13509,7 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     if (instance == null || instance.url != siteUrl) return;
 
-    if (draft.key == ComposerDraft.newTopicDraftKey) {
+    if (draft.isNewTopic) {
       final destination = instance.defaultDestination;
       // Selecting the destination already on screen means "refresh" to the
       // shell. Do not start that second, unawaited request when a header-menu
@@ -13521,10 +13522,11 @@ class ShellController extends FrameSafeNotifier
       if (currentInstance?.url != siteUrl || destinationId != destination.id) {
         return;
       }
-      await openNewTopic();
-      final composer = _composer;
-      if (composer == null || composer.target.draftKey != draft.key) return;
-      _composerDrafts.restoreListedDraft(composer, draft);
+      await _openNewTopic(
+        permitted: canCreateTopicHere,
+        revealContent: false,
+        listedDraft: draft,
+      );
       return;
     }
 

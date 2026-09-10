@@ -1312,6 +1312,8 @@ class FakeDiscourseApi
 
   WriteException? draftRestoreFailure;
 
+  final List<({String siteUrl, String draftKey})> draftsRequested = [];
+
   final List<Map<String, Object?>> draftsSaved = [];
 
   @override
@@ -3675,6 +3677,7 @@ class FakeDiscourseApi
     required String draftKey,
     String? clientId,
   }) async {
+    draftsRequested.add((siteUrl: siteUrl, draftKey: draftKey));
     await draftRestoreGate?.future;
     if (draftRestoreFailure != null) throw draftRestoreFailure!;
     return draftToRestore;

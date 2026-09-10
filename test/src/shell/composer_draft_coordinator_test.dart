@@ -30,6 +30,23 @@ const _listedDraft = UserDraft(
   sequence: 4,
   data: ComposerDraft(reply: 'Listed reply'),
 );
+const _listedTopicTarget = ComposerTarget(
+  siteUrl: _siteUrl,
+  topicId: 0,
+  slug: '',
+  topicTitle: 'New topic',
+  mode: ComposerMode.newTopic,
+  draftKey: 'new_topic_1789070000000',
+);
+const _listedTopicDraft = UserDraft(
+  key: 'new_topic_1789070000000',
+  sequence: 4,
+  data: ComposerDraft(
+    reply: 'Listed topic body',
+    title: 'Listed topic title',
+    action: ComposerDraft.createTopicAction,
+  ),
+);
 
 void main() {
   test(
@@ -103,6 +120,136 @@ void main() {
       expect(composer.isDisposed, isTrue);
     },
   );
+
+  group('listed topic drafts', () {
+    test(
+      'restores the selected draft without touching the legacy local draft',
+      () async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        const unrelated = ComposerDraft(
+          reply: 'Another unfinished topic',
+          title: 'Legacy local draft',
+          action: ComposerDraft.createTopicAction,
+        );
+        await harness.localStore.write(
+          _siteUrl,
+          ComposerDraft.newTopicDraftKey,
+          unrelated.encode(),
+        );
+        final composer = harness.open(_listedTopicTarget).composer;
+
+        harness.coordinator.startRestore(
+          composer,
+          listedDraft: _listedTopicDraft,
+        );
+        expect(await harness.coordinator.finishRestore(composer), isTrue);
+
+        expect(composer.text.text, _listedTopicDraft.data!.reply);
+        expect(composer.title.text, _listedTopicDraft.data!.title);
+        expect(composer.draftSequence, 4);
+        expect(
+          await harness.localStore.read(
+            _siteUrl,
+            ComposerDraft.newTopicDraftKey,
+          ),
+          unrelated.encode(),
+        );
+      },
+    );
+
+    for (final local in [false, true]) {
+      test(
+        'prefers newer ${local ? 'local' : 'server'} text to the list',
+        () async {
+          const newer = ComposerDraft(
+            reply: 'Newer topic body',
+            title: 'Newer topic title',
+            action: ComposerDraft.createTopicAction,
+            categoryId: 8,
+          );
+          final api = FakeDiscourseApi(
+            draftToRestore: const (draft: newer, sequence: 9),
+          );
+          final harness = _Harness(api: api);
+          addTearDown(harness.dispose);
+          if (local) {
+            await harness.localStore.write(
+              _siteUrl,
+              _listedTopicDraft.key,
+              newer.encode(),
+            );
+          }
+          final composer = harness.open(_listedTopicTarget).composer;
+
+          harness.coordinator.startRestore(
+            composer,
+            listedDraft: _listedTopicDraft,
+          );
+          expect(await harness.coordinator.finishRestore(composer), isTrue);
+
+          expect(composer.text.text, newer.reply);
+          expect(composer.title.text, newer.title);
+          expect(composer.categoryId, 8);
+          expect(composer.draftSequence, local ? 4 : 9);
+          expect(
+            api.draftsRequested.map((request) => request.draftKey),
+            local ? isEmpty : [_listedTopicDraft.key],
+          );
+        },
+      );
+    }
+
+    test(
+      'does not apply the list snapshot over changes during restoration',
+      () async {
+        final gate = Completer<void>();
+        final harness = _Harness(api: FakeDiscourseApi(draftRestoreGate: gate));
+        addTearDown(harness.dispose);
+        final composer = harness.open(_listedTopicTarget).composer;
+        harness.coordinator.startRestore(
+          composer,
+          listedDraft: _listedTopicDraft,
+        );
+        await pumpEventQueue();
+        composer.setCategory(8);
+
+        gate.complete();
+        expect(await harness.coordinator.finishRestore(composer), isTrue);
+
+        expect(composer.text.text, isEmpty);
+        expect(composer.title.text, isEmpty);
+        expect(composer.categoryId, 8);
+        expect(composer.draftSequence, 4);
+      },
+    );
+
+    test(
+      'does not resurrect a listed draft deleted during restoration',
+      () async {
+        final localStore = _GatedReadStore();
+        final harness = _Harness(localStore: localStore);
+        addTearDown(harness.dispose);
+        final composer = harness.open(_listedTopicTarget).composer;
+        harness.coordinator.startRestore(
+          composer,
+          listedDraft: _listedTopicDraft,
+        );
+        await localStore.started.future;
+
+        await harness.coordinator.deleteListedDraft(
+          _siteUrl,
+          _listedTopicDraft,
+          () => true,
+        );
+        localStore.gate.complete();
+        expect(await harness.coordinator.finishRestore(composer), isTrue);
+
+        expect(composer.text.text, isEmpty);
+        expect(composer.title.text, isEmpty);
+      },
+    );
+  });
 
   test('forgetting a site releases coordinator-owned sequence state', () {
     final harness = _Harness(cachedSequence: 4);
