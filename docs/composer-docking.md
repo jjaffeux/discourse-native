@@ -67,6 +67,9 @@ Integration with main `62906e34` passed 449 focused composer, chat, diagnostics,
 navigation, sidebar, upload, and preference tests, plus root and full-profile
 static analysis and macOS debug builds. The newer sidebar and scrolling changes
 are preserved.
+After main advanced to `99499c73`, the combined code passed another 260 focused
+docking, chat, sidebar, and navigation tests, plus both profiles' analysis and
+macOS debug builds.
 
 The local-only `tool/composer_docking_review_main.dart` fixture mounts the real
 production composer with isolated preferences, in-memory APIs and test
