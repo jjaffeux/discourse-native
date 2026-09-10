@@ -19,5 +19,7 @@
     "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "a9fd09b5d25df3cbdbe0b211b01eda671dcb7517c119772e378b241b4cc2e770"
   },
   "sourceEquivalence": "The only post-build source edit is alphabetizing fixture imports; production, component and example source is unchanged.",
-  "nativeEvidence": "docs/component-library/sidebar-main-migration.md"
+  "nativeEvidence": "docs/component-library/sidebar-main-migration.md",
+  "sourceCommit": "eea76c81dc985c945218a7764279f51332e3725c",
+  "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23"
 }
