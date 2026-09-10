@@ -204,6 +204,8 @@ void main() {
       expect(find.text('Dock side'), findsOneWidget);
       expect(find.bySemanticsLabel('Separate window'), findsNothing);
       expect(find.byIcon(Icons.open_in_new), findsNothing);
+      expect(find.text('Save and close'), findsNothing);
+      expect(find.text('Discard'), findsNothing);
       for (final placement in ComposerPlacement.values) {
         expect(find.byTooltip(placement.label), findsOneWidget);
       }
@@ -238,8 +240,7 @@ void main() {
         tester.getSize(find.byType(ComposerEditor)).height,
         greaterThan(30),
       );
-      await tester.tap(find.byKey(const ValueKey('composer-options')));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('composer-options')), findsNothing);
       expect(find.text('Dock side'), findsNothing);
       expect(tester.takeException(), isNull);
     },

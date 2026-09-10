@@ -111,13 +111,6 @@ class ComposerPanel extends StatelessWidget {
             controller: controller,
           ),
         );
-        void discard() => unawaited(
-          requestComposerDiscard(
-            context: context,
-            composer: composer,
-            controller: controller,
-          ),
-        );
 
         return Container(
           key: const ValueKey('composer-frame'),
@@ -187,7 +180,6 @@ class ComposerPanel extends StatelessWidget {
                       composer: composer,
                       minimized: minimized,
                       onClose: close,
-                      onDiscard: discard,
                       closeTooltip: composer.canSaveDraft
                           ? 'Save and close'
                           : 'Close composer',
