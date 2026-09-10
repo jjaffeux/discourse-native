@@ -23,7 +23,6 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
-import 'category_icon.dart';
 import 'composer_autocomplete.dart';
 import 'composer_blockquote.dart';
 import 'composer_clipboard.dart';
@@ -46,14 +45,9 @@ import 'emoji_picker.dart';
 import 'image_decode.dart';
 import 'markdown_highlight.dart';
 import 'platform.dart';
-import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
-import 'topic_category_picker.dart';
-import 'topic_tag_picker.dart';
-import 'topic_taxonomy_button.dart';
-import 'topic_taxonomy_picker.dart';
 import 'topic_title.dart';
 
 bool get _usesCommandModifier =>
@@ -461,22 +455,10 @@ class ComposerPanel extends StatelessWidget {
   }
 }
 
-class _TopicTaxonomy extends StatefulWidget {
+class _TopicTaxonomy extends StatelessWidget {
   const _TopicTaxonomy({required this.composer});
 
   final ComposerController composer;
-
-  @override
-  State<_TopicTaxonomy> createState() => _TopicTaxonomyState();
-}
-
-class _TopicTaxonomyState extends State<_TopicTaxonomy> {
-  final GlobalKey _categoryAnchorKey = GlobalKey();
-  final GlobalKey _tagsAnchorKey = GlobalKey();
-  bool _showingCategory = false;
-  bool _showingTags = false;
-
-  ComposerController get composer => widget.composer;
 
   @override
   Widget build(BuildContext context) =>
@@ -496,99 +478,82 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
         ),
         builder: (context, state, _) {
           final shell = ShellScope.read(context);
+          final categoryId = composer.categoryId;
           final category =
               state.categories
-                  .where((item) => item.id == composer.categoryId)
+                  .where((item) => item.id == categoryId)
                   .firstOrNull ??
-              shell.categoryFor(
-                composer.categoryId,
-                siteUrl: composer.target.siteUrl,
-              );
-          final categoryLabel = category == null
-              ? 'Choose a category'
-              : shell.topicCategoryPathLabel(
-                  category,
-                  siteUrl: composer.target.siteUrl,
-                );
-          final tagsLabel = composer.tags.isEmpty
-              ? 'Add tags'
-              : composer.tags.map((tag) => tag.name).join(', ');
+              shell.categoryFor(categoryId, siteUrl: composer.target.siteUrl);
+          bool canEdit() =>
+              !composer.isDisposed &&
+              composer.isEditing &&
+              identical(shell.visibleComposer, composer);
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   if (!composer.target.isTagsEdit)
-                    TopicTaxonomyPickerAnchor(
-                      child: SizedBox(
-                        key: _categoryAnchorKey,
-                        child: DPopoverTrigger(
-                          builder: (context, trigger) => TopicTaxonomyButton(
-                            key: const ValueKey('composer-category-action'),
-                            buttonKey: const ValueKey('composer-category'),
-                            label: categoryLabel,
-                            semanticLabel: 'Category: $categoryLabel',
-                            tooltip: category == null
-                                ? 'Choose category'
-                                : 'Choose category: $categoryLabel',
-                            maximumWidth: 260,
-                            expanded: _showingCategory,
-                            focusNode: trigger.focusNode,
-                            icon: category == null
-                                ? null
-                                : CategoryIcon(
-                                    key: const ValueKey(
-                                      'composer-category-color',
-                                    ),
-                                    category: category,
-                                    siteUrl: composer.target.siteUrl,
-                                    size: 14,
-                                    squareSize: 10,
-                                  ),
-                            onPressed: composer.isEditing
-                                ? trigger.open
-                                      ? trigger.closePopover
-                                      : () => _pickCategory(context, shell)
-                                : null,
-                          ),
+                    SizedBox(
+                      key: const ValueKey('composer-category-action'),
+                      child: TopicCategorySelector(
+                        key: ObjectKey(composer),
+                        valueKey: const ValueKey('composer-category'),
+                        siteUrl: composer.target.siteUrl,
+                        categories: state.categories,
+                        selected: category,
+                        placeholder: 'Choose a category',
+                        labelFor: (category) => shell.topicCategoryPathLabel(
+                          category,
+                          siteUrl: composer.target.siteUrl,
                         ),
+                        search: (term) async =>
+                            (await shell.searchTopicCategoriesForEditor(
+                                  siteUrl: composer.target.siteUrl,
+                                  term: term,
+                                ))
+                                .where((category) => category.canCreateTopic)
+                                .toList(),
+                        onSelected: composer.isEditing
+                            ? (category) {
+                                if (canEdit() &&
+                                    category != null &&
+                                    category.id != composer.categoryId) {
+                                  unawaited(
+                                    shell.changeComposerCategory(
+                                      composer,
+                                      category.id,
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
                       ),
                     ),
                   if (state.capabilities.canTagTopics ||
                       composer.tags.isNotEmpty)
-                    TopicTaxonomyPickerAnchor(
-                      child: SizedBox(
-                        key: _tagsAnchorKey,
-                        child: DPopoverTrigger(
-                          builder: (context, trigger) => TopicTaxonomyButton(
-                            key: const ValueKey('composer-add-tag'),
-                            buttonKey: const ValueKey('composer-tags'),
-                            label: tagsLabel,
-                            semanticLabel: composer.tags.isEmpty
-                                ? 'Add tags'
-                                : 'Tags: $tagsLabel',
-                            tooltip: composer.tags.isEmpty
-                                ? 'Choose tags'
-                                : 'Choose tags: $tagsLabel',
-                            maximumWidth: 210,
-                            expanded: _showingTags,
-                            focusNode: trigger.focusNode,
-                            icon: const DIcon(DIcons.tag, size: 14),
-                            onPressed: composer.isEditing
-                                ? trigger.open
-                                      ? trigger.closePopover
-                                      : () => _pickTags(
-                                          context,
-                                          shell,
-                                          state.capabilities,
-                                        )
-                                : null,
-                          ),
-                        ),
+                    SizedBox(
+                      key: const ValueKey('composer-add-tag'),
+                      child: TopicTagSelector(
+                        key: ValueKey((composer, categoryId)),
+                        valueKey: const ValueKey('composer-tags'),
+                        selectedTags: composer.tags,
+                        capabilities: state.capabilities,
+                        placeholder: 'Add tags',
+                        search: (term) =>
+                            shell.searchComposerTags(composer, term),
+                        onChanged: composer.isEditing
+                            ? (tags) {
+                                if (canEdit() &&
+                                    composer.categoryId == categoryId) {
+                                  composer.setTags(tags);
+                                }
+                              }
+                            : null,
                       ),
                     ),
                 ],
@@ -597,65 +562,6 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
           );
         },
       );
-
-  Future<void> _pickCategory(
-    BuildContext context,
-    ShellController shell,
-  ) async {
-    final anchorContext = _categoryAnchorKey.currentContext;
-    if (!composer.isEditing || _showingCategory || anchorContext == null) {
-      return;
-    }
-    setState(() => _showingCategory = true);
-    try {
-      final selected = await showTopicCategoryPicker(
-        context: context,
-        anchorContext: anchorContext,
-        siteUrl: composer.target.siteUrl,
-        selectedCategoryId: composer.categoryId,
-        search: (term) async => (await shell.searchTopicCategoriesForEditor(
-          siteUrl: composer.target.siteUrl,
-          term: term,
-        )).where((category) => category.canCreateTopic).toList(),
-        pathLabelFor: (category) => shell.topicCategoryPathLabel(
-          category,
-          siteUrl: composer.target.siteUrl,
-        ),
-      );
-      if (!mounted ||
-          !composer.isEditing ||
-          selected == null ||
-          selected == composer.categoryId) {
-        return;
-      }
-      await shell.changeComposerCategory(composer, selected);
-    } finally {
-      if (mounted) setState(() => _showingCategory = false);
-    }
-  }
-
-  Future<void> _pickTags(
-    BuildContext context,
-    ShellController shell,
-    TopicComposerCapabilities capabilities,
-  ) async {
-    final anchorContext = _tagsAnchorKey.currentContext;
-    if (!composer.isEditing || _showingTags || anchorContext == null) return;
-    setState(() => _showingTags = true);
-    try {
-      final selected = await showTopicTagPicker(
-        context: context,
-        anchorContext: anchorContext,
-        selectedTags: composer.tags,
-        capabilities: capabilities,
-        search: (term) => shell.searchComposerTags(composer, term),
-      );
-      if (!mounted || !composer.isEditing || selected == null) return;
-      composer.setTags(selected);
-    } finally {
-      if (mounted) setState(() => _showingTags = false);
-    }
-  }
 }
 
 class _SelectedPillInputFormatter extends TextInputFormatter {

@@ -56,6 +56,7 @@ import 'examples/spinner_examples.dart';
 import 'examples/switch_examples.dart';
 import 'examples/table_examples.dart';
 import 'examples/tabs_examples.dart';
+import 'examples/taxonomy_selector_examples.dart';
 import 'examples/textarea_examples.dart';
 import 'examples/toast_examples.dart';
 import 'examples/toggle_examples.dart';
@@ -66,6 +67,8 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'category-selector': categorySelectorExamples,
+  'tag-selector': tagSelectorExamples,
   'date-picker': datePickerExamples,
   'accordion': accordionExamples,
   'alert': alertExamples,
