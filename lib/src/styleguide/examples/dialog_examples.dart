@@ -296,7 +296,7 @@ class _CustomCloseDialog extends StatelessWidget {
         DInput(
           readOnly: true,
           labelText: 'Link',
-          initialValue: 'https://ui.shadcn.com/docs/installation',
+          initialValue: 'https://example.com/docs/installation',
         ),
         DDialogFooter(
           wideAlignment: WrapAlignment.start,

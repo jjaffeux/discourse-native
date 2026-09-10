@@ -14,7 +14,7 @@ final sidebarExamples = ComponentExamples(
     StyleguideExample(
       title: 'Application sidebar',
       description:
-          'A close native reproduction of the shadcn Base UI demo: team and account switchers, the Platform hierarchy, project action menus, icon collapse and rail. Each project’s three-dot menu offers View, Share and Delete with local feedback. Below 500px it uses the shared Sheet adaptation. Cmd/Ctrl+B toggles, Tab navigates, Enter/Space activates and Escape dismisses.',
+          'An application sidebar with team and account switchers, the Platform hierarchy, project action menus, icon collapse and rail. Each project’s three-dot menu offers View, Share and Delete with local feedback. Below 500px it uses the shared Sheet adaptation. Cmd/Ctrl+B toggles, Tab navigates, Enter/Space activates and Escape dismisses.',
       code: '''DSidebarProvider(mobileBreakpoint: 500, child: Row(children: [
   DSidebar(
     collapsible: DSidebarCollapsible.icon,
@@ -34,7 +34,7 @@ final sidebarExamples = ComponentExamples(
   ),
   Expanded(child: Column(children: [DSidebarTrigger(), content])),
 ]))''',
-      builder: (_) => const _ShadcnSidebarDemo(),
+      builder: (_) => const _ApplicationSidebarDemo(),
     ),
     StyleguideExample(
       title: 'Icon, floating and inset',
@@ -246,16 +246,15 @@ class _LazySidebarDemoState extends State<_LazySidebarDemo> {
   );
 }
 
-class _ShadcnSidebarDemo extends StatefulWidget {
-  const _ShadcnSidebarDemo();
+class _ApplicationSidebarDemo extends StatefulWidget {
+  const _ApplicationSidebarDemo();
 
   @override
-  State<_ShadcnSidebarDemo> createState() => _ShadcnSidebarDemoState();
+  State<_ApplicationSidebarDemo> createState() =>
+      _ApplicationSidebarDemoState();
 }
 
-class _ShadcnSidebarDemoState extends State<_ShadcnSidebarDemo> {
-  static const _avatarAsset =
-      'packages/discourse_native/src/styleguide/assets/item/shadcn.png';
+class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
   static const _teams = <({String name, String plan, IconData icon})>[
     (name: 'Acme Inc', plan: 'Enterprise', icon: Icons.view_column_outlined),
     (name: 'Acme Corp.', plan: 'Startup', icon: Icons.graphic_eq),
@@ -575,7 +574,7 @@ class _ShadcnSidebarDemoState extends State<_ShadcnSidebarDemo> {
               _avatar(context),
               const SizedBox(width: 8),
               Expanded(
-                child: _identityText(context, 'shadcn', 'm@example.com'),
+                child: _identityText(context, 'Alex', 'alex@example.com'),
               ),
             ],
           ),
@@ -620,14 +619,14 @@ class _ShadcnSidebarDemoState extends State<_ShadcnSidebarDemo> {
         iconSize: 32,
         icon: _avatar(context),
         size: DSidebarMenuButtonSize.large,
-        tooltip: 'shadcn',
-        semanticLabel: 'Open shadcn account menu',
+        tooltip: 'Alex',
+        semanticLabel: 'Open Alex account menu',
         focusNode: state.focusNode,
         expanded: state.open,
         onPressed: state.toggle,
         child: Row(
           children: [
-            Expanded(child: _identityText(context, 'shadcn', 'm@example.com')),
+            Expanded(child: _identityText(context, 'Alex', 'alex@example.com')),
             const _SidebarReferenceIcon(_SidebarReferenceIcon.chevronsUpDown),
           ],
         ),
@@ -638,8 +637,7 @@ class _ShadcnSidebarDemoState extends State<_ShadcnSidebarDemo> {
   Widget _avatar(BuildContext context) => DAvatar(
     dimension: 32,
     borderRadius: BorderRadius.circular(DTokens.of(context).radius * 1.6),
-    image: const DAvatarImage(image: AssetImage(_avatarAsset)),
-    fallback: const DAvatarFallback(child: Text('CN')),
+    fallback: const DAvatarFallback(child: Text('AL')),
     decorative: true,
   );
 

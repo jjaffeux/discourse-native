@@ -49,7 +49,7 @@ class ComponentExamples {
   final ComponentStatus status;
   final List<StyleguideExample> examples;
 
-  /// The canonical shadcn demo rendered before the documented sections.
+  /// The basic component demo rendered before the documented sections.
   ///
   /// Most component files register that demo first. A non-zero index keeps an
   /// existing section-example order intact when the canonical demo is already
@@ -83,14 +83,12 @@ class ComponentReference {
   const ComponentReference({
     required this.id,
     required this.name,
-    required this.url,
     required this.sections,
     this.sectionDepths = const [],
   });
 
   final String id;
   final String name;
-  final String url;
   final List<String> sections;
   final List<int> sectionDepths;
 

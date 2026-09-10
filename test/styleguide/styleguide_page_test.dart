@@ -67,14 +67,8 @@ void main() {
         .cast<Map<String, dynamic>>();
     expect(componentReferenceDate, snapshot['referenceDate']);
     expect(
-      componentCatalogue.map((entry) => [entry.id, entry.url, entry.sections]),
-      components.map(
-        (entry) => [
-          entry['id'],
-          entry['referenceUrl'],
-          entry['documentedSections'],
-        ],
-      ),
+      componentCatalogue.map((entry) => [entry.id, entry.sections]),
+      components.map((entry) => [entry['id'], entry['documentedSections']]),
     );
     for (final component in componentCatalogue) {
       expect(

@@ -8,7 +8,7 @@ final inputGroupExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Add addons, buttons, and helper content to inputs.',
   notes:
-      'DInputGroup owns the joined shadcn surface, border, fill and exterior '
+      'DInputGroup owns the joined input surface, border, fill and exterior '
       'focus/invalid ring. DInputGroupInput, DInputGroupTextarea and '
       'DInputGroupButton keep independent focus, Form state, semantics, keyboard '
       'editing and actions. Addons can align inline-start, inline-end, '
@@ -158,7 +158,7 @@ final inputGroupExamples = ComponentExamples(
   DFieldLabel(focusNode: focusNode, excludeSemantics: true,
     child: Text('Username')),
   DInputGroup(invalid: invalid, children: [
-    DInputGroupInput(focusNode: focusNode, initialValue: 'shadcn',
+    DInputGroupInput(focusNode: focusNode, initialValue: 'alex',
       semanticLabel: 'Username', validator: validate, onSaved: save),
     DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
       child: DInputGroupText(Text('@company.com'))),
@@ -337,7 +337,7 @@ class InputGroupButtonActionsExample extends StatefulWidget {
 
 class _InputGroupButtonActionsExampleState
     extends State<InputGroupButtonActionsExample> {
-  final _controller = TextEditingController(text: 'https://x.com/shadcn');
+  final _controller = TextEditingController(text: 'https://example.com/alex');
   String _status = 'Ready';
   bool _busy = false;
 
@@ -649,7 +649,7 @@ class _FormExampleState extends State<_FormExample> {
               children: [
                 DInputGroupInput(
                   focusNode: _focus,
-                  initialValue: 'shadcn',
+                  initialValue: 'alex',
                   semanticLabel: 'Username',
                   isRequired: true,
                   validator: (value) =>

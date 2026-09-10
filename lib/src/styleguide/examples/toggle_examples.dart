@@ -8,7 +8,7 @@ final toggleExamples = ComponentExamples(
   description: 'A two-state button that can be either on or off.',
   status: ComponentStatus.implemented,
   notes:
-      'Audited against the current shadcn base-nova Toggle source, examples and Base UI API. '
+      'Audited against the current base-nova Toggle source, examples and Base UI API. '
       'DToggle accepts controlled pressed/onPressedChanged state or internally owned initialPressed state. '
       'Controlled state remains interactive when its optional callback is omitted. Borrowed focus nodes are never disposed. '
       'Space, Enter, pointer and native semantics toggle the value; disabled controls do not enter traversal or activate. '

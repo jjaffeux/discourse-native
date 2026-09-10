@@ -81,7 +81,6 @@ void main() {
       ..writeln('  ComponentReference(')
       ..writeln('    id: ${literal(id)},')
       ..writeln('    name: ${literal(item['name'] as String)},')
-      ..writeln('    url: ${literal(item['referenceUrl'] as String)},')
       ..writeln('    sections: [');
     for (final section in sections) {
       output.writeln('      ${literal(section)},');

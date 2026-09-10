@@ -420,7 +420,7 @@ class _AvatarReferenceDemo extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         DAvatar(
-          semanticLabel: '@shadcn',
+          semanticLabel: '@alex',
           image: DAvatarImage(image: avatarExampleImage),
           fallback: const DAvatarFallback(child: Text('CN')),
         ),
@@ -436,7 +436,7 @@ class _AvatarReferenceDemo extends StatelessWidget {
         DAvatarGroup(
           children: [
             DAvatar(
-              semanticLabel: '@shadcn',
+              semanticLabel: '@alex',
               image: DAvatarImage(image: avatarExampleImage),
               fallback: const DAvatarFallback(child: Text('CN')),
             ),

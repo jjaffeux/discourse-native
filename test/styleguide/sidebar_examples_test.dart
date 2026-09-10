@@ -133,7 +133,7 @@ void main() {
     expect(find.text('Starred'), findsOneWidget);
     expect(find.text('Models'), findsOneWidget);
     expect(find.text('Documentation'), findsOneWidget);
-    expect(find.text('m@example.com'), findsOneWidget);
+    expect(find.text('alex@example.com'), findsOneWidget);
     expect(find.byType(DInput), findsNothing);
 
     await tester.tap(
@@ -154,7 +154,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('History'), findsNothing);
 
-    await tester.tap(find.bySemanticsLabel('Open shadcn account menu'));
+    await tester.tap(find.bySemanticsLabel('Open Alex account menu'));
     await tester.pumpAndSettle();
     expect(find.text('Account'), findsOneWidget);
     await tester.tap(find.text('Account'));
@@ -341,7 +341,7 @@ void main() {
     final account = find.byWidgetPredicate(
       (widget) =>
           widget is DSidebarMenuButton &&
-          widget.semanticLabel == 'Open shadcn account menu',
+          widget.semanticLabel == 'Open Alex account menu',
     );
     bool usesHoverColor(Finder button) => tester
         .widgetList<Container>(
@@ -393,7 +393,7 @@ void main() {
       find.bySemanticsLabel('Switch team, Acme Inc, Enterprise'),
       findsOne,
     );
-    expect(find.bySemanticsLabel('Open shadcn account menu'), findsOneWidget);
+    expect(find.bySemanticsLabel('Open Alex account menu'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

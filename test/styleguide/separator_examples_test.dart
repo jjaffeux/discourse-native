@@ -17,7 +17,7 @@ void main() {
       try {
         await _pump(tester, separatorExamples.examples[0], theme: theme);
         final separator = find.byKey(const ValueKey('separator-configurable'));
-        final title = tester.getRect(find.text('shadcn/ui'));
+        final title = tester.getRect(find.text('Native UI'));
         final subtitle = tester.getRect(
           find.text('The Foundation for your Design System'),
         );
@@ -33,16 +33,16 @@ void main() {
         expect(description.width, 384);
         final tokens = DTokens.of(tester.element(separator));
         for (final (text, color) in [
-          ('shadcn/ui', tokens.foreground),
+          ('Native UI', tokens.foreground),
           ('The Foundation for your Design System', tokens.mutedForeground),
           ('A set of beautifully designed components', tokens.foreground),
         ]) {
           final style = tester.widget<Text>(find.textContaining(text)).style!;
           expect(style.fontSize, 14, reason: text);
-          expect(style.height, text == 'shadcn/ui' ? 1 : 20 / 14, reason: text);
+          expect(style.height, text == 'Native UI' ? 1 : 20 / 14, reason: text);
           expect(
             style.fontWeight,
-            text == 'shadcn/ui' ? FontWeight.w500 : FontWeight.w400,
+            text == 'Native UI' ? FontWeight.w500 : FontWeight.w400,
             reason: text,
           );
           expect(style.color, color, reason: text);
@@ -193,9 +193,9 @@ void main() {
     TextDirection directionOf(String text) =>
         Directionality.of(tester.element(find.text(text)));
     expect(find.text('الأساس لنظام التصميم الخاص بك'), findsOneWidget);
-    expect(directionOf('shadcn/ui'), TextDirection.rtl);
+    expect(directionOf('Native UI'), TextDirection.rtl);
     expect(
-      tester.getRect(find.text('shadcn/ui')).right,
+      tester.getRect(find.text('Native UI')).right,
       tester.getRect(find.byType(DSeparator)).right,
     );
 
@@ -204,9 +204,9 @@ void main() {
     await tester.tap(find.text('English').last);
     await tester.pumpAndSettle();
     expect(find.text('The Foundation for your Design System'), findsOneWidget);
-    expect(directionOf('shadcn/ui'), TextDirection.ltr);
+    expect(directionOf('Native UI'), TextDirection.ltr);
     expect(
-      tester.getRect(find.text('shadcn/ui')).left,
+      tester.getRect(find.text('Native UI')).left,
       tester.getRect(find.byType(DSeparator)).left,
     );
 
@@ -215,7 +215,7 @@ void main() {
     await tester.tap(find.text('עברית').last);
     await tester.pumpAndSettle();
     expect(find.text('הבסיס למערכת העיצוב שלך'), findsOneWidget);
-    expect(directionOf('shadcn/ui'), TextDirection.rtl);
+    expect(directionOf('Native UI'), TextDirection.rtl);
     expect(tester.getSize(find.byType(DSeparator)), const Size(384, 1));
     expect(tester.takeException(), isNull);
   });
