@@ -327,12 +327,6 @@ class TopicStatusButton extends StatelessWidget {
       _selectCommand(context, command);
     }
 
-    final hasStatusCommands =
-        topic.canCloseTopic ||
-        topic.canArchiveTopic ||
-        topic.canToggleTopicVisibility;
-    final hasPriorToDestructive = topic.canSelectPosts || hasStatusCommands;
-    final hasMoreActions = topicFlags.isNotEmpty;
     final options = [
       if (topicFlags.isNotEmpty)
         CommandMenuOption(
@@ -347,7 +341,6 @@ class TopicStatusButton extends StatelessWidget {
           label: topic.pinned ? 'Unpin topic' : 'Pin topic',
           icon: DIcons.thumbtack,
           key: const ValueKey('topic-pin-button'),
-          dividerBefore: topicFlags.isNotEmpty,
         ),
       if (topic.canSelectPosts)
         CommandMenuOption(
@@ -355,7 +348,6 @@ class TopicStatusButton extends StatelessWidget {
           label: 'Select posts',
           icon: DIcons.list,
           key: const ValueKey('topic-select-posts'),
-          dividerBefore: hasMoreActions || topic.hasPinPreference,
         ),
       if (topic.canCloseTopic)
         CommandMenuOption(
@@ -363,9 +355,6 @@ class TopicStatusButton extends StatelessWidget {
           label: topic.closed ? 'Open topic' : 'Close topic',
           icon: DIcons.lock,
           key: const ValueKey('topic-status-closed'),
-          dividerBefore:
-              !topic.canSelectPosts &&
-              (hasMoreActions || topic.hasPinPreference),
         ),
       if (topic.canArchiveTopic)
         CommandMenuOption(
@@ -373,10 +362,6 @@ class TopicStatusButton extends StatelessWidget {
           label: topic.archived ? 'Unarchive topic' : 'Archive topic',
           icon: topic.archived ? DIcons.folderOpen : DIcons.folder,
           key: const ValueKey('topic-status-archived'),
-          dividerBefore:
-              !topic.canSelectPosts &&
-              !topic.canCloseTopic &&
-              (hasMoreActions || topic.hasPinPreference),
         ),
       if (topic.canToggleTopicVisibility)
         CommandMenuOption(
@@ -384,11 +369,6 @@ class TopicStatusButton extends StatelessWidget {
           label: topic.visible ? 'Make topic unlisted' : 'Make topic visible',
           icon: topic.visible ? DIcons.farEyeSlash : DIcons.farEye,
           key: const ValueKey('topic-status-visible'),
-          dividerBefore:
-              !topic.canSelectPosts &&
-              !topic.canCloseTopic &&
-              !topic.canArchiveTopic &&
-              (hasMoreActions || topic.hasPinPreference),
         ),
       if (topic.canDeleteTopic)
         CommandMenuOption(
@@ -396,7 +376,6 @@ class TopicStatusButton extends StatelessWidget {
           label: 'Delete topic',
           icon: DIcons.trashCan,
           key: const ValueKey('topic-status-delete'),
-          dividerBefore: hasPriorToDestructive,
           destructive: true,
         ),
       if (topic.canRecoverTopic)
@@ -405,7 +384,6 @@ class TopicStatusButton extends StatelessWidget {
           label: 'Recover topic',
           icon: DIcons.arrowRotateLeft,
           key: const ValueKey('topic-status-recover'),
-          dividerBefore: !topic.canDeleteTopic && hasPriorToDestructive,
         ),
     ];
     return ShellSelector<bool>(
