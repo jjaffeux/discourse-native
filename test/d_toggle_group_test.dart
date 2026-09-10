@@ -148,6 +148,44 @@ void main() {
     },
   );
 
+  testWidgets('multiple selection accepts taps before the scheduled rebuild', (
+    tester,
+  ) async {
+    final changes = <List<String>>[];
+    await mount(
+      tester,
+      DToggleGroup<String>(
+        multiple: true,
+        onChanged: changes.add,
+        items: const [
+          DToggleGroupItem(
+            value: 'bold',
+            semanticLabel: 'Bold',
+            child: Text('Bold'),
+          ),
+          DToggleGroupItem(
+            value: 'italic',
+            semanticLabel: 'Italic',
+            child: Text('Italic'),
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(toggle('Bold'));
+    await tester.tap(toggle('Italic'));
+    await tester.tap(toggle('Bold'));
+    await tester.pumpAndSettle();
+
+    expect(changes, [
+      ['bold'],
+      ['bold', 'italic'],
+      ['italic'],
+    ]);
+    expect(toggled(tester, 'Bold'), Tristate.isFalse);
+    expect(toggled(tester, 'Italic'), Tristate.isTrue);
+  });
+
   testWidgets(
     'controller, disabled state and required selection preserve ownership',
     (tester) async {
