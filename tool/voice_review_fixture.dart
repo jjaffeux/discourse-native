@@ -15,11 +15,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import '../test/support/voice_fake_chat_conversations.dart';
 
-const _siteUrl = 'https://native-select.invalid';
+const _siteUrl = 'https://select-review.invalid';
 
 /// Real Voice widgets with an in-memory media session; no device acquisition.
-class NativeSelectVoiceFixture extends StatefulWidget {
-  const NativeSelectVoiceFixture({super.key, this.room = defaultRoom});
+class VoiceReviewFixture extends StatefulWidget {
+  const VoiceReviewFixture({super.key, this.room = defaultRoom});
 
   static const defaultRoom = VoiceRoom(
     id: 7,
@@ -39,11 +39,10 @@ class NativeSelectVoiceFixture extends StatefulWidget {
   final VoiceRoom room;
 
   @override
-  State<NativeSelectVoiceFixture> createState() =>
-      _NativeSelectVoiceFixtureState();
+  State<VoiceReviewFixture> createState() => _VoiceReviewFixtureState();
 }
 
-class _NativeSelectVoiceFixtureState extends State<NativeSelectVoiceFixture> {
+class _VoiceReviewFixtureState extends State<VoiceReviewFixture> {
   late final VoiceController controller;
   late final _ReviewChatCapability chatConversations;
 

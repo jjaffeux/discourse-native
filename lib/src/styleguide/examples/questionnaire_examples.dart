@@ -16,7 +16,7 @@ final questionnaireExamples = ComponentExamples(
       'and submission. DQuestionnaireSavedState is JSON-ready for host-owned '
       'persistence. Async validation is revision-cancelled when answers change. '
       'The styled widget matches base-nova geometry and composes DButton, DInput, '
-      'DProgress, DCard, DDialog and DNativeSelect. Flutter builds deterministic '
+      'DProgress, DCard, DDialog and DSelect. Flutter builds deterministic '
       'initial markup rather than React server HTML; persistence, transport, close '
       'and branching remain outside the component.',
   examples: [
@@ -41,7 +41,7 @@ final questionnaireExamples = ComponentExamples(
       title: 'Answer shortcuts',
       description:
           'Choose letter or number hints. Disabled choices do not consume a shortcut and typing in the freeform field is never intercepted.',
-      states: const ['Letters', 'Numbers', 'Keyboard', 'Native select'],
+      states: const ['Letters', 'Numbers', 'Keyboard', 'Select'],
       code: '''DQuestionnaire(
   shortcuts: DQuestionnaireShortcutMode.letters,
   items: items,
@@ -279,21 +279,29 @@ class _ShortcutQuestionnaireState extends State<_ShortcutQuestionnaire> {
       children: [
         SizedBox(
           width: 170,
-          child: DNativeSelect<DQuestionnaireShortcutMode>(
+          child: DSelect<DQuestionnaireShortcutMode>(
             entries: const [
-              DNativeSelectOption(
+              DSelectOption(
+                value: null,
+                label: 'No shortcuts',
+                child: Text('No shortcuts'),
+              ),
+              DSelectOption(
                 value: DQuestionnaireShortcutMode.letters,
                 label: 'Letters',
+                child: Text('Letters'),
               ),
-              DNativeSelectOption(
+              DSelectOption(
                 value: DQuestionnaireShortcutMode.numbers,
                 label: 'Numbers',
+                child: Text('Numbers'),
               ),
             ],
             initialValue: mode,
             placeholder: 'No shortcuts',
-            label: 'Shortcut style',
+            label: const Text('Shortcut style'),
             onChanged: (value) => setState(() => mode = value),
+            isExpanded: true,
           ),
         ),
         const SizedBox(height: 16),

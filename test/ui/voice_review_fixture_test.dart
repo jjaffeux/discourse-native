@@ -3,7 +3,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../tool/native_select_voice_fixture.dart';
+import '../../tool/voice_review_fixture.dart';
 
 void main() {
   testWidgets(
@@ -15,15 +15,15 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: const Scaffold(body: NativeSelectVoiceFixture()),
+          home: const Scaffold(body: VoiceReviewFixture()),
         ),
       );
       await tester.tap(find.text('Join room'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Media settings'));
       await tester.pumpAndSettle();
-      expect(find.byType(DNativeSelect<String>), findsNWidgets(3));
-      await tester.tap(find.byType(DNativeSelect<String>).first);
+      expect(find.byType(DSelect<String>), findsNWidgets(3));
+      await tester.tap(find.byType(DSelect<String>).first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Travel microphone').last);
       await tester.pumpAndSettle();

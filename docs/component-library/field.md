@@ -28,7 +28,7 @@ widget semantics tests rather than claimed manual speech output.
 
 Public composition contract: DField owns layout and metadata only. DInput,
 DTextarea, DCheckbox, DRadioGroup, DSwitch/DSwitchTile, DSlider/DMultiSlider,
-DNativeSelect and DButton retain value, Form, validation, focus and action
+DSelect and DButton retain value, Form, validation, focus and action
 ownership. DFieldControl wraps one otherwise-unlabelled native/custom control;
 do not add it around a public control that already owns those semantics. The
 responsive custom-error example deliberately retains one native

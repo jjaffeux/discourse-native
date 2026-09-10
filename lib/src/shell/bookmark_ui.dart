@@ -830,22 +830,23 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
             ),
           ),
           const SizedBox(height: 12),
-          DNativeSelect<BookmarkAutoDeletePreference>.controlled(
+          DSelect<BookmarkAutoDeletePreference>.controlled(
             isExpanded: true,
-            placeholderEnabled: false,
             value: _preference,
-            label: 'Afterward',
+            label: const Text('Afterward'),
             entries: [
               for (final preference in BookmarkAutoDeletePreference.values)
-                DNativeSelectOption(
+                DSelectOption(
                   value: preference,
                   label: _preferenceLabel(preference),
+                  child: Text(_preferenceLabel(preference)),
                 ),
             ],
             onChanged: _busy
                 ? null
                 : (value) => setState(() => _preference = value!),
             initialValue: _preference,
+            enabled: !_busy,
           ),
           const SizedBox(height: 20),
           Text('Remind me', style: Theme.of(context).textTheme.titleSmall),
@@ -908,18 +909,22 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: DNativeSelect<_RelativeUnit>.controlled(
+                child: DSelect<_RelativeUnit>.controlled(
                   isExpanded: true,
-                  placeholderEnabled: false,
                   value: _relativeUnit,
                   entries: [
                     for (final unit in _RelativeUnit.values)
-                      DNativeSelectOption(value: unit, label: unit.label),
+                      DSelectOption(
+                        value: unit,
+                        label: unit.label,
+                        child: Text(unit.label),
+                      ),
                   ],
                   onChanged: _busy
                       ? null
                       : (value) => setState(() => _relativeUnit = value!),
                   initialValue: _relativeUnit,
+                  enabled: !_busy,
                 ),
               ),
               const SizedBox(width: 8),

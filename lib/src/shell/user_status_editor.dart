@@ -252,8 +252,8 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
     final preview = description.isEmpty ? null : description;
     return AlertDialog(
       title: const Text('Set custom status'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 430),
+      content: SizedBox(
+        width: 430,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -299,31 +299,35 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                 ],
               ),
               const SizedBox(height: 10),
-              DNativeSelect<_StatusExpiry>.controlled(
+              DSelect<_StatusExpiry>.controlled(
                 isExpanded: true,
-                placeholderEnabled: false,
-                label: 'Clear after',
+                label: const Text('Clear after'),
                 value: _expiry,
                 entries: const [
-                  DNativeSelectOption(
+                  DSelectOption(
                     value: _StatusExpiry.never,
                     label: 'Never',
+                    child: Text('Never'),
                   ),
-                  DNativeSelectOption(
+                  DSelectOption(
                     value: _StatusExpiry.oneHour,
                     label: '1 hour',
+                    child: Text('1 hour'),
                   ),
-                  DNativeSelectOption(
+                  DSelectOption(
                     value: _StatusExpiry.twoHours,
                     label: '2 hours',
+                    child: Text('2 hours'),
                   ),
-                  DNativeSelectOption(
+                  DSelectOption(
                     value: _StatusExpiry.tomorrow,
                     label: 'Tomorrow',
+                    child: Text('Tomorrow'),
                   ),
-                  DNativeSelectOption(
+                  DSelectOption(
                     value: _StatusExpiry.custom,
                     label: 'Custom date and time',
+                    child: Text('Custom date and time'),
                   ),
                 ],
                 onChanged: _busy
@@ -332,6 +336,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                         if (value != null) unawaited(_chooseExpiry(value));
                       },
                 initialValue: _expiry,
+                enabled: !_busy,
               ),
               if (_expiry == _StatusExpiry.custom && _customEndsAt != null) ...[
                 const SizedBox(height: 8),

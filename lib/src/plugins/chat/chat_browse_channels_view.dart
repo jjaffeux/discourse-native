@@ -163,17 +163,17 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
               Row(
                 children: [
                   Expanded(
-                    child: DNativeSelect<ChatChannelBrowseStatus>.controlled(
+                    child: DSelect<ChatChannelBrowseStatus>.controlled(
                       isExpanded: true,
-                      placeholderEnabled: false,
                       key: const ValueKey('chat-browse-status'),
                       value: _status,
-                      label: 'Status',
+                      label: const Text('Status'),
                       entries: [
                         for (final status in ChatChannelBrowseStatus.values)
-                          DNativeSelectOption(
+                          DSelectOption(
                             value: status,
                             label: _statusLabel(status),
+                            child: Text(_statusLabel(status)),
                           ),
                       ],
                       onChanged: (status) {
@@ -186,17 +186,17 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: DNativeSelect<ChatChannelJoinedFilter>.controlled(
+                    child: DSelect<ChatChannelJoinedFilter>.controlled(
                       isExpanded: true,
-                      placeholderEnabled: false,
                       key: const ValueKey('chat-browse-joined'),
                       value: _joined,
-                      label: 'Membership',
+                      label: const Text('Membership'),
                       entries: [
                         for (final joined in ChatChannelJoinedFilter.values)
-                          DNativeSelectOption(
+                          DSelectOption(
                             value: joined,
                             label: _joinedLabel(joined),
+                            child: Text(_joinedLabel(joined)),
                           ),
                       ],
                       onChanged: (joined) {

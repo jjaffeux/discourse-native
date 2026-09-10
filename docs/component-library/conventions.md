@@ -2,8 +2,10 @@
 
 Read [the brief](brief.md), [frozen catalogue](catalogue.json), [progress](progress.md),
 and [migration inventory](inventory.md) before implementing a component.
-Reference date: **2026-09-08**. The 64 entries linked by the official
-[All Components catalogue](https://ui.shadcn.com/docs/components) define scope.
+Reference date: **2026-09-08**. The official
+[All Components catalogue](https://ui.shadcn.com/docs/components) originally
+defined 64 entries. The user removed Native Select on **2026-09-10**, leaving
+63 components; `DSelect` owns both plain and rich selection fields.
 The default links currently use Base UI. Other reference engines are supporting
 material, not additional components. Toast includes Sonner; the old Sonner URL
 and framework-specific form integration pages do not add catalogue rows.
@@ -172,7 +174,7 @@ unaccepted parent into main through its dependent. Each implementer and reviewer
 edits only its assigned progress row; the reviewer preserves all other rows on
 merge.
 
-After all 64 component rows are merged, create a final separate audit task to
+After all component rows are merged, create a final separate audit task to
 improve shared code, API consistency, composition, themes, accessibility,
 examples and missed app migrations. Review, verify and merge its changes before
 marking the overall goal complete.

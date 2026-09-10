@@ -1283,9 +1283,9 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                           ),
                           size: 36,
                           fallback: ColoredBox(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHigh,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHigh,
                           ),
                         ),
                       ),
@@ -1509,7 +1509,9 @@ Future<void> _showMediaSettings(
                                 ModalRoute.of(context)?.isCurrent == true) {
                               DToast.show(
                                 context,
-                                available ? 'Microphone is available.' : "Couldn't test the microphone. Please try again.",
+                                available
+                                    ? 'Microphone is available.'
+                                    : "Couldn't test the microphone. Please try again.",
                                 type: available
                                     ? DToastType.success
                                     : DToastType.error,
@@ -1620,20 +1622,21 @@ class _DevicePicker extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   @override
-  Widget build(BuildContext context) => DNativeSelect<String>.controlled(
+  Widget build(BuildContext context) => DSelect<String>.controlled(
     isExpanded: true,
-    placeholderEnabled: false,
     value: value,
-    label: label,
+    label: Text(label),
     onChanged: devices.isEmpty ? null : onChanged,
     entries: [
       for (final device in devices)
-        DNativeSelectOption(
+        DSelectOption(
           value: device.deviceId,
           label: device.label.isEmpty ? 'Default $label' : device.label,
+          child: Text(device.label.isEmpty ? 'Default $label' : device.label),
         ),
     ],
     initialValue: value,
+    enabled: devices.isNotEmpty,
   );
 }
 
@@ -2067,15 +2070,18 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
               const SizedBox(width: 8),
               SizedBox(
                 width: 120,
-                child: DNativeSelect<VoiceRole>.controlled(
+                child: DSelect<VoiceRole>.controlled(
                   isExpanded: true,
-                  placeholderEnabled: false,
                   value: _newRole,
                   onChanged: (value) =>
                       setState(() => _newRole = value ?? _newRole),
                   entries: [
                     for (final role in VoiceRole.values)
-                      DNativeSelectOption(value: role, label: role.name),
+                      DSelectOption(
+                        value: role,
+                        label: role.name,
+                        child: Text(role.name),
+                      ),
                   ],
                   initialValue: _newRole,
                 ),
