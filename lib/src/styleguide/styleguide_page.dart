@@ -29,6 +29,16 @@ const _foundations = ComponentReference(
 );
 const _entries = [_foundations, ...componentCatalogue];
 
+class _StyleguideDocumentSection {
+  const _StyleguideDocumentSection({
+    required this.reference,
+    required this.exampleIndexes,
+  });
+
+  final ComponentReferenceSection reference;
+  final List<int> exampleIndexes;
+}
+
 class ComponentStyleguidePage extends StatefulWidget {
   const ComponentStyleguidePage({super.key, this.onClose});
   final VoidCallback? onClose;
@@ -84,7 +94,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   void _select(ComponentReference reference) {
     setState(() {
       _selected = reference;
-      _activeOutlineIndex = reference.documentOutline.isEmpty ? -1 : 0;
+      _activeOutlineIndex = _documentSections.isEmpty ? -1 : 0;
       _sectionKeys.clear();
     });
     _sidebarKey.currentState?.setOpenMobile(false);
@@ -114,7 +124,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
 
   void _syncActiveOutlineToScroll() {
     if (!mounted || !_detailScroll.hasClients) return;
-    final sections = _visibleSections;
+    final sections = _documentSections;
     if (sections.isEmpty) return;
 
     final position = _detailScroll.position;
@@ -410,8 +420,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   Widget _detail(BuildContext context, ThemeData hostTheme) {
     final group = componentExamples[_selected.id];
     final examples = group?.examples ?? const <StyleguideExample>[];
-    final sections = _visibleSections;
-    final assignments = _assignExamples(sections, examples);
+    final sections = _documentSections;
     final index = _entries.indexOf(_selected);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -475,10 +484,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       SizedBox(height: sectionIndex == 0 ? 40 : 56),
                       _sectionHeading(
                         context,
-                        sections[sectionIndex],
+                        sections[sectionIndex].reference,
                         sectionIndex,
                       ),
-                      for (final exampleIndex in assignments[sectionIndex]) ...[
+                      for (final exampleIndex
+                          in sections[sectionIndex].exampleIndexes) ...[
                         const SizedBox(height: 20),
                         _exampleDocumentation(
                           context,
@@ -493,7 +503,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                                     examples[exampleIndex].title,
                                   ) !=
                                   _normalizedSectionLabel(
-                                    sections[sectionIndex].label,
+                                    sections[sectionIndex].reference.label,
                                   ),
                         ),
                       ],
@@ -508,8 +518,54 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     );
   }
 
-  List<ComponentReferenceSection> get _visibleSections =>
-      _selected.documentOutline.toList(growable: false);
+  List<_StyleguideDocumentSection> get _documentSections {
+    final examples =
+        componentExamples[_selected.id]?.examples ??
+        const <StyleguideExample>[];
+    final references = _selected.documentOutline.toList(growable: false);
+    final assignments = _assignExamples(references, examples);
+    final assignedExamples = assignments.expand((indexes) => indexes).toSet();
+    final sections = <_StyleguideDocumentSection>[];
+    var parentIsPopulated = false;
+    for (var index = 0; index < references.length; index++) {
+      final reference = references[index];
+      if (reference.depth == 0) {
+        parentIsPopulated = assignments[index].isNotEmpty;
+      }
+      if (assignments[index].isEmpty) continue;
+      sections.add(
+        _StyleguideDocumentSection(
+          reference: reference.depth > 0 && !parentIsPopulated
+              ? ComponentReferenceSection(label: reference.label)
+              : reference,
+          exampleIndexes: assignments[index],
+        ),
+      );
+    }
+    for (var exampleIndex = 0; exampleIndex < examples.length; exampleIndex++) {
+      if (assignedExamples.contains(exampleIndex)) continue;
+      final section = _StyleguideDocumentSection(
+        reference: ComponentReferenceSection(
+          label:
+              omittedComponentDocumentationSections.contains(
+                examples[exampleIndex].title,
+              )
+              ? _selected.name
+              : examples[exampleIndex].title,
+        ),
+        exampleIndexes: [exampleIndex],
+      );
+      final insertionIndex = sections.indexWhere(
+        (section) => section.exampleIndexes.first > exampleIndex,
+      );
+      if (insertionIndex < 0) {
+        sections.add(section);
+      } else {
+        sections.insert(insertionIndex, section);
+      }
+    }
+    return sections;
+  }
 
   List<List<int>> _assignExamples(
     List<ComponentReferenceSection> sections,
@@ -518,16 +574,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     final assignments = List.generate(sections.length, (_) => <int>[]);
     if (sections.isEmpty) return assignments;
 
-    final fallbackSections = <int>[
-      for (var index = 0; index < sections.length; index++)
-        if (sections[index].depth == 0 && sections[index].label != 'Changelog')
-          index,
-    ];
-
     for (var exampleIndex = 0; exampleIndex < examples.length; exampleIndex++) {
       final example = examples[exampleIndex];
       var bestSection = -1;
       var bestScore = 0;
+      var bestSpecificity = 0;
       for (
         var sectionIndex = 0;
         sectionIndex < sections.length;
@@ -538,25 +589,20 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
         final states = example.states.map(_normalizedSectionLabel);
         final score = switch ((title, states)) {
           (final title, _) when title == needle => 100,
-          (_, final states) when states.contains(needle) => 90,
-          (final title, _) when title.contains(needle) => 80,
+          (final title, _) when title.contains(needle) => 90,
+          (_, final states) when states.contains(needle) => 80,
           (final title, _) when needle.contains(title) => 70,
           _ => 0,
         };
-        if (score > bestScore) {
+        if (score > 0 &&
+            (score > bestScore ||
+                (score == bestScore && needle.length > bestSpecificity))) {
           bestSection = sectionIndex;
           bestScore = score;
+          bestSpecificity = needle.length;
         }
       }
-      if (bestSection < 0) {
-        final candidates = fallbackSections.isEmpty
-            ? List.generate(sections.length, (index) => index)
-            : fallbackSections;
-        bestSection =
-            candidates[(exampleIndex * candidates.length ~/ examples.length)
-                .clamp(0, candidates.length - 1)];
-      }
-      assignments[bestSection].add(exampleIndex);
+      if (bestSection >= 0) assignments[bestSection].add(exampleIndex);
     }
     return assignments;
   }
@@ -691,7 +737,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   );
 
   Widget _tableOfContents(BuildContext context) {
-    final sections = _visibleSections;
+    final sections = _documentSections;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 40, 24, 24),
       child: Column(
@@ -712,11 +758,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           for (var index = 0; index < sections.length; index++)
             Padding(
               padding: EdgeInsetsDirectional.only(
-                start: sections[index].depth * 32.0,
+                start: sections[index].reference.depth * 32.0,
               ),
               child: StyleguideAction(
                 key: ValueKey('styleguide-section-$index'),
-                label: sections[index].label,
+                label: sections[index].reference.label,
                 selected: index == _activeOutlineIndex,
                 alignment: AlignmentDirectional.centerStart,
                 onPressed: () => _scrollToSection(index),
