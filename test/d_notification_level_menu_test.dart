@@ -37,6 +37,53 @@ Finder _option(int value) => find.byWidgetPredicate(
 );
 
 void main() {
+  for (final showLabel in [false, true]) {
+    testWidgets('outlined trigger selects a level (label: $showLabel)', (
+      tester,
+    ) async {
+      final changes = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: DButtonGroup(
+                children: [
+                  const DButton(
+                    label: Text('Reply'),
+                    variant: DButtonVariant.outline,
+                    onPressed: null,
+                  ),
+                  DNotificationLevelMenu<int>(
+                    value: 3,
+                    options: _options,
+                    semanticLabel: 'Topic notifications',
+                    showLabel: showLabel,
+                    variant: DButtonVariant.outline,
+                    onChanged: changes.add,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      final trigger = find.descendant(
+        of: find.byType(DNotificationLevelMenu<int>),
+        matching: find.byType(DButton),
+      );
+      expect(tester.widget<DButton>(trigger).variant, DButtonVariant.outline);
+      expect(find.byTooltip('Topic notifications: Watching'), findsOneWidget);
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      await tester.tap(_option(0));
+      await tester.pumpAndSettle();
+      expect(changes, [0]);
+      expect(find.byType(DDropdownMenuContent), findsNothing);
+      expect(tester.widget<DButton>(trigger).focusNode!.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'selection announces the value, closes, and follows caller state',
     (tester) async {

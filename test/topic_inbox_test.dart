@@ -33,6 +33,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 
 const _parent = TopicCategory(
@@ -1973,6 +1974,74 @@ void main() {
       TargetPlatform.macOS,
       TargetPlatform.android,
     }),
+  );
+
+  testWidgets(
+    'footer actions stay joined at wide and compact widths and remain usable',
+    (tester) async {
+      final setup = await _setup(tester);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final group = find.byKey(const ValueKey('topic-footer-actions'));
+      final reply = find.byKey(const ValueKey('topic-reply-button'));
+      final bookmark = find.byKey(const ValueKey('topic-bookmark-button'));
+      final notifications = find.byKey(
+        const ValueKey('topic-notification-level-button'),
+      );
+      for (final width in [2000.0, 500.0]) {
+        tester.view.physicalSize = Size(width, 800);
+        await tester.pumpAndSettle();
+        expect(group, findsOneWidget);
+        final controls = [reply, bookmark, notifications];
+        for (final control in controls) {
+          expect(control.hitTestable(), findsOneWidget);
+          expect(
+            tester.widget<DButton>(control).variant,
+            DButtonVariant.outline,
+          );
+          expect(tester.getSize(control).height, tester.getSize(reply).height);
+        }
+        expect(tester.getRect(reply).right, tester.getRect(bookmark).left);
+        expect(
+          tester.getRect(bookmark).right,
+          tester.getRect(notifications).left,
+        );
+        expect(
+          buttonSurface(tester, of: reply).borderRadius.topRight,
+          Radius.zero,
+        );
+        expect(
+          buttonSurface(tester, of: bookmark).borderRadius,
+          BorderRadius.zero,
+        );
+        expect(
+          buttonSurface(tester, of: notifications).borderRadius.topLeft,
+          Radius.zero,
+        );
+        expect(
+          find.descendant(of: notifications, matching: find.text('Normal')),
+          width == 2000 ? findsOneWidget : findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      }
+      await tester.tap(notifications);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Watching'));
+      await tester.pumpAndSettle();
+      expect(setup.api.topicNotificationLevelsUpdated, [
+        (topicId: 1, notificationLevel: TopicNotificationLevel.watching),
+      ]);
+      await tester.tap(bookmark);
+      await tester.pumpAndSettle();
+      expect(find.text('Bookmark topic'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(reply);
+      await tester.pumpAndSettle();
+      expect(setup.controller.visibleComposer?.target.topicId, 1);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
   testWidgets(

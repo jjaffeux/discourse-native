@@ -25,12 +25,14 @@ class TopicBookmarkButton extends StatelessWidget {
     required this.topic,
     required this.busy,
     this.showLabel = false,
+    this.variant,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final bool busy;
   final bool showLabel;
+  final DButtonVariant? variant;
 
   @override
   Widget build(BuildContext context) {
@@ -48,9 +50,11 @@ class TopicBookmarkButton extends StatelessWidget {
     final tooltip = topic.hasBookmarks
         ? 'Manage ${topic.bookmarks.length} topic bookmark${topic.bookmarks.length == 1 ? '' : 's'}'
         : 'Bookmark this topic';
-    final variant = topic.topicBookmark != null
-        ? DButtonVariant.transparentPrimary
-        : DButtonVariant.flat;
+    final buttonVariant =
+        variant ??
+        (topic.topicBookmark != null
+            ? DButtonVariant.transparentPrimary
+            : DButtonVariant.flat);
     void open() => unawaited(
       showTopicBookmarkMenu(
         context: context,
@@ -68,7 +72,7 @@ class TopicBookmarkButton extends StatelessWidget {
         label: Text(topic.hasBookmarks ? 'Bookmarked' : 'Bookmark'),
         tooltip: tooltip,
         loading: busy,
-        variant: variant,
+        variant: buttonVariant,
         size: DButtonSize.small,
       );
     }
@@ -78,7 +82,7 @@ class TopicBookmarkButton extends StatelessWidget {
       icon: icon,
       tooltip: tooltip,
       loading: busy,
-      variant: variant,
+      variant: buttonVariant,
       size: DButtonSize.small,
     );
   }
@@ -421,11 +425,13 @@ class TopicNotificationLevelButton extends StatelessWidget {
     required this.siteUrl,
     required this.topic,
     this.showLabel = false,
+    this.variant,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final bool showLabel;
+  final DButtonVariant? variant;
 
   static const _options = [
     DNotificationLevelOption(
@@ -468,6 +474,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
           semanticLabel: 'Topic notifications',
           buttonKey: const ValueKey('topic-notification-level-button'),
           showLabel: showLabel,
+          variant: variant,
           value: topic.notificationLevel,
           options: _options,
           onChanged: (level) {

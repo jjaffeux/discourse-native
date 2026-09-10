@@ -45,6 +45,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
     required this.semanticLabel,
     this.showLabel = false,
     this.size = DButtonSize.small,
+    this.variant,
     this.buttonKey,
   }) : assert(options.length > 0);
 
@@ -54,6 +55,11 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   final String semanticLabel;
   final bool showLabel;
   final DButtonSize size;
+
+  /// Overrides the trigger style for compositions such as an outlined group.
+  /// When null, labeled triggers are flat and emphasized icon triggers use
+  /// the primary accent.
+  final DButtonVariant? variant;
   final Key? buttonKey;
 
   @override
@@ -107,7 +113,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 focusNode: state.focusNode,
                 hasPopup: true,
                 expanded: state.open,
-                variant: DButtonVariant.flat,
+                variant: variant ?? DButtonVariant.flat,
                 size: size,
               )
             : DButton.iconOnly(
@@ -119,9 +125,11 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 focusNode: state.focusNode,
                 hasPopup: true,
                 expanded: state.open,
-                variant: selected.emphasized
-                    ? DButtonVariant.transparentPrimary
-                    : DButtonVariant.flat,
+                variant:
+                    variant ??
+                    (selected.emphasized
+                        ? DButtonVariant.transparentPrimary
+                        : DButtonVariant.flat),
                 size: size,
               ),
       ),
