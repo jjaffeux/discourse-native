@@ -169,6 +169,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   String _search = '';
   Timer? _searchTimer;
   bool _autofocused = false;
+  bool _pointerHighlight = false;
 
   void register(Object owner, _MenuRegistration registration) {
     _items[owner] = registration;
@@ -180,8 +181,24 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     if (identical(_pendingHover, owner)) _cancelPendingHover();
   }
 
-  bool get hasActivePointerHighlight =>
-      _hoveredItem != null || _activeSubmenu != null;
+  bool get showFocusHighlight => !_pointerHighlight && _activeSubmenu == null;
+
+  void _usePointerHighlight() {
+    _parentContent?._usePointerHighlight();
+    if (_pointerHighlight) return;
+    _pointerHighlight = true;
+    _refreshItemHighlights();
+  }
+
+  void useKeyboardHighlight() {
+    cancelPointerIntent();
+    if (_pointerHighlight) {
+      _pointerHighlight = false;
+      _hoveredItem = null;
+      _refreshItemHighlights();
+    }
+    _parentContent?.useKeyboardHighlight();
+  }
 
   void _refreshItemHighlights() {
     for (final owner in _items.keys) {
@@ -198,6 +215,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   }
 
   void pointerHover(_DropdownMenuItemSurfaceState item, PointerEvent event) {
+    _usePointerHighlight();
     if (!item.widget.enabled) return;
     final position = event.position;
     final previous = _pointerPosition;
@@ -370,7 +388,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    cancelPointerIntent();
+    useKeyboardHighlight();
     final key = event.logicalKey;
     final direction = Directionality.of(context);
     if (key == LogicalKeyboardKey.arrowDown) {
@@ -446,6 +464,8 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     return _DropdownMenuContentScope(
       state: this,
       child: MouseRegion(
+        onEnter: (_) => _usePointerHighlight(),
+        onHover: (_) => _usePointerHighlight(),
         onExit: (_) => cancelPointerIntent(),
         child: Semantics(
           container: true,
@@ -947,7 +967,11 @@ class _DDropdownMenuSubState extends State<DDropdownMenuSub> {
         : LogicalKeyboardKey.arrowLeft;
     return DDropdownMenu(
       controller: _controller,
-      onOpenChange: (open, _) {
+      onOpenChange: (open, reason) {
+        // Popover handles Escape before menu rows receive the key event.
+        if (reason == DPopoverChangeReason.escape) {
+          _parent?.useKeyboardHighlight();
+        }
         if (open) {
           _parent?.activateSubmenu(this);
         } else {
@@ -1082,7 +1106,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      _content?.cancelPointerIntent();
+      _content?.useKeyboardHighlight();
       final custom = widget.onKey?.call(event);
       if (custom == KeyEventResult.handled) return custom!;
       if (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -1107,13 +1131,14 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
     final destructive = widget.variant == DDropdownMenuItemVariant.destructive;
     // Pointer hover is menu-local and deliberately does not move keyboard
     // focus. This keeps partially clipped rows from being implicitly revealed
-    // while ensuring only the hovered row paints as active.
+    // while ensuring only the hovered row paints as active. Crossing a gap
+    // keeps stale focus hidden until keyboard input resumes.
     final interactive =
         widget.enabled &&
         (_pressed ||
             _content?.isHovered(this) == true ||
             widget.expanded == true ||
-            (_content?.hasActivePointerHighlight != true && _focused));
+            (_content?.showFocusHighlight == true && _focused));
     final background = interactive
         ? destructive
               ? tokens.destructive.withValues(
