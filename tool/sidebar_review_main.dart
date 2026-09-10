@@ -117,6 +117,15 @@ Future<void> main() async {
           ),
         ],
       },
+      chatMessagesByKey: {
+        for (var id = 1; id <= 100; id++)
+          FakeDiscourseApi.chatMessagesKey(id): (
+            messages: const [],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+      },
       chatChannelsBySite: {
         _site: ChatChannels(
           public: [
