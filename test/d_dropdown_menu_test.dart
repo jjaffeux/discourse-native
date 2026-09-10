@@ -601,6 +601,50 @@ void main() {
     },
   );
 
+  testWidgets('collision-constrained menus scroll without an explicit height', (
+    tester,
+  ) async {
+    await pumpMenu(
+      tester,
+      child: DDropdownMenu(
+        content: DDropdownMenuContent(
+          children: [
+            for (var index = 0; index < 14; index++)
+              DDropdownMenuItem(
+                onPressed: _noop,
+                child: Text('Command $index'),
+              ),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton(
+            label: const Text('Open'),
+            onPressed: state.toggle,
+            focusNode: state.focusNode,
+          ),
+        ),
+      ),
+    );
+    await open(tester);
+    expect(find.byType(DScrollViewport), findsOneWidget);
+    final viewport = tester.getRect(find.byType(DScrollViewport));
+    final firstTop = tester.getTopLeft(find.text('Command 0')).dy;
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: viewport.center,
+        scrollDelta: const Offset(0, 60),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Command 0')).dy, lessThan(firstTop));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+    final lastItem = tester.getRect(find.text('Command 13'));
+    expect(lastItem.top, greaterThanOrEqualTo(viewport.top));
+    expect(lastItem.bottom, lessThanOrEqualTo(viewport.bottom));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('pointer movement leaves exactly one row highlighted', (
     tester,
   ) async {

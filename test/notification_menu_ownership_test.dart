@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -5,7 +6,6 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/category_notifications.dart';
-import 'package:discourse_native/src/shell/choice_menu.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -26,11 +26,7 @@ const _categories = [
 ];
 
 Finder _menuOption(String title) => find.descendant(
-  of: find.byWidgetPredicate(
-    (widget) =>
-        widget.key == const ValueKey('choice-menu-surface') ||
-        widget is BottomSheet,
-  ),
+  of: find.byType(DDropdownMenuContent),
   matching: find.text(title),
 );
 
@@ -56,8 +52,7 @@ void main() {
         // MainContent's inbox reader already has a per-topic parent key.
         expect(reader!.mounted, isFalse);
       }
-      await tester.tap(_menuOption('Watching'));
-      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(harness.api.writes, isEmpty);
       expect(tester.takeException(), isNull);
     });
@@ -71,8 +66,7 @@ void main() {
       harness.navigate(siteUrl: _siteB);
       await tester.pumpAndSettle();
       expect(harness.shell.currentInstance!.url, _siteB);
-      await tester.tap(_menuOption('Muted'));
-      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(harness.api.writes, isEmpty);
 
       await harness.open(tester);
@@ -94,8 +88,7 @@ void main() {
       expect(lease.isCurrent, isFalse);
       harness.navigate();
       await tester.pumpAndSettle();
-      await tester.tap(_menuOption('Watching'));
-      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(harness.api.writes, isEmpty);
 
       await harness.open(tester);
@@ -159,8 +152,7 @@ void main() {
       harness.shell.pushContent(ContentRoute.userActivity());
       await tester.pumpAndSettle();
       expect(state.mounted, isFalse);
-      await tester.tap(_menuOption('Muted'));
-      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(harness.api.writes, isEmpty);
       expect(tester.takeException(), isNull);
     });
@@ -176,8 +168,7 @@ void main() {
       harness.navigate();
       await harness.pump(tester, buttonOnly: true);
       expect(tester.element(harness.wrapper), same(owner));
-      await tester.tap(_menuOption('Watching'));
-      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(harness.api.writes, isEmpty);
       await harness.open(tester);
       await tester.tap(_menuOption('Muted'));
@@ -199,8 +190,7 @@ void main() {
       );
       await replacement.pump(tester, buttonOnly: true);
       expect(tester.element(harness.wrapper), same(owner));
-      await tester.tap(_menuOption('Watching'));
-      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(harness.api.writes, isEmpty);
       expect(replacement.api.writes, isEmpty);
       await replacement.open(tester);
@@ -223,7 +213,7 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.home);
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         } else {
-          expect(find.byType(BottomSheet), findsOneWidget);
+          expect(find.byType(DDropdownMenuContent), findsOneWidget);
           await tester.tap(_menuOption('Watching'));
         }
         await tester.pumpAndSettle();
@@ -247,8 +237,7 @@ void main() {
     harness.navigate(id: 9);
     await tester.pumpAndSettle();
     expect(state.mounted, isFalse);
-    await tester.tap(_menuOption('Watching'));
-    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
     expect(harness.api.writes, isEmpty);
   });
 }
@@ -265,11 +254,8 @@ final class _Harness {
   Finder get wrapper => find.byType(
     category ? CategoryNotificationLevelButton : TopicNotificationLevelButton,
   );
-  Finder get anchor => find.byType(
-    category
-        ? ChoiceMenuAnchor<CategoryNotificationLevel>
-        : ChoiceMenuAnchor<TopicNotificationLevel>,
-  );
+  Finder get anchor =>
+      find.descendant(of: wrapper, matching: find.byType(DPopover));
 
   static Future<_Harness> create(
     WidgetTester tester, {
