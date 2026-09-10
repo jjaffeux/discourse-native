@@ -46,6 +46,9 @@ class TopicBookmarkButton extends StatelessWidget {
                 ? DIcons.bookmark
                 : DIcons.farBookmark,
             size: 18,
+            color: topic.topicBookmark != null
+                ? DTokens.of(context).primary
+                : null,
           );
     final tooltip = topic.hasBookmarks
         ? 'Manage ${topic.bookmarks.length} topic bookmark${topic.bookmarks.length == 1 ? '' : 's'}'
