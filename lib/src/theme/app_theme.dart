@@ -547,7 +547,7 @@ abstract final class AppTheme {
           surfaceContainerHigh: palette.primaryLow,
           surfaceContainerHighest: palette.primaryLow,
           outline: palette.contentBorderColor,
-          outlineVariant: palette.contentBorderColor,
+          outlineVariant: palette.primaryLowMid,
           surfaceTint: palette.tertiary,
         );
 
@@ -886,7 +886,7 @@ abstract final class AppTheme {
       surfaceContainerHigh: shell.floating,
       surfaceContainerHighest: shell.floating,
       outline: shell.divider,
-      outlineVariant: shell.divider,
+      outlineVariant: discourse.primaryLowMid,
       surfaceTint: primary,
     );
   }

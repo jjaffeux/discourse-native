@@ -157,7 +157,7 @@ void main() {
       expect(scheme.surfaceContainerHigh, source.primaryLow);
       expect(scheme.surfaceContainerHighest, source.primaryLow);
       expect(scheme.outline, source.contentBorderColor);
-      expect(scheme.outlineVariant, source.contentBorderColor);
+      expect(scheme.outlineVariant, source.primaryLowMid);
       expect(scheme.surfaceTint, source.tertiary);
       expect(theme.discourse.primaryLowMid, source.primaryLowMid);
       expect(theme.discourse.primaryHigh, source.primaryHigh);
