@@ -102,13 +102,13 @@ class DTooltipController extends ChangeNotifier {
 /// Shares hover timing and opens neighboring tooltips instantly for [timeout]
 /// after a tooltip closes. Nested providers form independent groups.
 ///
-/// The shadcn provider defaults to zero delay. Explicit [DTooltip.hoverDelay]
+/// The default hover delay is 250 ms. Explicit [DTooltip.hoverDelay]
 /// overrides [delay]; keyboard focus and imperative opening are immediate.
 class DTooltipProvider extends StatefulWidget {
   const DTooltipProvider({
     super.key,
     required this.child,
-    this.delay = Duration.zero,
+    this.delay = DTooltip.defaultHoverDelay,
     this.closeDelay = Duration.zero,
     this.timeout = const Duration(milliseconds: 400),
   });
@@ -240,7 +240,7 @@ class DTooltip extends RawTooltip {
        super(
          semanticsTooltip: message,
          tooltipBuilder: _buildContent,
-         hoverDelay: hoverDelay ?? Duration.zero,
+         hoverDelay: hoverDelay ?? defaultHoverDelay,
          dismissDelay: dismissDelay ?? Duration.zero,
          ignorePointer: disableHoverablePopup,
          animationStyle: const AnimationStyle(
@@ -249,6 +249,9 @@ class DTooltip extends RawTooltip {
            curve: Curves.ease,
          ),
        );
+
+  /// How long the pointer must remain over a trigger before showing its hint.
+  static const defaultHoverDelay = Duration(milliseconds: 250);
 
   static const defaultConstraints = BoxConstraints(maxWidth: 320);
   static const defaultPadding = EdgeInsets.symmetric(
@@ -354,7 +357,9 @@ class DTooltipState extends State<DTooltip>
 
   Duration get _delay => _group?.warm == true
       ? Duration.zero
-      : widget._hoverDelay ?? _group?.widget.delay ?? Duration.zero;
+      : widget._hoverDelay ??
+            _group?.widget.delay ??
+            DTooltip.defaultHoverDelay;
   Duration get _closeDelay =>
       widget._dismissDelay ?? _group?.widget.closeDelay ?? Duration.zero;
 

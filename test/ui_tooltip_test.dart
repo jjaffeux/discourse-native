@@ -45,12 +45,16 @@ Future<void> _pump(
   await tester.pump();
 }
 
-Future<TestGesture> _mouse(WidgetTester tester, Finder target) async {
+Future<TestGesture> _mouse(
+  WidgetTester tester,
+  Finder target, {
+  Duration wait = const Duration(milliseconds: 250),
+}) async {
   final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
   addTearDown(mouse.removePointer);
   await mouse.addPointer(location: Offset.zero);
   await mouse.moveTo(tester.getCenter(target));
-  await tester.pump();
+  await tester.pump(wait);
   return mouse;
 }
 
@@ -242,6 +246,48 @@ void main() {
     );
   });
 
+  for (final grouped in [false, true]) {
+    testWidgets('default hover waits 250 ms (provider: $grouped)', (
+      tester,
+    ) async {
+      const tooltip = DTooltip(message: 'Information', child: _target);
+      await _pump(
+        tester,
+        grouped ? const DTooltipProvider(child: tooltip) : tooltip,
+        still: true,
+      );
+      await _mouse(tester, find.text('Target'), wait: Duration.zero);
+      expect(_hint, findsNothing);
+      await tester.pump(const Duration(milliseconds: 249));
+      expect(_hint, findsNothing);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(_hint, findsOneWidget);
+    });
+  }
+
+  testWidgets('leaving early cancels hover and re-entry starts a full delay', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const DTooltip(message: 'Information', child: _target),
+      still: true,
+    );
+    final mouse = await _mouse(
+      tester,
+      find.text('Target'),
+      wait: const Duration(milliseconds: 200),
+    );
+    await mouse.moveTo(Offset.zero);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(_hint, findsNothing);
+    await mouse.moveTo(tester.getCenter(find.text('Target')));
+    await tester.pump(const Duration(milliseconds: 249));
+    expect(_hint, findsNothing);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(_hint, findsOneWidget);
+  });
+
   testWidgets('group delay is skipped only during its warm interval', (
     tester,
   ) async {
@@ -262,7 +308,7 @@ void main() {
       ),
       still: true,
     );
-    final mouse = await _mouse(tester, find.text('One'));
+    final mouse = await _mouse(tester, find.text('One'), wait: Duration.zero);
     await tester.pump(const Duration(milliseconds: 599));
     expect(find.text('One hint'), findsNothing);
     await tester.pump(const Duration(milliseconds: 1));
