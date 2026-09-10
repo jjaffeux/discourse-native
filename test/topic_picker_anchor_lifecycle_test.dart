@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/anchored_picker.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_category_picker.dart';
@@ -163,7 +163,7 @@ void main() {
       );
     }
 
-    testWidgets('$kind route can rebuild while its anchor is removed', (
+    testWidgets('$kind popover dismisses when its anchor is removed', (
       tester,
     ) async {
       final shell = _PickerShell();
@@ -207,14 +207,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(
-        find.byKey(
-          tags
-              ? const ValueKey(('topic-tag-picker-option', 'mobile'))
-              : const ValueKey('topic-category-option-2'),
-        ),
-      );
-      await tester.pumpAndSettle();
+      expect(find.byType(TopicCategoryPicker), findsNothing);
+      expect(find.byType(TopicTagPicker), findsNothing);
       expect(shell.saves, isEmpty);
       expect(tester.takeException(), isNull);
     });
@@ -477,10 +471,10 @@ void main() {
     expect(find.text('Support / Phones'), findsOneWidget);
     expect(
       tester
-          .widget<AnchoredPickerOption>(
+          .widget<DCheckbox>(
             find.byKey(const ValueKey('topic-category-option-3')),
           )
-          .selected,
+          .value,
       isTrue,
     );
     expect(find.text('Remove subcategory'), findsOneWidget);
@@ -528,43 +522,45 @@ final class _Harness {
         controller: shell,
         child: MaterialApp(
           theme: AppTheme.light.copyWith(platform: platform),
-          home: Scaffold(
-            body: StatefulBuilder(
-              builder: (context, setState) {
-                rebuild = setState;
-                final navigationSite = siteUrl;
-                return Align(
-                  alignment: Alignment.topLeft,
-                  child: tags
-                      ? TopicTagMenuAnchor(
-                          siteUrl: siteUrl,
-                          topicId: topicId,
-                          categoryId: categoryId,
-                          tags: selectedTags,
-                          enabled: true,
-                          onTagNavigate: (tag, {newTab = false}) {
-                            navigations.add((
-                              siteUrl: navigationSite,
-                              tag: tag,
-                              newTab: newTab,
-                            ));
-                          },
-                          builder: _button,
-                        )
-                      : TopicCategoryMenuAnchor(
-                          siteUrl: siteUrl,
-                          topicId: topicId,
-                          categoryId: categoryId,
-                          enabled: true,
-                          rootOnly: rootOnly,
-                          parentCategoryId: parentCategoryId,
-                          selectedCategoryId: selectedCategoryId,
-                          removeCategoryId: removeCategoryId,
-                          removeLabel: 'Remove subcategory',
-                          builder: _button,
-                        ),
-                );
-              },
+          home: DToaster(
+            child: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, setState) {
+                  rebuild = setState;
+                  final navigationSite = siteUrl;
+                  return Align(
+                    alignment: Alignment.topLeft,
+                    child: tags
+                        ? TopicTagMenuAnchor(
+                            siteUrl: siteUrl,
+                            topicId: topicId,
+                            categoryId: categoryId,
+                            tags: selectedTags,
+                            enabled: true,
+                            onTagNavigate: (tag, {newTab = false}) {
+                              navigations.add((
+                                siteUrl: navigationSite,
+                                tag: tag,
+                                newTab: newTab,
+                              ));
+                            },
+                            builder: _button,
+                          )
+                        : TopicCategoryMenuAnchor(
+                            siteUrl: siteUrl,
+                            topicId: topicId,
+                            categoryId: categoryId,
+                            enabled: true,
+                            rootOnly: rootOnly,
+                            parentCategoryId: parentCategoryId,
+                            selectedCategoryId: selectedCategoryId,
+                            removeCategoryId: removeCategoryId,
+                            removeLabel: 'Remove subcategory',
+                            builder: _button,
+                          ),
+                  );
+                },
+              ),
             ),
           ),
         ),

@@ -1,19 +1,16 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
-import '../ui/components/d_toast.dart';
-import 'anchored_picker.dart';
 import 'category_icon.dart';
 import 'shell_scope.dart';
+import 'topic_taxonomy_picker.dart';
 
-typedef TopicCategoryMenuAnchorBuilder = Widget Function(
-  BuildContext context,
-  VoidCallback? openMenu,
-  bool saving,
-);
+typedef TopicCategoryMenuAnchorBuilder =
+    Widget Function(BuildContext context, VoidCallback? openMenu, bool saving);
 
 class TopicCategoryMenuAnchor extends StatefulWidget {
   const TopicCategoryMenuAnchor({
@@ -169,19 +166,20 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
   }
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    key: _anchorKey,
-    child: widget.builder(
-      context,
-      widget.enabled && !_saving ? _show : null,
-      _saving,
+  Widget build(BuildContext context) => TopicTaxonomyPickerAnchor(
+    child: SizedBox(
+      key: _anchorKey,
+      child: widget.builder(
+        context,
+        widget.enabled && !_saving ? _show : null,
+        _saving,
+      ),
     ),
   );
 }
 
-typedef TopicCategorySearchCallback = Future<List<TopicCategory>> Function(
-  String term,
-);
+typedef TopicCategorySearchCallback =
+    Future<List<TopicCategory>> Function(String term);
 
 Future<int?> showTopicCategoryPicker({
   required BuildContext context,
@@ -192,18 +190,16 @@ Future<int?> showTopicCategoryPicker({
   required String Function(TopicCategory category) pathLabelFor,
   int? removeCategoryId,
   String? removeLabel,
-}) => showAnchoredPicker<int>(
-  context: context,
+}) => TopicTaxonomyPickerAnchor.show<int>(
   anchorContext: anchorContext,
   title: 'Category',
-  barrierLabel: 'Dismiss category picker',
   popoverKey: const ValueKey('topic-category-picker-popover'),
-  builder: (pickerContext) => TopicCategoryPicker(
+  builder: (pickerContext, close) => TopicCategoryPicker(
     siteUrl: siteUrl,
     selectedCategoryId: selectedCategoryId,
     search: search,
     pathLabelFor: pathLabelFor,
-    onSelected: Navigator.of(pickerContext).pop,
+    onSelected: close,
     removeCategoryId: removeCategoryId,
     removeLabel: removeLabel,
   ),
@@ -291,8 +287,7 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AnchoredPickerContent(
+    return TopicTaxonomyPickerContent(
       queryKey: const ValueKey('topic-category-picker-query'),
       queryController: _query,
       queryHint: 'Search categories…',
@@ -301,34 +296,49 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
       separatorKey: const ValueKey('topic-category-picker-divider'),
       children: [
         if (widget.removeCategoryId case final id?)
-          AnchoredPickerOption(
+          DButton(
             key: const ValueKey('topic-category-remove'),
-            title: Text(widget.removeLabel ?? 'Remove category'),
-            onTap: () => widget.onSelected(id),
+            label: Text(widget.removeLabel ?? 'Remove category'),
+            variant: DButtonVariant.ghost,
+            onPressed: () => widget.onSelected(id),
           ),
         if (_loading)
-          const AnchoredPickerProgress()
+          const TopicTaxonomyPickerProgress()
         else if (_error case final error?)
-          AnchoredPickerMessage(error, color: theme.colorScheme.error)
+          TopicTaxonomyPickerMessage(error, error: true)
         else ...[
           for (final category in _results)
-            AnchoredPickerOption(
-              key: ValueKey('topic-category-option-${category.id}'),
-              indent: category.parentCategoryId == null ? 0 : 16,
-              selected: category.id == widget.selectedCategoryId,
-              showSelectionIndicator: true,
-              leading: CategoryIcon(
-                key: ValueKey(('topic-category-option-icon', category.id)),
-                category: category,
-                siteUrl: widget.siteUrl,
-                size: 14,
-                squareSize: 10,
+            Padding(
+              padding: EdgeInsetsDirectional.only(
+                start: category.parentCategoryId == null ? 0 : 16,
+                top: 2,
+                bottom: 2,
               ),
-              title: Text(widget.pathLabelFor(category)),
-              onTap: () => widget.onSelected(category.id),
+              child: DCheckbox(
+                key: ValueKey('topic-category-option-${category.id}'),
+                value: category.id == widget.selectedCategoryId,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                title: Row(
+                  children: [
+                    CategoryIcon(
+                      key: ValueKey((
+                        'topic-category-option-icon',
+                        category.id,
+                      )),
+                      category: category,
+                      siteUrl: widget.siteUrl,
+                      size: 14,
+                      squareSize: 10,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(widget.pathLabelFor(category))),
+                  ],
+                ),
+                onChanged: (_) => widget.onSelected(category.id),
+              ),
             ),
           if (_results.isEmpty)
-            AnchoredPickerMessage(
+            TopicTaxonomyPickerMessage(
               _query.text.trim().isEmpty
                   ? 'No categories are available.'
                   : 'No matching categories.',

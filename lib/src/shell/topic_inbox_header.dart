@@ -667,6 +667,8 @@ class _CompactTopicCategories extends StatelessWidget {
               parentCategoryId: parent?.id,
               keepTopicListOpen: keepTopicListOpen,
               compressed: constraints.maxWidth < 120,
+              showBrowseButton:
+                  constraints.maxWidth >= (context.isTouch ? 96 : 64),
             ),
           );
       return Padding(
@@ -954,6 +956,7 @@ class _TopicCategoryControl extends StatelessWidget {
           siteUrl: siteUrl,
           label: value?.name ?? (subcategory ? '+ Subcategory' : '+ Category'),
           edit: browseOnly ? browse : edit,
+          primaryIsLink: browseOnly,
           saving: saving,
           compact: compressed,
           editLabel: browseOnly
@@ -978,6 +981,7 @@ class _CategoryChip extends StatelessWidget {
     required this.navigate,
     required this.saving,
     this.compact = false,
+    this.primaryIsLink = false,
   });
   final TopicCategory? category;
   final String siteUrl;
@@ -987,6 +991,7 @@ class _CategoryChip extends StatelessWidget {
   final VoidCallback? navigate;
   final bool saving;
   final bool compact;
+  final bool primaryIsLink;
 
   @override
   Widget build(BuildContext context) {
@@ -994,83 +999,64 @@ class _CategoryChip extends StatelessWidget {
     final color = category == null
         ? theme.colorScheme.onSurfaceVariant
         : Color(category!.colorValue);
-    final overlayColor = WidgetStateProperty.resolveWith<Color>((states) {
-      if (states.contains(WidgetState.focused)) {
-        return color.withValues(alpha: .16);
-      }
-      if (states.contains(WidgetState.pressed)) {
-        return color.withValues(alpha: .12);
-      }
-      if (states.contains(WidgetState.hovered)) {
-        return color.withValues(alpha: .08);
-      }
-      return Colors.transparent;
-    });
-    return Material(
-      color: category == null
-          ? Colors.transparent
-          : color.withValues(alpha: .10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(5),
-        side: BorderSide(color: color.withValues(alpha: .25)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    final fill = category == null
+        ? Colors.transparent
+        : color.withValues(alpha: .10);
+    final border = color.withValues(alpha: .25);
+    final hover = Color.alphaBlend(color.withValues(alpha: .08), fill);
+    return IntrinsicWidth(
+      child: DButtonGroup(
+        semanticLabel: label,
+        mainAxisSize: MainAxisSize.max,
         children: [
-          Flexible(
-            child: DTooltip(
-              message: edit == null ? label : editLabel,
-              child: InkWell(
-                onTap: edit,
-                overlayColor: overlayColor,
-                splashFactory: NoSplash.splashFactory,
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 24),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 2 : 7,
-                    vertical: 5,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (category != null) ...[
-                        CategoryIcon(
-                          category: category!,
-                          siteUrl: siteUrl,
-                          size: 12,
-                          squareSize: 9,
-                        ),
-                        SizedBox(width: compact ? 2 : 6),
-                      ],
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall,
-                        ),
+          DButtonGroupExpanded(
+            child: DPopoverTrigger(
+              builder: (context, trigger) => DButton(
+                onPressed: edit == null
+                    ? null
+                    : trigger.open
+                    ? trigger.closePopover
+                    : edit,
+                focusNode: trigger.focusNode,
+                expanded: trigger.open,
+                hasPopup: !primaryIsLink && edit != null,
+                isLink: primaryIsLink,
+                tooltip: edit == null ? label : editLabel,
+                semanticLabel: edit == null ? label : '$editLabel: $label',
+                variant: DButtonVariant.outline,
+                size: DButtonSize.extraSmall,
+                backgroundColor: fill,
+                borderColor: border,
+                interactiveBackgroundColor: hover,
+                loading: saving,
+                loadingSemanticLabel: 'Saving category',
+                padding: compact
+                    ? const EdgeInsets.symmetric(horizontal: 2, vertical: 1)
+                    : null,
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (category != null) ...[
+                      CategoryIcon(
+                        category: category!,
+                        siteUrl: siteUrl,
+                        size: 12,
+                        squareSize: 9,
                       ),
-                      if (!compact &&
-                          edit != null &&
-                          category != null &&
-                          !saving) ...[
-                        const SizedBox(width: 5),
-                        DIcon(
-                          DIcons.chevronDown,
-                          size: 9,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                      if (saving) ...[
-                        const SizedBox(width: 6),
-                        const SizedBox.square(
-                          dimension: 12,
-                          child: DSpinner(strokeWidth: 1.5),
-                        ),
-                      ],
+                      SizedBox(width: compact ? 2 : 6),
                     ],
-                  ),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (!compact && edit != null && category != null) ...[
+                      const SizedBox(width: 5),
+                      const DIcon(DIcons.chevronDown, size: 9),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -1080,30 +1066,17 @@ class _CategoryChip extends StatelessWidget {
               url: '/c/${category!.id}',
               title: category!.name,
               siteUrl: siteUrl,
-              child: DTooltip(
-                message: 'Browse ${category!.name}',
-                child: InkWell(
-                  key: ValueKey('topic-header-browse-category-${category!.id}'),
-                  onTap: navigate,
-                  overlayColor: overlayColor,
-                  splashFactory: NoSplash.splashFactory,
-                  child: Container(
-                    width: 25,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      border: BorderDirectional(
-                        start: BorderSide(color: color.withValues(alpha: .22)),
-                      ),
-                    ),
-                    child: Center(
-                      child: DIcon(
-                        DIcons.upRightFromSquare,
-                        size: 11,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
+              child: DButton.iconOnly(
+                key: ValueKey('topic-header-browse-category-${category!.id}'),
+                icon: const DIcon(DIcons.upRightFromSquare, size: 11),
+                tooltip: 'Browse ${category!.name}',
+                isLink: true,
+                onPressed: navigate,
+                variant: DButtonVariant.outline,
+                size: DButtonSize.extraSmall,
+                backgroundColor: fill,
+                borderColor: border,
+                interactiveBackgroundColor: hover,
               ),
             ),
         ],

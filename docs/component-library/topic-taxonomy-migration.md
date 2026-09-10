@@ -1,0 +1,93 @@
+# Topic category and tag controls
+
+This follow-up migrates the production controls from the user's four topic
+header screenshots. The earlier custom-color Button work supplied the kit
+capacity; this change adopts it in the application.
+
+## Production composition
+
+- Both expanded and compact topic headers use `DButtonGroup` with a category
+  button and a separate browse link. The category color supplies the same 10%
+  fill, 25% outline and 8% hover overlay blend. Configured category icons,
+  private-category markings, loading and independent navigation remain.
+- Visible tags use `DBadge.link`; the overflow uses `DBadge.action`. The pencil
+  and empty-tag action use `DButton`. Clicking a tag still navigates, and the
+  pencil/overflow opens editing. Middle-click navigation remains independent.
+- Category and tag editors use `DPopover` on pointer platforms and `DDrawer`
+  on touch platforms. `TopicTaxonomyPickerAnchor` is application coordination
+  for the existing asynchronous result API; Native owns overlay layout,
+  dismissal, focus, theme updates and touch targets.
+- `DInput` and `DSeparator` stay above a bounded `DScrollArea`. Category choices
+  use `DCheckbox`, configured category icons and parent-path labels. The
+  remove-category/subcategory action uses `DButton`.
+- Tag choices compose a passive `DItem` with `DCheckbox`. The checkbox's
+  `secondary` slot contains the independent browse `DButton`, which stays
+  active when selection is disabled or the tag limit has been reached.
+  Selected tags retain both a checkmark and a muted row background. Creating
+  an allowed tag uses `DButton`.
+- The same editors are used by the header, property/sidebar anchors and the
+  composer. The read-only overflow also uses Native input, scrolling and Item
+  links. Unrelated users of the older anchored-picker adapter are unchanged.
+
+No new kit API is introduced. Debounced/latest-wins search, capability checks,
+parent/subcategory filtering, immediate saves, tag creation/limits, error
+handling and account/topic ownership remain in the existing app adapters.
+
+Native pointer popovers allow outside interaction, dismiss on Escape and close
+when their anchor is removed. Search remains fixed while results scroll.
+Touch controls retain the kit's 48px targets. Narrow compact category controls
+omit their separate browse half when both touch targets cannot fit; read-only
+categories retain navigation on their primary control. Tag overflow preserves
+editing when the pencil cannot fit.
+
+## Verification
+
+- Formatting, `git diff --check`, and root `flutter analyze --no-pub` passed.
+- 151 focused tests passed across `topic_tag_picker_test`,
+  `topic_picker_anchor_lifecycle_test`, `composer_picker_modal_test`,
+  `topic_inbox_test`, `topic_taxonomy_fields_test`,
+  `topic_title_field_ownership_test`, `topic_header_tags_test`,
+  `anchored_picker_test` and `d_button_adoption_test`.
+- Coverage includes immediate selection/removal and reopening, disabled
+  choices at the tag limit, independent keyboard and middle-click browsing,
+  search staying fixed during long-list scrolling, category icons/path labels,
+  stale searches/saves across account and topic replacement, current errors,
+  read-only navigation, narrow layouts and enlarged text. iOS platform
+  overrides exercise Native drawers and touch geometry in widget tests.
+- Harnesses now mount the app's `DToaster` for current save-error assertions,
+  allow OverlayPortal's mount/results frame, and dismiss popovers away from
+  unrelated actions. Geometry checks now respect Native touch targets.
+- `tool/topic_taxonomy_review_main.dart` mounts the real `TopicInboxHeader`
+  with fake stores and API responses, including searchable sales/deals
+  categories and discovery tags. It supplies palette, width, text scale,
+  direction, empty-result and search-error controls without account writes.
+
+The implementation commit is `a4ff463a`. Integration with the concurrent
+composer taxonomy-button and topic-navigation work preserved `TopicTaxonomyButton`
+and added Native anchors/triggers around it. The integration run passed 84
+composer, header and adoption checks, plus root analysis. A further six focused
+read-only/category navigation checks passed after the final link-semantics fix.
+
+The actual macOS fixture was built with `flutter build macos --debug --no-pub
+--target tool/topic_taxonomy_review_main.dart`. Its isolated ad-hoc bundle
+`org.discourse.native.topic-taxonomy-review` passed deep/strict signature
+verification and launched successfully. Restricted push/team/application
+identity entitlements were omitted; the real app's signing settings were unchanged.
+The inspected integrated kernel SHA-256 was
+`276b9787f4e2c70ae16d6ebbdc22ad3c32498660f9cc9cdc39eb806a3d6112bb`.
+
+Native inspection covered dark and light headers, category search for `todo`
+and Enter selection with a changed tint, the empty subcategory list and Remove
+subcategory, tag browsing with no tag save, selecting `approved`, creating
+`native-review` with Enter, and selected-tag removal. Browsing changes the fake
+shell route, so Restore/Reset topic returns to the topic before subsequent
+editing; the normal stale-topic error guard was also observed. Plum at 320px,
+200% text and RTL retained reachable category and tag-overflow controls, wrapping
+menu rows, and a readable category-search error. Escape dismissed the menu.
+Native AX exposed separate category edit/browse controls and tag checkboxes/browse
+links. Spoken VoiceOver, iOS and Linux device sessions were not run.
+
+The isolated app was quit using its native menu, its process disappearance was
+verified, and the desktop lease was released. The Native kit's existing
+styleguide/color capability evidence remains in `button-custom-colors.md`;
+this review exercised the actual production header and editors.
