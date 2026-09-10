@@ -3130,7 +3130,7 @@ class _TopicPropertiesCard extends StatelessWidget {
                     topicId: topic.id,
                     categoryId: topic.categoryId,
                     enabled: topic.canEdit,
-                    builder: (context, openMenu, saving) => TopicPropertyRow(
+                    builder: (context, open, saving, _) => TopicPropertyRow(
                       key: const ValueKey('topic-sidebar-category-property'),
                       label: 'Category',
                       alignLabelToControl: true,
@@ -3176,7 +3176,7 @@ class _TopicPropertiesCard extends StatelessWidget {
                                 parentCategory,
                                 siteUrl: siteUrl,
                               ),
-                        onEdit: openMenu,
+                        onEdit: open,
                       ),
                     ),
                   ),

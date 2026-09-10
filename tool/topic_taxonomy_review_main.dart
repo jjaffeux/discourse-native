@@ -175,38 +175,42 @@ class _ReviewState extends State<_Review> {
                                 : TextDirection.ltr,
                             child: AnimatedBuilder(
                               animation: widget.shell,
-                              builder: (context, _) => Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  TopicInboxHeader(
-                                    title: _topic.title,
-                                    siteUrl: _siteUrl,
-                                    canReturnToSidebar: false,
-                                    keepTopicListOpen: true,
-                                    registry: PluginRegistry.empty,
-                                    topic: widget.shell.currentTopic ?? _topic,
-                                  ),
-                                  const DSeparator(),
-                                  const Padding(
-                                    padding: EdgeInsets.all(20),
-                                    child: DText(
-                                      'Process Checklist',
-                                      variant: DTextVariant.h3,
+                              builder: (context, _) => DScrollArea(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    TopicInboxHeader(
+                                      title: _topic.title,
+                                      siteUrl: _siteUrl,
+                                      canReturnToSidebar: false,
+                                      keepTopicListOpen: true,
+                                      registry: PluginRegistry.empty,
+                                      topic:
+                                          widget.shell.currentTopic ?? _topic,
                                     ),
-                                  ),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 20,
+                                    const DSeparator(),
+                                    const Padding(
+                                      padding: EdgeInsets.all(20),
+                                      child: DText(
+                                        'Process Checklist',
+                                        variant: DTextVariant.h3,
+                                      ),
                                     ),
-                                    child: Text(
-                                      'Keep the following sections up to date until the deal is closed.',
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                      ),
+                                      child: Text(
+                                        'Keep the following sections up to date until the deal is closed.',
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Text(
-                                    'Category saves: ${widget.api.topicsUpdated.length} · Tag saves: ${widget.api.topicTagsUpdated.length}',
-                                  ),
-                                ],
+                                    const SizedBox(height: 24),
+                                    Text(
+                                      'Category saves: ${widget.api.topicsUpdated.length} · Tag saves: ${widget.api.topicTagsUpdated.length}',
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),

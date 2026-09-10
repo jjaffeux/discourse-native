@@ -152,6 +152,53 @@ void main() {
     expect(find.text("Couldn't load categories."), findsNothing);
   });
 
+  testWidgets('custom category trigger keeps an empty removal menu compact', (
+    tester,
+  ) async {
+    final selected = <TopicCategory?>[];
+    await pump(
+      tester,
+      TopicCategorySelector(
+        siteUrl: 'https://example.invalid',
+        categories: const [],
+        selected: support,
+        clearSelectionLabel: 'Remove subcategory',
+        search: (_) async => const [],
+        onSelected: selected.add,
+        triggerBuilder: (context, trigger) => DButton(
+          key: const ValueKey('custom-category-trigger'),
+          label: const Text('Edit category'),
+          onPressed: trigger.toggle,
+          focusNode: trigger.focusNode,
+          expanded: trigger.open,
+          hasPopup: true,
+        ),
+      ),
+    );
+    await open(tester, TopicCategorySelector);
+    expect(find.text('Remove subcategory'), findsOneWidget);
+    expect(find.text('No matching categories.'), findsOneWidget);
+    expect(tester.getSize(find.byType(DComboboxContent)).height, lessThan(200));
+
+    // An empty search must not implicitly highlight removal.
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selected, isEmpty);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(selected, [null]);
+    expect(find.byType(DComboboxContent), findsNothing);
+    expect(
+      tester
+          .widget<DButton>(
+            find.byKey(const ValueKey('custom-category-trigger')),
+          )
+          .focusNode!
+          .hasFocus,
+      isTrue,
+    );
+  });
+
   testWidgets(
     'tag limits block additions while selected tags remain removable',
     (tester) async {

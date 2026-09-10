@@ -43,7 +43,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.byType(entry.type),
-        findsNWidgets(entry.id == 'category-selector' ? 4 : 3),
+        findsNWidgets(entry.id == 'category-selector' ? 5 : 3),
       );
       final trigger = find.descendant(
         of: find.byType(entry.type).first,

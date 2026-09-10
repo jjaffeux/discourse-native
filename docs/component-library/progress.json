@@ -518,6 +518,40 @@
         ],
         "mergeCommit": "b0ac5fdf243c38f4df11daea7d74bea496dae2f4",
         "mergeVerification": "Merged with --no-ff from the main checkout after reconciling current main. Merge tree equals the verified candidate; Native fixture and migrated app sources match the inspected integrated source. Final root analysis passed."
+      },
+      "topicCategorySelectorFollowUp": {
+        "status": "review_ready",
+        "taskId": "01a08d19-7072-7dc2-8a77-2dcebba886b6",
+        "branch": "codex/topic-category-selector",
+        "dependencies": [
+          "button",
+          "button-group",
+          "combobox"
+        ],
+        "acceptanceCriteria": [
+          "Replace the topic header and sidebar category checkbox popup with the existing TopicCategorySelector used by the topics list and composer.",
+          "Preserve category-tinted split buttons, independent browsing, root/subcategory filtering, removal, immediate saves and account/topic ownership.",
+          "Verify category search, keyboard selection, dismissal, stale callbacks, narrow layouts and the actual production header on macOS."
+        ],
+        "evidencePath": "docs/component-library/topic-taxonomy-migration.md",
+        "decisions": [
+          "Compose the existing shared TopicCategorySelector through its Native Combobox trigger builder; retain the header Button Group and custom category colors.",
+          "Reuse the existing clearSelectionLabel API from the concurrent composer subcategory change. The app resolves the destination category; the Native kit is unchanged.",
+          "Remove the old category checkbox popup and lookup owner. Key the selector by its account/topic/search scope and reject retired search/save callbacks, including switching away and back.",
+          "Fix Combobox focus on selection: when closing, let Popover restore trigger focus instead of refocusing the popup input and reopening it during an asynchronous category save."
+        ],
+        "verification": [
+          "219 distinct focused tests passed across 13 files: the nine category migration consumers, the production fixture regression, Native Combobox, Combobox styleguide and group-page consumer. The fixture test was rerun after correcting its test-runner platform teardown.",
+          "Root flutter analyze --no-pub passed with no issues; touched-code formatting and git diff --check passed.",
+          "Final macOS production fixture inspection passed on source 317dfd0; kernel SHA-256 f815d798e0be7ee4563f1b89fd2442d254f77725d95dad4df1e1eddb11aa1268. Checked dark/light/Plum, category search and Return save, empty subcategory removal, popup closing, palette changes after saving, 320px/200% RTL wrapping, search error and Escape.",
+          "105 integration tests and root analysis passed after preserving the concurrent Combobox TextFieldTapRegion mouse-selection fix and topic-list scrolling changes."
+        ],
+        "integrationBranch": "codex/topic-category-selector-ready",
+        "implementationCommit": "8ec0305c",
+        "verifiedSourceCommit": "317dfd0005798d1ebaa744b4fddd6e534c39958e",
+        "limitations": [
+          "Native macOS review only; touch and enlarged-layout widget tests do not constitute iOS or Linux device testing."
+        ]
       }
     },
     {
