@@ -2476,6 +2476,7 @@ Status: merged. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dro
 - Submenus compose nested DDropdownMenu instances with one active sibling owner, shared close-all scope, inline-end placement, RTL mirrored chevron/directional keys and submenu-local Escape handling.
 - Accepted follow-up keeps live item registration order during label, enabled and borrowed-focus-node changes; menu content exclusively owns first-item focus and scrolls only its nearest popup viewport; Material mirrors the directional submenu chevron exactly once in RTL.
 - Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
+- The 2026-09-10 parity follow-up keeps the 160px Composition root but restores the reference submenu's 96px minimum and large shadow, paints a layout-neutral exterior ring, propagates active accent foreground, reserves the exact inset and choice-indicator columns, and owns Lucide-proportion check and directional-chevron strokes.
 
 **migrations**
 
@@ -2498,6 +2499,7 @@ Status: merged. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dro
 - Native styleguide inspection covered light, Forest and Plum palettes, 200% text with bounded scrolling, 360 px layout, reduced motion and RTL Arabic content with mirrored submenu affordance. The Table Actions adoption performed Edit and Duplicate callbacks with row mutation, status feedback, expanded-row highlighting and restored trigger focus; Delete remains covered by the focused consumer test.
 - Follow-up merge 85f9265bf2593a7edc0693582b7eadf1c6645b8d preserves the isolated Avatar registration-order correction and Menubar popup-local scrolling/RTL correction. The latest-main candidate passed 50 focused tests with seed 826145 and clean root/full analysis; 11 Context Menu consumer tests also passed against the exact combined Dropdown blob b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6.
 - Source-exact native Menubar runtime e3104c9ae1547b90629f85d6e7a7bb97c863f6c7 verified the combined blob at 360 px and 200% text in LTR/RTL, reduced motion and Plum RTL: popup focus scrolled rows without shifting the host, keyboard selection completed, Arabic chevrons pointed/opened left and Right returned to the parent. Bundle kernel SHA256 was 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318.
+- Parity follow-up 4839aae96e1861a109f92c77741d026154aee85b: live reference and supplied dark Composition capture were compared against the actual styleguide; 175 affected tests passed with seed 20260910 plus the explicit submenu width/shadow regression; root and profiles/full analysis, formatting and git diff checks passed; the source-exact isolated macOS styleguide passed dark root/submenu inspection and was closed before releasing the desktop lease.
 
 **limitations**
 
