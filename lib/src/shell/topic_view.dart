@@ -2259,11 +2259,15 @@ class _TopicBottomBar extends StatelessWidget {
                           DButton(
                             key: const ValueKey('topic-reply-button'),
                             onPressed: onReplyPressed,
-                            icon: const DIcon(DIcons.reply, size: 16),
+                            icon: DIcon(
+                              DIcons.reply,
+                              size: 16,
+                              color: DTokens.of(context).primary,
+                            ),
                             label: const Text('Reply'),
                             tooltip: 'Reply to this topic',
                             shortcut: const DShortcut(topicReplyShortcut),
-                            variant: DButtonVariant.primary,
+                            variant: DButtonVariant.outline,
                             size: DButtonSize.small,
                           ),
                         if (showBookmark)
