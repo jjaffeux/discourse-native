@@ -1619,16 +1619,19 @@ class _DSelectOptionRow<T> extends StatefulWidget {
 
 class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
   bool _focused = false;
-  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final enabled = widget.enabled && widget.item.enabled;
-    final highlighted = _focused || (enabled && _hovered);
-    Widget row = AnimatedContainer(
+    // Focus is the single source of truth for the active row. Pointer entry
+    // moves focus only when hover highlighting is enabled, matching Base UI's
+    // distinction between pointer hover and the highlighted item.
+    final highlighted = enabled && _focused;
+    // Highlight changes are atomic. Animating two independent row backgrounds
+    // makes the previous and next options appear highlighted at the same time.
+    Widget row = Container(
       key: ValueKey(('d-select-item', widget.item.value)),
-      duration: DMotion.duration(context, const Duration(milliseconds: 100)),
       height: widget.height,
       padding: const EdgeInsetsDirectional.only(start: 6, end: 8),
       decoration: BoxDecoration(
@@ -1677,12 +1680,10 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
     );
     return MouseRegion(
       onEnter: (_) {
-        setState(() => _hovered = true);
         if (enabled && widget.highlightItemOnHover) {
           widget.focusNode.requestFocus();
         }
       },
-      onExit: (_) => setState(() => _hovered = false),
       child: Focus(
         focusNode: widget.focusNode,
         canRequestFocus: enabled,
