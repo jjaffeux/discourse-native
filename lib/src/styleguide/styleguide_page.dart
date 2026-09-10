@@ -24,7 +24,6 @@ Future<void> showComponentStyleguide(BuildContext context) =>
 const _foundations = ComponentReference(
   id: 'foundations',
   name: 'Foundations',
-  url: '',
   sections: ['Theme tokens', 'Typography', 'Motion', 'Spacing'],
 );
 const _entries = [_foundations, ...componentCatalogue];

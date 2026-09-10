@@ -6,7 +6,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "accordion",
     name: "Accordion",
-    url: "https://ui.shadcn.com/docs/components/base/accordion",
     sections: [
       "Installation",
       "Usage",
@@ -23,7 +22,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "alert",
     name: "Alert",
-    url: "https://ui.shadcn.com/docs/components/base/alert",
     sections: [
       "Installation",
       "Usage",
@@ -44,7 +42,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "alert-dialog",
     name: "Alert Dialog",
-    url: "https://ui.shadcn.com/docs/components/base/alert-dialog",
     sections: [
       "Installation",
       "Usage",
@@ -63,7 +60,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "aspect-ratio",
     name: "Aspect Ratio",
-    url: "https://ui.shadcn.com/docs/components/base/aspect-ratio",
     sections: [
       "Installation",
       "Usage",
@@ -78,7 +74,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "attachment",
     name: "Attachment",
-    url: "https://ui.shadcn.com/docs/components/base/attachment",
     sections: [
       "Installation",
       "Usage",
@@ -135,7 +130,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "avatar",
     name: "Avatar",
-    url: "https://ui.shadcn.com/docs/components/base/avatar",
     sections: [
       "Installation",
       "Usage",
@@ -162,7 +156,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "badge",
     name: "Badge",
-    url: "https://ui.shadcn.com/docs/components/base/badge",
     sections: [
       "Installation",
       "Usage",
@@ -180,7 +173,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "breadcrumb",
     name: "Breadcrumb",
-    url: "https://ui.shadcn.com/docs/components/base/breadcrumb",
     sections: [
       "Installation",
       "Usage",
@@ -205,7 +197,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "bubble",
     name: "Bubble",
-    url: "https://ui.shadcn.com/docs/components/base/bubble",
     sections: [
       "Installation",
       "Usage",
@@ -256,7 +247,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "button",
     name: "Button",
-    url: "https://ui.shadcn.com/docs/components/base/button",
     sections: [
       "Installation",
       "Usage",
@@ -283,7 +273,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "button-group",
     name: "Button Group",
-    url: "https://ui.shadcn.com/docs/components/base/button-group",
     sections: [
       "Installation",
       "Usage",
@@ -311,7 +300,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "calendar",
     name: "Calendar",
-    url: "https://ui.shadcn.com/docs/components/base/calendar",
     sections: [
       "Installation",
       "Usage",
@@ -337,7 +325,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "card",
     name: "Card",
-    url: "https://ui.shadcn.com/docs/components/base/card",
     sections: [
       "Installation",
       "Usage",
@@ -362,7 +349,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "carousel",
     name: "Carousel",
-    url: "https://ui.shadcn.com/docs/components/base/carousel",
     sections: [
       "About",
       "Installation",
@@ -382,7 +368,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "chart",
     name: "Chart",
-    url: "https://ui.shadcn.com/docs/components/base/chart",
     sections: [
       "Component",
       "Updating to Recharts v3",
@@ -441,7 +426,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "checkbox",
     name: "Checkbox",
-    url: "https://ui.shadcn.com/docs/components/base/checkbox",
     sections: [
       "Installation",
       "Usage",
@@ -459,7 +443,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "collapsible",
     name: "Collapsible",
-    url: "https://ui.shadcn.com/docs/components/base/collapsible",
     sections: [
       "Installation",
       "Usage",
@@ -475,7 +458,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "combobox",
     name: "Combobox",
-    url: "https://ui.shadcn.com/docs/components/base/combobox",
     sections: [
       "Installation",
       "Usage",
@@ -503,7 +485,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "command",
     name: "Command",
-    url: "https://ui.shadcn.com/docs/components/base/command",
     sections: [
       "About",
       "Installation",
@@ -520,7 +501,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "context-menu",
     name: "Context Menu",
-    url: "https://ui.shadcn.com/docs/components/base/context-menu",
     sections: [
       "Installation",
       "Usage",
@@ -541,7 +521,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "data-table",
     name: "Data Table",
-    url: "https://ui.shadcn.com/docs/components/base/data-table",
     sections: [
       "Introduction",
       "Table of Contents",
@@ -616,7 +595,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "date-picker",
     name: "Date Picker",
-    url: "https://ui.shadcn.com/docs/components/base/date-picker",
     sections: [
       "Installation",
       "Usage",
@@ -633,7 +611,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "dialog",
     name: "Dialog",
-    url: "https://ui.shadcn.com/docs/components/base/dialog",
     sections: [
       "Installation",
       "Usage",
@@ -649,13 +626,11 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "direction",
     name: "Direction",
-    url: "https://ui.shadcn.com/docs/components/base/direction",
     sections: ["Installation", "Usage", "useDirection"],
   ),
   ComponentReference(
     id: "drawer",
     name: "Drawer",
-    url: "https://ui.shadcn.com/docs/components/base/drawer",
     sections: [
       "Installation",
       "Usage",
@@ -675,7 +650,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "dropdown-menu",
     name: "Dropdown Menu",
-    url: "https://ui.shadcn.com/docs/components/base/dropdown-menu",
     sections: [
       "Installation",
       "Usage",
@@ -698,7 +672,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "empty",
     name: "Empty",
-    url: "https://ui.shadcn.com/docs/components/base/empty",
     sections: [
       "Installation",
       "Usage",
@@ -722,7 +695,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "field",
     name: "Field",
-    url: "https://ui.shadcn.com/docs/components/base/field",
     sections: [
       "Installation",
       "Usage",
@@ -797,7 +769,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "hover-card",
     name: "Hover Card",
-    url: "https://ui.shadcn.com/docs/components/base/hover-card",
     sections: [
       "Installation",
       "Usage",
@@ -813,7 +784,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "input",
     name: "Input",
-    url: "https://ui.shadcn.com/docs/components/base/input",
     sections: [
       "Installation",
       "Usage",
@@ -836,7 +806,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "input-group",
     name: "Input Group",
-    url: "https://ui.shadcn.com/docs/components/base/input-group",
     sections: [
       "Installation",
       "Usage",
@@ -891,7 +860,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "input-otp",
     name: "Input OTP",
-    url: "https://ui.shadcn.com/docs/components/base/input-otp",
     sections: [
       "About",
       "Installation",
@@ -912,7 +880,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "item",
     name: "Item",
-    url: "https://ui.shadcn.com/docs/components/base/item",
     sections: [
       "Installation",
       "Usage",
@@ -971,7 +938,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "kbd",
     name: "Kbd",
-    url: "https://ui.shadcn.com/docs/components/base/kbd",
     sections: [
       "Installation",
       "Usage",
@@ -990,7 +956,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "label",
     name: "Label",
-    url: "https://ui.shadcn.com/docs/components/base/label",
     sections: [
       "Installation",
       "Usage",
@@ -1002,7 +967,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "marker",
     name: "Marker",
-    url: "https://ui.shadcn.com/docs/components/base/marker",
     sections: [
       "Installation",
       "Usage",
@@ -1053,7 +1017,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "menubar",
     name: "Menubar",
-    url: "https://ui.shadcn.com/docs/components/base/menubar",
     sections: [
       "Installation",
       "Usage",
@@ -1069,7 +1032,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "message",
     name: "Message",
-    url: "https://ui.shadcn.com/docs/components/base/message",
     sections: [
       "Installation",
       "Usage",
@@ -1096,7 +1058,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "message-scroller",
     name: "Message Scroller",
-    url: "https://ui.shadcn.com/docs/components/base/message-scroller",
     sections: [
       "What Makes a Great Streaming Chat Experience",
       "MessageScroller",
@@ -1149,7 +1110,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "navigation-menu",
     name: "Navigation Menu",
-    url: "https://ui.shadcn.com/docs/components/base/navigation-menu",
     sections: [
       "Installation",
       "Usage",
@@ -1162,7 +1122,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "pagination",
     name: "Pagination",
-    url: "https://ui.shadcn.com/docs/components/base/pagination",
     sections: [
       "Installation",
       "Usage",
@@ -1179,7 +1138,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "popover",
     name: "Popover",
-    url: "https://ui.shadcn.com/docs/components/base/popover",
     sections: [
       "Installation",
       "Usage",
@@ -1194,7 +1152,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "progress",
     name: "Progress",
-    url: "https://ui.shadcn.com/docs/components/base/progress",
     sections: [
       "Installation",
       "Usage",
@@ -1210,7 +1167,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "questionnaire",
     name: "Questionnaire",
-    url: "https://ui.shadcn.com/docs/components/base/questionnaire",
     sections: [
       "Installation",
       "Usage",
@@ -1237,7 +1193,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "radio-group",
     name: "Radio Group",
-    url: "https://ui.shadcn.com/docs/components/base/radio-group",
     sections: [
       "Installation",
       "Usage",
@@ -1254,7 +1209,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "resizable",
     name: "Resizable",
-    url: "https://ui.shadcn.com/docs/components/base/resizable",
     sections: [
       "About",
       "Installation",
@@ -1272,7 +1226,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "scroll-area",
     name: "Scroll Area",
-    url: "https://ui.shadcn.com/docs/components/base/scroll-area",
     sections: [
       "Installation",
       "Usage",
@@ -1285,7 +1238,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "select",
     name: "Select",
-    url: "https://ui.shadcn.com/docs/components/base/select",
     sections: [
       "Installation",
       "Usage",
@@ -1302,7 +1254,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "separator",
     name: "Separator",
-    url: "https://ui.shadcn.com/docs/components/base/separator",
     sections: [
       "Installation",
       "Usage",
@@ -1316,7 +1267,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "sheet",
     name: "Sheet",
-    url: "https://ui.shadcn.com/docs/components/base/sheet",
     sections: [
       "Installation",
       "Usage",
@@ -1330,7 +1280,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "sidebar",
     name: "Sidebar",
-    url: "https://ui.shadcn.com/docs/components/base/sidebar",
     sections: [
       "Installation",
       "Usage",
@@ -1397,7 +1346,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "skeleton",
     name: "Skeleton",
-    url: "https://ui.shadcn.com/docs/components/base/skeleton",
     sections: [
       "Installation",
       "Usage",
@@ -1412,7 +1360,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "slider",
     name: "Slider",
-    url: "https://ui.shadcn.com/docs/components/base/slider",
     sections: [
       "Installation",
       "Usage",
@@ -1428,7 +1375,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "spinner",
     name: "Spinner",
-    url: "https://ui.shadcn.com/docs/components/base/spinner",
     sections: [
       "Installation",
       "Usage",
@@ -1444,7 +1390,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "switch",
     name: "Switch",
-    url: "https://ui.shadcn.com/docs/components/base/switch",
     sections: [
       "Installation",
       "Usage",
@@ -1460,7 +1405,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "table",
     name: "Table",
-    url: "https://ui.shadcn.com/docs/components/base/table",
     sections: [
       "Installation",
       "Usage",
@@ -1474,7 +1418,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "tabs",
     name: "Tabs",
-    url: "https://ui.shadcn.com/docs/components/base/tabs",
     sections: [
       "Installation",
       "Usage",
@@ -1490,7 +1433,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "textarea",
     name: "Textarea",
-    url: "https://ui.shadcn.com/docs/components/base/textarea",
     sections: [
       "Installation",
       "Usage",
@@ -1504,7 +1446,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "toast",
     name: "Toast",
-    url: "https://ui.shadcn.com/docs/components/base/toast",
     sections: [
       "Installation",
       "Usage",
@@ -1517,7 +1458,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "toggle",
     name: "Toggle",
-    url: "https://ui.shadcn.com/docs/components/base/toggle",
     sections: [
       "Installation",
       "Usage",
@@ -1532,7 +1472,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "toggle-group",
     name: "Toggle Group",
-    url: "https://ui.shadcn.com/docs/components/base/toggle-group",
     sections: [
       "Installation",
       "Usage",
@@ -1553,7 +1492,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "tooltip",
     name: "Tooltip",
-    url: "https://ui.shadcn.com/docs/components/base/tooltip",
     sections: [
       "Installation",
       "Usage",
@@ -1568,7 +1506,6 @@ const componentCatalogue = <ComponentReference>[
   ComponentReference(
     id: "typography",
     name: "Typography",
-    url: "https://ui.shadcn.com/docs/components/base/typography",
     sections: [
       "h1",
       "h2",

@@ -137,7 +137,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Reference demo',
       description:
-          'The canonical shadcn demo pairs an outline text button with its square icon action.',
+          'The basic demo pairs an outline text button with its square icon action.',
       states: const ['Outline', 'Icon', 'Keyboard', 'Touch'],
       code: '''Wrap(
   spacing: DSpacing.sm,

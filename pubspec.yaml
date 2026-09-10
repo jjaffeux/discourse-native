@@ -157,7 +157,6 @@ flutter:
     - packages/discourse_native/src/styleguide/assets/item/model-mini.jpg
     - packages/discourse_native/src/styleguide/assets/item/model-sm.jpg
     - packages/discourse_native/src/styleguide/assets/item/plus.svg
-    - packages/discourse_native/src/styleguide/assets/item/shadcn.png
     - packages/discourse_native/src/styleguide/assets/item/shield-alert.svg
     - packages/discourse_native/src/styleguide/assets/item/song-0.svg
     - packages/discourse_native/src/styleguide/assets/item/song-1.svg

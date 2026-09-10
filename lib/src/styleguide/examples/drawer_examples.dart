@@ -633,10 +633,10 @@ class _ProfileForm extends StatelessWidget {
       DInput(
         labelText: 'Email',
         keyboardType: TextInputType.emailAddress,
-        initialValue: 'shadcn@example.com',
+        initialValue: 'alex@example.com',
       ),
       const SizedBox(height: 12),
-      DInput(labelText: 'Username', initialValue: '@shadcn'),
+      DInput(labelText: 'Username', initialValue: '@alex'),
       const SizedBox(height: 16),
       DButton(onPressed: () {}, label: const Text('Save changes')),
     ],

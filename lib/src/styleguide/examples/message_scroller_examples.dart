@@ -111,7 +111,7 @@ final messageScrollerExamples = ComponentExamples(
                         variant: DEmptyMediaVariant.icon,
                         child: Icon(Icons.chat_bubble_outline),
                       ),
-                      DEmptyTitle('Morning, shadcn!'),
+                      DEmptyTitle('Morning, Alex!'),
                       DEmptyDescription(
                         'What are we working on today? Press send to start a new conversation'),
                     ]),
@@ -288,7 +288,7 @@ class _MessageScrollerReferenceDemoState
                                   variant: DEmptyMediaVariant.icon,
                                   child: Icon(Icons.chat_bubble_outline),
                                 ),
-                                DEmptyTitle('Morning, shadcn!'),
+                                DEmptyTitle('Morning, Alex!'),
                                 DEmptyDescription(
                                   'What are we working on today? Press send to start a new conversation',
                                 ),

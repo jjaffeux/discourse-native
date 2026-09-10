@@ -60,8 +60,8 @@ class _HoverCardReviewApi extends FakeDiscourseApi {
       throw StateError('Fixture profile failure');
     }
     return const UserCard(
-      username: 'shadcn',
-      name: 'shadcn',
+      username: 'alex',
+      name: 'alex',
       title: 'Design engineer and open-source maintainer',
       location: 'San Francisco',
     );
@@ -199,9 +199,9 @@ class _FixtureState extends State<_Fixture> {
                       runSpacing: 12,
                       children: [
                         UserCardTarget(
-                          username: 'shadcn',
+                          username: 'alex',
                           siteUrl: _siteUrl,
-                          child: Text('@shadcn ready'),
+                          child: Text('@alex ready'),
                         ),
                         UserCardTarget(
                           username: 'loading',

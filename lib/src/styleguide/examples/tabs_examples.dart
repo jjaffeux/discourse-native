@@ -5,8 +5,7 @@ import '../styleguide_example.dart';
 
 final tabsExamples = ComponentExamples(
   status: ComponentStatus.implemented,
-  description:
-      'Switch between related layers of content with shadcn-style tabs.',
+  description: 'Switch between related layers of content with tabs.',
   notes:
       'The default list is 32px high with 3px inset, 25px triggers, 6px horizontal padding, 14/20 medium text and the host lg/md radius scale. The line variant uses 4px gaps and a 2px active rule offset 4px beyond the trigger. '
       'DTabs owns local selection, DTabs.controlled follows application routing, and DTabController is a borrowed imperative option. DTabList supports manual or automatic activation and looping roving focus. Arrow direction follows orientation and RTL; Home/End jump to the boundary; Enter/Space activate in manual mode. Disabled and dynamically removed triggers are skipped. '

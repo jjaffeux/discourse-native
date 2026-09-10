@@ -224,9 +224,7 @@ void main() {
           theme: AppTheme.light,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: Builder(
-                builder: _example('Shadcn reference demo').builder,
-              ),
+              child: Builder(builder: _example('Typography demo').builder),
             ),
           ),
         ),
@@ -273,7 +271,9 @@ void main() {
           theme: AppTheme.light,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: Builder(builder: _example('Shadcn RTL reference').builder),
+              child: Builder(
+                builder: _example('Typography RTL example').builder,
+              ),
             ),
           ),
         ),

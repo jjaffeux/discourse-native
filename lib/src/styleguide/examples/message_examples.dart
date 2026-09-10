@@ -419,7 +419,7 @@ class _MetadataExample extends StatelessWidget {
                 children: [
                   DBubbleContent(
                     child: Text(
-                      'Send the report to the team. Ping @shadcn if you need help.',
+                      'Send the report to the team. Ping @alex if you need help.',
                     ),
                   ),
                 ],

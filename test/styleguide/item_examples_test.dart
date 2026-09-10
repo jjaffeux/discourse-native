@@ -56,11 +56,11 @@ void main() {
       );
       await tester.tap(find.text('Select'));
       await tester.pumpAndSettle();
-      expect(find.text('shadcn@vercel.com'), findsOneWidget);
+      expect(find.text('alex@example.com'), findsOneWidget);
       expect(
         tester.getSemantics(find.text('maxleiter')),
         matchesSemantics(
-          label: 'maxleiter, maxleiter@vercel.com',
+          label: 'maxleiter, maxleiter@example.com',
           isButton: true,
           hasEnabledState: true,
           isEnabled: true,
@@ -70,7 +70,7 @@ void main() {
       await tester.tap(find.text('maxleiter'));
       await tester.pumpAndSettle();
       expect(find.text('Selected maxleiter'), findsOneWidget);
-      expect(find.text('shadcn@vercel.com'), findsNothing);
+      expect(find.text('alex@example.com'), findsNothing);
       expect(
         tester
             .widget<DButton>(find.widgetWithText(DButton, 'Select'))
