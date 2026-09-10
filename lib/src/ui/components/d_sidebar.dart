@@ -595,6 +595,11 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
   bool _pointerFocused = false;
   final _ownedFocus = FocusNode();
   FocusNode get _focusNode => widget.focusNode ?? _ownedFocus;
+
+  void _setHover(bool value) {
+    if (hover != value) setState(() => hover = value);
+  }
+
   void _activate() {
     _focusNode.requestFocus();
     widget.onPressed?.call();
@@ -655,7 +660,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
           DSidebarMenuButtonSize.normal => 32.0,
           DSidebarMenuButtonSize.large => 48.0,
         };
-    final active = hover || pressed || widget.isActive;
+    final active = widget.isActive || (enabled && (hover || pressed));
     final collapsedLarge =
         iconOnly && widget.size == DSidebarMenuButtonSize.large;
     Widget result = Semantics(
@@ -665,119 +670,122 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
       selected: widget.isActive,
       expanded: widget.expanded,
       label: widget.semanticLabel ?? (iconOnly ? widget.tooltip : null),
-      child: FocusableActionDetector(
-        enabled: enabled,
-        focusNode: _focusNode,
-        autofocus: widget.autofocus,
-        onFocusChange: _handleFocusChange,
-        onShowFocusHighlight: _handleFocusHighlight,
-        onShowHoverHighlight: (v) => setState(() => hover = v),
-        mouseCursor: enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              _showKeyboardFocus();
-              widget.onPressed?.call();
-              return null;
-            },
-          ),
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.onPressed == null ? null : _activate,
-          onTapDown: enabled ? (_) => _handlePointerDown() : null,
-          onTapCancel: _handlePointerCancel,
-          onTapUp: (_) => setState(() => pressed = false),
-          child: _SidebarTouchTarget(
-            child: Opacity(
-              opacity: enabled ? 1 : .5,
-              child: Container(
-                constraints: BoxConstraints(
-                  minHeight: iconOnly ? 32 : minHeight,
-                ),
-                padding: EdgeInsetsDirectional.only(
-                  start: collapsedLarge ? 0 : 8,
-                  end: collapsedLarge
-                      ? 0
-                      : 8 + (_ItemScope.of(context)?.trailing ?? 0),
-                  top: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
-                  bottom: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
-                ),
-                decoration: BoxDecoration(
-                  color: active
-                      ? t.hover
-                      : widget.variant == DSidebarMenuButtonVariant.outline
-                      ? t.background
-                      : null,
-                  borderRadius: BorderRadius.circular(t.radius * .8),
-                ),
-                foregroundDecoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(t.radius * .8),
-                  border: focus
-                      ? Border.all(color: t.focusRing, width: 2)
-                      : widget.variant == DSidebarMenuButtonVariant.outline
-                      ? Border.all(color: t.border)
-                      : null,
-                ),
-                child: IconTheme(
-                  data: IconThemeData(size: 16, color: t.foreground),
-                  child: DefaultTextStyle(
-                    maxLines:
-                        iconOnly ||
-                            MediaQuery.textScalerOf(context).scale(14) <= 14
-                        ? 1
+      child: MouseRegion(
+        onEnter: (_) => _setHover(enabled),
+        onExit: (_) => _setHover(false),
+        child: FocusableActionDetector(
+          enabled: enabled,
+          focusNode: _focusNode,
+          autofocus: widget.autofocus,
+          onFocusChange: _handleFocusChange,
+          onShowFocusHighlight: _handleFocusHighlight,
+          mouseCursor: enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          actions: {
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                _showKeyboardFocus();
+                widget.onPressed?.call();
+                return null;
+              },
+            ),
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onPressed == null ? null : _activate,
+            onTapDown: enabled ? (_) => _handlePointerDown() : null,
+            onTapCancel: _handlePointerCancel,
+            onTapUp: (_) => setState(() => pressed = false),
+            child: _SidebarTouchTarget(
+              child: Opacity(
+                opacity: enabled ? 1 : .5,
+                child: Container(
+                  constraints: BoxConstraints(
+                    minHeight: iconOnly ? 32 : minHeight,
+                  ),
+                  padding: EdgeInsetsDirectional.only(
+                    start: collapsedLarge ? 0 : 8,
+                    end: collapsedLarge
+                        ? 0
+                        : 8 + (_ItemScope.of(context)?.trailing ?? 0),
+                    top: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
+                    bottom: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
+                  ),
+                  decoration: BoxDecoration(
+                    color: active
+                        ? t.hover
+                        : widget.variant == DSidebarMenuButtonVariant.outline
+                        ? t.background
                         : null,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                      fontSize: fontSize,
-                      height: (fontSize == 12 ? 16 : 20) / fontSize,
-                      color: t.foreground,
-                      fontWeight: widget.isActive
-                          ? FontWeight.w500
-                          : FontWeight.w400,
-                    ),
-                    child: Row(
-                      children: [
-                        if (widget.icon != null)
-                          ExcludeSemantics(
-                            child: SizedBox(
-                              width: widget.iconSize,
-                              height: widget.iconSize,
-                              child: widget.icon,
+                    borderRadius: BorderRadius.circular(t.radius * .8),
+                  ),
+                  foregroundDecoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(t.radius * .8),
+                    border: focus
+                        ? Border.all(color: t.focusRing, width: 2)
+                        : widget.variant == DSidebarMenuButtonVariant.outline
+                        ? Border.all(color: t.border)
+                        : null,
+                  ),
+                  child: IconTheme(
+                    data: IconThemeData(size: 16, color: t.foreground),
+                    child: DefaultTextStyle(
+                      maxLines:
+                          iconOnly ||
+                              MediaQuery.textScalerOf(context).scale(14) <= 14
+                          ? 1
+                          : null,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                        fontSize: fontSize,
+                        height: (fontSize == 12 ? 16 : 20) / fontSize,
+                        color: t.foreground,
+                        fontWeight: widget.isActive
+                            ? FontWeight.w500
+                            : FontWeight.w400,
+                      ),
+                      child: Row(
+                        children: [
+                          if (widget.icon != null)
+                            ExcludeSemantics(
+                              child: SizedBox(
+                                width: widget.iconSize,
+                                height: widget.iconSize,
+                                child: widget.icon,
+                              ),
                             ),
-                          ),
-                        if (iconOnly &&
-                            widget.icon != null &&
-                            widget.semanticLabel == null &&
-                            widget.tooltip == null)
-                          SizedBox.shrink(
-                            child: Opacity(
-                              opacity: 0,
-                              alwaysIncludeSemantics: true,
-                              child: widget.child,
+                          if (iconOnly &&
+                              widget.icon != null &&
+                              widget.semanticLabel == null &&
+                              widget.tooltip == null)
+                            SizedBox.shrink(
+                              child: Opacity(
+                                opacity: 0,
+                                alwaysIncludeSemantics: true,
+                                child: widget.child,
+                              ),
                             ),
-                          ),
-                        if (!iconOnly) ...[
-                          if (widget.icon != null) const SizedBox(width: 8),
-                          Flexible(
-                            child: ExcludeSemantics(
-                              excluding: widget.semanticLabel != null,
-                              child: widget.child,
+                          if (!iconOnly) ...[
+                            if (widget.icon != null) const SizedBox(width: 8),
+                            Flexible(
+                              child: ExcludeSemantics(
+                                excluding: widget.semanticLabel != null,
+                                child: widget.child,
+                              ),
                             ),
-                          ),
+                          ],
+                          if (iconOnly && widget.icon == null)
+                            Expanded(
+                              child: ExcludeSemantics(
+                                excluding:
+                                    widget.semanticLabel != null ||
+                                    widget.tooltip != null,
+                                child: widget.child,
+                              ),
+                            ),
                         ],
-                        if (iconOnly && widget.icon == null)
-                          Expanded(
-                            child: ExcludeSemantics(
-                              excluding:
-                                  widget.semanticLabel != null ||
-                                  widget.tooltip != null,
-                              child: widget.child,
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
