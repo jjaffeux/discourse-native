@@ -1160,63 +1160,47 @@ class DComboboxList<T> extends StatelessWidget {
   );
 }
 
-class DComboboxItem<T> extends StatefulWidget {
+class DComboboxItem<T> extends StatelessWidget {
   const DComboboxItem({super.key, required this.option, required this.child});
 
   final DComboboxOption<T> option;
   final Widget child;
 
   @override
-  State<DComboboxItem<T>> createState() => _DComboboxItemState<T>();
-}
-
-class _DComboboxItemState<T> extends State<DComboboxItem<T>> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
     final root = _DComboboxScope.of<T>(context);
     final tokens = DTokens.of(context);
-    final itemEnabled = root.mutable && widget.option.enabled;
-    final selected = root._contains(root.selectedValues, widget.option.value);
+    final itemEnabled = root.mutable && option.enabled;
+    final selected = root._contains(root.selectedValues, option.value);
     final highlightedValue = root.highlightedValue;
+    // Pointer and keyboard navigation share the root's accepted highlight.
     final highlighted =
+        itemEnabled &&
         highlightedValue != null &&
-        root._equal(highlightedValue, widget.option.value);
-    final active =
-        highlighted || (_hovered && root.combobox.highlightItemOnHover);
+        root._equal(highlightedValue, option.value);
     Widget item = MouseRegion(
       cursor: itemEnabled ? SystemMouseCursors.click : MouseCursor.defer,
       onEnter: (_) {
-        setState(() => _hovered = true);
         if (root.combobox.highlightItemOnHover && itemEnabled) {
-          root._requestHighlight(
-            widget.option.value,
-            DComboboxChangeReason.pointer,
-          );
+          root._requestHighlight(option.value, DComboboxChangeReason.pointer);
         }
       },
-      onExit: (_) => setState(() => _hovered = false),
       child: Semantics(
         button: true,
         selected: selected,
         enabled: itemEnabled,
-        label: widget.option.label,
+        label: option.label,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: itemEnabled
-              ? () =>
-                    root._select(widget.option, DComboboxChangeReason.itemPress)
+              ? () => root._select(option, DComboboxChangeReason.itemPress)
               : null,
-          child: AnimatedContainer(
-            duration: DMotion.duration(
-              context,
-              const Duration(milliseconds: 100),
-            ),
+          // Switch backgrounds immediately so two rows never cross-fade.
+          child: Container(
             constraints: const BoxConstraints(minHeight: 28),
             padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 8, 4),
             decoration: BoxDecoration(
-              color: active ? tokens.hover : Colors.transparent,
+              color: highlighted ? tokens.hover : Colors.transparent,
               borderRadius: BorderRadius.circular(tokens.radius * .8),
             ),
             foregroundDecoration: itemEnabled
@@ -1228,7 +1212,7 @@ class _DComboboxItemState<T> extends State<DComboboxItem<T>> {
                   ),
             child: Row(
               children: [
-                Expanded(child: widget.child),
+                Expanded(child: child),
                 const SizedBox(width: 8),
                 SizedBox(
                   width: 16,
