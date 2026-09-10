@@ -2477,6 +2477,7 @@ Status: merged. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dro
 - Accepted follow-up keeps live item registration order during label, enabled and borrowed-focus-node changes; menu content exclusively owns first-item focus and scrolls only its nearest popup viewport; Material mirrors the directional submenu chevron exactly once in RTL.
 - Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.
 - The 2026-09-10 parity follow-up keeps the 160px Composition root but restores the reference submenu's 96px minimum and large shadow, paints a layout-neutral exterior ring, propagates active accent foreground, reserves the exact inset and choice-indicator columns, and owns Lucide-proportion check and directional-chevron strokes.
+- The scrolling correction maps CSS overflow-y-auto literally: fitting menus remain static with no Flutter Scrollable or scrollbar, while content that actually exceeds its available height gains one popup-local viewport. The same keyed content subtree preserves focus when that viewport is introduced.
 
 **migrations**
 
@@ -2501,6 +2502,7 @@ Status: merged. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dro
 - Source-exact native Menubar runtime e3104c9ae1547b90629f85d6e7a7bb97c863f6c7 verified the combined blob at 360 px and 200% text in LTR/RTL, reduced motion and Plum RTL: popup focus scrolled rows without shifting the host, keyboard selection completed, Arabic chevrons pointed/opened left and Right returned to the parent. Bundle kernel SHA256 was 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318.
 - Parity follow-up 4839aae96e1861a109f92c77741d026154aee85b: live reference and supplied dark Composition capture were compared against the actual styleguide; 175 affected tests passed with seed 20260910 plus the explicit submenu width/shadow regression; root and profiles/full analysis, formatting and git diff checks passed; the source-exact isolated macOS styleguide passed dark root/submenu inspection and was closed before releasing the desktop lease.
 - Latest-main parity candidate 5c88fce9f39e2a5262490e536d8e031556598c7c passed all 74 Dropdown Menu, Popover, Context Menu and Menubar tests with seed 20260910 plus clean root/full analysis. It was merged from the main checkout as 819605380e5d26d5e5a867fabf97b92c0882ee73.
+- Scroll-parity source 1ac5ad8d69fbee4128f486ad5296c38447c99bfa passed 78 randomized Dropdown Menu, Popover, Context Menu, Menubar and styleguide checks with seed 20260910. Coverage proves fitting menus ignore wheel input with no scroll owner, constrained overflow remains wheel/draggable/keyboard accessible, focus survives the adaptive transition and host pages do not move; root/full analysis and git diff checks passed.
 
 **limitations**
 
