@@ -255,20 +255,14 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
     await tester.pumpAndSettle();
 
-    final chevron = tester.widget<Icon>(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Icon &&
-            (widget.icon == Icons.chevron_left ||
-                widget.icon == Icons.chevron_right),
-      ),
+    final chevron = find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint &&
+          widget.size == const Size.square(16) &&
+          widget.painter.runtimeType.toString() == '_ChevronPainter',
     );
-    expect(chevron.icon, Icons.chevron_right);
-    expect(chevron.icon!.matchTextDirection, isTrue);
-    expect(
-      Directionality.of(tester.element(find.byWidget(chevron))),
-      TextDirection.rtl,
-    );
+    expect(chevron, findsOneWidget);
+    expect(Directionality.of(tester.element(chevron)), TextDirection.rtl);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();

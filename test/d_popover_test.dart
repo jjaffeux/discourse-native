@@ -546,7 +546,7 @@ BoxDecoration _surfaceDecoration(WidgetTester tester) => tester
     )
     .map((widget) => widget.decoration)
     .whereType<BoxDecoration>()
-    .firstWhere((decoration) => decoration.border != null);
+    .firstWhere((decoration) => decoration.boxShadow?.isNotEmpty == true);
 
 Widget _app(Widget child, {Size size = const Size(800, 600)}) => MaterialApp(
   theme: AppTheme.light,

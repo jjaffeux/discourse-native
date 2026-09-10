@@ -313,21 +313,14 @@ void main() {
       child: const _SubmenuHarness(),
     );
     await open(tester);
-    final chevron = tester.widget<Icon>(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Icon &&
-            (widget.icon == Icons.chevron_left ||
-                widget.icon == Icons.chevron_right),
-      ),
+    final chevron = find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint &&
+          widget.size == const Size.square(16) &&
+          widget.painter.runtimeType.toString() == '_ChevronPainter',
     );
-    // Material's directional glyph is mirrored by Icon exactly once.
-    expect(chevron.icon, Icons.chevron_right);
-    expect(chevron.icon!.matchTextDirection, isTrue);
-    expect(
-      Directionality.of(tester.element(find.byWidget(chevron))),
-      TextDirection.rtl,
-    );
+    expect(chevron, findsOneWidget);
+    expect(Directionality.of(tester.element(chevron)), TextDirection.rtl);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
@@ -335,6 +328,78 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     expect(find.text('Email'), findsNothing);
+  });
+
+  testWidgets('submenu uses the reference 96px minimum width by default', (
+    tester,
+  ) async {
+    await pumpMenu(tester, child: const _SubmenuHarness());
+    await open(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DPopoverContent), findsNWidgets(2));
+    expect(
+      tester.getSize(find.byType(DPopoverContent).last).width,
+      closeTo(96, 0.1),
+    );
+
+    BoxDecoration surfaceDecoration(Finder content) => tester
+        .widgetList<DecoratedBox>(
+          find.descendant(of: content, matching: find.byType(DecoratedBox)),
+        )
+        .map((widget) => widget.decoration)
+        .whereType<BoxDecoration>()
+        .firstWhere((decoration) => decoration.boxShadow?.isNotEmpty == true);
+    final rootShadow = surfaceDecoration(find.byType(DPopoverContent).first);
+    final submenuShadow = surfaceDecoration(find.byType(DPopoverContent).last);
+    expect(rootShadow.boxShadow!.first.offset, const Offset(0, 4));
+    expect(rootShadow.boxShadow!.first.blurRadius, 6);
+    expect(submenuShadow.boxShadow!.first.offset, const Offset(0, 10));
+    expect(submenuShadow.boxShadow!.first.blurRadius, 15);
+  });
+
+  testWidgets('active rows use the paired accent foreground', (tester) async {
+    const activeForeground = Color(0xFF006600);
+    const restingForeground = Color(0xFF111111);
+    const mutedForeground = Color(0xFF666666);
+    final base = ThemeData.light();
+    final colors = base.colorScheme.copyWith(
+      onSurface: restingForeground,
+      onSurfaceVariant: mutedForeground,
+    );
+    final theme = base.copyWith(
+      colorScheme: colors,
+      extensions: [
+        DTokens(
+          colors: colors,
+          background: Colors.white,
+          surface: Colors.white,
+          muted: const Color(0xFFF5F5F5),
+          border: const Color(0xFFE5E5E5),
+          hover: const Color(0xFFEEEEEE),
+          selected: const Color(0xFFEEEEEE),
+          selectedForeground: activeForeground,
+        ),
+      ],
+    );
+    await pumpMenu(tester, theme: theme, child: const _ShortcutColorHarness());
+    await open(tester);
+
+    expect(
+      DefaultTextStyle.of(tester.element(find.text('Profile'))).style.color,
+      activeForeground,
+    );
+    expect(tester.widget<Text>(find.text('⌘P')).style?.color, activeForeground);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(
+      DefaultTextStyle.of(tester.element(find.text('Profile'))).style.color,
+      restingForeground,
+    );
+    expect(tester.widget<Text>(find.text('⌘P')).style?.color, mutedForeground);
   });
 
   testWidgets('menu focus scrolls its popup without moving the host page', (
@@ -847,6 +912,31 @@ class _SubmenuHarness extends StatelessWidget {
             DDropdownMenuItem(onPressed: _noop, child: Text('Message')),
           ],
         ),
+      ],
+    ),
+    child: DDropdownMenuTrigger(
+      builder: (context, state) => DButton(
+        label: const Text('Open'),
+        onPressed: state.toggle,
+        focusNode: state.focusNode,
+      ),
+    ),
+  );
+}
+
+class _ShortcutColorHarness extends StatelessWidget {
+  const _ShortcutColorHarness();
+
+  @override
+  Widget build(BuildContext context) => DDropdownMenu(
+    content: const DDropdownMenuContent(
+      children: [
+        DDropdownMenuItem(
+          onPressed: _noop,
+          trailing: DDropdownMenuShortcut('⌘P'),
+          child: Text('Profile'),
+        ),
+        DDropdownMenuItem(onPressed: _noop, child: Text('Billing')),
       ],
     ),
     child: DDropdownMenuTrigger(
