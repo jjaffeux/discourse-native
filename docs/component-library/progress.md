@@ -1472,6 +1472,7 @@ Status: merged. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-ava
 - Final-owner Avatar composition follow-up accepted by no-fast-forward local-main merge 10ea2ca4be81921377d1f85f0c58d3d19cbf15c8. Original Avatar acceptance/implementation history is preserved; no push.
 - Online-ring follow-up: final latest-main candidate passed 237 focused Avatar/styleguide/Chat tests with seed 9082026; root and profiles/full analysis and enforced lockfile resolution passed; macOS debug fixture build and deep strict ad-hoc signature passed.
 - Source-matched macOS 26.6.2 arm64 inspection verified fallback and decoded-image rings in light, dark, Forest and Plum; LTR/RTL, wide/360px, 100%/200% and reduced-motion previews; registered styleguide presentation; and native AX labels. Isolated app closure and desktop-lease release were confirmed. Evidence: docs/component-library/evidence/avatar/ring-follow-up.md.
+- Avatar online-ring follow-up merged from the repository main checkout with --no-ff as a17c044ad504471563773bc0fac30a7c73df20f8; no push.
 
 **limitations**
 

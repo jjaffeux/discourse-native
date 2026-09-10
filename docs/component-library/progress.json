@@ -1449,7 +1449,8 @@
         "Final-owner follow-up: source-exact native/reference verification completed, own UI cleanup confirmed, all 147 focused tests and root/full analysis pass on reconciled candidate 90f3e019. Evidence: docs/component-library/evidence/avatar/final-composition-review.md.",
         "Final-owner Avatar composition follow-up accepted by no-fast-forward local-main merge 10ea2ca4be81921377d1f85f0c58d3d19cbf15c8. Original Avatar acceptance/implementation history is preserved; no push.",
         "Online-ring follow-up: final latest-main candidate passed 237 focused Avatar/styleguide/Chat tests with seed 9082026; root and profiles/full analysis and enforced lockfile resolution passed; macOS debug fixture build and deep strict ad-hoc signature passed.",
-        "Source-matched macOS 26.6.2 arm64 inspection verified fallback and decoded-image rings in light, dark, Forest and Plum; LTR/RTL, wide/360px, 100%/200% and reduced-motion previews; registered styleguide presentation; and native AX labels. Isolated app closure and desktop-lease release were confirmed. Evidence: docs/component-library/evidence/avatar/ring-follow-up.md."
+        "Source-matched macOS 26.6.2 arm64 inspection verified fallback and decoded-image rings in light, dark, Forest and Plum; LTR/RTL, wide/360px, 100%/200% and reduced-motion previews; registered styleguide presentation; and native AX labels. Isolated app closure and desktop-lease release were confirmed. Evidence: docs/component-library/evidence/avatar/ring-follow-up.md.",
+        "Avatar online-ring follow-up merged from the repository main checkout with --no-ff as a17c044ad504471563773bc0fac30a7c73df20f8; no push."
       ],
       "limitations": [
         "No iOS/Linux device or spoken VoiceOver run. Nested styleguide main native AX tree was sparse; fixture/menu AX and visual/keyboard interaction verified without forcing global semantics.",
@@ -1475,11 +1476,12 @@
           "stylesheetSha256": "7f54519636c1bddbdeaf851980e355eafb21258ab3b4f40b8c901763b3586851",
           "componentSha256": "bebca8c8bf0f3f8750f64222d8b2601b6033493cb28b556d85c6372b9822526c"
         },
-        "status": "ready_to_merge",
-        "reviewStatus": "verified",
+        "status": "merged",
+        "reviewStatus": "merged",
         "integrationBranch": "codex/avatar-ring-integration",
         "integratedMain": "2850664692f3fb9bf321e82070a8f452db9c6324",
         "integrationCommit": "fa6df2f966949c6e56d8336421138d9d69d90d0f",
+        "mergeCommit": "a17c044ad504471563773bc0fac30a7c73df20f8",
         "evidence": "docs/component-library/evidence/avatar/ring-follow-up.md",
         "verification": [
           "Initial source branch passed 216 focused component, styleguide and Chat tests with seed 9082026.",
