@@ -4783,7 +4783,7 @@
           "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
           "branch": "codex/sidebar-custom-child-icons",
           "mainBaseline": "65010094e8e5dc2af4bef1bcbd0e92dd8fe173ad",
-          "status": "accepted",
+          "status": "merged",
           "dependencies": [
             "sidebar"
           ],
@@ -4792,7 +4792,7 @@
             "Preserve the icon column, labels, row hit areas, disclosure arrows and other navigation artwork.",
             "Verify focused sidebar checks and native fixture, then merge from the main checkout."
           ],
-          "reviewStatus": "accepted",
+          "reviewStatus": "merged",
           "implementationCommit": "ecc1c7bf9d0d2ae48f827fab937f2f7fb66530a0",
           "nativeInspectionStatus": "completed",
           "evidence": "docs/component-library/sidebar-main-migration.md#custom-child-icon-follow-up--2026-09-10",
@@ -4802,7 +4802,10 @@
             "Root dart analyze --fatal-infos and touched-file formatting passed; /tmp/sidebar-custom-child-icons-analysis.log.",
             "Native macOS production fixture inspected at 208px light/dark and 390px dark with an iOS target, all at 100% text. No physical iOS/Linux or spoken screen reader verification.",
             "Original progress history and other owners preserved; no generic component API changed."
-          ]
+          ],
+          "candidateCommit": "ff5d2330e74dfd03c160cbb95c70b2eaaa14ad93",
+          "mergeCommit": "fbc039a32a35f6ee947ac7bde3ecaebfedb63f6f",
+          "mergedAt": "2026-09-10T15:35:07.657868+00:00"
         }
       }
     },
