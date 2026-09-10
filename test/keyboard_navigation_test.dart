@@ -20,6 +20,8 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
+const _unlistedTopic = Topic(id: 32, title: 'Unlisted topic', slug: 'unlisted');
+
 void main() {
   for (final size in [desktop, phone]) {
     for (final next in [false, true]) {
@@ -27,13 +29,19 @@ void main() {
         'G ${next ? 'J' : 'K'} opens the first listed topic from an unlisted topic at ${size.width}px',
         (tester) async {
           final setup = await _setup(tester, size: size);
-          final unlisted = setup.api.feeds['/latest.json?page=1']!.single;
-          setup.shell.openTopic(unlisted);
+          setup.shell.openTopic(_unlistedTopic);
           await tester.pumpAndSettle();
+          if (size == desktop) {
+            _scrollable(
+              tester,
+              find.byType(TopicListView),
+            ).controller!.jumpTo(500);
+            await tester.pumpAndSettle();
+          }
           final source = setup.shell.topicListContent;
           expect(
             setup.shell.currentFeed!.topicIds,
-            isNot(contains(unlisted.id)),
+            isNot(contains(_unlistedTopic.id)),
           );
 
           await _openAdjacent(tester, next: next);
@@ -43,6 +51,12 @@ void main() {
           expect(setup.shell.topicListContent, source);
           expect(setup.shell.contentStack, hasLength(2));
           expect(_selectedPosts(tester), isEmpty);
+          if (size == phone) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
+            await tester.pumpAndSettle();
+          }
+          _expectTopicVisible(tester, 1);
+          expect(_selectedTopics(tester), [1]);
           expect(tester.takeException(), isNull);
         },
       );
@@ -77,7 +91,9 @@ void main() {
       '${next ? 'Next' : 'Previous'} button opens the first listed topic from an unlisted topic',
       (tester) async {
         final setup = await _setup(tester);
-        setup.shell.openTopic(setup.api.feeds['/latest.json?page=1']!.single);
+        setup.shell.openTopic(_unlistedTopic);
+        await tester.pumpAndSettle();
+        _scrollable(tester, find.byType(TopicListView)).controller!.jumpTo(500);
         await tester.pumpAndSettle();
         final source = setup.shell.topicListContent;
         final previousButton = find.byKey(
@@ -94,11 +110,48 @@ void main() {
         expect(setup.shell.currentContent?.postNumber, 2);
         expect(setup.shell.topicListContent, source);
         expect(setup.shell.contentStack, hasLength(2));
+        _expectTopicVisible(tester, 1);
+        expect(_selectedTopics(tester), [1]);
         expect(tester.widget<DButton>(previousButton).onPressed, isNull);
         expect(tester.widget<DButton>(nextButton).onPressed, isNotNull);
         expect(tester.takeException(), isNull);
       },
     );
+  }
+
+  for (final keyboard in [false, true]) {
+    for (final next in [false, true]) {
+      testWidgets(
+        '${keyboard ? 'Shortcut' : 'Button'} reveals the ${next ? 'next' : 'previous'} topic outside the viewport',
+        (tester) async {
+          final setup = await _setup(tester);
+          setup.shell.openTopicFromList(setup.api.feeds['/latest.json']![19]);
+          await tester.pumpAndSettle();
+          final list = _scrollable(tester, find.byType(TopicListView));
+          list.controller!.jumpTo(0);
+          await tester.pumpAndSettle();
+
+          if (keyboard) {
+            await _openAdjacent(tester, next: next);
+          } else {
+            await tester.tap(
+              find.byKey(ValueKey('inbox-${next ? 'next' : 'previous'}-topic')),
+            );
+            await tester.pumpAndSettle();
+          }
+
+          final target = next ? 21 : 19;
+          expect(setup.shell.currentContent?.topicId, target);
+          _expectTopicVisible(tester, target);
+          expect(_selectedTopics(tester), [target]);
+          expect(list.controller!.offset, greaterThan(0));
+          await _moveTopic(tester, next: true);
+          expect(_selectedTopics(tester), [target + 1]);
+          expect(setup.shell.currentContent?.topicId, target);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
 
   testWidgets(
@@ -220,7 +273,9 @@ void main() {
       final rows = setup.api.feeds['/latest.json']!;
       final originalTab = setup.shell.activeTabId!;
       setup.shell.openTopicFromList(rows.last);
-      await tester.pumpAndSettle();
+      // Revealing the last row starts the gated page prefetch and its spinner.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await _openAdjacent(tester, next: true, settle: false);
       await _openAdjacent(tester, next: true, settle: false);
       expect(
@@ -658,6 +713,15 @@ Iterable<BorderSide> _topicBorders(WidgetTester tester, int topicId) sync* {
   }
 }
 
+void _expectTopicVisible(WidgetTester tester, int topicId) {
+  final row = find.byKey(ValueKey('topic-list-keyboard-$topicId'));
+  expect(row.hitTestable(), findsOneWidget);
+  final viewport = tester.getRect(find.byType(TopicListView));
+  final bounds = tester.getRect(row);
+  expect(bounds.top, greaterThanOrEqualTo(viewport.top));
+  expect(bounds.bottom, lessThanOrEqualTo(viewport.bottom));
+}
+
 Future<void> _openAdjacent(
   WidgetTester tester, {
   required bool next,
@@ -729,7 +793,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
   const user = DiscourseUser(id: 7, username: 'sam');
   final site = instance('meta.example').copyWith(user: user);
   final rows = [
-    for (var id = 1; id <= 31; id++)
+    for (var id = 1; id <= 32; id++)
       Topic(
         id: id,
         title: 'Keyboard topic $id',
@@ -744,7 +808,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
     feedGates: {'/latest.json?page=1': ?nextPageGate},
     feeds: {
       '/latest.json': rows.take(30).toList(),
-      '/latest.json?page=1': [rows.last],
+      '/latest.json?page=1': [rows[30]],
     },
     nextPages: {'/latest.json': '/latest.json?page=1'},
     topics: {

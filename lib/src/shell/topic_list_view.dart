@@ -61,7 +61,7 @@ class _TopicListViewState extends State<TopicListView> {
   Object? _keyboardMoveToken;
   Object? _loadMoreToken;
   bool _restored = false;
-  bool _reading = false;
+  int? _readingTopicId;
   int _boundaryJumpRevision = 0;
 
   ShellController? _controller;
@@ -126,7 +126,7 @@ class _TopicListViewState extends State<TopicListView> {
     _feedIdentity = feedIdentity;
     _loadMoreToken = null;
     _restored = false;
-    _reading = false;
+    _readingTopicId = null;
     _scroll = ScrollController();
     _list = ListController();
     _keyboardMoveToken = null;
@@ -471,10 +471,17 @@ class _TopicListViewState extends State<TopicListView> {
         'topicCount': feed.topicIds.length,
       });
     }
-    final reading = widget.inbox && controller.currentContent?.isTopic == true;
-    if (_reading != reading) {
-      _reading = reading;
-      _revealCursor();
+    final readingTopicId = widget.inbox
+        ? controller.currentContent?.topicId
+        : null;
+    if (_readingTopicId != readingTopicId) {
+      _readingTopicId = readingTopicId;
+      if (readingTopicId == null) {
+        _revealCursor();
+      } else if (feed.topicIds.contains(readingTopicId)) {
+        _rememberTopic(readingTopicId);
+        _revealCursor();
+      }
     }
 
     return Column(
@@ -1211,7 +1218,7 @@ typedef _TopicListSnapshot = ({
   _TopicListIdentity feedIdentity,
   String destination,
   int incoming,
-  bool reading,
+  int? topicId,
 });
 
 _TopicListSnapshot _topicListSnapshot(ShellController controller) {
@@ -1222,7 +1229,7 @@ _TopicListSnapshot _topicListSnapshot(ShellController controller) {
     feedIdentity: _TopicListViewState._currentFeedIdentity(controller),
     destination: destination,
     incoming: controller.incomingCount(destination),
-    reading: controller.currentContent?.isTopic == true,
+    topicId: controller.currentContent?.topicId,
   );
 }
 
