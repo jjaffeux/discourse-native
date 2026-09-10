@@ -100,7 +100,7 @@ class _TopicTaxonomyPickerAnchorState extends State<TopicTaxonomyPickerAnchor> {
       padding: EdgeInsets.zero,
       scrollable: false,
       constraints: const BoxConstraints(maxHeight: 360),
-      child: SizedBox(height: 360, child: _content),
+      child: _content,
     ),
     child: DPopoverAnchor(child: widget.child),
   );

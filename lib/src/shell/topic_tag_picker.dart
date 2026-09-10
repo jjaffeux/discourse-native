@@ -362,7 +362,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                   variant: _selected(tag)
                       ? DItemVariant.muted
                       : DItemVariant.standard,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: EdgeInsets.zero,
                   children: [
                     DItemContent(
                       children: [
@@ -371,7 +371,13 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                           enabled:
                               !tag.disabled && (_selected(tag) || !_atMaximum),
                           value: _selected(tag),
-                          title: Text(tag.name),
+                          title: DLabel(
+                            style: const TextStyle(
+                              height: 1.375,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            child: Text(tag.name),
+                          ),
                           subtitle: tag.disabledReason == null
                               ? null
                               : Text(tag.disabledReason!),
