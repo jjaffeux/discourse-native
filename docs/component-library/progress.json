@@ -520,7 +520,7 @@
         "mergeVerification": "Merged with --no-ff from the main checkout after reconciling current main. Merge tree equals the verified candidate; Native fixture and migrated app sources match the inspected integrated source. Final root analysis passed."
       },
       "topicCategorySelectorFollowUp": {
-        "status": "review_ready",
+        "status": "merged",
         "taskId": "01a08d19-7072-7dc2-8a77-2dcebba886b6",
         "branch": "codex/topic-category-selector",
         "dependencies": [
@@ -551,7 +551,8 @@
         "verifiedSourceCommit": "317dfd0005798d1ebaa744b4fddd6e534c39958e",
         "limitations": [
           "Native macOS review only; touch and enlarged-layout widget tests do not constitute iOS or Linux device testing."
-        ]
+        ],
+        "mergeCommit": "8b910d2acd59240dffa57eb6624ee286e42d467e"
       }
     },
     {

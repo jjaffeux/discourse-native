@@ -166,3 +166,6 @@ separate browse links remained exposed in native accessibility output.
 The isolated app was quit, process disappearance verified, and the desktop
 lease released. No production account data was used. Native device evidence
 is macOS only; iOS/touch coverage is from widget tests.
+
+Merged from the main checkout into local `main` with `--no-ff`: `8b910d2acd59240dffa57eb6624ee286e42d467e`.
+The merge tree exactly matches the verified candidate.
