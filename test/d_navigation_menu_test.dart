@@ -139,54 +139,51 @@ void main() {
     expect(find.byType(DPopoverContent), findsOneWidget);
   });
 
-  testWidgets(
-    'content, viewport, and indicator travel together between items',
-    (tester) async {
-      await tester.pumpWidget(_app(_transitionMenu()));
+  testWidgets('only new content animates while viewport and indicator travel', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(_transitionMenu()));
 
-      await tester.tap(find.text('First'));
-      await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(DPopoverContent)).width, 240);
-      final firstIndicator = tester.getCenter(
-        find.byKey(const ValueKey('d-navigation-menu-indicator')),
-      );
+    await tester.tap(find.text('First'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(DPopoverContent)).width, 240);
+    final firstIndicator = tester.getCenter(
+      find.byKey(const ValueKey('d-navigation-menu-indicator')),
+    );
 
-      await tester.tap(find.text('Second'));
-      await tester.pump();
+    await tester.tap(find.text('Second'));
+    await tester.pump();
 
-      final outgoingAtStart = _slideOffset(tester, 'first');
-      final incomingAtStart = _slideOffset(tester, 'second');
-      expect(outgoingAtStart.dx, closeTo(0, .001));
-      expect(incomingAtStart.dx, closeTo(.5, .001));
-      expect(tester.getSize(find.byType(DPopoverContent)).width, 240);
+    final incomingAtStart = _slideOffset(tester, 'second');
+    expect(find.text('First panel'), findsNothing);
+    expect(incomingAtStart.dx, closeTo(.5, .001));
+    expect(tester.getSize(find.byType(DPopoverContent)).width, 240);
 
-      await tester.pump(const Duration(milliseconds: 175));
-      final outgoingMidway = _slideOffset(tester, 'first');
-      final incomingMidway = _slideOffset(tester, 'second');
-      expect(outgoingMidway.dx, lessThan(0));
-      expect(incomingMidway.dx, greaterThan(0));
-      expect(incomingMidway.dx, lessThan(incomingAtStart.dx));
-      expect(
-        tester.getSize(find.byType(DPopoverContent)).width,
-        allOf(greaterThan(240), lessThan(400)),
-      );
-      final movingIndicator = tester.getCenter(
-        find.byKey(const ValueKey('d-navigation-menu-indicator')),
-      );
-      expect(movingIndicator.dx, greaterThan(firstIndicator.dx));
+    await tester.pump(const Duration(milliseconds: 175));
+    final incomingMidway = _slideOffset(tester, 'second');
+    expect(find.text('First panel'), findsNothing);
+    expect(incomingMidway.dx, greaterThan(0));
+    expect(incomingMidway.dx, lessThan(incomingAtStart.dx));
+    expect(
+      tester.getSize(find.byType(DPopoverContent)).width,
+      allOf(greaterThan(240), lessThan(400)),
+    );
+    final movingIndicator = tester.getCenter(
+      find.byKey(const ValueKey('d-navigation-menu-indicator')),
+    );
+    expect(movingIndicator.dx, greaterThan(firstIndicator.dx));
 
-      await tester.pumpAndSettle();
-      expect(find.text('First panel'), findsNothing);
-      expect(find.text('Second panel'), findsOneWidget);
-      expect(tester.getSize(find.byType(DPopoverContent)).width, 400);
-      final secondIndicator = tester.getCenter(
-        find.byKey(const ValueKey('d-navigation-menu-indicator')),
-      );
-      expect(movingIndicator.dx, lessThan(secondIndicator.dx));
-    },
-  );
+    await tester.pumpAndSettle();
+    expect(find.text('First panel'), findsNothing);
+    expect(find.text('Second panel'), findsOneWidget);
+    expect(tester.getSize(find.byType(DPopoverContent)).width, 400);
+    final secondIndicator = tester.getCenter(
+      find.byKey(const ValueKey('d-navigation-menu-indicator')),
+    );
+    expect(movingIndicator.dx, lessThan(secondIndicator.dx));
+  });
 
-  testWidgets('stretch content stays bounded while panels overlap', (
+  testWidgets('stretch content replaces the previous panel immediately', (
     tester,
   ) async {
     await tester.pumpWidget(_app(_stretchTransitionMenu()));
@@ -194,9 +191,9 @@ void main() {
     await tester.tap(find.text('First'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Second'));
-    await tester.pump(const Duration(milliseconds: 175));
+    await tester.pump();
 
-    expect(find.text('First row'), findsOneWidget);
+    expect(find.text('First row'), findsNothing);
     expect(find.text('Second row'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpAndSettle();
@@ -230,7 +227,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('reverse and RTL switches mirror panel travel', (tester) async {
+  testWidgets('new panel travel mirrors for reverse and RTL switches', (
+    tester,
+  ) async {
     for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
       await tester.pumpWidget(
         _app(
@@ -249,10 +248,12 @@ void main() {
       final incoming = _slideOffset(tester, 'first').dx;
       final expectedSign = direction == TextDirection.ltr ? -1 : 1;
       expect(incoming.sign, expectedSign);
+      expect(find.text('Second panel'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 175));
-      final outgoing = _slideOffset(tester, 'second').dx;
-      expect(outgoing.sign, -expectedSign);
+      final incomingMidway = _slideOffset(tester, 'first').dx;
+      expect(incomingMidway.sign, expectedSign);
+      expect(incomingMidway.abs(), lessThan(incoming.abs()));
       await tester.pumpAndSettle();
     }
   });
@@ -282,8 +283,9 @@ void main() {
     await tester.pump();
 
     expect(_slideOffset(tester, 'first').dx, closeTo(-.5, .001));
+    expect(find.text('Second row'), findsNothing);
     await tester.pump(const Duration(milliseconds: 175));
-    expect(_slideOffset(tester, 'second').dx, greaterThan(0));
+    expect(_slideOffset(tester, 'first').dx, greaterThan(-.5));
     expect(tester.takeException(), isNull);
   });
 
