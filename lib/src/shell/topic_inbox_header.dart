@@ -943,7 +943,7 @@ class _TopicCategoryControl extends StatelessWidget {
       parentCategoryId: subcategory ? parentCategoryId : null,
       removeCategoryId: subcategory ? parentCategoryId : uncategorized?.id,
       removeLabel: subcategory ? 'Remove subcategory' : 'Move to Uncategorized',
-      builder: (context, edit, saving) {
+      builder: (context, edit, saving, trigger) {
         final browse = value == null
             ? null
             : () => shell.browseTopicCategory(
@@ -958,6 +958,8 @@ class _TopicCategoryControl extends StatelessWidget {
           edit: browseOnly ? browse : edit,
           primaryIsLink: browseOnly,
           saving: saving,
+          focusNode: trigger.focusNode,
+          expanded: trigger.open,
           compact: compressed,
           editLabel: browseOnly
               ? 'Browse ${value?.name}'
@@ -980,6 +982,8 @@ class _CategoryChip extends StatelessWidget {
     required this.edit,
     required this.navigate,
     required this.saving,
+    required this.focusNode,
+    required this.expanded,
     this.compact = false,
     this.primaryIsLink = false,
   });
@@ -990,6 +994,8 @@ class _CategoryChip extends StatelessWidget {
   final VoidCallback? edit;
   final VoidCallback? navigate;
   final bool saving;
+  final FocusNode focusNode;
+  final bool expanded;
   final bool compact;
   final bool primaryIsLink;
 
@@ -1010,54 +1016,48 @@ class _CategoryChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.max,
         children: [
           DButtonGroupExpanded(
-            child: DPopoverTrigger(
-              builder: (context, trigger) => DButton(
-                onPressed: edit == null
-                    ? null
-                    : trigger.open
-                    ? trigger.closePopover
-                    : edit,
-                focusNode: trigger.focusNode,
-                expanded: trigger.open,
-                hasPopup: !primaryIsLink && edit != null,
-                isLink: primaryIsLink,
-                tooltip: edit == null ? label : editLabel,
-                semanticLabel: edit == null ? label : '$editLabel: $label',
-                variant: DButtonVariant.outline,
-                size: DButtonSize.extraSmall,
-                backgroundColor: fill,
-                borderColor: border,
-                interactiveBackgroundColor: hover,
-                loading: saving,
-                loadingSemanticLabel: 'Saving category',
-                padding: compact
-                    ? const EdgeInsets.symmetric(horizontal: 2, vertical: 1)
-                    : null,
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (category != null) ...[
-                      CategoryIcon(
-                        category: category!,
-                        siteUrl: siteUrl,
-                        size: 12,
-                        squareSize: 9,
-                      ),
-                      SizedBox(width: compact ? 2 : 6),
-                    ],
-                    Flexible(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+            child: DButton(
+              onPressed: edit,
+              focusNode: focusNode,
+              expanded: expanded,
+              hasPopup: !primaryIsLink && edit != null,
+              isLink: primaryIsLink,
+              tooltip: edit == null ? label : editLabel,
+              semanticLabel: edit == null ? label : '$editLabel: $label',
+              variant: DButtonVariant.outline,
+              size: DButtonSize.extraSmall,
+              backgroundColor: fill,
+              borderColor: border,
+              interactiveBackgroundColor: hover,
+              loading: saving,
+              loadingSemanticLabel: 'Saving category',
+              padding: compact
+                  ? const EdgeInsets.symmetric(horizontal: 2, vertical: 1)
+                  : null,
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (category != null) ...[
+                    CategoryIcon(
+                      category: category!,
+                      siteUrl: siteUrl,
+                      size: 12,
+                      squareSize: 9,
                     ),
-                    if (!compact && edit != null && category != null) ...[
-                      const SizedBox(width: 5),
-                      const DIcon(DIcons.chevronDown, size: 9),
-                    ],
+                    SizedBox(width: compact ? 2 : 6),
                   ],
-                ),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!compact && edit != null && category != null) ...[
+                    const SizedBox(width: 5),
+                    const DIcon(DIcons.chevronDown, size: 9),
+                  ],
+                ],
               ),
             ),
           ),

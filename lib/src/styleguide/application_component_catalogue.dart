@@ -6,7 +6,12 @@ const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
     id: 'category-selector',
     name: 'Category selector',
-    sections: ['Filter categories', 'Composer categories', 'Disabled'],
+    sections: [
+      'Filter categories',
+      'Composer categories',
+      'Category removal',
+      'Disabled',
+    ],
   ),
   ComponentReference(
     id: 'tag-selector',

@@ -13,13 +13,16 @@ capacity; this change adopts it in the application.
 - Visible tags use `DBadge.link`; the overflow uses `DBadge.action`. The pencil
   and empty-tag action use `DButton`. Clicking a tag still navigates, and the
   pencil/overflow opens editing. Middle-click navigation remains independent.
-- Category and tag editors use `DPopover` on pointer platforms and `DDrawer`
+- Category editing uses the shared `TopicCategorySelector`, also used by the
+  topics list and composer. Its Native Combobox supplies the compact search
+  field, normal-weight option rows, selected checkmark, keyboard navigation and
+  content-sized popup on pointer and touch platforms. Header controls supply
+  their tinted split trigger; category/subcategory removal is a selector option.
+- Tag editors use `DPopover` on pointer platforms and `DDrawer`
   on touch platforms. `TopicTaxonomyPickerAnchor` is application coordination
   for the existing asynchronous result API; Native owns overlay layout,
   dismissal, focus, theme updates and touch targets.
-- `DInput` and `DSeparator` stay above a bounded `DScrollArea`. Category choices
-  use `DCheckbox`, configured category icons and parent-path labels. The
-  remove-category/subcategory action uses `DButton`.
+- Tag search uses `DInput` and `DSeparator` above a bounded `DScrollArea`.
 - Tag choices compose a passive `DItem` with `DCheckbox`. The checkbox's
   `secondary` slot contains the independent browse `DButton`, which stays
   active when selection is disabled or the tag limit has been reached.
@@ -42,7 +45,7 @@ omit their separate browse half when both touch targets cannot fit; read-only
 categories retain navigation on their primary control. Tag overflow preserves
 editing when the pencil cannot fit.
 
-## Verification
+## Initial migration verification
 
 - Formatting, `git diff --check`, and root `flutter analyze --no-pub` passed.
 - 151 focused tests passed across `topic_tag_picker_test`,
