@@ -1,14 +1,12 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../models/composer_placement.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'composer_controller.dart';
-import 'platform.dart';
 import 'shell_scope.dart';
 
 class ComposerHeader extends StatelessWidget {
@@ -21,8 +19,8 @@ class ComposerHeader extends StatelessWidget {
     required this.onDiscard,
     this.onMinimize,
     this.onRestore,
-    this.onMove,
-    this.onMoveEnd,
+    this.placement = ComposerPlacement.right,
+    this.onPlacementChanged,
   });
 
   static const double height = 44;
@@ -34,8 +32,8 @@ class ComposerHeader extends StatelessWidget {
   final VoidCallback onDiscard;
   final VoidCallback? onMinimize;
   final VoidCallback? onRestore;
-  final ValueChanged<Offset>? onMove;
-  final VoidCallback? onMoveEnd;
+  final ComposerPlacement placement;
+  final ValueChanged<ComposerPlacement>? onPlacementChanged;
 
   @override
   Widget build(BuildContext context) =>
@@ -176,178 +174,155 @@ class ComposerHeader extends StatelessWidget {
     final controls = [
       ...pluginControls,
       if (!minimized)
-        MenuAnchor(
-          menuChildren: [
-            MenuItemButton(onPressed: onClose, child: Text(closeTooltip)),
-            MenuItemButton(
-              key: const ValueKey('composer-discard'),
-              onPressed: composer.isEditing && !composer.loadingBody
-                  ? onDiscard
-                  : null,
-              leadingIcon: const Icon(Icons.delete_outline, size: 18),
-              child: Text(
-                target.isEdit ? 'Cancel edit' : 'Discard',
-                style: TextStyle(color: theme.colorScheme.error),
+        DPopover(
+          reverseTransitionDuration: Duration.zero,
+          content: DPopoverContent(
+            semanticLabel: 'Composer options',
+            align: DPopoverAlign.end,
+            width: 264,
+            child: DPopoverClose(
+              builder: (context, closeMenu) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (onPlacementChanged != null) ...[
+                    Row(
+                      children: [
+                        const Expanded(child: Text('Dock side')),
+                        DToggleGroup<ComposerPlacement>(
+                          semanticLabel: 'Dock side',
+                          values: [placement],
+                          allowEmptySelection: false,
+                          spacing: 1,
+                          size: DToggleSize.small,
+                          onChanged: (values) {
+                            closeMenu();
+                            onPlacementChanged!(values.single);
+                          },
+                          items: [
+                            for (final value in ComposerPlacement.values)
+                              DToggleGroupItem.iconOnly(
+                                value: value,
+                                semanticLabel: value.label,
+                                tooltip: value.label,
+                                icon: switch (value) {
+                                  ComposerPlacement.left => const RotatedBox(
+                                    quarterTurns: 2,
+                                    child: Icon(
+                                      Icons.view_sidebar_outlined,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  ComposerPlacement.bottom => const RotatedBox(
+                                    quarterTurns: 1,
+                                    child: Icon(
+                                      Icons.view_sidebar_outlined,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  ComposerPlacement.right => const Icon(
+                                    Icons.view_sidebar_outlined,
+                                    size: 18,
+                                  ),
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: DSeparator(),
+                    ),
+                  ],
+                  DButton(
+                    label: Text(closeTooltip),
+                    alignment: AlignmentDirectional.centerStart,
+                    variant: DButtonVariant.transparent,
+                    onPressed: () {
+                      closeMenu();
+                      onClose();
+                    },
+                  ),
+                  DButton(
+                    key: const ValueKey('composer-discard'),
+                    label: Text(
+                      target.isEdit ? 'Cancel edit' : 'Discard',
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    alignment: AlignmentDirectional.centerStart,
+                    variant: DButtonVariant.transparent,
+                    onPressed: composer.isEditing && !composer.loadingBody
+                        ? () {
+                            closeMenu();
+                            onDiscard();
+                          }
+                        : null,
+                  ),
+                ],
               ),
             ),
-          ],
-          builder: (context, menu, _) => DTooltip(
-            message: 'Composer options',
-            labelTrigger: true,
-            child: IconButton(
+          ),
+          child: DPopoverTrigger(
+            builder: (context, trigger) => DButton.iconOnly(
               key: const ValueKey('composer-options'),
-              onPressed: menu.isOpen ? menu.close : menu.open,
               icon: const DIcon(DIcons.ellipsis, size: 16),
-              tooltip: '',
+              tooltip: 'Composer options',
+              semanticLabel: 'Composer options',
+              hasPopup: true,
+              expanded: trigger.open,
+              focusNode: trigger.focusNode,
+              onPressed: trigger.toggle,
+              variant: DButtonVariant.transparent,
+              size: DButtonSize.small,
             ),
           ),
         ),
       if (onRestore case final restore?)
-        DTooltip(
-          message: 'Restore composer',
-          labelTrigger: true,
-          child: IconButton(
-            key: const ValueKey('composer-restore'),
-            onPressed: restore,
-            icon: const DIcon(DIcons.expand, size: 16),
-            tooltip: '',
-          ),
+        DButton.iconOnly(
+          key: const ValueKey('composer-restore'),
+          onPressed: restore,
+          icon: const DIcon(DIcons.expand, size: 16),
+          tooltip: 'Restore composer',
+          variant: DButtonVariant.transparent,
+          size: DButtonSize.small,
         )
       else if (onMinimize case final minimize?)
-        DTooltip(
-          message: 'Minimize composer',
-          labelTrigger: true,
-          child: IconButton(
-            key: const ValueKey('composer-minimize'),
-            onPressed: minimize,
-            icon: const Icon(Icons.remove, size: 18),
-            tooltip: '',
-          ),
+        DButton.iconOnly(
+          key: const ValueKey('composer-minimize'),
+          onPressed: minimize,
+          icon: const Icon(Icons.remove, size: 18),
+          tooltip: 'Minimize composer',
+          variant: DButtonVariant.transparent,
+          size: DButtonSize.small,
         ),
-      DTooltip(
-        message: closeTooltip,
-        labelTrigger: true,
-        child: IconButton(
-          onPressed: onClose,
-          icon: const DIcon(DIcons.xmark, size: 16),
-          tooltip: '',
-        ),
+      DButton.iconOnly(
+        key: const ValueKey('composer-close'),
+        onPressed: onClose,
+        icon: const DIcon(DIcons.xmark, size: 16),
+        tooltip: closeTooltip,
+        variant: DButtonVariant.transparent,
+        size: DButtonSize.small,
       ),
     ];
-    final grip = onMove == null
-        ? null
-        : _ComposerGrip(onMove: onMove!, onMoveEnd: onMoveEnd);
-    final header = SizedBox(
-      key: const ValueKey('composer-drag-handle'),
+    return SizedBox(
+      key: const ValueKey('composer-header'),
       height: height,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: IconButtonTheme(
-          data: IconButtonThemeData(
-            style: IconButton.styleFrom(
-              foregroundColor: theme.colorScheme.onSurfaceVariant,
-              minimumSize: Size.square(context.isTouch ? 44 : 32),
-              padding: const EdgeInsets.all(6),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Align(alignment: Alignment.centerLeft, child: heading),
+        child: Row(
+          children: [
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: heading,
               ),
-              ?grip,
-              if (grip != null)
-                // Equal side widths keep the grip centered as controls change.
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (final control in controls)
-                          Flexible(child: control),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                Row(mainAxisSize: MainAxisSize.min, children: controls),
-            ],
-          ),
+            ),
+            ...controls,
+          ],
         ),
       ),
     );
-    if (onMove == null) return header;
-    return MouseRegion(
-      cursor: SystemMouseCursors.grab,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        dragStartBehavior: DragStartBehavior.down,
-        onPanUpdate: (details) => onMove!(details.delta),
-        onPanEnd: (_) => onMoveEnd?.call(),
-        child: header,
-      ),
-    );
   }
-}
-
-class _ComposerGrip extends StatelessWidget {
-  const _ComposerGrip({required this.onMove, this.onMoveEnd});
-
-  final ValueChanged<Offset> onMove;
-  final VoidCallback? onMoveEnd;
-
-  void _move(Offset delta) {
-    onMove(delta);
-    onMoveEnd?.call();
-  }
-
-  @override
-  Widget build(BuildContext context) => CallbackShortcuts(
-    bindings: {
-      const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
-          _move(const Offset(-8, 0)),
-      const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
-          _move(const Offset(8, 0)),
-      const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-          _move(const Offset(0, -8)),
-      const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-          _move(const Offset(0, 8)),
-    },
-    child: Focus(
-      child: DTooltip(
-        message: 'Drag composer',
-        child: Semantics(
-          label: 'Move composer',
-          hint: 'Drag or use arrow keys',
-          child: Builder(
-            builder: (context) => Container(
-              key: const ValueKey('composer-move-control'),
-              width: 28,
-              height: height,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: Focus.of(context).hasFocus
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.transparent,
-                ),
-              ),
-              child: RotatedBox(
-                quarterTurns: 1,
-                child: Icon(
-                  Icons.drag_indicator,
-                  size: 20,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-
-  static const double height = ComposerHeader.height;
 }

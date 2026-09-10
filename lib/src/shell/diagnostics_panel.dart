@@ -1,7 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart';
 import '../diagnostics/diagnostic_event.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/topic_scroll_capture.dart';
@@ -412,7 +412,12 @@ class _PanelHeader extends StatelessWidget {
       height: 56,
       child: Row(
         children: [
-          const SizedBox(width: diagnosticsPanelResizeHandleWidth),
+          SizedBox(
+            width: DResizableHandle.resolveHitExtent(
+              context,
+              diagnosticsPanelResizeHandleWidth,
+            ),
+          ),
           if (showingDetail)
             DTooltip(
               message: 'Back to diagnostics',

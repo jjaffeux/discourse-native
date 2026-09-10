@@ -1741,5 +1741,6 @@ final class _InteractionTrackingShellController extends ShellController {
       true;
 
   @override
-  Future<void> submitComposer() async => submitCalls++;
+  Future<void> submitComposer({ComposerController? composer}) async =>
+      submitCalls++;
 }

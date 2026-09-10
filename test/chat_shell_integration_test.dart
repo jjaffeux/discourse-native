@@ -2455,7 +2455,7 @@ void _registerChatShellTests() {
         }
       });
 
-      testWidgets('avoids only the actual movable composer rectangle', (
+      testWidgets('fits chat into the reader beside each composer dock', (
         tester,
       ) async {
         SharedPreferences.setMockInitialValues({});
@@ -2483,32 +2483,32 @@ void _registerChatShellTests() {
 
         final composer = find.byType(ComposerPanel);
         final drawer = find.byKey(ChatDrawerOverlay.expandedKey);
-        final overlay = find.byKey(ChatDrawerOverlay.drawerKey);
         expect(composer, findsOneWidget);
         expect(
-          tester.getRect(drawer).bottom,
-          closeTo(tester.getRect(composer).top, 1),
+          tester.getRect(drawer).right,
+          lessThanOrEqualTo(tester.getRect(composer).left),
         );
 
-        await tester.drag(
-          find.byKey(const ValueKey('composer-resize-right')),
-          const Offset(-1000, 0),
-        );
-        await tester.drag(
-          find.byKey(const ValueKey('composer-drag-handle')),
-          const Offset(-1000, 0),
-        );
+        await tester.tap(find.byTooltip('Composer options'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Dock left'));
         await tester.pumpAndSettle();
 
         expect(
           tester.getRect(composer).right,
           lessThan(tester.getRect(drawer).left),
         );
+
+        await tester.tap(find.byTooltip('Composer options'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Dock bottom'));
+        await tester.pumpAndSettle();
         expect(
           tester.getRect(drawer).bottom,
-          closeTo(tester.getRect(overlay).bottom, 1),
+          lessThanOrEqualTo(tester.getRect(composer).top),
         );
-      });
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
       testWidgets('disappears while chat is active on a compact shell', (
         tester,
