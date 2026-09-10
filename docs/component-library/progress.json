@@ -4666,8 +4666,8 @@
       "projectActionMenuFollowUp": {
         "taskId": "01a08b32-94db-7222-8c6d-c37089fb9201",
         "branch": "codex/fix-sidebar-project-dropdown-final",
-        "status": "verified",
-        "implementationCommit": "1cac7875",
+        "status": "merged",
+        "implementationCommit": "1cac78759569e10200ab8b4464ae4c64d2131ef7",
         "scope": "Extend DSidebarMenuAction with borrowed focusNode and expanded state, and compose project View/Share/Delete dropdown menus in the application example.",
         "acceptance": [
           "Project-row ellipsis opens the dropdown without selecting the navigation row.",
@@ -4675,7 +4675,8 @@
           "Project actions give local feedback, including narrow RTL large-text Sheet composition."
         ],
         "evidence": "docs/component-library/sidebar.md#project-action-dropdown-verification--2026-09-10",
-        "verification": "Focused Sidebar, Sidebar examples, styleguide page and Dropdown Menu checks; fatal-info root analysis; native macOS dark/light desktop and 360px previews, project actions and Escape/Return focus restoration. Official reference dropdown inspected. No iOS/Linux device claim."
+        "verification": "78 focused Sidebar, Sidebar examples, styleguide page and Dropdown Menu tests passed; fatal-info root analysis clean; native macOS dark/light desktop and 360px previews, all project actions and Escape/Return focus restoration verified. Official reference dropdown inspected. No iOS/Linux device claim.",
+        "mergeCommit": "42c9f2d437d53364b5b00ff94a67cd65668ae5af"
       }
     },
     {
