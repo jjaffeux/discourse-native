@@ -577,7 +577,8 @@ class _DSidebarMenuItemState extends State<DSidebarMenuItem> {
                   if (!icon)
                     PositionedDirectional(
                       end: 4,
-                      top: 4,
+                      top: 0,
+                      bottom: 0,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
