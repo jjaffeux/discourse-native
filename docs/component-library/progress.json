@@ -4908,7 +4908,7 @@
           "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
           "branch": "codex/forum-header-no-tooltips",
           "mainBaseline": "4d1aee40adf5ace12c0a270115d21451009f58ba",
-          "status": "accepted",
+          "status": "merged",
           "dependencies": [
             "sidebar",
             "dropdown-menu"
@@ -4918,7 +4918,7 @@
             "Retain the Native menu trigger, visible identity and accessible menu behavior.",
             "Verify focused shell and width checks plus the native header before merging locally."
           ],
-          "reviewStatus": "accepted",
+          "reviewStatus": "merged",
           "implementationCommit": "fbbc2c527e19acbba6b53d5e039a3af998a29c99",
           "nativeInspectionStatus": "completed",
           "evidence": "docs/component-library/sidebar-main-migration.md#forum-header-tooltip-follow-up--2026-09-10",
@@ -4931,7 +4931,10 @@
           ],
           "limitations": [
             "No physical iOS/Linux or spoken screen reader verification."
-          ]
+          ],
+          "candidateCommit": "aa917cfd7b829ed8f58e809e209b0eb9b5d33ad5",
+          "mergeCommit": "0f62ac016b00ebf3bc5ac30eb1471a61929aa1e0",
+          "mergedAt": "2026-09-10T16:31:39.156468+00:00"
         }
       }
     },
