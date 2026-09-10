@@ -3,7 +3,8 @@
 `TopicCategorySelector` and `TopicTagSelector`, exported by
 `package:discourse_native/discourse_ui.dart`, own the complete selection control:
 the button, search field, popup, options and selection indicators. The topics
-list and topic composer instantiate these same components. Callers supply data,
+list and topic composer instantiate these same components. Topic header and
+sidebar category editing also use `TopicCategorySelector`. Callers supply data,
 permissions and controlled selection callbacks.
 
 These are application compositions in `lib/src/shell/`, built from Native
@@ -14,6 +15,11 @@ upstream component catalogue is unchanged.
 - Category filters search their local categories and can expose All categories
   or All subcategories. The composer supplies asynchronous, permission-filtered
   category search and full parent-path labels.
+- Header categories supply `triggerBuilder` to retain their tinted Native
+  Button Group and independent browse link. `clearLabel` adds a null selection
+  for removing a subcategory or moving to Uncategorized; callers resolve the
+  destination. It remains reachable while searching, including loading/error
+  states, but an empty result does not automatically highlight removal.
 - Tag filters support single or multiple selection, All tags and known-tag
   fallback. The composer supplies category-scoped search, selected tags and
   creation/limit capabilities. Selected tags remain available for removal.

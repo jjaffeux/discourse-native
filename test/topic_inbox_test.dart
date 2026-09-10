@@ -384,11 +384,11 @@ void main() {
     await tester.tap(find.byTooltip('Edit topic category'));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('topic-category-option-21')),
+      find.byKey(const ValueKey(('topic-category-picker-option', 21))),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('topic-category-option-22')),
+      find.byKey(const ValueKey(('topic-category-picker-option', 22))),
       findsNothing,
     );
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -397,11 +397,11 @@ void main() {
     await tester.tap(find.byTooltip('Edit topic subcategory'));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('topic-category-option-22')),
+      find.byKey(const ValueKey(('topic-category-picker-option', 22))),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('topic-category-option-21')),
+      find.byKey(const ValueKey(('topic-category-picker-option', 21))),
       findsNothing,
     );
     await tester.tap(find.text('Remove subcategory'));
@@ -2330,7 +2330,9 @@ void main() {
 
       await tester.tap(find.byTooltip('Edit topic subcategory'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topic-category-remove')));
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-category-picker-option', 0))),
+      );
       await tester.pumpAndSettle();
       expect(shell.currentTopic?.categoryId, _parent.id);
       expect(find.text('Done'), findsNothing);

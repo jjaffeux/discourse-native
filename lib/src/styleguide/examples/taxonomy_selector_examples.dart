@@ -33,7 +33,8 @@ final categorySelectorExamples = ComponentExamples(
   description: 'A category button with its searchable selection dropdown.',
   notes:
       'TopicCategorySelector is the complete component used by the topics list '
-      'and composer. It composes the Native Combobox, Button, and category artwork. '
+      'and composer, as well as topic header and sidebar editing. It composes the '
+      'Native Combobox, Button, and category artwork. '
       'Filtering can include All categories; authoring accepts a permission-filtered '
       'asynchronous search and parent-path labels. Search resets on reopen, ignores '
       'retired requests, and supports arrows, Enter, and Escape. Change the widget '
@@ -63,6 +64,18 @@ final categorySelectorExamples = ComponentExamples(
   onSelected: (value) => setState(() => selected = value),
 )''',
       builder: (_) => const _CategoryExample(composer: true),
+    ),
+    StyleguideExample(
+      title: 'Category removal',
+      description:
+          'Keep the removal choice available while searching for a replacement.',
+      states: const ['Removal', 'Search', 'Empty'],
+      code: '''TopicCategorySelector(
+  siteUrl: siteUrl, categories: categories, selected: selected,
+  clearLabel: 'Remove subcategory',
+  onSelected: (value) => setState(() => selected = value),
+)''',
+      builder: (_) => const _CategoryExample(removable: true),
     ),
     StyleguideExample(
       title: 'Disabled',
@@ -137,9 +150,14 @@ final tagSelectorExamples = ComponentExamples(
 );
 
 class _CategoryExample extends StatefulWidget {
-  const _CategoryExample({this.composer = false, this.disabled = false});
+  const _CategoryExample({
+    this.composer = false,
+    this.disabled = false,
+    this.removable = false,
+  });
   final bool composer;
   final bool disabled;
+  final bool removable;
 
   @override
   State<_CategoryExample> createState() => _CategoryExampleState();
@@ -169,7 +187,8 @@ class _CategoryExampleState extends State<_CategoryExample> {
     categories: _categories,
     selected: _selected,
     placeholder: widget.composer ? 'Choose a category' : 'Categories',
-    includeAll: !widget.composer,
+    includeAll: !widget.composer && !widget.removable,
+    clearLabel: widget.removable ? 'Remove subcategory' : null,
     labelFor: widget.composer ? _path : null,
     search: widget.composer ? _search : null,
     onSelected: widget.disabled

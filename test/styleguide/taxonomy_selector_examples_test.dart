@@ -40,7 +40,10 @@ void main() {
         find.byKey(ValueKey('styleguide-component-${entry.id}')),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(entry.type), findsNWidgets(3));
+      expect(
+        find.byType(entry.type),
+        findsNWidgets(entry.id == 'category-selector' ? 4 : 3),
+      );
       final trigger = find.descendant(
         of: find.byType(entry.type).first,
         matching: find.byType(DButton),
