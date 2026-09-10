@@ -1445,7 +1445,7 @@ void _registerShellNavigationTests() {
       expect(plus.color, theme.shell.marker);
       expect(
         find.descendant(of: lastForum, matching: find.byType(DAvatar)),
-        findsNothing,
+        findsOneWidget,
       );
       final data = tester.getSemantics(add).getSemanticsData();
       expect(data.label, 'Add a Discourse site');
@@ -1565,7 +1565,7 @@ void _registerShellNavigationTests() {
         .first;
     expect(
       tester.getRect(projectsHeader).top - tester.getRect(moreTile).bottom,
-      closeTo(17, 0.01),
+      closeTo(18, 0.01),
     );
     final roadmapTile = find
         .ancestor(
@@ -1581,7 +1581,7 @@ void _registerShellNavigationTests() {
         .first;
     expect(
       tester.getRect(categoriesHeader).top - tester.getRect(roadmapTile).bottom,
-      closeTo(0, 0.01),
+      closeTo(1, 0.01),
     );
     expect(
       tester.getSize(projectsHeader).height,
@@ -1593,7 +1593,7 @@ void _registerShellNavigationTests() {
       matching: find.byType(DSeparator),
     );
     expect(separator, findsOneWidget);
-    expect(tester.getRect(separator).top, tester.getRect(moreTile).bottom + 8);
+    expect(tester.getRect(separator).top, tester.getRect(moreTile).bottom + 9);
     final sectionStyle = DefaultTextStyle.of(
       tester.element(find.text('Projects')),
     );
@@ -2526,9 +2526,17 @@ void _registerShellNavigationTests() {
   testWidgets('sidebar destinations show a hand cursor and hover background', (
     tester,
   ) async {
-    await pumpShell(tester, desktop);
+    final site = twoSites.first.copyWith(
+      user: const DiscourseUser(id: 7, username: 'reader'),
+    );
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      authenticator: FakeAuthenticator()..keys[site.url] = 'api-key',
+    );
 
-    final destination = sidebarDestination('More');
+    final destination = sidebarDestination('Messages');
     final inkWell = find
         .ancestor(of: destination, matching: find.byType(DSidebarMenuButton))
         .first;
@@ -2564,10 +2572,22 @@ void _registerShellNavigationTests() {
 
     expect(background(), tokens.hover);
 
+    final selectedRow = find.widgetWithText(DSidebarMenuButton, 'Topics');
+    expect(tester.widget<DSidebarMenuButton>(selectedRow).isActive, isTrue);
+    final selectedRect = tester.getRect(selectedRow);
+    final hoveredRect = tester.getRect(inkWell);
+    expect(hoveredRect.top - selectedRect.bottom, closeTo(1, 0.01));
+
+    await gesture.moveTo(
+      Offset(selectedRect.center.dx, selectedRect.bottom + 0.5),
+    );
+    await tester.pumpAndSettle();
+    expect(background(), isNull);
+
     await gesture.moveTo(Offset.zero);
     await tester.pumpAndSettle();
     expect(background(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('the forum menu opens actions below the header', (tester) async {
     await pumpShell(tester, desktop);
