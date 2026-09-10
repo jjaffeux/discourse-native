@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final toastExamples = ComponentExamples(
@@ -262,7 +262,10 @@ class _StackToastExampleState extends State<_StackToastExample> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const CircleAvatar(child: Text('A')),
+                  const DAvatar(
+                    size: DAvatarSize.lg,
+                    fallback: DAvatarFallback(child: Text('A')),
+                  ),
                   const SizedBox(width: 12),
                   const Expanded(child: Text('A custom composed notification')),
                   DButton.iconOnly(

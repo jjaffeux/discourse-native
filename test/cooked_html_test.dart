@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:discourse_native/discourse_ui.dart'
+    show DAvatar, DAvatarFallback;
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -291,6 +293,95 @@ void main() {
     expect(provider.width, 800);
     expect(provider.imageProvider, isA<MemoryImage>());
   });
+
+  for (final avatarClass in [
+    'avatar',
+    'onebox-avatar',
+    'onebox-avatar-inline',
+  ]) {
+    testWidgets('$avatarClass keeps embedded image dimensions and label', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final src = Uri.dataFromBytes(onePixelPng, mimeType: 'image/png');
+
+        await pumpCooked(
+          tester,
+          '<p><img class="$avatarClass" src="$src" '
+          'width="24" height="24" alt="Sam"></p>'
+          '<p><img src="$src" width="60" height="40" alt="Landscape"></p>',
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.getSize(find.byType(DAvatar)), const Size.square(24));
+        expect(find.bySemanticsLabel('Sam'), findsOneWidget);
+        expect(tester.getSize(find.byType(Image).last), const Size(60, 40));
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    });
+  }
+
+  testWidgets('inline avatars retain authenticated loading and fixed bounds', (
+    tester,
+  ) async {
+    const siteUrl = 'https://meta.discourse.org';
+    final authenticator = FakeAuthenticator()..keys[siteUrl] = 'account-key';
+    final lifecycle = SiteLifecycle();
+    late http.Request sent;
+    final siteImages = SiteImageRepository(
+      credentials: authenticator,
+      lifecycle: lifecycle,
+      client: MockClient((request) async {
+        sent = request;
+        return http.Response.bytes(onePixelPng, 200);
+      }),
+    );
+
+    await pumpCookedInShell(
+      tester,
+      '<p><img class="avatar" src="/secure-uploads/avatar.png" '
+      'width="32" height="32" alt="Sam"></p>',
+      authenticator: authenticator,
+      lifecycle: lifecycle,
+      siteImages: siteImages,
+    );
+
+    expect(tester.getSize(find.byType(DAvatar)), const Size.square(32));
+    expect(sent.url, Uri.parse('$siteUrl/secure-uploads/avatar.png'));
+    expect(sent.headers['User-Api-Key'], 'account-key');
+    expect(sent.headers['User-Api-Client-Id'], 'test-client');
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final source in [
+    'https://cdn.example.com/missing.png',
+    'data:image/png;base64,YmFk',
+  ]) {
+    testWidgets('failed avatar $source keeps its label and compact fallback', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await pumpCooked(
+          tester,
+          '<p><img class="avatar" src="$source" '
+          'width="24" height="24" alt="Sam"></p>',
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.getSize(find.byType(DAvatar)), const Size.square(24));
+        expect(find.byType(DAvatarFallback), findsOneWidget);
+        expect(find.bySemanticsLabel('Sam'), findsOneWidget);
+        expect(find.text('Sam'), findsNothing);
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    });
+  }
 
   test('containing topics have value semantics for HTML rebuild triggers', () {
     final id = int.parse('1');

@@ -1,7 +1,6 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
-
-import '../../../discourse_ui.dart';
 
 import '../../foundation/diagnostic_errors.dart';
 import '../../theme/app_theme.dart';
@@ -384,10 +383,9 @@ class _Thumbnail extends StatelessWidget {
 
     return SizedBox(
       width: width,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(thumbnail.isAvatar ? width / 2 : 4),
-        child: image,
-      ),
+      child: thumbnail.isAvatar
+          ? DAvatar.frame(child: image)
+          : ClipRRect(borderRadius: BorderRadius.circular(4), child: image),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:discourse_native/src/shell/oneboxes/discourse/category/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
@@ -177,6 +178,33 @@ void main() {
   });
 
   group('OneboxCard', () {
+    testWidgets(
+      'avatar thumbnails retain their compact slot when loading fails',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 280,
+                  child: OneboxCard(data: parse(twitterOnebox)),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final avatar = find.byType(DAvatar);
+        expect(tester.getSize(avatar), const Size.square(44));
+        await tester.pumpAndSettle();
+        expect(tester.getSize(avatar), const Size.square(44));
+        expect(find.text('Jeff Atwood'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('draws the site, title and remaining body', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
