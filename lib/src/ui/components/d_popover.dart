@@ -370,6 +370,7 @@ class _DPopoverState extends State<DPopover>
       return;
     }
     if (_globalRect(_triggerContext)?.contains(point) ?? false) return;
+    if (_globalRect(_anchorContext)?.contains(point) ?? false) return;
     if (_openDescendantMenus().isNotEmpty) return;
     _request(
       false,
@@ -774,6 +775,8 @@ class DPopoverContent extends StatelessWidget {
     this.scrollable = true,
     this.shadow = DPopoverShadow.medium,
     this.placementResolver,
+    this.sizeAnimationDuration,
+    this.sizeAnimationCurve = Curves.easeOut,
   }) : assert(width == null || width > 0),
        assert(sideOffset >= 0),
        assert(collisionPadding >= 0);
@@ -795,6 +798,14 @@ class DPopoverContent extends StatelessWidget {
   final BoxConstraints constraints;
   final EdgeInsetsGeometry padding;
   final DPopoverShadow shadow;
+
+  /// Smoothly interpolates the popup surface when its content size changes.
+  ///
+  /// This remains opt-in because ordinary popovers do not swap between
+  /// differently sized views. Composite owners such as Navigation Menu use it
+  /// to keep their shared viewport continuous while switching content.
+  final Duration? sizeAnimationDuration;
+  final Curve sizeAnimationCurve;
 
   /// Optional component-specific positioning. It receives only resolved
   /// geometry and returns an overlay-local content origin. Returning null uses
@@ -851,7 +862,10 @@ class DPopoverContent extends StatelessWidget {
         ),
       ],
     };
-    Widget surface = CustomPaint(
+    final content = scrollable
+        ? SingleChildScrollView(primary: false, padding: padding, child: child)
+        : Padding(padding: padding, child: child);
+    Widget decorate(Widget content) => CustomPaint(
       foregroundPainter: _PopoverRingPainter(
         color: tokens.foreground.withValues(alpha: tokens.foreground.a * 0.10),
         radius: radius,
@@ -862,16 +876,43 @@ class DPopoverContent extends StatelessWidget {
           borderRadius: BorderRadius.circular(radius),
           boxShadow: shadows,
         ),
-        child: scrollable
-            ? SingleChildScrollView(
-                primary: false,
-                padding: padding,
-                child: child,
-              )
-            : Padding(padding: padding, child: child),
+        child: content,
       ),
     );
-    if (width == null) surface = IntrinsicWidth(child: surface);
+
+    late final Widget surface;
+    final animationDuration = sizeAnimationDuration;
+    if (animationDuration == null) {
+      Widget decorated = decorate(content);
+      if (width == null) decorated = IntrinsicWidth(child: decorated);
+      surface = ConstrainedBox(
+        constraints: width == null
+            ? constraints
+            : constraints.copyWith(minWidth: width, maxWidth: width),
+        child: decorated,
+      );
+    } else {
+      Widget target = ConstrainedBox(
+        constraints: width == null
+            ? constraints
+            : constraints.copyWith(minWidth: width, maxWidth: width),
+        child: content,
+      );
+      if (width == null) target = IntrinsicWidth(child: target);
+      surface = decorate(
+        AnimatedSize(
+          alignment: switch (align) {
+            DPopoverAlign.start => AlignmentDirectional.topStart,
+            DPopoverAlign.center => Alignment.topCenter,
+            DPopoverAlign.end => AlignmentDirectional.topEnd,
+          },
+          duration: DMotion.duration(context, animationDuration),
+          curve: sizeAnimationCurve,
+          clipBehavior: Clip.hardEdge,
+          child: target,
+        ),
+      );
+    }
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -880,12 +921,7 @@ class DPopoverContent extends StatelessWidget {
         style: style,
         child: IconTheme.merge(
           data: IconThemeData(color: tokens.foreground, size: 16),
-          child: ConstrainedBox(
-            constraints: width == null
-                ? constraints
-                : constraints.copyWith(minWidth: width, maxWidth: width),
-            child: surface,
-          ),
+          child: surface,
         ),
       ),
     );
@@ -1103,14 +1139,14 @@ class _RenderPopover extends RenderShiftedBox {
     final boundary = c.boundary.deflate(config.collisionPadding);
     _side = _physical(config.side);
     final customPlacement = config.placementResolver != null;
-    child!.layout(
-      BoxConstraints(
-        maxWidth: math.max(0, boundary.width),
-        maxHeight: math.max(0, boundary.height),
-      ),
-      parentUsesSize: true,
+    final boundaryConstraints = BoxConstraints(
+      maxWidth: math.max(0, boundary.width),
+      maxHeight: math.max(0, boundary.height),
     );
-    var childSize = child!.size;
+    final singleLayout = config.sizeAnimationDuration != null;
+    var childSize = singleLayout
+        ? child!.getDryLayout(boundaryConstraints)
+        : (child!..layout(boundaryConstraints, parentUsesSize: true)).size;
     final vertical = _side == DPopoverSide.top || _side == DPopoverSide.bottom;
     double room(DPopoverSide side) => switch (side) {
       DPopoverSide.top => c.target.top - boundary.top - config.sideOffset,
@@ -1146,6 +1182,9 @@ class _RenderPopover extends RenderShiftedBox {
         ),
         parentUsesSize: true,
       );
+      childSize = child!.size;
+    } else if (singleLayout) {
+      child!.layout(boundaryConstraints, parentUsesSize: true);
       childSize = child!.size;
     }
     var align = config.align;

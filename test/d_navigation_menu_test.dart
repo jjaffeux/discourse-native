@@ -84,9 +84,7 @@ void main() {
     await tester.tap(find.text('Getting started'));
     await tester.pumpAndSettle();
     expectTurns([.5, 0]);
-    final indicator = find.byWidgetPredicate(
-      (widget) => widget is OverflowBox && widget.maxWidth == 8,
-    );
+    final indicator = find.byKey(const ValueKey('d-navigation-menu-indicator'));
     expect(
       tester.getSize(
         find.descendant(of: indicator.first, matching: find.byType(Container)),
@@ -139,6 +137,80 @@ void main() {
     expect(find.text('Alert Dialog'), findsOneWidget);
     expect(find.text('Introduction'), findsNothing);
     expect(find.byType(DPopoverContent), findsOneWidget);
+  });
+
+  testWidgets(
+    'content, viewport, and indicator travel together between items',
+    (tester) async {
+      await tester.pumpWidget(_app(_transitionMenu()));
+
+      await tester.tap(find.text('First'));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(DPopoverContent)).width, 240);
+      final firstIndicator = tester.getCenter(
+        find.byKey(const ValueKey('d-navigation-menu-indicator')),
+      );
+
+      await tester.tap(find.text('Second'));
+      await tester.pump();
+
+      final outgoingAtStart = _slideOffset(tester, 'first');
+      final incomingAtStart = _slideOffset(tester, 'second');
+      expect(outgoingAtStart.dx, closeTo(0, .001));
+      expect(incomingAtStart.dx, closeTo(.5, .001));
+      expect(tester.getSize(find.byType(DPopoverContent)).width, 240);
+
+      await tester.pump(const Duration(milliseconds: 175));
+      final outgoingMidway = _slideOffset(tester, 'first');
+      final incomingMidway = _slideOffset(tester, 'second');
+      expect(outgoingMidway.dx, lessThan(0));
+      expect(incomingMidway.dx, greaterThan(0));
+      expect(incomingMidway.dx, lessThan(incomingAtStart.dx));
+      expect(
+        tester.getSize(find.byType(DPopoverContent)).width,
+        allOf(greaterThan(240), lessThan(400)),
+      );
+      final movingIndicator = tester.getCenter(
+        find.byKey(const ValueKey('d-navigation-menu-indicator')),
+      );
+      expect(movingIndicator.dx, greaterThan(firstIndicator.dx));
+
+      await tester.pumpAndSettle();
+      expect(find.text('First panel'), findsNothing);
+      expect(find.text('Second panel'), findsOneWidget);
+      expect(tester.getSize(find.byType(DPopoverContent)).width, 400);
+      final secondIndicator = tester.getCenter(
+        find.byKey(const ValueKey('d-navigation-menu-indicator')),
+      );
+      expect(movingIndicator.dx, lessThan(secondIndicator.dx));
+    },
+  );
+
+  testWidgets('reverse and RTL switches mirror panel travel', (tester) async {
+    for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
+      await tester.pumpWidget(
+        _app(
+          Directionality(
+            key: ValueKey(direction),
+            textDirection: direction,
+            child: _transitionMenu(),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Second'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('First'));
+      await tester.pump();
+
+      final incoming = _slideOffset(tester, 'first').dx;
+      final expectedSign = direction == TextDirection.ltr ? -1 : 1;
+      expect(incoming.sign, expectedSign);
+
+      await tester.pump(const Duration(milliseconds: 175));
+      final outgoing = _slideOffset(tester, 'second').dx;
+      expect(outgoing.sign, -expectedSign);
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('logical arrows rove triggers in LTR and RTL', (tester) async {
@@ -500,6 +572,38 @@ FocusNode _menuFocus(WidgetTester tester, String label) => tester
     .map((widget) => widget.focusNode)
     .whereType<FocusNode>()
     .singleWhere((node) => node.debugLabel?.contains(label) ?? false);
+
+Offset _slideOffset(WidgetTester tester, String value) => tester
+    .widget<SlideTransition>(
+      find.byKey(
+        ValueKey<Object?>(('d-navigation-menu-panel', ValueKey<String>(value))),
+      ),
+    )
+    .position
+    .value;
+
+Widget _transitionMenu() => const DNavigationMenu<String>(
+  child: DNavigationMenuList<String>(
+    children: [
+      DNavigationMenuItem<String>(
+        value: 'first',
+        trigger: DNavigationMenuTrigger(child: Text('First')),
+        content: DNavigationMenuContent(
+          width: 240,
+          child: SizedBox(height: 60, child: Text('First panel')),
+        ),
+      ),
+      DNavigationMenuItem<String>(
+        value: 'second',
+        trigger: DNavigationMenuTrigger(child: Text('Second')),
+        content: DNavigationMenuContent(
+          width: 400,
+          child: SizedBox(height: 140, child: Text('Second panel')),
+        ),
+      ),
+    ],
+  ),
+);
 
 Widget _menu({
   required ValueChanged<String> onRoute,
