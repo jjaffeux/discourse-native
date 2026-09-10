@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,6 +43,52 @@ void main() {
 
   Finder tagOption(String name) =>
       find.byKey(ValueKey(('tag-selector-option', name)));
+
+  for (final remote in [false, true]) {
+    testWidgets(
+      'mouse category selection closes the ${remote ? 'remote' : 'local'} dropdown',
+      (tester) async {
+        var selected = support;
+        final selections = <TopicCategory?>[];
+        await pump(
+          tester,
+          StatefulBuilder(
+            builder: (context, setState) => TopicCategorySelector(
+              siteUrl: 'https://example.invalid',
+              categories: const [support, designCategory],
+              selected: selected,
+              search: remote
+                  ? (_) async => const [support, designCategory]
+                  : null,
+              onSelected: (value) {
+                selections.add(value);
+                setState(() => selected = value!);
+              },
+            ),
+          ),
+        );
+        for (final category in [support, designCategory]) {
+          await open(tester, TopicCategorySelector);
+          await tester.pumpAndSettle();
+          final option = find.byKey(
+            ValueKey(('category-selector-option', category.id)),
+          );
+          final mouse = await tester.startGesture(
+            tester.getCenter(option),
+            kind: PointerDeviceKind.mouse,
+          );
+          // A real mouse press can blur the popup search before mouse-up selects.
+          await tester.pump(const Duration(milliseconds: 40));
+          await mouse.up();
+          await mouse.removePointer();
+          await tester.pumpAndSettle();
+          expect(selected, category);
+          expect(selections.last, category);
+          expect(find.byType(DComboboxContent), findsNothing);
+        }
+      },
+    );
+  }
 
   testWidgets(
     'category search retires the old result as soon as the query changes',

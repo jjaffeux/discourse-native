@@ -85,3 +85,25 @@ touch-platform behavior were widget tests, not device sessions.
 The follow-up implementation is `59e4b4e6`, merged from the main checkout with
 `--no-ff` as `a5d1bbb11b5af9b8bf08a530a7d5a6b106bc1644`. The merge tree exactly
 matches the tested source.
+
+## Close after mouse selection
+
+A desktop mouse press blurred the popup's search input before selecting an
+option. The combobox then restored input focus, which immediately reopened the
+dropdown. Mouse regressions reproduced this for both local and asynchronous
+category searches, including choosing the already selected category.
+
+The shared Native Combobox now includes its popup in the editor's
+`TextFieldTapRegion`. Option presses retain focus and honor `closeOnSelect`;
+outside clicks still dismiss and blur. All 133 focused Combobox, Popover,
+styleguide, category/tag selector, composer and topic-list tests passed with
+seed `69318`. Root `dart analyze` reported no issues.
+
+Implementation `b80f71a9` was built into an isolated macOS debug fixture mounting
+the real composer, topic-list filters and styleguide. Actual mouse clicks closed
+the composer's category menu when reselecting its current category and when
+changing parents, and closed the subcategory menu after choosing a child. The
+topic-list and styleguide category menus also closed after mouse selection.
+Reviewed dark 700px and light 320px content layouts. The app launched with
+permitted debug entitlements, was quit, and the desktop lease was released.
+Native evidence is macOS only.
