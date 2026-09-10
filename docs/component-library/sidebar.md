@@ -60,9 +60,50 @@ MenuSub/Item/Button, Header, Footer, Separator, Input, Trigger, Rail and Inset
 are exported. MenuItem takes optional trailing action/badge and submenu slots.
 Disclosure composes DCollapsible with caller state and `expanded` semantics.
 showOnHover actions reveal on row hover/focus,
-remain keyboard reachable, and stay visible on narrow surfaces. Null callbacks
+remain keyboard reachable, and stay visible on narrow surfaces. Actions with
+`expanded: true` also stay visible and highlighted while their popup has focus.
+Compose a project action using `DDropdownMenuTrigger`, passing its `focusNode`,
+`open` state as `expanded`, and `toggle` callback to `DSidebarMenuAction`. The
+borrowed focus node is never disposed by the action; the dropdown restores it
+on Escape or selection. Null callbacks
 disable actions. Icon menu callers should provide an icon and tooltip or
 semanticLabel to preserve a useful collapsed navigation name.
+
+### Project action dropdown verification — 2026-09-10
+
+The application example's trailing project actions now compose the accepted
+Dropdown Menu owner. They offer View Project, Share Project and a separated
+destructive Delete Project action, with feedback scoped to the selected sample
+project. The menu opens to the right on desktop and below with end alignment on
+mobile, subject to the shared popup collision handling. The action's optional
+`focusNode` and `expanded` parameters support keyboard focus restoration,
+expanded semantics and visibility while the popup owns focus.
+
+The original regression failed because View Project never appeared after
+clicking the three dots. Focused Sidebar, Sidebar examples, styleguide page and
+Dropdown Menu tests cover all three project actions, independent row selection,
+hover visibility, Escape/Space reopening, outside dismissal, borrowed focus-node
+replacement/disposal and a 360px RTL/200% iOS-platform widget fixture. Root
+`dart analyze --fatal-infos` passes. Logs are
+`/tmp/sidebar-project-dropdown-final-tests.log` and
+`/tmp/sidebar-project-dropdown-final-analysis.log`.
+
+Native macOS inspection used `lib/styleguide_main.dart` in the isolated
+`Sidebar Menu Review d19e.app`, built from
+`3bdaedac1e06870fc0b59f752db43db54abcac5a`. The actual
+[reference demo](https://ui.shadcn.com/docs/components/base/sidebar) was opened
+in Chrome and its project dropdown inspected. Native checks covered the current
+dark app palette, Light, desktop and 360px previews; clicking project menus,
+View/Share/Delete feedback, Escape dismissal and Return reopening with restored
+focus; and mobile selection retaining the surrounding Sheet. Both the app and
+reference tab were closed after inspection. Runner identity and entitlements
+were temporary and restored; deep strict signature verification passed.
+
+The final candidate also preserves the subsequently merged submenu-guide
+contrast correction. The native-inspected menu action, row implementation and
+entire Sidebar example remain byte-identical. No iOS/Linux device or spoken
+screen-reader verification was performed; the RTL/200% case is widget-test
+coverage.
 
 ## Dependency boundary
 

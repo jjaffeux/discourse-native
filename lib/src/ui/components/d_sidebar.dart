@@ -857,11 +857,22 @@ class DSidebarMenuAction extends StatefulWidget {
     required this.semanticLabel,
     this.onPressed,
     this.showOnHover = false,
+    this.focusNode,
+    this.expanded,
   });
   final Widget child;
   final String semanticLabel;
   final VoidCallback? onPressed;
   final bool showOnHover;
+
+  /// Borrowed; never disposed by this widget. Pass a composed menu trigger's node
+  /// so keyboard activation and focus restoration use the same action.
+  final FocusNode? focusNode;
+
+  /// Whether the associated content is expanded. An open action remains visible
+  /// even when [showOnHover] is true and focus has moved into its popup.
+  final bool? expanded;
+
   @override
   State<DSidebarMenuAction> createState() => _DSidebarMenuActionState();
 }
@@ -870,7 +881,8 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
   bool focus = false, hover = false;
   // Retain pointer-acquired focus without painting keyboard-only artwork.
   bool _pointerFocused = false;
-  final _focusNode = FocusNode();
+  final _ownedFocus = FocusNode();
+  FocusNode get _focusNode => widget.focusNode ?? _ownedFocus;
   void _activate() {
     _focusNode.requestFocus();
     widget.onPressed?.call();
@@ -905,7 +917,7 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
 
   @override
   void dispose() {
-    _focusNode.dispose();
+    _ownedFocus.dispose();
     super.dispose();
   }
 
@@ -914,6 +926,7 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
     if (_PanelScope.iconOf(context)) return const SizedBox.shrink();
     final reveal =
         !widget.showOnHover ||
+        widget.expanded == true ||
         (_ItemScope.of(context)?.reveal ?? false) ||
         focus ||
         hover ||
@@ -937,6 +950,7 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
       child: Semantics(
         button: true,
         enabled: widget.onPressed != null,
+        expanded: widget.expanded,
         label: widget.semanticLabel,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -956,7 +970,7 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
                 height: 20,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: hover ? t.hover : null,
+                  color: hover || widget.expanded == true ? t.hover : null,
                   borderRadius: BorderRadius.circular(t.radius * .8),
                 ),
                 foregroundDecoration: focus

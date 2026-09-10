@@ -14,7 +14,7 @@ final sidebarExamples = ComponentExamples(
     StyleguideExample(
       title: 'Application sidebar',
       description:
-          'A close native reproduction of the shadcn Base UI demo: team and account switchers, the Platform hierarchy, projects, icon collapse and rail. Below 500px it uses the shared Sheet adaptation. Cmd/Ctrl+B toggles, Tab navigates, Enter/Space activates and Escape dismisses.',
+          'A close native reproduction of the shadcn Base UI demo: team and account switchers, the Platform hierarchy, project action menus, icon collapse and rail. Each project’s three-dot menu offers View, Share and Delete with local feedback. Below 500px it uses the shared Sheet adaptation. Cmd/Ctrl+B toggles, Tab navigates, Enter/Space activates and Escape dismisses.',
       code: '''DSidebarProvider(mobileBreakpoint: 500, child: Row(children: [
   DSidebar(
     collapsible: DSidebarCollapsible.icon,
@@ -342,14 +342,56 @@ class _ShadcnSidebarDemoState extends State<_ShadcnSidebarDemo> {
       children: [
         for (final project in _projects)
           DSidebarMenuItem(
-            action: DSidebarMenuAction(
-              semanticLabel: 'More options for ${project.title}',
-              showOnHover: true,
-              onPressed: () => setState(
-                () => _message = '${project.title} options selected',
+            action: DDropdownMenu(
+              content: DDropdownMenuContent(
+                semanticLabel: '${project.title} project menu',
+                side: _menuSide(context),
+                align: DSidebarProvider.of(context).isMobile
+                    ? DPopoverAlign.end
+                    : DPopoverAlign.start,
+                children: [
+                  DDropdownMenuItem(
+                    leading: const _SidebarReferenceIcon(
+                      _SidebarReferenceIcon.folder,
+                    ),
+                    onPressed: () => setState(
+                      () => _message = 'View ${project.title} selected',
+                    ),
+                    child: const Text('View Project'),
+                  ),
+                  DDropdownMenuItem(
+                    leading: const _SidebarReferenceIcon(
+                      _SidebarReferenceIcon.arrowRight,
+                    ),
+                    onPressed: () => setState(
+                      () => _message = 'Share ${project.title} selected',
+                    ),
+                    child: const Text('Share Project'),
+                  ),
+                  const DDropdownMenuSeparator(),
+                  DDropdownMenuItem(
+                    variant: DDropdownMenuItemVariant.destructive,
+                    leading: const _SidebarReferenceIcon(
+                      _SidebarReferenceIcon.trash2,
+                    ),
+                    onPressed: () => setState(
+                      () => _message = 'Delete ${project.title} selected',
+                    ),
+                    child: const Text('Delete Project'),
+                  ),
+                ],
               ),
-              child: const _SidebarReferenceIcon(
-                _SidebarReferenceIcon.ellipsis,
+              child: DDropdownMenuTrigger(
+                builder: (context, state) => DSidebarMenuAction(
+                  semanticLabel: 'More options for ${project.title}',
+                  showOnHover: true,
+                  focusNode: state.focusNode,
+                  expanded: state.open,
+                  onPressed: state.toggle,
+                  child: const _SidebarReferenceIcon(
+                    _SidebarReferenceIcon.ellipsis,
+                  ),
+                ),
               ),
             ),
             child: DSidebarMenuButton(
@@ -544,6 +586,12 @@ class _SidebarReferenceIcon extends StatelessWidget {
       '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg>''';
   static const ellipsis =
       '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>''';
+  static const folder =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg>''';
+  static const arrowRight =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>''';
+  static const trash2 =
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>''';
 }
 
 class _SidebarDemo extends StatefulWidget {
