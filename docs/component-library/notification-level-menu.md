@@ -51,5 +51,10 @@ Flutter 3.47.2 / Dart 3.13.2, on macOS:
 - `test/d_button_adoption_test.dart` and
   `test/styleguide/styleguide_page_test.dart`: 22 passed.
 - Standalone macOS styleguide and local-data production fixture builds passed.
+- After integration with main `759916ca`, all five component/application suites
+  above plus `test/topic_inbox_test.dart` passed: **125 tests**. Static analysis
+  remained clean. This also covers the newly merged topic-footer sizing and
+  compact reader controls. The notification component, adapters, examples,
+  Button, Dropdown Menu, and Popover sources match the native fixture build.
 
 Target-platform overrides in widget tests are not iOS or Linux device testing.
