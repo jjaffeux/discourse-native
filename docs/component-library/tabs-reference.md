@@ -94,3 +94,39 @@ data; no account or network mutation is required. The implementation task did
 not acquire the shared desktop lease and therefore makes no browser/native
 render claim. The independent reviewer owns official rendered comparison,
 macOS inspection, any resulting fixes, final reconciliation, and merge.
+
+## Message folder adoption follow-up — 2026-09-10
+
+Message folders now use controlled line tabs. The follow-up also preserves
+focus across folder routes, lets focused triggers own activation ahead of
+reading shortcuts, and reserves the active rule's paint area inside the
+horizontal scrolling viewport.
+
+Verification:
+
+- The final integration candidate based on main `6450ec59` passed all 140
+  tests across `d_tabs_test.dart`, `message_inbox_page_test.dart`,
+  `keyboard_navigation_test.dart`, `forum_workspace_test.dart`,
+  `styleguide/tabs_examples_test.dart`, `chat_channel_info_view_test.dart`,
+  `group_page_test.dart`, and `diagnostics_panel_test.dart`.
+- `flutter analyze --no-pub` reported no issues; formatting and diff checks
+  passed.
+- Pixel regressions cover the scrolled active underline at 100% and 200% text
+  on macOS and iOS target-platform overrides. The iOS checks are widget tests,
+  not device testing.
+- An isolated macOS bundle built from the code in `c6ed160d` mounted the real
+  message page and styleguide with local data. Native inspection covered light
+  and dark themes, a 360px viewport at 200% text, Personal and group folders,
+  and the styleguide Line example. Arrow/End navigation, Enter/Space activation,
+  retained focus after folder changes, group filtering and the visible scrolled
+  underline were checked. Enter selected a folder even with a message row
+  already selected.
+- The final candidate preserves the inspected tab renderer, message adapter
+  and keyboard ownership guard. Main's newer shortcut dispatcher is included
+  in the combined integration test run above.
+
+The isolated bundle launched with permitted debug entitlements; its source
+and copied kernel matched SHA-256
+`2407f7674fd7e8b6400b22f7377734fa9846b969cf5ff42e8093c8c2b3a6a22d`.
+Earlier broader checks found three unrelated failures in group deletion and
+topic reading; all three reproduced on unchanged baseline `a75a0e8e`.
