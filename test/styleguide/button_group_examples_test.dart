@@ -145,6 +145,14 @@ void main() {
     tester,
   ) async {
     await _pump(tester, 6);
+
+    expect(find.byType(DButtonGroup), findsNWidgets(3));
+    final attachment = tester.getRect(find.byTooltip('Add attachment'));
+    final composer = tester.getRect(find.byType(DInputGroup));
+    final group = tester.getRect(find.byType(DButtonGroup).first);
+    expect(composer.left - attachment.right, DSpacing.sm);
+    expect(composer.width, group.width - attachment.width - DSpacing.sm);
+
     await tester.enterText(find.byType(TextField), 'voice note');
     await tester.tap(find.byTooltip('Enable voice mode'));
     await tester.pumpAndSettle();
