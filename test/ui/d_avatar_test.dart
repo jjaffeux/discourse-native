@@ -373,7 +373,7 @@ void main() {
       expect(tester.getSize(find.byType(DAvatar)), const Size.square(28));
     },
   );
-  testWidgets('badge sizes hide the small icon and mirror trailing placement', (
+  testWidgets('badges keep reference sizes and stay visible in RTL groups', (
     tester,
   ) async {
     for (final size in DAvatarSize.values) {
@@ -399,9 +399,37 @@ void main() {
         size == DAvatarSize.sm ? findsNothing : findsOneWidget,
       );
       expect(
-        tester.getBottomLeft(find.byType(DAvatarBadge)),
-        tester.getBottomLeft(find.byType(DAvatar)),
+        tester.getBottomRight(find.byType(DAvatarBadge)),
+        tester.getBottomRight(find.byType(DAvatar)),
       );
     }
+
+    await _pump(
+      tester,
+      const DAvatarGroup(
+        children: [
+          DAvatar(
+            key: ValueKey('badged-avatar'),
+            fallback: DAvatarFallback(child: Text('ن')),
+            badge: DAvatarBadge(semanticLabel: 'متصل'),
+          ),
+          DAvatar(
+            key: ValueKey('next-avatar'),
+            fallback: DAvatarFallback(child: Text('ل')),
+          ),
+        ],
+      ),
+      direction: TextDirection.rtl,
+    );
+
+    final badge = tester.getRect(find.byType(DAvatarBadge));
+    final badgedAvatar = tester.getRect(
+      find.byKey(const ValueKey('badged-avatar')),
+    );
+    final nextAvatar = tester.getRect(
+      find.byKey(const ValueKey('next-avatar')),
+    );
+    expect(badge.bottomRight, badgedAvatar.bottomRight);
+    expect(badge.left, greaterThan(nextAvatar.right));
   });
 }

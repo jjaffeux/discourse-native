@@ -17,7 +17,7 @@ add catalogue entries.
 | after:border-border, darken/lighten | 1px inset foreground-painted border using live DTokens.border and corresponding Canvas blend mode |
 | fallback bg-muted / text-muted-foreground | DTokens.muted / mutedForeground; configured font family |
 | fallback text-xs / text-sm | unscaled DiscourseTypography 12px/16px line height for sm, 14px/20px otherwise; regular weight, zero tracking |
-| badge size-2 / 2.5 / 3 | 8 / 10 / 12px; bottom trailing edge; 2px background ring, primary/onPrimary colors |
+| badge size-2 / 2.5 / 3 | 8 / 10 / 12px; physical bottom-right edge; 2px background ring, primary/onPrimary colors |
 | badge svg | 8px plus artwork; sm hides Icon; custom dimension allows app counts |
 | group -space-x-2 | 8px overlap, later children above earlier children, mirrored in RTL; 2px background rings |
 | group count | 32px default, 24/40 with small/large siblings; 14px text at every size, icons 12/16/20px |
@@ -37,8 +37,9 @@ Native adaptations are deliberately bounded:
   group size overrides descendant size metrics, while explicit dimensions remain
   authoritative. Wrapped action children reserve the group's inferred extent;
   callers should supply a group size matching that action's visual avatar.
-- Badge placement is trailing rather than physical right so Arabic examples
-  and existing chat flair follow reading direction.
+- Badge placement follows the reference's physical bottom-right edge. Keeping
+  that corner in RTL also leaves the badge outside the group's mirrored overlap,
+  so a later avatar cannot paint over it.
 - ImageProvider resolves once through Flutter's normal stream. There is no DOM,
   SSR, lazy HTML img, or second preloading request; keepMounted is therefore not
   a Flutter prop. The generic library never imports networking or app services.

@@ -134,8 +134,7 @@ class DAvatar extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               picture,
-              if (badge != null)
-                PositionedDirectional(end: 0, bottom: 0, child: badge!),
+              if (badge != null) Positioned(right: 0, bottom: 0, child: badge!),
             ],
           ),
         ),
@@ -396,8 +395,9 @@ class _DAvatarFallbackState extends State<DAvatarFallback> {
   }
 }
 
-/// A dot, icon or count at the avatar's bottom trailing edge. Small reference
-/// badges hide their icon; custom dimensions preserve application status/flair.
+/// A dot, icon or count at the avatar's physical bottom-right edge. Small
+/// reference badges hide their icon; custom dimensions preserve application
+/// status/flair.
 class DAvatarBadge extends StatelessWidget {
   const DAvatarBadge({
     super.key,
