@@ -67,7 +67,11 @@ value, focus, Form and IME owner.
   ordinary and chip inputs. Done leaves focus and selection unchanged when
   there is no eligible highlight, including while async results are replaced.
   Escape dismisses and restores the accepted single label.
-  Pointer hover can own highlight without moving editor focus.
+  Pointer hover can own highlight without moving editor focus. The root's
+  accepted highlighted value is the sole row-background owner, including when
+  controlled by the parent. Highlight changes are immediate, matching Select;
+  rows do not cross-fade or retain a separate pointer highlight when keyboard
+  navigation moves to another option. Disabled options never highlight.
 - The popup belongs to the editor's `TextFieldTapRegion`. A mouse press on an
   option preserves editor focus, so selection closes according to
   `closeOnSelect` without focus restoration reopening the menu. Clicks outside
