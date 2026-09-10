@@ -162,6 +162,38 @@ void main() {
     expect(tester.getSize(find.byType(EditableText)).height, 20);
   });
 
+  testWidgets('inline addons hug their edges and leave width to the editor', (
+    tester,
+  ) async {
+    const startKey = ValueKey('start-addon');
+    const endKey = ValueKey('end-addon');
+    await tester.pumpWidget(
+      host(
+        DInputGroup(
+          children: [
+            DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
+            const DInputGroupAddon(key: startKey, child: Icon(Icons.search)),
+            const DInputGroupAddon(
+              key: endKey,
+              alignment: DInputGroupAddonAlignment.inlineEnd,
+              child: DKbd('/'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final group = tester.getRect(find.byType(DInputGroup));
+    final start = tester.getRect(find.byKey(startKey));
+    final end = tester.getRect(find.byKey(endKey));
+    expect(start.left - group.left, lessThan(16));
+    expect(group.right - end.right, lessThan(16));
+    expect(
+      tester.getSize(find.byType(DInputGroupInput)).width,
+      greaterThan(280),
+    );
+  });
+
   testWidgets('editor focus repaints the shared group ring', (tester) async {
     final focus = FocusNode();
     addTearDown(focus.dispose);
