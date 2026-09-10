@@ -367,9 +367,6 @@ class _EmptySearchSampleState extends State<EmptySearchSample> {
                       semanticLabel: 'Search pages',
                       invalid: _validationError != null,
                       children: [
-                        const DInputGroupAddon(
-                          child: Icon(Icons.search, size: 16),
-                        ),
                         DInputGroupInput(
                           focusNode: _focus,
                           hintText: 'Try searching for pages...',
@@ -383,6 +380,9 @@ class _EmptySearchSampleState extends State<EmptySearchSample> {
                           onSubmitted: (_) => _submit(),
                         ),
                         const DInputGroupAddon(
+                          child: Icon(Icons.search, size: 16),
+                        ),
+                        const DInputGroupAddon(
                           alignment: DInputGroupAddonAlignment.inlineEnd,
                           child: DKbd('/'),
                         ),
@@ -394,7 +394,6 @@ class _EmptySearchSampleState extends State<EmptySearchSample> {
                 ),
               ),
             ),
-            DButton(label: const Text('Search'), onPressed: _submit),
             DEmptyDescription.child(
               child: Wrap(
                 alignment: WrapAlignment.center,
