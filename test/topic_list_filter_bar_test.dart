@@ -234,10 +234,13 @@ void main() {
       expect(find.text('Tags · 2'), findsOneWidget);
       await tester.tap(anchor);
       await tester.pumpAndSettle();
-      final combobox = tester.widget<DCombobox<String>>(
-        find.byType(DCombobox<String>),
+      final combobox = tester.widget<DCombobox<TopicTag>>(
+        find.byType(DCombobox<TopicTag>),
       );
-      expect(combobox.controlledValues, ['Native', 'User experience']);
+      expect(combobox.controlledValues.map((tag) => tag.name), [
+        'Native',
+        'User experience',
+      ]);
       await tester.tap(
         find.byKey(const ValueKey(('topic-list-tag-filter-option', 'Native'))),
       );
@@ -337,10 +340,7 @@ void main() {
         expect(tester.getSize(row).height, 28);
         if (kind != 'tag') {
           final indicator = find.byKey(
-            ValueKey((
-              'topic-list-category-indicator',
-              kind == 'category' ? 3 : 2,
-            )),
+            ValueKey(('category-selector-icon', kind == 'category' ? 3 : 2)),
           );
           final swatch = tester.widget<Container>(
             find.descendant(of: indicator, matching: find.byType(Container)),
@@ -397,9 +397,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      configuredIcon(
-        find.byKey(const ValueKey(('topic-list-category-indicator', 4))),
-      ),
+      configuredIcon(find.byKey(const ValueKey(('category-selector-icon', 4)))),
       findsOneWidget,
     );
   });
