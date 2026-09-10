@@ -6,12 +6,11 @@ import 'package:flutter/material.dart';
 
 import '../models/post.dart';
 import '../models/topic.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'anchored_picker.dart';
+import 'platform.dart';
 import 'topic_tag_picker.dart';
-import 'topic_taxonomy_fields.dart';
+import 'topic_taxonomy_picker.dart';
 
 /// Keeps taxonomy on one line while leaving every tag accessible.
 class TopicHeaderTags extends StatelessWidget {
@@ -39,16 +38,35 @@ class TopicHeaderTags extends StatelessWidget {
         final tags = topic.tags;
         if (tags.isEmpty) {
           return topic.canEditTags
-              ? TopicTagsValue(
-                  tags: tags,
-                  saving: saving,
-                  onEdit: edit,
-                  addKey: const ValueKey('topic-header-edit-tags'),
+              ? DPopoverTrigger(
+                  builder: (context, trigger) => DButton(
+                    key: const ValueKey('topic-header-edit-tags'),
+                    label: const Text('Add tag'),
+                    icon: const DIcon(DIcons.tag, size: 12),
+                    tooltip: 'Add tag',
+                    variant: DButtonVariant.secondary,
+                    size: DButtonSize.extraSmall,
+                    focusNode: trigger.focusNode,
+                    hasPopup: true,
+                    expanded: trigger.open,
+                    loading: saving,
+                    loadingSemanticLabel: 'Saving tags',
+                    onPressed: edit == null
+                        ? null
+                        : trigger.open
+                        ? trigger.closePopover
+                        : edit,
+                  ),
                 )
               : const SizedBox.shrink();
         }
         final theme = Theme.of(context);
-        final style = theme.textTheme.labelSmall;
+        final style = theme.textTheme.labelSmall?.copyWith(
+          fontSize: 12,
+          height: 16 / 12,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0,
+        );
         const gap = 7.0;
         double labelWidth(String label) {
           final painter = TextPainter(
@@ -57,7 +75,7 @@ class TopicHeaderTags extends StatelessWidget {
             textScaler: MediaQuery.textScalerOf(context),
             maxLines: 1,
           )..layout();
-          final width = painter.width.ceilToDouble() + 14;
+          final width = painter.width.ceilToDouble() + 18;
           painter.dispose();
           return width;
         }
@@ -65,19 +83,24 @@ class TopicHeaderTags extends StatelessWidget {
         String overflowLabel(int visible) => visible == 0
             ? 'Tags · ${tags.length}'
             : '+${tags.length - visible}';
+        final editWidth = context.isTouch ? 48.0 : 28.0;
         // The overflow editor keeps editing available in narrow readers.
         final showEdit =
             topic.canEditTags &&
-            constraints.maxWidth >= labelWidth(overflowLabel(0)) + 35;
+            constraints.maxWidth >=
+                labelWidth(overflowLabel(0)) + editWidth + gap;
         final budget = math.max(
           0.0,
-          constraints.maxWidth - (showEdit ? 28 + gap : 0),
+          constraints.maxWidth - (showEdit ? editWidth + gap : 0),
         );
         final widths = [
           for (final tag in tags.take(3))
-            math.min(148.0, labelWidth('# ${tag.name}')),
+            math.min(
+              tags.length == 1 ? math.min(148.0, budget) : 148.0,
+              labelWidth('# ${tag.name}'),
+            ),
         ];
-        var visible = widths.length;
+        var visible = topic.canEditTags && !showEdit ? 0 : widths.length;
         while (visible > 0) {
           final hidden = visible < tags.length;
           final needed =
@@ -90,15 +113,14 @@ class TopicHeaderTags extends StatelessWidget {
         final VoidCallback? open = topic.canEditTags
             ? edit
             : () => unawaited(
-                showAnchoredPicker<void>(
-                  context: context,
+                TopicTaxonomyPickerAnchor.show<void>(
+                  anchorContext: context,
                   title: 'Topic tags',
-                  barrierLabel: 'Dismiss topic tags',
                   popoverKey: const ValueKey('topic-header-tags-popover'),
-                  builder: (pickerContext) => _ReadOnlyTags(
+                  builder: (pickerContext, close) => _ReadOnlyTags(
                     tags: tags,
                     onTagNavigate: (tag, {newTab = false}) {
-                      Navigator.of(pickerContext).pop();
+                      close(null);
                       onTagNavigate(tag, newTab: newTab);
                     },
                   ),
@@ -112,42 +134,35 @@ class TopicHeaderTags extends StatelessWidget {
           TopicTag? tag,
         }) => DTooltip(
           message: tooltip,
-          child: Material(
-            color: theme.shell.hover,
-            borderRadius: BorderRadius.circular(4),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              onTertiaryTapUp: tag == null
-                  ? null
-                  : (_) => onTagNavigate(tag, newTab: true),
-              child: Semantics(
-                link: tag != null,
-                button: tag == null,
-                child: InkWell(
-                  key: key,
-                  onTap: tag == null ? open : () => onTagNavigate(tag),
-                  borderRadius: BorderRadius.circular(4),
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 24),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 5,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTertiaryTapUp: tag == null
+                ? null
+                : (_) => onTagNavigate(tag, newTab: true),
+            child: tag == null
+                ? DBadge.action(
+                    key: key,
+                    variant: DBadgeVariant.secondary,
+                    onPressed: open,
+                    semanticLabel: tooltip,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    child: Center(
-                      widthFactor: 1,
-                      heightFactor: 1,
-                      child: Text(
-                        label,
-                        style: style,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  )
+                : DBadge.link(
+                    key: key,
+                    variant: DBadgeVariant.secondary,
+                    onPressed: () => onTagNavigate(tag),
+                    semanticLabel: tooltip,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-              ),
-            ),
           ),
         );
 
@@ -180,21 +195,24 @@ class TopicHeaderTags extends StatelessWidget {
             ],
             if (showEdit) ...[
               if (tags.isNotEmpty) const SizedBox(width: gap),
-              SizedBox.square(
-                dimension: 28,
-                child: saving
-                    ? const Padding(
-                        padding: EdgeInsets.all(6),
-                        child: DSpinner(strokeWidth: 1.5),
-                      )
-                    : DButton.iconOnly(
-                        key: const ValueKey('topic-header-edit-tags'),
-                        icon: const DIcon(DIcons.pencil, size: 14),
-                        tooltip: 'Add or remove topic tags',
-                        onPressed: edit,
-                        variant: DButtonVariant.flat,
-                        size: DButtonSize.small,
-                      ),
+              DPopoverTrigger(
+                builder: (context, trigger) => DButton.iconOnly(
+                  key: const ValueKey('topic-header-edit-tags'),
+                  icon: const DIcon(DIcons.pencil, size: 14),
+                  tooltip: 'Add or remove topic tags',
+                  onPressed: edit == null
+                      ? null
+                      : trigger.open
+                      ? trigger.closePopover
+                      : edit,
+                  focusNode: trigger.focusNode,
+                  expanded: trigger.open,
+                  hasPopup: true,
+                  loading: saving,
+                  loadingSemanticLabel: 'Saving tags',
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.small,
+                ),
               ),
             ],
           ],
@@ -229,7 +247,7 @@ class _ReadOnlyTagsState extends State<_ReadOnlyTags> {
     final matches = widget.tags.where(
       (tag) => tag.name.toLowerCase().contains(term),
     );
-    return AnchoredPickerContent(
+    return TopicTaxonomyPickerContent(
       queryKey: const ValueKey('topic-header-tags-search'),
       queryController: _query,
       queryHint: 'Find a topic tag',
@@ -243,15 +261,22 @@ class _ReadOnlyTagsState extends State<_ReadOnlyTags> {
             onTertiaryTapUp: (_) => widget.onTagNavigate(tag, newTab: true),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
-              child: AnchoredPickerOption(
+              child: DItem(
                 key: ValueKey(('topic-header-tag-option', tag.name)),
-                title: Text('# ${tag.name}'),
-                trailing: const DIcon(DIcons.upRightFromSquare, size: 12),
-                onTap: () => widget.onTagNavigate(tag),
+                size: DItemSize.xs,
+                link: true,
+                children: [
+                  DItemContent(children: [Text('# ${tag.name}')]),
+                  const DItemActions(
+                    children: [DIcon(DIcons.upRightFromSquare, size: 12)],
+                  ),
+                ],
+                onPressed: () => widget.onTagNavigate(tag),
               ),
             ),
           ),
-        if (matches.isEmpty) const AnchoredPickerMessage('No matching tags'),
+        if (matches.isEmpty)
+          const TopicTaxonomyPickerMessage('No matching tags'),
       ],
     );
   }

@@ -53,6 +53,7 @@ import 'site_image.dart';
 import 'topic_category_picker.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_button.dart';
+import 'topic_taxonomy_picker.dart';
 import 'topic_title.dart';
 
 bool get _usesCommandModifier =>
@@ -522,53 +523,72 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   if (!composer.target.isTagsEdit)
-                    SizedBox(
-                      key: _categoryAnchorKey,
-                      child: TopicTaxonomyButton(
-                        key: const ValueKey('composer-category-action'),
-                        buttonKey: const ValueKey('composer-category'),
-                        label: categoryLabel,
-                        semanticLabel: 'Category: $categoryLabel',
-                        tooltip: category == null
-                            ? 'Choose category'
-                            : 'Choose category: $categoryLabel',
-                        maximumWidth: 260,
-                        expanded: _showingCategory,
-                        icon: category == null
-                            ? null
-                            : CategoryIcon(
-                                key: const ValueKey('composer-category-color'),
-                                category: category,
-                                siteUrl: composer.target.siteUrl,
-                                size: 14,
-                                squareSize: 10,
-                              ),
-                        onPressed: composer.isEditing
-                            ? () => _pickCategory(context, shell)
-                            : null,
+                    TopicTaxonomyPickerAnchor(
+                      child: SizedBox(
+                        key: _categoryAnchorKey,
+                        child: DPopoverTrigger(
+                          builder: (context, trigger) => TopicTaxonomyButton(
+                            key: const ValueKey('composer-category-action'),
+                            buttonKey: const ValueKey('composer-category'),
+                            label: categoryLabel,
+                            semanticLabel: 'Category: $categoryLabel',
+                            tooltip: category == null
+                                ? 'Choose category'
+                                : 'Choose category: $categoryLabel',
+                            maximumWidth: 260,
+                            expanded: _showingCategory,
+                            focusNode: trigger.focusNode,
+                            icon: category == null
+                                ? null
+                                : CategoryIcon(
+                                    key: const ValueKey(
+                                      'composer-category-color',
+                                    ),
+                                    category: category,
+                                    siteUrl: composer.target.siteUrl,
+                                    size: 14,
+                                    squareSize: 10,
+                                  ),
+                            onPressed: composer.isEditing
+                                ? trigger.open
+                                      ? trigger.closePopover
+                                      : () => _pickCategory(context, shell)
+                                : null,
+                          ),
+                        ),
                       ),
                     ),
                   if (state.capabilities.canTagTopics ||
                       composer.tags.isNotEmpty)
-                    SizedBox(
-                      key: _tagsAnchorKey,
-                      child: TopicTaxonomyButton(
-                        key: const ValueKey('composer-add-tag'),
-                        buttonKey: const ValueKey('composer-tags'),
-                        label: tagsLabel,
-                        semanticLabel: composer.tags.isEmpty
-                            ? 'Add tags'
-                            : 'Tags: $tagsLabel',
-                        tooltip: composer.tags.isEmpty
-                            ? 'Choose tags'
-                            : 'Choose tags: $tagsLabel',
-                        maximumWidth: 210,
-                        expanded: _showingTags,
-                        icon: const DIcon(DIcons.tag, size: 14),
-                        onPressed: composer.isEditing
-                            ? () =>
-                                  _pickTags(context, shell, state.capabilities)
-                            : null,
+                    TopicTaxonomyPickerAnchor(
+                      child: SizedBox(
+                        key: _tagsAnchorKey,
+                        child: DPopoverTrigger(
+                          builder: (context, trigger) => TopicTaxonomyButton(
+                            key: const ValueKey('composer-add-tag'),
+                            buttonKey: const ValueKey('composer-tags'),
+                            label: tagsLabel,
+                            semanticLabel: composer.tags.isEmpty
+                                ? 'Add tags'
+                                : 'Tags: $tagsLabel',
+                            tooltip: composer.tags.isEmpty
+                                ? 'Choose tags'
+                                : 'Choose tags: $tagsLabel',
+                            maximumWidth: 210,
+                            expanded: _showingTags,
+                            focusNode: trigger.focusNode,
+                            icon: const DIcon(DIcons.tag, size: 14),
+                            onPressed: composer.isEditing
+                                ? trigger.open
+                                      ? trigger.closePopover
+                                      : () => _pickTags(
+                                          context,
+                                          shell,
+                                          state.capabilities,
+                                        )
+                                : null,
+                          ),
+                        ),
                       ),
                     ),
                 ],

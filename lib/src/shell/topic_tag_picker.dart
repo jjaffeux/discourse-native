@@ -8,8 +8,8 @@ import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'anchored_picker.dart';
 import 'shell_scope.dart';
+import 'topic_taxonomy_picker.dart';
 
 typedef TopicTagMenuAnchorBuilder =
     Widget Function(BuildContext context, VoidCallback? openMenu, bool saving);
@@ -151,12 +151,14 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
   }
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    key: _anchorKey,
-    child: widget.builder(
-      context,
-      widget.enabled && !_saving ? _show : null,
-      _saving,
+  Widget build(BuildContext context) => TopicTaxonomyPickerAnchor(
+    child: SizedBox(
+      key: _anchorKey,
+      child: widget.builder(
+        context,
+        widget.enabled && !_saving ? _show : null,
+        _saving,
+      ),
     ),
   );
 }
@@ -170,21 +172,19 @@ Future<List<TopicTag>?> showTopicTagPicker({
   required TopicComposerCapabilities capabilities,
   required TopicTagSearchCallback search,
   TopicTagNavigationCallback? onTagNavigate,
-}) => showAnchoredPicker<List<TopicTag>>(
-  context: context,
+}) => TopicTaxonomyPickerAnchor.show<List<TopicTag>>(
   anchorContext: anchorContext,
   title: 'Tags',
-  barrierLabel: 'Dismiss tag picker',
   popoverKey: const ValueKey('topic-tag-picker-popover'),
-  builder: (pickerContext) => TopicTagPicker(
+  builder: (pickerContext, close) => TopicTagPicker(
     selectedTags: selectedTags,
     capabilities: capabilities,
     search: search,
-    onSelected: Navigator.of(pickerContext).pop,
+    onSelected: close,
     onTagNavigate: onTagNavigate == null
         ? null
         : (tag, {newTab = false}) {
-            Navigator.of(pickerContext).pop();
+            close(null);
             onTagNavigate(tag, newTab: newTab);
           },
   ),
@@ -323,9 +323,8 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final newTag = _newTag;
-    return AnchoredPickerContent(
+    return TopicTaxonomyPickerContent(
       queryKey: const ValueKey('topic-tag-picker-query'),
       queryController: _query,
       queryHint: 'Find or add tags…',
@@ -337,22 +336,18 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
       separatorKey: const ValueKey('topic-tag-picker-divider'),
       children: [
         if (newTag != null)
-          AnchoredPickerOption(
+          DButton(
             key: const ValueKey('topic-tag-picker-create'),
-            leading: const DIcon(DIcons.plus, size: 16),
-            title: Text('Create new tag: “${newTag.name}”'),
-            onTap: () => _choose(newTag),
+            icon: const DIcon(DIcons.plus, size: 16),
+            label: Text('Create new tag: “${newTag.name}”', maxLines: 2),
+            variant: DButtonVariant.ghost,
+            onPressed: () => _choose(newTag),
           ),
         if (_loading)
-          const AnchoredPickerProgress()
+          const TopicTaxonomyPickerProgress()
         else ...[
           if (_result.explanation case final message?)
-            AnchoredPickerMessage(
-              message,
-              padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
-              textAlign: TextAlign.start,
-              color: theme.colorScheme.error,
-            ),
+            TopicTaxonomyPickerMessage(message, error: true),
           for (final tag in _visibleResults)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -362,41 +357,56 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                   : (_) => widget.onTagNavigate!(tag, newTab: true),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: AnchoredPickerOption(
-                  key: ValueKey(('topic-tag-picker-option', tag.name)),
-                  enabled: !tag.disabled && (_selected(tag) || !_atMaximum),
-                  selected: _selected(tag),
-                  showSelectionIndicator: true,
-                  title: Text(tag.name),
-                  subtitle: tag.disabledReason == null
-                      ? null
-                      : Text(tag.disabledReason!),
-                  trailing: widget.onTagNavigate == null
-                      ? null
-                      : SizedBox.square(
-                          dimension: 28,
-                          child: DButton.iconOnly(
-                            key: ValueKey(('topic-tag-picker-open', tag.name)),
-                            icon: const DIcon(
-                              DIcons.upRightFromSquare,
-                              size: 12,
-                            ),
-                            tooltip: 'Open tag ${tag.name}',
-                            onPressed: () => widget.onTagNavigate!(tag),
-                            variant: DButtonVariant.flat,
-                            size: DButtonSize.small,
-                          ),
+                child: DItem(
+                  size: DItemSize.xs,
+                  variant: _selected(tag)
+                      ? DItemVariant.muted
+                      : DItemVariant.standard,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  children: [
+                    DItemContent(
+                      children: [
+                        DCheckbox(
+                          key: ValueKey(('topic-tag-picker-option', tag.name)),
+                          enabled:
+                              !tag.disabled && (_selected(tag) || !_atMaximum),
+                          value: _selected(tag),
+                          title: Text(tag.name),
+                          subtitle: tag.disabledReason == null
+                              ? null
+                              : Text(tag.disabledReason!),
+                          secondary: widget.onTagNavigate == null
+                              ? null
+                              : DButton.iconOnly(
+                                  key: ValueKey((
+                                    'topic-tag-picker-open',
+                                    tag.name,
+                                  )),
+                                  icon: const DIcon(
+                                    DIcons.upRightFromSquare,
+                                    size: 12,
+                                  ),
+                                  tooltip: 'Open tag ${tag.name}',
+                                  onPressed: () => widget.onTagNavigate!(tag),
+                                  isLink: true,
+                                  variant: DButtonVariant.ghost,
+                                  size: DButtonSize.small,
+                                ),
+                          onChanged:
+                              tag.disabled || (!_selected(tag) && _atMaximum)
+                              ? null
+                              : (_) => _choose(tag),
                         ),
-                  onTap: tag.disabled || (!_selected(tag) && _atMaximum)
-                      ? null
-                      : () => _choose(tag),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
           if (newTag == null &&
               _visibleResults.isEmpty &&
               _result.explanation == null)
-            AnchoredPickerMessage(
+            TopicTaxonomyPickerMessage(
               _query.text.trim().isEmpty
                   ? 'No tags available.'
                   : 'No matching tags.',
