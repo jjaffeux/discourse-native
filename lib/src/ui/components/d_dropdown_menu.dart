@@ -54,7 +54,7 @@ class DDropdownMenu extends StatelessWidget {
       onOpenChange: onOpenChange,
       onOpenChangeComplete: onOpenChangeComplete,
       restoreFocus: restoreFocus,
-      // Menu content owns first-enabled-item focus and popup-local scrolling.
+      // Menu content owns first-enabled-item focus and conditional overflow.
       focusContentOnOpen: false,
       content: DPopoverContent(
         semanticLabel: content.semanticLabel,
@@ -72,8 +72,7 @@ class DDropdownMenu extends StatelessWidget {
         shadow: content.isSubmenu
             ? DPopoverShadow.large
             : DPopoverShadow.medium,
-        // Menus own their scroll position so wheel, trackpad, and draggable
-        // scrollbar interaction all operate on the same popup-local viewport.
+        // The menu adds a popup-local viewport only when its rows overflow.
         scrollable: false,
         child: DPopoverClose(
           builder: (context, close) => _DropdownMenuRootScope(
@@ -233,12 +232,18 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
       final target = itemContext?.findRenderObject();
       if (itemContext != null && target != null && target.attached) {
         // OverlayPortal preserves ancestors, including the trigger's scroll
-        // views. Only the popup viewport should move when its items get focus.
-        Scrollable.maybeOf(itemContext)?.position.ensureVisible(
-          target,
-          alignment: 0.5,
-          duration: DMotion.duration(context, DMotion.exit),
-        );
+        // views. A fitting menu has no scroll owner; never fall through to an
+        // enclosing page when revealing a focused row in an overflowing menu.
+        final scrollable = Scrollable.maybeOf(itemContext);
+        if (_scrollController.hasClients &&
+            scrollable != null &&
+            identical(scrollable.position, _scrollController.position)) {
+          scrollable.position.ensureVisible(
+            target,
+            alignment: 0.5,
+            duration: DMotion.duration(context, DMotion.exit),
+          );
+        }
       }
     });
   }
@@ -356,22 +361,103 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
             style: textStyle,
             child: IconTheme.merge(
               data: IconThemeData(color: tokens.foreground, size: 16),
-              child: DScrollBar(
+              child: _DropdownMenuOverflowViewport(
                 controller: _scrollController,
-                child: DScrollViewport(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(4),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: widget.children,
-                  ),
+                padding: const EdgeInsets.all(4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: widget.children,
                 ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Matches CSS `overflow-y: auto`: fitting menus are ordinary static content,
+/// while collision- or caller-constrained menus gain one local scroll owner.
+class _DropdownMenuOverflowViewport extends StatefulWidget {
+  const _DropdownMenuOverflowViewport({
+    required this.controller,
+    required this.padding,
+    required this.child,
+  });
+
+  final ScrollController controller;
+  final EdgeInsetsGeometry padding;
+  final Widget child;
+
+  @override
+  State<_DropdownMenuOverflowViewport> createState() =>
+      _DropdownMenuOverflowViewportState();
+}
+
+class _DropdownMenuOverflowViewportState
+    extends State<_DropdownMenuOverflowViewport> {
+  final _probeKey = GlobalKey();
+  bool _overflows = false;
+  bool _measurementScheduled = false;
+
+  Widget get _paddedChild => KeyedSubtree(
+    key: _probeKey,
+    child: Padding(padding: widget.padding, child: widget.child),
+  );
+
+  void _setOverflowAfterLayout(bool value) {
+    if (_overflows == value) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _overflows == value) return;
+      setState(() => _overflows = value);
+    });
+  }
+
+  void _measureAfterLayout(BoxConstraints constraints) {
+    if (_measurementScheduled) return;
+    _measurementScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measurementScheduled = false;
+      if (!mounted) return;
+      final naturalHeight = _probeKey.currentContext?.size?.height;
+      if (naturalHeight == null) return;
+      _setOverflowAfterLayout(
+        constraints.hasBoundedHeight &&
+            naturalHeight > constraints.maxHeight + precisionErrorTolerance,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_overflows) {
+      return DScrollBar(
+        controller: widget.controller,
+        child: DScrollViewport(
+          controller: widget.controller,
+          child: _paddedChild,
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _measureAfterLayout(constraints);
+        return UnconstrainedBox(
+          constrainedAxis: Axis.horizontal,
+          alignment: AlignmentDirectional.topStart,
+          clipBehavior: Clip.hardEdge,
+          child: NotificationListener<SizeChangedLayoutNotification>(
+            onNotification: (_) {
+              _measureAfterLayout(constraints);
+              return false;
+            },
+            child: SizeChangedLayoutNotifier(child: _paddedChild),
+          ),
+        );
+      },
     );
   }
 }
