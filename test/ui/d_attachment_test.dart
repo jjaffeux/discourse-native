@@ -1,7 +1,8 @@
-import 'dart:ui' show SemanticsAction, Tristate;
+import 'dart:ui' show ImageByteFormat, SemanticsAction, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -99,26 +100,41 @@ void main() {
   testWidgets('uploading and processing titles animate their shimmer', (
     tester,
   ) async {
+    final boundaryKey = GlobalKey();
     for (final state in [
       DAttachmentState.uploading,
       DAttachmentState.processing,
     ]) {
       await tester.pumpWidget(
         _app(
-          _attachment(
-            state: state,
-            title: state == DAttachmentState.uploading
-                ? 'design-system.zip'
-                : 'market-research.pdf',
-            description: state == DAttachmentState.uploading
-                ? 'Uploading · 64%'
-                : 'Processing document',
+          DefaultTextStyle(
+            style: const TextStyle(color: Colors.transparent, fontSize: 30),
+            child: RepaintBoundary(
+              key: boundaryKey,
+              child: _attachment(
+                state: state,
+                title: state == DAttachmentState.uploading
+                    ? 'design-system.zip'
+                    : 'market-research.pdf',
+                description: state == DAttachmentState.uploading
+                    ? 'Uploading · 64%'
+                    : 'Processing document',
+              ),
+            ),
           ),
         ),
       );
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.byType(ShaderMask), findsOneWidget, reason: state.name);
       expect(tester.binding.hasScheduledFrame, isTrue, reason: state.name);
+
+      final firstFrame = await _pixels(tester, boundaryKey);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(
+        await _pixels(tester, boundaryKey),
+        isNot(equals(firstFrame)),
+        reason: '${state.name} must visibly change between animation frames',
+      );
     }
 
     await tester.pumpWidget(
@@ -500,6 +516,17 @@ Widget _attachment({
 );
 
 void _noop() {}
+
+Future<List<int>> _pixels(WidgetTester tester, GlobalKey boundaryKey) async =>
+    (await tester.runAsync(() async {
+      final boundary =
+          boundaryKey.currentContext!.findRenderObject()!
+              as RenderRepaintBoundary;
+      final image = await boundary.toImage();
+      final data = await image.toByteData(format: ImageByteFormat.rawRgba);
+      image.dispose();
+      return data!.buffer.asUint8List();
+    }))!;
 
 Widget _app(
   Widget child, {
