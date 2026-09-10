@@ -924,17 +924,14 @@ class _TopicListHeadingTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget title(String name) => DTooltip(
-      message: name,
-      child: Text(
-        name,
-        key: const ValueKey('topic-list-title'),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-      ),
+    Widget title(String name) => Text(
+      name,
+      key: const ValueKey('topic-list-title'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
     );
 
     final categoryId = this.categoryId;
