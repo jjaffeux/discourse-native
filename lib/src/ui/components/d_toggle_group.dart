@@ -270,11 +270,15 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     return enabledIndex < 0 ? 0 : enabledIndex;
   }
 
-  void _changeItem(T value, bool pressed) {
+  void _toggleItem(T value) {
     if (!_groupInteractive) return;
+    // The child reflects the last build and can still report its previous
+    // pressed value when another input arrives before the scheduled rebuild.
+    // Derive the transition from the group's already-updated selection.
+    final selected = _currentValues.toSet();
+    final pressed = !selected.contains(value);
     final next = <T>[];
     if (widget.multiple) {
-      final selected = _currentValues.toSet();
       if (pressed) {
         selected.add(value);
       } else if (widget.allowEmptySelection || selected.length > 1) {
@@ -482,7 +486,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               semanticHint: item.semanticHint,
               pressed: selected.contains(item.value),
               onPressedChanged: itemEnabled
-                  ? (pressed) => _changeItem(item.value, pressed)
+                  ? (_) => _toggleItem(item.value)
                   : null,
               enabled: itemEnabled,
               invalid: item.invalid,
@@ -503,7 +507,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               semanticHint: item.semanticHint,
               pressed: selected.contains(item.value),
               onPressedChanged: itemEnabled
-                  ? (pressed) => _changeItem(item.value, pressed)
+                  ? (_) => _toggleItem(item.value)
                   : null,
               enabled: itemEnabled,
               invalid: item.invalid,
