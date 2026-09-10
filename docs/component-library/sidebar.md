@@ -22,6 +22,7 @@ scope remains the 2026-09-08 Sidebar row.
 | 200ms transition | Linear desktop width; mobile presentation uses the accepted Sheet transition; zero with reduced motion |
 | header/footer p-2 | 8px fixed slots; callers compose multiple children with 8px gap |
 | content flex-1 overflow | Expanded slot with independent DSidebarContent scroll owner |
+| sidebar background | Muted semantic panel token; caller override remains available |
 | group p-2; label h-8 px-2 | 8px group padding,32px label minimum,8px horizontal inset |
 | label text-xs/medium/70% | 12px,16px leading,500 weight,foreground70% |
 | default h-8 / sm h-7 / lg h-12 | 32/28/48px minimum rows; optional height30 for docs |
