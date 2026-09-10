@@ -2,6 +2,8 @@
 
 Implementation task: `01a08b5d-17c8-7de0-9c87-9679d9695d60`.
 Branch: `codex/main-sidebar-ui-kit`.
+Source commit: `eea76c81dc985c945218a7764279f51332e3725c`.
+Independent review task: `01a08b90-a915-7e83-a5c4-af5ea7981e23`.
 
 The approved follow-up replaces the shared Forum/Chat sidebar presentation with
 Native Sidebar. The shell still owns its forum rail, desktop resizing (208px
@@ -111,3 +113,6 @@ Screenshots and native accessibility trees are inline in the implementation
 task. The review task completes official rendered-reference comparison, any
 remaining palette/resize/site-switch checks and independent source review.
 No physical iOS/Linux device or spoken VoiceOver verification is claimed.
+
+Cleanup: the isolated app was quit through its menu and its absence verified
+with CUA. Desktop lease released; the user application was left running.

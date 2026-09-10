@@ -4709,7 +4709,10 @@
           "394 focused tests pass after final native label correction; /tmp/sidebar-final-verification.log.",
           "Root and full-profile dart analyze --fatal-infos pass.",
           "Native production and registered styleguide spot checks are recorded in docs/component-library/sidebar-main-migration.md; isolated bundle provenance in evidence/sidebar/main-migration-build.json."
-        ]
+        ],
+        "implementationCommit": "eea76c81dc985c945218a7764279f51332e3725c",
+        "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+        "reviewStatus": "in_progress"
       }
     },
     {
