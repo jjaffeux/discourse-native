@@ -10,7 +10,7 @@ final spinnerExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   notes:
       'Import package:discourse_native/discourse_ui.dart; no extra dependency. '
-      'DSpinner reproduces shadcn’s Lucide Loader2 arc on every platform: '
+      'DSpinner uses the Lucide Loader2 arc on every platform: '
       'a 24-unit view box, round 2-unit stroke, 16px default box and linear '
       'clockwise rotation once per second. A child supplies custom artwork. '
       'Size is in logical pixels; strokeWidth scales with the view box. '

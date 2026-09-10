@@ -49,7 +49,7 @@ ConstrainedBox(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 6,
         children: [
-          Text('shadcn/ui', style: text(fontWeight: FontWeight.w500, lineHeight: 14)),
+          Text('Native UI', style: text(fontWeight: FontWeight.w500, lineHeight: 14)),
           Text('The Foundation for your Design System', style: text(muted: true)),
         ],
       ),
@@ -355,7 +355,7 @@ class _UsagePreviewState extends State<_UsagePreview> {
     children: [
       Center(
         child: _ReferenceDemo(
-          title: 'shadcn/ui',
+          title: 'Native UI',
           subtitle: 'The Foundation for your Design System',
           description:
               'A set of beautifully designed components that you can '
@@ -581,7 +581,7 @@ class _RtlPreviewState extends State<_RtlPreview> {
               ? TextDirection.ltr
               : TextDirection.rtl,
           child: _ReferenceDemo(
-            title: 'shadcn/ui',
+            title: 'Native UI',
             subtitle: subtitle,
             description: description,
           ),

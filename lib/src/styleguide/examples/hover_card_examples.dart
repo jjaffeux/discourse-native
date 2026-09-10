@@ -7,7 +7,7 @@ final hoverCardExamples = ComponentExamples(
   description: 'Shows a supplementary visual preview for a destination.',
   status: ComponentStatus.implemented,
   notes:
-      'Frozen source: shadcn Base UI Hover Card Markdown SHA-256 '
+      'Frozen source: Base UI Hover Card Markdown SHA-256 '
       '8f30193c745aaf270cdf63043ca452cdffb895e8643a86c662ca0804c6022dc8 '
       'and base-nova hover-card registry. Composition is DHoverCard(trigger: '
       'DHoverCardTrigger(...), content: DHoverCardContent(...)). The 256px '
@@ -54,7 +54,7 @@ final hoverCardExamples = ComponentExamples(
   trigger: DHoverCardTrigger(builder: buildProfileLink),
   content: DHoverCardContent(child: Row(children: [
     DAvatar(fallback: DAvatarFallback(child: Text('SC'))),
-    Expanded(child: Column(children: [Text('@shadcn'), Text('Design systems')])),
+    Expanded(child: Column(children: [Text('@alex'), Text('Design systems')])),
   ])),
 )''',
       builder: (_) => const _AvatarHoverCard(),
@@ -262,7 +262,7 @@ class _AvatarHoverCard extends StatelessWidget {
   Widget build(BuildContext context) => DHoverCard(
     trigger: DHoverCardTrigger(
       builder: (context, state) => DButton(
-        label: const Text('@shadcn'),
+        label: const Text('@alex'),
         variant: DButtonVariant.link,
         isLink: true,
         focusNode: state.focusNode,
@@ -285,7 +285,7 @@ class _AvatarHoverCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: 2,
               children: [
-                Text('@shadcn', style: TextStyle(fontWeight: FontWeight.w600)),
+                Text('@alex', style: TextStyle(fontWeight: FontWeight.w600)),
                 Text('Design systems and open-source interface components.'),
               ],
             ),

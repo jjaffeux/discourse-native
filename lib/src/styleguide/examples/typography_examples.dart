@@ -13,7 +13,7 @@ final typographyExamples = ComponentExamples(
   notes:
       'Current upstream Typography scope: h1–h4, p, blockquote, table, list, '
       'inline code, lead, large, small, muted and RTL. Import discourse_ui.dart. '
-      'DText reproduces the current shadcn sizes, weights, leading and tracking '
+      'DText defines sizes, weights, leading and tracking '
       'using the app’s fonts, palette and inherited scaler; tracking follows '
       'the rendered size like the reference’s em value. It does not implement '
       'the newer Typeset system. Plain h1 text balances short multiline '
@@ -28,7 +28,7 @@ final typographyExamples = ComponentExamples(
       'component API.',
   examples: [
     StyleguideExample(
-      title: 'Shadcn reference demo',
+      title: 'Typography demo',
       description:
           'The current TypographyDemo composition: a balanced h1, lead text, '
           'the h2 rule, a primary link, a quote, h3 sections, the list, the '
@@ -76,13 +76,13 @@ $_tableSampleCode''',
       builder: (_) => const _ReferenceDemo(strings: _english),
     ),
     StyleguideExample(
-      title: 'Shadcn section examples',
+      title: 'Typography section examples',
       description:
           'The current per-section examples with their original text for direct '
           'visual comparison at 100%: centered h1, h2, h3, h4, p, blockquote, '
           'list, inline code, lead, large, small and muted. Theme controls '
           'substitute the app palette and font; size, weight, tracking, '
-          'leading and spacing match shadcn.',
+          'leading and spacing follow the typography tokens.',
       states: const ['Reference fidelity', 'Typography', 'Composition'],
       code: r'''const SelectionArea(
   child: DProse(children: [
@@ -153,7 +153,7 @@ $_tableSampleCode''',
       ),
     ),
     StyleguideExample(
-      title: 'Shadcn RTL reference',
+      title: 'Typography RTL example',
       description:
           'The current RTL example: the demo in Arabic by default, with the '
           'reference’s English and Hebrew translations behind a language '

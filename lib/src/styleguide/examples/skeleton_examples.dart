@@ -12,7 +12,7 @@ final skeletonExamples = ComponentExamples(
       'muted color and medium radius; native layout widgets provide fractions '
       'and aspect ratios. '
       'Omitted dimensions fill bounded axes and collapse on unbounded axes. '
-      'DSkeletonRegion shares shadcn’s two-second opacity pulse and announces one '
+      'DSkeletonRegion shares a two-second opacity pulse and announces one '
       'localized label. Its children are decorative; keep controls and scroll '
       'views outside it. Reduced motion pauses at full opacity. Callers own '
       'loading/error/ready state. Frozen reference dimensions, spacing and '

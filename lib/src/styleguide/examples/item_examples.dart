@@ -112,7 +112,7 @@ const _codes = {
   ],
 )).toList())""",
   'Group': """DItemGroup(children: [
-  DItem(children: [DItemContent(children: [DItemTitle(child: Text('shadcn'))])]),
+  DItem(children: [DItemContent(children: [DItemTitle(child: Text('alex'))])]),
   DItemSeparator(),
   DItem(children: [DItemContent(children: [DItemTitle(child: Text('maxleiter'))])]),
 ])""",
@@ -133,8 +133,8 @@ const _codes = {
   DDropdownMenuItem(onPressed: selectPerson, child:
     DItem(size: DItemSize.xs, padding: EdgeInsets.all(8), children: [
       DItemMedia(child: avatar26),
-      DItemContent(spacing: 0, children: [DItemTitle(child: Text('shadcn')),
-        DItemDescription(height: 1, child: Text('shadcn@vercel.com'))]),
+      DItemContent(spacing: 0, children: [DItemTitle(child: Text('alex')),
+        DItemDescription(height: 1, child: Text('alex@example.com'))]),
     ])),
   )])]),
   child: DDropdownMenuTrigger(builder: (context, state) => DButton(
@@ -189,7 +189,9 @@ class _ItemExampleState extends State<_ItemExample> {
   );
   Widget _avatar(String name, {double dimension = 32}) => DAvatar(
     dimension: dimension,
-    image: DAvatarImage(image: AssetImage('$_assets$name.png')),
+    image: name == 'alex'
+        ? null
+        : DAvatarImage(image: AssetImage('$_assets$name.png')),
     fallback: DAvatarFallback(child: Text(name.substring(0, 1).toUpperCase())),
   );
   DItemContent _content(String title, [String? description]) => DItemContent(
@@ -335,7 +337,7 @@ class _ItemExampleState extends State<_ItemExample> {
               variant: DItemMediaVariant.avatar,
               child: DAvatarGroup(
                 children: [
-                  for (final person in ['shadcn', 'maxleiter', 'evilrabbit'])
+                  for (final person in ['alex', 'maxleiter', 'evilrabbit'])
                     _avatar(person),
                 ],
               ),
@@ -425,12 +427,12 @@ class _ItemExampleState extends State<_ItemExample> {
       ),
       'Group' => DItemGroup(
         children: [
-          for (final person in ['shadcn', 'maxleiter', 'evilrabbit'])
+          for (final person in ['alex', 'maxleiter', 'evilrabbit'])
             DItem(
               variant: DItemVariant.outline,
               children: [
                 DItemMedia(child: _avatar(person)),
-                _content(person, '$person@vercel.com'),
+                _content(person, '$person@example.com'),
                 DItemActions(
                   children: [
                     DButton.iconOnly(
@@ -520,9 +522,9 @@ class _ItemExampleState extends State<_ItemExample> {
           children: [
             DDropdownMenuGroup(
               children: [
-                for (final person in ['shadcn', 'maxleiter', 'evilrabbit'])
+                for (final person in ['alex', 'maxleiter', 'evilrabbit'])
                   DDropdownMenuItem(
-                    semanticLabel: '$person, $person@vercel.com',
+                    semanticLabel: '$person, $person@example.com',
                     onPressed: () => _notice('Selected $person'),
                     child: DItem(
                       size: DItemSize.xs,
@@ -535,7 +537,7 @@ class _ItemExampleState extends State<_ItemExample> {
                             DItemTitle(child: Text(person)),
                             DItemDescription(
                               height: 1,
-                              child: Text('$person@vercel.com'),
+                              child: Text('$person@example.com'),
                             ),
                           ],
                         ),
