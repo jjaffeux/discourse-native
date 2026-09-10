@@ -324,21 +324,17 @@ class _TagFilterAnchor extends StatefulWidget {
 
 class _TagFilterAnchorState extends State<_TagFilterAnchor> {
   final _combobox = DComboboxController<String>();
-  late final LatestWinsQueuedLookupController<String, List<_TagChoice>> _lookup;
+  // Initialize on first use, including for state retained across hot reload.
+  late final _lookup =
+      LatestWinsQueuedLookupController<String, List<_TagChoice>>(
+        lookup: _searchTags,
+        onResult: _received,
+        onError: (_, _) => _received(_knownChoices(_query)),
+      );
   Timer? _debounce;
   String _query = '';
   List<_TagChoice> _results = const [];
   bool _loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _lookup = LatestWinsQueuedLookupController(
-      lookup: _searchTags,
-      onResult: _received,
-      onError: (_, _) => _received(_knownChoices(_query)),
-    );
-  }
 
   @override
   void dispose() {
