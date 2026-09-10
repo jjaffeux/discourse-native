@@ -52,6 +52,7 @@ import 'shell_scope.dart';
 import 'site_image.dart';
 import 'topic_category_picker.dart';
 import 'topic_tag_picker.dart';
+import 'topic_taxonomy_button.dart';
 import 'topic_title.dart';
 
 bool get _usesCommandModifier =>
@@ -494,7 +495,6 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
         ),
         builder: (context, state, _) {
           final shell = ShellScope.read(context);
-          final theme = Theme.of(context);
           final category =
               state.categories
                   .where((item) => item.id == composer.categoryId)
@@ -524,33 +524,25 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                   if (!composer.target.isTagsEdit)
                     SizedBox(
                       key: _categoryAnchorKey,
-                      child: _ComposerTaxonomyButton(
+                      child: TopicTaxonomyButton(
                         key: const ValueKey('composer-category-action'),
-                        valueKey: const ValueKey('composer-category'),
+                        buttonKey: const ValueKey('composer-category'),
                         label: categoryLabel,
                         semanticLabel: 'Category: $categoryLabel',
                         tooltip: category == null
                             ? 'Choose category'
                             : 'Choose category: $categoryLabel',
-                        outlined: true,
-                        leading: category == null
-                            ? Container(
-                                key: const ValueKey('composer-category-color'),
-                                width: 9,
-                                height: 9,
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              )
+                        maximumWidth: 260,
+                        expanded: _showingCategory,
+                        icon: category == null
+                            ? null
                             : CategoryIcon(
                                 key: const ValueKey('composer-category-color'),
                                 category: category,
                                 siteUrl: composer.target.siteUrl,
                                 size: 14,
-                                squareSize: 9,
+                                squareSize: 10,
                               ),
-                        trailing: DIcons.chevronDown,
                         onPressed: composer.isEditing
                             ? () => _pickCategory(context, shell)
                             : null,
@@ -560,9 +552,9 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                       composer.tags.isNotEmpty)
                     SizedBox(
                       key: _tagsAnchorKey,
-                      child: _ComposerTaxonomyButton(
+                      child: TopicTaxonomyButton(
                         key: const ValueKey('composer-add-tag'),
-                        valueKey: const ValueKey('composer-tags'),
+                        buttonKey: const ValueKey('composer-tags'),
                         label: tagsLabel,
                         semanticLabel: composer.tags.isEmpty
                             ? 'Add tags'
@@ -570,8 +562,9 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                         tooltip: composer.tags.isEmpty
                             ? 'Choose tags'
                             : 'Choose tags: $tagsLabel',
-                        leading: const DIcon(DIcons.tag, size: 14),
-                        trailing: DIcons.plus,
+                        maximumWidth: 210,
+                        expanded: _showingTags,
+                        icon: const DIcon(DIcons.tag, size: 14),
                         onPressed: composer.isEditing
                             ? () =>
                                   _pickTags(context, shell, state.capabilities)
@@ -593,7 +586,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
     if (!composer.isEditing || _showingCategory || anchorContext == null) {
       return;
     }
-    _showingCategory = true;
+    setState(() => _showingCategory = true);
     try {
       final selected = await showTopicCategoryPicker(
         context: context,
@@ -617,7 +610,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
       }
       await shell.changeComposerCategory(composer, selected);
     } finally {
-      _showingCategory = false;
+      if (mounted) setState(() => _showingCategory = false);
     }
   }
 
@@ -628,7 +621,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
   ) async {
     final anchorContext = _tagsAnchorKey.currentContext;
     if (!composer.isEditing || _showingTags || anchorContext == null) return;
-    _showingTags = true;
+    setState(() => _showingTags = true);
     try {
       final selected = await showTopicTagPicker(
         context: context,
@@ -640,55 +633,8 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
       if (!mounted || !composer.isEditing || selected == null) return;
       composer.setTags(selected);
     } finally {
-      _showingTags = false;
+      if (mounted) setState(() => _showingTags = false);
     }
-  }
-}
-
-class _ComposerTaxonomyButton extends StatelessWidget {
-  const _ComposerTaxonomyButton({
-    super.key,
-    required this.valueKey,
-    required this.label,
-    required this.semanticLabel,
-    required this.tooltip,
-    required this.leading,
-    required this.trailing,
-    required this.onPressed,
-    this.outlined = false,
-  });
-
-  final Key valueKey;
-  final String label;
-  final String semanticLabel;
-  final String tooltip;
-  final Widget leading;
-  final DIconData trailing;
-  final VoidCallback? onPressed;
-  final bool outlined;
-
-  @override
-  Widget build(BuildContext context) {
-    return DButton(
-      onPressed: onPressed,
-      tooltip: tooltip,
-      semanticLabel: semanticLabel,
-      hasPopup: true,
-      variant: outlined ? DButtonVariant.outline : DButtonVariant.ghost,
-      label: Row(
-        key: valueKey,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ExcludeSemantics(child: leading),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          const SizedBox(width: 8),
-          DIcon(trailing, size: 12),
-        ],
-      ),
-    );
   }
 }
 

@@ -171,10 +171,7 @@ void main() {
     expect(tags.bottom, lessThan(tester.getRect(editor).top));
     expect(tags.center.dy, category.center.dy);
     expect(tags.left, greaterThan(category.right));
-    expect(
-      tester.getSize(find.byKey(const ValueKey('composer-category-color'))),
-      const Size.square(9),
-    );
+    expect(find.byKey(const ValueKey('composer-category-color')), findsNothing);
 
     shell.visibleComposer!
       ..setCategory(5)
