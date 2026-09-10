@@ -2748,6 +2748,7 @@ Status: merged. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-nav
 - The new controlled-switch regression proves that immediately removing focused outgoing content cannot emit a delayed close request or dismiss the incoming panel. It passed independently, then the complete 111-test Navigation Menu, Popover, Combobox, Button Group and styleguide matrix passed with random seed 860611. Root and profiles/full flutter analyze --no-pub passed without diagnostics; touched Dart formatting and git diff --check are clean.
 - Under the 2026-09-10 desktop lease, the exact b4c58c9d macOS styleguide was inspected with Flutter animation time slowed 10x. The first captured LTR and global-RTL switch frames showed only partially entering new content, with the previous panel already absent from both pixels and native AX while viewport size and indicator were still travelling. Reduced-motion LTR replacement was fully immediate, and runtime output remained clean. The owned app was quit and the desktop lease released; no additional iOS/Linux or spoken VoiceOver claim is made.
 - After latest-main reconciliation onto 07d1c68d, the 111-test affected matrix passed again with random seed 860612. The candidate preserves every non-Navigation Menu progress row and all concurrent Native Select, Dropdown Menu and Sidebar changes.
+- The repository main checkout accepted the incoming-only Navigation Menu correction from reviewed candidate 2e865ed1 with --no-ff as 64120bee333e2485d8030fa89ced0798b9be3c03 under the main lease.
 
 **limitations**
 
