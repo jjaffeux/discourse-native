@@ -19,6 +19,7 @@ class StyleguideExample {
     required this.code,
     required this.builder,
     this.states = const [],
+    this.topLevel = false,
   });
 
   final String title;
@@ -26,6 +27,9 @@ class StyleguideExample {
   final String code;
   final WidgetBuilder builder;
   final List<String> states;
+
+  /// Renders this example before the component's documented sections.
+  final bool topLevel;
 }
 
 @immutable
@@ -35,6 +39,7 @@ class ComponentExamples {
     required this.examples,
     this.description = '',
     this.notes = '',
+    this.omittedSections = const {},
   });
 
   final ComponentStatus status;
@@ -43,6 +48,21 @@ class ComponentExamples {
   /// A short introduction for the documentation page.
   final String description;
   final String notes;
+  final Set<String> omittedSections;
+
+  /// Applies component-specific omissions without changing the frozen source
+  /// catalogue used for scope and search.
+  Iterable<ComponentReferenceSection> documentOutlineFor(
+    ComponentReference reference,
+  ) sync* {
+    var insideOmittedBlock = false;
+    for (final section in reference.documentOutline) {
+      if (section.depth == 0) {
+        insideOmittedBlock = omittedSections.contains(section.label);
+      }
+      if (!insideOmittedBlock) yield section;
+    }
+  }
 }
 
 @immutable

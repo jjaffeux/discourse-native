@@ -96,6 +96,104 @@ void main() {
     }
   });
 
+  testWidgets('uploading and processing titles animate their shimmer', (
+    tester,
+  ) async {
+    for (final state in [
+      DAttachmentState.uploading,
+      DAttachmentState.processing,
+    ]) {
+      await tester.pumpWidget(
+        _app(
+          _attachment(
+            state: state,
+            title: state == DAttachmentState.uploading
+                ? 'design-system.zip'
+                : 'market-research.pdf',
+            description: state == DAttachmentState.uploading
+                ? 'Uploading · 64%'
+                : 'Processing document',
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(ShaderMask), findsOneWidget, reason: state.name);
+      expect(tester.binding.hasScheduledFrame, isTrue, reason: state.name);
+    }
+
+    await tester.pumpWidget(
+      _app(
+        const MediaQuery(
+          data: MediaQueryData(disableAnimations: true),
+          child: DAttachment(
+            state: DAttachmentState.uploading,
+            children: [
+              DAttachmentContent(
+                children: [
+                  DAttachmentTitle(child: Text('design-system.zip')),
+                  DAttachmentDescription(child: Text('Uploading · 64%')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ShaderMask), findsNothing);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+
+  testWidgets('idle ready-to-upload state paints a dashed border', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        _attachment(
+          state: DAttachmentState.idle,
+          title: 'selected-file.pdf',
+          description: 'Ready to upload',
+        ),
+      ),
+    );
+
+    final dashedBorder = find.descendant(
+      of: find.byType(DAttachment),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is CustomPaint && widget.foregroundPainter != null,
+      ),
+    );
+    expect(dashedBorder, findsOneWidget);
+    expect(
+      dashedBorder,
+      paints
+        ..path()
+        ..path()
+        ..path(),
+    );
+
+    await tester.pumpWidget(
+      _app(
+        _attachment(
+          state: DAttachmentState.done,
+          title: 'selected-file.pdf',
+          description: 'Uploaded',
+        ),
+      ),
+    );
+    expect(
+      tester
+          .widgetList<CustomPaint>(
+            find.descendant(
+              of: find.byType(DAttachment),
+              matching: find.byType(CustomPaint),
+            ),
+          )
+          .where((paint) => paint.foregroundPainter != null),
+      isEmpty,
+    );
+  });
+
   testWidgets(
     'trigger and actions remain independently clickable and focusable',
     (tester) async {

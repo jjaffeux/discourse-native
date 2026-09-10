@@ -238,7 +238,8 @@ void main() {
         final heading = tester.widget<Text>(
           find.byKey(ValueKey('styleguide-section-heading-$index')),
         );
-        final documentedLabels = component.documentOutline
+        final documentedLabels = group
+            .documentOutlineFor(component)
             .map((section) => section.label)
             .toSet();
         final exampleLabels = group.examples
@@ -418,7 +419,7 @@ void main() {
   );
 
   testWidgets(
-    'Attachment omits usage, composition, API, and accessibility from its document',
+    'Attachment leads with its overview and omits redundant document sections',
     (tester) async {
       await _pump(tester, size: const Size(1400, 900));
       await tester.enterText(
@@ -437,9 +438,10 @@ void main() {
             return key is ValueKey<String> && key.value.startsWith(prefix);
           });
 
+      final attachment = componentExamples['attachment']!;
       expect(
         keysStartingWith('styleguide-section-heading-').evaluate().length,
-        componentExamples['attachment']!.examples.length,
+        attachment.examples.where((example) => !example.topLevel).length,
       );
       expect(
         tester
@@ -447,7 +449,7 @@ void main() {
               find.byKey(const ValueKey('styleguide-section-0')),
             )
             .label,
-        'Attachment',
+        'Image',
       );
       expect(
         keysStartingWith('styleguide-example-panel'),
@@ -456,9 +458,25 @@ void main() {
       expect(find.text('API Reference'), findsNothing);
       expect(find.text('Accessibility'), findsNothing);
       expect(find.text('Composition'), findsNothing);
+      expect(find.text('Features'), findsNothing);
       expect(find.textContaining('DAttachmentGroup'), findsNothing);
       expect(find.text('Keyboard scrolling'), findsNothing);
-      final attachment = componentExamples['attachment']!;
+      expect(attachment.examples.first.topLevel, isTrue);
+      expect(attachment.examples.first.title, 'Overview');
+      expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('styleguide-example-panel')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey('styleguide-section-heading-0')),
+              )
+              .dy,
+        ),
+      );
+      expect(find.text('sales-dashboard.pdf'), findsWidgets);
+      expect(find.text('message-renderer.tsx'), findsWidgets);
       expect(find.text(attachment.description), findsNothing);
       expect(find.text(attachment.notes), findsNothing);
       expect(find.text(attachment.examples.first.description), findsNothing);

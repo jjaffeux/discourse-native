@@ -421,6 +421,10 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     final group = componentExamples[_selected.id];
     final examples = group?.examples ?? const <StyleguideExample>[];
     final sections = _documentSections;
+    final topLevelExamples = [
+      for (var index = 0; index < examples.length; index++)
+        if (examples[index].topLevel) index,
+    ];
     final index = _entries.indexOf(_selected);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -477,11 +481,29 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                   if (examples.isNotEmpty) ...[
                     _previewControls(context),
                     for (
+                      var index = 0;
+                      index < topLevelExamples.length;
+                      index++
+                    ) ...[
+                      SizedBox(height: index == 0 ? 40 : 56),
+                      _exampleDocumentation(
+                        context,
+                        hostTheme,
+                        examples[topLevelExamples[index]],
+                        topLevelExamples[index],
+                        showTitle: false,
+                      ),
+                    ],
+                    for (
                       var sectionIndex = 0;
                       sectionIndex < sections.length;
                       sectionIndex++
                     ) ...[
-                      SizedBox(height: sectionIndex == 0 ? 40 : 56),
+                      SizedBox(
+                        height: sectionIndex == 0 && topLevelExamples.isEmpty
+                            ? 40
+                            : 56,
+                      ),
                       _sectionHeading(
                         context,
                         sections[sectionIndex].reference,
@@ -519,10 +541,13 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   }
 
   List<_StyleguideDocumentSection> get _documentSections {
-    final examples =
-        componentExamples[_selected.id]?.examples ??
-        const <StyleguideExample>[];
-    final references = _selected.documentOutline.toList(growable: false);
+    final group = componentExamples[_selected.id];
+    final examples = group?.examples ?? const <StyleguideExample>[];
+    final references =
+        (group == null
+                ? _selected.documentOutline
+                : group.documentOutlineFor(_selected))
+            .toList(growable: false);
     final assignments = _assignExamples(references, examples);
     final assignedExamples = assignments.expand((indexes) => indexes).toSet();
     final sections = <_StyleguideDocumentSection>[];
@@ -543,7 +568,10 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       );
     }
     for (var exampleIndex = 0; exampleIndex < examples.length; exampleIndex++) {
-      if (assignedExamples.contains(exampleIndex)) continue;
+      if (examples[exampleIndex].topLevel ||
+          assignedExamples.contains(exampleIndex)) {
+        continue;
+      }
       final section = _StyleguideDocumentSection(
         reference: ComponentReferenceSection(
           label:
@@ -576,6 +604,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
 
     for (var exampleIndex = 0; exampleIndex < examples.length; exampleIndex++) {
       final example = examples[exampleIndex];
+      if (example.topLevel) continue;
       var bestSection = -1;
       var bestScore = 0;
       var bestSpecificity = 0;

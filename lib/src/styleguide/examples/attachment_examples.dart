@@ -14,24 +14,34 @@ final attachmentExamples = ComponentExamples(
       'focus and semantic nodes; touch expands controls without enlarging desktop artwork. Groups borrow or own '
       'their scroll/focus resources and support pointer drag, keyboard scrolling, edge fade, and item snapping. '
       'Image examples use the bundled app artwork so the styleguide remains deterministic and offline.',
+  omittedSections: const {'Features'},
   examples: [
     StyleguideExample(
-      title: 'Composition',
-      description: 'The documented icon, content, metadata, and remove action.',
-      code: r'''DAttachment(
-  children: [
-    DAttachmentMedia(child: AttachmentExampleIcon.file()),
-    DAttachmentContent(children: [
-      DAttachmentTitle(child: Text('sales-dashboard.pdf')),
-      DAttachmentDescription(child: Text('PDF · 2.4 MB')),
-    ]),
-    DAttachmentActions(children: [
-      DAttachmentAction(icon: AttachmentExampleIcon.x(), tooltip: 'Remove sales-dashboard.pdf', onPressed: remove),
-    ]),
-  ],
-)''',
-      builder: (context) => const _BasicExample(),
-      states: const ['default', 'hover', 'focus', 'disabled action'],
+      title: 'Overview',
+      description:
+          'A kitchen-sink preview of image, upload-state, file, group, trigger, and action compositions.',
+      code: r'''Column(children: [
+  DAttachmentGroup(children: images.map((image) => DAttachment(
+    orientation: DAttachmentOrientation.vertical,
+    children: [
+      DAttachmentMedia(variant: DAttachmentMediaVariant.image, child: Image.asset(image.asset)),
+      DAttachmentContent(children: [DAttachmentTitle(child: Text(image.name)), DAttachmentDescription(child: Text(image.meta))]),
+      DAttachmentTrigger(semanticLabel: 'Open ${image.name}', isLink: true, onPressed: () => open(image)),
+    ],
+  )).toList()),
+  DAttachment(state: DAttachmentState.uploading, children: [uploadSpinner, uploadContent, cancelAction]),
+  DAttachment(children: [codeMedia, codeContent, removeAction]),
+])''',
+      builder: (context) => const _OverviewExample(),
+      states: const [
+        'image',
+        'vertical',
+        'group',
+        'trigger',
+        'uploading',
+        'action',
+      ],
+      topLevel: true,
     ),
     StyleguideExample(
       title: 'Image',
@@ -119,6 +129,148 @@ final attachmentExamples = ComponentExamples(
     ),
   ],
 );
+
+class _OverviewExample extends StatefulWidget {
+  const _OverviewExample();
+
+  @override
+  State<_OverviewExample> createState() => _OverviewExampleState();
+}
+
+class _OverviewExampleState extends State<_OverviewExample> {
+  static const images = [
+    ('workspace.png', 'PNG · 820 KB', 'ornella.jpg'),
+    ('desk-reference.jpg', 'JPG · 1.1 MB', 'tom.jpg'),
+    ('office-reference.jpg', 'JPG · 940 KB', 'vladimir.jpg'),
+  ];
+
+  var uploadVisible = true;
+  var codeVisible = true;
+  String status = '';
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 384),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DAttachmentGroup(
+          snapExtent: 132,
+          semanticLabel: 'Featured image attachments',
+          children: [
+            for (final image in images)
+              DAttachment(
+                constraints: const BoxConstraints.tightFor(width: 120),
+                orientation: DAttachmentOrientation.vertical,
+                children: [
+                  DAttachmentMedia(
+                    variant: DAttachmentMediaVariant.image,
+                    semanticLabel: 'Preview of ${image.$1}',
+                    child: Image.asset(
+                      'packages/discourse_native/src/styleguide/assets/scroll_area/${image.$3}',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  DAttachmentContent(
+                    children: [
+                      DAttachmentTitle(child: Text(image.$1)),
+                      DAttachmentDescription(child: Text(image.$2)),
+                    ],
+                  ),
+                  DAttachmentTrigger(
+                    semanticLabel: 'Open ${image.$1}',
+                    isLink: true,
+                    onPressed: () =>
+                        setState(() => status = '${image.$1} opened'),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        if (uploadVisible) ...[
+          const SizedBox(height: 16),
+          DAttachment(
+            width: double.infinity,
+            state: DAttachmentState.uploading,
+            liveRegion: true,
+            children: [
+              const DAttachmentMedia(
+                child: DSpinner(size: 16, semanticLabel: null),
+              ),
+              const DAttachmentContent(
+                children: [
+                  DAttachmentTitle(child: Text('sales-dashboard.pdf')),
+                  DAttachmentDescription(child: Text('Uploading · 64%')),
+                ],
+              ),
+              DAttachmentActions(
+                children: [
+                  DAttachmentAction(
+                    icon: const AttachmentExampleIcon('x'),
+                    tooltip: 'Cancel sales-dashboard.pdf upload',
+                    onPressed: () => setState(() {
+                      uploadVisible = false;
+                      status = 'sales-dashboard.pdf upload cancelled';
+                    }),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+        if (codeVisible) ...[
+          const SizedBox(height: 12),
+          DAttachment(
+            width: double.infinity,
+            children: [
+              const DAttachmentMedia(child: AttachmentExampleIcon('code')),
+              const DAttachmentContent(
+                children: [
+                  DAttachmentTitle(child: Text('message-renderer.tsx')),
+                  DAttachmentDescription(child: Text('TypeScript · 12 KB')),
+                ],
+              ),
+              DAttachmentActions(
+                children: [
+                  DAttachmentAction(
+                    icon: const AttachmentExampleIcon('x'),
+                    tooltip: 'Remove message-renderer.tsx',
+                    onPressed: () => setState(() {
+                      codeVisible = false;
+                      status = 'message-renderer.tsx removed';
+                    }),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+        if (!uploadVisible || !codeVisible) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: DButton(
+              label: const Text('Restore files'),
+              variant: DButtonVariant.outline,
+              size: DButtonSize.small,
+              onPressed: () => setState(() {
+                uploadVisible = true;
+                codeVisible = true;
+                status = 'Files restored';
+              }),
+            ),
+          ),
+        ],
+        if (status.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Semantics(liveRegion: true, child: Text(status)),
+          ),
+      ],
+    ),
+  );
+}
 
 class _BasicExample extends StatefulWidget {
   const _BasicExample({this.arabic = false});

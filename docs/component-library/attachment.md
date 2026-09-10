@@ -39,7 +39,7 @@ The public anatomy is `DAttachment`, `DAttachmentMedia`, `DAttachmentContent`, `
 
 ## Styleguide and native fixture
 
-`attachment_examples.dart` provides the documented composition, image/vertical group, all five states, all three sizes, mixed scroll group, dialog trigger with independent actions, and RTL/large-text/narrow cases. Examples use public components and local state only. The bundled Discourse image keeps image examples deterministic and offline.
+`attachment_examples.dart` opens with a top-level kitchen-sink preview matching the reference's image group, uploading file, and completed code-file composition. The redundant Composition and Features headings are omitted; focused sections continue with image/vertical group, all five states, all three sizes, mixed scroll group, dialog trigger with independent actions, and RTL/large-text/narrow cases. Examples use public components and local state only, with bundled artwork keeping them deterministic and offline.
 
 `attachment_review_main.dart` mounts both the component examples and real `ComposerUploadQueue`/`ChatUploads` production widgets with local-only data and callbacks. Its toolbar exposes light/dark, a custom purple host palette with a 14px radius, LTR/RTL, 100%/200% text, standard/reduced motion, and wide/420px narrow review conditions.
 
