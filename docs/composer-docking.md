@@ -93,6 +93,11 @@ and a bottom resize inset that blends into the composer background.
 The placement-only popup follow-up passed 160 focused composer, draft,
 topic-action, and mobile-layout tests. Root and full-profile static analysis,
 the root macOS review-fixture build, and the full-profile macOS build passed.
+Integration with main `0f62ac01` passed 121 docking, viewport, navigation, and
+sidebar tests, plus root analysis and the macOS fixture build. Native macOS
+inspection verified the popup contains only the three placement icons, the
+selected state, switching from bottom to right, and Escape dismissal. Header
+close and minimize controls remain available. The isolated review app was closed.
 
 Linux builds and live Linux/physical mobile checks were not run on this macOS
 host. Widget tests with platform overrides are not device verification. The
