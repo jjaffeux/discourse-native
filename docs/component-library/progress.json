@@ -4873,7 +4873,7 @@
           "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
           "branch": "codex/sidebar-row-gap",
           "mainBaseline": "fdfd4ff77ebfe745ccd0b6445be90c4c85fc3d5e",
-          "status": "accepted",
+          "status": "merged",
           "dependencies": [
             "sidebar"
           ],
@@ -4882,7 +4882,7 @@
             "Preserve button height, lazy row identity, text scaling and independent row actions.",
             "Verify selected and hovered adjacent rows, focused navigation regressions and the native fixture before the local main merge."
           ],
-          "reviewStatus": "accepted",
+          "reviewStatus": "merged",
           "implementationCommit": "210ad401f996ad7cd8eb77f0543fc15d428d5579",
           "nativeInspectionStatus": "completed",
           "evidence": "docs/component-library/sidebar-main-migration.md#row-gap-follow-up--2026-09-10",
@@ -4899,7 +4899,10 @@
             "No physical iOS/Linux or spoken screen reader verification."
           ],
           "integrationBranch": "codex/sidebar-row-gap-integration",
-          "integratedMain": "7453cfcc061117e3e5ef3ee5db0edcdcb5f87f2a"
+          "integratedMain": "7453cfcc061117e3e5ef3ee5db0edcdcb5f87f2a",
+          "candidateCommit": "f5a1415408b805cb968c9f7c31b219460716eb67",
+          "mergeCommit": "a549d39ab90beaeaca12e6790c6ff9e11e215236",
+          "mergedAt": "2026-09-10T16:26:45.638265+00:00"
         }
       }
     },
