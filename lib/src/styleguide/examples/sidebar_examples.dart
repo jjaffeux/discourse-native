@@ -9,7 +9,7 @@ final sidebarExamples = ComponentExamples(
       'Composable navigation with collapsible panels, groups, and menus.',
   status: ComponentStatus.implemented,
   notes:
-      'Sidebar ports base-nova geometry and native focus/navigation. Its mobile panel, search, group disclosure, workspace/account menus and account identity compose the accepted Sheet, Input, Collapsible, Dropdown Menu and Avatar owners. Persistence and routing remain with the app.',
+      'Sidebar ports base-nova geometry and native focus/navigation. Content scrolls with hidden scrollbar artwork and drag targets. Its mobile panel, search, group disclosure, workspace/account menus and account identity compose the accepted Sheet, Input, Collapsible, Dropdown Menu and Avatar owners. Persistence and routing remain with the app.',
   examples: [
     StyleguideExample(
       title: 'Application sidebar',
