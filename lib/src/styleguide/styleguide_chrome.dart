@@ -50,6 +50,7 @@ ThemeData styleguideDocumentationTheme(ThemeData host, Brightness brightness) {
         hover: muted,
         selected: muted,
         selectedForeground: foreground,
+        successColor: host.extension<DTokens>()?.success ?? colors.tertiary,
         radius: 10,
       ),
     ],

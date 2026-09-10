@@ -160,6 +160,14 @@ class _ReviewState extends State<_Review> {
                               .builder,
                         ),
                         const SizedBox(height: 24),
+                        const Text('Core-compatible online ring'),
+                        const SizedBox(height: 8),
+                        Builder(
+                          builder: avatarExamples.examples
+                              .firstWhere((example) => example.title == 'Ring')
+                              .builder,
+                        ),
+                        const SizedBox(height: 24),
                         const Text('Final Direction dropdown composition'),
                         const SizedBox(height: 8),
                         Builder(
