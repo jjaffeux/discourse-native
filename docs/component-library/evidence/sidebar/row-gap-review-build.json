@@ -1,0 +1,33 @@
+{
+  "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+  "sourceCommit": "210ad401f996ad7cd8eb77f0543fc15d428d5579",
+  "entrypoint": "tool/sidebar_review_main.dart",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/dce5/discourse-native/build/macos/Build/Products/Debug/Sidebar Review dce5.app",
+  "bundleIdentifier": "org.discourse.sidebarreviewdce5.dev",
+  "buildLog": "/tmp/sidebar-row-gap-native-build.log",
+  "runnerRestored": true,
+  "deepStrictSignatureVerified": true,
+  "actualLaunchVerified": true,
+  "entitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "sourceSha256": {
+    "lib/src/shell/instance_sidebar.dart": "e64bb4ba394bf826106f095f0aba4f096adbfb9970d446258f70afbd8bc3a1ed",
+    "lib/src/ui/components/d_sidebar.dart": "8c9a38739fb0817151c0c079ed3a864e2a31a17d64911004d5aa163cc14ff9aa",
+    "tool/sidebar_review_main.dart": "3f300e644314618f1245b79a7e9433f75c8b76251b7c7e0425b89662d0da71d5"
+  },
+  "kernelSha256": "990debe953b7f423aa50243a6f31710d6422c17845fe4c1a98ba0e525ebe5a56",
+  "checks": [
+    "Native macOS production fixture at 208px, light/dark 100%: Topics selected beside Messages hovered, with a visible narrow background gap.",
+    "Dark desktop at 200%: adjacent selected/hovered rows keep their separation while labels grow.",
+    "Dark 390px iOS-target fixture at 100%: Back exposes the navigation panel with normal row layout and separate section actions."
+  ],
+  "limitations": [
+    "No physical iOS/Linux or spoken screen reader verification.",
+    "The offline fixture has no personal-message inbox response; opening Messages displayed its error state. Hover inspection returned to Topics."
+  ],
+  "cleanup": "Owned app quit and absence verified through CUA; desktop lease released."
+}
