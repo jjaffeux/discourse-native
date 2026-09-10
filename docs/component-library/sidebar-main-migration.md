@@ -328,3 +328,32 @@ feedback while the section stays collapsed. Full labels remain in native AX.
 records source, kernel and cleanup. No physical iOS/Linux or spoken screen
 reader verification was performed. The local merge is recorded in
 `allHeaderTooltipsFollowUp` under the existing Sidebar progress row.
+
+## Row gap follow-up — 2026-09-10
+
+The user requested a 1px separation between selected and hovered sidebar rows.
+The app now composes its existing Native menu buttons with one logical pixel
+of bottom padding on each top-level destination and section header. Fixed
+lazy row extents include that extra pixel, retaining the 32px desktop and 48px
+touch buttons. Stable row keys sit on the padded lazy children, and scaled
+rows continue to size from their content. The submenu's existing 4px gap and
+the public component library are unchanged.
+
+The existing hover check now uses an authenticated macOS-target fixture with
+Topics selected and Messages hovered. It measures a 1px gap and verifies that
+moving the pointer into the gap clears the hover background. Existing custom
+section and 200% header geometry checks include the gap. One stale rail
+assertion was aligned with the Native avatar adoption already on main.
+All 252 focused Chat/shell/width/section-store tests pass with seed 9102026
+(`/tmp/sidebar-row-gap-final-tests.log`), along with fatal-info root analysis
+(`/tmp/sidebar-row-gap-final-analysis.log`), formatting and diff checks.
+
+Native macOS inspection covered Topics selected beside Messages hovered at
+208px in light/dark at 100% and dark at 200%. Their backgrounds remain
+separate. The dark 390px iOS-target fixture also retained its normal navigation
+layout and separate section actions after returning through Back.
+[Build evidence](evidence/sidebar/row-gap-review-build.json) records the exact
+source, kernel and cleanup. The fixture's unconfigured personal-message inbox
+showed an error when opened; hover inspection returned to Topics. No physical
+iOS/Linux or spoken screen reader verification was performed. The local
+merge is recorded under `rowGapFollowUp` in the existing Sidebar progress row.

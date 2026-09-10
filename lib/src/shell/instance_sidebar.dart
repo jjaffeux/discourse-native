@@ -128,6 +128,7 @@ final class _SidebarPanelSnapshot {
 
 const String _newTopicDestinationId = 'new-topic';
 const String _moreDestinationId = 'sidebar-more-destinations';
+const double _sidebarRowGap = 1;
 
 const SidebarDestination _newTopicDestination = SidebarDestination(
   id: _newTopicDestinationId,
@@ -877,13 +878,12 @@ class _SectionState extends State<_Section> {
         final destination = run[index];
         if (destination.id == _moreDestinationId) {
           return _MoreDestinationsTile(
-            key: ValueKey(destination.id),
             destinations: more,
             onSelect: widget.onSelect,
           );
         }
         return _DestinationTile(
-          key: ValueKey(destination.id),
+          key: submenu ? ValueKey(destination.id) : null,
           destination: destination,
           selected: destination.id == widget.selectedId,
           loading: destination.id == widget.loadingDestinationId,
@@ -910,8 +910,12 @@ class _SectionState extends State<_Section> {
             )
           : DSidebarMenu.sliverBuilder(
               itemCount: run.length,
-              itemBuilder: rowBuilder,
-              itemExtent: extent,
+              itemBuilder: (context, index) => Padding(
+                key: ValueKey(run[index].id),
+                padding: const EdgeInsets.only(bottom: _sidebarRowGap),
+                child: rowBuilder(context, index),
+              ),
+              itemExtent: extent == null ? null : extent + _sidebarRowGap,
               findChildIndexCallback: findIndex,
             );
       menus.add(
@@ -930,10 +934,13 @@ class _SectionState extends State<_Section> {
       slivers: [
         if (section.showHeader)
           SliverToBoxAdapter(
-            child: _SectionHeader(
-              section: section,
-              collapsed: _collapsed,
-              onPressed: () => _setOpen(_collapsed),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: _sidebarRowGap),
+              child: _SectionHeader(
+                section: section,
+                collapsed: _collapsed,
+                onPressed: () => _setOpen(_collapsed),
+              ),
             ),
           ),
         if (section.collapsible)
@@ -957,7 +964,6 @@ class _SectionState extends State<_Section> {
 
 class _MoreDestinationsTile extends StatelessWidget {
   const _MoreDestinationsTile({
-    super.key,
     required this.destinations,
     required this.onSelect,
   });

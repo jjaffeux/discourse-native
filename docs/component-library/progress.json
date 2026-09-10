@@ -4868,6 +4868,38 @@
           "candidateCommit": "1dadca57f7a904e60cda56e00c9e5476bfc5186a",
           "mergeCommit": "8cef881227bd16d0b2dec6cc27e261b2732f53d9",
           "mergedAt": "2026-09-10T16:01:43.921725+00:00"
+        },
+        "rowGapFollowUp": {
+          "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+          "branch": "codex/sidebar-row-gap",
+          "mainBaseline": "fdfd4ff77ebfe745ccd0b6445be90c4c85fc3d5e",
+          "status": "accepted",
+          "dependencies": [
+            "sidebar"
+          ],
+          "acceptance": [
+            "Separate adjacent top-level sidebar row backgrounds by one logical pixel using existing Native menu composition.",
+            "Preserve button height, lazy row identity, text scaling and independent row actions.",
+            "Verify selected and hovered adjacent rows, focused navigation regressions and the native fixture before the local main merge."
+          ],
+          "reviewStatus": "accepted",
+          "implementationCommit": "210ad401f996ad7cd8eb77f0543fc15d428d5579",
+          "nativeInspectionStatus": "completed",
+          "evidence": "docs/component-library/sidebar-main-migration.md#row-gap-follow-up--2026-09-10",
+          "buildEvidence": "docs/component-library/evidence/sidebar/row-gap-review-build.json",
+          "verification": [
+            "All 252 focused Chat/shell/width/section-store tests pass, seed 9102026; /tmp/sidebar-row-gap-final-tests.log.",
+            "Root dart analyze --fatal-infos and touched-file formatting pass; /tmp/sidebar-row-gap-final-analysis.log.",
+            "Existing hover test verifies selected Topics beside hovered Messages, exact 1px separation and no hover while the pointer is in the gap.",
+            "Native macOS fixture inspected at 208px light/dark 100%, dark 200%, and dark 390px with an iOS target. Inspected source/kernel and cleanup recorded.",
+            "Aligned the stale rail avatar assertion with the already-merged Native avatar adoption. Other progress owners and original Sidebar history preserved.",
+            "Integrated current main composer border changes without overlap; all inspected Sidebar/fixture source hashes remain identical."
+          ],
+          "limitations": [
+            "No physical iOS/Linux or spoken screen reader verification."
+          ],
+          "integrationBranch": "codex/sidebar-row-gap-integration",
+          "integratedMain": "7453cfcc061117e3e5ef3ee5db0edcdcb5f87f2a"
         }
       }
     },
