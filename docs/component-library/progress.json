@@ -4739,7 +4739,24 @@
         "candidateCommit": "453adcbdabc5d2c80c9b8b26ee8c83ece6a42e09",
         "mainBaseline": "b9ff6ebc5eff4c39cb30fc1bf291031efcfe781f",
         "mergeCommit": "cae585a4e5423c082dbae3bb6220c3e79c3e7df1",
-        "mergedAt": "2026-09-10T14:07:35.863394+00:00"
+        "mergedAt": "2026-09-10T14:07:35.863394+00:00",
+        "sectionRowsFollowUp": {
+          "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+          "branch": "codex/sidebar-section-rows",
+          "mainBaseline": "af4cc047410004998b40d141a0caf13d99e2393d",
+          "status": "in_progress",
+          "dependencies": [
+            "sidebar",
+            "collapsible",
+            "separator"
+          ],
+          "acceptance": [
+            "Collapsible section headers use ordinary Native menu rows with original title casing and contiguous spacing.",
+            "Retain one separator after More; remove separators between subsequent sections.",
+            "Keep disclosure persistence, keyboard/expanded semantics and independent section actions.",
+            "Verify focused shell and narrow/scaled tests plus the changed native production fixture."
+          ]
+        }
       }
     },
     {

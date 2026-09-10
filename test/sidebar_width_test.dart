@@ -141,6 +141,7 @@ void main() {
   testWidgets('scaled sidebar section titles reflow around their controls', (
     tester,
   ) async {
+    var actions = 0;
     const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
     final site = instance(
       'meta.discourse.org',
@@ -157,13 +158,13 @@ void main() {
               title: 'Teach Lead Calls',
               destinations: const [],
               actionLabel: 'Add lead call',
-              onAction: () {},
+              onAction: () => actions++,
             ),
             SidebarSection(
-              id: 'utils',
-              title: 'Utils',
+              id: 'one-to-one',
+              title: '1:1',
               destinations: const [],
-              actionLabel: 'Add utility',
+              actionLabel: 'Add 1:1',
               onAction: () {},
             ),
           ],
@@ -174,13 +175,13 @@ void main() {
     await controller.appSettings.setTextScale(AppTextScale.percent200);
     await _pumpShell(tester, controller, const Size(1200, 1200));
 
-    final longTitle = find.text('TEACH LEAD CALLS');
-    final shortTitle = find.text('UTILS');
+    final longTitle = find.text('Teach Lead Calls');
+    final shortTitle = find.text('1:1');
     final longHeader = find
-        .ancestor(of: longTitle, matching: find.byType(DCollapsibleTrigger))
+        .ancestor(of: longTitle, matching: find.byType(DSidebarMenuButton))
         .first;
     final shortHeader = find
-        .ancestor(of: shortTitle, matching: find.byType(DCollapsibleTrigger))
+        .ancestor(of: shortTitle, matching: find.byType(DSidebarMenuButton))
         .first;
     final longTitleRect = tester.getRect(longTitle);
     final shortTitleRect = tester.getRect(shortTitle);
@@ -190,7 +191,7 @@ void main() {
     expect(longHeaderRect.height, greaterThan(shortHeaderRect.height));
     expect(longTitleRect.top, greaterThanOrEqualTo(longHeaderRect.top));
     expect(longTitleRect.bottom, lessThanOrEqualTo(longHeaderRect.bottom));
-    expect(shortHeaderRect.top, greaterThan(longHeaderRect.bottom));
+    expect(shortHeaderRect.top, longHeaderRect.bottom);
     expect(
       longTitleRect.top - longHeaderRect.top,
       closeTo(shortTitleRect.top - shortHeaderRect.top, 0.25),
@@ -213,6 +214,16 @@ void main() {
       chevronRect.center.dy,
       inInclusiveRange(longHeaderRect.top, longHeaderRect.bottom),
     );
+
+    await tester.tap(find.byTooltip('Add lead call'));
+    await tester.pumpAndSettle();
+    expect(actions, 1);
+    expect(find.byTooltip('Collapse Teach Lead Calls'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Collapse Teach Lead Calls'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Expand Teach Lead Calls'), findsOneWidget);
+    expect(actions, 1);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('resizes once for every forum and restores after reload', (

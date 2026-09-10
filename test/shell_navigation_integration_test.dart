@@ -1549,7 +1549,7 @@ void _registerShellNavigationTests() {
       authenticator: auth,
     );
 
-    expect(find.text('PROJECTS'), findsOneWidget);
+    expect(find.text('Projects'), findsOneWidget);
     expect(sidebarDestination('Roadmap'), findsOneWidget);
     final moreTile = find
         .ancestor(
@@ -1559,8 +1559,8 @@ void _registerShellNavigationTests() {
         .first;
     final projectsHeader = find
         .ancestor(
-          of: find.text('PROJECTS'),
-          matching: find.byType(DCollapsibleTrigger),
+          of: find.text('Projects'),
+          matching: find.byType(DSidebarMenuButton),
         )
         .first;
     expect(
@@ -1575,16 +1575,36 @@ void _registerShellNavigationTests() {
         .first;
     final categoriesHeader = find
         .ancestor(
-          of: find.text('CATEGORIES'),
-          matching: find.byType(DCollapsibleTrigger),
+          of: find.text('Categories'),
+          matching: find.byType(DSidebarMenuButton),
         )
         .first;
     expect(
       tester.getRect(categoriesHeader).top - tester.getRect(roadmapTile).bottom,
-      closeTo(17, 0.01),
+      closeTo(0, 0.01),
     );
-    expect(tester.getSize(projectsHeader).height, closeTo(32, 0.01));
+    expect(
+      tester.getSize(projectsHeader).height,
+      tester.getSize(moreTile).height,
+    );
     expect(tester.getSize(roadmapTile).height, closeTo(48, 0.01));
+    final separator = find.descendant(
+      of: find.byType(InstanceSidebar),
+      matching: find.byType(DSeparator),
+    );
+    expect(separator, findsOneWidget);
+    expect(tester.getRect(separator).top, tester.getRect(moreTile).bottom + 8);
+    final sectionStyle = DefaultTextStyle.of(
+      tester.element(find.text('Projects')),
+    );
+    final destinationStyle = DefaultTextStyle.of(
+      tester.element(sidebarDestination('Roadmap')),
+    );
+    expect(sectionStyle.style, destinationStyle.style);
+    expect(
+      tester.getRect(find.text('Projects')).left,
+      tester.getRect(sidebarDestination('Roadmap')).left,
+    );
     final count = DefaultTextStyle.of(
       tester.element(
         find.descendant(
@@ -1601,7 +1621,6 @@ void _registerShellNavigationTests() {
     expect(count.style.fontSize, DiscourseTypography.xs);
     expect(count.style.fontWeight, FontWeight.w500);
 
-    final sidebarRect = tester.getRect(find.byType(InstanceSidebar));
     final projectsChevron = find.descendant(
       of: find.byTooltip('Collapse Projects'),
       matching: find.byWidgetPredicate(
@@ -1609,15 +1628,15 @@ void _registerShellNavigationTests() {
       ),
     );
     expect(
-      sidebarRect.right - tester.getRect(projectsChevron).center.dx,
-      closeTo(22, 0.01),
+      tester.getRect(projectsChevron).right,
+      lessThan(tester.getRect(find.text('Projects')).left),
     );
 
     await tester.tap(find.byTooltip('Collapse Projects'));
     await tester.pumpAndSettle();
     expect(sidebarDestination('Roadmap'), findsNothing);
 
-    await tester.tap(find.byTooltip('Expand Projects'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(sidebarDestination('Roadmap'), findsOneWidget);
 
@@ -1857,7 +1876,7 @@ void _registerShellNavigationTests() {
       authenticator: auth,
     );
 
-    expect(find.text('CATEGORIES'), findsOneWidget);
+    expect(find.byTooltip('Collapse Categories'), findsOneWidget);
     expect(sidebarDestination('Child'), findsOneWidget);
     expect(sidebarDestination('Parent'), findsNothing);
     expect(sidebarDestination('Not selected'), findsNothing);
@@ -2104,7 +2123,7 @@ void _registerShellNavigationTests() {
 
     expect(api.feedPaths, contains('/latest.json'));
     expect(api.categoryRequests, [site.url]);
-    expect(find.text('CATEGORIES'), findsOneWidget);
+    expect(find.byTooltip('Collapse Categories'), findsOneWidget);
     expect(sidebarDestination('Support'), findsOneWidget);
   });
 
