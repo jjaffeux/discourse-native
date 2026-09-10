@@ -1,8 +1,9 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui' show ImageByteFormat, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -102,6 +103,92 @@ void main() {
       expect(second.left - first.right, 4);
     },
   );
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'keeps the underline visible while scrolling on ${platform.name} at ${scale}x text',
+        (tester) async {
+          final boundaryKey = GlobalKey();
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await mount(
+            tester,
+            RepaintBoundary(
+              key: boundaryKey,
+              child: SizedBox(
+                height: 100,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: DTabs<String>(
+                    initialValue: 'three',
+                    children: [
+                      DTabList<String>(
+                        variant: DTabListVariant.line,
+                        scrollController: scroll,
+                        children: const [
+                          DTabTrigger(value: 'one', child: Text('One')),
+                          DTabTrigger(value: 'two', child: Text('Two')),
+                          DTabTrigger(value: 'three', child: Text('Three')),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            width: 150,
+            scale: scale,
+            platform: platform,
+          );
+          await tester.pumpAndSettle();
+          scroll.jumpTo(scroll.position.maxScrollExtent);
+          await tester.pumpAndSettle();
+          expect(scroll.offset, greaterThan(0));
+
+          final text = find.text('Three');
+          final bounds = tester
+              .getRect(text)
+              .shift(-tester.getTopLeft(find.byKey(boundaryKey)));
+          final foreground = DTokens.of(tester.element(text)).foreground;
+          final visible = await tester.runAsync(() async {
+            final boundary =
+                boundaryKey.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary;
+            final image = await boundary.toImage();
+            try {
+              final bytes = (await image.toByteData(
+                format: ImageByteFormat.rawRgba,
+              ))!;
+              final x = bounds.center.dx.floor();
+              for (
+                var y = bounds.bottom.ceil() + 3;
+                y < bounds.bottom.ceil() + 12;
+                y++
+              ) {
+                final offset = (y * image.width + x) * 4;
+                final pixel = Color.fromARGB(
+                  bytes.getUint8(offset + 3),
+                  bytes.getUint8(offset),
+                  bytes.getUint8(offset + 1),
+                  bytes.getUint8(offset + 2),
+                );
+                if (pixel == foreground) return true;
+              }
+              return false;
+            } finally {
+              image.dispose();
+            }
+          });
+          expect(
+            visible,
+            isTrue,
+            reason: 'The active underline must survive viewport clipping.',
+          );
+        },
+      );
+    }
+  }
 
   testWidgets('uncontrolled pointer and semantics activation switch panels', (
     tester,

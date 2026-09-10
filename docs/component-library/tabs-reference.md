@@ -30,6 +30,7 @@ Disabled, Icons, RTL, and API Reference.
 | Inactive `foreground/60`; hover/active foreground; disabled 50%; light active background; dark input/30 plus input border; active shadow-sm | Live `DTokens` foreground opacity, hover/selection, disabled opacity, background/input semantic mapping and small 1px-y shadow. No cached palette values. |
 | Focus border plus 1px ring and 3px `ring/50` | Outside-only custom-painted 1px focus outline and 3px half-alpha host focus ring, avoiding interior tint. |
 | Line active pseudo-element: horizontal bottom -5px, 2px high; vertical right -4px, 2px wide | A 2px foreground rule paints 4px beyond the trigger. Vertical placement uses logical end, including RTL. |
+| Horizontal overflow with the active line outside the trigger | Horizontal line lists reserve 6 logical pixels below the artwork inside the scrolling viewport. This keeps the rule visible when scrolling clips overflowing children, including enlarged text and touch targets. |
 | Root value/defaultValue/onValueChange, List activateOnFocus/loopFocus, disabled fallback and missing fallback | Local `DTabs`, `DTabs.controlled`, borrowed `DTabController`, `DTabChangeReason`, manual/automatic activation, wrapping/non-wrapping roving focus, and dynamic disabled/missing reconciliation. Controlled values are never rewritten. |
 | Arrow/Home/End navigation with disabled items skipped | Orientation-aware arrows, RTL horizontal direction, Home/End boundaries, Enter/Space manual activation, focus reveal in horizontal overflow. |
 | Panel hidden by default; `keepMounted` opt-in | `DTabPanel` unmounts hidden child state by default. `maintainState` keeps it offstage with ticking and semantics disabled. Focus in a panel hidden by external selection returns to its matching trigger. |
@@ -57,6 +58,10 @@ Disabled, Icons, RTL, and API Reference.
 
 Migrated:
 
+- `lib/src/shell/message_inbox_page.dart`: Personal and group message folders
+  use controlled line tabs. The message page keeps its identity across folder
+  routes, and reading shortcuts defer to focused triggers so selection retains
+  keyboard focus even when a message row is selected.
 - `lib/src/shell/group_page.dart`: core and plugin primary tabs. The adapter
   retains capability filtering and translates selected generic values back to
   `GroupRoute`.
