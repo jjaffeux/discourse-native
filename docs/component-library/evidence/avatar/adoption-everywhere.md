@@ -2,6 +2,7 @@
 
 Verified on 2026-09-10. Implementation: `2e9b862c`. Integration candidate:
 `39f5a684`, based on main `75b95e4d`.
+Merged into main from the main checkout as `eba2dfa2`.
 
 Generic onebox avatars, inline HTML avatars, rail site icons, and the message
 scroller and custom toast examples now compose `DAvatar` through the public
