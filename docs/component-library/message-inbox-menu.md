@@ -2,85 +2,79 @@
 
 `DMessageInboxMenu<T>` is the personal/group inbox selector, exported through
 `package:discourse_native/discourse_ui.dart`. It composes `DButton` and
-`DDropdownMenu` with radio items. `DMessageInboxOption<T>` carries each inbox's
-value, name, explanation, and icon. Selection is controlled, and a null callback
-disables the trigger. The generic component has no shell or network dependency.
+`DCombobox`, with a search input inside the popup. `DMessageInboxOption<T>`
+carries each inbox's value, name, explanation, and icon. Selection is controlled,
+and a null callback disables the trigger. The component has no shell or network
+dependency; its only owned resource is the search text controller.
 
-The button shows the current name and icon with a chevron. Long names truncate
-in the trigger; the tooltip and accessible name retain the full value. Menu
-names and explanations wrap. The preferred width is 336 logical pixels, reduced
-to fit the available viewport. Dropdown Menu owns scrolling, collision handling,
-the selected checkmark and radio semantics, keyboard navigation, dismissal, and
-focus restoration. Touch uses the same dropdown with the kit's touch sizing.
+The button retains the current inbox name, icon, chevron, tooltip, and accessible
+label. Long trigger names truncate while menu names and explanations wrap.
+The popup has a preferred width of 336 logical pixels and the Combobox's 288px
+height cap, reduced further when the viewport requires it. The result list
+scrolls independently beneath the search field.
 
-`MessageInboxTitle` adopts the component in the shared Messages header on desktop
-and compact layouts. Personal, membership order, restored group labels, and
-folder navigation remain intact. The shell still validates group membership and
-keeps each inbox/folder's cached feed. Menu identity follows the controller,
+Opening focuses an empty “Search inboxes…” field. Search matches inbox names
+case-insensitively and ignores surrounding whitespace. The first matching result
+is highlighted; arrows navigate and Enter selects. No matches displays
+“No inboxes found.” without changing the selected inbox. Escape dismisses and
+restores button focus. Every reopening clears the previous search. Icons,
+descriptions, selected semantics, and the selected checkmark remain available.
+The Combobox owns filtering, highlights, keyboard interaction, scrolling,
+collision handling, dismissal, and focus restoration.
+
+`MessageInboxTitle` uses the component in the shared Messages header on desktop
+and compact layouts. Personal, membership order, restored group labels, folder
+navigation, and cached feeds remain intact. Menu identity follows the controller,
 site, account session, and forum tab. Callbacks also reject a changed account,
-site, tab, or route before the next frame. Ordinary inbox selection keeps the
-trigger mounted so keyboard focus returns correctly, including Sent falling
-back to Inbox when a group is selected.
+site, tab, or route before rebuilding. Ordinary inbox selection keeps the trigger
+mounted for keyboard focus restoration, including Sent falling back to Inbox
+when a group is selected.
 
-The UI kit styleguide's **Message inbox menu** application entry has five local
-state examples: Personal and groups, Group inbox, Personal only, Many groups,
-and Disabled. The many-groups example includes long names and a scrolling list.
-The frozen upstream catalogue is unchanged. Other `ChoiceMenuAnchor` consumers
-are outside this migration.
+The **Message inbox menu** application styleguide entry retains five local-state
+examples: Personal and groups, Group inbox, Personal only, Many groups, and
+Disabled. The search and empty-state instructions now describe the combobox.
+The frozen upstream catalogue and shared primitives are unchanged.
 
 ## Verification
 
 Flutter 3.47.2 / Dart 3.13.2:
 
-- `flutter test --no-pub test/d_message_inbox_menu_test.dart
-  test/message_inbox_page_test.dart test/d_button_adoption_test.dart
-  test/styleguide/styleguide_page_test.dart`: all **40 tests passed** after
-  integration with main `7fb2dd29`.
-- Inbox/message cases in `topic_reading_integration_test.dart` and
-  `group_pages_host_test.dart`: all **6 tests passed**, including full-shell
-  group selection, restored navigation, and loading state.
-- Component coverage includes controlled and live selection, checked semantics,
-  disabled controls, keyboard dismissal/focus, and all five examples in light,
-  dark, and Forest palettes at 320px, 200% text, and RTL. End reveals the final
-  option even with scrolling and collision constraints.
-- Messages coverage includes folder/feed caching, Personal without groups,
-  restored group labels, stale account/site/route actions, removal on navigation,
-  keyboard inbox switching, and compose permissions. Layout tests use macOS,
-  iOS, and Linux target-platform overrides; these are not device tests.
+- Component, Messages page, shared Combobox, and Combobox styleguide suites:
+  **62 passed**. Coverage includes controlled selection, query reset, partial and
+  case-insensitive matching, no matches, whitespace, keyboard focus, disabled
+  controls, owner changes, and 320px/200%/RTL examples in light, dark, and Forest.
+- Button-adoption and complete styleguide-page suites: **22 passed**.
+- Inbox/message cases in full-shell topic reading and group pages: **6 passed**.
 - Static analysis and the isolated macOS fixture build passed.
+- Logs: `/tmp/inbox-combobox-focused-tests.log`,
+  `/tmp/inbox-combobox-styleguide-tests.log`,
+  `/tmp/inbox-combobox-shell-tests.log`, and `/tmp/inbox-combobox-analysis.log`.
+
+An initial concurrent Flutter test invocation hit a native-asset signing race
+before tests started. Running it after the other build/test process completed
+passed. Target-platform overrides are not device testing.
 
 ## Native inspection
 
-An isolated macOS fixture mounted the production `MainContent` Messages page
-with local users, groups, and feeds, and opened the real UI kit styleguide.
-The ad-hoc bundle retained sandbox/debug networking and JIT entitlements,
-omitted production identity/push entitlements, passed strict signature
-verification, and launched successfully. The review app was quit afterward.
+An isolated, ad-hoc-signed macOS fixture mounted the production `MainContent`
+Messages page with in-memory users, groups, and feeds, and opened the real UI kit
+styleguide. Strict signature verification, entitlement readback, and launch
+succeeded. Production identity/push entitlements were omitted; the real app's
+provisioning and account data were unchanged. The review app was quit afterward.
 
-CUA inspection verified the dark 640px header and dropdown, switching to
-dev-managers, updated feed content and group icon, radio semantics, Space
-reopening after selection, and Escape dismissal. Light and Forest previews
-used a bounded 320px nested Navigator, 200% text, and RTL. Text wrapped within
-the viewport, the trigger truncated without overflow, and End revealed the
-final trust-and-safety row and its complete description. Enter selected that
-inbox and updated the production page.
-
-The styleguide's new page displayed all five examples. The first example
-selected engineers-emea locally; the Many groups example showed a truncated
-long trigger and scrolled to the final option with End. The generic Dropdown
-Menu retains the accepted compact Native row, border, radius, and checkmark
-styling, matching the previous notification-menu migration.
-
-Fixture source and signed bundle are retained under
-`/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/message-inbox-review-vf3w_n3p`.
+In the dark production header, typing “sup” filtered to support, and Enter
+selected it and updated the feed. Space reopened with a fresh query; “xx” showed
+the empty state while support remained selected. Escape restored button focus.
+At 320px with 200% text and RTL in the light palette, mouse scrolling revealed
+the final trust-and-safety row while the search input remained stationary.
+The Forest styleguide preview filtered dev groups and selected dev-leads locally.
+Native AX exposed an independent text field and descriptive result controls.
+CUA clipboard injection timed out; typing was verified with native key events.
 No iOS/Linux device or spoken VoiceOver pass is claimed.
 
-The native-reviewed inbox component, adapter, examples, Dropdown Menu, and
-Popover are unchanged after integration. Main's already accepted DButton change
-only adds the forbidden cursor for disabled buttons. Final logs are
-`/tmp/message-inbox-integration-tests.log`,
-`/tmp/message-inbox-shell-tests.log`, and
-`/tmp/message-inbox-integration-analysis.log`.
+The fixture source and signed bundle are retained under
+`/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/inbox-combobox-review-osemu5e0`.
 
-Merged from the repository's main checkout into local main as
-`a1af6f7a6499cfc06ff40895ec46b23d47fe91b8`. No remote push was performed.
+The original dropdown composition was merged as
+`a1af6f7a6499cfc06ff40895ec46b23d47fe91b8`; this follow-up replaces its popup with
+the searchable Combobox while preserving the public inbox component API.
