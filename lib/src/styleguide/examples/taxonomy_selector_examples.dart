@@ -272,8 +272,7 @@ class _TagExampleState extends State<_TagExample> {
     knownTags: widget.composer ? const [] : _tags,
     search: _search,
     multiple: widget.composer,
-    includeAll: !widget.composer && !widget.removable,
-    clearSelectionLabel: widget.removable ? 'Remove subcategory' : null,
+    includeAll: !widget.composer,
     placeholder: widget.composer ? 'Add tags' : 'Tags',
     capabilities: widget.composer
         ? const TopicComposerCapabilities(
