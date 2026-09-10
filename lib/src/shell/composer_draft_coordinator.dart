@@ -223,8 +223,8 @@ final class ComposerDraftCoordinator {
     return task;
   }
 
-  void startRestore(ComposerController composer) {
-    final restore = _restoreDraft(composer);
+  void startRestore(ComposerController composer, {UserDraft? listedDraft}) {
+    final restore = _restoreDraft(composer, listedDraft: listedDraft);
     _restoreTasks[composer] = restore;
     unawaited(restore);
   }
@@ -759,6 +759,7 @@ final class ComposerDraftCoordinator {
   Future<bool> _restoreDraft(
     ComposerController composer, {
     int? startingRevision,
+    UserDraft? listedDraft,
   }) async {
     final target = composer.target;
     final lease = _lifecycle.capture(target.siteUrl);
@@ -771,10 +772,18 @@ final class ComposerDraftCoordinator {
     if (deletion != null) {
       try {
         await deletion;
+        listedDraft = null;
       } catch (_) {}
       if (!isCurrent()) return true;
     }
     final deletedGeneration = _deletedGenerations[key];
+    if (listedDraft != null) {
+      composer.draftSequence = _commitSequence(
+        target,
+        listedDraft.sequence,
+        fallback: composer.draftSequence,
+      );
+    }
 
     // The local copy exists only while the site does not have the text, so if
     // there is one it is the newer of the two by construction.
@@ -838,10 +847,11 @@ final class ComposerDraftCoordinator {
         composer.draftSequence = currentSequence;
       }
       final cached = target.createsTopic ? null : _readCachedDraft(target);
-      final draft = local ?? remote ?? cached;
+      final draft = local ?? remote ?? cached ?? listedDraft?.data;
       if (draft == null) return;
       final session = _sessions[composer];
-      if (session != null && (remote != null || cached != null)) {
+      if (session != null &&
+          (remote != null || cached != null || listedDraft != null)) {
         final key = session._keyFor(target);
         _knownServerDrafts.add(key);
         _draftsCreatedAfterCachedCount.remove(key);

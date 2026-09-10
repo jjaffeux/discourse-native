@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/draft_list.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -32,16 +33,13 @@ import 'package:flutter/material.dart'
         ConstrainedBox,
         FilledButton,
         Focus,
-        FontWeight,
         InkWell,
         MaterialApp,
         MediaQuery,
         Scaffold,
         Scrollable,
         MouseRegion,
-        Row,
         Size,
-        Text,
         TextScaler,
         Theme,
         ValueKey,
@@ -299,7 +297,11 @@ void main() {
       await tester.tap(drafts);
       await tester.pumpAndSettle();
 
-      expect(tester.widget<Text>(drafts).style?.fontWeight, FontWeight.w600);
+      final button = find.ancestor(
+        of: drafts,
+        matching: find.byType(DSidebarMenuButton),
+      );
+      expect(tester.widget<DSidebarMenuButton>(button).isActive, isTrue);
 
       final shell = ShellScope.read(tester.element(find.byType(MaterialApp)));
       shell.pushContent(
@@ -309,12 +311,10 @@ void main() {
 
       expect(shell.destinationId, 'drafts');
       expect(shell.currentContent?.isTopic, isTrue);
-      expect(tester.widget<Text>(drafts).style?.fontWeight, FontWeight.w400);
+      expect(tester.widget<DSidebarMenuButton>(button).isActive, isFalse);
     });
 
-    testWidgets('show the count as plain sidebar trailing text', (
-      tester,
-    ) async {
+    testWidgets('shows the draft count in the sidebar badge', (tester) async {
       await _pump(tester);
 
       final count = find.descendant(
@@ -323,12 +323,10 @@ void main() {
       );
 
       expect(count, findsOneWidget);
-      Object? parent;
-      tester.element(count).visitAncestorElements((element) {
-        parent = element.widget;
-        return false;
-      });
-      expect(parent, isA<Row>());
+      expect(
+        find.ancestor(of: count, matching: find.byType(DSidebarMenuBadge)),
+        findsOneWidget,
+      );
     });
 
     testWidgets('open the account-backed page from the sidebar', (
@@ -860,30 +858,89 @@ void main() {
       expect(shell.draftCountFor(_siteUrl), 0);
     });
 
-    testWidgets('resumes a supported draft in the composer', (tester) async {
-      await _pump(tester);
-      await tester.tap(
-        find.descendant(
-          of: find.byType(InstanceSidebar),
-          matching: find.text('Drafts'),
+    for (final draftKey in [
+      'new_topic',
+      'new_topic_1789070000000',
+      'new_topic_voice_7_1788170000000',
+    ]) {
+      testWidgets('edits, saves and discards the listed $draftKey draft', (
+        tester,
+      ) async {
+        final draft = UserDraft(key: draftKey, sequence: 4, data: _draft.data);
+        final fixture = await _pump(tester, userDrafts: [draft]);
+        await tester.tap(
+          find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.text('Drafts'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Edit draft'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ComposerPanel), findsOneWidget);
+        final shell = ShellScope.read(
+          tester.element(find.byType(ComposerPanel)),
+        );
+        expect(
+          shell.visibleComposer?.title.text,
+          'Native :sparkles: drafts page',
+        );
+        expect(
+          shell.visibleComposer?.text.text,
+          'A draft :smiley: from another device',
+        );
+        expect(shell.visibleComposer?.draftSequence, 4);
+        final composer = shell.visibleComposer!;
+        expect(composer.target.draftKey, draftKey);
+        expect(composer.categoryId, 5);
+        expect(fixture.api.draftsRequested.single.draftKey, draftKey);
+
+        composer.text.text = 'Updated draft from the native app';
+        await tester.pump(ComposerController.draftDebounce);
+        await tester.pumpAndSettle();
+        expect(fixture.api.draftsSaved.single['draftKey'], draftKey);
+        expect(fixture.api.draftsSaved.single['sequence'], 4);
+        expect(
+          fixture.api.draftsSaved.single['data'],
+          contains('Updated draft from the native app'),
+        );
+
+        expect(await shell.discardComposer(composer), isNull);
+        await tester.pumpAndSettle();
+        expect(fixture.api.userDraftsDeleted.single.draftKey, draftKey);
+        expect(fixture.api.userDraftsDeleted.single.sequence, 5);
+        expect(shell.draftCountFor(_siteUrl), 0);
+      });
+    }
+
+    testWidgets('posts a resumed topic using its original draft key', (
+      tester,
+    ) async {
+      const draft = UserDraft(
+        key: 'new_topic_1789070000000',
+        sequence: 4,
+        data: ComposerDraft(
+          reply: 'A complete topic body from another device',
+          action: ComposerDraft.createTopicAction,
+          title: 'Ready to post from the native app',
+          categoryId: 5,
         ),
       );
+      final fixture = await _pump(tester, userDrafts: const [draft]);
+      await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('recent-draft-${draft.key}')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Edit draft'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(ComposerPanel), findsOneWidget);
       final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
-      expect(
-        shell.visibleComposer?.title.text,
-        'Native :sparkles: drafts page',
-      );
-      expect(
-        shell.visibleComposer?.text.text,
-        'A draft :smiley: from another device',
-      );
-      expect(shell.visibleComposer?.draftSequence, 4);
+      await shell.submitComposer();
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.topicsCreated.single['draftKey'], draft.key);
+      expect(fixture.api.topicsCreated.single['raw'], draft.data!.reply);
+      expect(find.byType(ComposerPanel), findsNothing);
     });
 
     testWidgets('removes a draft from the page and server count', (
