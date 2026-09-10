@@ -4841,7 +4841,7 @@
           "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
           "branch": "codex/sidebar-no-header-tooltips",
           "mainBaseline": "62906e34b7c6b67d1bb351b1cbc4f20ce612fe4e",
-          "status": "accepted",
+          "status": "merged",
           "dependencies": [
             "sidebar"
           ],
@@ -4850,7 +4850,7 @@
             "Keep Native disclosure semantics, keyboard activation, collapsed state and independently named action buttons.",
             "Verify affected navigation and the native fixture before merging from the main checkout."
           ],
-          "reviewStatus": "accepted",
+          "reviewStatus": "merged",
           "implementationCommit": "783c4101791796c23fb99f2f94276151a8cc68c6",
           "nativeInspectionStatus": "completed",
           "evidence": "docs/component-library/sidebar-main-migration.md#all-header-tooltips-follow-up--2026-09-10",
@@ -4864,7 +4864,10 @@
           ],
           "limitations": [
             "No physical iOS/Linux or spoken screen reader verification."
-          ]
+          ],
+          "candidateCommit": "1dadca57f7a904e60cda56e00c9e5476bfc5186a",
+          "mergeCommit": "8cef881227bd16d0b2dec6cc27e261b2732f53d9",
+          "mergedAt": "2026-09-10T16:01:43.921725+00:00"
         }
       }
     },
