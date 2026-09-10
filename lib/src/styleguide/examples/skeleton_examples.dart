@@ -4,6 +4,7 @@ import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final skeletonExamples = ComponentExamples(
+  topLevelExampleIndex: 7,
   description: 'Show a placeholder while content is loading.',
   status: ComponentStatus.implemented,
   notes:
@@ -254,6 +255,38 @@ DSkeletonRegion(
             subtitleWidth: 200,
           ),
           content: _ProfileContent(arabic: true),
+        ),
+      ),
+    ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical 48px avatar placeholder and two text lines share one loading region.',
+      states: const ['Avatar', 'Text lines', 'Loading', 'Reduced motion'],
+      code: '''DSkeletonRegion(
+  semanticsLabel: 'Loading profile',
+  child: SizedBox(
+    width: 314,
+    child: Row(children: [
+      DSkeleton.circle(diameter: 48),
+      SizedBox(width: 16),
+      Column(children: [
+        DSkeleton(width: 250, height: 16),
+        SizedBox(height: 8),
+        DSkeleton(width: 200, height: 16),
+      ]),
+    ]),
+  ),
+)''',
+      builder: (_) => const SizedBox(
+        width: 314,
+        child: DSkeletonRegion(
+          semanticsLabel: 'Loading profile',
+          child: _AvatarPlaceholder(
+            diameter: 48,
+            titleWidth: 250,
+            subtitleWidth: 200,
+          ),
         ),
       ),
     ),

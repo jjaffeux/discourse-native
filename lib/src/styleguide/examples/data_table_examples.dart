@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final dataTableExamples = ComponentExamples(
+  topLevelExampleIndex: 1,
   status: ComponentStatus.implemented,
   description:
       'A typed, headless-friendly table with sorting, filtering, visibility, stable selection, row actions, and local or server-controlled state.',

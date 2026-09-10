@@ -152,6 +152,16 @@ void main() {
       expect(examples.notes.trim(), isNotEmpty, reason: id);
       expect(examples.examples, isNotEmpty, reason: id);
       expect(
+        examples.topLevelExampleIndex,
+        inInclusiveRange(0, examples.examples.length - 1),
+        reason: '$id must identify its canonical top-level example',
+      );
+      expect(
+        examples.topLevelExample,
+        same(examples.examples[examples.topLevelExampleIndex]),
+        reason: id,
+      );
+      expect(
         examples.examples.map((example) => example.title).toSet().length,
         examples.examples.length,
         reason: '$id example titles must be unique',
@@ -211,6 +221,24 @@ void main() {
           findsNWidgets(group.examples.length),
           reason: '${component.id} must render every registered example',
         );
+        final topLevelPanel = find.byKey(
+          const ValueKey('styleguide-example-panel'),
+        );
+        expect(topLevelPanel, findsOneWidget, reason: component.id);
+        if (sections.isNotEmpty) {
+          expect(
+            tester.getTopLeft(topLevelPanel).dy,
+            lessThan(
+              tester
+                  .getTopLeft(
+                    find.byKey(const ValueKey('styleguide-section-heading-0')),
+                  )
+                  .dy,
+            ),
+            reason:
+                '${component.id} must show its canonical demo before section headings',
+          );
+        }
         expect(
           find.text(group.description),
           findsNothing,
@@ -281,7 +309,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('styleguide-component-drawer')));
     await tester.pump();
-    expect(find.text('Delivery time'), findsWidgets);
+    expect(find.text('Open Drawer'), findsWidgets);
 
     await tester.enterText(
       find.byKey(const ValueKey('styleguide-search')),

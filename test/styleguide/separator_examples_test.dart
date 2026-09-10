@@ -310,7 +310,7 @@ void main() {
       find.byKey(const ValueKey('styleguide-component-separator')),
     );
     await tester.pump();
-    expect(find.text('Usage'), findsWidgets);
+    expect(find.text('Blog'), findsWidgets);
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('styleguide-preview')),
       200,

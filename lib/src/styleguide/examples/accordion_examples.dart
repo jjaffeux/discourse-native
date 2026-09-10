@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final accordionExamples = ComponentExamples(
+  topLevelExampleIndex: 7,
   status: ComponentStatus.implemented,
   description:
       'A vertically stacked set of interactive headings that reveal content.',
@@ -87,6 +88,30 @@ final accordionExamples = ComponentExamples(
           'External controls reorder/remove items, toggle disabled state and retain a local draft in an open panel.',
       code: _controlledCode,
       builder: (_) => const _Frame(child: _ControlledExample()),
+    ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical shipping, returns, and support questions with Shipping open initially.',
+      states: const ['Single', 'Collapsible', 'Shipping'],
+      code: '''DAccordion<String>(
+  defaultValues: const ['shipping'],
+  children: [
+    for (final item in shippingQuestions)
+      DAccordionItem<String>(
+        value: item.value,
+        child: Column(children: [
+          DAccordionHeader(
+            child: DAccordionTrigger(child: Text(item.question)),
+          ),
+          DAccordionContent(child: Text(item.answer)),
+        ]),
+      ),
+  ],
+)''',
+      builder: (_) => const _Frame(
+        child: _Example(items: _referenceItems, initial: ['shipping']),
+      ),
     ),
   ],
 );
@@ -286,6 +311,24 @@ const _basicItems = [
     'payment',
     'What payment methods do you accept?',
     'We accept major credit cards, PayPal and bank transfers through secure payment partners.',
+  ),
+];
+
+const _referenceItems = [
+  _Entry(
+    'shipping',
+    'What are your shipping options?',
+    'We offer standard (5-7 days), express (2-3 days), and overnight shipping. Free shipping on international orders.',
+  ),
+  _Entry(
+    'returns',
+    'What is your return policy?',
+    'Returns accepted within 30 days. Items must be unused and in original packaging. Refunds processed within 5-7 business days.',
+  ),
+  _Entry(
+    'support',
+    'How can I contact customer support?',
+    'Reach us via email, live chat, or phone. We respond within 24 hours during business days.',
   ),
 ];
 

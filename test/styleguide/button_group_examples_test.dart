@@ -21,6 +21,7 @@ void main() {
       'Select composition',
       'Popover composition',
       'RTL',
+      'Reference demo',
     ]);
     expect(
       buttonGroupExamples.examples.every(

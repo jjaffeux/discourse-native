@@ -142,12 +142,30 @@ class _ReferenceMenuState extends State<_ReferenceMenu> {
                 child: Wrap(
                   children: [
                     for (final item in const [
-                      ('Alert Dialog', 'An important modal response.'),
-                      ('Hover Card', 'Preview content behind a link.'),
-                      ('Progress', 'Show task completion.'),
-                      ('Scroll area', 'Scroll content in a bounded region.'),
-                      ('Tabs', 'Layer related content panels.'),
-                      ('Tooltip', 'Describe a focused or hovered control.'),
+                      (
+                        'Alert Dialog',
+                        'A modal dialog that interrupts the user with important content and expects a response.',
+                      ),
+                      (
+                        'Hover Card',
+                        'For sighted users to preview content available behind a link.',
+                      ),
+                      (
+                        'Progress',
+                        'Displays an indicator showing the completion progress of a task, typically displayed as a progress bar.',
+                      ),
+                      (
+                        'Scroll-area',
+                        'Visually or semantically separates content.',
+                      ),
+                      (
+                        'Tabs',
+                        'A set of layered sections of content—known as tab panels—that are displayed one at a time.',
+                      ),
+                      (
+                        'Tooltip',
+                        'A popup that displays information related to an element when the element receives keyboard focus or the mouse hovers over it.',
+                      ),
                     ])
                       SizedBox(width: 292, child: _link(item.$1, item.$2)),
                   ],

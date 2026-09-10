@@ -19,6 +19,7 @@ void main() {
       'Link component',
       'RTL',
       'Narrow and scrolling',
+      'Reference demo',
     ]);
   });
 

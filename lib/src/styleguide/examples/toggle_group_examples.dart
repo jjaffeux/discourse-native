@@ -22,7 +22,7 @@ final toggleGroupExamples = ComponentExamples(
   items: const [
     DToggleGroupItem.iconOnly(value: 'bold', semanticLabel: 'Toggle bold', icon: ToggleReferenceIcon(ToggleReferenceIcon.bold)),
     DToggleGroupItem.iconOnly(value: 'italic', semanticLabel: 'Toggle italic', icon: ToggleReferenceIcon(ToggleReferenceIcon.italic)),
-    DToggleGroupItem.iconOnly(value: 'underline', semanticLabel: 'Toggle underline', icon: ToggleReferenceIcon(ToggleReferenceIcon.underline)),
+    DToggleGroupItem.iconOnly(value: 'strikethrough', semanticLabel: 'Toggle strikethrough', icon: ToggleReferenceIcon(ToggleReferenceIcon.underline)),
   ],
 )''',
       builder: (_) => const _FormattingGroup(),
@@ -192,8 +192,8 @@ List<DToggleGroupItem<String>> _formattingItems() => const [
     icon: ToggleReferenceIcon(ToggleReferenceIcon.italic),
   ),
   DToggleGroupItem.iconOnly(
-    value: 'underline',
-    semanticLabel: 'Toggle underline',
+    value: 'strikethrough',
+    semanticLabel: 'Toggle strikethrough',
     icon: ToggleReferenceIcon(ToggleReferenceIcon.underline),
   ),
 ];
@@ -208,7 +208,7 @@ class _FormattingGroup extends StatelessWidget {
     multiple: true,
     initialValues: vertical ? const ['bold', 'italic'] : const [],
     orientation: vertical ? Axis.vertical : Axis.horizontal,
-    spacing: vertical ? 1 : 2,
+    spacing: vertical ? 1 : 8,
     enabled: enabled,
     variant: vertical ? DToggleVariant.standard : DToggleVariant.outline,
     semanticLabel: 'Text formatting',

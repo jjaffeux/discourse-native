@@ -5,6 +5,7 @@ import '../styleguide_example.dart';
 import 'radio_group_example_sources.dart';
 
 final radioGroupExamples = ComponentExamples(
+  topLevelExampleIndex: 1,
   status: ComponentStatus.implemented,
   description: 'Select one option from a group of choices.',
   notes:

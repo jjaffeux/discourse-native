@@ -28,11 +28,19 @@ final inputGroupExamples = ComponentExamples(
       code: '''DInputGroup(children: [
   DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
   DInputGroupAddon(child: Icon(Icons.search)),
+  DInputGroupAddon(
+    alignment: DInputGroupAddonAlignment.inlineEnd,
+    child: DInputGroupText(Text('12 results')),
+  ),
 ])''',
       builder: (_) => DInputGroup(
         children: [
           DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
           const DInputGroupAddon(child: Icon(Icons.search)),
+          const DInputGroupAddon(
+            alignment: DInputGroupAddonAlignment.inlineEnd,
+            child: DInputGroupText(Text('12 results')),
+          ),
         ],
       ),
     ),

@@ -33,6 +33,7 @@ final _series = [
 const _legend = [DChartItem(key: 'desktop'), DChartItem(key: 'mobile')];
 
 final chartExamples = ComponentExamples(
+  topLevelExampleIndex: 5,
   status: ComponentStatus.implemented,
   description:
       'Compose themed charts with reusable labels, tooltips and legends.',

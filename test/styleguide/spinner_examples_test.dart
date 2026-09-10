@@ -364,7 +364,7 @@ void main() {
       find.descendant(of: preview, matching: find.byType(DItem)),
       findsOneWidget,
     );
-    expect(find.text('Processing payment'), findsWidgets);
+    expect(find.text('Processing payment...'), findsWidgets);
   });
 }
 

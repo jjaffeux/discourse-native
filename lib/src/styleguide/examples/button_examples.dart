@@ -6,6 +6,7 @@ import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
 
 final buttonExamples = ComponentExamples(
+  topLevelExampleIndex: 9,
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
@@ -133,8 +134,55 @@ final buttonExamples = ComponentExamples(
           "DButton(label: const Text('Approve'), variant: DButtonVariant.success, onPressed: approve)",
       builder: (_) => const _ButtonVariants(compatibility: true),
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical shadcn demo pairs an outline text button with its square icon action.',
+      states: const ['Outline', 'Icon', 'Keyboard', 'Touch'],
+      code: '''Wrap(
+  spacing: DSpacing.sm,
+  children: [
+    DButton(
+      label: const Text('Button'),
+      variant: DButtonVariant.outline,
+      onPressed: activate,
+    ),
+    DButton.iconOnly(
+      icon: const ButtonReferenceIcon(ButtonReferenceIcon.arrowUp),
+      tooltip: 'Submit',
+      variant: DButtonVariant.outline,
+      onPressed: submit,
+    ),
+  ],
+)''',
+      builder: (_) => const _ButtonDemo(),
+    ),
   ],
 );
+
+class _ButtonDemo extends StatelessWidget {
+  const _ButtonDemo();
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: DSpacing.sm,
+    runSpacing: DSpacing.sm,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      DButton(
+        label: const Text('Button'),
+        variant: DButtonVariant.outline,
+        onPressed: () => _buttonFeedback(context),
+      ),
+      DButton.iconOnly(
+        icon: const ButtonReferenceIcon(ButtonReferenceIcon.arrowUp),
+        tooltip: 'Submit',
+        variant: DButtonVariant.outline,
+        onPressed: () => _buttonFeedback(context),
+      ),
+    ],
+  );
+}
 
 class _ButtonVariants extends StatefulWidget {
   const _ButtonVariants({this.compatibility = false});

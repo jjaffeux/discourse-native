@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final popoverExamples = ComponentExamples(
+  topLevelExampleIndex: 6,
   description: 'Displays rich content in a portal, triggered by a button.',
   status: ComponentStatus.implemented,
   notes:
@@ -145,8 +146,110 @@ final popoverExamples = ComponentExamples(
 )''',
       builder: (_) => const _MovingAnchorPopover(),
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical Dimensions popover with four labelled, editable values.',
+      states: const ['Form', 'Labels', 'Editable values', 'Focus restoration'],
+      code: '''DPopover(
+  content: DPopoverContent(
+    width: 320,
+    child: Column(children: [
+      DPopoverHeader(children: [
+        DPopoverTitle(child: Text('Dimensions')),
+        DPopoverDescription(
+          child: Text('Set the dimensions for the layer.'),
+        ),
+      ]),
+      dimensionField('Width', '100%'),
+      dimensionField('Max. width', '300px'),
+      dimensionField('Height', '25px'),
+      dimensionField('Max. height', 'none'),
+    ]),
+  ),
+  child: DPopoverTrigger(builder: buildOutlineTrigger),
+)''',
+      builder: (_) => const _ReferencePopover(),
+    ),
   ],
 );
+
+class _ReferencePopover extends StatefulWidget {
+  const _ReferencePopover();
+
+  @override
+  State<_ReferencePopover> createState() => _ReferencePopoverState();
+}
+
+class _ReferencePopoverState extends State<_ReferencePopover> {
+  final _focusNodes = List.generate(
+    4,
+    (index) => FocusNode(debugLabel: 'Dimension field $index'),
+  );
+  late final _controllers = [
+    TextEditingController(text: '100%'),
+    TextEditingController(text: '300px'),
+    TextEditingController(text: '25px'),
+    TextEditingController(text: 'none'),
+  ];
+
+  @override
+  void dispose() {
+    for (final focusNode in _focusNodes) {
+      focusNode.dispose();
+    }
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Widget _field(int index, String label) => Row(
+    children: [
+      SizedBox(
+        width: 88,
+        child: DFieldLabel(focusNode: _focusNodes[index], child: Text(label)),
+      ),
+      const SizedBox(width: DSpacing.lg),
+      Expanded(
+        child: DFieldControl(
+          label: label,
+          child: DInput(
+            controller: _controllers[index],
+            focusNode: _focusNodes[index],
+          ),
+        ),
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) => DPopover(
+    content: DPopoverContent(
+      width: 320,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: DSpacing.md,
+        children: [
+          const DPopoverHeader(
+            children: [
+              DPopoverTitle(child: Text('Dimensions')),
+              DPopoverDescription(
+                child: Text('Set the dimensions for the layer.'),
+              ),
+            ],
+          ),
+          _field(0, 'Width'),
+          _field(1, 'Max. width'),
+          _field(2, 'Height'),
+          _field(3, 'Max. height'),
+        ],
+      ),
+    ),
+    child: const DPopoverTrigger(builder: _triggerButton),
+  );
+}
 
 class _BasicPopover extends StatelessWidget {
   const _BasicPopover();

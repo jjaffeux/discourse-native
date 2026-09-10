@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../styleguide_example.dart';
 
 final attachmentExamples = ComponentExamples(
+  topLevelExampleIndex: 7,
   status: ComponentStatus.implemented,
   description:
       'File and image attachments with metadata, lifecycle states, actions, and full-card triggers.',
@@ -117,8 +118,152 @@ final attachmentExamples = ComponentExamples(
       ),
       states: const ['RTL', '200% text', 'narrow', 'truncation'],
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical image group, uploading document, and source-file attachment.',
+      states: const ['Image group', 'Uploading', 'File', 'Actions'],
+      code: r'''Column(spacing: 12, children: [
+  DAttachmentGroup(children: imageAttachments),
+  DAttachment(
+    state: DAttachmentState.uploading,
+    width: double.infinity,
+    children: [
+      DAttachmentMedia(child: DSpinner()),
+      DAttachmentContent(children: [
+        DAttachmentTitle(child: Text('sales-dashboard.pdf')),
+        DAttachmentDescription(child: Text('Uploading · 64%')),
+      ]),
+      DAttachmentActions(children: [
+        DAttachmentAction(
+          tooltip: 'Cancel upload',
+          icon: AttachmentExampleIcon('x'),
+          onPressed: cancelUpload,
+        ),
+      ]),
+    ],
+  ),
+  DAttachment(
+    width: double.infinity,
+    children: [
+      DAttachmentMedia(child: AttachmentExampleIcon('code')),
+      DAttachmentContent(children: [
+        DAttachmentTitle(child: Text('message-renderer.tsx')),
+        DAttachmentDescription(child: Text('TypeScript · 12 KB')),
+      ]),
+      DAttachmentActions(children: [
+        DAttachmentAction(
+          tooltip: 'Remove message-renderer.tsx',
+          icon: AttachmentExampleIcon('x'),
+          onPressed: removeFile,
+        ),
+      ]),
+    ],
+  ),
+])''',
+      builder: (_) => const _AttachmentReferenceDemo(),
+    ),
   ],
 );
+
+class _AttachmentReferenceDemo extends StatefulWidget {
+  const _AttachmentReferenceDemo();
+
+  @override
+  State<_AttachmentReferenceDemo> createState() =>
+      _AttachmentReferenceDemoState();
+}
+
+class _AttachmentReferenceDemoState extends State<_AttachmentReferenceDemo> {
+  bool _showUpload = true;
+  bool _showSource = true;
+
+  static const _images = [
+    ('workspace.png', 'PNG · 820 KB'),
+    ('desk-reference.jpg', 'JPG · 1.1 MB'),
+    ('office-reference.jpg', 'JPG · 940 KB'),
+  ];
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 384),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      spacing: 12,
+      children: [
+        DAttachmentGroup(
+          children: [
+            for (final image in _images)
+              DAttachment(
+                orientation: DAttachmentOrientation.vertical,
+                children: [
+                  DAttachmentMedia(
+                    variant: DAttachmentMediaVariant.image,
+                    semanticLabel: image.$1,
+                    child: Image.asset(
+                      'packages/discourse_native/src/styleguide/assets/discourse.png',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  DAttachmentContent(
+                    children: [
+                      DAttachmentTitle(child: Text(image.$1)),
+                      DAttachmentDescription(child: Text(image.$2)),
+                    ],
+                  ),
+                ],
+              ),
+          ],
+        ),
+        if (_showUpload)
+          DAttachment(
+            state: DAttachmentState.uploading,
+            width: double.infinity,
+            children: [
+              const DAttachmentMedia(child: DSpinner()),
+              const DAttachmentContent(
+                children: [
+                  DAttachmentTitle(child: Text('sales-dashboard.pdf')),
+                  DAttachmentDescription(child: Text('Uploading · 64%')),
+                ],
+              ),
+              DAttachmentActions(
+                children: [
+                  DAttachmentAction(
+                    icon: const AttachmentExampleIcon('x'),
+                    tooltip: 'Cancel upload',
+                    onPressed: () => setState(() => _showUpload = false),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        if (_showSource)
+          DAttachment(
+            width: double.infinity,
+            children: [
+              const DAttachmentMedia(child: AttachmentExampleIcon('code')),
+              const DAttachmentContent(
+                children: [
+                  DAttachmentTitle(child: Text('message-renderer.tsx')),
+                  DAttachmentDescription(child: Text('TypeScript · 12 KB')),
+                ],
+              ),
+              DAttachmentActions(
+                children: [
+                  DAttachmentAction(
+                    icon: const AttachmentExampleIcon('x'),
+                    tooltip: 'Remove message-renderer.tsx',
+                    onPressed: () => setState(() => _showSource = false),
+                  ),
+                ],
+              ),
+            ],
+          ),
+      ],
+    ),
+  );
+}
 
 class _BasicExample extends StatefulWidget {
   const _BasicExample({this.arabic = false});

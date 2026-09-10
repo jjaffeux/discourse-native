@@ -7,9 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Badge catalogue registers all six documented example sections', () {
+  test('Badge catalogue registers all documented examples', () {
     expect(componentExamples['badge'], same(badgeExamples));
-    expect(badgeExamples.examples, hasLength(6));
+    expect(badgeExamples.examples, hasLength(7));
     expect(
       badgeExamples.examples.every((e) => e.code.contains('DBadge')),
       isTrue,

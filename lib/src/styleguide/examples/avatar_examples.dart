@@ -14,6 +14,7 @@ final avatarExampleImage = MemoryImage(
 );
 
 final avatarExamples = ComponentExamples(
+  topLevelExampleIndex: 8,
   description:
       'An image, fallback, and badge for representing a person or group.',
   status: ComponentStatus.implemented,
@@ -342,8 +343,85 @@ DDropdownMenu(
         ),
       ),
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical image, status badge, and overlapping avatar group with a count.',
+      states: const ['Image', 'Fallback', 'Badge', 'Group', 'Count'],
+      code: '''Wrap(spacing: 24, children: [
+  DAvatar(
+    image: DAvatarImage(image: provider),
+    fallback: DAvatarFallback(child: Text('CN')),
+  ),
+  DAvatar(
+    image: DAvatarImage(image: provider),
+    fallback: DAvatarFallback(child: Text('ER')),
+    badge: DAvatarBadge(semanticLabel: 'Online'),
+  ),
+  DAvatarGroup(children: [
+    DAvatar(fallback: DAvatarFallback(child: Text('CN'))),
+    DAvatar(fallback: DAvatarFallback(child: Text('LR'))),
+    DAvatar(fallback: DAvatarFallback(child: Text('ER'))),
+    DAvatarGroupCount(child: Text('+3')),
+  ]),
+])''',
+      builder: (_) => const _AvatarReferenceDemo(),
+    ),
   ],
 );
+
+class _AvatarReferenceDemo extends StatelessWidget {
+  const _AvatarReferenceDemo();
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Wrap(
+      spacing: 24,
+      runSpacing: 24,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        DAvatar(
+          semanticLabel: '@shadcn',
+          image: DAvatarImage(image: avatarExampleImage),
+          fallback: const DAvatarFallback(child: Text('CN')),
+        ),
+        DAvatar(
+          semanticLabel: '@evilrabbit',
+          image: DAvatarImage(image: avatarExampleImage),
+          fallback: const DAvatarFallback(child: Text('ER')),
+          badge: DAvatarBadge(
+            semanticLabel: 'Online',
+            backgroundColor: Color(dark ? 0xff166534 : 0xff16a34a),
+          ),
+        ),
+        DAvatarGroup(
+          children: [
+            DAvatar(
+              semanticLabel: '@shadcn',
+              image: DAvatarImage(image: avatarExampleImage),
+              fallback: const DAvatarFallback(child: Text('CN')),
+            ),
+            DAvatar(
+              semanticLabel: '@maxleiter',
+              image: DAvatarImage(image: avatarExampleImage),
+              fallback: const DAvatarFallback(child: Text('LR')),
+            ),
+            DAvatar(
+              semanticLabel: '@evilrabbit',
+              image: DAvatarImage(image: avatarExampleImage),
+              fallback: const DAvatarFallback(child: Text('ER')),
+            ),
+            const DAvatarGroupCount(
+              semanticLabel: '3 more members',
+              child: Text('+3'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
 
 class _GroupActions extends StatefulWidget {
   const _GroupActions();

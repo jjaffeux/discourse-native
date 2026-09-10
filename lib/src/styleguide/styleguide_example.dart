@@ -35,10 +35,23 @@ class ComponentExamples {
     required this.examples,
     this.description = '',
     this.notes = '',
-  });
+    this.topLevelExampleIndex = 0,
+  }) : assert(examples.length > 0),
+       assert(
+         topLevelExampleIndex >= 0 && topLevelExampleIndex < examples.length,
+       );
 
   final ComponentStatus status;
   final List<StyleguideExample> examples;
+
+  /// The canonical shadcn demo rendered before the documented sections.
+  ///
+  /// Most component files register that demo first. A non-zero index keeps an
+  /// existing section-example order intact when the canonical demo is already
+  /// registered later in the list.
+  final int topLevelExampleIndex;
+
+  StyleguideExample get topLevelExample => examples[topLevelExampleIndex];
 
   /// A short introduction for the documentation page.
   final String description;

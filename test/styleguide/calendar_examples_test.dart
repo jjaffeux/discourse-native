@@ -22,6 +22,7 @@ void main() {
       'Week Numbers',
       'RTL',
       'Timezone boundary',
+      'Reference demo',
     ]);
   });
 

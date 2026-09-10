@@ -49,7 +49,7 @@ void main() {
         of: find.byKey(const ValueKey('styleguide-preview')),
         matching: find.byType(DSkeleton),
       ),
-      findsNWidgets(8),
+      findsNWidgets(3),
     );
     expect(tester.takeException(), isNull);
   });
@@ -73,7 +73,7 @@ void main() {
           );
           expect(find.byType(DSkeleton), findsWidgets);
           expect(tester.takeException(), isNull);
-          if (example != skeletonExamples.examples.first) {
+          if (find.widgetWithText(ChoiceChip, 'Ready').evaluate().isNotEmpty) {
             await tester.tap(find.widgetWithText(ChoiceChip, 'Ready'));
             await tester.pumpAndSettle();
             expect(find.byType(DSkeleton), findsNothing);

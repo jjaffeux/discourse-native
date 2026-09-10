@@ -22,6 +22,7 @@ void main() {
       'Destructive',
       'Sides',
       'RTL',
+      'Reference demo',
     ]);
   });
 

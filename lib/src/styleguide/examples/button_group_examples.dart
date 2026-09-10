@@ -2,8 +2,10 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
+import 'button_reference_icons.dart';
 
 final buttonGroupExamples = ComponentExamples(
+  topLevelExampleIndex: 11,
   description:
       'A joined container for independent actions, fields, and passive text.',
   status: ComponentStatus.implemented,
@@ -238,8 +240,185 @@ DButtonGroup(children: [
         child: _ActionGroup(arabic: true),
       ),
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical responsive nested action groups with a complete More Options menu.',
+      states: const [
+        'Nested groups',
+        'Responsive',
+        'Dropdown',
+        'Radio submenu',
+      ],
+      code: '''DButtonGroup(children: [
+  if (wide)
+    DButtonGroup(children: [
+      DButton.iconOnly(
+        tooltip: 'Go Back',
+        icon: ButtonReferenceIcon(ButtonReferenceIcon.arrowLeft),
+        variant: DButtonVariant.outline,
+        onPressed: goBack,
+      ),
+    ]),
+  DButtonGroup(children: [
+    DButton(label: Text('Archive'), variant: DButtonVariant.outline, onPressed: archive),
+    DButton(label: Text('Report'), variant: DButtonVariant.outline, onPressed: report),
+  ]),
+  DButtonGroup(children: [
+    DButton(label: Text('Snooze'), variant: DButtonVariant.outline, onPressed: snooze),
+    moreOptionsMenu,
+  ]),
+])''',
+      builder: (_) => const _ButtonGroupReferenceDemo(),
+    ),
   ],
 );
+
+class _ButtonGroupReferenceDemo extends StatefulWidget {
+  const _ButtonGroupReferenceDemo();
+
+  @override
+  State<_ButtonGroupReferenceDemo> createState() =>
+      _ButtonGroupReferenceDemoState();
+}
+
+class _ButtonGroupReferenceDemoState extends State<_ButtonGroupReferenceDemo> {
+  String _label = 'personal';
+  String _status = '';
+
+  void _select(String value) => setState(() => _status = value);
+
+  DDropdownMenuItem _item(
+    String label,
+    String icon, {
+    bool destructive = false,
+  }) => DDropdownMenuItem(
+    leading: ButtonReferenceIcon(icon),
+    variant: destructive
+        ? DDropdownMenuItemVariant.destructive
+        : DDropdownMenuItemVariant.standard,
+    onPressed: () => _select(label),
+    child: Text(label),
+  );
+
+  Widget _moreMenu() => DDropdownMenu(
+    content: DDropdownMenuContent(
+      width: 160,
+      align: DPopoverAlign.end,
+      children: [
+        DDropdownMenuGroup(
+          children: [
+            _item('Mark as Read', ButtonReferenceIcon.mailCheck),
+            _item('Archive', ButtonReferenceIcon.archive),
+          ],
+        ),
+        const DDropdownMenuSeparator(),
+        DDropdownMenuGroup(
+          children: [
+            _item('Snooze', ButtonReferenceIcon.clock),
+            _item('Add to Calendar', ButtonReferenceIcon.calendarPlus),
+            _item('Add to List', ButtonReferenceIcon.listFilter),
+            DDropdownMenuSub(
+              leading: const ButtonReferenceIcon(ButtonReferenceIcon.tag),
+              trigger: const Text('Label As...'),
+              children: [
+                DDropdownMenuRadioGroup<String>(
+                  value: _label,
+                  onChanged: (value) => setState(() => _label = value),
+                  children: const [
+                    DDropdownMenuRadioItem(
+                      value: 'personal',
+                      child: Text('Personal'),
+                    ),
+                    DDropdownMenuRadioItem(value: 'work', child: Text('Work')),
+                    DDropdownMenuRadioItem(
+                      value: 'other',
+                      child: Text('Other'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+        const DDropdownMenuSeparator(),
+        DDropdownMenuGroup(
+          children: [
+            _item('Trash', ButtonReferenceIcon.trash2, destructive: true),
+          ],
+        ),
+      ],
+    ),
+    child: DDropdownMenuTrigger(
+      builder: (context, menu) => DButton.iconOnly(
+        icon: const ButtonReferenceIcon(ButtonReferenceIcon.ellipsis),
+        tooltip: 'More Options',
+        variant: DButtonVariant.outline,
+        hasPopup: true,
+        expanded: menu.open,
+        focusNode: menu.focusNode,
+        onPressed: menu.toggle,
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DButtonGroup(
+            children: [
+              if (constraints.maxWidth >= 640)
+                DButtonGroup(
+                  children: [
+                    DButton.iconOnly(
+                      icon: const ButtonReferenceIcon(
+                        ButtonReferenceIcon.arrowLeft,
+                      ),
+                      tooltip: 'Go Back',
+                      variant: DButtonVariant.outline,
+                      onPressed: () => _select('Go Back'),
+                    ),
+                  ],
+                ),
+              DButtonGroup(
+                children: [
+                  DButton(
+                    label: const Text('Archive'),
+                    variant: DButtonVariant.outline,
+                    onPressed: () => _select('Archive'),
+                  ),
+                  DButton(
+                    label: const Text('Report'),
+                    variant: DButtonVariant.outline,
+                    onPressed: () => _select('Report'),
+                  ),
+                ],
+              ),
+              DButtonGroup(
+                children: [
+                  DButton(
+                    label: const Text('Snooze'),
+                    variant: DButtonVariant.outline,
+                    onPressed: () => _select('Snooze'),
+                  ),
+                  _moreMenu(),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (_status.isNotEmpty) ...[
+          const SizedBox(height: DSpacing.md),
+          Semantics(liveRegion: true, child: Text(_status)),
+        ],
+      ],
+    ),
+  );
+}
 
 class _ActionGroup extends StatefulWidget {
   const _ActionGroup({this.arabic = false});
