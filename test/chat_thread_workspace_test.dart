@@ -1,4 +1,4 @@
-import 'dart:ui' show CheckedState, PointerDeviceKind;
+import 'dart:ui' show CheckedState;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
@@ -157,7 +157,14 @@ void main() {
         expect(find.byType(ChatChannelView), findsNothing);
         expect(find.byTooltip('Back'), findsOneWidget);
         expect(find.text(_threadTitle), findsOneWidget);
-        expect(find.byTooltip('Thread notifications'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DButton &&
+                widget.tooltip?.startsWith('Thread notifications:') == true,
+          ),
+          findsOneWidget,
+        );
         expect(find.byTooltip('Close thread'), findsNothing);
         expect(find.bySemanticsLabel('Thread pane width'), findsNothing);
         _expectThreadBodyTargets(tester);
@@ -217,7 +224,14 @@ void main() {
         expect(find.byTooltip('Back'), findsNothing);
         expect(find.text(_channelTitle), findsOneWidget);
         expect(find.text(_threadTitle), findsOneWidget);
-        expect(find.byTooltip('Thread notifications'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DButton &&
+                widget.tooltip?.startsWith('Thread notifications:') == true,
+          ),
+          findsOneWidget,
+        );
         expect(find.byTooltip('Close thread'), findsOneWidget);
         final channelPane = find.byKey(const ValueKey('chat-channel-pane'));
         final threadPane = find.byKey(const ValueKey('chat-thread-pane'));
@@ -422,7 +436,11 @@ void main() {
     try {
       await _pumpWorkspace(tester, fixture.shell, width: 1000);
 
-      final trigger = find.byTooltip('Thread notifications');
+      final trigger = find.byWidgetPredicate(
+        (widget) =>
+            widget is DButton &&
+            widget.tooltip?.startsWith('Thread notifications:') == true,
+      );
       final triggerRect = tester.getRect(trigger);
       DIconData triggerIcon() => tester
           .widget<DIcon>(
@@ -434,21 +452,28 @@ void main() {
       await tester.tap(trigger);
       await tester.pumpAndSettle();
 
-      final surface = find.byKey(const ValueKey('choice-menu-surface'));
+      final surface = find.byType(DDropdownMenuContent);
       expect(surface, findsOneWidget);
       expect(tester.getSize(surface).width, 336);
       expect(
         tester.getTopLeft(surface).dy,
-        inInclusiveRange(triggerRect.bottom + 8, triggerRect.bottom + 12),
+        inInclusiveRange(triggerRect.bottom + 4, triggerRect.bottom + 6),
       );
-      expect(find.text('Thread notifications'), findsOneWidget);
+      expect(
+        tester.widget<DDropdownMenuContent>(surface).semanticLabel,
+        'Thread notifications',
+      );
       expect(find.text('Mentions only'), findsOneWidget);
       expect(find.text('Mentions and unread reply count'), findsOneWidget);
       expect(find.text('Every reply and unread count'), findsOneWidget);
       expect(find.byType(PopupMenuButton), findsNothing);
 
       Finder option(ChatThreadNotificationLevel level) =>
-          find.byKey(ValueKey(('choice-menu-option', level)));
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DDropdownMenuRadioItem<ChatThreadNotificationLevel> &&
+                widget.value == level,
+          );
       List<DIconData> optionIcons(ChatThreadNotificationLevel level) => tester
           .widgetList<DIcon>(
             find.descendant(of: option(level), matching: find.byType(DIcon)),
@@ -469,53 +494,15 @@ void main() {
         contains(DIcons.discourseBellExclamation),
       );
 
-      final normalBackground = find.byKey(
-        const ValueKey((
-          'choice-menu-option-background',
-          ChatThreadNotificationLevel.normal,
-        )),
-      );
-      final trackingBackground = find.byKey(
-        const ValueKey((
-          'choice-menu-option-background',
-          ChatThreadNotificationLevel.tracking,
-        )),
-      );
-      expect(
-        tester.getTopLeft(trackingBackground).dy -
-            tester.getBottomLeft(normalBackground).dy,
-        4,
-      );
-      Color backgroundColor() =>
-          (tester.widget<AnimatedContainer>(normalBackground).decoration!
-                  as BoxDecoration)
-              .color!;
-      expect(backgroundColor(), Colors.transparent);
-
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      addTearDown(mouse.removePointer);
-      await mouse.moveTo(
-        tester.getCenter(option(ChatThreadNotificationLevel.normal)),
-      );
-      await tester.pumpAndSettle();
-
-      expect(backgroundColor(), isNot(Colors.transparent));
-
       final selected = tester.getSemantics(
-        find.byKey(
-          const ValueKey((
-            'choice-menu-option',
-            ChatThreadNotificationLevel.tracking,
-          )),
-        ),
+        option(ChatThreadNotificationLevel.tracking),
       );
       expect(
         selected.getSemanticsData().flagsCollection.isChecked,
         CheckedState.isTrue,
       );
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
 
@@ -533,31 +520,80 @@ void main() {
     }
   });
 
-  testWidgets('thread notification menu respects reduced motion', (
+  testWidgets(
+    'thread notifications can be selected immediately with reduced motion',
+    (tester) async {
+      tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final fixture = await _fixture();
+      addTearDown(fixture.shell.dispose);
+
+      await _pumpWorkspace(tester, fixture.shell, width: 1000);
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DButton &&
+              widget.tooltip?.startsWith('Thread notifications:') == true,
+        ),
+      );
+      await tester.pump();
+
+      final surface = find.byType(DDropdownMenuContent);
+      expect(surface, findsOneWidget);
+      expect(find.text('Watching').hitTestable(), findsOneWidget);
+      await tester.tap(find.text('Watching'));
+      await tester.pump();
+      expect(surface, findsNothing);
+      expect(
+        fixture
+            .api
+            .chatThreadNotificationLevelsUpdated
+            .single
+            .notificationLevel,
+        ChatThreadNotificationLevel.watching,
+      );
+    },
+  );
+
+  testWidgets('legacy muted threads display and can select Normal', (
     tester,
   ) async {
-    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
-    addTearDown(
-      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+    final fixture = await _fixture(
+      thread: _thread.copyWith(
+        membership: _thread.membership!.withNotificationLevel(
+          ChatThreadNotificationLevel.muted,
+        ),
+      ),
     );
+    addTearDown(fixture.shell.dispose);
+    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+    await tester.tap(find.byTooltip('Thread notifications: Normal'));
+    await tester.pumpAndSettle();
+    expect(find.text('Muted'), findsNothing);
+    await tester.tap(find.text('Normal'));
+    await tester.pumpAndSettle();
+    expect(
+      fixture.api.chatThreadNotificationLevelsUpdated.single.notificationLevel,
+      ChatThreadNotificationLevel.normal,
+    );
+  });
+
+  testWidgets('thread selection rejects an expired session before rebuilding', (
+    tester,
+  ) async {
     final fixture = await _fixture();
     addTearDown(fixture.shell.dispose);
-
     await _pumpWorkspace(tester, fixture.shell, width: 1000);
-    await tester.tap(find.byTooltip('Thread notifications'));
-    await tester.pump();
-
-    final surface = find.byKey(const ValueKey('choice-menu-surface'));
-    expect(surface, findsOneWidget);
-    final fade = tester.widget<FadeTransition>(
-      find.ancestor(of: surface, matching: find.byType(FadeTransition)).first,
-    );
-    final scale = tester.widget<ScaleTransition>(
-      find.ancestor(of: surface, matching: find.byType(ScaleTransition)).first,
-    );
-    expect(fade.opacity.value, 1);
-    expect(scale.scale.value, 1);
+    await tester.tap(find.byTooltip('Thread notifications: Tracking'));
+    await tester.pumpAndSettle();
+    fixture.shell.lifecycle.invalidate(_siteUrl);
+    await tester.tap(find.text('Watching'));
+    await tester.pumpAndSettle();
+    expect(fixture.api.chatThreadNotificationLevelsUpdated, isEmpty);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Arrow Up edits the last current-user message in a thread', (
@@ -649,7 +685,7 @@ void main() {
     expect(find.text('Deploy plan'), findsOneWidget);
   });
 
-  testWidgets('thread notification choices use a sheet on touch', (
+  testWidgets('thread notification choices use the Native dropdown on touch', (
     tester,
   ) async {
     final fixture = await _fixture();
@@ -662,18 +698,23 @@ void main() {
       platform: TargetPlatform.iOS,
     );
 
-    await tester.tap(find.byTooltip('Thread notifications'));
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DButton &&
+            widget.tooltip?.startsWith('Thread notifications:') == true,
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('choice-menu-surface')), findsNothing);
-    expect(find.byTooltip('Close'), findsOneWidget);
-    expect(find.text('Thread notifications'), findsOneWidget);
+    expect(find.byType(DDropdownMenuContent), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
     expect(find.text('Mentions and unread reply count'), findsOneWidget);
 
     await tester.tap(find.text('Normal'));
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Close'), findsNothing);
+    expect(find.byType(DDropdownMenuContent), findsNothing);
     expect(
       fixture.api.chatThreadNotificationLevelsUpdated.single.notificationLevel,
       ChatThreadNotificationLevel.normal,
@@ -759,12 +800,13 @@ void _expectThreadBodyTargets(WidgetTester tester) {
 Future<({ShellController shell, _WorkspaceApi api})> _fixture({
   bool terminalThread = false,
   bool editableThread = false,
+  ChatThread? thread,
   ChatMessagePage channelPage = _channelPage,
   ChatMessagePage threadPage = _threadPage,
 }) async {
   final api = _WorkspaceApi(
     terminalThread: terminalThread,
-    thread: editableThread ? _editableThread : _thread,
+    thread: thread ?? (editableThread ? _editableThread : _thread),
     channelPage: channelPage,
     threadPage: threadPage,
   );

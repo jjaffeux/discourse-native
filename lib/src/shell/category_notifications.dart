@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../models/topic.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'choice_menu.dart';
 import 'shell_scope.dart';
 
 class CategoryNotificationLevelButton extends StatelessWidget {
@@ -20,62 +19,40 @@ class CategoryNotificationLevelButton extends StatelessWidget {
   final int categoryId;
 
   static const _options = [
-    ChoiceMenuOption(
+    DNotificationLevelOption(
       value: CategoryNotificationLevel.watching,
-      title: 'Watching',
+      emphasized: true,
+      label: 'Watching',
       description: 'Every new post and unread count',
-      icon: DIcons.discourseBellExclamation,
+      icon: DIcon(DIcons.discourseBellExclamation),
     ),
-    ChoiceMenuOption(
+    DNotificationLevelOption(
       value: CategoryNotificationLevel.tracking,
-      title: 'Tracking',
+      emphasized: true,
+      label: 'Tracking',
       description: 'Mentions, replies, and unread count',
-      icon: DIcons.bell,
+      icon: DIcon(DIcons.bell),
     ),
-    ChoiceMenuOption(
+    DNotificationLevelOption(
       value: CategoryNotificationLevel.watchingFirstPost,
-      title: 'Watching First Post',
+      emphasized: true,
+      label: 'Watching First Post',
       description: 'New topics only',
-      icon: DIcons.discourseBellExclamation,
+      icon: DIcon(DIcons.discourseBellExclamation),
     ),
-    ChoiceMenuOption(
+    DNotificationLevelOption(
       value: CategoryNotificationLevel.normal,
-      title: 'Normal',
+      label: 'Normal',
       description: 'Mentions and replies only',
-      icon: DIcons.farBell,
+      icon: DIcon(DIcons.farBell),
     ),
-    ChoiceMenuOption(
+    DNotificationLevelOption(
       value: CategoryNotificationLevel.muted,
-      title: 'Muted',
+      label: 'Muted',
       description: 'No notifications; hidden from Latest',
-      icon: DIcons.discourseBellSlash,
+      icon: DIcon(DIcons.discourseBellSlash),
     ),
   ];
-
-  static DIconData _iconFor(CategoryNotificationLevel level) => switch (level) {
-    CategoryNotificationLevel.watching => DIcons.discourseBellExclamation,
-    CategoryNotificationLevel.tracking => DIcons.bell,
-    CategoryNotificationLevel.watchingFirstPost =>
-      DIcons.discourseBellExclamation,
-    CategoryNotificationLevel.normal => DIcons.farBell,
-    CategoryNotificationLevel.muted => DIcons.discourseBellSlash,
-  };
-
-  static String _labelFor(CategoryNotificationLevel level) => switch (level) {
-    CategoryNotificationLevel.watching => 'Watching',
-    CategoryNotificationLevel.tracking => 'Tracking',
-    CategoryNotificationLevel.watchingFirstPost => 'Watching First Post',
-    CategoryNotificationLevel.normal => 'Normal',
-    CategoryNotificationLevel.muted => 'Muted',
-  };
-
-  static bool _isEmphasized(CategoryNotificationLevel level) => switch (level) {
-    CategoryNotificationLevel.watching ||
-    CategoryNotificationLevel.tracking ||
-    CategoryNotificationLevel.watchingFirstPost => true,
-    CategoryNotificationLevel.normal ||
-    CategoryNotificationLevel.muted => false,
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -89,13 +66,13 @@ class CategoryNotificationLevelButton extends StatelessWidget {
             if (category == null) return const SizedBox.shrink();
             final level = category.notificationLevel;
             final lease = controller.lifecycle.capture(siteUrl);
-            return ChoiceMenuAnchor<CategoryNotificationLevel>(
+            return DNotificationLevelMenu<CategoryNotificationLevel>(
               key: ValueKey((controller, siteUrl, categoryId, lease.session)),
-              title: 'Category notifications',
-              showPopoverTitle: false,
+              semanticLabel: 'Category notifications',
+              buttonKey: const ValueKey('category-notification-level-button'),
               value: level,
               options: _options,
-              onSelected: (selected) {
+              onChanged: (selected) {
                 // Account replacement can precede the anchor's next rebuild.
                 if (!lease.isCurrent) return;
                 unawaited(
@@ -106,16 +83,6 @@ class CategoryNotificationLevelButton extends StatelessWidget {
                   ),
                 );
               },
-              builder: (context, openMenu) => DButton.iconOnly(
-                key: const ValueKey('category-notification-level-button'),
-                tooltip: 'Category notifications: ${_labelFor(level)}',
-                onPressed: openMenu,
-                icon: DIcon(_iconFor(level), size: 18),
-                variant: _isEmphasized(level)
-                    ? DButtonVariant.transparentPrimary
-                    : DButtonVariant.flat,
-                size: DButtonSize.small,
-              ),
             );
           },
         );
