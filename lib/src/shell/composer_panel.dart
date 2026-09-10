@@ -129,14 +129,8 @@ class ComposerPanel extends StatelessWidget {
                   ? 190
                   : composerHeight),
           clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: theme.shell.content,
-            border: Border.all(
-              color: composer.whisper
-                  ? theme.colorScheme.tertiary
-                  : theme.shell.divider,
-            ),
-          ),
+          // The dock divider owns the boundary with adjacent containers.
+          decoration: BoxDecoration(color: theme.shell.content),
           child: CallbackShortcuts(
             bindings: {
               const SingleActivator(LogicalKeyboardKey.enter, meta: true): () =>
