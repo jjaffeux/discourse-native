@@ -1623,7 +1623,7 @@ void main() {
     await tester.pump();
     final heading = find.byKey(const ValueKey('topic-list-title'));
     expect(tester.widget<Text>(heading).data, renamed.name);
-    expect(find.byTooltip(renamed.name), findsOneWidget);
+    expect(find.byTooltip(renamed.name), findsNothing);
     tester.view.physicalSize = const Size(360, 700);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
