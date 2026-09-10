@@ -16,6 +16,10 @@ scope.
 - Docking occupies the content area and leaves the rail and sidebar available.
   A Native resizable divider replaces free dragging and corner handles. Chat
   uses the remaining reader rectangle; diagnostics resizes the shell.
+  The composer has no outer border; shared dividers provide a single boundary
+  against neighboring containers for every dock position.
+  Bottom-dock resize padding uses the composer background, avoiding another
+  visible edge while retaining the divider's accessible hit area.
 - Mobile always docks at the bottom and hides placement choices. The editor
   body and cramped reader chrome scroll inside bounded areas, leaving editor
   actions above the keyboard. Minimize shows a compact bottom strip; restore
@@ -80,6 +84,10 @@ account data or posts were changed. The rebuilt macOS fixture verified the
 amended three-option menu, right/left/bottom placement, text retention, bottom
 strip minimization/restoration, and save-and-close. The isolated review app was
 closed afterward.
+
+The border follow-up passed 30 focused docking, viewport, editor-control, and
+whisper tests. Native macOS inspection confirmed single left/right boundaries
+and a bottom resize inset that blends into the composer background.
 
 Linux builds and live Linux/physical mobile checks were not run on this macOS
 host. Widget tests with platform overrides are not device verification. The

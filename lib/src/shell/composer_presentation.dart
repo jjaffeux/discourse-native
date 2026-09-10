@@ -286,7 +286,8 @@ class _ComposerDockState extends State<ComposerDock> {
           minSize: DResizableSize.pixels(composerMin),
           child: DDirection(
             textDirection: direction,
-            child: Padding(
+            child: Container(
+              color: Theme.of(context).shell.content,
               padding: EdgeInsets.only(top: dividerInset),
               child: LayoutBuilder(
                 builder: (context, bounds) => owner._surface(
