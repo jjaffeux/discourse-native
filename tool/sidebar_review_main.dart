@@ -15,6 +15,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/styleguide/examples/sidebar_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -157,6 +158,7 @@ class _SidebarReview extends StatefulWidget {
 
 class _SidebarReviewState extends State<_SidebarReview> {
   bool _dark = false, _mobile = false, _rtl = false, _large = false;
+  bool _customPalette = false;
   String _surface = 'Production';
   @override
   void dispose() {
@@ -168,9 +170,14 @@ class _SidebarReviewState extends State<_SidebarReview> {
   Widget build(BuildContext context) => ShellScope(
     controller: widget.shell,
     child: MaterialApp(
-      theme: (_dark ? AppTheme.dark : AppTheme.light).copyWith(
-        platform: _mobile ? TargetPlatform.iOS : TargetPlatform.macOS,
-      ),
+      theme:
+          (_customPalette
+                  ? (_dark ? StyleguideTheme.plum : StyleguideTheme.forest)
+                        .resolve(AppTheme.light)
+                  : (_dark ? AppTheme.dark : AppTheme.light))
+              .copyWith(
+                platform: _mobile ? TargetPlatform.iOS : TargetPlatform.macOS,
+              ),
       home: Scaffold(
         body: Column(
           children: [
@@ -192,6 +199,11 @@ class _SidebarReviewState extends State<_SidebarReview> {
                   DButton(
                     label: const Text('Light / Dark'),
                     onPressed: () => setState(() => _dark = !_dark),
+                  ),
+                  DButton(
+                    label: const Text('Site palette'),
+                    onPressed: () =>
+                        setState(() => _customPalette = !_customPalette),
                   ),
                   DButton(
                     label: const Text('Desktop / Mobile'),

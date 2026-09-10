@@ -289,7 +289,7 @@ class _SidebarPanelBody extends StatelessWidget {
     return DSidebar(
       width: width,
       collapsible: DSidebarCollapsible.none,
-      semanticLabel: 'Forum navigation',
+      semanticLabel: '${activePanel?.panel.label ?? 'Forum'} navigation',
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

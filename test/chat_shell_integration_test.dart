@@ -2645,40 +2645,49 @@ void _registerChatShellTests() {
         testWidgets('appears when Chat totals arrive after the sidebar', (
           tester,
         ) async {
-          await pumpChat(
-            tester,
-            totals: withoutChat,
-            public: [channel(9)],
-            messages: {key(9): page(const [])},
-            user: chatUser(separateSidebarMode: ChatSeparateSidebarMode.always),
-          );
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
+          final semantics = tester.ensureSemantics();
+          try {
+            await pumpChat(
+              tester,
+              totals: withoutChat,
+              public: [channel(9)],
+              messages: {key(9): page(const [])},
+              user: chatUser(
+                separateSidebarMode: ChatSeparateSidebarMode.always,
+              ),
+            );
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            );
 
-          expect(
-            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-            findsNothing,
-          );
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+              findsNothing,
+            );
 
-          shell.accountActivity.applyCounts(site, (_) => withChat);
-          await tester.pumpAndSettle();
+            shell.accountActivity.applyCounts(site, (_) => withChat);
+            await tester.pumpAndSettle();
 
-          expect(shell.currentTotals?.hasChatEnabled, isTrue);
-          expect(
-            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-            findsOneWidget,
-          );
-          await tester.tap(
-            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-          );
-          await tester.pumpAndSettle();
+            expect(shell.currentTotals?.hasChatEnabled, isTrue);
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+              findsOneWidget,
+            );
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            );
+            await tester.pumpAndSettle();
 
-          expect(shell.currentContent?.id, 'chat-c-9');
-          expect(
-            find.byKey(const ValueKey('sidebar-panel-switch-main')),
-            findsOneWidget,
-          );
+            expect(find.bySemanticsLabel('Chat navigation'), findsOneWidget);
+            expect(find.bySemanticsLabel('Forum navigation'), findsNothing);
+            expect(shell.currentContent?.id, 'chat-c-9');
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-main')),
+              findsOneWidget,
+            );
+          } finally {
+            semantics.dispose();
+          }
         });
 
         for (final scenario in [

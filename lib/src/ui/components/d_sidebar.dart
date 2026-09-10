@@ -655,13 +655,13 @@ class _DSidebarMenuItemState extends State<DSidebarMenuItem> {
         // with the full row's box.
         includeSemantics: false,
         onFocusChange: (v) => setState(() => focus = v),
-        child: _ItemScope(
-          reveal: hover || focus,
-          metrics: _metrics,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _SidebarRowLayout(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ItemScope(
+              reveal: hover || focus,
+              metrics: _metrics,
+              child: _SidebarRowLayout(
                 metrics: _metrics,
                 direction: Directionality.of(context),
                 trailing:
@@ -677,9 +677,9 @@ class _DSidebarMenuItemState extends State<DSidebarMenuItem> {
                     : const SizedBox.shrink(),
                 child: widget.child,
               ),
-              if (!icon && widget.submenu != null) widget.submenu!,
-            ],
-          ),
+            ),
+            if (!icon && widget.submenu != null) widget.submenu!,
+          ],
         ),
       ),
     );
@@ -786,29 +786,53 @@ class _RenderSidebarRowLayout extends RenderBox
   @override
   Size computeDryLayout(BoxConstraints constraints) {
     final trailing = lastChild!.getDryLayout(_trailingConstraints(constraints));
-    return firstChild!.getDryLayout(
+    // The button's inset contains the last laid-out width. Compensate for that
+    // reservation when measuring with the current trailing content, without
+    // mutating layout state or invalidating caches during an intrinsic query.
+    final change = trailing.width - metrics.width;
+    final primary = firstChild!.getDryLayout(
       constraints.copyWith(
+        minWidth: math.max(0, constraints.minWidth - change),
+        maxWidth: math.max(0, constraints.maxWidth - change),
         minHeight: math.max(constraints.minHeight, trailing.height),
       ),
     );
+    return constraints.constrain(Size(primary.width + change, primary.height));
   }
 
   @override
   double computeMinIntrinsicWidth(double height) =>
-      firstChild!.getMinIntrinsicWidth(height);
+      firstChild!.getMinIntrinsicWidth(height) -
+      metrics.width +
+      lastChild!.getMinIntrinsicWidth(height);
   @override
   double computeMaxIntrinsicWidth(double height) =>
-      firstChild!.getMaxIntrinsicWidth(height);
+      firstChild!.getMaxIntrinsicWidth(height) -
+      metrics.width +
+      lastChild!.getMaxIntrinsicWidth(height);
+
+  double _intrinsicHeight(double width, {required bool maximum}) {
+    final trailing = lastChild!.getDryLayout(
+      _trailingConstraints(BoxConstraints(maxWidth: width)),
+    );
+    final primaryWidth = math.max(0.0, width - trailing.width + metrics.width);
+    return math.max(
+      maximum
+          ? firstChild!.getMaxIntrinsicHeight(primaryWidth)
+          : firstChild!.getMinIntrinsicHeight(primaryWidth),
+      trailing.height,
+    );
+  }
+
   @override
-  double computeMinIntrinsicHeight(double width) => math.max(
-    firstChild!.getMinIntrinsicHeight(width),
-    lastChild!.getMinIntrinsicHeight(width),
-  );
+  double computeMinIntrinsicHeight(double width) =>
+      _intrinsicHeight(width, maximum: false);
   @override
-  double computeMaxIntrinsicHeight(double width) => math.max(
-    firstChild!.getMaxIntrinsicHeight(width),
-    lastChild!.getMaxIntrinsicHeight(width),
-  );
+  double computeMaxIntrinsicHeight(double width) =>
+      _intrinsicHeight(width, maximum: true);
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) =>
+      defaultComputeDistanceToFirstActualBaseline(baseline);
   @override
   void paint(PaintingContext context, Offset offset) =>
       defaultPaint(context, offset);
