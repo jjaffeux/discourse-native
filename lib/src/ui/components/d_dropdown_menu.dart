@@ -143,6 +143,9 @@ class DDropdownMenuContent extends StatefulWidget {
   final double? width;
   final BoxConstraints constraints;
   final bool isSubmenu;
+
+  /// Focuses the first enabled item once it is available, including items
+  /// inserted or enabled after asynchronous loading.
   final bool autofocus;
 
   @override
@@ -169,10 +172,25 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   String _search = '';
   Timer? _searchTimer;
   bool _autofocused = false;
+  bool _autofocusScheduled = false;
   bool _pointerHighlight = false;
 
   void register(Object owner, _MenuRegistration registration) {
     _items[owner] = registration;
+    _scheduleAutofocus();
+  }
+
+  void _scheduleAutofocus() {
+    if (!widget.autofocus || _autofocused || _autofocusScheduled) return;
+    _autofocusScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autofocusScheduled = false;
+      if (!mounted || !widget.autofocus || _autofocused) return;
+      final items = _enabledItems;
+      if (items.isEmpty) return;
+      _autofocused = true;
+      if (!items.any((item) => item.node.hasFocus)) _focusAt(0);
+    });
   }
 
   void unregister(Object owner) {
@@ -435,11 +453,13 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     _parentContent = context
         .dependOnInheritedWidgetOfExactType<_DropdownMenuContentScope>()
         ?.state;
-    if (!widget.autofocus || _autofocused) return;
-    _autofocused = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusAt(0);
-    });
+    _scheduleAutofocus();
+  }
+
+  @override
+  void didUpdateWidget(DDropdownMenuContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleAutofocus();
   }
 
   @override
