@@ -95,7 +95,15 @@ category searches, including choosing the already selected category.
 
 The shared Native Combobox now includes its popup in the editor's
 `TextFieldTapRegion`. Option presses retain focus and honor `closeOnSelect`;
-outside clicks still dismiss and blur. No selector-specific dismissal workaround
-or new public option is needed. All 133 focused Combobox, Popover, styleguide,
-category/tag selector, composer and topic-list tests passed with seed `69318`.
-Root `dart analyze` reported no issues.
+outside clicks still dismiss and blur. All 133 focused Combobox, Popover,
+styleguide, category/tag selector, composer and topic-list tests passed with
+seed `69318`. Root `dart analyze` reported no issues.
+
+Implementation `b80f71a9` was built into an isolated macOS debug fixture mounting
+the real composer, topic-list filters and styleguide. Actual mouse clicks closed
+the composer's category menu when reselecting its current category and when
+changing parents, and closed the subcategory menu after choosing a child. The
+topic-list and styleguide category menus also closed after mouse selection.
+Reviewed dark 700px and light 320px content layouts. The app launched with
+permitted debug entitlements, was quit, and the desktop lease was released.
+Native evidence is macOS only.
