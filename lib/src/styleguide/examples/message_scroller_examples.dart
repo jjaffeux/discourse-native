@@ -961,6 +961,7 @@ class _AccessibilityExample extends StatefulWidget {
 
 class _AccessibilityExampleState extends State<_AccessibilityExample> {
   var _busy = true;
+  var _showFocusRing = false;
   final _messages = <String>['Existing accessible message', 'A second message'];
 
   @override
@@ -982,6 +983,11 @@ class _AccessibilityExampleState extends State<_AccessibilityExample> {
             ),
             variant: DButtonVariant.secondary,
           ),
+          DButton(
+            label: Text(_showFocusRing ? 'Hide focus ring' : 'Show focus ring'),
+            onPressed: () => setState(() => _showFocusRing = !_showFocusRing),
+            variant: DButtonVariant.secondary,
+          ),
         ],
       ),
       const SizedBox(height: 12),
@@ -993,6 +999,7 @@ class _AccessibilityExampleState extends State<_AccessibilityExample> {
             children: [
               DMessageScrollerViewport.builder(
                 semanticLabel: 'Accessible support conversation',
+                showFocusRing: _showFocusRing,
                 styled: false,
                 showScrollbar: false,
                 busy: _busy,

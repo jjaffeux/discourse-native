@@ -85,6 +85,93 @@ void main() {
     ),
   );
 
+  for (final useBuilder in [false, true]) {
+    testWidgets(
+      'focus ring is opt-in (${useBuilder ? 'builder' : 'content'})',
+      (tester) async {
+        final focus = FocusNode();
+        final scroll = ScrollController();
+        addTearDown(focus.dispose);
+        addTearDown(scroll.dispose);
+        final items = rows(List.generate(12, (index) => '$index'));
+        final defaultViewport = useBuilder
+            ? DMessageScrollerViewport.builder(
+                focusNode: focus,
+                scrollController: scroll,
+                itemCount: items.length,
+                itemIdBuilder: (index) => items[index].messageId,
+                itemBuilder: (context, index) => items[index],
+              )
+            : DMessageScrollerViewport(
+                focusNode: focus,
+                scrollController: scroll,
+                content: DMessageScrollerContent(children: items),
+              );
+
+        Widget viewport({required bool showFocusRing}) => useBuilder
+            ? DMessageScrollerViewport.builder(
+                focusNode: focus,
+                scrollController: scroll,
+                itemCount: items.length,
+                itemIdBuilder: (index) => items[index].messageId,
+                itemBuilder: (context, index) => items[index],
+                showFocusRing: showFocusRing,
+              )
+            : DMessageScrollerViewport(
+                focusNode: focus,
+                scrollController: scroll,
+                content: DMessageScrollerContent(children: items),
+                showFocusRing: showFocusRing,
+              );
+
+        Future<void> pumpViewport({bool? showFocusRing}) async {
+          await tester.pumpWidget(
+            host(
+              DMessageScrollerProvider(
+                initialPosition: DMessageScrollerInitialPosition.start,
+                child: DMessageScroller(
+                  children: [
+                    showFocusRing == null
+                        ? defaultViewport
+                        : viewport(showFocusRing: showFocusRing),
+                  ],
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        CustomPainter? ring() => tester
+            .widget<CustomPaint>(
+              find
+                  .descendant(
+                    of: find.byType(DMessageScrollerViewport),
+                    matching: find.byType(CustomPaint),
+                  )
+                  .first,
+            )
+            .foregroundPainter;
+
+        await pumpViewport();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(focus.hasFocus, isTrue);
+        expect(ring(), isNull);
+        await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+        await tester.pumpAndSettle();
+        expect(scroll.offset, greaterThan(0));
+
+        await pumpViewport(showFocusRing: true);
+        expect(focus.hasFocus, isTrue);
+        expect(ring(), isNotNull);
+        await pumpViewport(showFocusRing: false);
+        expect(ring(), isNull);
+        expect(focus.hasFocus, isTrue);
+      },
+    );
+  }
+
   testWidgets('opens at the end without flashing and publishes edge state', (
     tester,
   ) async {

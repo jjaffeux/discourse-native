@@ -398,6 +398,7 @@ class DMessageScrollerViewport extends StatefulWidget {
     this.cacheExtent,
     this.semanticLabel = 'Messages',
     this.showScrollbar = true,
+    this.showFocusRing = false,
     this.styled = true,
     this.onScrollNotification,
     this.onUserScrollIntent,
@@ -436,6 +437,7 @@ class DMessageScrollerViewport extends StatefulWidget {
     this.cacheExtent,
     this.semanticLabel = 'Messages',
     this.showScrollbar = true,
+    this.showFocusRing = false,
     this.styled = true,
     this.onScrollNotification,
     this.onUserScrollIntent,
@@ -484,6 +486,10 @@ class DMessageScrollerViewport extends StatefulWidget {
   final double? cacheExtent;
   final String semanticLabel;
   final bool showScrollbar;
+
+  /// Whether to paint an outline when keyboard focus is visible.
+  /// Focus and keyboard scrolling remain available when this is false.
+  final bool showFocusRing;
   final bool styled;
   final bool Function(ScrollNotification notification)? onScrollNotification;
   final VoidCallback? onUserScrollIntent;
@@ -1555,7 +1561,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
         if (value != _focusVisible) setState(() => _focusVisible = value);
       },
       child: CustomPaint(
-        foregroundPainter: _focusVisible
+        foregroundPainter: widget.showFocusRing && _focusVisible
             ? _MessageScrollerFocusRing(
                 color: tokens.focusRing.withValues(
                   alpha: tokens.focusRing.a * .5,
