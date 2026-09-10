@@ -4,6 +4,7 @@ import 'package:discourse_native/src/styleguide/examples/select_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -151,6 +152,81 @@ void main() {
       expect(find.text('Banana'), findsOneWidget);
     },
   );
+
+  testWidgets('pointer highlight switches rows without an overlap frame', (
+    tester,
+  ) async {
+    await _mount(
+      tester,
+      DSelect<String>.controlled(
+        value: 'apple',
+        semanticLabel: 'Fruit',
+        entries: const [
+          DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
+          DSelectOption(
+            value: 'banana',
+            label: 'Banana',
+            child: Text('Banana'),
+          ),
+        ],
+        onChanged: _noopString,
+      ),
+    );
+
+    await tester.tap(find.text('Apple'));
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+    await mouse.moveTo(tester.getCenter(find.text('Banana')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      tester.widget(
+        find.byKey(
+          const ValueKey<(String, String?)>(('d-select-item', 'banana')),
+        ),
+      ),
+      isA<Container>(),
+    );
+    expect(_rowBackground(tester, 'apple').a, 0);
+    expect(_rowBackground(tester, 'banana').a, greaterThan(0));
+  });
+
+  testWidgets('disabled pointer highlighting preserves one keyboard row', (
+    tester,
+  ) async {
+    await _mount(
+      tester,
+      DSelect<String>.controlled(
+        value: 'apple',
+        semanticLabel: 'Fruit',
+        highlightItemOnHover: false,
+        entries: const [
+          DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
+          DSelectOption(
+            value: 'banana',
+            label: 'Banana',
+            child: Text('Banana'),
+          ),
+        ],
+        onChanged: _noopString,
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+    await mouse.moveTo(tester.getCenter(find.text('Banana')));
+    await tester.pumpAndSettle();
+
+    expect(_rowBackground(tester, 'apple').a, greaterThan(0));
+    expect(_rowBackground(tester, 'banana').a, 0);
+  });
 
   testWidgets(
     'closed trigger typeahead commits enabled matches without opening',
@@ -780,9 +856,8 @@ void main() {
     );
     await tester.tap(find.text('Apple'));
     await tester.pumpAndSettle();
-    final row = find.ancestor(
-      of: find.text('Apple').last,
-      matching: find.byType(AnimatedContainer),
+    final row = find.byKey(
+      const ValueKey<(String, String?)>(('d-select-item', 'apple')),
     );
     expect(tester.getSize(row).height, greaterThanOrEqualTo(48));
     expect(tester.takeException(), isNull);
@@ -965,6 +1040,18 @@ void main() {
 }
 
 void _noopString(String? _) {}
+
+Color _rowBackground(WidgetTester tester, String value) {
+  final row = tester.widget(
+    find.byKey(ValueKey<(String, String?)>(('d-select-item', value))),
+  );
+  final decoration = switch (row) {
+    Container(:final decoration) => decoration,
+    AnimatedContainer(:final decoration) => decoration,
+    _ => throw StateError('Unexpected select row ${row.runtimeType}'),
+  };
+  return (decoration as BoxDecoration).color!;
+}
 
 Future<void> _mount(WidgetTester tester, Widget child) async {
   await tester.pumpWidget(
