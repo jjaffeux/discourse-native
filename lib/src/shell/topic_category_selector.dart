@@ -32,6 +32,7 @@ class TopicCategorySelector extends StatefulWidget {
     this.placeholder = 'Categories',
     this.keyPrefix = 'category-selector',
     this.valueKey,
+    this.triggerBuilder,
   });
 
   final String siteUrl;
@@ -46,6 +47,9 @@ class TopicCategorySelector extends StatefulWidget {
   final String placeholder;
   final String keyPrefix;
   final Key? valueKey;
+
+  /// Reuses the selector popup with a caller's Native trigger composition.
+  final DComboboxTriggerBuilder<int>? triggerBuilder;
 
   @override
   State<TopicCategorySelector> createState() => _TopicCategorySelectorState();
@@ -193,33 +197,35 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
         }
       },
       anchor: DComboboxTrigger<int>(
-        builder: (context, trigger) => TopicTaxonomyButton(
-          buttonKey: widget.valueKey,
-          label: label,
-          icon: selected == null
-              ? null
-              : CategoryIcon(
-                  key: ValueKey(('$prefix-selected-icon', selected.id)),
-                  category: selected,
-                  siteUrl: widget.siteUrl,
-                  size: 14,
-                  squareSize: 10,
-                ),
-          semanticLabel: selected == null
-              ? parent == null
-                    ? widget.includeAll
-                          ? 'Filter by category'
-                          : 'Choose category'
-                    : widget.includeAll
-                    ? 'Filter by subcategory of ${parent.name}'
-                    : 'Choose subcategory of ${parent.name}'
-              : '${parent == null ? 'Category' : 'Subcategory'}: $label',
-          tooltip: label,
-          onPressed: widget.onSelected == null ? null : trigger.toggle,
-          focusNode: trigger.focusNode,
-          expanded: trigger.open,
-          maximumWidth: parent == null ? 260 : 230,
-        ),
+        builder:
+            widget.triggerBuilder ??
+            (context, trigger) => TopicTaxonomyButton(
+              buttonKey: widget.valueKey,
+              label: label,
+              icon: selected == null
+                  ? null
+                  : CategoryIcon(
+                      key: ValueKey(('$prefix-selected-icon', selected.id)),
+                      category: selected,
+                      siteUrl: widget.siteUrl,
+                      size: 14,
+                      squareSize: 10,
+                    ),
+              semanticLabel: selected == null
+                  ? parent == null
+                        ? widget.includeAll
+                              ? 'Filter by category'
+                              : 'Choose category'
+                        : widget.includeAll
+                        ? 'Filter by subcategory of ${parent.name}'
+                        : 'Choose subcategory of ${parent.name}'
+                  : '${parent == null ? 'Category' : 'Subcategory'}: $label',
+              tooltip: label,
+              onPressed: widget.onSelected == null ? null : trigger.toggle,
+              focusNode: trigger.focusNode,
+              expanded: trigger.open,
+              maximumWidth: parent == null ? 260 : 230,
+            ),
       ),
       content: DComboboxContent(
         key: ValueKey('$prefix-popover'),
@@ -242,7 +248,12 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
             itemBuilder: (context, option) => Row(
               children: [
                 if (option.value == 0)
-                  const DIcon(DIcons.layerGroup, size: 16)
+                  DIcon(
+                    widget.clearSelectionLabel == null
+                        ? DIcons.layerGroup
+                        : DIcons.xmark,
+                    size: 16,
+                  )
                 else
                   CategoryIcon(
                     key: ValueKey(('category-selector-icon', option.value)),

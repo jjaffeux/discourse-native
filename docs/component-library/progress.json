@@ -518,6 +518,32 @@
         ],
         "mergeCommit": "b0ac5fdf243c38f4df11daea7d74bea496dae2f4",
         "mergeVerification": "Merged with --no-ff from the main checkout after reconciling current main. Merge tree equals the verified candidate; Native fixture and migrated app sources match the inspected integrated source. Final root analysis passed."
+      },
+      "topicCategorySelectorFollowUp": {
+        "status": "in_progress",
+        "taskId": "01a08d19-7072-7dc2-8a77-2dcebba886b6",
+        "branch": "codex/topic-category-selector",
+        "dependencies": [
+          "button",
+          "button-group",
+          "combobox"
+        ],
+        "acceptanceCriteria": [
+          "Replace the topic header and sidebar category checkbox popup with the existing TopicCategorySelector used by the topics list and composer.",
+          "Preserve category-tinted split buttons, independent browsing, root/subcategory filtering, removal, immediate saves and account/topic ownership.",
+          "Verify category search, keyboard selection, dismissal, stale callbacks, narrow layouts and the actual production header on macOS."
+        ],
+        "evidencePath": "docs/component-library/topic-taxonomy-migration.md",
+        "decisions": [
+          "Compose the existing shared TopicCategorySelector through its Native Combobox trigger builder; retain the header Button Group and custom category colors.",
+          "Represent removal as an explicit null selector option with a caller-provided label. The app resolves the destination category; the Native kit is unchanged.",
+          "Remove the old category checkbox popup and lookup owner. Key the selector by its account/topic/search scope and reject retired search/save callbacks, including switching away and back."
+        ],
+        "verification": [
+          "155 distinct focused tests passed across shared taxonomy selectors, composer dropdowns, topic-list filters, topic picker lifecycle, inbox headers, title ownership, selector styleguide, taxonomy fields and button adoption.",
+          "Root flutter analyze --no-pub passed with no issues; touched-code formatting and git diff --check passed.",
+          "Built the production topic_taxonomy_review_main.dart fixture for debug macOS; native visual review pending the shared desktop lease."
+        ]
       }
     },
     {
