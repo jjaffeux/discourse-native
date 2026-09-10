@@ -415,22 +415,21 @@ class DAttachmentTitle extends StatelessWidget {
     final fontSize = scope.size == DAttachmentSize.regular
         ? DiscourseTypography.sm
         : DiscourseTypography.xs;
-    return DMarkerContent(
-      shimmer:
-          scope.state == DAttachmentState.uploading ||
-          scope.state == DAttachmentState.processing,
-      child: DefaultTextStyle.merge(
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: fontSize,
-          height:
-              (scope.size == DAttachmentSize.regular ? 17.5 : 15) / fontSize,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0,
-          color: DTokens.of(context).foreground,
-        ),
+    return DefaultTextStyle.merge(
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: fontSize,
+        height: (scope.size == DAttachmentSize.regular ? 17.5 : 15) / fontSize,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+        color: DTokens.of(context).foreground,
+      ),
+      child: DMarkerContent(
+        shimmer:
+            scope.state == DAttachmentState.uploading ||
+            scope.state == DAttachmentState.processing,
         child: child,
       ),
     );
