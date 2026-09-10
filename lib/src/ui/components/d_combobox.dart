@@ -704,6 +704,17 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     focusNode.requestFocus();
   }
 
+  bool _submitHighlighted() {
+    final highlighted = highlightedValue;
+    if (!mutable || !isOpen || highlighted == null) return false;
+    final option = filteredOptions
+        .where((option) => option.enabled && _equal(option.value, highlighted))
+        .firstOrNull;
+    if (option == null) return false;
+    _select(option, DComboboxChangeReason.keyboard);
+    return true;
+  }
+
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -718,13 +729,9 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
-        final highlighted = highlightedValue;
-        final option = highlighted == null ? null : optionFor(highlighted);
-        if (isOpen && option != null) {
-          _select(option, DComboboxChangeReason.keyboard);
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
+        return _submitHighlighted()
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
       case LogicalKeyboardKey.escape when isOpen:
         _requestOpen(false, DComboboxChangeReason.escape);
         return KeyEventResult.handled;
@@ -1014,6 +1021,9 @@ class _ComboboxTextEditor<T> extends StatelessWidget {
         ),
         onChanged: (value) =>
             root._requestQuery(value, DComboboxChangeReason.input),
+        // Selection owns focus; Done must not blur the editor before submitting.
+        onEditingComplete: () {},
+        onSubmitted: (_) => root._submitHighlighted(),
         onTap: () => root._requestOpen(true, DComboboxChangeReason.input),
       ),
     );
@@ -1607,6 +1617,7 @@ class DComboboxChipsInput<T> extends StatelessWidget {
         autofocus: autofocus,
         autocorrect: false,
         enableSuggestions: false,
+        textInputAction: TextInputAction.done,
         style: style,
         decoration: InputDecoration(
           isCollapsed: true,
@@ -1617,6 +1628,8 @@ class DComboboxChipsInput<T> extends StatelessWidget {
         onTap: () => root._requestOpen(true, DComboboxChangeReason.input),
         onChanged: (value) =>
             root._requestQuery(value, DComboboxChangeReason.input),
+        onEditingComplete: () {},
+        onSubmitted: (_) => root._submitHighlighted(),
       ),
     );
   }

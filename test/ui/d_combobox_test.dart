@@ -85,6 +85,95 @@ void main() {
     expect(selected, 'remix');
   });
 
+  testWidgets('keyboard Done selects the highlighted result once', (
+    tester,
+  ) async {
+    final selected = <String?>[];
+    await tester.pumpWidget(_app(_single(changed: selected.add)));
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(selected, ['svelte']);
+    expect(find.byType(DComboboxContent), findsNothing);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'SvelteKit',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(selected, ['svelte']);
+  });
+
+  testWidgets(
+    'keyboard Done leaves unmatched and disabled results unselected',
+    (tester) async {
+      final selected = <String?>[];
+      await tester.pumpWidget(
+        _app(_single(changed: selected.add, autoHighlight: true)),
+      );
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      for (final query in ['missing', 'nuxt']) {
+        await tester.enterText(find.byType(TextField), query);
+        await tester.pumpAndSettle();
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        expect(selected, isEmpty);
+        expect(find.byType(DComboboxContent), findsOneWidget);
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+          isTrue,
+        );
+      }
+    },
+  );
+
+  for (final closeOnSelect in [true, false]) {
+    testWidgets(
+      'keyboard Done respects multiple selection closing policy: $closeOnSelect',
+      (tester) async {
+        final controller = DComboboxController<String>();
+        addTearDown(controller.dispose);
+        final selected = <List<String>>[];
+        await tester.pumpWidget(
+          _app(
+            DCombobox<String>.multiple(
+              controller: controller,
+              options: _options,
+              closeOnSelect: closeOnSelect,
+              autoHighlight: true,
+              onValuesChanged: (values, _) => selected.add(values),
+              anchor: const DComboboxChips<String>(
+                input: DComboboxChipsInput<String>(),
+              ),
+              content: const DComboboxContent(
+                children: [DComboboxList<String>()],
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byType(TextField));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'sve');
+        await tester.pumpAndSettle();
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        expect(selected, [
+          ['svelte'],
+        ]);
+        expect(controller.isOpen, !closeOnSelect);
+        expect(controller.query, isEmpty);
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+          isTrue,
+        );
+      },
+    );
+  }
+
   testWidgets('hovering a row does not scroll its list or the host page', (
     tester,
   ) async {
