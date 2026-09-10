@@ -72,3 +72,30 @@ was exercised with production widgets and fake data in widget tests; it was not
 inspected against a live account. No iOS or Linux device run was performed.
 
 Merged into local main as `793de4d3` from the repository's main checkout.
+
+## Hover gaps — 2026-09-10
+
+Crossing a separator after closing a hovered submenu used to reveal keyboard
+focus restored to its trigger, briefly highlighting `Invite users` on the way
+from `New Team` to `GitHub`. Each menu now remembers pointer highlighting even
+over separators, labels, disabled rows, padding and outside the popup. Keyboard
+input restores focus highlighting and clears the hovered row across ancestor
+menus. Escape also restores the owning row's highlight through the popover's
+close callback, which handles that key before the row receives it. Pointer
+hover still leaves actual focus and scroll position unchanged.
+
+The light/dark Composition regressions and the pointer-to-keyboard regression
+failed against the original source. With the fix, 148 focused dropdown,
+pointer-intent, context-menu, menubar, popover, data-table and styleguide tests
+pass, as do 50 Chat sidebar integration tests. `flutter analyze --no-pub` is
+clean and `flutter build macos --debug --no-pub -t lib/styleguide_main.dart`
+succeeds.
+
+Native inspection used an isolated macOS styleguide built from `d5a4d703`.
+In the dark app palette at Fit width and the light palette at 360px, verified
+submenu opening, Escape restoring the `Invite users` highlight, directional
+navigation to `GitHub`, and selection closing the menu. The narrow preview
+also exercised a submenu flipped to the left by collision handling. Continuous
+hover paths were verified with Flutter mouse-event tests; the native CUA API
+does not expose standalone pointer movement. No iOS or Linux device run was
+performed, and Chat checks used production widgets with fake data.

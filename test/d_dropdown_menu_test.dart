@@ -570,6 +570,31 @@ void main() {
 
     expect(rowColor('Profile'), Colors.transparent);
     expect(rowColor('Billing'), isNot(Colors.transparent));
+
+    await mouse.moveTo(tester.getCenter(find.text('Support')));
+    await tester.pump();
+    expect(rowColor('Support'), isNot(Colors.transparent));
+
+    // Keyboard input takes over even while the mouse stays on another row.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, contains('Billing'));
+    expect(rowColor('Billing'), isNot(Colors.transparent));
+    expect(rowColor('Support'), Colors.transparent);
+
+    await mouse.moveBy(const Offset(1, 0));
+    await tester.pump();
+    expect(rowColor('Support'), isNot(Colors.transparent));
+    expect(rowColor('Billing'), Colors.transparent);
+
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+    expect(rowColor('Support'), Colors.transparent);
+    expect(rowColor('Billing'), Colors.transparent);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pump();
+    expect(rowColor('Profile'), isNot(Colors.transparent));
   });
 
   testWidgets('hovering a partially visible row keeps scroll position', (
