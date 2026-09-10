@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart' show DButton, DSpinner;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -32,6 +32,110 @@ import 'support/finders.dart';
 
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
+
+  testWidgets(
+    'incoming button keeps its label while loading and reveals updates',
+    (tester) async {
+      final api = _ControlledPagingApi();
+      final controller = await _controlledShell(api, sites.first);
+      addTearDown(controller.dispose);
+      api.requests.single.response.complete(TopicList(topics: _topics(1, 40)));
+      await tester.pumpWidget(_LiveTestList(controller: controller));
+      await tester.pumpAndSettle();
+
+      final button = find.byKey(const ValueKey('incoming-topics-button'));
+      expect(button, findsNothing);
+      final scroll = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position;
+      scroll.jumpTo(600);
+      await tester.pumpAndSettle();
+
+      FakeSiteTracker.built.single.deliver({
+        'topic_id': 99,
+        'message_type': 'new_topic',
+      });
+      await tester.pumpAndSettle();
+      const label = 'See 1 new or updated topic';
+      expect(find.text(label), findsOneWidget);
+      Focus.of(tester.element(find.text(label))).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+
+      expect(api.requests.last.path, '/latest.json?topic_ids=99');
+      expect(tester.widget<DButton>(button).loading, isTrue);
+      expect(find.text(label).hitTestable(), findsOneWidget);
+      expect(find.byType(DSpinner), findsOneWidget);
+      await tester.tap(button);
+      await tester.pump();
+      expect(api.requests, hasLength(2));
+
+      FakeSiteTracker.built.single.deliver({
+        'topic_id': 100,
+        'message_type': 'new_topic',
+      });
+      api.requests.last.response.complete(_page(99));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Topic 99'), findsOneWidget);
+      expect(scroll.pixels, 0);
+      expect(find.text(label), findsOneWidget);
+      expect(tester.widget<DButton>(button).loading, isFalse);
+      await tester.tap(button);
+      await tester.pump();
+      expect(api.requests.last.path, '/latest.json?topic_ids=100');
+      api.requests.last.response.complete(_page(100));
+      await tester.pumpAndSettle();
+      expect(find.text('Topic 100'), findsOneWidget);
+      expect(button, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'incoming button wraps at large text in a narrow touch viewport',
+    (tester) async {
+      tester.view.physicalSize = const ui.Size(320, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final api = _ControlledPagingApi();
+      final controller = await _controlledShell(api, sites.first);
+      addTearDown(controller.dispose);
+      api.requests.single.response.complete(_page(1));
+      await tester.pumpWidget(
+        _LiveTestList(
+          controller: controller,
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+          textScaler: const TextScaler.linear(2),
+        ),
+      );
+      await tester.pumpAndSettle();
+      FakeSiteTracker.built.single
+        ..deliver({'topic_id': 99, 'message_type': 'new_topic'})
+        ..deliver({'topic_id': 100, 'message_type': 'latest'});
+      await tester.pumpAndSettle();
+
+      final button = find.byKey(const ValueKey('incoming-topics-button'));
+      final bounds = tester.getRect(button);
+      expect(bounds.left, greaterThanOrEqualTo(0));
+      expect(bounds.right, lessThanOrEqualTo(320));
+      expect(bounds.height, greaterThanOrEqualTo(48));
+      final label = find.text('See 2 new or updated topics');
+      final paragraph = tester.renderObject<RenderParagraph>(label);
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(paragraph.size.height, greaterThan(40));
+      await tester.tap(button);
+      await tester.pump();
+      expect(tester.widget<DButton>(button).loading, isTrue);
+      expect(tester.getRect(button), bounds);
+      expect(tester.takeException(), isNull);
+      api.requests.last.response.complete(TopicList(topics: _topics(99, 2)));
+      await tester.pumpAndSettle();
+      expect(button, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('first load uses a faithful topic-list skeleton', (tester) async {
     final api = _ControlledPagingApi();
@@ -963,15 +1067,25 @@ final class _TestList extends StatelessWidget {
 }
 
 final class _LiveTestList extends StatelessWidget {
-  const _LiveTestList({required this.controller});
+  const _LiveTestList({
+    required this.controller,
+    this.theme,
+    this.textScaler = TextScaler.noScaling,
+  });
 
   final ShellController controller;
+  final ThemeData? theme;
+  final TextScaler textScaler;
 
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: controller,
     child: MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       home: Scaffold(
         body: ListenableBuilder(
           listenable: controller.topicFeeds,
