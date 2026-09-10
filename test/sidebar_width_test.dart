@@ -1,5 +1,6 @@
 import 'dart:ui' show SemanticsAction;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/sidebar_width_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -60,16 +61,18 @@ void main() {
       matching: find.text('Topics'),
     );
     expect(topics, findsOneWidget);
-    expect(tester.widget<Text>(topics).style?.fontSize, DiscourseTypography.sm);
+    expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 14);
     expect(
       tester
           .getSize(
-            find.ancestor(of: topics, matching: find.byType(InkWell)).first,
+            find
+                .ancestor(of: topics, matching: find.byType(DSidebarMenuButton))
+                .first,
           )
           .height,
-      30,
+      32,
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   for (final size in [const Size(390, 700), const Size(1200, 800)]) {
     testWidgets(
@@ -93,12 +96,12 @@ void main() {
           matching: find.text('Topics'),
         );
         final row = find
-            .ancestor(of: topics, matching: find.byType(InkWell))
+            .ancestor(of: topics, matching: find.byType(DSidebarMenuButton))
             .first;
         final textRect = tester.getRect(topics);
         final rowRect = tester.getRect(row);
 
-        expect(tester.widget<Text>(topics).style?.fontSize, 14);
+        expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 14);
         expect(rowRect.height, greaterThan(size.width <= 640 ? 38.4 : 30));
         expect(textRect.top, greaterThanOrEqualTo(rowRect.top));
         expect(textRect.bottom, lessThanOrEqualTo(rowRect.bottom));
@@ -116,7 +119,10 @@ void main() {
         expect(cardRect.left, rowRect.left);
         expect(cardRect.right, rowRect.right);
         expect(tester.widget<Text>(url).data, address);
-        expect(tester.getRect(name).bottom, lessThan(tester.getRect(url).top));
+        expect(
+          tester.getRect(name).bottom,
+          lessThanOrEqualTo(tester.getRect(url).top),
+        );
         for (final label in [name, url]) {
           final paragraph = tester.renderObject<RenderParagraph>(label);
           expect(paragraph.maxLines, 1);
@@ -128,6 +134,7 @@ void main() {
           expect(labelRect.bottom, lessThanOrEqualTo(headerRect.bottom));
         }
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
   }
 
@@ -170,10 +177,10 @@ void main() {
     final longTitle = find.text('TEACH LEAD CALLS');
     final shortTitle = find.text('UTILS');
     final longHeader = find
-        .ancestor(of: longTitle, matching: find.byType(InkWell))
+        .ancestor(of: longTitle, matching: find.byType(DCollapsibleTrigger))
         .first;
     final shortHeader = find
-        .ancestor(of: shortTitle, matching: find.byType(InkWell))
+        .ancestor(of: shortTitle, matching: find.byType(DCollapsibleTrigger))
         .first;
     final longTitleRect = tester.getRect(longTitle);
     final shortTitleRect = tester.getRect(shortTitle);
@@ -206,7 +213,7 @@ void main() {
       chevronRect.center.dy,
       inInclusiveRange(longHeaderRect.top, longHeaderRect.bottom),
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('resizes once for every forum and restores after reload', (
     tester,
@@ -237,7 +244,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpShell(tester, controller, const Size(1200, 800));
     expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 120);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('resize handle supports keyboard and semantics adjustment', (
     tester,
@@ -284,7 +291,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth);
     semantics.dispose();
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('narrow windows constrain rather than replace the preference', (
     tester,
@@ -306,7 +313,7 @@ void main() {
     tester.view.physicalSize = const Size(1200, 800);
     await tester.pumpAndSettle();
     expect(_sidebarWidth(tester), AdaptiveShell.sidebarMaxWidth);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('live drag leaves the shell and pane content unrebuilt', (
     tester,
@@ -342,7 +349,7 @@ void main() {
     } finally {
       await drag.up();
     }
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
 
 double _sidebarWidth(WidgetTester tester) =>

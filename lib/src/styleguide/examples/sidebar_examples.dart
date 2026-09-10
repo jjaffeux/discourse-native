@@ -95,8 +95,156 @@ final sidebarExamples = ComponentExamples(
   DSidebarMenu(children: [DSidebarMenuSkeleton(showIcon: true)]))''',
       builder: (_) => const _SidebarDemo(loading: true),
     ),
+    StyleguideExample(
+      title: 'Lazy navigation',
+      description:
+          '400 destinations share one scroll area. Collapse Channels, scroll to the end, increase the unread count, or open a row action. Headers and footer stay fixed. Large text grows rows and trailing counts reserve their actual width.',
+      code: '''DSidebarContent.slivers(slivers: [
+  DCollapsible(defaultOpen: true, child: DSidebarGroup.sliver(
+    label: DCollapsibleTrigger(child:
+      DSidebarGroupLabel(child: Text('Channels'))),
+    sliver: DCollapsibleContent.sliver(sliver:
+      DSidebarMenu.sliverBuilder(
+        itemCount: channels.length,
+        itemBuilder: buildChannel,
+        findChildIndexCallback: findChannelIndex,
+      )),
+  )),
+])''',
+      builder: (_) => const _LazySidebarDemo(),
+    ),
   ],
 );
+
+class _LazySidebarDemo extends StatefulWidget {
+  const _LazySidebarDemo();
+  @override
+  State<_LazySidebarDemo> createState() => _LazySidebarDemoState();
+}
+
+class _LazySidebarDemoState extends State<_LazySidebarDemo> {
+  var _open = true;
+  var _count = 1234;
+  var _selected = 0;
+  var _message = '400 channels';
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 440,
+    child: DSidebarProvider(
+      mobileBreakpoint: 0,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final touch = switch (Theme.of(context).platform) {
+            TargetPlatform.iOS || TargetPlatform.android => true,
+            _ => false,
+          };
+          final scalable = MediaQuery.textScalerOf(context).scale(14) > 14;
+          return DSidebar(
+            width: constraints.maxWidth,
+            collapsible: DSidebarCollapsible.none,
+            header: DSidebarHeader(
+              child: Row(
+                children: [
+                  const Expanded(child: Text('Community')),
+                  DButton.iconOnly(
+                    tooltip: 'Increase unread count',
+                    icon: const Icon(Icons.add),
+                    onPressed: () => setState(() => _count += 1000),
+                  ),
+                ],
+              ),
+            ),
+            footer: DSidebarFooter(child: Text(_message)),
+            child: DSidebarContent.slivers(
+              slivers: [
+                DCollapsible(
+                  open: _open,
+                  onOpenChange: (value) => setState(() => _open = value),
+                  child: DSidebarGroup.sliver(
+                    label: DCollapsibleTrigger(
+                      child: DSidebarGroupLabel(
+                        child: Row(
+                          children: [
+                            const Expanded(child: Text('Channels')),
+                            Icon(
+                              _open
+                                  ? Icons.keyboard_arrow_down
+                                  : Icons.chevron_right,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    sliver: DCollapsibleContent.sliver(
+                      sliver: DSidebarMenu.sliverBuilder(
+                        itemCount: 400,
+                        itemExtent: scalable
+                            ? null
+                            : touch
+                            ? 48
+                            : 32,
+                        findChildIndexCallback: (key) =>
+                            key is ValueKey<int> ? key.value : null,
+                        itemBuilder: (context, index) => DSidebarMenuItem(
+                          key: ValueKey(index),
+                          badge: index < 2
+                              ? DSidebarMenuBadge(
+                                  child: Text(index == 0 ? '$_count' : 'muted'),
+                                )
+                              : null,
+                          action: DDropdownMenu(
+                            content: DDropdownMenuContent(
+                              side: DPopoverSide.bottom,
+                              align: DPopoverAlign.end,
+                              children: [
+                                DDropdownMenuItem(
+                                  onPressed: () => setState(
+                                    () =>
+                                        _message = 'Actions for channel $index',
+                                  ),
+                                  child: const Text('View channel details'),
+                                ),
+                              ],
+                            ),
+                            child: DDropdownMenuTrigger(
+                              builder: (context, menu) => DSidebarMenuAction(
+                                semanticLabel: 'Channel $index actions',
+                                showOnHover: true,
+                                focusNode: menu.focusNode,
+                                expanded: menu.open,
+                                onPressed: menu.toggle,
+                                child: const Icon(Icons.more_horiz),
+                              ),
+                            ),
+                          ),
+                          child: DSidebarMenuButton(
+                            icon: const Icon(Icons.tag, size: 16),
+                            isActive: _selected == index,
+                            onPressed: () => setState(() {
+                              _selected = index;
+                              _message = 'Selected channel $index';
+                            }),
+                            child: Text(
+                              index == 0
+                                  ? 'Announcements and community updates'
+                                  : 'Channel $index',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
 
 class _ShadcnSidebarDemo extends StatefulWidget {
   const _ShadcnSidebarDemo();

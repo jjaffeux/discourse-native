@@ -759,8 +759,11 @@ class ChatPlugin
       onTap: onTap,
       hoverActionBuilder: siteUrl == null
           ? null
-          : (context) =>
-                ChatChannelMenuButton(siteUrl: siteUrl, channelId: channel.id),
+          : (context) => ChatChannelMenuButton(
+              siteUrl: siteUrl,
+              channelId: channel.id,
+              sidebar: true,
+            ),
       onLongPress: siteUrl == null
           ? null
           : (context) => unawaited(

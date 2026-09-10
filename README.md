@@ -221,6 +221,23 @@ Refreshed on launch for every connected site, after connecting, and when
 switching to a site. A failure is swallowed: counters are decoration and a site
 being down must not break the shell.
 
+### Main sidebar presentation
+
+The Forum/Chat navigation adapter uses the Native Sidebar components through
+`discourse_ui.dart`. `DSidebarContent.slivers` shares one scroll controller and
+`DScrollBar` across lazy groups; `DSidebarMenu.sliverBuilder` and
+`DSidebarMenuSub.sliverBuilder` build destinations near the viewport.
+`DCollapsibleContent.sliver` hides section rows while retaining the header and
+restoring keyboard focus. The eager constructors remain available for short
+menus. Supply stable keys and a child-index callback for reorderable menus;
+omit `itemExtent` when text scaling or custom content can make rows taller.
+
+Chat's separate row action opens its dropdown below the row on mobile. It is
+always visible in mobile viewports and appears on desktop hover or focus.
+The sidebar's 208px default width, saved 200–480px resize range, forum rail and
+mobile page navigation remain shell responsibilities. The local review fixture
+is `tool/sidebar_review_main.dart`; it uses fake stores and API responses.
+
 ### Sidebar More links
 
 The Community **More** menu includes each forum's configured secondary links,

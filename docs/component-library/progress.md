@@ -3426,6 +3426,7 @@ Status: merged. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sid
 - Coordinator integration passed the 160 affected tests plus the final 14 styleguide-page tests. Compact menu semantic bounds have a dedicated regression; native first-adoption observations and final-scrollbar limit are recorded in docs/component-library/styleguide-design.md.
 - Merged separately into local main at 93bfcf65f64868c92340f9aec8236d77585c3cd8; documentation adoption and semantic-bound corrections are included by 0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5. The integrated real application build passes.
 - 2026-09-10: project action dropdowns verified with borrowed focus ownership, expanded visibility and semantics, keyboard/outside dismissal and 360px RTL/200% tests; actual macOS dark/light desktop/mobile previews and official reference inspected. See sidebar.md project action dropdown verification.
+- Main-sidebar follow-up: Native Forum/Chat adapter, lazy sliver APIs and measured count/action layout implemented; 394 focused checks and root/full analysis pass. Native spot checks and remaining independent review: docs/component-library/sidebar-main-migration.md.
 
 **limitations**
 
