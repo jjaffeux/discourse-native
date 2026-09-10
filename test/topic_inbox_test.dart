@@ -1949,6 +1949,33 @@ void main() {
   );
 
   testWidgets(
+    'topic list and reader bottom bars align at every text scale',
+    (tester) async {
+      final setup = await _setup(tester);
+      setup.controller.openTopicFromList(setup.rows.first);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      for (final scale in [1.0, 1.25, 1.5, 2.0]) {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        await tester.pumpAndSettle();
+        final listBar = tester.getRect(
+          find.byKey(const ValueKey('topic-list-bottom-bar')),
+        );
+        final readerBar = tester.getRect(
+          find.byKey(const ValueKey('topic-bottom-bar')),
+        );
+        expect(listBar.height, readerBar.height, reason: 'Text scale $scale');
+        expect(listBar.top, readerBar.top, reason: 'Text scale $scale');
+        expect(listBar.bottom, readerBar.bottom, reason: 'Text scale $scale');
+        expect(tester.takeException(), isNull);
+      }
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
     'resizing and topic arrows retain the source list and reader state',
     (tester) async {
       final setup = await _setup(tester);
