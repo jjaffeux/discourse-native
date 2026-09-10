@@ -18,6 +18,9 @@ enum DPopoverCollision { flip, shift, none }
 
 enum DPopoverInteraction { mouse, touch, pen, keyboard, imperative }
 
+/// Tailwind shadow recipes used by shadcn floating surfaces.
+enum DPopoverShadow { medium, large }
+
 enum DPopoverChangeReason {
   triggerPress,
   outsidePress,
@@ -769,10 +772,11 @@ class DPopoverContent extends StatelessWidget {
     this.constraints = const BoxConstraints(),
     this.padding = const EdgeInsets.all(10),
     this.scrollable = true,
+    this.shadow = DPopoverShadow.medium,
     this.placementResolver,
-  }) : assert(sideOffset >= 0),
-       assert(collisionPadding >= 0),
-       assert(width > 0);
+  }) : assert(width == null || width > 0),
+       assert(sideOffset >= 0),
+       assert(collisionPadding >= 0);
 
   final Widget child;
   final String? semanticLabel;
@@ -784,9 +788,13 @@ class DPopoverContent extends StatelessWidget {
   final DPopoverCollision alignCollision;
   final double collisionPadding;
   final Rect? collisionBoundary;
-  final double width;
+
+  /// A fixed popup width. Null sizes the popup to its intrinsic content width,
+  /// clamped by [constraints] and the available collision boundary.
+  final double? width;
   final BoxConstraints constraints;
   final EdgeInsetsGeometry padding;
+  final DPopoverShadow shadow;
 
   /// Optional component-specific positioning. It receives only resolved
   /// geometry and returns an overlay-local content origin. Returning null uses
@@ -812,6 +820,58 @@ class DPopoverContent extends StatelessWidget {
       decoration: TextDecoration.none,
     );
     final radius = tokens.radius;
+    final shadowColor = Colors.black.withValues(alpha: 0.10);
+    final shadows = switch (shadow) {
+      DPopoverShadow.medium => [
+        BoxShadow(
+          color: shadowColor,
+          offset: const Offset(0, 4),
+          blurRadius: 6,
+          spreadRadius: -1,
+        ),
+        BoxShadow(
+          color: shadowColor,
+          offset: const Offset(0, 2),
+          blurRadius: 4,
+          spreadRadius: -2,
+        ),
+      ],
+      DPopoverShadow.large => [
+        BoxShadow(
+          color: shadowColor,
+          offset: const Offset(0, 10),
+          blurRadius: 15,
+          spreadRadius: -3,
+        ),
+        BoxShadow(
+          color: shadowColor,
+          offset: const Offset(0, 4),
+          blurRadius: 6,
+          spreadRadius: -4,
+        ),
+      ],
+    };
+    Widget surface = CustomPaint(
+      foregroundPainter: _PopoverRingPainter(
+        color: tokens.foreground.withValues(alpha: tokens.foreground.a * 0.10),
+        radius: radius,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.surface,
+          borderRadius: BorderRadius.circular(radius),
+          boxShadow: shadows,
+        ),
+        child: scrollable
+            ? SingleChildScrollView(
+                primary: false,
+                padding: padding,
+                child: child,
+              )
+            : Padding(padding: padding, child: child),
+      ),
+    );
+    if (width == null) surface = IntrinsicWidth(child: surface);
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -821,44 +881,43 @@ class DPopoverContent extends StatelessWidget {
         child: IconTheme.merge(
           data: IconThemeData(color: tokens.foreground, size: 16),
           child: ConstrainedBox(
-            constraints: constraints.copyWith(minWidth: width, maxWidth: width),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: tokens.surface,
-                borderRadius: BorderRadius.circular(radius),
-                border: Border.all(
-                  color: tokens.foreground.withValues(
-                    alpha: tokens.foreground.a * 0.10,
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.10),
-                    offset: const Offset(0, 4),
-                    blurRadius: 6,
-                    spreadRadius: -1,
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.10),
-                    offset: const Offset(0, 2),
-                    blurRadius: 4,
-                    spreadRadius: -2,
-                  ),
-                ],
-              ),
-              child: scrollable
-                  ? SingleChildScrollView(
-                      primary: false,
-                      padding: padding,
-                      child: child,
-                    )
-                  : Padding(padding: padding, child: child),
-            ),
+            constraints: width == null
+                ? constraints
+                : constraints.copyWith(minWidth: width, maxWidth: width),
+            child: surface,
           ),
         ),
       ),
     );
   }
+}
+
+/// CSS rings sit outside an element and therefore do not consume popup width.
+/// Inflating the stroke center by half its width reproduces that geometry.
+class _PopoverRingPainter extends CustomPainter {
+  const _PopoverRingPainter({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        (Offset.zero & size).inflate(0.5),
+        Radius.circular(radius + 0.5),
+      ),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PopoverRingPainter oldDelegate) =>
+      color != oldDelegate.color || radius != oldDelegate.radius;
 }
 
 class DPopoverHeader extends StatelessWidget {
