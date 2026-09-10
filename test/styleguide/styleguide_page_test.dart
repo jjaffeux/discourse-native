@@ -520,6 +520,61 @@ void main() {
     expect(find.text('Implementation notes'), findsNothing);
   });
 
+  testWidgets('the page outline follows document scrolling', (tester) async {
+    await _pump(tester, size: const Size(1400, 900));
+    await tester.tap(
+      find.byKey(const ValueKey('styleguide-component-attachment')),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final attachment = componentCatalogue.singleWhere(
+      (component) => component.id == 'attachment',
+    );
+    final sections = attachment.documentOutline.toList(growable: false);
+    final statesIndex = sections.indexWhere(
+      (section) => section.label == 'States',
+    );
+    expect(statesIndex, greaterThan(0));
+    expect(
+      tester
+          .widget<StyleguideAction>(
+            find.byKey(const ValueKey('styleguide-section-0')),
+          )
+          .selected,
+      isTrue,
+    );
+
+    final detail = find.byKey(const ValueKey('styleguide-detail-attachment'));
+    final scrollable = find
+        .descendant(of: detail, matching: find.byType(Scrollable))
+        .first;
+    final scrollState = tester.state<ScrollableState>(scrollable);
+    final heading = find.byKey(
+      ValueKey('styleguide-section-heading-$statesIndex'),
+    );
+    final targetOffset =
+        scrollState.position.pixels +
+        tester.getTopLeft(heading).dy -
+        tester.getTopLeft(scrollable).dy -
+        40;
+    scrollState.position.jumpTo(
+      targetOffset.clamp(
+        scrollState.position.minScrollExtent,
+        scrollState.position.maxScrollExtent,
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<StyleguideAction>(
+            find.byKey(ValueKey('styleguide-section-$statesIndex')),
+          )
+          .selected,
+      isTrue,
+    );
+  });
+
   testWidgets('Direction examples use the preview provider and retain edits', (
     tester,
   ) async {
