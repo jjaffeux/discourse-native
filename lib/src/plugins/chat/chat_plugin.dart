@@ -305,7 +305,6 @@ class ChatPlugin
         SidebarSection(
           id: 'chat-starred-channels',
           title: 'Starred channels',
-          showHeaderTooltip: false,
           destinations: [
             for (final channel in starred)
               destination(
@@ -319,7 +318,6 @@ class ChatPlugin
         SidebarSection(
           id: 'chat',
           title: 'Chat',
-          showHeaderTooltip: false,
           destinations: [
             for (final channel in public)
               destination(
@@ -335,7 +333,6 @@ class ChatPlugin
         SidebarSection(
           id: 'direct-messages',
           title: 'Direct messages',
-          showHeaderTooltip: false,
           actionIcon: canCreateDirectMessage ? DIcons.plus : null,
           actionLabel: canCreateDirectMessage ? 'Start a direct message' : null,
           actionShortcut: canCreateDirectMessage

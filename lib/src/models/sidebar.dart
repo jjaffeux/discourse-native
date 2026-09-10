@@ -123,7 +123,6 @@ class SidebarSection {
     required this.destinations,
     this.moreDestinations = const [],
     this.showHeader = true,
-    this.showHeaderTooltip = true,
     this.collapsible = true,
     this.actionIcon,
     this.actionLabel,
@@ -200,7 +199,6 @@ class SidebarSection {
   final List<SidebarDestination> moreDestinations;
 
   final bool showHeader;
-  final bool showHeaderTooltip;
 
   final bool collapsible;
 

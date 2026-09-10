@@ -202,9 +202,7 @@ void main() {
     );
 
     final actionRect = tester.getRect(find.byTooltip('Add lead call'));
-    final chevronRect = tester.getRect(
-      find.byTooltip('Collapse Teach Lead Calls'),
-    );
+    final chevronRect = tester.getRect(longHeader);
     expect(longTitleRect.right, lessThanOrEqualTo(actionRect.left));
     expect(
       actionRect.center.dy,
@@ -218,11 +216,11 @@ void main() {
     await tester.tap(find.byTooltip('Add lead call'));
     await tester.pumpAndSettle();
     expect(actions, 1);
-    expect(find.byTooltip('Collapse Teach Lead Calls'), findsOneWidget);
+    expect(tester.widget<DSidebarMenuButton>(longHeader).expanded, isTrue);
 
-    await tester.tap(find.byTooltip('Collapse Teach Lead Calls'));
+    await tester.tap(longHeader);
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Expand Teach Lead Calls'), findsOneWidget);
+    expect(tester.widget<DSidebarMenuButton>(longHeader).expanded, isFalse);
     expect(actions, 1);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 

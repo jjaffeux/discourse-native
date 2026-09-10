@@ -4836,6 +4836,21 @@
           "candidateCommit": "63db6c8cfc0af6f08661faff89ba1bc0f38392f9",
           "mergeCommit": "16fc134ee38675ae51a4f498c854e218de9912fd",
           "mergedAt": "2026-09-10T15:46:10.663620+00:00"
+        },
+        "allHeaderTooltipsFollowUp": {
+          "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+          "branch": "codex/sidebar-no-header-tooltips",
+          "mainBaseline": "62906e34b7c6b67d1bb351b1cbc4f20ce612fe4e",
+          "status": "in_progress",
+          "dependencies": [
+            "sidebar"
+          ],
+          "acceptance": [
+            "Remove disclosure tooltips from all sidebar section headers, including custom sections, Categories and Voice rooms.",
+            "Keep Native disclosure semantics, keyboard activation, collapsed state and independently named action buttons.",
+            "Verify affected navigation and the native fixture before merging from the main checkout."
+          ],
+          "reviewStatus": "in_progress"
         }
       }
     },

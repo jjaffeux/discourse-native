@@ -1026,27 +1026,22 @@ class _SectionHeader extends StatelessWidget {
               ),
             ),
       child: section.collapsible
-          ? DTooltip(
-              message: description,
-              disabled: !section.showHeaderTooltip,
-              excludeFromSemantics: !section.showHeaderTooltip,
-              child: DSidebarMenuButton(
-                icon: DIcon(
-                  collapsed ? expandIcon : DIcons.chevronDown,
-                  size: 16,
-                ),
-                iconSize: context.isTouch ? 22 : 18,
-                semanticLabel: description,
-                expanded: !collapsed,
-                onPressed: onPressed,
-                child: ExcludeSemantics(
-                  child: Text(
-                    section.title,
-                    maxLines: MediaQuery.textScalerOf(context).scale(14) > 14
-                        ? 2
-                        : 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+          ? DSidebarMenuButton(
+              icon: DIcon(
+                collapsed ? expandIcon : DIcons.chevronDown,
+                size: 16,
+              ),
+              iconSize: context.isTouch ? 22 : 18,
+              semanticLabel: description,
+              expanded: !collapsed,
+              onPressed: onPressed,
+              child: ExcludeSemantics(
+                child: Text(
+                  section.title,
+                  maxLines: MediaQuery.textScalerOf(context).scale(14) > 14
+                      ? 2
+                      : 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             )
