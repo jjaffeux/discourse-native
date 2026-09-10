@@ -144,7 +144,7 @@ void main() {
     expect(find.byTooltip('Choose inbox: former-team'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
     await tester.pumpAndSettle();
-    final menu = find.byType(DDropdownMenuContent);
+    final menu = find.byType(DComboboxContent);
     expect(
       find.descendant(of: menu, matching: find.text('former-team')),
       findsOneWidget,
@@ -184,7 +184,7 @@ void main() {
       // Activate the still-mounted old menu before its next frame.
       await tester.tap(
         find.descendant(
-          of: find.byType(DDropdownMenuContent),
+          of: find.byType(DComboboxContent),
           matching: find.text('team'),
         ),
       );
@@ -201,7 +201,7 @@ void main() {
     await tester.pumpAndSettle();
     setup.controller.pushContent(ContentRoute.userActivity());
     await tester.pumpAndSettle();
-    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(find.byType(DComboboxContent), findsNothing);
     expect(find.byTooltip('Choose inbox: Personal'), findsNothing);
   });
 
@@ -214,8 +214,14 @@ void main() {
     final picker = find.byKey(const ValueKey('message-inbox-selector'));
     await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.home);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(DComboboxContent),
+        matching: find.byType(TextField),
+      ),
+      'tEaM',
+    );
+    await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(
@@ -225,8 +231,15 @@ void main() {
     expect(tester.widget<DButton>(picker).focusNode!.hasFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pumpAndSettle();
-    expect(find.byType(DDropdownMenuContent), findsOneWidget);
-    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    expect(find.byType(DComboboxContent), findsOneWidget);
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(DComboboxContent),
+        matching: find.byType(TextField),
+      ),
+      'personal',
+    );
+    await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(setup.controller.currentContent, ContentRoute.messages());
