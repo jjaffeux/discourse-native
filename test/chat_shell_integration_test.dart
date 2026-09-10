@@ -3578,19 +3578,19 @@ void _registerChatShellTests() {
           await tester.pumpAndSettle();
 
           expect(
-            find.widgetWithText(SubmenuButton, 'Notifications'),
+            find.widgetWithText(DDropdownMenuSub, 'Notifications'),
             findsOneWidget,
           );
           expect(
-            find.widgetWithText(MenuItemButton, 'Channel settings'),
+            find.widgetWithText(DDropdownMenuItem, 'Channel settings'),
             findsOneWidget,
           );
           expect(
-            find.widgetWithText(MenuItemButton, 'Add to starred channels'),
+            find.widgetWithText(DDropdownMenuItem, 'Add to starred channels'),
             findsOneWidget,
           );
           expect(
-            find.widgetWithText(MenuItemButton, 'Leave channel'),
+            find.widgetWithText(DDropdownMenuItem, 'Leave channel'),
             findsOneWidget,
           );
 
@@ -3603,6 +3603,71 @@ void _registerChatShellTests() {
             find.byKey(const ValueKey('chat-channel-settings')),
             findsOneWidget,
           );
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
+      });
+
+      testWidgets('keeps channel notifications open during diagonal movement', (
+        tester,
+      ) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9)]),
+            },
+          );
+          await pumpChat(tester, api: api);
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          await mouse.moveTo(tester.getCenter(sidebarDestination('Bugs')));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-menu-button-9')),
+          );
+          await tester.pumpAndSettle();
+
+          final trigger = tester.getRect(
+            find.byKey(const ValueKey('chat-channel-notifications-9')),
+          );
+          await mouse.moveTo(trigger.center);
+          await tester.pumpAndSettle();
+          final popup = tester.getRect(find.byType(DDropdownMenuContent).last);
+          final opensRight = popup.center.dx > trigger.center.dx;
+          final origin = Offset(
+            opensRight ? trigger.left + 24 : trigger.right - 24,
+            trigger.center.dy,
+          );
+          final edge = opensRight ? popup.left : popup.right;
+          await mouse.moveTo(origin);
+          await tester.pump();
+          final settings = tester.getCenter(
+            find.byKey(const ValueKey('chat-channel-menu-settings-9')),
+          );
+          await mouse.moveTo(
+            Offset(origin.dx + (edge - origin.dx) * .7, settings.dy),
+          );
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(find.text('Mute channel'), findsOneWidget);
+
+          final mute = tester.getCenter(
+            find.byKey(const ValueKey('chat-channel-mute-9')),
+          );
+          await mouse.moveTo(mute);
+          await mouse.down(mute);
+          await mouse.up();
+          await tester.pumpAndSettle();
+          expect(api.chatChannelNotificationsUpdated, const [
+            (channelId: 9, muted: true, notificationLevel: null),
+          ]);
+          expect(find.text('Channel settings'), findsNothing);
         } finally {
           debugDefaultTargetPlatformOverride = previous;
         }
@@ -3711,7 +3776,7 @@ void _registerChatShellTests() {
             await tester.pumpAndSettle();
 
             expect(
-              find.widgetWithText(MenuItemButton, 'Close channel'),
+              find.widgetWithText(DDropdownMenuItem, 'Close channel'),
               findsOneWidget,
             );
             await tester.tap(

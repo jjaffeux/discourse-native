@@ -15,7 +15,8 @@ final contextMenuExamples = ComponentExamples(
       'touch long press, Context Menu, Shift+F10 and an accessibility long-press '
       'action. Context actions enhance rather than replace visible controls. '
       'The shared Dropdown Menu owner supplies navigation, selection, submenu, '
-      'typeahead, positioning, dismissal and focus restoration.',
+      'typeahead, positioning, dismissal and focus restoration. Invisible '
+      'pointer protection keeps submenus open during diagonal movement.',
   examples: [
     StyleguideExample(
       title: 'Basic',

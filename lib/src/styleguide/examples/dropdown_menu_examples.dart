@@ -43,7 +43,7 @@ StyleguideExample _example(
     _DropdownExampleKind.basic =>
       'Labels, groups, separators, a disabled item, and ordinary actions.',
     _DropdownExampleKind.submenu =>
-      'Two nested levels with directional opening and deepest-Escape-first dismissal.',
+      'Move diagonally into either nested level without switching sibling menus. Directional keys open submenus; Escape closes the deepest one.',
     _DropdownExampleKind.shortcuts =>
       'Right-aligned keyboard hints remain presentation-only.',
     _DropdownExampleKind.icons =>
