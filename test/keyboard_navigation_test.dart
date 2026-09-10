@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -21,6 +22,32 @@ import 'support/shell_test_harness.dart';
 
 void main() {
   for (final size in [desktop, phone]) {
+    for (final next in [false, true]) {
+      testWidgets(
+        'G ${next ? 'J' : 'K'} opens the first listed topic from an unlisted topic at ${size.width}px',
+        (tester) async {
+          final setup = await _setup(tester, size: size);
+          final unlisted = setup.api.feeds['/latest.json?page=1']!.single;
+          setup.shell.openTopic(unlisted);
+          await tester.pumpAndSettle();
+          final source = setup.shell.topicListContent;
+          expect(
+            setup.shell.currentFeed!.topicIds,
+            isNot(contains(unlisted.id)),
+          );
+
+          await _openAdjacent(tester, next: next);
+
+          expect(setup.shell.currentContent?.topicId, 1);
+          expect(setup.shell.currentContent?.postNumber, 2);
+          expect(setup.shell.topicListContent, source);
+          expect(setup.shell.contentStack, hasLength(2));
+          expect(_selectedPosts(tester), isEmpty);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('G J and G K open adjacent topics at ${size.width}px', (
       tester,
     ) async {
@@ -44,6 +71,82 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  for (final next in [false, true]) {
+    testWidgets(
+      '${next ? 'Next' : 'Previous'} button opens the first listed topic from an unlisted topic',
+      (tester) async {
+        final setup = await _setup(tester);
+        setup.shell.openTopic(setup.api.feeds['/latest.json?page=1']!.single);
+        await tester.pumpAndSettle();
+        final source = setup.shell.topicListContent;
+        final previousButton = find.byKey(
+          const ValueKey('inbox-previous-topic'),
+        );
+        final nextButton = find.byKey(const ValueKey('inbox-next-topic'));
+        expect(tester.widget<DButton>(previousButton).onPressed, isNotNull);
+        expect(tester.widget<DButton>(nextButton).onPressed, isNotNull);
+
+        await tester.tap(next ? nextButton : previousButton);
+        await tester.pumpAndSettle();
+
+        expect(setup.shell.currentContent?.topicId, 1);
+        expect(setup.shell.currentContent?.postNumber, 2);
+        expect(setup.shell.topicListContent, source);
+        expect(setup.shell.contentStack, hasLength(2));
+        expect(tester.widget<DButton>(previousButton).onPressed, isNull);
+        expect(tester.widget<DButton>(nextButton).onPressed, isNotNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'topic arrows and shortcuts follow empty and refreshed source lists',
+    (tester) async {
+      final setup = await _setup(tester);
+      final first = setup.api.feeds['/latest.json']!.first;
+      setup.shell.openTopic(setup.api.feeds['/latest.json?page=1']!.single);
+      setup.api.feeds['/latest.json'] = [];
+      setup.api.nextPages.remove('/latest.json');
+      await setup.shell.loadFeed(setup.shell.currentFeedId!, force: true);
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentFeed!.topicIds, isEmpty);
+      for (final key in ['inbox-previous-topic', 'inbox-next-topic']) {
+        expect(
+          tester.widget<DButton>(find.byKey(ValueKey(key))).onPressed,
+          isNull,
+        );
+      }
+
+      await _openAdjacent(tester, next: false);
+      await _openAdjacent(tester, next: true);
+
+      expect(setup.shell.currentContent?.topicId, 31);
+      expect(_selectedPosts(tester), isEmpty);
+
+      setup.api.feeds['/latest.json'] = [first];
+      await setup.shell.loadFeed(setup.shell.currentFeedId!, force: true);
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentFeed!.topicIds, [1]);
+      for (final key in ['inbox-previous-topic', 'inbox-next-topic']) {
+        expect(
+          tester.widget<DButton>(find.byKey(ValueKey(key))).onPressed,
+          isNotNull,
+        );
+      }
+      await tester.tap(find.byKey(const ValueKey('inbox-previous-topic')));
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentContent?.topicId, 1);
+      for (final key in ['inbox-previous-topic', 'inbox-next-topic']) {
+        expect(
+          tester.widget<DButton>(find.byKey(ValueKey(key))).onPressed,
+          isNull,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'expired and interrupted topic sequences leave J as a post command',
@@ -643,7 +746,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
       '/latest.json': rows.take(30).toList(),
       '/latest.json?page=1': [rows.last],
     },
-    nextPages: const {'/latest.json': '/latest.json?page=1'},
+    nextPages: {'/latest.json': '/latest.json?page=1'},
     topics: {
       for (final row in rows)
         row.id: (
