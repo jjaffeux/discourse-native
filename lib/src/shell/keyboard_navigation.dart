@@ -35,6 +35,7 @@ bool navigationShortcutsAllowed(
       widget is FormField<Object?> ||
       widget is DropdownButton<Object?> ||
       widget is DropdownMenu<Object?> ||
+      widget is DTabTrigger<Object?> ||
       widget is DCheckbox ||
       widget is Checkbox ||
       widget is CheckboxListTile ||
