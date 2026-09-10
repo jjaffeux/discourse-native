@@ -13,6 +13,7 @@ import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'topic_list_layout.dart';
+import 'topic_taxonomy_button.dart';
 
 typedef TopicListTagSearch =
     Future<List<TopicFilterLookupValue>> Function(String term);
@@ -223,7 +224,7 @@ class _CategoryFilterAnchorState extends State<_CategoryFilterAnchor> {
               ),
       ),
       anchor: DComboboxTrigger<int>(
-        builder: (context, trigger) => _FilterButton(
+        builder: (context, trigger) => TopicTaxonomyButton(
           key: ValueKey('topic-list-$kind-filter'),
           label:
               selected?.name ??
@@ -438,7 +439,7 @@ class _TagFilterAnchorState extends State<_TagFilterAnchor> {
         ),
     ];
     final anchor = DComboboxTrigger<String>(
-      builder: (context, trigger) => _FilterButton(
+      builder: (context, trigger) => TopicTaxonomyButton(
         key: const ValueKey('topic-list-tag-filter'),
         label: label,
         icon: const DIcon(DIcons.tag, size: 14),
@@ -538,52 +539,6 @@ class _TagFilterAnchorState extends State<_TagFilterAnchor> {
       content: content,
     );
   }
-}
-
-class _FilterButton extends StatelessWidget {
-  const _FilterButton({
-    super.key,
-    required this.label,
-    required this.semanticLabel,
-    required this.onPressed,
-    required this.focusNode,
-    required this.expanded,
-    required this.maximumWidth,
-    this.icon,
-  });
-
-  final String label;
-  final String semanticLabel;
-  final VoidCallback onPressed;
-  final FocusNode focusNode;
-  final bool expanded;
-  final double maximumWidth;
-  final Widget? icon;
-
-  @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    constraints: BoxConstraints(maxWidth: maximumWidth),
-    child: DButton(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          const SizedBox(width: 8),
-          const DIcon(DIcons.chevronDown, size: 16),
-        ],
-      ),
-      icon: icon,
-      semanticLabel: semanticLabel,
-      onPressed: onPressed,
-      focusNode: focusNode,
-      hasPopup: true,
-      expanded: expanded,
-      alignment: AlignmentDirectional.centerStart,
-      variant: DButtonVariant.secondary,
-    ),
-  );
 }
 
 @immutable
