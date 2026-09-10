@@ -12,6 +12,7 @@ void main() {
     expect(componentExamples['avatar'], same(avatarExamples));
     expect(avatarExamples.examples.map((e) => e.title), [
       'Basic and composition',
+      'Ring',
       'Badge and badge with icon',
       'Avatar group, count and icon',
       'Group actions',

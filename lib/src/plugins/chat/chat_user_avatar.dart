@@ -5,11 +5,9 @@ import '../../models/user_flair.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/group_flair.dart';
-import '../../theme/app_theme.dart';
 import 'chat_services.dart';
 
-/// Insets the image within a fixed outer size so the upstream online ring does
-/// not move message gutters.
+/// Uses DAvatar's core-compatible ring without moving message gutters.
 /// Group flair sits outside the image clip, at core's 45% badge size and 10%
 /// trailing/bottom overhang, without changing that layout footprint.
 class ChatUserAvatar extends StatelessWidget {
@@ -42,14 +40,14 @@ class ChatUserAvatar extends StatelessWidget {
     return ValueListenableBuilder<Set<int>>(
       valueListenable: onlineUsers,
       builder: (context, ids, _) {
-        final avatar = ids.contains(userId)
-            ? _OnlineAvatar(
-                key: onlineRingKey(userId),
-                url: url,
-                size: size,
-                fallback: fallback,
-              )
-            : _avatar(url: url, size: size, fallback: fallback);
+        final online = ids.contains(userId);
+        final avatar = _avatar(
+          key: online ? onlineRingKey(userId) : null,
+          url: url,
+          size: size,
+          fallback: fallback,
+          ring: online,
+        );
         final badge = flair;
         if (badge == null) return avatar;
         final badgeSize = size * .45;
@@ -85,45 +83,20 @@ class ChatUserAvatar extends StatelessWidget {
   }
 }
 
-class _OnlineAvatar extends StatelessWidget {
-  const _OnlineAvatar({
-    super.key,
-    required this.url,
-    required this.size,
-    required this.fallback,
-  });
-
-  final String? url;
-  final double size;
-  final Widget fallback;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox.square(
-      dimension: size,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.shell.content,
-          shape: BoxShape.circle,
-          border: Border.all(color: theme.discourse.success),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(2),
-          child: _avatar(url: url, size: size - 4, fallback: fallback),
-        ),
-      ),
-    );
-  }
-}
-
 Widget _avatar({
+  Key? key,
   required String? url,
   required double size,
   required Widget fallback,
-}) => DAvatar.frame(
-  child: SizedBox.square(
-    dimension: size,
-    child: AvatarImage(url: url, size: size, fallback: fallback),
+  bool ring = false,
+}) => DAvatar(
+  key: key,
+  dimension: size,
+  ring: ring,
+  ringSemanticLabel: ring ? 'Online' : null,
+  child: AvatarImage(
+    url: url,
+    size: ring ? size - 4 : size,
+    fallback: fallback,
   ),
 );

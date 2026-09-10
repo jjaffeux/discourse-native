@@ -174,6 +174,54 @@ void main() {
       );
     }
   });
+  testWidgets('ring matches core geometry, live colors and semantics', (
+    tester,
+  ) async {
+    const ringKey = ValueKey('ring');
+    const fallbackKey = ValueKey('ring-fallback');
+    await _pump(
+      tester,
+      const DAvatar(
+        key: ringKey,
+        ring: true,
+        ringSemanticLabel: 'Online',
+        semanticLabel: 'Chris',
+        fallback: DAvatarFallback(key: fallbackKey, child: Text('CN')),
+      ),
+    );
+
+    expect(tester.getSize(find.byKey(ringKey)), const Size.square(32));
+    expect(tester.getSize(find.byKey(fallbackKey)), const Size.square(28));
+    final decoration =
+        tester.widget<DecoratedBox>(find.byType(DecoratedBox)).decoration
+            as BoxDecoration;
+    final tokens = DTokens.of(tester.element(find.byKey(ringKey)));
+    expect(decoration.color, tokens.background);
+    expect((decoration.border! as Border).top.color, tokens.success);
+    expect((decoration.border! as Border).top.width, 1);
+
+    final semantics = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('Chris, Online'), findsOneWidget);
+    semantics.dispose();
+  });
+  testWidgets('ring preserves an intrinsic frame extent', (tester) async {
+    const childKey = ValueKey('framed-ring-child');
+    await _pump(
+      tester,
+      const DAvatar.frame(
+        ring: true,
+        ringSemanticLabel: 'Online',
+        child: SizedBox.square(
+          key: childKey,
+          dimension: 28,
+          child: ColoredBox(color: Colors.blue),
+        ),
+      ),
+    );
+
+    expect(tester.getSize(find.byType(DAvatar)), const Size.square(28));
+    expect(tester.getSize(find.byKey(childKey)), const Size.square(24));
+  });
   testWidgets('provider replacement discards late frames and keeps identity', (
     tester,
   ) async {
