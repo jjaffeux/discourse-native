@@ -110,6 +110,17 @@ docking, inbox, messages, shell-panel and resize suite. Root and full-profile
 analysis and the macOS fixture build passed. The additional delayed-close
 navigation test stalled both on the candidate and on unchanged `fa01bb4b`
 (the isolated baseline was stopped after 60 seconds).
+The later integration with `31159a05` passed all 79 affected boundary, topic-inbox
+and message-page tests.
+
+Native macOS inspection used the isolated fixture built from `b493007c`
+(kernel SHA256 `294e2f28513cf0b6db023b0b58d494db0b70cf7401f962d555e0df5a5093213c`).
+It confirmed a continuous single boundary beside populated topics and messages,
+left/right/bottom placement, light/dark palettes, RTL, and opening a split topic
+reader then collapsing that split by docking at the side. Subsequent integration
+changes leave the boundary-owning widgets unchanged. Native observations cover
+placement and split transitions; drag resizing remains covered by widget tests.
+The isolated app was quit and the desktop lease released after inspection.
 
 The placement-only popup follow-up passed 160 focused composer, draft,
 topic-action, and mobile-layout tests. Root and full-profile static analysis,
