@@ -7,14 +7,14 @@ import 'package:flutter/material.dart';
 import '../app_shortcuts.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_draft.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
 
-class TopicCreateButton extends StatefulWidget {
+class TopicCreateButton extends StatelessWidget {
   const TopicCreateButton({
     super.key,
     required this.showLabel,
@@ -30,26 +30,6 @@ class TopicCreateButton extends StatefulWidget {
   final VoidCallback onPressed;
 
   @override
-  State<TopicCreateButton> createState() => _TopicCreateButtonState();
-}
-
-class _TopicCreateButtonState extends State<TopicCreateButton> {
-  final MenuController _menu = MenuController();
-
-  void _toggleDraftsMenu(
-    ShellController controller,
-    DiscourseInstance instance,
-  ) {
-    if (_menu.isOpen) {
-      _menu.close();
-      return;
-    }
-
-    _menu.open();
-    unawaited(controller.draftList.load(instance, refresh: true));
-  }
-
-  @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
 
@@ -61,35 +41,12 @@ class _TopicCreateButtonState extends State<TopicCreateButton> {
             instance?.isConnected == true &&
             controller.draftCountFor(instance!.url) > 0;
 
-        return MenuAnchor(
-          controller: _menu,
-          alignmentOffset: const Offset(0, 6),
-          style: const MenuStyle(
-            backgroundColor: WidgetStatePropertyAll(Colors.transparent),
-            surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
-            shadowColor: WidgetStatePropertyAll(Colors.transparent),
-            elevation: WidgetStatePropertyAll(0),
-            padding: WidgetStatePropertyAll(EdgeInsets.zero),
-            side: WidgetStatePropertyAll(BorderSide.none),
-            shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
-          ),
-          menuChildren: [
-            if (instance != null)
-              _RecentDraftsMenu(
-                siteUrl: instance.url,
-                menu: _menu,
-                controller: controller,
-              ),
-          ],
-          builder: (context, menu, child) => _TopicCreateControl(
-            showLabel: widget.showLabel,
-            compact: widget.compact,
-            showDraftsButton: hasDrafts,
-            onPressed: widget.onPressed,
-            onDraftsPressed: instance == null
-                ? null
-                : () => _toggleDraftsMenu(controller, instance),
-          ),
+        return _TopicCreateControl(
+          showLabel: showLabel,
+          compact: compact,
+          onPressed: onPressed,
+          draftsInstance: hasDrafts ? instance : null,
+          controller: controller,
         );
       },
     );
@@ -100,16 +57,16 @@ class _TopicCreateControl extends StatelessWidget {
   const _TopicCreateControl({
     required this.showLabel,
     required this.compact,
-    required this.showDraftsButton,
     required this.onPressed,
-    required this.onDraftsPressed,
+    required this.draftsInstance,
+    required this.controller,
   });
 
   final bool showLabel;
   final bool compact;
-  final bool showDraftsButton;
   final VoidCallback onPressed;
-  final VoidCallback? onDraftsPressed;
+  final DiscourseInstance? draftsInstance;
+  final ShellController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -120,13 +77,6 @@ class _TopicCreateControl extends StatelessWidget {
     final dimension = compact && showLabel
         ? math.max(28.0, labelHeight + 10)
         : DButton.iconOnlyDimensionFor(DButtonSize.small);
-    final radius = Radius.circular(
-      Theme.of(context).discourseButtons.borderRadius,
-    );
-    final mainRadius = showDraftsButton && !insetIcons
-        ? BorderRadius.horizontal(left: radius)
-        : BorderRadius.all(radius);
-
     final mainButton = showLabel
         ? DButton(
             key: TopicCreateButton.buttonKey,
@@ -146,7 +96,6 @@ class _TopicCreateControl extends StatelessWidget {
             padding: compact
                 ? const EdgeInsets.symmetric(horizontal: 8, vertical: 5)
                 : null,
-            borderRadius: mainRadius,
           )
         : DButton.iconOnly(
             key: TopicCreateButton.buttonKey,
@@ -158,7 +107,6 @@ class _TopicCreateControl extends StatelessWidget {
             variant: DButtonVariant.primary,
             size: DButtonSize.small,
             insetSurface: insetIcons,
-            borderRadius: mainRadius,
           );
     final sizedMainButton = insetIcons
         ? mainButton
@@ -168,54 +116,57 @@ class _TopicCreateControl extends StatelessWidget {
             child: mainButton,
           );
 
-    if (!showDraftsButton) return sizedMainButton;
+    final instance = draftsInstance;
+    if (instance == null) return sizedMainButton;
 
-    final draftsButton = DButton.iconOnly(
-      key: TopicCreateButton.draftsButtonKey,
-      icon: DIcon(DIcons.chevronDown, size: compact && showLabel ? 12 : 16),
-      tooltip: 'Open the latest drafts menu',
-      semanticLabel: 'Open the latest drafts menu',
-      onPressed: onDraftsPressed,
-      variant: DButtonVariant.primary,
-      size: DButtonSize.small,
-      insetSurface: insetIcons,
-      borderRadius: insetIcons
-          ? BorderRadius.all(radius)
-          : BorderRadius.horizontal(right: radius),
-    );
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return DButtonGroup(
+      semanticLabel: 'Topic creation actions',
       children: [
         sizedMainButton,
-        const SizedBox(width: 2),
-        if (insetIcons)
-          draftsButton
-        else
-          SizedBox(
-            height: dimension,
-            width: compact && showLabel ? 28 : dimension,
-            child: draftsButton,
+        if (!insetIcons) const DButtonGroupSeparator(),
+        DDropdownMenu(
+          key: ValueKey((instance.url, instance.user?.id)),
+          onOpenChange: (open, _) {
+            if (open) {
+              unawaited(controller.draftList.load(instance, refresh: true));
+            }
+          },
+          content: _draftsContent(context, instance),
+          child: DDropdownMenuTrigger(
+            builder: (context, state) {
+              final button = DButton.iconOnly(
+                key: TopicCreateButton.draftsButtonKey,
+                icon: DIcon(
+                  DIcons.chevronDown,
+                  size: compact && showLabel ? 12 : 16,
+                ),
+                tooltip: 'Open the latest drafts menu',
+                semanticLabel: 'Open the latest drafts menu',
+                onPressed: state.toggle,
+                focusNode: state.focusNode,
+                hasPopup: true,
+                expanded: state.open,
+                variant: DButtonVariant.primary,
+                size: DButtonSize.small,
+                insetSurface: insetIcons,
+              );
+              return insetIcons
+                  ? button
+                  : SizedBox(
+                      height: dimension,
+                      width: compact && showLabel ? 28 : dimension,
+                      child: button,
+                    );
+            },
           ),
+        ),
       ],
     );
   }
-}
-
-class _RecentDraftsMenu extends StatelessWidget {
-  const _RecentDraftsMenu({
-    required this.siteUrl,
-    required this.menu,
-    required this.controller,
-  });
 
   static const int _draftLimit = 4;
 
-  final String siteUrl;
-  final MenuController menu;
-  final ShellController controller;
-
-  void _resume(UserDraft draft) {
-    menu.close();
+  void _resume(String siteUrl, UserDraft draft) {
     if (draft.canResume) {
       unawaited(controller.resumeDraft(siteUrl, draft));
     } else {
@@ -223,163 +174,72 @@ class _RecentDraftsMenu extends StatelessWidget {
     }
   }
 
-  void _viewAll() {
-    menu.close();
-    controller.openDrafts(siteUrl);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final width = math.min(350.0, math.max(240.0, screenWidth - 24));
-
-    return SizedBox(
-      width: width,
-      child: Material(
-        color: Theme.of(context).shell.floating,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: Theme.of(context).shell.divider),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: ListenableBuilder(
-          listenable: controller.draftList,
-          builder: (context, _) {
-            final theme = Theme.of(context);
-            final feed = controller.draftList.feedFor(siteUrl);
-            final drafts = feed.drafts.take(_draftLimit).toList();
-            final draftCount = controller.draftCountFor(siteUrl);
-            final otherDraftCount = math.max(0, draftCount - _draftLimit);
-
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (feed.loading && drafts.isEmpty)
-                  const SizedBox(
-                    height: 72,
-                    child: Center(
-                      child: SizedBox.square(dimension: 20, child: DSpinner()),
-                    ),
-                  )
-                else if (feed.error != null && drafts.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      "Couldn't load drafts.",
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  for (final draft in drafts)
-                    _RecentDraftRow(
-                      key: ValueKey('recent-draft-${draft.key}'),
-                      siteUrl: siteUrl,
-                      draft: draft,
-                      onTap: () => _resume(draft),
-                    ),
-                if (otherDraftCount > 0) ...[
-                  DSeparator(space: 1, color: theme.shell.divider),
-                  _ViewAllDraftsRow(
-                    otherDraftCount: otherDraftCount,
-                    onTap: _viewAll,
-                  ),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _RecentDraftRow extends StatelessWidget {
-  const _RecentDraftRow({
-    super.key,
-    required this.siteUrl,
-    required this.draft,
-    required this.onTap,
-  });
-
-  final String siteUrl;
-  final UserDraft draft;
-  final VoidCallback onTap;
-
-  DIconData get _icon {
+  DIconData _draftIcon(UserDraft draft) {
     if (draft.isVoiceTranscript) return DIcons.closedCaptioning;
     if (draft.isNewTopic) return DIcons.layerGroup;
     if (draft.key.startsWith('new_private_message')) return DIcons.envelope;
     return DIcons.reply;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      child: SizedBox(
-        height: 48,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              DIcon(_icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TopicTitle(
-                  draft.displayTitle,
-                  siteUrl: siteUrl,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+  DDropdownMenuContent _draftsContent(
+    BuildContext context,
+    DiscourseInstance instance,
+  ) {
+    final siteUrl = instance.url;
+    final feed = controller.draftList.feedFor(siteUrl);
+    final drafts = feed.drafts.take(_draftLimit);
+    final otherDraftCount = math.max(
+      0,
+      controller.draftCountFor(siteUrl) - _draftLimit,
     );
-  }
-}
-
-class _ViewAllDraftsRow extends StatelessWidget {
-  const _ViewAllDraftsRow({required this.otherDraftCount, required this.onTap});
-
-  final int otherDraftCount;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final noun = otherDraftCount == 1 ? 'draft' : 'drafts';
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                '+$otherDraftCount other $noun',
+
+    return DDropdownMenuContent(
+      semanticLabel: 'Recent drafts',
+      align: DPopoverAlign.end,
+      width: math.min(350, MediaQuery.sizeOf(context).width - 24),
+      children: [
+        if (feed.loading && drafts.isEmpty)
+          const DDropdownMenuLabel(
+            child: Row(
+              children: [
+                DSpinner(size: 16, semanticLabel: null),
+                SizedBox(width: DSpacing.sm),
+                Expanded(child: Text('Loading drafts…')),
+              ],
+            ),
+          )
+        else if (feed.error != null && drafts.isEmpty)
+          const DDropdownMenuLabel(child: Text("Couldn't load drafts."))
+        else
+          for (final draft in drafts)
+            DDropdownMenuItem(
+              key: ValueKey('recent-draft-${draft.key}'),
+              semanticLabel: draft.displayTitle,
+              leading: DIcon(_draftIcon(draft), size: 16),
+              onPressed: () => _resume(siteUrl, draft),
+              child: TopicTitle(
+                draft.displayTitle,
+                siteUrl: siteUrl,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
               ),
             ),
-            const SizedBox(width: 12),
-            Text(
-              'view all drafts',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.primary,
-              ),
+        if (otherDraftCount > 0 && !feed.loading) ...[
+          const DDropdownMenuSeparator(),
+          DDropdownMenuItem(
+            semanticLabel: 'View all drafts, $otherDraftCount other $noun',
+            onPressed: () => controller.openDrafts(siteUrl),
+            child: Wrap(
+              spacing: DSpacing.md,
+              children: [
+                Text('+$otherDraftCount other $noun'),
+                const Text('view all drafts'),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
     );
   }
 }

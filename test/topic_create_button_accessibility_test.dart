@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -6,11 +8,13 @@ import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';
@@ -57,6 +61,7 @@ void main() {
             tester.getSemantics(drafts),
             isSemantics(
               label: 'Open the latest drafts menu',
+              hasExpandedState: true,
               isButton: true,
               hasEnabledState: true,
               isEnabled: true,
@@ -135,6 +140,152 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('joins the buttons with outside corners in $direction', (
+      tester,
+    ) async {
+      await _pump(tester, direction: direction);
+      final create = find.byKey(TopicCreateButton.buttonKey);
+      final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
+      final createRadius = buttonSurface(tester, of: create).borderRadius;
+      final draftsRadius = buttonSurface(tester, of: drafts).borderRadius;
+      if (direction == TextDirection.ltr) {
+        expect(createRadius.topLeft.x, greaterThan(0));
+        expect(createRadius.topRight, Radius.zero);
+        expect(draftsRadius.topLeft, Radius.zero);
+        expect(draftsRadius.topRight.x, greaterThan(0));
+        expect(tester.getRect(drafts).left - tester.getRect(create).right, 1);
+      } else {
+        expect(createRadius.topRight.x, greaterThan(0));
+        expect(createRadius.topLeft, Radius.zero);
+        expect(draftsRadius.topRight, Radius.zero);
+        expect(draftsRadius.topLeft.x, greaterThan(0));
+        expect(tester.getRect(create).left - tester.getRect(drafts).right, 1);
+      }
+    });
+  }
+
+  testWidgets('keeps a standalone create action when there are no drafts', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester, draftCount: 0);
+    expect(find.byKey(TopicCreateButton.draftsButtonKey), findsNothing);
+    final create = find.byKey(TopicCreateButton.buttonKey);
+    final radius = buttonSurface(tester, of: create).borderRadius;
+    expect(radius.topLeft.x, greaterThan(0));
+    expect(radius.topRight, radius.topLeft);
+    await tester.tap(create);
+    expect(fixture.createCalls(), 1);
+    expect(fixture.api.userDraftRequests, isEmpty);
+  });
+
+  testWidgets('focuses loaded drafts and restores the trigger on Escape', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    await _pump(
+      tester,
+      userDraftGate: gate,
+      draftCount: 6,
+      userDrafts: [
+        _draft,
+        for (var i = 1; i < 6; i++)
+          UserDraft(
+            key: 'new_private_message_$i',
+            sequence: i,
+            data: ComposerDraft(reply: 'Message body', title: 'Message $i'),
+          ),
+      ],
+    );
+    final trigger = find.byKey(TopicCreateButton.draftsButtonKey);
+    final triggerFocus = _focusButton(tester, trigger);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Loading drafts…'), findsOneWidget);
+    gate.complete();
+    await tester.pumpAndSettle();
+    final title = find.descendant(
+      of: find.byKey(const ValueKey('recent-draft-new_topic')),
+      matching: find.byType(TopicTitle),
+    );
+    expect(Focus.of(tester.element(title)).hasPrimaryFocus, isTrue);
+    expect(tester.widget<DButton>(trigger).expanded, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(
+      tester.binding.focusManager.primaryFocus?.debugLabel,
+      contains('Message 1'),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    expect(
+      tester.binding.focusManager.primaryFocus?.debugLabel,
+      contains('View all drafts'),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(title, findsNothing);
+    expect(triggerFocus.hasPrimaryFocus, isTrue);
+    expect(tester.widget<DButton>(trigger).expanded, isFalse);
+  });
+
+  testWidgets('dismissed loading does not reopen or take focus on completion', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    await _pump(tester, userDraftGate: gate);
+    await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Loading drafts…'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    final createFocus = _focusButton(
+      tester,
+      find.byKey(TopicCreateButton.buttonKey),
+    );
+    await tester.pumpAndSettle();
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(createFocus.hasPrimaryFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final failed in [false, true]) {
+    testWidgets(
+      'handles an ${failed ? 'unsuccessful' : 'empty'} draft response',
+      (tester) async {
+        final gate = Completer<void>();
+        final fixture = await _pump(
+          tester,
+          userDraftGate: gate,
+          userDrafts: const [],
+          compact: true,
+          textScale: 2,
+        );
+        final trigger = find.byKey(TopicCreateButton.draftsButtonKey);
+        await tester.tap(trigger);
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.text('Loading drafts…'), findsOneWidget);
+        if (failed) {
+          gate.completeError(StateError('Draft request failed'));
+        } else {
+          gate.complete();
+        }
+        await tester.pumpAndSettle();
+        if (failed) {
+          expect(find.text("Couldn't load drafts."), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+        } else {
+          expect(trigger, findsNothing);
+        }
+        await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+        expect(fixture.createCalls(), 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 void _expectSmallDButton(
@@ -159,22 +310,27 @@ Future<_Fixture> _pump(
   bool compact = false,
   bool showLabel = true,
   double textScale = 1,
+  TextDirection direction = TextDirection.ltr,
+  int draftCount = 1,
+  List<UserDraft> userDrafts = const [_draft],
+  Completer<void>? userDraftGate,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
-  const user = DiscourseUser(
+  final user = DiscourseUser(
     id: 7,
     username: 'reader',
     name: 'Reader',
-    draftCount: 1,
+    draftCount: draftCount,
   );
   final site = instance('meta.example').copyWith(user: user);
   final api = FakeDiscourseApi(
     user: user,
     totals: const NotificationTotals(),
-    userDraftList: const [_draft],
+    userDraftList: userDrafts,
+    userDraftGate: userDraftGate,
     feeds: const {'/latest.json': []},
   );
   final controller = ShellController(
@@ -200,7 +356,7 @@ Future<_Fixture> _pump(
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
+          child: Directionality(textDirection: direction, child: child!),
         ),
         home: Scaffold(
           body: Align(

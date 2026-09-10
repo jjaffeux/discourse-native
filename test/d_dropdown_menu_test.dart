@@ -168,6 +168,68 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final autofocus in [true, false]) {
+    testWidgets('deferred enabled items respect autofocus=$autofocus', (
+      tester,
+    ) async {
+      final revision = ValueNotifier(0);
+      final first = FocusNode(debugLabel: 'First');
+      final second = FocusNode(debugLabel: 'Second');
+      addTearDown(revision.dispose);
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      await pumpMenu(
+        tester,
+        child: DDropdownMenu(
+          content: DDropdownMenuContent(
+            autofocus: autofocus,
+            children: [
+              ValueListenableBuilder<int>(
+                valueListenable: revision,
+                builder: (context, value, _) => DDropdownMenuGroup(
+                  children: [
+                    DDropdownMenuItem(
+                      focusNode: first,
+                      onPressed: value == 0 ? null : () {},
+                      child: Text('First $value'),
+                    ),
+                    DDropdownMenuItem(
+                      focusNode: second,
+                      onPressed: value == 0 ? null : () {},
+                      child: Text('Second $value'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          child: DDropdownMenuTrigger(
+            builder: (context, state) => DButton(
+              label: const Text('Open'),
+              onPressed: state.toggle,
+              focusNode: state.focusNode,
+            ),
+          ),
+        ),
+      );
+      await open(tester);
+      expect(first.hasFocus, isFalse);
+      expect(second.hasFocus, isFalse);
+      revision.value = 1;
+      await tester.pumpAndSettle();
+      expect(first.hasFocus, autofocus);
+      if (autofocus) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      }
+      revision.value = 2;
+      await tester.pumpAndSettle();
+      expect(first.hasFocus, isFalse);
+      expect(second.hasFocus, autofocus);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('typeahead wraps from the active row', (tester) async {
     await pumpMenu(tester);
     await open(tester);
