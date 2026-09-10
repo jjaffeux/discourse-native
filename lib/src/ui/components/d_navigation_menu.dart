@@ -133,7 +133,9 @@ class DNavigationMenu<T> extends StatefulWidget {
 
 class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
   final _contentFocus = FocusScopeNode(debugLabel: 'Navigation menu content');
+  final _listKey = GlobalKey(debugLabel: 'Navigation menu list');
   final Map<T, FocusNode> _focusNodes = {};
+  final Map<T, GlobalKey> _triggerKeys = {};
   Timer? _openTimer;
   Timer? _closeTimer;
   T? _localValue;
@@ -142,6 +144,8 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
   T? _rovingValue;
   bool _pointerInList = false;
   bool _pointerInContent = false;
+  bool _indicatorSyncScheduled = false;
+  Rect? _indicatorRect;
 
   bool get _controlled => widget._controlled;
   T? get value => _controlled ? widget.value : _localValue;
@@ -164,6 +168,9 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
   @override
   void didUpdateWidget(DNavigationMenu<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_controlled && oldWidget.value != widget.value) {
+      _lastValue = oldWidget.value;
+    }
     if (!identical(oldWidget.controller, widget.controller)) {
       oldWidget.controller?._detach();
       _attachController();
@@ -176,6 +183,7 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
     for (final removed
         in _focusNodes.keys.where((key) => !values.contains(key)).toList()) {
       _focusNodes.remove(removed)?.dispose();
+      _triggerKeys.remove(removed);
     }
     _syncRovingFocus();
     final selected = value;
@@ -244,6 +252,42 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
     return node;
   });
 
+  GlobalKey _triggerKeyFor(T value) => _triggerKeys.putIfAbsent(
+    value,
+    () => GlobalKey(debugLabel: 'Navigation menu trigger $value'),
+  );
+
+  Rect? _indicatorRectFor(T? selected) {
+    if (selected == null) return null;
+    final listBox = _listKey.currentContext?.findRenderObject();
+    final triggerBox = _triggerKeys[selected]?.currentContext
+        ?.findRenderObject();
+    if (listBox is! RenderBox ||
+        triggerBox is! RenderBox ||
+        !listBox.attached ||
+        !triggerBox.attached ||
+        !listBox.hasSize ||
+        !triggerBox.hasSize) {
+      return null;
+    }
+    return MatrixUtils.transformRect(
+      triggerBox.getTransformTo(listBox),
+      Offset.zero & triggerBox.size,
+    );
+  }
+
+  void _scheduleIndicatorSync() {
+    if (_indicatorSyncScheduled) return;
+    _indicatorSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _indicatorSyncScheduled = false;
+      if (!mounted || value == null) return;
+      final rect = _indicatorRectFor(value);
+      if (rect == null) return;
+      if (_indicatorRect != rect) setState(() => _indicatorRect = rect);
+    });
+  }
+
   DNavigationMenuItem<T>? _item(T? wanted) {
     if (wanted == null) return null;
     for (final item in _items) {
@@ -260,7 +304,15 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
     }
     if (value == next) return;
     _lastValue = value;
-    if (!_controlled) setState(() => _localValue = next);
+    final indicatorRect = _indicatorRectFor(next);
+    if (!_controlled) {
+      setState(() {
+        _localValue = next;
+        if (indicatorRect != null) _indicatorRect = indicatorRect;
+      });
+    } else if (indicatorRect != null) {
+      _indicatorRect = indicatorRect;
+    }
     widget.onValueChanged?.call(next);
     widget.onSelectionChanged?.call(
       DNavigationMenuChange(value: next, reason: reason),
@@ -378,7 +430,7 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
     }
   }
 
-  Widget _content(DNavigationMenuItem<T> item) {
+  Widget _content(DNavigationMenuItem<T> item, {required double width}) {
     final content = item.content!;
     final direction = _activationDirection(item.value);
     final duration = DMotion.duration(
@@ -401,13 +453,24 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
           reverseDuration: duration,
           switchInCurve: const Cubic(0.22, 1, 0.36, 1),
           switchOutCurve: const Cubic(0.22, 1, 0.36, 1),
+          layoutBuilder: (currentChild, previousChildren) => Stack(
+            alignment: AlignmentDirectional.topStart,
+            clipBehavior: Clip.none,
+            children: [
+              for (final child in previousChildren)
+                PositionedDirectional(start: 0, top: 0, child: child),
+              ?currentChild,
+            ],
+          ),
           transitionBuilder: (child, animation) {
+            final entering = child.key == ValueKey(item.value);
             final offset = direction == 0
                 ? Offset.zero
-                : Offset(direction * .5, 0);
+                : Offset((entering ? direction : -direction) * .5, 0);
             return FadeTransition(
               opacity: animation,
               child: SlideTransition(
+                key: ValueKey<Object?>(('d-navigation-menu-panel', child.key)),
                 position: Tween(
                   begin: offset,
                   end: Offset.zero,
@@ -416,7 +479,11 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
               ),
             );
           },
-          child: KeyedSubtree(key: ValueKey(item.value), child: content.child),
+          child: SizedBox(
+            key: ValueKey(item.value),
+            width: width,
+            child: content.child,
+          ),
         ),
       ),
     );
@@ -448,13 +515,18 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
       padding: EdgeInsets.zero,
       align: widget.align,
       sideOffset: 8,
+      sizeAnimationDuration: const Duration(milliseconds: 350),
+      sizeAnimationCurve: const Cubic(0.22, 1, 0.36, 1),
       child: selected == null
           ? const SizedBox.shrink()
           : _DNavigationMenuLinkScope(
               close: () => _select(null, DNavigationMenuChangeReason.linkPress),
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: _content(selected),
+                child: _content(
+                  selected,
+                  width: safeWidth > 8 ? safeWidth - 8 : 0,
+                ),
               ),
             ),
     );
@@ -556,17 +628,55 @@ class DNavigationMenuList<T> extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [for (final item in children) item],
     );
-    return root.widget.orientation == Axis.horizontal
-        ? ClipRect(
-            clipper: const _NavigationListClipper(),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              primary: false,
-              clipBehavior: Clip.none,
-              child: row,
+    root._scheduleIndicatorSync();
+    final indicatorRect = root._indicatorRect;
+    final framed = Stack(
+      key: root._listKey,
+      clipBehavior: Clip.none,
+      children: [
+        row,
+        if (indicatorRect != null)
+          AnimatedPositioned(
+            key: const ValueKey('d-navigation-menu-indicator-position'),
+            left: indicatorRect.center.dx - 4,
+            top: indicatorRect.bottom,
+            width: 8,
+            height: 6,
+            duration: DMotion.duration(
+              context,
+              const Duration(milliseconds: 350),
             ),
-          )
-        : row;
+            curve: const Cubic(0.22, 1, 0.36, 1),
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                key: const ValueKey('d-navigation-menu-indicator'),
+                opacity: root.value == null ? 0 : 1,
+                duration: DMotion.duration(
+                  context,
+                  const Duration(milliseconds: 150),
+                ),
+                child: const _NavigationMenuIndicator(),
+              ),
+            ),
+          ),
+      ],
+    );
+    if (root.widget.orientation != Axis.horizontal) return framed;
+    return ClipRect(
+      clipper: const _NavigationListClipper(),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (_) {
+          root._scheduleIndicatorSync();
+          return false;
+        },
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          primary: false,
+          clipBehavior: Clip.none,
+          child: framed,
+        ),
+      ),
+    );
   }
 }
 
@@ -686,57 +796,11 @@ class DNavigationMenuTrigger extends StatelessWidget {
         (open || (root.value == null && root._lastValue == item.value))) {
       action = DPopoverAnchor(child: action);
     }
-    return MouseRegion(
-      onEnter: (_) => root._scheduleOpen(item.value),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.center,
-        children: [
-          action,
-          PositionedDirectional(
-            start: 0,
-            end: 0,
-            bottom: -6,
-            height: 6,
-            child: AnimatedOpacity(
-              opacity: open ? 1 : 0,
-              duration: DMotion.duration(
-                context,
-                const Duration(milliseconds: 150),
-              ),
-              child: ClipRect(
-                child: OverflowBox(
-                  alignment: Alignment.topCenter,
-                  minWidth: 8,
-                  maxWidth: 8,
-                  minHeight: 8,
-                  maxHeight: 8,
-                  child: Transform.translate(
-                    offset: const Offset(0, 4.8),
-                    child: Transform.rotate(
-                      angle: .785398,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: DTokens.of(context).border,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(
-                              DTokens.of(context).radius * .6,
-                            ),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x1A000000), blurRadius: 6),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+    return SizedBox(
+      key: root._triggerKeyFor(item.value),
+      child: MouseRegion(
+        onEnter: (_) => root._scheduleOpen(item.value),
+        child: action,
       ),
     );
   }
@@ -744,6 +808,40 @@ class DNavigationMenuTrigger extends StatelessWidget {
   @override
   Widget build(BuildContext context) => throw FlutterError(
     'DNavigationMenuTrigger is configured by DNavigationMenuItem and cannot be mounted alone.',
+  );
+}
+
+class _NavigationMenuIndicator extends StatelessWidget {
+  const _NavigationMenuIndicator();
+
+  @override
+  Widget build(BuildContext context) => ClipRect(
+    child: OverflowBox(
+      alignment: Alignment.topCenter,
+      minWidth: 8,
+      maxWidth: 8,
+      minHeight: 8,
+      maxHeight: 8,
+      child: Transform.translate(
+        offset: const Offset(0, 4.8),
+        child: Transform.rotate(
+          angle: .785398,
+          child: Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: DTokens.of(context).border,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(DTokens.of(context).radius * .6),
+              ),
+              boxShadow: const [
+                BoxShadow(color: Color(0x1A000000), blurRadius: 6),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 }
 

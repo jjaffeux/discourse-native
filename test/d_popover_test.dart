@@ -69,6 +69,36 @@ void main() {
     expect(find.text('Anchored content'), findsNothing);
   });
 
+  testWidgets('pressing inside a custom anchor does not dismiss its popover', (
+    tester,
+  ) async {
+    final reasons = <DPopoverChangeReason>[];
+    var presses = 0;
+    await tester.pumpWidget(
+      _app(
+        DPopover(
+          defaultOpen: true,
+          onOpenChange: (_, reason) => reasons.add(reason),
+          content: const DPopoverContent(child: Text('Anchored content')),
+          child: DPopoverAnchor(
+            child: DButton(
+              label: const Text('Anchor action'),
+              onPressed: () => presses += 1,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Anchor action'));
+    await tester.pumpAndSettle();
+
+    expect(presses, 1);
+    expect(find.text('Anchored content'), findsOneWidget);
+    expect(reasons, isNot(contains(DPopoverChangeReason.outsidePress)));
+  });
+
   testWidgets(
     'uncontrolled trigger opens, focuses content, and Escape restores',
     (tester) async {
