@@ -1,0 +1,23 @@
+{
+  "implementationBranch": "codex/main-sidebar-ui-kit",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/8b21/discourse-native/build/macos/Build/Products/Debug/Sidebar Migration Review 8b21.app",
+  "bundleIdentifier": "org.discourse.sidebarmigrationreview8b21.dev",
+  "entrypoint": "tool/sidebar_review_main.dart",
+  "buildLog": "/tmp/sidebar-native-build-final.log",
+  "runnerRestored": true,
+  "deepStrictSignatureVerified": true,
+  "sourceSha256": {
+    "lib/src/ui/components/d_sidebar.dart": "91707d46111f87969c8a634ae08e66dce6db2fc935eb6910908488a81a1c57b4",
+    "lib/src/ui/components/d_collapsible.dart": "a64aef5377a36623dd4ffdfaad821f94483b4ac738881ea070fc10e52dd06913",
+    "lib/src/shell/instance_sidebar.dart": "fa1820b6312a1642afeca0b2384f461bd3975505704d770a8d8384306368b9d3",
+    "lib/src/plugins/chat/chat_channel_actions.dart": "6208182206d51ee697e49f7602f68779eb181c3c0c02d776985f3daddc1b271b",
+    "lib/src/plugins/chat/chat_plugin.dart": "0bf4dd1cc38a90f734eec435e420c3e2e333a131722d7be050742491857267e6",
+    "lib/src/styleguide/examples/sidebar_examples.dart": "19fe991662aba35b41171b428568dab3a0b658454953b71957e7d9c1462070ba",
+    "tool/sidebar_review_main.dart": "fcca9f46525220afb911ed1b130cb63805a1bcb354c632893066c03c0ba40c8f"
+  },
+  "kernelSha256": {
+    "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "a9fd09b5d25df3cbdbe0b211b01eda671dcb7517c119772e378b241b4cc2e770"
+  },
+  "sourceEquivalence": "The only post-build source edit is alphabetizing fixture imports; production, component and example source is unchanged.",
+  "nativeEvidence": "docs/component-library/sidebar-main-migration.md"
+}

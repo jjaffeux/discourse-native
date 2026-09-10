@@ -35,7 +35,8 @@ void main() {
         );
         await tester.pump();
         expect(tester.takeException(), isNull, reason: example.title);
-        if (example.title != 'Documentation') {
+        if (example.title != 'Documentation' &&
+            example.title != 'Lazy navigation') {
           await tester.tap(find.byType(DSidebarTrigger));
           await tester.pump();
           await tester.pump();
@@ -69,6 +70,50 @@ void main() {
       }
     },
   );
+
+  testWidgets('lazy example updates counts, actions and collapsed rows', (
+    tester,
+  ) async {
+    final example = sidebarExamples.examples.singleWhere(
+      (example) => example.title == 'Lazy navigation',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: SizedBox(width: 300, child: Builder(builder: example.builder)),
+        ),
+      ),
+    );
+    expect(find.text('Channel 399'), findsNothing);
+    expect(find.text('1234'), findsOneWidget);
+    await tester.tap(find.byTooltip('Increase unread count'));
+    await tester.pump();
+    expect(find.text('2234'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Channel 0 actions'));
+    await tester.pumpAndSettle();
+    expect(find.text('400 channels'), findsOneWidget);
+    await tester.tap(find.text('View channel details'));
+    await tester.pumpAndSettle();
+    expect(find.text('Actions for channel 0'), findsOneWidget);
+    await tester.tap(find.text('Channel 1'));
+    await tester.pump();
+    expect(find.text('Selected channel 1'), findsOneWidget);
+    await tester.tap(find.byType(DCollapsibleTrigger));
+    await tester.pump();
+    expect(find.text('Channel 1'), findsNothing);
+    expect(find.text('Channels'), findsOneWidget);
+    await tester.tap(find.byType(DCollapsibleTrigger));
+    await tester.pump();
+    final scrollable = find.byType(Scrollable);
+    final state = tester.state<ScrollableState>(scrollable);
+    final end = state.position.maxScrollExtent;
+    state.position.jumpTo(end);
+    await tester.pumpAndSettle();
+    expect(find.text('Channel 399'), findsOneWidget);
+    expect(state.position.maxScrollExtent, closeTo(end, .001));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('final owner compositions remain interactive', (tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 600));

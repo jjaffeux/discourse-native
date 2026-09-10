@@ -141,77 +141,6 @@ const SidebarDestination _moreDestination = SidebarDestination(
   icon: DIcons.ellipsisVertical,
 );
 
-abstract final class _SidebarSpacing {
-  static const double compactBreakpoint = 640;
-  static const double wrapperVerticalPadding = 10;
-  static const double wrapperHorizontalPadding = 6;
-  static const double sectionVerticalPadding = 3;
-  static const double rowHorizontalPadding = 6;
-  static const double rowGap = 1;
-  static const double prefixWidth = 20;
-  static const double prefixGap = 6;
-  static const double desktopRowHeight = 30;
-  static const double compactRowHeight = 38.4;
-  static const double desktopSectionHeaderHeight = 24;
-  static const double sectionHeaderFontSize = DiscourseTypography.xs;
-
-  static bool isCompact(BuildContext context) =>
-      MediaQuery.sizeOf(context).width <= compactBreakpoint;
-
-  static double rowHeight(BuildContext context) {
-    final compact = isCompact(context);
-    final minimum = compact ? compactRowHeight : desktopRowHeight;
-    const fontSize = DiscourseTypography.sm;
-    return _heightWithScaledText(
-      context,
-      minimum: minimum,
-      fontSize: fontSize,
-      lineHeight: DiscourseTypography.lineHeightSmall,
-    );
-  }
-
-  static double sectionHeaderHeight(BuildContext context) {
-    if (isCompact(context)) return rowHeight(context);
-    return _heightWithScaledText(
-      context,
-      minimum: desktopSectionHeaderHeight,
-      fontSize: sectionHeaderFontSize,
-      lineHeight: DiscourseTypography.lineHeightCaption,
-    );
-  }
-
-  static double labelFontSize(BuildContext context) => DiscourseTypography.sm;
-
-  static double countFontSize(BuildContext context) => DiscourseTypography.xs;
-
-  static double prefixArtSize(BuildContext context) =>
-      isCompact(context) ? 22 : 18;
-
-  static double prefixIconSize(BuildContext context) =>
-      isCompact(context) ? 16 : 15;
-
-  static double indent(BuildContext context) => isCompact(context) ? 20 : 18;
-
-  static double sectionHeaderTrailingPadding(BuildContext context) =>
-      isCompact(context) ? wrapperHorizontalPadding + rowHorizontalPadding : 6;
-
-  static double sectionPadding(BuildContext context) =>
-      isCompact(context) ? 0 : sectionVerticalPadding;
-
-  static double _heightWithScaledText(
-    BuildContext context, {
-    required double minimum,
-    required double fontSize,
-    required double lineHeight,
-  }) {
-    final nominalTextHeight = fontSize * lineHeight;
-    final scaledTextHeight =
-        MediaQuery.textScalerOf(context).scale(fontSize) * lineHeight;
-    final growth = scaledTextHeight - nominalTextHeight;
-    return growth > 0 ? minimum + growth : minimum;
-  }
-}
-
 class InstanceSidebar extends StatelessWidget {
   const InstanceSidebar({
     super.key,
@@ -269,35 +198,22 @@ class InstanceSidebar extends StatelessWidget {
       );
     },
     builder: (context, sidebar, _) {
-      final theme = Theme.of(context);
       if (sidebar.siteUrl == null) {
-        return ColoredBox(color: theme.shell.sidebar);
+        return ColoredBox(color: DTokens.of(context).muted);
       }
-
-      return ColoredBox(
-        color: theme.shell.sidebar,
-        child: SafeArea(
-          left: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (showUserMenu) const _SidebarUserHeader(),
-              _ForumIdentityHeader(
-                siteUrl: sidebar.siteUrl!,
-                name: sidebar.name!,
-                iconUrl: sidebar.iconUrl,
-                monogram: sidebar.monogram!,
-                accentColor: sidebar.accentColor!,
-              ),
-              Expanded(
-                child: _SidebarPanelBody(
-                  sidebar: sidebar,
-                  showUserMenu: showUserMenu,
-                  sectionStore:
-                      sectionStore ?? ShellScope.read(context).sidebarSections,
-                ),
-              ),
-            ],
+      return LayoutBuilder(
+        builder: (context, constraints) => DSidebarProvider(
+          mobileBreakpoint: 0,
+          open: true,
+          child: SafeArea(
+            left: false,
+            child: _SidebarPanelBody(
+              sidebar: sidebar,
+              width: constraints.maxWidth,
+              showUserMenu: showUserMenu,
+              sectionStore:
+                  sectionStore ?? ShellScope.read(context).sidebarSections,
+            ),
           ),
         ),
       );
@@ -308,11 +224,13 @@ class InstanceSidebar extends StatelessWidget {
 class _SidebarPanelBody extends StatelessWidget {
   const _SidebarPanelBody({
     required this.sidebar,
+    required this.width,
     required this.showUserMenu,
     required this.sectionStore,
   });
 
   final _SidebarSnapshot sidebar;
+  final double width;
   final bool showUserMenu;
   final SidebarSectionStore sectionStore;
 
@@ -368,22 +286,36 @@ class _SidebarPanelBody extends StatelessWidget {
       return true;
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (showUserMenu && showCoreSections) const _SidebarSearchRow(),
-        Expanded(
-          child: ScrollbarTheme(
-            data: const ScrollbarThemeData(
-              thickness: WidgetStatePropertyAll(4),
+    return DSidebar(
+      width: width,
+      collapsible: DSidebarCollapsible.none,
+      semanticLabel: 'Forum navigation',
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showUserMenu) const _SidebarUserHeader(),
+          DSidebarHeader(
+            child: _ForumIdentityHeader(
+              siteUrl: sidebar.siteUrl!,
+              name: sidebar.name!,
+              iconUrl: sidebar.iconUrl,
+              monogram: sidebar.monogram!,
+              accentColor: sidebar.accentColor!,
             ),
-            child: CustomScrollView(
+          ),
+        ],
+      ),
+      footer: _SidebarPanelSwitchRow(
+        panels: panels,
+        selectedPanel: selectedPanel,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showUserMenu && showCoreSections) const _SidebarSearchRow(),
+          Expanded(
+            child: DSidebarContent.slivers(
               slivers: [
-                const SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: _SidebarSpacing.wrapperVerticalPadding,
-                  ),
-                ),
                 if (showCoreSections)
                   ListenableBuilder(
                     listenable: Listenable.merge([
@@ -532,17 +464,11 @@ class _SidebarPanelBody extends StatelessWidget {
                     );
                   },
                 ),
-                const SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: _SidebarSpacing.wrapperVerticalPadding,
-                  ),
-                ),
               ],
             ),
           ),
-        ),
-        _SidebarPanelSwitchRow(panels: panels, selectedPanel: selectedPanel),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -608,14 +534,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
     ];
     if (targets.isEmpty) return const SizedBox.shrink();
 
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: theme.shell.divider)),
-      ),
-      child: Row(spacing: 6, children: targets),
-    );
+    return DSidebarFooter(child: Row(spacing: 6, children: targets));
   }
 }
 
@@ -656,7 +575,6 @@ class _ForumIdentityHeader extends StatelessWidget {
     required this.monogram,
     required this.accentColor,
   });
-
   final String siteUrl;
   final String name;
   final String? iconUrl;
@@ -665,40 +583,27 @@ class _ForumIdentityHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final tokens = DTokens.of(context);
     final fallbackForeground =
         ThemeData.estimateBrightnessForColor(accentColor) == Brightness.dark
         ? Colors.white
         : Colors.black;
-
-    return Padding(
+    return DDropdownMenu(
       key: const ValueKey('forum-identity-header'),
-      padding: const EdgeInsets.fromLTRB(
-        _SidebarSpacing.wrapperHorizontalPadding,
-        6,
-        _SidebarSpacing.wrapperHorizontalPadding,
-        0,
-      ),
-      child: MenuAnchor(
-        alignmentOffset: const Offset(0, 6),
-        style: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
-          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        ),
-        menuChildren: [
-          MenuItemButton(
+      content: DDropdownMenuContent(
+        width: 240,
+        children: [
+          DDropdownMenuItem(
             key: const ValueKey('forum-identity-open-browser'),
-            leadingIcon: const DIcon(DIcons.upRightFromSquare, size: 18),
+            leading: const DIcon(DIcons.upRightFromSquare, size: 16),
             onPressed: () => unawaited(openExternalLink(siteUrl)),
             child: const Text('Open forum in browser'),
           ),
-          MenuItemButton(
+          const DDropdownMenuSeparator(),
+          DDropdownMenuItem(
             key: const ValueKey('forum-identity-remove'),
-            leadingIcon: const DIcon(DIcons.trashCan, size: 18),
-            style: MenuItemButton.styleFrom(
-              foregroundColor: theme.colorScheme.error,
-              iconColor: theme.colorScheme.error,
-            ),
+            leading: const DIcon(DIcons.trashCan, size: 16),
+            variant: DDropdownMenuItemVariant.destructive,
             onPressed: () async {
               final instance = ShellScope.read(context).currentInstance;
               if (instance != null) {
@@ -708,81 +613,53 @@ class _ForumIdentityHeader extends StatelessWidget {
             child: const Text('Remove forum'),
           ),
         ],
-        builder: (context, menu, child) => Material(
+      ),
+      child: DDropdownMenuTrigger(
+        builder: (context, menu) => DSidebarMenuButton(
           key: const ValueKey('forum-identity-button'),
-          color: theme.shell.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: theme.shell.divider),
-          ),
-          child: InkWell(
-            onTap: menu.open,
-            borderRadius: BorderRadius.circular(10),
-            hoverColor: theme.colorScheme.primaryContainer,
-            child: child,
-          ),
-        ),
-        child: Container(
-          constraints: BoxConstraints(
-            minHeight: _SidebarSpacing.rowHeight(context) + 12,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            children: [
-              DAvatar.frame(
-                key: const ValueKey('forum-identity-logo'),
-                borderRadius: BorderRadius.circular(6),
-                child: SizedBox.square(
-                  dimension: 24,
-                  child: AvatarImage(
-                    url: iconUrl,
-                    size: 24,
-                    fallback: ColoredBox(
-                      color: accentColor,
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            monogram,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: fallbackForeground,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    fit: BoxFit.contain,
+          size: DSidebarMenuButtonSize.large,
+          variant: DSidebarMenuButtonVariant.outline,
+          focusNode: menu.focusNode,
+          expanded: menu.open,
+          onPressed: menu.toggle,
+          iconSize: 24,
+          icon: DAvatar.frame(
+            key: const ValueKey('forum-identity-logo'),
+            borderRadius: BorderRadius.circular(6),
+            child: AvatarImage(
+              url: iconUrl,
+              size: 24,
+              fit: BoxFit.contain,
+              fallback: ColoredBox(
+                color: accentColor,
+                child: Center(
+                  child: Text(
+                    monogram,
+                    style: TextStyle(color: fallbackForeground),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+            ),
+          ),
+          child: Row(
+            children: [
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 2,
                   children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
                     DTooltip(
                       message: siteUrl,
                       child: Text(
                         siteUrl.replaceFirst(RegExp(r'^https?://'), ''),
                         key: const ValueKey('forum-identity-url'),
                         maxLines: 1,
-                        softWrap: false,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 16 / 12,
+                          color: tokens.mutedForeground,
                         ),
                       ),
                     ),
@@ -790,13 +667,9 @@ class _ForumIdentityHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              DTooltip(
+              const DTooltip(
                 message: 'Forum options',
-                child: DIcon(
-                  DIcons.gear,
-                  size: 16,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                child: DIcon(DIcons.chevronDown, size: 16),
               ),
             ],
           ),
@@ -905,46 +778,19 @@ class _RestoredSidebarSectionsState extends State<_RestoredSidebarSections> {
 
 class _SidebarLoadingSkeleton extends StatelessWidget {
   const _SidebarLoadingSkeleton();
-
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
     expand: true,
     key: const ValueKey('sidebar-loading-skeleton'),
     semanticsLabel: 'Loading navigation',
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    child: DSidebarGroup(
+      child: DSidebarMenu(
         children: [
-          for (var section = 0; section < 2; section++) ...[
-            DSkeleton(
-              width: 70,
-              height: 8,
-              color: DTokens.of(context).background,
+          for (var row = 0; row < 8; row++)
+            DSidebarMenuSkeleton(
+              showIcon: true,
+              widthFactor: row.isEven ? .7 : .55,
             ),
-            const SizedBox(height: 10),
-            for (var row = 0; row < 4; row++)
-              SizedBox(
-                height:
-                    _SidebarSpacing.rowHeight(context) + _SidebarSpacing.rowGap,
-                child: Row(
-                  children: [
-                    DSkeleton(
-                      width: 14,
-                      height: 14,
-                      color: DTokens.of(context).background,
-                    ),
-                    const SizedBox(width: 10),
-                    DSkeleton(
-                      width: row.isEven ? 110 : 85,
-                      height: 9,
-                      color: DTokens.of(context).background,
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-          ],
         ],
       ),
     ),
@@ -981,8 +827,8 @@ class _SectionState extends State<_Section> {
     }
   }
 
-  void _toggle() {
-    final collapsed = !_collapsed;
+  void _setOpen(bool open) {
+    final collapsed = !open;
     setState(() => _collapsed = collapsed);
     unawaited(
       widget.store.write(
@@ -996,100 +842,119 @@ class _SectionState extends State<_Section> {
   @override
   Widget build(BuildContext context) {
     final section = widget.section;
-    final rowHeight = _SidebarSpacing.rowHeight(context);
-    final sectionHeaderHeight = _SidebarSpacing.sectionHeaderHeight(context);
-    final sectionPadding = _SidebarSpacing.sectionPadding(context);
-    final sectionRows = !section.collapsible || !_collapsed
-        ? <SidebarDestination>[
-            ...section.destinations,
-            ...widget.appendedDestinations,
-            for (final destination in section.moreDestinations)
-              if (destination.id == widget.selectedId) destination,
-            if (section.moreDestinations.isNotEmpty) _moreDestination,
-          ]
-        : const <SidebarDestination>[];
-    final menuDestinations = [
+    final destinations = <SidebarDestination>[
+      ...section.destinations,
+      ...widget.appendedDestinations,
+      for (final destination in section.moreDestinations)
+        if (destination.id == widget.selectedId) destination,
+      if (section.moreDestinations.isNotEmpty) _moreDestination,
+    ];
+    final rows = <SidebarDestination>[
+      for (final destination in destinations) ...[
+        destination,
+        if (destination.id == widget.insertAfterDestinationId &&
+            widget.insertedDestination != null)
+          widget.insertedDestination!,
+      ],
+    ];
+    final more = [
       for (final destination in section.moreDestinations)
         if (destination.id != widget.selectedId) destination,
     ];
-    final rows = switch ((
-      widget.insertedDestination,
-      widget.insertAfterDestinationId,
-    )) {
-      (final inserted?, final after?) => <SidebarDestination>[
-        for (final destination in sectionRows) ...[
-          destination,
-          if (destination.id == after) inserted,
-        ],
-      ],
-      _ => sectionRows,
-    };
-    final rowIndexes = <String, int>{
-      for (var index = 0; index < rows.length; index++) rows[index].id: index,
-    };
+    final runs = <List<SidebarDestination>>[];
+    for (final destination in rows) {
+      if (runs.isEmpty || runs.last.first.indent != destination.indent) {
+        runs.add([]);
+      }
+      runs.last.add(destination);
+    }
+    final scalable = MediaQuery.textScalerOf(context).scale(14) > 14;
+    final menus = <Widget>[];
+    for (final run in runs) {
+      final submenu = run.first.indent > 0;
+      final indexes = {for (final (index, row) in run.indexed) row.id: index};
+      int? findIndex(Key key) =>
+          key is ValueKey<String> ? indexes[key.value] : null;
+      Widget rowBuilder(BuildContext context, int index) {
+        final destination = run[index];
+        if (destination.id == _moreDestinationId) {
+          return _MoreDestinationsTile(
+            key: ValueKey(destination.id),
+            destinations: more,
+            onSelect: widget.onSelect,
+          );
+        }
+        return _DestinationTile(
+          key: ValueKey(destination.id),
+          destination: destination,
+          selected: destination.id == widget.selectedId,
+          loading: destination.id == widget.loadingDestinationId,
+          badge: widget.badgeFor(destination.id),
+          submenu: submenu,
+          onTap: destination.onTap ?? () => widget.onSelect(destination),
+        );
+      }
 
-    final bottomSectionPadding = rows.isEmpty
-        ? sectionPadding
-        : sectionPadding > _SidebarSpacing.rowGap
-        ? sectionPadding - _SidebarSpacing.rowGap
-        : 0.0;
-
-    // Section shells remain eager while their destination rows are lazy.
+      final extent = scalable
+          ? null
+          : context.isTouch
+          ? 48.0
+          : submenu
+          ? 28.0
+          : 32.0;
+      final menu = submenu
+          ? DSidebarMenuSub.sliverBuilder(
+              itemCount: run.length,
+              itemBuilder: rowBuilder,
+              itemExtent: extent,
+              findChildIndexCallback: findIndex,
+            )
+          : DSidebarMenu.sliverBuilder(
+              itemCount: run.length,
+              itemBuilder: rowBuilder,
+              itemExtent: extent,
+              findChildIndexCallback: findIndex,
+            );
+      menus.add(
+        submenu && run.first.indent > 1
+            ? SliverPadding(
+                padding: EdgeInsetsDirectional.only(
+                  start: (run.first.indent - 1) * 24,
+                ),
+                sliver: menu,
+              )
+            : menu,
+      );
+    }
+    final content = SliverMainAxisGroup(slivers: menus);
+    final group = DSidebarGroup.sliver(
+      label: section.showHeader
+          ? _SectionHeader(section: section, collapsed: _collapsed)
+          : null,
+      action: section.onAction == null
+          ? null
+          : DTooltip(
+              message: section.actionLabel ?? section.title,
+              shortcut: section.actionShortcut == null
+                  ? null
+                  : DShortcut(section.actionShortcut!),
+              child: DSidebarGroupAction(
+                semanticLabel: section.actionLabel ?? section.title,
+                onPressed: section.onAction,
+                child: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
+              ),
+            ),
+      sliver: section.collapsible
+          ? DCollapsibleContent.sliver(sliver: content)
+          : content,
+    );
     return SliverMainAxisGroup(
       slivers: [
-        if (!widget.first && sectionPadding > 0) ...[
-          SliverToBoxAdapter(
-            child: DSeparator(
-              indent: _SidebarSpacing.wrapperHorizontalPadding,
-              endIndent: _SidebarSpacing.wrapperHorizontalPadding,
-              color: Theme.of(context).shell.divider,
-            ),
-          ),
-          SliverToBoxAdapter(child: SizedBox(height: sectionPadding)),
-        ],
-        SliverToBoxAdapter(
-          child: section.showHeader
-              ? _SectionHeader(
-                  section: section,
-                  collapsed: _collapsed,
-                  onToggle: section.collapsible ? _toggle : null,
-                  minimumHeight: sectionHeaderHeight,
-                )
-              : const SizedBox.shrink(),
-        ),
-        if (rows.isNotEmpty)
-          SliverFixedExtentList.builder(
-            itemExtent: rowHeight + _SidebarSpacing.rowGap,
-            itemCount: rows.length,
-            // Separate section delegates would otherwise restart at zero.
-            addSemanticIndexes: false,
-            findChildIndexCallback: (key) =>
-                key is ValueKey<String> ? rowIndexes[key.value] : null,
-            itemBuilder: (context, index) {
-              final destination = rows[index];
-              if (destination.id == _moreDestinationId) {
-                return _MoreDestinationsTile(
-                  key: ValueKey(destination.id),
-                  destinations: menuDestinations,
-                  rowHeight: rowHeight,
-                  gapAfter: _SidebarSpacing.rowGap,
-                  onSelect: widget.onSelect,
-                );
-              }
-              return _DestinationTile(
-                key: ValueKey(destination.id),
-                destination: destination,
-                selected: destination.id == widget.selectedId,
-                loading: destination.id == widget.loadingDestinationId,
-                badge: widget.badgeFor(destination.id),
-                rowHeight: rowHeight,
-                gapAfter: _SidebarSpacing.rowGap,
-                onTap: destination.onTap ?? () => widget.onSelect(destination),
-              );
-            },
-          ),
-        if (bottomSectionPadding > 0)
-          SliverToBoxAdapter(child: SizedBox(height: bottomSectionPadding)),
+        if (!widget.first) const SliverToBoxAdapter(child: DSidebarSeparator()),
+        if (section.collapsible)
+          DCollapsible(open: !_collapsed, onOpenChange: _setOpen, child: group)
+        else
+          group,
       ],
     );
   }
@@ -1099,30 +964,21 @@ class _MoreDestinationsTile extends StatelessWidget {
   const _MoreDestinationsTile({
     super.key,
     required this.destinations,
-    required this.rowHeight,
-    required this.gapAfter,
     required this.onSelect,
   });
-
   final List<SidebarDestination> destinations;
-  final double rowHeight;
-  final double gapAfter;
   final ValueChanged<SidebarDestination> onSelect;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return MenuAnchor(
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-      ),
-      menuChildren: [
+  Widget build(BuildContext context) => DDropdownMenu(
+    content: DDropdownMenuContent(
+      width: 240,
+      children: [
         for (final destination in destinations)
-          MenuItemButton(
-            leadingIcon: DIcon(
+          DDropdownMenuItem(
+            leading: DIcon(
               destination.icon,
-              size: 18,
+              size: 16,
               color: destination.iconColor,
             ),
             onPressed: destination.enabled
@@ -1131,267 +987,79 @@ class _MoreDestinationsTile extends StatelessWidget {
             child: Text(destination.label),
           ),
       ],
-      builder: (context, menu, child) => _DestinationTile(
-        destination: _moreDestination,
-        selected: false,
-        badge: SidebarBadge.none,
-        rowHeight: rowHeight,
-        gapAfter: gapAfter,
-        onTap: menu.open,
+    ),
+    child: DDropdownMenuTrigger(
+      builder: (context, menu) => DSidebarMenuButton(
+        icon: const DIcon(DIcons.ellipsisVertical, size: 16),
+        focusNode: menu.focusNode,
+        expanded: menu.open,
+        onPressed: menu.toggle,
+        child: const Text('More'),
       ),
-    );
-  }
+    ),
+  );
 }
 
-class _SectionHeader extends StatefulWidget {
-  const _SectionHeader({
-    required this.section,
-    required this.collapsed,
-    required this.onToggle,
-    required this.minimumHeight,
-  });
-
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.section, required this.collapsed});
   final SidebarSection section;
   final bool collapsed;
-  final VoidCallback? onToggle;
-  final double minimumHeight;
-
-  @override
-  State<_SectionHeader> createState() => _SectionHeaderState();
-}
-
-class _SectionHeaderState extends State<_SectionHeader> {
-  static const double _actionExtent = 24;
-
-  bool _titleHovered = false;
-  bool _chevronHovered = false;
-
-  void _setTitleHovered(bool hovered) {
-    if (_titleHovered == hovered) return;
-    setState(() => _titleHovered = hovered);
-  }
-
-  void _setChevronHovered(bool hovered) {
-    if (_chevronHovered == hovered) return;
-    setState(() => _chevronHovered = hovered);
-  }
-
-  @override
-  void didUpdateWidget(_SectionHeader oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.onToggle == null) {
-      _titleHovered = false;
-      _chevronHovered = false;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final section = widget.section;
-    final toggle = widget.onToggle;
-    final title = _SectionTitle(
-      section: section,
-      minimumHeight: widget.minimumHeight,
-      color: _titleHovered
-          ? theme.colorScheme.onSurface
-          : theme.colorScheme.onSurfaceVariant,
-    );
-    final iconStyle = ButtonStyle(
-      foregroundColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.hovered)
-            ? theme.colorScheme.onSurface
-            : theme.colorScheme.onSurfaceVariant,
-      ),
-    );
-
-    return Padding(
-      padding: EdgeInsets.only(
-        left:
-            _SidebarSpacing.wrapperHorizontalPadding +
-            _SidebarSpacing.rowHorizontalPadding,
-        right: _SidebarSpacing.sectionHeaderTrailingPadding(context),
-      ),
+    final label = DSidebarGroupLabel(
       child: Row(
         children: [
           Expanded(
-            child: toggle == null
-                ? title
-                : InkWell(
-                    excludeFromSemantics: true,
-                    borderRadius: BorderRadius.circular(4),
-                    onHover: _setTitleHovered,
-                    onTap: toggle,
-                    child: title,
-                  ),
-          ),
-          if (section.onAction case final action?)
-            _SectionAction(section: section, action: action, style: iconStyle),
-          if (toggle != null)
-            DTooltip(
-              message:
-                  '${widget.collapsed ? 'Expand' : 'Collapse'} ${section.title}',
-              child: Semantics(
-                button: true,
-                expanded: !widget.collapsed,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(4),
-                  onHover: _setChevronHovered,
-                  onTap: toggle,
-                  child: SizedBox.square(
-                    dimension: _actionExtent,
-                    child: Center(
-                      child: DIcon(
-                        widget.collapsed
-                            ? DIcons.chevronRight
-                            : DIcons.chevronDown,
-                        size: 11,
-                        color: _chevronHovered
-                            ? theme.colorScheme.onSurface
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            child: Text(
+              section.title.toUpperCase(),
+              semanticsLabel: section.title,
             ),
+          ),
+          if (section.collapsible) ...[
+            const SizedBox(width: 4),
+            DIcon(
+              collapsed ? DIcons.chevronRight : DIcons.chevronDown,
+              size: 12,
+            ),
+          ],
         ],
       ),
     );
-  }
-}
-
-class _SectionAction extends StatelessWidget {
-  const _SectionAction({
-    required this.section,
-    required this.action,
-    required this.style,
-  });
-
-  final SidebarSection section;
-  final VoidCallback action;
-  final ButtonStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    final button = IconButton(
-      constraints: const BoxConstraints.tightFor(
-        width: _SectionHeaderState._actionExtent,
-        height: _SectionHeaderState._actionExtent,
-      ),
-      padding: EdgeInsets.zero,
-      style: style,
-      onPressed: action,
-      icon: DIcon(section.actionIcon ?? DIcons.plus, size: 15),
-    );
-    final label = section.actionLabel;
-    if (label == null) return button;
-    final shortcut = section.actionShortcut;
+    if (!section.collapsible) return label;
+    final description = '${collapsed ? 'Expand' : 'Collapse'} ${section.title}';
     return DTooltip(
-      message: label,
-      shortcut: shortcut == null ? null : DShortcut(shortcut),
-      child: button,
+      message: description,
+      child: DCollapsibleTrigger(semanticLabel: description, child: label),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.section,
-    required this.minimumHeight,
-    required this.color,
-  });
-
-  final SidebarSection section;
-  final double minimumHeight;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final title = section.title.toUpperCase();
-    final textScaler = MediaQuery.textScalerOf(context);
-    final scaledFontSize = textScaler.scale(
-      _SidebarSpacing.sectionHeaderFontSize,
-    );
-    final scaledLineHeight =
-        scaledFontSize * DiscourseTypography.lineHeightCaption;
-    // RenderParagraph rounds its line box to a logical pixel. Base the
-    // padding on that same footprint so a one-line header keeps its exact
-    // existing height while wrapped text remains free to size intrinsically.
-    final unusedHeight = minimumHeight - scaledLineHeight.roundToDouble();
-    final verticalPadding = unusedHeight > 0 ? unusedHeight / 2 : 0.0;
-    final style = theme.textTheme.labelSmall?.copyWith(
-      color: color,
-      fontSize: _SidebarSpacing.sectionHeaderFontSize,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.6,
-    );
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: minimumHeight),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: verticalPadding),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(title, semanticsLabel: section.title, style: style),
-        ),
-      ),
-    );
-  }
-}
-
-class _DestinationTile extends StatefulWidget {
+class _DestinationTile extends StatelessWidget {
   const _DestinationTile({
     super.key,
     required this.destination,
     required this.selected,
     this.loading = false,
     required this.badge,
-    required this.rowHeight,
-    required this.gapAfter,
+    this.submenu = false,
     required this.onTap,
   });
-
   final SidebarDestination destination;
   final bool selected;
   final bool loading;
   final SidebarBadge badge;
-  final double rowHeight;
-  final double gapAfter;
+  final bool submenu;
   final VoidCallback onTap;
-
-  @override
-  State<_DestinationTile> createState() => _DestinationTileState();
-}
-
-class _DestinationTileState extends State<_DestinationTile> {
-  bool _hovered = false;
-  bool _hoverActionFocused = false;
-
-  SidebarDestination get destination => widget.destination;
-  bool get selected => widget.selected;
-  SidebarBadge get badge => widget.badge;
-  VoidCallback get onTap => widget.onTap;
-
-  void _setHovered(bool hovered) {
-    if (_hovered == hovered) return;
-    setState(() => _hovered = hovered);
-  }
-
-  void _setHoverActionFocused(bool focused) {
-    if (_hoverActionFocused == focused) return;
-    setState(() => _hoverActionFocused = focused);
-  }
 
   Widget _prefixArt(BuildContext context, Color foreground) {
     final theme = Theme.of(context);
-    final artSize = _SidebarSpacing.prefixArtSize(context);
+    final artSize = context.isTouch ? 22.0 : 18.0;
 
-    if (widget.loading) {
+    if (loading) {
       return SizedBox.square(
         key: ValueKey('sidebar-destination-loading-${destination.id}'),
-        dimension: _SidebarSpacing.prefixIconSize(context),
+        dimension: 16.0,
         child: const DSpinner(),
       );
     }
@@ -1420,7 +1088,7 @@ class _DestinationTileState extends State<_DestinationTile> {
       if (siteUrl != null) {
         return EmojiImage(
           url: controller.emojiUrlFor(siteUrl, emoji),
-          size: _SidebarSpacing.prefixIconSize(context),
+          size: 16.0,
           alt: ':$emoji:',
           style: theme.textTheme.labelSmall,
         );
@@ -1431,8 +1099,8 @@ class _DestinationTileState extends State<_DestinationTile> {
       final parentColor = destination.parentColor;
       return Container(
         key: ValueKey('sidebar-prefix-${destination.id}'),
-        width: _SidebarSpacing.isCompact(context) ? 12 : 10,
-        height: _SidebarSpacing.isCompact(context) ? 12 : 10,
+        width: context.isTouch ? 12 : 10,
+        height: context.isTouch ? 12 : 10,
         decoration: BoxDecoration(
           color: parentColor == null ? color : null,
           gradient: parentColor == null
@@ -1448,7 +1116,7 @@ class _DestinationTileState extends State<_DestinationTile> {
 
     return DIcon(
       destination.icon,
-      size: _SidebarSpacing.prefixIconSize(context),
+      size: 16.0,
       color: destination.iconColor ?? foreground,
     );
   }
@@ -1474,147 +1142,87 @@ class _DestinationTileState extends State<_DestinationTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final foreground = selected
-        ? theme.shell.selectedForeground
-        : destination.enabled
-        ? Color.lerp(
-            theme.colorScheme.onSurfaceVariant,
-            theme.colorScheme.onSurface,
-            0.35,
-          )!
-        : theme.disabledColor;
-
-    // A destination built fresh from live state already has the answer; core's
-    // `const` sections cannot carry a moving number and ask the shell instead.
+    final foreground = DTokens.of(context).foreground;
     final badge = destination.badge ?? this.badge;
-
-    final tile = Padding(
-      padding: EdgeInsets.only(
-        left:
-            _SidebarSpacing.wrapperHorizontalPadding +
-            destination.indent * _SidebarSpacing.indent(context),
-        right: _SidebarSpacing.wrapperHorizontalPadding,
-        bottom: widget.gapAfter,
-      ),
-      child: InkWell(
-        onTap: destination.enabled ? onTap : null,
-        mouseCursor: WidgetStateMouseCursor.clickable,
-        onLongPress: destination.enabled && context.isTouch
-            ? switch (destination.onLongPress) {
-                final action? => () => action(context),
-                null => null,
-              }
-            : null,
-        onHover: destination.enabled ? _setHovered : null,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          height: widget.rowHeight,
-          padding: const EdgeInsets.symmetric(
-            horizontal: _SidebarSpacing.rowHorizontalPadding,
-          ),
-          decoration: BoxDecoration(
-            color: _hovered
-                ? theme.shell.hover
-                : selected
-                ? theme.shell.selected
-                : null,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: _SidebarSpacing.prefixWidth,
-                height: _SidebarSpacing.prefixWidth,
-                child: Center(child: _prefix(context, foreground)),
+    final trailingLabel = destination.trailingLabel;
+    final action = destination.onSecondaryTap;
+    final description = destination.semanticDescription;
+    final tile = DSidebarMenuItem(
+      badge: trailingLabel != null || (badge.isVisible && !badge.dot)
+          ? DSidebarMenuBadge(
+              child: Wrap(
+                spacing: 4,
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (trailingLabel != null)
+                    Text(
+                      trailingLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  if (badge.isVisible && !badge.dot)
+                    Text(
+                      '${badge.count}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
               ),
-              const SizedBox(width: _SidebarSpacing.prefixGap),
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        destination.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: foreground,
-                          fontSize: _SidebarSpacing.labelFontSize(context),
-                          fontWeight: selected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                    if (destination.labelSuffixBuilder case final builder?)
-                      builder(context, 14),
-                    if (badge.isVisible && badge.dot)
-                      Container(
-                        key: ValueKey('sidebar-badge-${destination.id}'),
-                        width: 8,
-                        height: 8,
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        decoration: BoxDecoration(
-                          color: badge.urgent
-                              ? theme.discourse.success
-                              : theme.discourse.unreadIndicator,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                  ],
+            )
+          : null,
+      action:
+          destination.hoverActionBuilder?.call(context) ??
+          (action == null
+              ? null
+              : DSidebarMenuAction(
+                  semanticLabel: 'Open ${destination.label}',
+                  onPressed: destination.enabled ? action : null,
+                  child: DIcon(
+                    destination.trailingIcon ?? DIcons.chevronRight,
+                    size: 16,
+                  ),
+                )),
+      child: DSidebarMenuButton(
+        isActive: selected,
+        onPressed: destination.enabled ? onTap : null,
+        height: submenu ? 28 : null,
+        iconSize: context.isTouch ? 22 : 18,
+        icon: _prefix(context, foreground),
+        semanticLabel: description == null
+            ? null
+            : '${destination.label}, $description',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                destination.label,
+                maxLines: MediaQuery.textScalerOf(context).scale(14) > 14
+                    ? 2
+                    : 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (destination.labelSuffixBuilder case final builder?)
+              builder(context, 14),
+            if (badge.isVisible && badge.dot)
+              Semantics(
+                label: badge.urgent ? 'Unread mentions' : 'Unread',
+                child: Container(
+                  key: ValueKey('sidebar-badge-${destination.id}'),
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: badge.urgent
+                        ? theme.discourse.success
+                        : theme.discourse.unreadIndicator,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-              if (destination.trailingLabel case final label?)
-                Text(
-                  label,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: foreground,
-                  ),
-                ),
-              if (destination.onSecondaryTap case final action?)
-                DTooltip(
-                  message: 'Open ${destination.label}',
-                  labelTrigger: true,
-                  child: IconButton(
-                    constraints: BoxConstraints.tightFor(
-                      width: _SidebarSpacing.prefixWidth,
-                      height: widget.rowHeight,
-                    ),
-                    padding: EdgeInsets.zero,
-                    tooltip: '',
-                    onPressed: action,
-                    icon: DIcon(
-                      destination.trailingIcon ?? DIcons.chevronRight,
-                      size: 14,
-                      color: foreground,
-                    ),
-                  ),
-                ),
-              if (badge.isVisible && !badge.dot)
-                Text(
-                  '${badge.count}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: foreground,
-                    fontSize: _SidebarSpacing.countFontSize(context),
-                    fontWeight: FontWeight.w500,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              if (!context.isTouch)
-                if (destination.hoverActionBuilder case final builder?)
-                  Focus(
-                    onFocusChange: _setHoverActionFocused,
-                    child: AnimatedOpacity(
-                      key: ValueKey('sidebar-hover-action-${destination.id}'),
-                      opacity: _hovered || _hoverActionFocused ? 1 : 0,
-                      duration: const Duration(milliseconds: 100),
-                      child: IgnorePointer(
-                        ignoring: !_hovered && !_hoverActionFocused,
-                        child: builder(context),
-                      ),
-                    ),
-                  ),
-            ],
-          ),
+          ],
         ),
       ),
     );

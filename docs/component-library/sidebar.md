@@ -145,14 +145,18 @@ header and trigger parts. The component task exports/registers six independent
 examples; [the coordinator's review](styleguide-design.md) records the actual
 application adoption and its native verification.
 
-Retained app owners require dedicated adapter work rather than a blind wrapper:
+The subsequent [main sidebar migration](sidebar-main-migration.md) adopts
+Native Sidebar in `InstanceSidebar`. It uses lazy groups, menus and submenus,
+Collapsible section headers, measured count/action space, and the public
+header/footer, badge, skeleton and dropdown components. Site identity,
+permissions, category/tag artwork, custom links, More-link promotion, search,
+loading, routing and saved section state stay in the application adapter.
+The existing ResizablePane owns its 208px default and 200–480px saved range.
+Chat row actions are visible in mobile viewports and reveal on desktop
+hover/focus; actions open a dropdown independently of row navigation.
 
-- InstanceSidebar: site identity, permission-filtered plugin destinations,
-  categories/tags, persisted section disclosure/order, user menu, search,
-  unread/urgent/dimmed badges, asynchronous navigation skeletons and panel
-  switching. Its existing ResizablePane and shell responsive routing remain
-  app owners. Replacing this entire navigation during the explicit docs-first
-  redirection would widen scope. No claim of migration is made.
+The remaining app owners are:
+
 - Chat drawer: channel/DM memberships, unread/mention counts, configurable
   sections and thread navigation; retains its current domain rendering adapter.
 - Events and Voice contribute SidebarDestination/SidebarSection models to the

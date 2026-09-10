@@ -20,10 +20,14 @@ class ChatChannelMenuButton extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.channelId,
+    this.sidebar = false,
   });
 
   final String siteUrl;
   final int channelId;
+
+  /// Uses the Sidebar action owner; other consumers retain their compact button.
+  final bool sidebar;
 
   static Future<void> showSheet({
     required BuildContext context,
@@ -61,6 +65,7 @@ class ChatChannelMenuButton extends StatelessWidget {
             siteUrl: siteUrl,
             channel: channel,
             chat: chat,
+            sidebar: sidebar,
           ),
         );
       },
@@ -73,11 +78,13 @@ class _DesktopChannelMenu extends StatelessWidget {
     required this.siteUrl,
     required this.channel,
     required this.chat,
+    required this.sidebar,
   });
 
   final String siteUrl;
   final ChatChannel channel;
   final ChatController chat;
+  final bool sidebar;
 
   @override
   Widget build(BuildContext context) {
@@ -88,9 +95,12 @@ class _DesktopChannelMenu extends StatelessWidget {
     final starBusy = chat.channelStarWriteInFlight(siteUrl, channel.id);
     final followBusy = chat.channelFollowWriteInFlight(siteUrl, channel.id);
     final membership = channel.membership;
+    final mobile = MediaQuery.sizeOf(context).width < 768;
     return DDropdownMenu(
       content: DDropdownMenuContent(
         width: 280,
+        side: sidebar && !mobile ? DPopoverSide.right : DPopoverSide.bottom,
+        align: sidebar && mobile ? DPopoverAlign.end : DPopoverAlign.start,
         constraints: const BoxConstraints(
           minWidth: 240,
           maxWidth: 380,
@@ -208,21 +218,31 @@ class _DesktopChannelMenu extends StatelessWidget {
         ],
       ),
       child: DDropdownMenuTrigger(
-        builder: (context, menu) => SizedBox(
-          width: 24,
-          height: 32,
-          child: DButton.iconOnly(
-            key: ValueKey('chat-channel-menu-button-${channel.id}'),
-            tooltip: 'Open ${channel.title} menu',
-            variant: DButtonVariant.ghost,
-            size: DButtonSize.extraSmall,
-            focusNode: menu.focusNode,
-            expanded: menu.open,
-            hasPopup: true,
-            onPressed: menu.toggle,
-            icon: const DIcon(DIcons.ellipsisVertical, size: 16),
-          ),
-        ),
+        builder: (context, menu) => sidebar
+            ? DSidebarMenuAction(
+                key: ValueKey('chat-channel-menu-button-${channel.id}'),
+                semanticLabel: 'Open ${channel.title} menu',
+                showOnHover: true,
+                focusNode: menu.focusNode,
+                expanded: menu.open,
+                onPressed: menu.toggle,
+                child: const DIcon(DIcons.ellipsisVertical, size: 16),
+              )
+            : SizedBox(
+                width: 24,
+                height: 32,
+                child: DButton.iconOnly(
+                  key: ValueKey('chat-channel-menu-button-${channel.id}'),
+                  tooltip: 'Open ${channel.title} menu',
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.extraSmall,
+                  focusNode: menu.focusNode,
+                  expanded: menu.open,
+                  hasPopup: true,
+                  onPressed: menu.toggle,
+                  icon: const DIcon(DIcons.ellipsisVertical, size: 16),
+                ),
+              ),
       ),
     );
   }
