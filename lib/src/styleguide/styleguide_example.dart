@@ -64,16 +64,19 @@ class ComponentReference {
 
   /// The sections rendered by the native styleguide.
   ///
-  /// Installation is repository-owned, and API reference blocks are omitted
-  /// together with their nested entries.
+  /// Installation is repository-owned. API reference and accessibility blocks
+  /// are omitted together with their nested entries.
   Iterable<ComponentReferenceSection> get documentOutline sync* {
-    var insideApiReference = false;
+    var insideOmittedBlock = false;
     for (final section in outline) {
       if (section.label == 'Installation') continue;
       if (section.depth == 0) {
-        insideApiReference = section.label == 'API Reference';
+        insideOmittedBlock = const {
+          'API Reference',
+          'Accessibility',
+        }.contains(section.label);
       }
-      if (!insideApiReference) yield section;
+      if (!insideOmittedBlock) yield section;
     }
   }
 

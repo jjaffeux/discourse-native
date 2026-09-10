@@ -89,7 +89,9 @@ void main() {
       );
       expect(
         component.documentOutline.map((section) => section.label),
-        isNot(contains(anyOf('Installation', 'API Reference'))),
+        isNot(
+          contains(anyOf('Installation', 'API Reference', 'Accessibility')),
+        ),
         reason: component.id,
       );
     }
@@ -110,6 +112,12 @@ void main() {
       ]),
     );
     expect(inputGroup.matches('InputGroupAddon'), isFalse);
+    expect(
+      componentCatalogue
+          .singleWhere((component) => component.id == 'attachment')
+          .matches('Keyboard scrolling'),
+      isFalse,
+    );
     final progress =
         jsonDecode(
               File('docs/component-library/progress.json').readAsStringSync(),
@@ -215,6 +223,11 @@ void main() {
           findsNothing,
           reason: component.id,
         );
+        expect(
+          find.widgetWithText(StyleguideAction, 'Accessibility'),
+          findsNothing,
+          reason: component.id,
+        );
         expect(tester.takeException(), isNull, reason: component.id);
       }
     },
@@ -246,7 +259,7 @@ void main() {
   });
 
   testWidgets(
-    'page outline follows shadcn hierarchy without setup or API sections',
+    'page outline follows shadcn hierarchy without setup, API, or accessibility sections',
     (tester) async {
       await _pump(tester, size: const Size(1400, 900));
       await tester.enterText(
@@ -330,7 +343,7 @@ void main() {
   );
 
   testWidgets(
-    'Attachment renders one continuous anchored document without API parts',
+    'Attachment omits API and accessibility sections from its document',
     (tester) async {
       await _pump(tester, size: const Size(1400, 900));
       await tester.enterText(
@@ -361,20 +374,19 @@ void main() {
         findsNWidgets(componentExamples['attachment']!.examples.length),
       );
       expect(find.text('API Reference'), findsNothing);
+      expect(find.text('Accessibility'), findsNothing);
       expect(find.textContaining('DAttachmentGroup'), findsNothing);
+      expect(find.text('Keyboard scrolling'), findsNothing);
 
-      final accessibilityLink = find.widgetWithText(
-        StyleguideAction,
-        'Keyboard scrolling',
-      );
-      await tester.ensureVisible(accessibilityLink);
+      final triggerLink = find.widgetWithText(StyleguideAction, 'Trigger');
+      await tester.ensureVisible(triggerLink);
       await tester.pump();
-      await tester.tap(accessibilityLink);
+      await tester.tap(triggerLink);
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         tester
             .getTopLeft(
-              find.byKey(const ValueKey('styleguide-section-heading-11')),
+              find.byKey(const ValueKey('styleguide-section-heading-7')),
             )
             .dy,
         inInclusiveRange(0, 900),
