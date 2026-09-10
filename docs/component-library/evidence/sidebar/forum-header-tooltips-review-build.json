@@ -1,0 +1,32 @@
+{
+  "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+  "sourceCommit": "fbbc2c527e19acbba6b53d5e039a3af998a29c99",
+  "entrypoint": "tool/sidebar_review_main.dart",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/dce5/discourse-native/build/macos/Build/Products/Debug/Sidebar Review dce5.app",
+  "bundleIdentifier": "org.discourse.sidebarreviewdce5.dev",
+  "buildLog": "/tmp/forum-header-no-tooltips-native-build.log",
+  "runnerRestored": true,
+  "deepStrictSignatureVerified": true,
+  "actualLaunchVerified": true,
+  "entitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "sourceSha256": {
+    "lib/src/shell/instance_sidebar.dart": "cd9a703584eb5d0f25b9b20ef7c0844ac895c6c3bdc7747b292dbca6382dbf66",
+    "lib/src/ui/components/d_sidebar.dart": "8c9a38739fb0817151c0c079ed3a864e2a31a17d64911004d5aa163cc14ff9aa",
+    "tool/sidebar_review_main.dart": "3f300e644314618f1245b79a7e9433f75c8b76251b7c7e0425b89662d0da71d5"
+  },
+  "kernelSha256": "5cbb4fed3dbbcd746deffe0d674e5e74b9920db876a443aa0f938dec6515b79f",
+  "checks": [
+    "Native macOS production fixture at 208px, light/dark 100%: hovering the forum URL and options icon shows no tooltip.",
+    "The full forum name and hostname remain exposed as the header button native accessibility label.",
+    "Click opens the forum menu; Escape closes it with visible focus restored to the header; Return reopens the menu."
+  ],
+  "limitations": [
+    "No physical iOS/Linux or spoken screen reader verification."
+  ],
+  "cleanup": "Owned app quit and absence verified through CUA; desktop lease released."
+}

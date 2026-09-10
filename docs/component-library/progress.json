@@ -4908,7 +4908,7 @@
           "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
           "branch": "codex/forum-header-no-tooltips",
           "mainBaseline": "4d1aee40adf5ace12c0a270115d21451009f58ba",
-          "status": "in_progress",
+          "status": "accepted",
           "dependencies": [
             "sidebar",
             "dropdown-menu"
@@ -4918,7 +4918,20 @@
             "Retain the Native menu trigger, visible identity and accessible menu behavior.",
             "Verify focused shell and width checks plus the native header before merging locally."
           ],
-          "reviewStatus": "in_progress"
+          "reviewStatus": "accepted",
+          "implementationCommit": "fbbc2c527e19acbba6b53d5e039a3af998a29c99",
+          "nativeInspectionStatus": "completed",
+          "evidence": "docs/component-library/sidebar-main-migration.md#forum-header-tooltip-follow-up--2026-09-10",
+          "buildEvidence": "docs/component-library/evidence/sidebar/forum-header-tooltips-review-build.json",
+          "verification": [
+            "All 111 existing shell navigation and width tests pass, seed 9102026; /tmp/forum-header-no-tooltips-tests.log.",
+            "Root dart analyze --fatal-infos and touched-file formatting pass; /tmp/forum-header-no-tooltips-analysis.log.",
+            "Native macOS production fixture at 208px light/dark 100%: URL/options hover shows no tooltip; full identity in AX, click opening, Escape focus restoration and Return reopening verified.",
+            "Only the app header tooltip wrappers were removed; public component API, existing progress owners and original Sidebar review history preserved."
+          ],
+          "limitations": [
+            "No physical iOS/Linux or spoken screen reader verification."
+          ]
         }
       }
     },
