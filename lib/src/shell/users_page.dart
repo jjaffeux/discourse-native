@@ -1391,6 +1391,7 @@ class _TableBody extends StatelessWidget {
                         resolvedMetricWidthTotal < contentWidth - .01;
                     return Scrollbar(
                       controller: horizontal,
+                      thickness: DScrollThumb.defaultThickness,
                       notificationPredicate: (notification) =>
                           notification.metrics.axis == Axis.horizontal,
                       child: SingleChildScrollView(
@@ -1470,6 +1471,7 @@ class _TableBody extends StatelessWidget {
                               Expanded(
                                 child: Scrollbar(
                                   controller: metricsVertical,
+                                  thickness: DScrollThumb.defaultThickness,
                                   child: ScrollConfiguration(
                                     behavior: ScrollConfiguration.of(
                                       context,

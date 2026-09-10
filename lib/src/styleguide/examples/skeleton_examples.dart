@@ -530,6 +530,7 @@ class _LoadingPreviewState extends State<_LoadingPreview> {
                       final overflow = constraints.maxWidth < widget.minWidth!;
                       return Scrollbar(
                         controller: _scroll,
+                        thickness: DScrollThumb.defaultThickness,
                         thumbVisibility: overflow,
                         child: SingleChildScrollView(
                           controller: _scroll,

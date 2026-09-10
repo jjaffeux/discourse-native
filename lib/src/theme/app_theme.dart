@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/site_appearance.dart';
 import '../ui/components/d_button.dart';
+import '../ui/components/d_scroll_area.dart';
 import '../ui/components/d_tooltip.dart';
 import '../ui/foundation/tokens.dart';
 import 'color_contrast.dart';
@@ -695,6 +696,9 @@ abstract final class AppTheme {
         color: shell.divider,
         thickness: 1,
         space: 1,
+      ),
+      scrollbarTheme: const ScrollbarThemeData(
+        thickness: WidgetStatePropertyAll(DScrollThumb.defaultThickness),
       ),
       cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
