@@ -54,6 +54,10 @@ existing presence result, URL, fallback and fixed size to the public component.
   motion. Both fallback and decoded local image were inspected. Native AX named
   them `Chris, Online` and `Evil Rabbit, Online`. The isolated app was closed,
   confirmed absent from a fresh app inventory, and the desktop lease released.
+- After reconciling with latest local main `2850664692f3fb9bf321e82070a8f452db9c6324`,
+  the same suites plus `styleguide_page_test.dart` passed all 237 tests with seed
+  `9082026`; root and profiles/full analysis remained clean and locked full-profile
+  resolution remained unchanged.
 
 No iOS or Linux device run and no spoken VoiceOver run were performed. Widget
 platform overrides are not device testing. The core comparison used its exact
