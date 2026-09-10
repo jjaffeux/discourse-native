@@ -51,3 +51,7 @@ were resolved in favor of the complete shared selectors; header/property picker
 migrations remain intact. All 140 integration tests passed, including the above
 checks plus picker-anchor lifecycle, topic-header tags, taxonomy fields and
 button adoption. Root analysis remained clean.
+
+Merged locally into main from the main checkout with `--no-ff`:
+`44becaad5af517e9c34bbd00debe82af84108ada`. The merge tree matches the tested
+integration candidate exactly.
