@@ -1429,7 +1429,7 @@ Status: merged. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-ava
 - Image absence/loading/error/ready and source replacement preserve fallback and accessible identity without stale image flashes; optional fallback delay and status callback have lifecycle tests.
 - Dot/icon/count badges and overlapping groups support RTL, narrow constraints, 200% text, live light/dark/site palettes and decorative semantics without taking interaction focus.
 - All frozen documentation sections have self-contained runnable examples and correct public API snippets; Button/Dropdown ownership stays explicit and state survives preview changes.
-- Audit core and every bundled plugin; migrate appropriate avatar visual owners while retaining MediaPipeline, AvatarLoader, stale guards, raster/SVG decode reporting and domain flair/presence ownership.
+- Audit core and every bundled plugin; migrate appropriate avatar visual owners while retaining MediaPipeline, AvatarLoader, stale guards, raster/SVG decode reporting and domain flair/presence-data ownership.
 - Focused seeded component, styleguide, adapter and downstream regressions plus analysis pass; isolated macOS app compares reference and real migrated fixtures after exclusive desktop grant.
 
 **decisions**
@@ -1440,16 +1440,18 @@ Status: merged. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-ava
 - Above-100% text scaling reserves larger enum-sized boxes to fit initials and avoid ready/fallback geometry shifts; fixed app frames and explicit dimensions retain layout contracts. Narrow groups wrap.
 - Exact Lucide plus SVG and full ISC/Feather MIT license recorded. Explicit badge icon slot hides arbitrary SVG/widget icons at sm; standalone GroupCount owns its 2px background ring.
 - Final Avatar and Direction compositions independently reviewed with accepted DButton/DDropdownMenu owners, grouped/destructive reference menus and independent group actions. Native/reference verification and 147 latest-main focused tests pass; the original Avatar merge remains accepted.
+- Online-ring follow-up: public DAvatar.ring reproduces core's fixed border-box geometry with a 1px live success edge, 1px live background gap and 2px content inset. DTokens now receives the site's semantic success color, while ringSemanticLabel prevents a color-only status.
 
 **migrations**
 
 - Core topic/post/group/user/composer/quote/reaction/search identities; Chat, Voice, Assign and Events avatar owners now use DAvatar.frame. Four CircleAvatar fallbacks removed.
 - Rounded forum/rail/sidebar/directory/GitHub identity clips use public presentation with preserved domain radius. Topic poster overlap uses DAvatarGroup.
 - AvatarImage reserves requested dimensions for every loading/ready/error state; cache, asynchronous pipeline guards, SVG/raster decode and reporting remain app-owned.
+- ChatUserAvatar now passes its existing live presence result into DAvatar.ring; the private duplicate _OnlineAvatar rendering owner was removed without changing flair, listeners or message/sidebar geometry.
 
 **retainedAlternatives**
 
-- Domain online rings, flair, unread/count/recording indicators and UserStatus emoji retain their distinct meaning and geometry; underlying identities migrate.
+- Domain presence subscriptions and flair, unread/count/recording indicators and UserStatus emoji retain their state/meaning ownership. DAvatar now owns only the reusable ring presentation; GroupFlair retains its artwork and overhang geometry.
 - Video/camera/media/onebox thumbnails, shell/card clips and category swatches are not avatars. Adjacent 20px inbox posters retain their non-overlapping layout.
 - Existing fallback text, custom colors and DiscourseAvatarTheme radius values remain application presentation inputs; final Avatar and Direction compositions use accepted DButton/DDropdownMenu owners.
 
@@ -1468,12 +1470,14 @@ Status: merged. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-ava
 - Coordinator combined-main verification: all 593 focused library/styleguide, image/media/cache, shell/rail/forum, topic, Chat, Voice, Assign and Events cases passed, seed 342701054; log /private/tmp/component-avatar-integration-tests.log. All 41 touched Dart files pass formatting; flutter analyze --no-pub is clean (6.8s), log /private/tmp/component-avatar-integration-analysis.log; git diff --check passes. Generic Avatar, examples and AvatarImage/ForumIcon adapters exactly match the reviewed branch. All changed app source retains the prior Spinner, Tooltip, Skeleton, Aspect Ratio and Label owners, including Tooltip rail geometry and fitted monograms.
 - Final-owner follow-up: source-exact native/reference verification completed, own UI cleanup confirmed, all 147 focused tests and root/full analysis pass on reconciled candidate 90f3e019. Evidence: docs/component-library/evidence/avatar/final-composition-review.md.
 - Final-owner Avatar composition follow-up accepted by no-fast-forward local-main merge 10ea2ca4be81921377d1f85f0c58d3d19cbf15c8. Original Avatar acceptance/implementation history is preserved; no push.
+- Online-ring follow-up: 216 focused Avatar/styleguide/Chat tests passed with seed 9082026; root and profiles/full analysis and enforced lockfile resolution passed; macOS debug fixture build and deep strict ad-hoc signature passed.
+- Source-matched macOS 26.6.2 arm64 inspection verified fallback and decoded-image rings in light, dark, Forest and Plum; LTR/RTL, wide/360px, 100%/200% and reduced-motion previews; registered styleguide presentation; and native AX labels. Isolated app closure and desktop-lease release were confirmed. Evidence: docs/component-library/evidence/avatar/ring-follow-up.md.
 
 **limitations**
 
 - No iOS/Linux device or spoken VoiceOver run. Nested styleguide main native AX tree was sparse; fixture/menu AX and visual/keyboard interaction verified without forcing global semantics.
 - Reference and native screenshots have different capture/preview dimensions; intrinsic metrics compared at 100% with exact widget geometry tests, not pixel-diff equality. Palette, font and local artwork intentionally use app inputs.
-- Domain flair/presence and non-avatar media retain documented ownership. Final Avatar/Direction composition evidence is recorded separately in evidence/avatar/final-composition-review.md.
+- Domain presence data, flair and non-avatar media retain documented ownership. Ring presentation is generic; final Avatar/Direction composition evidence is recorded separately in evidence/avatar/final-composition-review.md.
 
 ### card
 
