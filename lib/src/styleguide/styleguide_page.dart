@@ -41,11 +41,9 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocus = FocusNode(debugLabel: 'Component search');
   final ScrollController _detailScroll = ScrollController();
-  final ScrollController _previewScroll = ScrollController();
-  final GlobalKey _detailKey = GlobalKey();
   final GlobalKey<DSidebarProviderState> _sidebarKey =
       GlobalKey<DSidebarProviderState>();
-  final GlobalKey _codeKey = GlobalKey();
+  final Map<int, GlobalKey> _sectionKeys = {};
   ComponentReference _selected = _foundations;
   StyleguideTheme _theme = StyleguideTheme.current;
   Brightness? _documentationBrightness;
@@ -54,9 +52,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   bool _rtl = false;
   bool _reducedMotion = false;
   bool _settingsOpen = false;
-  bool _codeOpen = false;
-  bool _copied = false;
-  int _exampleIndex = 0;
   int _activeOutlineIndex = -1;
   int _reset = 0;
 
@@ -65,7 +60,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     _search.dispose();
     _searchFocus.dispose();
     _detailScroll.dispose();
-    _previewScroll.dispose();
     super.dispose();
   }
 
@@ -80,57 +74,31 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   void _select(ComponentReference reference) {
     setState(() {
       _selected = reference;
-      _exampleIndex = 0;
       _activeOutlineIndex = -1;
-      _codeOpen = false;
-      _copied = false;
+      _sectionKeys.clear();
     });
     _sidebarKey.currentState?.setOpenMobile(false);
     _detailScroll.jumpTo(0);
   }
 
-  void _selectExample(int index, {int outlineIndex = -1}) => setState(() {
-    _exampleIndex = index;
-    _activeOutlineIndex = outlineIndex;
-    _copied = false;
-  });
-
-  int _exampleIndexForSection(
-    ComponentReferenceSection section,
-    int visibleIndex,
-    int visibleCount,
-    List<StyleguideExample> examples,
-  ) {
-    if (examples.length == 1 || section.label == 'Usage') return 0;
-
-    final needle = _normalizedSectionLabel(section.label);
-    var bestIndex = -1;
-    var bestScore = 0;
-    for (var index = 0; index < examples.length; index++) {
-      final example = examples[index];
-      final title = _normalizedSectionLabel(example.title);
-      final states = example.states.map(_normalizedSectionLabel);
-      final score = switch ((title, states)) {
-        (final title, _) when title == needle => 100,
-        (_, final states) when states.contains(needle) => 90,
-        (final title, _) when title.contains(needle) => 80,
-        (final title, _) when needle.contains(title) => 70,
-        _ => 0,
-      };
-      if (score > bestScore) {
-        bestIndex = index;
-        bestScore = score;
-      }
-    }
-    if (bestIndex >= 0) return bestIndex;
-
-    return visibleCount <= 1
-        ? 0
-        : (visibleIndex * (examples.length - 1) / (visibleCount - 1)).round();
-  }
-
   String _normalizedSectionLabel(String value) =>
       value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+  GlobalKey _sectionKey(int index) =>
+      _sectionKeys.putIfAbsent(index, GlobalKey.new);
+
+  void _scrollToSection(int index) {
+    setState(() => _activeOutlineIndex = index);
+    final target = _sectionKey(index).currentContext?.findRenderObject();
+    if (target is! RenderBox || !_detailScroll.hasClients) return;
+    final offset =
+        (_detailScroll.offset + target.localToGlobal(Offset.zero).dy - 100)
+            .clamp(
+              _detailScroll.position.minScrollExtent,
+              _detailScroll.position.maxScrollExtent,
+            );
+    _detailScroll.jumpTo(offset);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -183,12 +151,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _sidebar(context, wide),
-                            Expanded(
-                              child: KeyedSubtree(
-                                key: _detailKey,
-                                child: _detail(context, hostTheme),
-                              ),
-                            ),
+                            Expanded(child: _detail(context, hostTheme)),
                             if (constraints.maxWidth >= 1280)
                               SizedBox(
                                 width: 200,
@@ -408,7 +371,9 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
 
   Widget _detail(BuildContext context, ThemeData hostTheme) {
     final group = componentExamples[_selected.id];
-    final example = group?.examples.elementAtOrNull(_exampleIndex);
+    final examples = group?.examples ?? const <StyleguideExample>[];
+    final sections = _visibleSections;
+    final assignments = _assignExamples(sections, examples);
     final index = _entries.indexOf(_selected);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -486,38 +451,41 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                     ),
                   ],
                   const SizedBox(height: 32),
-                  if (example != null) ...[
-                    _examplePanel(context, hostTheme, example),
-                    const SizedBox(height: 32),
-                    Semantics(
-                      header: true,
-                      child: Text(
-                        example.title,
-                        key: const ValueKey('styleguide-example-title'),
-                        style: styleguideText(
-                          context,
-                          size: 20,
-                          height: 28,
-                          weight: FontWeight.w600,
-                        ),
+                  if (examples.isNotEmpty) ...[
+                    _previewControls(context),
+                    for (
+                      var sectionIndex = 0;
+                      sectionIndex < sections.length;
+                      sectionIndex++
+                    ) ...[
+                      SizedBox(height: sectionIndex == 0 ? 40 : 56),
+                      _sectionHeading(
+                        context,
+                        sections[sectionIndex],
+                        sectionIndex,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      example.description,
-                      style: styleguideText(context, height: 24, muted: true),
-                    ),
-                    if (example.states.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        example.states.join(' · '),
-                        style: styleguideText(
-                          context,
-                          size: 12,
-                          height: 20,
-                          muted: true,
-                        ),
+                      ..._sectionIntroduction(
+                        context,
+                        sections,
+                        sectionIndex,
+                        group,
                       ),
+                      for (final exampleIndex in assignments[sectionIndex]) ...[
+                        const SizedBox(height: 20),
+                        _exampleDocumentation(
+                          context,
+                          hostTheme,
+                          examples[exampleIndex],
+                          exampleIndex,
+                          showTitle:
+                              _normalizedSectionLabel(
+                                examples[exampleIndex].title,
+                              ) !=
+                              _normalizedSectionLabel(
+                                sections[sectionIndex].label,
+                              ),
+                        ),
+                      ],
                     ],
                   ] else ...[
                     Container(
@@ -541,16 +509,346 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     );
   }
 
-  Widget _examplePanel(
+  List<ComponentReferenceSection> get _visibleSections => _selected.outline
+      .where((section) => section.label != 'Installation')
+      .toList(growable: false);
+
+  List<List<int>> _assignExamples(
+    List<ComponentReferenceSection> sections,
+    List<StyleguideExample> examples,
+  ) {
+    final assignments = List.generate(sections.length, (_) => <int>[]);
+    if (sections.isEmpty) return assignments;
+
+    final parents = _sectionParents(sections);
+    final fallbackSections = <int>[
+      for (var index = 0; index < sections.length; index++)
+        if (sections[index].depth == 0 &&
+            !const {
+              'Usage',
+              'Composition',
+              'API Reference',
+              'Changelog',
+            }.contains(sections[index].label))
+          index,
+    ];
+
+    for (var exampleIndex = 0; exampleIndex < examples.length; exampleIndex++) {
+      final example = examples[exampleIndex];
+      var bestSection = -1;
+      var bestScore = 0;
+      for (
+        var sectionIndex = 0;
+        sectionIndex < sections.length;
+        sectionIndex++
+      ) {
+        if (parents[sectionIndex] == 'API Reference') continue;
+        final needle = _normalizedSectionLabel(sections[sectionIndex].label);
+        final title = _normalizedSectionLabel(example.title);
+        final states = example.states.map(_normalizedSectionLabel);
+        final score = switch ((title, states)) {
+          (final title, _) when title == needle => 100,
+          (_, final states) when states.contains(needle) => 90,
+          (final title, _) when title.contains(needle) => 80,
+          (final title, _) when needle.contains(title) => 70,
+          _ => 0,
+        };
+        if (score > bestScore) {
+          bestSection = sectionIndex;
+          bestScore = score;
+        }
+      }
+      if (bestSection < 0) {
+        final candidates = fallbackSections.isEmpty
+            ? List.generate(sections.length, (index) => index)
+            : fallbackSections;
+        bestSection = exampleIndex == 0
+            ? sections.indexWhere((section) => section.label == 'Usage')
+            : candidates[(exampleIndex * candidates.length ~/ examples.length)
+                  .clamp(0, candidates.length - 1)];
+        if (bestSection < 0) bestSection = candidates.first;
+      }
+      assignments[bestSection].add(exampleIndex);
+    }
+    return assignments;
+  }
+
+  List<String?> _sectionParents(List<ComponentReferenceSection> sections) {
+    String? parent;
+    return [
+      for (final section in sections)
+        if (section.depth == 0) parent = section.label else parent,
+    ];
+  }
+
+  Widget _previewControls(BuildContext context) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      SizedBox(
+        width: 136,
+        child: StyleguideChoice<StyleguideTheme>(
+          label: 'Theme',
+          value: _theme,
+          options: {
+            for (final mode in StyleguideTheme.values) mode: mode.label,
+          },
+          onChanged: (mode) => setState(() => _theme = mode),
+        ),
+      ),
+      SizedBox(
+        width: 96,
+        child: StyleguideChoice<double>(
+          label: 'Viewport width',
+          value: _width,
+          options: {0: 'Fit', 360: '360 px', 768: '768 px', 1024: '1024 px'},
+          onChanged: (width) => setState(() => _width = width),
+        ),
+      ),
+      StyleguideAction(
+        key: const ValueKey('styleguide-settings'),
+        label: 'Preview settings',
+        icon: Icons.tune,
+        iconOnly: true,
+        selected: _settingsOpen,
+        onPressed: () => setState(() => _settingsOpen = !_settingsOpen),
+      ),
+      StyleguideAction(
+        key: const ValueKey('styleguide-reset'),
+        label: 'Reset examples',
+        icon: Icons.refresh,
+        iconOnly: true,
+        onPressed: () => setState(() => _reset++),
+      ),
+      if (_settingsOpen) ...[
+        SizedBox(
+          width: 96,
+          child: StyleguideChoice<double>(
+            label: 'Text scale',
+            value: _scale,
+            options: {1: '100%', 1.5: '150%', 2: '200%'},
+            onChanged: (scale) => setState(() => _scale = scale),
+          ),
+        ),
+        StyleguideAction(
+          label: 'Right to left',
+          selected: _rtl,
+          outlined: true,
+          onPressed: () => setState(() => _rtl = !_rtl),
+        ),
+        StyleguideAction(
+          label: 'Reduce motion',
+          selected: _reducedMotion,
+          outlined: true,
+          onPressed: () => setState(() => _reducedMotion = !_reducedMotion),
+        ),
+      ],
+    ],
+  );
+
+  Widget _sectionHeading(
+    BuildContext context,
+    ComponentReferenceSection section,
+    int index,
+  ) => Align(
+    key: _sectionKey(index),
+    alignment: AlignmentDirectional.centerStart,
+    child: Semantics(
+      header: true,
+      child: Text(
+        section.label,
+        key: ValueKey('styleguide-section-heading-$index'),
+        style: styleguideText(
+          context,
+          size: section.depth == 0 ? 24 : 20,
+          height: section.depth == 0 ? 32 : 28,
+          weight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
+
+  List<Widget> _sectionIntroduction(
+    BuildContext context,
+    List<ComponentReferenceSection> sections,
+    int index,
+    ComponentExamples? group,
+  ) {
+    final section = sections[index];
+    final parent = _sectionParents(sections)[index];
+    final body = switch ((section.label, parent)) {
+      ('Usage', _) =>
+        "Import `package:discourse_native/discourse_ui.dart`; the runnable examples on this page use the public native API directly.",
+      ('Composition', _) when group?.notes.isNotEmpty == true => group!.notes,
+      ('API Reference', _) =>
+        'The public native API is exported from `package:discourse_native/discourse_ui.dart`. Nested entries map the shadcn parts to their D-prefixed Dart counterparts.',
+      (_, 'API Reference') => _apiReferenceDescription(section.label),
+      _ => null,
+    };
+    if (body == null) return const [];
+    return [
+      const SizedBox(height: 8),
+      Text(
+        body,
+        style: styleguideText(context, height: 24, muted: true).copyWith(
+          fontFamily: parent == 'API Reference' ? 'JetBrains Mono' : null,
+        ),
+      ),
+    ];
+  }
+
+  String _apiReferenceDescription(String label) {
+    if (RegExp(r'^[A-Z][A-Za-z0-9]+$').hasMatch(label)) {
+      return 'D$label — native counterpart of the shadcn $label part.';
+    }
+    return '$label — native Dart option documented by the component API.';
+  }
+
+  Widget _exampleDocumentation(
     BuildContext context,
     ThemeData hostTheme,
     StyleguideExample example,
-  ) {
+    int exampleIndex, {
+    required bool showTitle,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (showTitle) ...[
+        Semantics(
+          header: true,
+          child: Text(
+            example.title,
+            key: ValueKey('styleguide-example-title-$exampleIndex'),
+            style: styleguideText(
+              context,
+              size: 20,
+              height: 28,
+              weight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+      Text(
+        example.description,
+        style: styleguideText(context, height: 24, muted: true),
+      ),
+      if (example.states.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Text(
+          example.states.join(' · '),
+          style: styleguideText(context, size: 12, height: 20, muted: true),
+        ),
+      ],
+      const SizedBox(height: 16),
+      _StyleguideExamplePanel(
+        key: ValueKey('${_selected.id}/$exampleIndex'),
+        componentId: _selected.id,
+        exampleIndex: exampleIndex,
+        example: example,
+        hostTheme: hostTheme,
+        theme: _theme,
+        width: _width,
+        scale: _scale,
+        rtl: _rtl,
+        reducedMotion: _reducedMotion,
+        reset: _reset,
+      ),
+    ],
+  );
+
+  Widget _tableOfContents(BuildContext context) {
+    final sections = _visibleSections;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 40, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 0, 12),
+            child: Text(
+              'On This Page',
+              style: styleguideText(
+                context,
+                size: 12,
+                height: 16,
+                weight: FontWeight.w500,
+              ),
+            ),
+          ),
+          for (var index = 0; index < sections.length; index++)
+            Padding(
+              padding: EdgeInsetsDirectional.only(
+                start: sections[index].depth * 32.0,
+              ),
+              child: StyleguideAction(
+                key: ValueKey('styleguide-section-$index'),
+                label: sections[index].label,
+                selected: index == _activeOutlineIndex,
+                alignment: AlignmentDirectional.centerStart,
+                onPressed: () => _scrollToSection(index),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StyleguideExamplePanel extends StatefulWidget {
+  const _StyleguideExamplePanel({
+    super.key,
+    required this.componentId,
+    required this.exampleIndex,
+    required this.example,
+    required this.hostTheme,
+    required this.theme,
+    required this.width,
+    required this.scale,
+    required this.rtl,
+    required this.reducedMotion,
+    required this.reset,
+  });
+
+  final String componentId;
+  final int exampleIndex;
+  final StyleguideExample example;
+  final ThemeData hostTheme;
+  final StyleguideTheme theme;
+  final double width;
+  final double scale;
+  final bool rtl;
+  final bool reducedMotion;
+  final int reset;
+
+  @override
+  State<_StyleguideExamplePanel> createState() =>
+      _StyleguideExamplePanelState();
+}
+
+class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
+  final ScrollController _previewScroll = ScrollController();
+  bool _codeOpen = false;
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _previewScroll.dispose();
+    super.dispose();
+  }
+
+  ValueKey<String> _key(String base) => ValueKey(
+    widget.exampleIndex == 0 ? base : '$base-${widget.exampleIndex}',
+  );
+
+  @override
+  Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final code =
-        "import 'package:discourse_native/discourse_ui.dart';\n\n${example.code}";
+        "import 'package:discourse_native/discourse_ui.dart';\n\n${widget.example.code}";
     return Container(
-      key: const ValueKey('styleguide-example-panel'),
+      key: _key('styleguide-example-panel'),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         border: Border.all(color: tokens.border),
@@ -559,128 +857,16 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 136,
-                      child: StyleguideChoice<StyleguideTheme>(
-                        label: 'Theme',
-                        value: _theme,
-                        options: {
-                          for (final mode in StyleguideTheme.values)
-                            mode: mode.label,
-                        },
-                        onChanged: (mode) => setState(() => _theme = mode),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 96,
-                      child: StyleguideChoice<double>(
-                        label: 'Viewport width',
-                        value: _width,
-                        options: {
-                          0: 'Fit',
-                          360: '360 px',
-                          768: '768 px',
-                          1024: '1024 px',
-                        },
-                        onChanged: (width) => setState(() => _width = width),
-                      ),
-                    ),
-                    StyleguideAction(
-                      key: const ValueKey('styleguide-settings'),
-                      label: 'Preview settings',
-                      icon: Icons.tune,
-                      iconOnly: true,
-                      selected: _settingsOpen,
-                      onPressed: () =>
-                          setState(() => _settingsOpen = !_settingsOpen),
-                    ),
-                    StyleguideAction(
-                      key: const ValueKey('styleguide-reset'),
-                      label: 'Reset example',
-                      icon: Icons.refresh,
-                      iconOnly: true,
-                      onPressed: () => setState(() => _reset++),
-                    ),
-                    StyleguideAction(
-                      key: const ValueKey('styleguide-previous-example'),
-                      label: 'Previous example',
-                      icon: Icons.chevron_left,
-                      iconOnly: true,
-                      onPressed: _exampleIndex > 0
-                          ? () => _selectExample(_exampleIndex - 1)
-                          : null,
-                    ),
-                    StyleguideAction(
-                      key: const ValueKey('styleguide-next-example'),
-                      label: 'Next example',
-                      icon: Icons.chevron_right,
-                      iconOnly: true,
-                      onPressed:
-                          _exampleIndex <
-                              (componentExamples[_selected.id]
-                                          ?.examples
-                                          .length ??
-                                      0) -
-                                  1
-                          ? () => _selectExample(_exampleIndex + 1)
-                          : null,
-                    ),
-                  ],
-                ),
-                if (_settingsOpen) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 96,
-                        child: StyleguideChoice<double>(
-                          label: 'Text scale',
-                          value: _scale,
-                          options: {1: '100%', 1.5: '150%', 2: '200%'},
-                          onChanged: (scale) => setState(() => _scale = scale),
-                        ),
-                      ),
-                      StyleguideAction(
-                        label: 'Right to left',
-                        selected: _rtl,
-                        outlined: true,
-                        onPressed: () => setState(() => _rtl = !_rtl),
-                      ),
-                      StyleguideAction(
-                        label: 'Reduce motion',
-                        selected: _reducedMotion,
-                        outlined: true,
-                        onPressed: () =>
-                            setState(() => _reducedMotion = !_reducedMotion),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Divider(height: 1, color: tokens.border),
           LayoutBuilder(
             builder: (context, constraints) {
-              final width = _width == 0 ? constraints.maxWidth : _width;
+              final width = widget.width == 0
+                  ? constraints.maxWidth
+                  : widget.width;
               final scrollBehavior = ScrollConfiguration.of(context);
               return ColoredBox(
                 color: tokens.muted,
                 child: DScrollBar(
-                  key: const ValueKey('styleguide-preview-scrollbar'),
+                  key: _key('styleguide-preview-scrollbar'),
                   axis: Axis.horizontal,
                   controller: _previewScroll,
                   thumbVisibility: width > constraints.maxWidth,
@@ -696,11 +882,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                           child: Align(
                             alignment: Alignment.topCenter,
                             child: SizedBox(
-                              key: ValueKey(
-                                'styleguide-example-viewport-${_selected.id}',
+                              key: _key(
+                                'styleguide-example-viewport-${widget.componentId}',
                               ),
                               width: width,
-                              height: switch (_selected.id) {
+                              height: switch (widget.componentId) {
                                 'accordion' => 800,
                                 'card' => 480,
                                 'sidebar' => 500,
@@ -708,13 +894,14 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                               },
                               child: _ExampleViewport(
                                 key: ValueKey(
-                                  '${_selected.id}/$_exampleIndex/$_reset',
+                                  '${widget.componentId}/${widget.exampleIndex}/${widget.reset}',
                                 ),
-                                theme: _theme.resolve(hostTheme),
-                                scale: _scale,
-                                rtl: _rtl,
-                                reducedMotion: _reducedMotion,
-                                example: example,
+                                previewKey: _key('styleguide-preview'),
+                                theme: widget.theme.resolve(widget.hostTheme),
+                                scale: widget.scale,
+                                rtl: widget.rtl,
+                                reducedMotion: widget.reducedMotion,
+                                example: widget.example,
                               ),
                             ),
                           ),
@@ -728,7 +915,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           ),
           Divider(height: 1, color: tokens.border),
           ColoredBox(
-            key: _codeKey,
             color: tokens.muted,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -742,7 +928,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                     children: [
                       Expanded(
                         child: StyleguideAction(
-                          key: const ValueKey('styleguide-code-toggle'),
+                          key: _key('styleguide-code-toggle'),
                           label: _codeOpen ? 'Hide code' : 'View code',
                           icon: Icons.code,
                           alignment: AlignmentDirectional.centerStart,
@@ -784,78 +970,11 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       ),
     );
   }
-
-  Widget _tableOfContents(BuildContext context) {
-    final examples =
-        componentExamples[_selected.id]?.examples ??
-        const <StyleguideExample>[];
-    final sections = _selected.outline
-        .where((section) => section.label != 'Installation')
-        .toList(growable: false);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 40, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 0, 12),
-            child: Text(
-              'On This Page',
-              style: styleguideText(
-                context,
-                size: 12,
-                height: 16,
-                weight: FontWeight.w500,
-              ),
-            ),
-          ),
-          for (var index = 0; index < sections.length; index++)
-            Padding(
-              padding: EdgeInsetsDirectional.only(
-                start: sections[index].depth * 32.0,
-              ),
-              child: StyleguideAction(
-                key: ValueKey('styleguide-section-$index'),
-                label: sections[index].label,
-                selected: index == _activeOutlineIndex,
-                alignment: AlignmentDirectional.centerStart,
-                onPressed: examples.isEmpty
-                    ? null
-                    : () {
-                        final section = sections[index];
-                        _selectExample(
-                          _exampleIndexForSection(
-                            section,
-                            index,
-                            sections.length,
-                            examples,
-                          ),
-                          outlineIndex: index,
-                        );
-                        if (section.label == 'Usage') {
-                          setState(() => _codeOpen = true);
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!mounted) return;
-                            final target = _codeKey.currentContext;
-                            if (target != null) {
-                              unawaited(Scrollable.ensureVisible(target));
-                            }
-                          });
-                        } else {
-                          setState(() => _codeOpen = false);
-                          _detailScroll.jumpTo(0);
-                        }
-                      },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class _ExampleViewport extends StatefulWidget {
   const _ExampleViewport({
+    required this.previewKey,
     required this.theme,
     required this.scale,
     required this.rtl,
@@ -863,6 +982,7 @@ class _ExampleViewport extends StatefulWidget {
     required this.example,
     super.key,
   });
+  final Key previewKey;
   final ThemeData theme;
   final double scale;
   final bool rtl;
@@ -892,7 +1012,7 @@ class _ExampleViewportState extends State<_ExampleViewport> {
               child: Navigator(
                 onGenerateRoute: (_) => MaterialPageRoute<void>(
                   builder: (context) => Material(
-                    key: const ValueKey('styleguide-preview'),
+                    key: widget.previewKey,
                     color: DTokens.of(context).background,
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(DSpacing.xl),
