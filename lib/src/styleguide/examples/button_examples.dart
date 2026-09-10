@@ -1,7 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
 
@@ -18,6 +18,9 @@ final buttonExamples = ComponentExamples(
       'Navigation uses isLink and an application-owned callback. Pointer cursors '
       'retain the app convention. Rich labels may explicitly wrap. The Button '
       'Group composition uses the public DButtonGroup and DDropdownMenu owners. '
+      'Optional backgroundColor and borderColor preserve caller-supplied tints '
+      'across states; interactiveBackgroundColor controls hover/focus fills. '
+      'Custom borders retain the themed focus ring and yield to invalid styling. '
       'Reference and native visual verification are recorded in the library documentation.',
   examples: [
     StyleguideExample(
@@ -157,8 +160,172 @@ final buttonExamples = ComponentExamples(
 )''',
       builder: (_) => const _ButtonDemo(),
     ),
+    StyleguideExample(
+      title: 'Custom colors',
+      description:
+          'Category-tinted split controls with independent picker and browse '
+          'actions. Change a category to update its colors, or use Tab to inspect focus.',
+      states: const [
+        'Custom fill',
+        'Custom border',
+        'Hover',
+        'Focus',
+        'Expanded',
+        'Disabled',
+        'Button Group',
+      ],
+      code: r'''final fill = categoryColor.withValues(alpha: .10);
+final border = categoryColor.withValues(alpha: .25);
+final hover = Color.alphaBlend(categoryColor.withValues(alpha: .08), fill);
+
+DButtonGroup(children: [
+  DButton(
+    label: Text(categoryName),
+    variant: DButtonVariant.outline,
+    size: DButtonSize.extraSmall,
+    backgroundColor: fill,
+    borderColor: border,
+    interactiveBackgroundColor: hover,
+    hasPopup: true,
+    expanded: pickerOpen,
+    onPressed: togglePicker,
+  ),
+  DButton.iconOnly(
+    icon: Icon(Icons.open_in_new),
+    tooltip: 'Browse $categoryName',
+    isLink: true,
+    variant: DButtonVariant.outline,
+    size: DButtonSize.extraSmall,
+    backgroundColor: fill,
+    borderColor: border,
+    interactiveBackgroundColor: hover,
+    onPressed: browseCategory,
+  ),
+])''',
+      builder: (_) => const _ButtonCustomColors(),
+    ),
   ],
 );
+
+class _ButtonCustomColors extends StatefulWidget {
+  const _ButtonCustomColors();
+
+  @override
+  State<_ButtonCustomColors> createState() => _ButtonCustomColorsState();
+}
+
+class _ButtonCustomColorsState extends State<_ButtonCustomColors> {
+  static const _colors = {
+    'sales': Color(0xffed1681),
+    'deals': Color(0xff0088cc),
+    'support': Color(0xff629b32),
+  };
+  final _categories = ['sales', 'deals'];
+  String _result = 'Choose or browse a category';
+
+  Widget _picker(int index) {
+    final name = _categories[index];
+    final color = _colors[name]!;
+    final fill = color.withValues(alpha: .10);
+    final border = color.withValues(alpha: .25);
+    final hover = Color.alphaBlend(color.withValues(alpha: .08), fill);
+    return DButtonGroup(
+      semanticLabel: 'Category ${index + 1}',
+      children: [
+        DCombobox<String>.controlled(
+          value: name,
+          options: [
+            for (final category in _colors.keys)
+              DComboboxOption(value: category, label: category),
+          ],
+          onChanged: (value, _) {
+            if (value == null) return;
+            setState(() {
+              _categories[index] = value;
+              _result = 'Category ${index + 1}: $value';
+            });
+          },
+          anchor: DComboboxTrigger<String>(
+            builder: (_, trigger) => DButton(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(name),
+                  const SizedBox(width: DSpacing.xs),
+                  const Icon(Icons.keyboard_arrow_down, size: 12),
+                ],
+              ),
+              icon: Icon(Icons.square_rounded, size: 12, color: color),
+              semanticLabel: 'Edit $name',
+              variant: DButtonVariant.outline,
+              size: DButtonSize.extraSmall,
+              backgroundColor: fill,
+              borderColor: border,
+              interactiveBackgroundColor: hover,
+              hasPopup: true,
+              expanded: trigger.open,
+              focusNode: trigger.focusNode,
+              onPressed: trigger.toggle,
+            ),
+          ),
+          content: const DComboboxContent(
+            width: 240,
+            maxHeight: 240,
+            children: [
+              Padding(
+                padding: EdgeInsets.all(DSpacing.xs),
+                child: DComboboxInput<String>(
+                  placeholder: 'Search categories…',
+                  semanticLabel: 'Search categories',
+                  registerAsAnchor: false,
+                  showTrigger: false,
+                ),
+              ),
+              DComboboxEmpty<String>(child: Text('No matching categories.')),
+              DComboboxList<String>(),
+            ],
+          ),
+        ),
+        DButton.iconOnly(
+          icon: const Icon(Icons.open_in_new),
+          tooltip: 'Browse $name',
+          isLink: true,
+          variant: DButtonVariant.outline,
+          size: DButtonSize.extraSmall,
+          backgroundColor: fill,
+          borderColor: border,
+          interactiveBackgroundColor: hover,
+          onPressed: () => setState(() => _result = 'Browse $name'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Wrap(
+        spacing: DSpacing.sm,
+        runSpacing: DSpacing.sm,
+        children: [
+          for (var index = 0; index < _categories.length; index++)
+            _picker(index),
+          DButton(
+            label: const Text('Disabled'),
+            variant: DButtonVariant.outline,
+            size: DButtonSize.extraSmall,
+            backgroundColor: _colors['sales']!.withValues(alpha: .10),
+            borderColor: _colors['sales']!.withValues(alpha: .25),
+            onPressed: null,
+          ),
+        ],
+      ),
+      const SizedBox(height: DSpacing.lg),
+      Text(_result),
+    ],
+  );
+}
 
 class _ButtonDemo extends StatelessWidget {
   const _ButtonDemo();

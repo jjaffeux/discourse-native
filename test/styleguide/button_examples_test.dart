@@ -18,8 +18,47 @@ void main() {
       'RTL',
       'Application variants',
       'Reference demo',
+      'Custom colors',
     ]);
   });
+
+  testWidgets(
+    'custom colors keep category selection and browse actions independent',
+    (tester) async {
+      final example = buttonExamples.examples.singleWhere(
+        (example) => example.title == 'Custom colors',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      );
+      await tester.tap(find.byTooltip('Browse sales'));
+      await tester.pumpAndSettle();
+      expect(find.text('Browse sales'), findsOneWidget);
+      expect(find.byType(DComboboxInput<String>), findsNothing);
+
+      await tester.tap(find.bySemanticsLabel('Edit sales'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(DComboboxInput<String>), 'support');
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DComboboxList<String>),
+          matching: find.text('support'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Category 1: support'), findsOneWidget);
+      expect(find.bySemanticsLabel('Edit support'), findsOneWidget);
+      expect(find.byType(DComboboxInput<String>), findsNothing);
+      await tester.tap(find.byTooltip('Browse support'));
+      await tester.pumpAndSettle();
+      expect(find.text('Browse support'), findsOneWidget);
+      expect(find.text('deals'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'the Button Group example opens its menu and keeps the label selection',

@@ -10,6 +10,87 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets(
+    'translucent custom colors paint one joined border between fills',
+    (tester) async {
+      const background = Color(0xff222222);
+      const fill = Color(0x1aed1681);
+      const border = Color(0x40ed1681);
+      final boundary = GlobalKey();
+      await _pump(
+        tester,
+        RepaintBoundary(
+          key: boundary,
+          child: const ColoredBox(
+            color: background,
+            child: DButtonGroup(
+              children: [
+                DButton(
+                  label: Text('sales'),
+                  variant: DButtonVariant.outline,
+                  backgroundColor: fill,
+                  borderColor: border,
+                  onPressed: _noop,
+                ),
+                DButton.iconOnly(
+                  icon: Icon(Icons.open_in_new),
+                  tooltip: 'Browse sales',
+                  variant: DButtonVariant.outline,
+                  backgroundColor: fill,
+                  borderColor: border,
+                  onPressed: _noop,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final first = tester.getSize(find.byType(FilledButton).first);
+      final pixels = await tester.runAsync(() async {
+        final box =
+            boundary.currentContext!.findRenderObject()!
+                as RenderRepaintBoundary;
+        final image = await box.toImage(pixelRatio: 1);
+        final bytes = await image.toByteData(format: ImageByteFormat.rawRgba);
+        final pixels = [
+          for (final dx in [-2, -1, 0])
+            bytes!.buffer
+                .asUint8List(
+                  ((first.height ~/ 2) * image.width +
+                          first.width.ceil() +
+                          dx) *
+                      4,
+                  4,
+                )
+                .toList(),
+        ];
+        image.dispose();
+        return pixels;
+      });
+      final fillOnBackground = Color.alphaBlend(fill, background);
+      final borderOnBackground = Color.alphaBlend(border, background);
+      for (final (index, color) in [
+        (0, fillOnBackground),
+        (1, borderOnBackground),
+        (2, fillOnBackground),
+      ]) {
+        for (final (channel, value) in [
+          (0, color.r),
+          (1, color.g),
+          (2, color.b),
+          (3, color.a),
+        ]) {
+          expect(
+            pixels![index][channel],
+            closeTo(value * 255, 1),
+            reason: 'join pixel $index, channel $channel',
+          );
+        }
+      }
+    },
+  );
+
   testWidgets('focused control paints its ring above the adjacent surface', (
     tester,
   ) async {
