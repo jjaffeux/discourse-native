@@ -25,9 +25,9 @@ examples.
 
 | base-nova source | Flutter mapping |
 | --- | --- |
-| Popup `min-w-32`, example `w-40`, `p-1` | 128px minimum, 160px default width, 4px content padding |
+| Popup `min-w-32`, example `w-40`, `p-1` | 128px minimum, 160px example width, 4px content padding |
 | Popup `rounded-lg bg-popover text-popover-foreground` | `DTokens.radius × 1`, live `surface` and `foreground` |
-| Popup `shadow-md ring-1 ring-foreground/10` | shared `DPopoverContent` two-part medium shadow and 1px 10%-foreground border |
+| Popup `shadow-md ring-1 ring-foreground/10` | shared `DPopoverContent` two-part medium shadow and layout-neutral 1px exterior 10%-foreground ring |
 | Popup `sideOffset=4`, collision-aware positioning | shared `DPopover` placement, flip/shift, safe-area boundary and scrolling |
 | Item `gap-1.5 px-1.5 py-1 text-sm rounded-md` | 6px gap/padding, 4px vertical padding, 14/20 text, `radius × .8`, 28px desktop row |
 | Mobile accessibility | the same 20px artwork uses an invisible/empty 48px row bound on iOS/Android |
@@ -38,13 +38,34 @@ examples.
 | Icon slots `[svg]:size-4 gap-1.5` | caller-supplied 16px `IconTheme` slots and 6px gap |
 | Destructive focus `destructive/10`, dark `/20` | multiplied live destructive alpha at 10% light / 20% dark |
 | 100ms fade/zoom/8px slide | shared `DPopover` animation, removed under reduced motion |
-| Checkbox/radio trailing check | controlled `checked` semantics and 16px Lucide-proportion check painter |
-| Submenu inline-end placement | nested shared `DPopover`, mirrored inline placement and arrows, `alignOffset=-3` |
+| Checkbox/radio `pr-8`, indicator `right-2` | controlled `checked` semantics, 32px reserved trailing column and a 16px Lucide-proportion check painter |
+| Active `accent` / `accent-foreground` | live `hover` / `selectedForeground` pair inherited by labels, icons and shortcuts |
+| Submenu `w-auto min-w-[96px] shadow-lg` | 96px reference default with optional intrinsic/larger width, exact two-part large shadow and layout-neutral exterior ring |
+| Submenu inline-end placement | nested shared `DPopover`, custom Lucide-proportion directional chevron, mirrored inline placement and keys, `alignOffset=-3` |
 
 The application font remains the configured host font. Public item icon slots
 accept widgets rather than coupling the generic component to one icon package.
 The styleguide uses Flutter's available outline icons to demonstrate the exact
 slot geometry; production callers retain their own app icon vocabulary.
+
+## 2026-09-10 parity follow-up
+
+The live Base UI page and registry were rechecked against the supplied dark
+Composition capture. The registry remains byte-identical at SHA256
+`335c59dba30145f434a9cc9ccb0438a3c5e2afe857fc11b029de1ecb415224d7`.
+The review found that the root menu already matched its 160px example width and
+339px content-height arithmetic, but the Flutter submenu incorrectly inherited
+that same 160px width. The reference uses `w-auto min-w-[96px]`, and the supplied
+Composition submenu resolves to that 96px minimum. `DDropdownMenuSub` now uses
+96px by default; richer examples opt into the measured larger width and callers
+can request intrinsic sizing with `width: null`.
+
+The same comparison corrected less obvious visual deltas: submenu `shadow-lg`
+instead of the root `shadow-md`, a CSS-style exterior ring that no longer steals
+one pixel from menu content, active accent foreground propagation into shortcuts
+and icons, the full inset even when an icon is present, the checkbox/radio
+32px trailing reserve, and component-owned 16px Lucide-proportion check and
+directional-chevron strokes.
 
 ## Acceptance criteria
 

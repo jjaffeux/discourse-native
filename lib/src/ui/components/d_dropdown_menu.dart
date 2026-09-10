@@ -69,6 +69,9 @@ class DDropdownMenu extends StatelessWidget {
         width: content.width,
         constraints: content.constraints,
         padding: EdgeInsets.zero,
+        shadow: content.isSubmenu
+            ? DPopoverShadow.large
+            : DPopoverShadow.medium,
         // Menus own their scroll position so wheel, trackpad, and draggable
         // scrollbar interaction all operate on the same popup-local viewport.
         scrollable: false,
@@ -123,7 +126,7 @@ class DDropdownMenuContent extends StatefulWidget {
     this.constraints = const BoxConstraints(minWidth: 128),
     this.isSubmenu = false,
     this.autofocus = true,
-  }) : assert(width >= 96),
+  }) : assert(width == null || width >= 96),
        assert(sideOffset >= 0),
        assert(collisionPadding >= 0);
 
@@ -137,7 +140,7 @@ class DDropdownMenuContent extends StatefulWidget {
   final DPopoverCollision alignCollision;
   final double collisionPadding;
   final Rect? collisionBoundary;
-  final double width;
+  final double? width;
   final BoxConstraints constraints;
   final bool isSubmenu;
   final bool autofocus;
@@ -503,7 +506,11 @@ class DDropdownMenuShortcut extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall!.copyWith(
-          color: DTokens.of(context).mutedForeground,
+          // The item supplies muted color at rest and accent foreground while
+          // active, matching the reference's group-focus shortcut selector.
+          color:
+              IconTheme.of(context).color ??
+              DTokens.of(context).mutedForeground,
           fontSize: DiscourseTypography.xs,
           height: DiscourseTypography.lineHeightCaption,
           fontWeight: FontWeight.w400,
@@ -705,7 +712,7 @@ class DDropdownMenuSub extends StatefulWidget {
     this.inset = false,
     this.enabled = true,
     this.semanticLabel,
-    this.width = 160,
+    this.width = 96,
   });
 
   final Widget trigger;
@@ -714,7 +721,10 @@ class DDropdownMenuSub extends StatefulWidget {
   final bool inset;
   final bool enabled;
   final String? semanticLabel;
-  final double width;
+
+  /// A fixed submenu width. The 96px default matches the reference minimum;
+  /// pass null for intrinsic sizing or a larger value for richer rows.
+  final double? width;
 
   @override
   State<DDropdownMenuSub> createState() => _DDropdownMenuSubState();
@@ -926,17 +936,23 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
                 )
               : tokens.hover
         : Colors.transparent;
-    final foreground = destructive ? tokens.destructive : tokens.foreground;
+    final foreground = destructive
+        ? tokens.destructive
+        : interactive
+        ? tokens.selectedForeground
+        : tokens.foreground;
     final mobile =
         defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android;
     final visualHeight = mobile ? DSpacing.touchTarget : 28.0;
-    final startPadding = widget.inset && widget.leading == null ? 28.0 : 6.0;
+    final startPadding = widget.inset ? 28.0 : 6.0;
+    final endPadding = widget.checked == null ? 6.0 : 8.0;
+    final trailingGap = widget.checked == null ? 6.0 : 8.0;
     // Active-row changes are atomic. Animating the previous row out while the
     // next row animates in briefly presents two highlighted menu choices.
     final row = Container(
       constraints: BoxConstraints(minHeight: visualHeight),
-      padding: EdgeInsetsDirectional.fromSTEB(startPadding, 4, 6, 4),
+      padding: EdgeInsetsDirectional.fromSTEB(startPadding, 4, endPadding, 4),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(tokens.radius * 0.8),
@@ -953,7 +969,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
           ],
           Expanded(child: widget.child),
           if (widget.trailing != null) ...[
-            const SizedBox(width: 6),
+            SizedBox(width: trailingGap),
             IconTheme.merge(
               data: IconThemeData(
                 color: destructive
@@ -1068,7 +1084,8 @@ class _CheckPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
+      // Lucide's 2px stroke in a 24px viewBox scales to 4/3px at 16px.
+      ..strokeWidth = 4 / 3
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(
@@ -1088,8 +1105,44 @@ class _DirectionalChevron extends StatelessWidget {
   const _DirectionalChevron();
 
   @override
-  Widget build(BuildContext context) =>
-      const Icon(Icons.chevron_right, size: 16);
+  Widget build(BuildContext context) => CustomPaint(
+    size: const Size.square(16),
+    painter: _ChevronPainter(
+      color: IconTheme.of(context).color ?? Colors.black,
+      direction: Directionality.of(context),
+    ),
+  );
+}
+
+class _ChevronPainter extends CustomPainter {
+  const _ChevronPainter({required this.color, required this.direction});
+
+  final Color color;
+  final TextDirection direction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final points = direction == TextDirection.ltr
+        ? const [Offset(6, 4), Offset(10, 8), Offset(6, 12)]
+        : const [Offset(10, 4), Offset(6, 8), Offset(10, 12)];
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4 / 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(
+      Path()
+        ..moveTo(points[0].dx, points[0].dy)
+        ..lineTo(points[1].dx, points[1].dy)
+        ..lineTo(points[2].dx, points[2].dy),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ChevronPainter oldDelegate) =>
+      color != oldDelegate.color || direction != oldDelegate.direction;
 }
 
 String _plainText(Widget widget) => widget is Text ? widget.data ?? '' : '';

@@ -175,6 +175,7 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
     _item('Team'),
     DDropdownMenuSub(
       trigger: const Text('Invite users'),
+      width: 128,
       children: [
         _item('Email'),
         _item('Message'),
@@ -353,6 +354,7 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
     DDropdownMenuSub(
       trigger: const Text('Open Recent'),
       leading: const Icon(Icons.folder_open_outlined),
+      width: 160,
       children: [
         const DDropdownMenuLabel(child: Text('Recent Projects')),
         _item('Project Alpha', icon: Icons.code),
@@ -360,6 +362,7 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
         DDropdownMenuSub(
           trigger: const Text('More Projects'),
           leading: const Icon(Icons.more_horiz),
+          width: 144,
           children: [
             _item('Project Gamma', icon: Icons.code),
             _item('Project Delta', icon: Icons.code),
@@ -421,6 +424,7 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
     DDropdownMenuSub(
       trigger: const Text('Settings'),
       leading: const Icon(Icons.settings_outlined),
+      width: 176,
       children: [
         const DDropdownMenuLabel(child: Text('Preferences')),
         _item('Keyboard Shortcuts', icon: Icons.keyboard_outlined),
@@ -428,6 +432,7 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
         DDropdownMenuSub(
           trigger: const Text('Notifications'),
           leading: const Icon(Icons.notifications_none),
+          width: 192,
           children: _checkboxIcons,
         ),
         const DDropdownMenuSeparator(),
@@ -448,6 +453,7 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
     DDropdownMenuSub(
       trigger: const Text('الإعدادات'),
       leading: const Icon(Icons.settings_outlined),
+      width: 144,
       children: [_item('الفريق'), _item('دعوة المستخدمين')],
     ),
     const DDropdownMenuSeparator(),
