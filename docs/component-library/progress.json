@@ -4903,6 +4903,22 @@
           "candidateCommit": "f5a1415408b805cb968c9f7c31b219460716eb67",
           "mergeCommit": "a549d39ab90beaeaca12e6790c6ff9e11e215236",
           "mergedAt": "2026-09-10T16:26:45.638265+00:00"
+        },
+        "forumHeaderTooltipsFollowUp": {
+          "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+          "branch": "codex/forum-header-no-tooltips",
+          "mainBaseline": "4d1aee40adf5ace12c0a270115d21451009f58ba",
+          "status": "in_progress",
+          "dependencies": [
+            "sidebar",
+            "dropdown-menu"
+          ],
+          "acceptance": [
+            "Remove the forum identity header URL and options tooltips.",
+            "Retain the Native menu trigger, visible identity and accessible menu behavior.",
+            "Verify focused shell and width checks plus the native header before merging locally."
+          ],
+          "reviewStatus": "in_progress"
         }
       }
     },
