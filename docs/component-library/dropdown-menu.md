@@ -28,7 +28,8 @@ examples.
 | Popup `min-w-32`, example `w-40`, `p-1` | 128px minimum, 160px example width, 4px content padding |
 | Popup `rounded-lg bg-popover text-popover-foreground` | `DTokens.radius × 1`, live `surface` and `foreground` |
 | Popup `shadow-md ring-1 ring-foreground/10` | shared `DPopoverContent` two-part medium shadow and layout-neutral 1px exterior 10%-foreground ring |
-| Popup `sideOffset=4`, collision-aware positioning | shared `DPopover` placement, flip/shift, safe-area boundary and scrolling |
+| Popup `sideOffset=4`, collision-aware positioning | shared `DPopover` placement, flip/shift and safe-area boundary |
+| Popup `max-h-(--available-height) overflow-y-auto` | static content when rows fit; one popup-local viewport and scrollbar only after actual vertical overflow |
 | Item `gap-1.5 px-1.5 py-1 text-sm rounded-md` | 6px gap/padding, 4px vertical padding, 14/20 text, `radius × .8`, 28px desktop row |
 | Mobile accessibility | the same 20px artwork uses an invisible/empty 48px row bound on iOS/Android |
 | Label `px-1.5 py-1 text-xs font-medium muted` | 6×4px, 12/16 medium host font and `mutedForeground` |
@@ -66,6 +67,12 @@ one pixel from menu content, active accent foreground propagation into shortcuts
 and icons, the full inset even when an icon is present, the checkbox/radio
 32px trailing reserve, and component-owned 16px Lucide-proportion check and
 directional-chevron strokes.
+
+The content viewport is also now genuinely `auto`: fitting menus do not build a
+Flutter `Scrollable` or scrollbar and ignore wheel input. A popup-local
+viewport is introduced only after the rows exceed the collision- or
+caller-constrained height, preserving access to long menus without making the
+ordinary shadcn compositions scroll.
 
 ## Acceptance criteria
 

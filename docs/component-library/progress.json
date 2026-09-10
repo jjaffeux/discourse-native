@@ -2854,7 +2854,8 @@
         "Submenus compose nested DDropdownMenu instances with one active sibling owner, shared close-all scope, inline-end placement, RTL mirrored chevron/directional keys and submenu-local Escape handling.",
         "Accepted follow-up keeps live item registration order during label, enabled and borrowed-focus-node changes; menu content exclusively owns first-item focus and scrolls only its nearest popup viewport; Material mirrors the directional submenu chevron exactly once in RTL.",
         "Independent reviewer 01a085cf-f401-7813-80da-7c687de8a5d5 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 48599440787a16d27c00d1b399d021f385113be5 is source evidence, not acceptance.",
-        "The 2026-09-10 parity follow-up keeps the 160px Composition root but restores the reference submenu's 96px minimum and large shadow, paints a layout-neutral exterior ring, propagates active accent foreground, reserves the exact inset and choice-indicator columns, and owns Lucide-proportion check and directional-chevron strokes."
+        "The 2026-09-10 parity follow-up keeps the 160px Composition root but restores the reference submenu's 96px minimum and large shadow, paints a layout-neutral exterior ring, propagates active accent foreground, reserves the exact inset and choice-indicator columns, and owns Lucide-proportion check and directional-chevron strokes.",
+        "The scrolling correction maps CSS overflow-y-auto literally: fitting menus remain static with no Flutter Scrollable or scrollbar, while content that actually exceeds its available height gains one popup-local viewport. The same keyed content subtree preserves focus when that viewport is introduced."
       ],
       "migrations": [
         "Added the public Dropdown Menu API export in package:discourse_native/discourse_ui.dart and registered all thirteen frozen interactive styleguide examples.",
@@ -2875,7 +2876,8 @@
         "Follow-up merge 85f9265bf2593a7edc0693582b7eadf1c6645b8d preserves the isolated Avatar registration-order correction and Menubar popup-local scrolling/RTL correction. The latest-main candidate passed 50 focused tests with seed 826145 and clean root/full analysis; 11 Context Menu consumer tests also passed against the exact combined Dropdown blob b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6.",
         "Source-exact native Menubar runtime e3104c9ae1547b90629f85d6e7a7bb97c863f6c7 verified the combined blob at 360 px and 200% text in LTR/RTL, reduced motion and Plum RTL: popup focus scrolled rows without shifting the host, keyboard selection completed, Arabic chevrons pointed/opened left and Right returned to the parent. Bundle kernel SHA256 was 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318.",
         "Parity follow-up 4839aae96e1861a109f92c77741d026154aee85b: live reference and supplied dark Composition capture were compared against the actual styleguide; 175 affected tests passed with seed 20260910 plus the explicit submenu width/shadow regression; root and profiles/full analysis, formatting and git diff checks passed; the source-exact isolated macOS styleguide passed dark root/submenu inspection and was closed before releasing the desktop lease.",
-        "Latest-main parity candidate 5c88fce9f39e2a5262490e536d8e031556598c7c passed all 74 Dropdown Menu, Popover, Context Menu and Menubar tests with seed 20260910 plus clean root/full analysis. It was merged from the main checkout as 819605380e5d26d5e5a867fabf97b92c0882ee73."
+        "Latest-main parity candidate 5c88fce9f39e2a5262490e536d8e031556598c7c passed all 74 Dropdown Menu, Popover, Context Menu and Menubar tests with seed 20260910 plus clean root/full analysis. It was merged from the main checkout as 819605380e5d26d5e5a867fabf97b92c0882ee73.",
+        "Scroll-parity source 1ac5ad8d69fbee4128f486ad5296c38447c99bfa passed 78 randomized Dropdown Menu, Popover, Context Menu, Menubar and styleguide checks with seed 20260910. Coverage proves fitting menus ignore wheel input with no scroll owner, constrained overflow remains wheel/draggable/keyboard accessible, focus survives the adaptive transition and host pages do not move; root/full analysis and git diff checks passed."
       ],
       "limitations": [
         "No iOS/Linux device, spoken VoiceOver session or pixel-identical screenshot claim is made; those platforms remain covered by widget behavior and geometry tests rather than this macOS acceptance pass."
@@ -2919,6 +2921,19 @@
           "Root and profiles/full flutter analyze --no-pub passed with no diagnostics; formatting and git diff --check passed; lockfiles and the Flutter pin remained unchanged.",
           "A uniquely identified, ad-hoc-signed macOS styleguide copy built from the changed source and passed native dark Composition inspection for root/submenu geometry, active state, separators, ring and shadow hierarchy. The isolated app was closed and the desktop lease released.",
           "Latest-main candidate 5c88fce9f39e2a5262490e536d8e031556598c7c preserved the newer Sidebar, Collapsible, Scroll Area and Attachment changes and passed 74 focused tests plus root/full analysis before merge 819605380e5d26d5e5a867fabf97b92c0882ee73 from the main checkout."
+        ]
+      },
+      "scrollFollowup": {
+        "title": "Only scroll Dropdown Menu content after actual overflow",
+        "branch": "codex/dropdown-menu-scroll-parity",
+        "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2ed6/discourse-native",
+        "baseCommit": "b9b7768d706cd39d8afa11815c242a9ca6e01747",
+        "implementationCommit": "1ac5ad8d69fbee4128f486ad5296c38447c99bfa",
+        "status": "ready-for-merge",
+        "verification": [
+          "The unchanged official base-nova registry SHA256 335c59dba30145f434a9cc9ccb0438a3c5e2afe857fc11b029de1ecb415224d7 uses max-h-(--available-height) overflow-y-auto; the Flutter mapping now creates no scroll owner for fitting content and introduces one only after measured overflow.",
+          "All 78 randomized direct, shared-owner and styleguide tests passed with seed 20260910, including static wheel behavior, adaptive focus preservation, long-menu keyboard reveal, draggable/wheel overflow and host-page isolation.",
+          "Root and profiles/full flutter analyze --no-pub passed without diagnostics; formatting and git diff --check passed; lockfiles were unchanged."
         ]
       }
     },

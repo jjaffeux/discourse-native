@@ -402,6 +402,25 @@ void main() {
     expect(tester.widget<Text>(find.text('⌘P')).style?.color, mutedForeground);
   });
 
+  testWidgets('a fitting menu has no scroll viewport or scrollbar', (
+    tester,
+  ) async {
+    await pumpMenu(tester);
+    await open(tester);
+
+    expect(find.byType(DScrollViewport), findsNothing);
+    expect(find.byType(DScrollBar), findsNothing);
+    final initialTop = tester.getTopLeft(find.text('Profile')).dy;
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(find.text('Profile')),
+        scrollDelta: const Offset(0, 60),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Profile')).dy, initialTop);
+  });
+
   testWidgets('menu focus scrolls its popup without moving the host page', (
     tester,
   ) async {
@@ -450,64 +469,75 @@ void main() {
     );
     await open(tester);
     expect(pageScroll.offset, 0);
+    expect(find.byType(DScrollViewport), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.end);
     await tester.pumpAndSettle();
     expect(pageScroll.offset, 0);
+    final menuScroll = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byType(DScrollViewport),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(menuScroll.position.pixels, greaterThan(0));
     final popup = tester.getRect(find.byType(DPopoverContent));
     final lastItem = tester.getRect(find.text('Command 19'));
     expect(lastItem.top, greaterThanOrEqualTo(popup.top));
     expect(lastItem.bottom, lessThanOrEqualTo(popup.bottom));
   });
 
-  testWidgets('long menu has a draggable scrollbar and accepts wheel input', (
-    tester,
-  ) async {
-    await pumpMenu(
-      tester,
-      child: DDropdownMenu(
-        content: DDropdownMenuContent(
-          constraints: const BoxConstraints(maxHeight: 120),
-          children: [
-            for (var index = 0; index < 20; index++)
-              DDropdownMenuItem(
-                onPressed: _noop,
-                child: Text('Scrollable command $index'),
-              ),
-          ],
-        ),
-        child: DDropdownMenuTrigger(
-          builder: (context, state) => DButton(
-            label: const Text('Open'),
-            onPressed: state.toggle,
-            focusNode: state.focusNode,
+  testWidgets(
+    'only an overflowing menu gains a draggable scrollbar and wheel input',
+    (tester) async {
+      await pumpMenu(
+        tester,
+        child: DDropdownMenu(
+          content: DDropdownMenuContent(
+            constraints: const BoxConstraints(maxHeight: 120),
+            children: [
+              for (var index = 0; index < 20; index++)
+                DDropdownMenuItem(
+                  onPressed: _noop,
+                  child: Text('Scrollable command $index'),
+                ),
+            ],
+          ),
+          child: DDropdownMenuTrigger(
+            builder: (context, state) => DButton(
+              label: const Text('Open'),
+              onPressed: state.toggle,
+              focusNode: state.focusNode,
+            ),
           ),
         ),
-      ),
-    );
-    await open(tester);
+      );
+      await open(tester);
 
-    expect(find.byType(DScrollBar), findsOneWidget);
-    expect(find.byType(DScrollViewport), findsOneWidget);
-    final scrollbar = tester.widget<RawScrollbar>(find.byType(RawScrollbar));
-    expect(scrollbar.thumbVisibility, isTrue);
-    expect(scrollbar.interactive, isTrue);
-    final area = tester.getRect(find.byType(DScrollViewport));
-    final initialTop = tester.getTopLeft(find.text('Scrollable command 0')).dy;
+      expect(find.byType(DScrollBar), findsOneWidget);
+      expect(find.byType(DScrollViewport), findsOneWidget);
+      final scrollbar = tester.widget<RawScrollbar>(find.byType(RawScrollbar));
+      expect(scrollbar.thumbVisibility, isTrue);
+      expect(scrollbar.interactive, isTrue);
+      final area = tester.getRect(find.byType(DScrollViewport));
+      final initialTop = tester
+          .getTopLeft(find.text('Scrollable command 0'))
+          .dy;
 
-    await tester.sendEventToBinding(
-      PointerScrollEvent(
-        position: area.center,
-        scrollDelta: const Offset(0, 60),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: area.center,
+          scrollDelta: const Offset(0, 60),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(
-      tester.getTopLeft(find.text('Scrollable command 0')).dy,
-      lessThan(initialTop),
-    );
-  });
+      expect(
+        tester.getTopLeft(find.text('Scrollable command 0')).dy,
+        lessThan(initialTop),
+      );
+    },
+  );
 
   testWidgets('pointer movement leaves exactly one row highlighted', (
     tester,
