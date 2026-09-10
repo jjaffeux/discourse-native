@@ -86,3 +86,6 @@ Logs: `/tmp/inbox-combobox-final-main-tests.log` and
 `/tmp/inbox-combobox-final-main-analysis.log`. Main's subsequent accepted
 checkbox-border change has no source overlap with the inbox migration; the
 combined merge tree is conflict-free.
+
+The searchable selector was merged from the main checkout as
+`1b0ca10c8d1f9dd692e9699bf0cd0fc0e3f76af3`. No remote push was performed.
