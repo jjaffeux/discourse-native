@@ -39,6 +39,7 @@ import 'examples/menubar_examples.dart';
 import 'examples/message_examples.dart';
 import 'examples/message_scroller_examples.dart';
 import 'examples/navigation_menu_examples.dart';
+import 'examples/notification_level_menu_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
@@ -67,6 +68,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'notification-level-menu': notificationLevelMenuExamples,
   'category-selector': categorySelectorExamples,
   'tag-selector': tagSelectorExamples,
   'date-picker': datePickerExamples,

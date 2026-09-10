@@ -2369,7 +2369,14 @@ void _registerChatShellTests() {
         expect(find.byKey(const ValueKey('chat-thread-pane')), findsNothing);
         expect(find.byType(ChatThreadView), findsOneWidget);
         expect(find.text('Drawer thread'), findsOneWidget);
-        expect(find.byTooltip('Thread notifications'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DButton &&
+                widget.tooltip?.startsWith('Thread notifications:') == true,
+          ),
+          findsOneWidget,
+        );
         expect(find.byTooltip('Thread settings'), findsOneWidget);
 
         chatShell.openThread(siteUrl: site, channelId: 9, threadId: 4);
@@ -2432,10 +2439,20 @@ void _registerChatShellTests() {
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(ChatDrawerOverlay.overflowButtonKey));
           await tester.pumpAndSettle();
-          await tester.tap(find.byTooltip('Thread notifications'));
+          await tester.tap(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is DButton &&
+                  widget.tooltip?.startsWith('Thread notifications:') == true,
+            ),
+          );
           await tester.pumpAndSettle();
           expect(
-            find.byKey(const ValueKey('choice-menu-surface')),
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is DDropdownMenuContent &&
+                  widget.semanticLabel == 'Thread notifications',
+            ),
             findsOneWidget,
           );
 
@@ -2447,7 +2464,11 @@ void _registerChatShellTests() {
             ChatThreadNotificationLevel.tracking,
           );
           expect(
-            find.byKey(const ValueKey('choice-menu-surface')),
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is DDropdownMenuContent &&
+                  widget.semanticLabel == 'Thread notifications',
+            ),
             findsNothing,
           );
           expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);

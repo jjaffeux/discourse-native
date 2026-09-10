@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/account_session_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
@@ -11,7 +12,6 @@ import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -88,9 +88,21 @@ void main() {
         );
         expect(shell.sidebarBadgeFor('tag-9'), const SidebarBadge.count(1));
 
-        await tester.tap(find.byTooltip('Topic notifications'));
+        await tester.tap(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DButton &&
+                widget.tooltip?.startsWith('Topic notifications:') == true,
+          ),
+        );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(ValueKey(('choice-menu-option', level))));
+        await tester.tap(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DDropdownMenuRadioItem<TopicNotificationLevel> &&
+                widget.value == level,
+          ),
+        );
         await tester.pumpAndSettle();
         expect(api.requests.single.level, level);
         api.requests.single.result.complete();

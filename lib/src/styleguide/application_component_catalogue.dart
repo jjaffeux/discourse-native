@@ -4,6 +4,17 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'notification-level-menu',
+    name: 'Notification level menu',
+    sections: [
+      'Topic notifications',
+      'Icon trigger',
+      'Category notifications',
+      'Thread notifications',
+      'Disabled',
+    ],
+  ),
+  ComponentReference(
     id: 'category-selector',
     name: 'Category selector',
     sections: ['Filter categories', 'Composer categories', 'Disabled'],
