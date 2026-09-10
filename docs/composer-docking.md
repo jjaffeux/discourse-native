@@ -90,6 +90,40 @@ The border follow-up passed 30 focused docking, viewport, editor-control, and
 whisper tests. Native macOS inspection confirmed single left/right boundaries
 and a bottom resize inset that blends into the composer background.
 
+The reader-boundary follow-up removes the topic inbox's unconditional trailing
+border. Its Native resize handle draws the boundary only while a topic reader
+is open beside the list; the surrounding shell or composer owns the edge when
+the list fills the reader. The old border was visible beneath list content but
+covered by some header surfaces, making the seam change thickness vertically.
+Six pixel-level regressions inspect the actual painted boundary beside topic
+and message pages across all three dock positions, light/dark palettes, RTL,
+and expanded/collapsed topic-reader splits. The topic cases fail on the original
+source with two adjacent border pixels and pass with a single pixel after the
+fix. The local native fixture now includes populated feeds and palette/direction
+controls for repeating these checks.
+
+The focused docking, inbox, messages, shell-panel and resize suite passed 101
+tests. Its remaining mobile keyboard/safe-area overflow also failed unchanged
+on the starting revision `a75a0e8e`; this follow-up does not alter that layout.
+Integration with main `fa01bb4b` passed all 100 tests in the focused boundary,
+docking, inbox, messages, shell-panel and resize suite. Root and full-profile
+analysis and the macOS fixture build passed. The additional delayed-close
+navigation test stalled both on the candidate and on unchanged `fa01bb4b`
+(the isolated baseline was stopped after 60 seconds).
+The later integration with `31159a05` passed all 79 affected boundary, topic-inbox
+and message-page tests.
+
+Native macOS inspection used the isolated fixture built from `b493007c`
+(kernel SHA256 `294e2f28513cf0b6db023b0b58d494db0b70cf7401f962d555e0df5a5093213c`).
+It confirmed a continuous single boundary beside populated topics and messages,
+left/right/bottom placement, light/dark palettes, RTL, and opening a split topic
+reader then collapsing that split by docking at the side. Subsequent integration
+changes leave the boundary-owning widgets unchanged. Native observations cover
+placement and split transitions; drag resizing remains covered by widget tests.
+The isolated app was quit and the desktop lease released after inspection.
+Final integration with main `70993230` passed the 100-test focused suite and
+root/full-profile analysis; the inspected boundary-owning source is unchanged.
+
 The placement-only popup follow-up passed 160 focused composer, draft,
 topic-action, and mobile-layout tests. Root and full-profile static analysis,
 the root macOS review-fixture build, and the full-profile macOS build passed.
