@@ -3196,7 +3196,11 @@ void _registerTopicReadingTests() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
-      final trigger = find.byTooltip('Topic notifications');
+      final trigger = find.byWidgetPredicate(
+        (widget) =>
+            widget is DButton &&
+            widget.tooltip?.startsWith('Topic notifications:') == true,
+      );
       expect(trigger, findsOneWidget);
       DIconData triggerIcon() => tester
           .widget<DIcon>(
@@ -3213,11 +3217,10 @@ void _registerTopicReadingTests() {
       expect(find.text('Every reply and unread count'), findsOneWidget);
       expect(
         find.descendant(
-          of: find.byKey(
-            const ValueKey((
-              'choice-menu-option',
-              TopicNotificationLevel.tracking,
-            )),
+          of: find.byWidgetPredicate(
+            (widget) =>
+                widget is DDropdownMenuRadioItem<TopicNotificationLevel> &&
+                widget.value == TopicNotificationLevel.tracking,
           ),
           matching: find.text('Tracking'),
         ),
@@ -3228,8 +3231,10 @@ void _registerTopicReadingTests() {
       expect(find.text('Mentions and replies only'), findsOneWidget);
       expect(find.text('Muted'), findsOneWidget);
       expect(find.text('No notifications; hidden from Latest'), findsOneWidget);
-      final muted = find.byKey(
-        const ValueKey(('choice-menu-option', TopicNotificationLevel.muted)),
+      final muted = find.byWidgetPredicate(
+        (widget) =>
+            widget is DDropdownMenuRadioItem<TopicNotificationLevel> &&
+            widget.value == TopicNotificationLevel.muted,
       );
       expect(
         tester
@@ -3282,11 +3287,19 @@ void _registerTopicReadingTests() {
       );
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Topic notifications'));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DButton &&
+              widget.tooltip?.startsWith('Topic notifications:') == true,
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(
-        find.byKey(
-          const ValueKey(('choice-menu-option', TopicNotificationLevel.muted)),
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DDropdownMenuRadioItem<TopicNotificationLevel> &&
+              widget.value == TopicNotificationLevel.muted,
         ),
       );
       await tester.pumpAndSettle();
@@ -3667,7 +3680,14 @@ void _registerTopicReadingTests() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Topic notifications'), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DButton &&
+              widget.tooltip?.startsWith('Topic notifications:') == true,
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('shows a faithful skeleton while the topic is loading', (

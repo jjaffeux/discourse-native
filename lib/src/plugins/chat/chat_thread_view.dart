@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_shell.dart';
-import '../../shell/choice_menu.dart';
 import '../../shell/forum_search.dart';
 import '../../shell/shell_metrics.dart';
 import '../../shell/title_bar.dart';
@@ -740,8 +739,9 @@ class _ThreadHeader extends StatelessWidget {
                     : 'Thread',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             _NotificationLevelButton(
@@ -812,60 +812,52 @@ class _NotificationLevelButton extends StatelessWidget {
   final ChatThread? thread;
 
   static const _options = [
-    ChoiceMenuOption(
+    DNotificationLevelOption(
       value: ChatThreadNotificationLevel.normal,
-      title: 'Normal',
+      label: 'Normal',
       description: 'Mentions only',
-      icon: DIcons.farBell,
+      icon: DIcon(DIcons.farBell),
     ),
-    ChoiceMenuOption(
+    DNotificationLevelOption(
       value: ChatThreadNotificationLevel.tracking,
-      title: 'Tracking',
+      label: 'Tracking',
       description: 'Mentions and unread reply count',
-      icon: DIcons.bell,
+      icon: DIcon(DIcons.bell),
     ),
-    ChoiceMenuOption(
+    DNotificationLevelOption(
       value: ChatThreadNotificationLevel.watching,
-      title: 'Watching',
+      label: 'Watching',
       description: 'Every reply and unread count',
-      icon: DIcons.discourseBellExclamation,
+      icon: DIcon(DIcons.discourseBellExclamation),
     ),
   ];
 
-  static DIconData _iconFor(ChatThreadNotificationLevel level) =>
-      switch (level) {
-        ChatThreadNotificationLevel.normal => DIcons.farBell,
-        ChatThreadNotificationLevel.tracking => DIcons.bell,
-        ChatThreadNotificationLevel.watching => DIcons.discourseBellExclamation,
-        // Muted is not offered for threads; treat legacy values as Normal.
-        ChatThreadNotificationLevel.muted => DIcons.farBell,
-      };
-
   @override
   Widget build(BuildContext context) {
-    final current =
+    final level =
         thread?.membership?.notificationLevel ??
         ChatThreadNotificationLevel.normal;
-    return ChoiceMenuAnchor<ChatThreadNotificationLevel>(
-      title: 'Thread notifications',
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final lease = chat.captureSession(siteUrl);
+    // Muted is not offered for threads; display legacy values as Normal.
+    final current = level == ChatThreadNotificationLevel.muted
+        ? ChatThreadNotificationLevel.normal
+        : level;
+    return DNotificationLevelMenu<ChatThreadNotificationLevel>(
+      key: ValueKey((chat, siteUrl, target)),
+      size: DButtonSize.regular,
+      semanticLabel: 'Thread notifications',
       value: current,
       options: _options,
-      enabled: thread != null,
-      onSelected: (level) {
-        unawaited(
-          PluginUiScope.require(
-            context,
-            chatControllerService,
-          ).updateThreadNotificationLevel(siteUrl, target, level),
-        );
-        ChatDrawerOverflowActionScope.maybeCloseOf(context)?.call();
-      },
-      builder: (context, openMenu) => DButton.iconOnly(
-        tooltip: 'Thread notifications',
-        onPressed: openMenu,
-        icon: DIcon(_iconFor(current), size: 18),
-        variant: DButtonVariant.flat,
-      ),
+      onChanged: thread == null
+          ? null
+          : (level) {
+              if (!lease.isCurrent) return;
+              unawaited(
+                chat.updateThreadNotificationLevel(siteUrl, target, level),
+              );
+              ChatDrawerOverflowActionScope.maybeCloseOf(context)?.call();
+            },
     );
   }
 }
