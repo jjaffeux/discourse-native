@@ -213,3 +213,51 @@ preserved.
 
 Cleanup: the isolated app was quit through its menu and its absence verified
 with CUA. Desktop lease released; the user application was left running.
+
+## Section row follow-up — 2026-09-10
+
+At the user's request, collapsible section headers now use the same
+`DSidebarMenuButton` as Drafts, Users and Filter, retaining the supplied title
+casing. A leading disclosure arrow occupies the normal icon slot and mirrors
+in RTL. `DSidebarMenuItem` keeps section actions separate from disclosure.
+The button owns keyboard activation and expanded semantics; controlled
+`DCollapsibleContent.sliver` and the existing store retain visibility and
+restoration. No component library API changed.
+
+One shared `DSidebarGroup.sliver` supplies the navigation's outer padding,
+so successive section rows have the same spacing as ordinary destinations.
+The user requested one separator after More; it has 8px of space above and
+below. Other section separators were removed. Headerless Community links,
+lazy menus, badges and the fixed forum/Chat controls retain their owners.
+
+Source: `c86ed14b`, branch `codex/sidebar-section-rows`, reviewer
+`01a08b90-a915-7e83-a5c4-af5ea7981e23`. Native macOS inspection covered the real
+production fixture at 208px in light/dark, collapsed custom sections and an
+independent action that incremented local feedback without expanding its
+section. Plum RTL at 200% was checked at 208px and in the 390px iOS-target
+fixture. Full section names remained in native accessibility output; narrow
+labels wrap or ellipsize as ordinary rows do. Returning to desktop retained
+the collapsed state. The inspected source and kernel hashes are recorded in
+[the build evidence](evidence/sidebar/section-rows-review-build.json).
+
+Existing shell regressions now compare row typography, alignment and height,
+assert the sole separator's placement, and reopen a section with Enter after
+pointer collapse. The scaled-width check verifies that the trailing action
+does not toggle disclosure. Chat heading queries now use disclosure tooltips
+to distinguish sections from other title-cased Chat labels.
+
+Verification: 127 shell/width/Voice/Events/rebuild/store checks passed, followed
+by all 139 Chat checks after replacing old uppercase-heading expectations
+(`/tmp/sidebar-section-rows-tests.log`,
+`/tmp/sidebar-section-rows-chat-tests.log`, seed 9102026). The final candidate
+starts from main `de07b578`, preserving its independently merged scrollbar
+defaults. All 111 shell/width checks and fatal-info root analysis passed on
+that candidate (`/tmp/sidebar-section-rows-integration-tests.log`,
+`/tmp/sidebar-section-rows-integration-analysis.log`). The inspected row and
+disclosure sources remain identical; the new shared scrollbar width does not
+change row layout. Formatting and diff checks passed.
+
+The isolated app was quit through its menu, its absence verified, and the
+desktop lease released. No physical iOS/Linux or spoken screen reader testing
+was performed. Original Sidebar review history remains in progress; this
+follow-up's local merge is recorded in `sectionRowsFollowUp`.

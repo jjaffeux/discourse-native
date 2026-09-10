@@ -4739,7 +4739,43 @@
         "candidateCommit": "453adcbdabc5d2c80c9b8b26ee8c83ece6a42e09",
         "mainBaseline": "b9ff6ebc5eff4c39cb30fc1bf291031efcfe781f",
         "mergeCommit": "cae585a4e5423c082dbae3bb6220c3e79c3e7df1",
-        "mergedAt": "2026-09-10T14:07:35.863394+00:00"
+        "mergedAt": "2026-09-10T14:07:35.863394+00:00",
+        "sectionRowsFollowUp": {
+          "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+          "branch": "codex/sidebar-section-rows",
+          "mainBaseline": "af4cc047410004998b40d141a0caf13d99e2393d",
+          "status": "accepted",
+          "dependencies": [
+            "sidebar",
+            "collapsible",
+            "separator"
+          ],
+          "acceptance": [
+            "Collapsible section headers use ordinary Native menu rows with original title casing and contiguous spacing.",
+            "Retain one separator after More; remove separators between subsequent sections.",
+            "Keep disclosure persistence, keyboard/expanded semantics and independent section actions.",
+            "Verify focused shell and narrow/scaled tests plus the changed native production fixture."
+          ],
+          "reviewStatus": "accepted",
+          "integrationBranch": "codex/sidebar-section-rows-integration",
+          "integratedMain": "de07b578b5e29a15dd999f3a0f2494a8ee5146cd",
+          "implementationCommit": "c86ed14bf81682ef98a38bf90472b9d9c803c37c",
+          "evidence": "docs/component-library/sidebar-main-migration.md#section-row-follow-up--2026-09-10",
+          "buildEvidence": "docs/component-library/evidence/sidebar/section-rows-review-build.json",
+          "nativeInspectionStatus": "completed",
+          "verification": [
+            "127 shell/width/Voice/Events/rebuild/store checks passed in /tmp/sidebar-section-rows-tests.log; the four Chat failures expected old uppercase headings.",
+            "All 139 Chat checks passed after updating heading finders; /tmp/sidebar-section-rows-chat-tests.log, seed 9102026.",
+            "Final integration on de07b578 passed all 111 shell/width checks and fatal-info root analysis; /tmp/sidebar-section-rows-integration-tests.log and /tmp/sidebar-section-rows-integration-analysis.log.",
+            "Native macOS real production fixture: light/dark 208px 100%, collapsed sections, one More divider, independent section action; Plum RTL 200% at 208px and 390px with an iOS target.",
+            "Source-specific inspected row and disclosure bytes remain identical after integrating the separately merged scrollbar defaults; no generic Sidebar API changed.",
+            "Touched Dart formatting and git diff --check pass; original Sidebar history and all other progress rows preserved."
+          ],
+          "limitations": [
+            "No physical iOS/Linux or spoken screen reader verification.",
+            "Narrow 200% section titles can wrap or ellipsize, with their full accessible labels retained."
+          ]
+        }
       }
     },
     {

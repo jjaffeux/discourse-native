@@ -25,6 +25,7 @@ import '../test/support/bundled_plugins.dart';
 import '../test/support/fakes.dart';
 
 const _site = 'https://sidebar-review.invalid';
+final _sectionActions = ValueNotifier(0);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,9 +65,17 @@ Future<void> main() async {
       },
       customSidebarSectionsBySite: {
         _site: [
+          for (final (id, title) in [
+            ('one-to-one', '1:1'),
+            ('assignments', 'Assignments'),
+            ('lead-calls', 'Teach Lead Calls'),
+          ])
+            SidebarSection(id: id, title: title, destinations: const []),
           SidebarSection(
             id: 'review-status',
             title: 'Voice status and categories',
+            actionLabel: 'Create review room',
+            onAction: () => _sectionActions.value++,
             destinations: [
               SidebarDestination(
                 id: 'review-voice',
@@ -225,6 +234,11 @@ class _SidebarReviewState extends State<_SidebarReview> {
                   DButton(
                     label: const Text('LTR / RTL'),
                     onPressed: () => setState(() => _rtl = !_rtl),
+                  ),
+                  ValueListenableBuilder<int>(
+                    valueListenable: _sectionActions,
+                    builder: (context, count, _) =>
+                        DBadge(child: Text('Section actions: $count')),
                   ),
                 ],
               ),

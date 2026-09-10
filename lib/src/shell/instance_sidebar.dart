@@ -316,35 +316,138 @@ class _SidebarPanelBody extends StatelessWidget {
           Expanded(
             child: DSidebarContent.slivers(
               slivers: [
-                if (showCoreSections)
-                  ListenableBuilder(
-                    listenable: Listenable.merge([
-                      controller.accountActivity.totalsListenable,
-                      controller.draftList,
-                      controller.topicFeeds,
-                      ...registry.communitySidebarListenables(
-                        context,
-                        includeOwner: includePluginOwner,
-                      ),
-                    ]),
-                    builder: (context, _) => SliverMainAxisGroup(
-                      slivers: [
-                        for (final (sections, loading, first) in [
-                          (sidebar.sections, false, true),
-                          (
-                            sidebar.navigationSections,
-                            sidebar.navigationLoading,
-                            sidebar.sections.isEmpty,
+                DSidebarGroup.sliver(
+                  sliver: SliverMainAxisGroup(
+                    slivers: [
+                      if (showCoreSections)
+                        ListenableBuilder(
+                          listenable: Listenable.merge([
+                            controller.accountActivity.totalsListenable,
+                            controller.draftList,
+                            controller.topicFeeds,
+                            ...registry.communitySidebarListenables(
+                              context,
+                              includeOwner: includePluginOwner,
+                            ),
+                          ]),
+                          builder: (context, _) => SliverMainAxisGroup(
+                            slivers: [
+                              for (final (sections, loading) in [
+                                (sidebar.sections, false),
+                                (
+                                  sidebar.navigationSections,
+                                  sidebar.navigationLoading,
+                                ),
+                              ])
+                                _RestoredSidebarSections(
+                                  siteUrl: sidebar.siteUrl!,
+                                  sections: sections,
+                                  store: sectionStore,
+                                  loading: loading,
+                                  child: SliverMainAxisGroup(
+                                    slivers: [
+                                      for (final section in sections)
+                                        _Section(
+                                          key: ValueKey((
+                                            sidebar.siteUrl,
+                                            section.id,
+                                          )),
+                                          siteUrl: sidebar.siteUrl!,
+                                          section: section,
+                                          appendedDestinations:
+                                              section.id == 'community'
+                                              ? registry
+                                                    .communitySidebarDestinations(
+                                                      context,
+                                                      includeOwner:
+                                                          includePluginOwner,
+                                                    )
+                                              : const [],
+                                          store: sectionStore,
+                                          selectedId: sidebar.destinationId,
+                                          loadingDestinationId:
+                                              switch (controller.currentFeed) {
+                                                final feed?
+                                                    when feed.loading &&
+                                                        feed
+                                                            .topicIds
+                                                            .isNotEmpty =>
+                                                  controller.currentFeedId,
+                                                _ => null,
+                                              },
+                                          badgeFor: controller.sidebarBadgeFor,
+                                          insertedDestination:
+                                              sidebar.canCreateTopic &&
+                                                  section.destinations.any(
+                                                    (destination) =>
+                                                        destination.id ==
+                                                        'messages',
+                                                  )
+                                              ? _newTopicDestination
+                                              : null,
+                                          insertAfterDestinationId: 'messages',
+                                          onSelect: (destination) {
+                                            if (destination.id ==
+                                                _newTopicDestinationId) {
+                                              unawaited(
+                                                controller
+                                                    .openNewTopicFromSidebar(),
+                                              );
+                                              return;
+                                            }
+                                            if (destination.id == 'admin') {
+                                              unawaited(
+                                                openExternalLink(
+                                                  resolveSitePath(
+                                                    sidebar.siteUrl!,
+                                                    'admin',
+                                                  ),
+                                                ),
+                                              );
+                                              return;
+                                            }
+                                            final url = destination.url;
+                                            if (url == null) {
+                                              controller.selectDestination(
+                                                destination,
+                                              );
+                                            } else {
+                                              unawaited(
+                                                openLink(
+                                                  context,
+                                                  url,
+                                                  title: destination.label,
+                                                  siteUrl: sidebar.siteUrl,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
-                        ])
-                          _RestoredSidebarSections(
+                        ),
+                      ListenableBuilder(
+                        listenable: Listenable.merge(
+                          registry.sidebarListenables(
+                            context,
+                            includeOwner: includePluginOwner,
+                          ),
+                        ),
+                        builder: (context, _) {
+                          final sections = registry.sidebarSections(
+                            context,
+                            includeOwner: includePluginOwner,
+                          );
+                          return _RestoredSidebarSections(
                             siteUrl: sidebar.siteUrl!,
                             sections: sections,
                             store: sectionStore,
-                            loading: loading,
                             child: SliverMainAxisGroup(
                               slivers: [
-                                for (final (index, section) in sections.indexed)
+                                for (final section in sections)
                                   _Section(
                                     key: ValueKey((
                                       sidebar.siteUrl,
@@ -352,117 +455,22 @@ class _SidebarPanelBody extends StatelessWidget {
                                     )),
                                     siteUrl: sidebar.siteUrl!,
                                     section: section,
-                                    appendedDestinations:
-                                        section.id == 'community'
-                                        ? registry.communitySidebarDestinations(
-                                            context,
-                                            includeOwner: includePluginOwner,
-                                          )
-                                        : const [],
-                                    first: first && index == 0,
                                     store: sectionStore,
-                                    selectedId: sidebar.destinationId,
-                                    loadingDestinationId:
-                                        switch (controller.currentFeed) {
-                                          final feed?
-                                              when feed.loading &&
-                                                  feed.topicIds.isNotEmpty =>
-                                            controller.currentFeedId,
-                                          _ => null,
-                                        },
+                                    selectedId:
+                                        selectedPanel
+                                            ?.panel
+                                            .selectedDestinationId ??
+                                        sidebar.destinationId,
                                     badgeFor: controller.sidebarBadgeFor,
-                                    insertedDestination:
-                                        sidebar.canCreateTopic &&
-                                            section.destinations.any(
-                                              (destination) =>
-                                                  destination.id == 'messages',
-                                            )
-                                        ? _newTopicDestination
-                                        : null,
-                                    insertAfterDestinationId: 'messages',
-                                    onSelect: (destination) {
-                                      if (destination.id ==
-                                          _newTopicDestinationId) {
-                                        unawaited(
-                                          controller.openNewTopicFromSidebar(),
-                                        );
-                                        return;
-                                      }
-                                      if (destination.id == 'admin') {
-                                        unawaited(
-                                          openExternalLink(
-                                            resolveSitePath(
-                                              sidebar.siteUrl!,
-                                              'admin',
-                                            ),
-                                          ),
-                                        );
-                                        return;
-                                      }
-                                      final url = destination.url;
-                                      if (url == null) {
-                                        controller.selectDestination(
-                                          destination,
-                                        );
-                                      } else {
-                                        unawaited(
-                                          openLink(
-                                            context,
-                                            url,
-                                            title: destination.label,
-                                            siteUrl: sidebar.siteUrl,
-                                          ),
-                                        );
-                                      }
-                                    },
+                                    onSelect: controller.selectDestination,
                                   ),
                               ],
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ListenableBuilder(
-                  listenable: Listenable.merge(
-                    registry.sidebarListenables(
-                      context,
-                      includeOwner: includePluginOwner,
-                    ),
-                  ),
-                  builder: (context, _) {
-                    final sections = registry.sidebarSections(
-                      context,
-                      includeOwner: includePluginOwner,
-                    );
-                    return _RestoredSidebarSections(
-                      siteUrl: sidebar.siteUrl!,
-                      sections: sections,
-                      store: sectionStore,
-                      child: SliverMainAxisGroup(
-                        slivers: [
-                          for (final (index, section) in sections.indexed)
-                            _Section(
-                              key: ValueKey((sidebar.siteUrl, section.id)),
-                              siteUrl: sidebar.siteUrl!,
-                              section: section,
-                              first:
-                                  (!showCoreSections ||
-                                      (sidebar.sections.isEmpty &&
-                                          sidebar
-                                              .navigationSections
-                                              .isEmpty)) &&
-                                  index == 0,
-                              store: sectionStore,
-                              selectedId:
-                                  selectedPanel?.panel.selectedDestinationId ??
-                                  sidebar.destinationId,
-                              badgeFor: controller.sidebarBadgeFor,
-                              onSelect: controller.selectDestination,
-                            ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -684,7 +692,6 @@ class _Section extends StatefulWidget {
     super.key,
     required this.siteUrl,
     required this.section,
-    required this.first,
     required this.store,
     required this.selectedId,
     required this.badgeFor,
@@ -697,7 +704,6 @@ class _Section extends StatefulWidget {
 
   final String siteUrl;
   final SidebarSection section;
-  final bool first;
   final SidebarSectionStore store;
   final String? selectedId;
   final String? loadingDestinationId;
@@ -783,16 +789,14 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
     expand: true,
     key: const ValueKey('sidebar-loading-skeleton'),
     semanticsLabel: 'Loading navigation',
-    child: DSidebarGroup(
-      child: DSidebarMenu(
-        children: [
-          for (var row = 0; row < 8; row++)
-            DSidebarMenuSkeleton(
-              showIcon: true,
-              widthFactor: row.isEven ? .7 : .55,
-            ),
-        ],
-      ),
+    child: DSidebarMenu(
+      children: [
+        for (var row = 0; row < 8; row++)
+          DSidebarMenuSkeleton(
+            showIcon: true,
+            widthFactor: row.isEven ? .7 : .55,
+          ),
+      ],
     ),
   );
 }
@@ -927,36 +931,32 @@ class _SectionState extends State<_Section> {
       );
     }
     final content = SliverMainAxisGroup(slivers: menus);
-    final group = DSidebarGroup.sliver(
-      label: section.showHeader
-          ? _SectionHeader(section: section, collapsed: _collapsed)
-          : null,
-      action: section.onAction == null
-          ? null
-          : DTooltip(
-              message: section.actionLabel ?? section.title,
-              shortcut: section.actionShortcut == null
-                  ? null
-                  : DShortcut(section.actionShortcut!),
-              child: DSidebarGroupAction(
-                semanticLabel: section.actionLabel ?? section.title,
-                onPressed: section.onAction,
-                child: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
-              ),
-            ),
-      sliver: section.collapsible
-          ? DCollapsibleContent.sliver(sliver: content)
-          : content,
-    );
-    return SliverMainAxisGroup(
+    final group = SliverMainAxisGroup(
       slivers: [
-        if (!widget.first) const SliverToBoxAdapter(child: DSidebarSeparator()),
+        if (section.showHeader)
+          SliverToBoxAdapter(
+            child: _SectionHeader(
+              section: section,
+              collapsed: _collapsed,
+              onPressed: () => _setOpen(_collapsed),
+            ),
+          ),
         if (section.collapsible)
-          DCollapsible(open: !_collapsed, onOpenChange: _setOpen, child: group)
+          DCollapsibleContent.sliver(sliver: content)
         else
-          group,
+          content,
+        if (section.moreDestinations.isNotEmpty)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: DSeparator(),
+            ),
+          ),
       ],
     );
+    return section.collapsible
+        ? DCollapsible(open: !_collapsed, onOpenChange: _setOpen, child: group)
+        : group;
   }
 }
 
@@ -1001,36 +1001,59 @@ class _MoreDestinationsTile extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.section, required this.collapsed});
+  const _SectionHeader({
+    required this.section,
+    required this.collapsed,
+    required this.onPressed,
+  });
   final SidebarSection section;
   final bool collapsed;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final label = DSidebarGroupLabel(
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              section.title.toUpperCase(),
-              semanticsLabel: section.title,
-            ),
-          ),
-          if (section.collapsible) ...[
-            const SizedBox(width: 4),
-            DIcon(
-              collapsed ? DIcons.chevronRight : DIcons.chevronDown,
-              size: 12,
-            ),
-          ],
-        ],
-      ),
-    );
-    if (!section.collapsible) return label;
     final description = '${collapsed ? 'Expand' : 'Collapse'} ${section.title}';
-    return DTooltip(
-      message: description,
-      child: DCollapsibleTrigger(semanticLabel: description, child: label),
+    final expandIcon = Directionality.of(context) == TextDirection.rtl
+        ? DIcons.chevronLeft
+        : DIcons.chevronRight;
+    return DSidebarMenuItem(
+      action: section.onAction == null
+          ? null
+          : DTooltip(
+              message: section.actionLabel ?? section.title,
+              shortcut: section.actionShortcut == null
+                  ? null
+                  : DShortcut(section.actionShortcut!),
+              child: DSidebarMenuAction(
+                semanticLabel: section.actionLabel ?? section.title,
+                onPressed: section.onAction,
+                child: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
+              ),
+            ),
+      child: section.collapsible
+          ? DTooltip(
+              message: description,
+              child: DSidebarMenuButton(
+                icon: DIcon(
+                  collapsed ? expandIcon : DIcons.chevronDown,
+                  size: 16,
+                ),
+                iconSize: context.isTouch ? 22 : 18,
+                semanticLabel: description,
+                expanded: !collapsed,
+                onPressed: onPressed,
+                child: ExcludeSemantics(
+                  child: Text(
+                    section.title,
+                    maxLines: MediaQuery.textScalerOf(context).scale(14) > 14
+                        ? 2
+                        : 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            )
+          : DSidebarGroupLabel(child: Text(section.title)),
     );
   }
 }

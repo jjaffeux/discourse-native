@@ -3245,7 +3245,7 @@ void _registerChatShellTests() {
 
         await pumpChat(tester, api: api);
 
-        expect(find.text('CHAT'), findsNothing);
+        expect(find.byTooltip('Collapse Chat'), findsNothing);
         expect(api.chatChannelsRequested, isEmpty);
       });
 
@@ -3271,7 +3271,7 @@ void _registerChatShellTests() {
         final gate = Completer<void>();
         await pumpChat(tester, public: [channel(9)], channelGate: gate);
 
-        expect(find.text('CHAT'), findsNothing);
+        expect(find.byTooltip('Collapse Chat'), findsNothing);
 
         final shell = ShellScope.read(
           tester.element(find.byType(InstanceSidebar)),
@@ -3284,7 +3284,7 @@ void _registerChatShellTests() {
         gate.complete();
         await tester.pumpAndSettle();
 
-        expect(find.text('CHAT'), findsOneWidget);
+        expect(find.byTooltip('Collapse Chat'), findsOneWidget);
         expect(shellNotifications, 0);
       });
 
@@ -3293,8 +3293,8 @@ void _registerChatShellTests() {
       ) async {
         await pumpChat(tester);
 
-        expect(find.text('CHAT'), findsNothing);
-        expect(find.text('DIRECT MESSAGES'), findsNothing);
+        expect(find.byTooltip('Collapse Chat'), findsNothing);
+        expect(find.byTooltip('Collapse Direct messages'), findsNothing);
       });
 
       testWidgets('offers search only when the site explicitly enables it', (
@@ -3545,8 +3545,12 @@ void _registerChatShellTests() {
           direct: [dm(12, title: 'hawk')],
         );
 
-        final chatHeading = tester.getTopLeft(find.text('CHAT')).dy;
-        final dmHeading = tester.getTopLeft(find.text('DIRECT MESSAGES')).dy;
+        final chatHeading = tester
+            .getTopLeft(find.byTooltip('Collapse Chat'))
+            .dy;
+        final dmHeading = tester
+            .getTopLeft(find.byTooltip('Collapse Direct messages'))
+            .dy;
         expect(chatHeading, lessThan(dmHeading));
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(sidebarDestination('hawk'), findsOneWidget);
@@ -3752,7 +3756,7 @@ void _registerChatShellTests() {
           expect(api.chatChannelStarsUpdated, const [
             (channelId: 9, starred: true),
           ]);
-          expect(find.text('STARRED CHANNELS'), findsOneWidget);
+          expect(find.byTooltip('Collapse Starred channels'), findsOneWidget);
         } finally {
           debugDefaultTargetPlatformOverride = previous;
         }
@@ -4148,10 +4152,14 @@ void _registerChatShellTests() {
           );
 
           final starredHeading = tester
-              .getTopLeft(find.text('STARRED CHANNELS'))
+              .getTopLeft(find.byTooltip('Collapse Starred channels'))
               .dy;
-          final chatHeading = tester.getTopLeft(find.text('CHAT')).dy;
-          final dmHeading = tester.getTopLeft(find.text('DIRECT MESSAGES')).dy;
+          final chatHeading = tester
+              .getTopLeft(find.byTooltip('Collapse Chat'))
+              .dy;
+          final dmHeading = tester
+              .getTopLeft(find.byTooltip('Collapse Direct messages'))
+              .dy;
           expect(starredHeading, lessThan(chatHeading));
           expect(chatHeading, lessThan(dmHeading));
 
