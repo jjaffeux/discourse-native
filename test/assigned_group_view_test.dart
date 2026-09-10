@@ -385,6 +385,31 @@ void main() {
       ]);
     });
 
+    testWidgets('clears the sort order without losing the query filters', (
+      tester,
+    ) async {
+      final presentation = _FakeAssignedGroupPresentation(
+        _state(
+          query: const AssignedGroupTopicQuery(
+            order: AssignedGroupOrder.posts,
+            ascending: true,
+            search: 'incident',
+          ),
+          feed: const TopicFeed(loaded: true),
+        ),
+      );
+      await _pumpView(tester, presentation);
+
+      await tester.tap(find.byType(DSelect<AssignedGroupOrder>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Default order'));
+      await tester.pumpAndSettle();
+
+      expect(presentation.queries, [
+        const AssignedGroupTopicQuery(ascending: true, search: 'incident'),
+      ]);
+    });
+
     testWidgets('tabs through assignment controls before leaving the toolbar', (
       tester,
     ) async {

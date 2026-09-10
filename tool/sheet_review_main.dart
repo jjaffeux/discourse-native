@@ -5,7 +5,7 @@ import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
-import 'native_select_voice_fixture.dart';
+import 'voice_review_fixture.dart';
 
 const _room = VoiceRoom(
   id: 7,
@@ -95,7 +95,7 @@ class _SheetReviewAppState extends State<_SheetReviewApp> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Expanded(child: NativeSelectVoiceFixture(room: _room)),
+              const Expanded(child: VoiceReviewFixture(room: _room)),
             ],
           ),
         ),

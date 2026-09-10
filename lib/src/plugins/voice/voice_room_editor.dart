@@ -125,16 +125,19 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               keyboardType: TextInputType.number,
               labelText: 'Maximum participants',
             ),
-            DNativeSelect<VoiceQualityProfile>.controlled(
+            DSelect<VoiceQualityProfile>.controlled(
               isExpanded: true,
-              placeholderEnabled: false,
               value: _quality,
-              label: 'Maximum media quality',
+              label: const Text('Maximum media quality'),
               onChanged: (value) =>
                   setState(() => _quality = value ?? _quality),
               entries: [
                 for (final value in VoiceQualityProfile.values)
-                  DNativeSelectOption(value: value, label: value.name),
+                  DSelectOption(
+                    value: value,
+                    label: value.name,
+                    child: Text(value.name),
+                  ),
               ],
               initialValue: _quality,
             ),

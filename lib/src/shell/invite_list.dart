@@ -214,22 +214,26 @@ class _InviteListState extends State<InviteList> {
               ],
             ),
             const SizedBox(height: 8),
-            DNativeSelect<InviteFilter>.controlled(
+            DSelect<InviteFilter>.controlled(
               isExpanded: true,
-              placeholderEnabled: false,
               key: ValueKey(('invite-filter', controller.filter)),
               value: controller.filter,
-              label: 'Status',
+              label: const Text('Status'),
               entries: [
                 for (final filter in InviteFilter.values)
                   if (!controller.loaded ||
                       controller.canSeeDetails ||
                       filter == InviteFilter.redeemed)
-                    DNativeSelectOption(
+                    DSelectOption(
                       value: filter,
                       label: controller.counts.containsKey(filter)
                           ? '${filter.label} (${controller.counts[filter]})'
                           : filter.label,
+                      child: Text(
+                        controller.counts.containsKey(filter)
+                            ? '${filter.label} (${controller.counts[filter]})'
+                            : filter.label,
+                      ),
                     ),
               ],
               onChanged: (filter) {

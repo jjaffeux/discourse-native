@@ -1613,17 +1613,17 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                     '${count == 1 ? 'message' : 'messages'} to:',
                   ),
                   const SizedBox(height: 16),
-                  DNativeSelect<int>.controlled(
+                  DSelect<int>.controlled(
                     isExpanded: true,
-                    placeholderEnabled: false,
                     key: const ValueKey('chat-move-destination'),
                     value: selected,
-                    label: 'Destination channel',
+                    label: const Text('Destination channel'),
                     entries: [
                       for (final channel in destinations)
-                        DNativeSelectOption(
+                        DSelectOption(
                           value: channel.id,
                           label: channel.title,
+                          child: Text(channel.title),
                         ),
                     ],
                     onChanged: (value) =>

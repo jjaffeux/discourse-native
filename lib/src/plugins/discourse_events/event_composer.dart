@@ -431,11 +431,10 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   setState(() => _booleans['all-day'] = value!),
             ),
             if (!_booleans['all-day']!) _field('timezone'),
-            DNativeSelect<String>.controlled(
+            DSelect<String>.controlled(
               isExpanded: true,
-              placeholderEnabled: false,
               value: _recurrence,
-              label: 'Repeats',
+              label: const Text('Repeats'),
               entries: [
                 for (final value in {
                   '',
@@ -447,20 +446,22 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   'every_month',
                   _recurrence,
                 })
-                  DNativeSelectOption(
+                  DSelectOption(
                     value: value,
                     label: eventRecurrenceLabel(value) ?? 'Does not repeat',
+                    child: Text(
+                      eventRecurrenceLabel(value) ?? 'Does not repeat',
+                    ),
                   ),
               ],
               onChanged: (value) => setState(() => _recurrence = value!),
               initialValue: _recurrence,
             ),
             if (_recurrence.isNotEmpty) _field('recurrence-until'),
-            DNativeSelect<String>.controlled(
+            DSelect<String>.controlled(
               isExpanded: true,
-              placeholderEnabled: false,
               value: _status,
-              label: 'Participation',
+              label: const Text('Participation'),
               entries: [
                 for (final value in {
                   'public',
@@ -468,7 +469,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   'standalone',
                   _status,
                 })
-                  DNativeSelectOption(
+                  DSelectOption(
                     value: value,
                     label: switch (value) {
                       'public' => 'Public',
@@ -476,6 +477,12 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                       'standalone' => 'No attendance tracking',
                       _ => value,
                     },
+                    child: Text(switch (value) {
+                      'public' => 'Public',
+                      'private' => 'Private groups',
+                      'standalone' => 'No attendance tracking',
+                      _ => value,
+                    }),
                   ),
               ],
               onChanged: (value) => setState(() => _status = value!),

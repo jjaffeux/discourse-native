@@ -1,5 +1,17 @@
 # Select reference mapping
 
+Native Select was removed at the user's request on 2026-09-10. `DSelect` now
+owns all plain and rich selection fields. Callers use explicit `enabled`
+guards for busy or unavailable controls and null-valued options for clearable
+placeholders. Production fixtures are available in
+`tool/select_consumers_review.dart` and `tool/voice_review_fixture.dart`.
+The source-preparation evidence below describes the earlier implementation.
+
+Removal verification: 363 focused widget tests passed with seed `391447`,
+covering components, styleguide examples and migrated application surfaces.
+Root and `profiles/full` static analysis passed. Live native inspection was
+not run because the shared desktop lease was occupied.
+
 Task: `01a085bb-1d11-7f52-a7bd-667348469087`  
 Branch: `codex/ui-select`
 Reviewer task: `01a085e1-1106-7ba1-a30c-15a8a7a5bd22`

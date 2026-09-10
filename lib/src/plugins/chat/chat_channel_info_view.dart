@@ -308,11 +308,10 @@ class _ChannelSettings extends StatelessWidget {
                                     action: SizedBox(
                                       width: 170,
                                       child:
-                                          DNativeSelect<
+                                          DSelect<
                                             ChatChannelNotificationLevel
                                           >.controlled(
                                             isExpanded: true,
-                                            placeholderEnabled: false,
                                             key: const ValueKey(
                                               'chat-channel-notification-setting',
                                             ),
@@ -331,27 +330,31 @@ class _ChannelSettings extends StatelessWidget {
                                                     }
                                                   },
                                             entries: const [
-                                              DNativeSelectOption(
+                                              DSelectOption(
                                                 value:
                                                     ChatChannelNotificationLevel
                                                         .never,
                                                 label: 'Never',
+                                                child: Text('Never'),
                                               ),
-                                              DNativeSelectOption(
+                                              DSelectOption(
                                                 value:
                                                     ChatChannelNotificationLevel
                                                         .mention,
                                                 label: 'Mentions only',
+                                                child: Text('Mentions only'),
                                               ),
-                                              DNativeSelectOption(
+                                              DSelectOption(
                                                 value:
                                                     ChatChannelNotificationLevel
                                                         .always,
                                                 label: 'All activity',
+                                                child: Text('All activity'),
                                               ),
                                             ],
                                             initialValue:
                                                 membership.notificationLevel,
+                                            enabled: !notificationBusy,
                                           ),
                                     ),
                                   ),
@@ -483,9 +486,9 @@ class _ChannelSettings extends StatelessWidget {
                                         .textTheme
                                         .bodyMedium
                                         ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                   ),
                                   action: DButton(

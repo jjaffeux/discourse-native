@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**64 of 64 components are merged locally.** 0 existing components are in progress; 0 are planned.
+**63 of 63 components are merged locally.** 0 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -52,34 +52,33 @@ Each component has an independent review task that owns fixes, remaining verific
 | 34 | sheet | merged | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | b67f0068104b922ec0e80170643eddced6e27c37 |
 | 35 | drawer | merged | 01a08606-5dd1-75a2-9dbb-a652188d7bd5 | codex/ui-drawer | dialog | 3e75cd97e91d04e2719c8adda5e669ed5dc9e3c1 |
 | 36 | select | merged | 01a085bb-1d11-7f52-a7bd-667348469087 | codex/ui-select | popover, scroll-area | 57bbeb94368649a4665483180e4f5c84b5f33856 |
-| 37 | native-select | merged | 01a083f3-9a01-7c71-9931-3674b85e81b3 | codex/ui-native-select | label | 0cdec859288cb2fa0369f64e1a9c1c022dc033e4 |
-| 38 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
-| 39 | button-group | merged | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | ae7d80a5fd81fe1b783092cbc79103f3c9103720 |
-| 40 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
-| 41 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
-| 42 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
-| 43 | input-group | merged | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner, field, dropdown-menu, popover | d1de717b1e2d1eeaf06d86dafe1452662d05e368 |
-| 44 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
-| 45 | context-menu | merged | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | 7583852aefa06a1a086708b064a0df53c4fff560 |
-| 46 | menubar | merged | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | 5ac59a926eab9a8a6890486e5bb37e65ce0f54a5 |
-| 47 | navigation-menu | merged | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | d3ad22c3d9436f5e8c41bb7f0fbd3351633f2331 |
-| 48 | breadcrumb | merged | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | a1e23695ccd80b2a48e74fd8a92c3823fb528dac |
-| 49 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
-| 50 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
-| 51 | date-picker | merged | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | 593bcc83a943ceafdf5d73804b4c8171fabaace9 |
-| 52 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
-| 53 | toast | merged | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | d454c8f62fb4ab8718b3a32b2743556f2f78609d |
-| 54 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
-| 55 | attachment | merged | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | 99cea2172e9ddb5da775bff7b81e82c24ad72870 |
-| 56 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
-| 57 | bubble | merged | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | c3d6ae97af486134b32067aecc29f7191b05367d |
-| 58 | message | merged | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | bf86d92e26feee925739f3d7ee90f26ee05721d7 |
-| 59 | message-scroller | merged | 01a08606-ce86-7be2-b92f-59676b40cb40 | codex/ui-message-scroller | message, scroll-area | d38585c50e28774eef003f1d0e96878d49597c25 |
-| 60 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
-| 61 | data-table | merged | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | bf616a0639332596f5f436d803d63bb998cc8b67 |
-| 62 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
-| 63 | input-otp | merged | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | 7c5d30c31961c42b8a6aa4d99ea1b144f6551af1 |
-| 64 | questionnaire | merged | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, native-select | 4217ffe98a37c61510d464f21cfef87c563e82f1 |
+| 37 | field | merged | 01a084bf-dd8a-7c13-86dd-63d635b7bf97 | codex/ui-field | label, separator | 5cd7f3694498e4e09e3c114639baca834b56705e |
+| 38 | button-group | merged | 01a08581-831f-7751-b714-096b5aebf86a | codex/ui-button-group | button, separator | ae7d80a5fd81fe1b783092cbc79103f3c9103720 |
+| 39 | command | merged | 01a085bc-5eda-7712-9863-190bf6846bcc | codex/ui-command | input, dialog, scroll-area | 090d4f5448c2d8f87183d62092c6a5393ce90bd6 |
+| 40 | dropdown-menu | merged | 01a085b3-05fc-79f1-bde2-dc6936b2bcd4 | codex/ui-dropdown-menu | popover, checkbox, radio-group | 5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787 |
+| 41 | item | merged | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button, dropdown-menu | 6df0ab4469e4a3f9619518c56bd6e8db847e6b2c |
+| 42 | input-group | merged | 01a085af-d606-7281-ac25-34c83adc855e | codex/ui-input-group | input, textarea, button, kbd, spinner, field, dropdown-menu, popover | d1de717b1e2d1eeaf06d86dafe1452662d05e368 |
+| 43 | combobox | merged | 01a085fd-5d83-79c3-b598-bd49a5152023 | codex/ui-combobox | input, popover, command, field, input-group, item | 336c4edb05afee7f1ca4d260484537f16d03573c |
+| 44 | context-menu | merged | 01a08606-5dce-7b91-9ee6-7713872f1fa7 | codex/ui-context-menu | dropdown-menu | 7583852aefa06a1a086708b064a0df53c4fff560 |
+| 45 | menubar | merged | 01a08606-5dd4-7b80-b330-d7ebfff967f9 | codex/ui-menubar | dropdown-menu | 5ac59a926eab9a8a6890486e5bb37e65ce0f54a5 |
+| 46 | navigation-menu | merged | 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7 | codex/ui-navigation-menu | popover | d3ad22c3d9436f5e8c41bb7f0fbd3351633f2331 |
+| 47 | breadcrumb | merged | 01a08606-c290-7772-8b90-e5358efa6752 | codex/ui-breadcrumb | button, dropdown-menu | a1e23695ccd80b2a48e74fd8a92c3823fb528dac |
+| 48 | pagination | merged | 01a08606-c9d5-7741-bfe0-e4ff531ff9b7 | codex/ui-pagination | button, select | 20f1673402d8b52370efacb5ca61d5f099810582 |
+| 49 | calendar | merged | 01a085fd-5d83-79c3-b598-bd3ffc5b366e | codex/ui-calendar | button, select | 0bbb6c3673b395f75f4e03f80c15fcb0a0f16361 |
+| 50 | date-picker | merged | 01a08606-ca30-7bc1-8e27-69575273d443 | codex/ui-date-picker | calendar, popover, input | 593bcc83a943ceafdf5d73804b4c8171fabaace9 |
+| 51 | carousel | merged | 01a08567-ac29-7dd0-ba78-16f423c97dd9 | codex/ui-carousel | button | 3ec0c089d273029ff901d9155eba93e17c4d3a23 |
+| 52 | toast | merged | 01a0857a-fcd6-7880-90c0-501e72f034df | codex/ui-toast | button | d454c8f62fb4ab8718b3a32b2743556f2f78609d |
+| 53 | alert | merged | 01a08454-55a6-7681-8da9-bec8b23899a4 | codex/ui-alert | typography | a07ab617436f24f2e8116762f58b0b28e5d36918 |
+| 54 | attachment | merged | 01a085d4-9afd-7082-8081-f8b1f8f66287 | codex/ui-attachment | dialog, spinner | 99cea2172e9ddb5da775bff7b81e82c24ad72870 |
+| 55 | marker | merged | 01a0842f-af4f-7341-95c2-06a97f4ff0c4 | codex/ui-marker | spinner | fc92f4e69042191eff5d39d52c1355a6d6a87da7 |
+| 56 | bubble | merged | 01a085d9-7909-7fd0-b1b8-30a76c6ab2af | codex/ui-bubble | button, collapsible, popover, tooltip | c3d6ae97af486134b32067aecc29f7191b05367d |
+| 57 | message | merged | 01a08606-ca30-7bc1-8e27-693690217969 | codex/ui-message | attachment, avatar, bubble, marker | bf86d92e26feee925739f3d7ee90f26ee05721d7 |
+| 58 | message-scroller | merged | 01a08606-ce86-7be2-b92f-59676b40cb40 | codex/ui-message-scroller | message, scroll-area | d38585c50e28774eef003f1d0e96878d49597c25 |
+| 59 | chart | merged | 01a08400-ced8-7f22-a1aa-4955c7d28383 | codex/ui-chart | tooltip | ff57007163df986741ce422e4674d267012c8093 |
+| 60 | data-table | merged | 01a08606-ca45-73b1-9be1-7486d4e3fe1d | codex/ui-data-table | table, pagination, checkbox, input, dropdown-menu | bf616a0639332596f5f436d803d63bb998cc8b67 |
+| 61 | sidebar | merged | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | tooltip, separator, skeleton | 93bfcf65f64868c92340f9aec8236d77585c3cd8 |
+| 62 | input-otp | merged | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | 7c5d30c31961c42b8a6aa4d99ea1b144f6551af1 |
+| 63 | questionnaire | merged | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, select | 4217ffe98a37c61510d464f21cfef87c563e82f1 |
 
 ## Decisions and evidence
 
@@ -2222,16 +2221,17 @@ Status: merged. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/ui-sel
 - The optional DPopoverPlacementResolver receives read-only target/boundary/content geometry and returns a candidate that remains subject to Popover boundary correction. Select alone decides touch and selected-row fallback; no overlay lifecycle is duplicated.
 - Accepted Popover main merge dc6ab75fe99f2af8b401bae60285fdbe65e8012a is reconciled, retaining lifecycle correction 8281dda2, DNativeSelect layering regression 6a608c56 and topmost Escape ownership d9ecd110.
 - Accepted Field remains a metadata/layout owner around Select; DSelect stays the sole Form/value/validation/focus/action owner. Button Group's accepted joined-edge scope now adapts the trigger without moving the popup into joined geometry. Select's Back/Range/Next example uses the real DButtonGroup with independent action and selection state, verified in the Button Group native pass and final 169-test integration matrix.
+- 2026-09-10: The user removed Native Select from scope. DSelect now owns plain and rich selection fields; the separate implementation, catalogue entry and dedicated examples/tests were removed.
 
 **migrations**
 
 - Reduced lib/src/shell/select.dart to a compatibility export and moved DSelect/DSelectField rendering to lib/src/ui/components/d_select.dart; discourse_ui and discourse_plugin_sdk export the new owner.
 - Preserved accepted DNativeSelect across plain/simple Preferences, Poll, Local Dates, Chat, Assign, Voice, Bookmark, Invite, Group and status consumers; rich DSelect remains the public owner for composed selection, grouping, selected alignment, typeahead and multiple selection.
+- All Native Select callers migrated to DSelect through the public UI kit, preserving disabled states, callbacks, labels, descriptions and clearable placeholder values. Shared production review fixtures remain available under Select/Voice names.
 
 **retainedAlternatives**
 
 - DSelectField remains a source-compatibility FormField adapter only; it translates DropdownMenuItem/InputDecoration into DSelect entries and does not retain the old DropdownButton renderer.
-- Accepted DNativeSelect remains the owner for plain/simple platform-adapted selection. Searchable, date and other purpose-built pickers retain their distinct owners.
 
 **verification**
 
@@ -2241,64 +2241,13 @@ Status: merged. Task: 01a085bb-1d11-7f52-a7bd-667348469087. Branch: codex/ui-sel
 - Root and profiles/full flutter analyze --no-pub passed with no diagnostics after the final Popover/Select corrections; git diff --check passed.
 - Exact reviewed source rebuilt as /private/tmp/select-review-56d8.VCyNHv/source/build/macos/Build/Products/Debug/Select Review 56d8.app with bundle org.discourse.select.review.56d8. DSelect, DPopover, examples and fixture hashes match the review branch; restricted debug entitlements read back correctly, strict deep signature passed, CDHash d9d20849ecee43fcbea8badef0e8dd312dfa57be and TeamIdentifier is not set.
 - Official ui.shadcn.com Base Select was inspected in light/dark for default, selected-item alignment, groups, scrollable, disabled, invalid and RTL surfaces. The isolated macOS fixture was inspected for pointer selection, keyboard typeahead/End/Tab/Escape and focus restoration, selected-row reveal, scroll arrows, disabled trigger/item, invalid Form state, actionable group/option semantics, multiple selection remaining open, light/dark/Forest/Plum palettes, RTL, 216px width, 200% text and reduced motion.
+- 2026-09-10 Native Select removal: 363 focused component/styleguide/consumer tests passed with seed 391447, including clearable filters, disabled editing, nested Escape, keyboard traversal and all shared production fixtures. Root and profiles/full flutter analyze --no-pub passed; enforced-lockfile resolution preserved lockfiles and Flutter 3.47.2. Live native inspection was not run because the shared desktop lease was occupied.
 
 **limitations**
 
 - Native device inspection was macOS only. Spoken VoiceOver output and iOS/Linux devices were not exercised; macOS Accessibility API roles, values and actions were inspected and widget regressions cover semantics and platform-independent behavior.
 - Live theme replacement while the popup stays open is covered by a widget regression because clicking the external fixture theme control normally dismisses a modal popup before activating it.
 - The Mac locked only during cleanup after all required captures; the reference tab was closed and the exact isolated app process was then terminated by PID before merge preparation.
-
-### native-select
-
-Status: merged. Task: 01a083f3-9a01-7c71-9931-3674b85e81b3. Branch: codex/ui-native-select.
-
-**acceptanceCriteria**
-
-- Port base-nova closed-control geometry (32/28px, 14/20px text, directional 10/32px padding, 16px chevron), token palette/radius, disabled opacity, invalid and keyboard focus rings.
-- Provide typed text options and disabled optgroups, placeholder, controlled and initial selection, Form save/reset/validation, borrowed focus lifecycle and accessible names.
-- Use Flutter MenuAnchor/MenuItemButton as selection/popup owner (coordinator correction: open overlays must update live), document exact platform adaptation distinct from custom rich Select; cover keyboard, touch, dismissal, scrolling, large text, RTL and theme changes.
-- Self-contained actual-component styleguide covers reference simple/groups/disabled/invalid/RTL plus form and state; audit core/plugins and migrate suitable simple selectors preserving callbacks and permission/busy guards.
-- Pass focused interaction/migration tests, touched format and root/full-profile analysis with unchanged pins/lockfiles; build isolated identifiable macOS local-data fixture with source/kernel/signature evidence.
-- Remain in_progress awaiting_slot until coordinator grants desktop and reference/native production-fixture review passes.
-- Provide typed-character prefix navigation and repeated-letter cycling; finish the concrete whole-app plain-selector audit rather than deferring eligible selectors to Select.
-
-**decisions**
-
-- Typed DNativeSelectOption/OptGroup, single DNativeSelect FormField adapter and Flutter MenuAnchor/MenuItemButton owner; no rich custom Select dependency.
-- Default content width measures widest text plus 44px including borders and a scaled em for grouped options; apps use isExpanded. 32/28px heights, input token/multiplicative alpha, proportional radii, exterior-only focus ring and exact Lucide chevron documented with hashed sources.
-- Controlled Form callbacks/validation/reset always see accepted props synchronously; uncontrolled defaults freeze at mount. Nonnullable app choices disable the placeholder and retain initial reset values.
-- Live menu palette/direction/text scale without dismissal; immediate transitions; type-ahead supports prefix and repeated-character cycling with disabled/headings skipped and no timers.
-- Expired/blurred/reset type-ahead sessions restart from current accepted selection; repeated-letter proposals can cycle while a controlled parent declines.
-
-**migrations**
-
-- 28 plain selector owners across Preferences, Group management, Bookmarks, Invites, Status editor, Chat, Assign, Poll, Local Dates and Voice. Full per-owner callback/permission audit in native-select.md.
-- Preserved Voice _heldDevice fallback, Custom expiry cancellation, legacy Assign status, nullable Default order and controlled async preference/filter changes.
-
-**retainedAlternatives**
-
-- Topic-move category selector retains icons/colors/hierarchy for rich Select; searchable/multi-choice/action/date pickers keep their distinct capabilities.
-- Existing DSelect baseline source/export and documentation chrome remain per coordinator ownership; no simple app callers remain on DSelect.
-
-**verification**
-
-- Flutter 3.47.2 and pins/lockfiles unchanged; enforced root/full-profile pub resolution passed.
-- 323 selected component, fixture, styleguide and production migration tests passed; routed Chat notification integration test also passed.
-- Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.
-- Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch.
-- 2026-09-09 correction: 155 impact tests and 2 manual font-loaded render tests passed. Official light/dark/disabled/invalid/focus/groups/RTL/narrow browser capture compared with registered examples; production fixture renders captured in both app themes. See native-select-review.md and reference/native-select-review/manifest.json.
-- Corrected source d2e500f95d25f9901f74b37d0784aeb1e1ebf071 rebuilt into the unique ad-hoc verified review app; all four kernels match 47fabe4db51b73135427cc6ab941765ad04b53c4433693b36b29babf03691efc.
-- Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; final shared component implementations and all other progress rows preserved. 327 integration tests passed initially; sole obsolete 100px post-action test fixture resized to120px for final touch targets, all24 bookmark tests then passed. Root/full analysis clean.
-- Merge-queue bundle rebuilt from f9baeaa86c2bd88058ab815687543587aeec5296 with matching four-kernel hash bb7dca4c9c8906921f677cc834ff2b2bbe1990f4e29009a3b8144cedf1de8a37; restricted-free debug entitlements verified by signed read-back and strict deep signature.
-- Independent macOS review inspected the exact fixture and real Preferences route across light/dark, grouped scrolling, invalid, narrow RTL at 200% text, Form state, and accessibility. The first pass found popup choices exposed as static text; c58487c650c7ecb01f5ffe04ec35ddaf103189af adds bounded actionable choice semantics and a regression.
-- A second native pass confirmed AX choice actions and keyboard selection, then found Escape was not reliably dismissed by the native event path. 3512489c explicitly owns Escape while the select menu is open; the focused component suite passes and the final exact bundle confirmed dismissal with focus restoration.
-- Final exact bundle /tmp/native-select-review-escape-4d1e.2aGZte/Native Select Review Escape 4d1e.app has matching source/build/copied kernel SHA-256 962a99807d014c8b839aa00512c5c0afe50f2243476c2de6e23920c5829fa4f5, matching restricted entitlement read-back, and a passing strict deep signature.
-- Independent verification passed 180 focused component/styleguide/fixture/migration tests before the Escape-only correction, the 12-test component suite afterward, and a randomized 67-test component/styleguide/fixture/Preferences/Bookmark/Local Dates integration run after current-main reconciliation (seed 660499389). Root plus profiles/full flutter analyze --no-pub are clean.
-
-**limitations**
-
-- Native device inspection was macOS only. Spoken VoiceOver output and iOS/Linux devices were not exercised; macOS Accessibility API roles/actions were inspected directly and are covered by widget regressions.
-- The open popup is intentionally Flutter-owned, so neither the font-loaded browser comparison nor native inspection claims OS-popup parity.
 
 ### field
 

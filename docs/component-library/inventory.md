@@ -11,7 +11,7 @@ current tree for appropriate adoption; this inventory is a starting point.
 | `theme/d_button.dart` (`DButton`, 108 source files) | Button | 11 app variants; icons, inset hit targets, loading, shortcut tooltip, custom radius/background, semantic labels, focus nodes. Preserve permission and busy guards in callers. |
 | `theme/d_tooltip.dart` (`DTooltip`, 7 files) | Tooltip | RawTooltip lifecycle, long press, rich shortcut hints, hidden-pane suppression, live theme. |
 | `theme/d_tooltip.dart` (`DKbd`, `DShortcutKeycaps`, `DShortcut`) | Kbd | Platform modifier labels, shortcut sequences, keycap progression and semantics. Extract the shared owner before Tooltip. |
-| `shell/select.dart` (`DSelect`, `DSelectField`, 8 files) | Select / Native Select | Controlled dropdowns and form selection in Preferences, Poll, Local Dates, Chat, Assign and Voice. All callers must migrate. |
+| `shell/select.dart` (`DSelect`, `DSelectField`, 8 files) | Select | Controlled dropdowns and form selection in Preferences, Poll, Local Dates, Chat, Assign and Voice. All callers use the public `DSelect` owner. |
 | `shell/adaptive_activity_indicator.dart` | Spinner | Apple activity indicators and Material stroke/color options; retain native platform styling. |
 | `shell/adaptive_dialog_action.dart`, `shell/shell_sheet.dart`, app-specific sheets and dialogs | Button, Dialog, Alert Dialog, Sheet, Drawer | Focus/route ownership, async results, destructive confirmations, retained drafts and native modal adaptation. |
 | `shell/anchored_picker.dart`, `shell/choice_menu.dart`, `shell/command_menu.dart` | Popover, Select, Command, Combobox, menus | Anchoring, keyboard navigation, large/searchable lists, cleanup and site lifecycle ownership; business logic stays in adapters. |

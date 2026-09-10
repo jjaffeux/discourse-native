@@ -255,7 +255,7 @@ void main() {
 
       await _pumpPage(tester, fixture, width: 1000);
 
-      expect(find.byType(DNativeSelect<PreferenceSection>), findsNothing);
+      expect(find.byType(DSelect<PreferenceSection>), findsNothing);
       expect(find.text('Preferences'), findsNothing);
       final notifications = find.byKey(
         const ValueKey('preferences-section-notifications'),
@@ -724,11 +724,16 @@ void main() {
       );
       expect(find.text('Chat'), findsNothing);
       expect(
-        tester
-            .widget<DNativeSelect<int>>(find.byType(DNativeSelect<int>))
-            .onChanged,
+        tester.widget<DSelect<int>>(find.byType(DSelect<int>)).onChanged,
         isNull,
       );
+      expect(
+        tester.widget<DSelect<int>>(find.byType(DSelect<int>)).enabled,
+        isFalse,
+      );
+      await tester.tap(find.byType(DSelect<int>));
+      await tester.pumpAndSettle();
+      expect(find.byType(DPopoverContent), findsNothing);
       expect(
         tester
             .widget<DSwitchTile>(
@@ -764,9 +769,7 @@ void main() {
       await tester.tap(chat);
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.byType(DNativeSelect<ChatSeparateSidebarPreference>),
-      );
+      await tester.tap(find.byType(DSelect<ChatSeparateSidebarPreference>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Always').last);
       await tester.pumpAndSettle();

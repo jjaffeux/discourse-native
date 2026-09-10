@@ -10,7 +10,7 @@ import 'd_typography.dart';
 /// registry, so the control's label slot owns association: DCheckbox.title,
 /// DSwitchTile.title and DRadioGroupItem.label toggle their control from the
 /// label and merge one accessible name with its state; DFieldLabel,
-/// DInput.labelText, DTextarea.labelText and DNativeSelect.label focus their
+/// DInput.labelText, DTextarea.labelText and DSelect.label focus their
 /// editor. The label adds no gesture handler or tab stop. A standalone DLabel is
 /// ordinary text; placing one beside a control does not associate them.
 ///

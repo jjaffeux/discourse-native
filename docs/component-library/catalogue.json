@@ -3,7 +3,7 @@
   "capturedAt": "2026-09-08T14:36:38.371144+00:00",
   "catalogueUrl": "https://ui.shadcn.com/docs/components",
   "referenceFamily": "Base UI (the default catalogue links at capture time)",
-  "scopeNote": "The 64 entries in All Components define scope. Toast uses Sonner; Sonner is not a separate catalogue entry. Framework-specific form integration guides and registry utilities are supporting references, not extra catalogue components.",
+  "scopeNote": "The All Components snapshot contained 64 entries. Native Select was removed at the user’s request on 2026-09-10, leaving 63 components; Select owns all plain and rich selection fields. Toast uses Sonner; Sonner is not a separate catalogue entry. Framework-specific form integration guides and registry utilities are supporting references, not extra catalogue components.",
   "components": [
     {
       "id": "accordion",
@@ -1849,39 +1849,6 @@
       ]
     },
     {
-      "id": "native-select",
-      "name": "Native Select",
-      "referenceUrl": "https://ui.shadcn.com/docs/components/base/native-select",
-      "markdownUrl": "https://ui.shadcn.com/docs/components/base/native-select.md",
-      "sha256": "46ba4666fa33e33a336645f213e74416eae3729c03e38ef64e687bffa54cd1a4",
-      "documentedSections": [
-        "Installation",
-        "Usage",
-        "Composition",
-        "Simple",
-        "With groups",
-        "Groups",
-        "Disabled",
-        "Invalid",
-        "Native Select vs Select",
-        "RTL",
-        "API Reference",
-        "NativeSelect",
-        "NativeSelectOption",
-        "NativeSelectOptGroup"
-      ],
-      "documentedProps": {
-        "variant": [
-          "info"
-        ]
-      },
-      "referencePackages": [
-        "lucide-react",
-        "react"
-      ],
-      "exampleComponents": []
-    },
-    {
       "id": "navigation-menu",
       "name": "Navigation Menu",
       "referenceUrl": "https://ui.shadcn.com/docs/components/base/navigation-menu",
@@ -2052,7 +2019,7 @@
         "button",
         "card",
         "dialog",
-        "native-select"
+        "select"
       ]
     },
     {

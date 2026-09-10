@@ -547,13 +547,21 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final dropdown = tester.widget<DNativeSelect<String>>(
+        final dropdown = tester.widget<DSelect<String>>(
           find.byKey(const Key('assignment-status')),
         );
-        expect(dropdown.placeholderEnabled, isFalse);
-        final label = tester.widget<Text>(find.text(longStatus).first);
-        expect(label.maxLines, 1);
-        expect(label.overflow, TextOverflow.ellipsis);
+        expect(dropdown.isExpanded, isTrue);
+        expect(
+          dropdown.entries.whereType<DSelectItem<String>>().map(
+            (item) => item.value,
+          ),
+          isNot(contains(null)),
+        );
+        final labelStyle = DefaultTextStyle.of(
+          tester.element(find.text(longStatus).first),
+        );
+        expect(labelStyle.maxLines, 1);
+        expect(labelStyle.overflow, TextOverflow.ellipsis);
       },
     );
 
@@ -620,12 +628,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final dropdown = tester.widget<DNativeSelect<String>>(
+      final dropdown = tester.widget<DSelect<String>>(
         find.byKey(const Key('assignment-status')),
       );
       expect(dropdown.value, 'Waiting on legacy review');
       expect(
-        dropdown.entries.whereType<DNativeSelectOption<String>>().map(
+        dropdown.entries.whereType<DSelectOption<String>>().map(
           (item) => item.value,
         ),
         contains('Waiting on legacy review'),

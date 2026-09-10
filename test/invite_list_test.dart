@@ -150,7 +150,7 @@ void main() {
         : invitePage([inviteRow(1)], redeemed: 1);
     await controller.load();
     await pumpList(tester);
-    await tester.tap(find.byType(DNativeSelect<InviteFilter>));
+    await tester.tap(find.byType(DSelect<InviteFilter>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Redeemed (1)').last);
     await tester.pumpAndSettle();
