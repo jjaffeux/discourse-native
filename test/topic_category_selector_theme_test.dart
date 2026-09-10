@@ -12,8 +12,6 @@ void main() {
   testWidgets('category editing survives live palette and viewport changes', (
     tester,
   ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -70,5 +68,5 @@ void main() {
     } finally {
       semantics.dispose();
     }
-  });
+  }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
 }
