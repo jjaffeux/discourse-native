@@ -522,11 +522,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     final fallbackSections = <int>[
       for (var index = 0; index < sections.length; index++)
         if (sections[index].depth == 0 &&
-            !const {
-              'Usage',
-              'Composition',
-              'Changelog',
-            }.contains(sections[index].label))
+            !const {'Composition', 'Changelog'}.contains(sections[index].label))
           index,
     ];
 
@@ -558,23 +554,13 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
         final candidates = fallbackSections.isEmpty
             ? List.generate(sections.length, (index) => index)
             : fallbackSections;
-        bestSection = exampleIndex == 0
-            ? sections.indexWhere((section) => section.label == 'Usage')
-            : candidates[(exampleIndex * candidates.length ~/ examples.length)
-                  .clamp(0, candidates.length - 1)];
-        if (bestSection < 0) bestSection = candidates.first;
+        bestSection =
+            candidates[(exampleIndex * candidates.length ~/ examples.length)
+                .clamp(0, candidates.length - 1)];
       }
       assignments[bestSection].add(exampleIndex);
     }
     return assignments;
-  }
-
-  List<String?> _sectionParents(List<ComponentReferenceSection> sections) {
-    String? parent;
-    return [
-      for (final section in sections)
-        if (section.depth == 0) parent = section.label else parent,
-    ];
   }
 
   Widget _previewControls(BuildContext context) => Wrap(
@@ -672,11 +658,8 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     ComponentExamples? group,
   ) {
     final section = sections[index];
-    final parent = _sectionParents(sections)[index];
-    final body = switch ((section.label, parent)) {
-      ('Usage', _) =>
-        "Import `package:discourse_native/discourse_ui.dart`; the runnable examples on this page use the public native API directly.",
-      ('Composition', _) when group?.notes.isNotEmpty == true => group!.notes,
+    final body = switch (section.label) {
+      'Composition' when group?.notes.isNotEmpty == true => group!.notes,
       _ => null,
     };
     if (body == null) return const [];
