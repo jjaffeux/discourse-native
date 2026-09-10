@@ -14,12 +14,14 @@ void main() {
     ),
   );
   testWidgets(
-    'touch and keyboard scroll the borrowed position and retain it on rebuild',
+    'hidden scrollbars preserve touch, keyboard and position when shown again',
     (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);
+      var showScrollbar = false;
       Widget area() => DScrollArea(
         controller: controller,
+        showScrollbar: showScrollbar,
         child: const SizedBox(height: 1000, child: Text('Content')),
       );
       await tester.pumpWidget(host(area()));
@@ -39,9 +41,83 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.home);
       await tester.pumpAndSettle();
       expect(controller.offset, 0);
+      controller.jumpTo(200);
+      final position = controller.position;
+      showScrollbar = true;
+      await tester.pumpWidget(host(area()));
+      await tester.pumpAndSettle();
+      expect(controller.position, same(position));
+      expect(controller.offset, 200);
       await tester.pumpWidget(const SizedBox());
       expect(controller.hasClients, isFalse);
       controller.addListener(() {});
+    },
+  );
+  testWidgets(
+    'hidden scrollbars paint no thumb or corner after wheel and hover and cannot be dragged',
+    (tester) async {
+      final vertical = ScrollController();
+      final horizontal = ScrollController();
+      addTearDown(vertical.dispose);
+      addTearDown(horizontal.dispose);
+      final boundaryKey = GlobalKey();
+      await tester.pumpWidget(
+        host(
+          RepaintBoundary(
+            key: boundaryKey,
+            child: ColoredBox(
+              color: const Color(0xff204060),
+              child: DScrollArea(
+                showScrollbar: false,
+                axes: DScrollAxes.both,
+                controller: vertical,
+                horizontalController: horizontal,
+                corner: const ColoredBox(color: Colors.red),
+                child: const SizedBox(width: 1000, height: 1000),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final rect = tester.getRect(find.byType(DScrollArea));
+      for (final delta in [const Offset(0, 30), const Offset(30, 0)]) {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(position: rect.center, scrollDelta: delta),
+        );
+        await tester.pump();
+      }
+      expect(vertical.offset, greaterThan(0));
+      expect(horizontal.offset, greaterThan(0));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset(rect.right - 3, rect.top + 10));
+      await mouse.moveTo(Offset(rect.right - 3, rect.top + 15));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final colors = await tester.runAsync(() async {
+        final image =
+            await (boundaryKey.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary)
+                .toImage();
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        final colors = <int>{
+          for (var offset = 0; offset < bytes.lengthInBytes; offset += 4)
+            bytes.getUint32(offset),
+        };
+        image.dispose();
+        return colors;
+      });
+      expect(colors, {0x204060ff});
+
+      final offset = vertical.offset;
+      await mouse.down(Offset(rect.right - 3, rect.top + 10));
+      await mouse.moveBy(const Offset(0, 60));
+      await mouse.up();
+      await mouse.removePointer();
+      await tester.pumpAndSettle();
+      expect(vertical.offset, offset);
     },
   );
   testWidgets(

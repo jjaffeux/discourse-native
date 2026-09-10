@@ -753,6 +753,14 @@ void main() {
       tester.getTopLeft(find.text('Destination 0')).dy,
       lessThan(header.dy),
     );
+    final scrollbar = tester.widget<RawScrollbar>(
+      find.descendant(
+        of: find.byType(DSidebarContent),
+        matching: find.byType(RawScrollbar),
+      ),
+    );
+    expect(scrollbar.thumbColor, Colors.transparent);
+    expect(scrollbar.interactive, isFalse);
   });
   testWidgets('mobile opens physical right, Escape restores focus and state', (
     tester,

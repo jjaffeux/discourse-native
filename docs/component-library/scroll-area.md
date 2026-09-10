@@ -58,7 +58,12 @@ RawScrollbar retains native wheel, trackpad, thumb dragging, track clicking,
 touch hit tolerance and scrolling semantics. Native touch scrolling and
 platform overscroll physics are unchanged. The reference is always visible when
 it overflows; thumbVisibility=false opts into native fade/hover behavior, with
-150ms fade or zero under reduced motion. Hover does not invent an accent color
+150ms fade or zero under reduced motion. `showScrollbar: false` on DScrollArea
+or DScrollBar hides the thumb even during scroll/hover and disables scrollbar
+dragging and track clicks. The area also hides its two-axis corner. Native
+wheel/touch scrolling, keyboard navigation, controllers and mounted viewport
+state are retained. Both DSidebarContent constructors use this hidden mode.
+Hover does not invent an accent color
 or enlarge the visible artwork. The area is a Tab stop only while an enabled axis overflows, with visible keyboard
 focus, arrows (physical horizontal direction in RTL), Page Up/Down, Home/End and
 Space/Shift+Space (down/up); jumps replace animations under reduced motion.

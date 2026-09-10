@@ -21,7 +21,7 @@ scope remains the 2026-09-08 Sidebar row.
 | physical left/right | Physical panel side; directional text, padding and submenu border |
 | 200ms transition | Linear desktop width; mobile presentation uses the accepted Sheet transition; zero with reduced motion |
 | header/footer p-2 | 8px fixed slots; callers compose multiple children with 8px gap |
-| content flex-1 overflow | Expanded slot with independent DSidebarContent scroll owner |
+| content flex-1 overflow | Expanded slot with independent DSidebarContent scroll owner; scrollbar artwork and drag targets are hidden |
 | sidebar background | Muted semantic panel token; caller override remains available |
 | group p-2; label h-8 px-2 | 8px group padding,32px label minimum,8px horizontal inset |
 | label text-xs/medium/70% | 12px,16px leading,500 weight,foreground70% |
@@ -195,3 +195,12 @@ Leaving the mobile breakpoint clears openMobile, so returning does not reopen
 an obsolete panel. Initial modal focus enters its shortcut subtree, making
 Escape effective immediately. Menu/Content use the registry's gap-0; submenu
 spacing is4px. Floating borders are painted without consuming icon width.
+
+On 2026-09-10, both regular and sliver DSidebarContent switched to the shared
+`showScrollbar: false` mode. Scrollbar artwork stays hidden during scrolling
+and hover, and no invisible thumb or track captures pointer input. Native
+scrolling, fixed header/footer placement and lazy viewport ownership remain.
+174 focused Scroll Area, Sidebar, shell-navigation and styleguide tests passed,
+including rendered-pixel checks, wheel/touch/keyboard scrolling and retained
+position when scrollbar visibility changes. Root and full-profile analysis
+and the macOS debug build passed.

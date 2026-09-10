@@ -75,6 +75,34 @@ final scrollAreaExamples = ComponentExamples(
       code: _lazyCode,
       builder: (_) => const _LazyComposition(),
     ),
+    StyleguideExample(
+      title: 'Hidden scrollbar',
+      description:
+          'Scroll with the wheel or touch, or Tab into the viewport and use the arrow keys. The scrollbar stays hidden during scrolling and hover, as in the sidebar.',
+      code: r'''SizedBox(height: 180,
+  child: DScrollArea(showScrollbar: false,
+    child: Column(children: [
+      for (var i = 0; i < 30; i++)
+        Padding(padding: EdgeInsets.all(8), child: Text('Destination $i')),
+    ]),
+  ),
+)''',
+      builder: (_) => SizedBox(
+        height: 180,
+        child: DScrollArea(
+          showScrollbar: false,
+          child: Column(
+            children: [
+              for (var i = 0; i < 30; i++)
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text('Destination $i'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
   ],
 );
 

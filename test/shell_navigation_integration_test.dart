@@ -1686,7 +1686,7 @@ void _registerShellNavigationTests() {
     expect(position.pixels, closeTo(initialMax, 0.001));
   });
 
-  testWidgets('uses a thin scrollbar in the sidebar', (tester) async {
+  testWidgets('hides the scrollbar in the sidebar', (tester) async {
     final previous = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     try {
@@ -1697,17 +1697,11 @@ void _registerShellNavigationTests() {
         matching: find.byType(DScrollBar),
       );
       expect(scrollbar, findsOneWidget);
-      expect(
-        tester
-            .widget<RawScrollbar>(
-              find.descendant(
-                of: scrollbar,
-                matching: find.byType(RawScrollbar),
-              ),
-            )
-            .thickness,
-        const DScrollThumb().thickness,
+      final nativeScrollbar = tester.widget<RawScrollbar>(
+        find.descendant(of: scrollbar, matching: find.byType(RawScrollbar)),
       );
+      expect(nativeScrollbar.thumbColor, Colors.transparent);
+      expect(nativeScrollbar.interactive, isFalse);
     } finally {
       debugDefaultTargetPlatformOverride = previous;
     }
