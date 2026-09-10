@@ -79,6 +79,7 @@ final menubarExamples = ComponentExamples(
     StyleguideExample(
       title: 'Submenu',
       description:
+          'Move diagonally into a submenu without switching sibling rows. '
           'Logical inline arrows enter and leave nested menus. Escape closes '
           'only the deepest popup and restores its owning row.',
       states: const ['Nested', 'Hover', 'Arrow keys', 'Escape boundary'],
