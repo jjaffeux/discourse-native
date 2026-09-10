@@ -2245,9 +2245,9 @@ class _TopicBottomBar extends StatelessWidget {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) => SizedBox(
-            height: topicBottomBarHeight,
+            height: topicBottomBarHeight(context),
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              padding: topicBottomBarPadding,
               child: Row(
                 children: [
                   if (canReply || showBookmark || showNotifications)

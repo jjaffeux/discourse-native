@@ -68,7 +68,10 @@ void main() {
             );
           }
           expect(bounds.width, lessThanOrEqualTo(scenario.width));
-          expect(bounds.height, 32);
+          final touch =
+              Theme.of(tester.element(button)).platform ==
+              TargetPlatform.android;
+          expect(bounds.height, touch ? 48 : 28 * scenario.scale);
           final fill = tester.getRect(
             find.byKey(const ValueKey('topic-progress-fill')),
           );
@@ -94,5 +97,9 @@ void main() {
         semantics.dispose();
       }
     },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.android,
+    }),
   );
 }

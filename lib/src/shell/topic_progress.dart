@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'shell_controller.dart';
+import 'shell_metrics.dart';
 import 'shell_sheet.dart';
 
 class TopicProgressButton extends StatelessWidget {
@@ -36,7 +37,7 @@ class TopicProgressButton extends StatelessWidget {
             key: const ValueKey('topic-progress-button'),
             onTap: onPressed,
             child: SizedBox(
-              height: 32,
+              height: topicBottomBarControlHeight(context),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 72),
                 child: Stack(
@@ -65,6 +66,7 @@ class TopicProgressButton extends StatelessWidget {
                           maxLines: 1,
                           softWrap: false,
                           style: theme.textTheme.labelMedium?.copyWith(
+                            fontSize: DButton.fontSizeFor(DButtonSize.small),
                             fontWeight: FontWeight.w600,
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),

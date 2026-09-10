@@ -1967,6 +1967,27 @@ void main() {
         expect(listBar.height, readerBar.height, reason: 'Text scale $scale');
         expect(listBar.top, readerBar.top, reason: 'Text scale $scale');
         expect(listBar.bottom, readerBar.bottom, reason: 'Text scale $scale');
+        if (scale == 1) {
+          final reply = find.byKey(const ValueKey('topic-reply-button'));
+          final controlHeight = tester.getSize(reply).height;
+          final touch =
+              Theme.of(tester.element(reply)).platform ==
+              TargetPlatform.android;
+          expect(readerBar.height, touch ? 60 : 40);
+          expect(controlHeight, touch ? 48 : 28);
+          for (final key in [
+            'topic-progress-button',
+            'inbox-previous-topic',
+            'inbox-next-topic',
+          ]) {
+            final control = find.byKey(ValueKey(key));
+            expect(tester.getSize(control).height, controlHeight);
+            expect(
+              tester.getRect(control).center.dy,
+              closeTo(tester.getRect(reply).center.dy, .01),
+            );
+          }
+        }
         expect(tester.takeException(), isNull);
       }
     },
