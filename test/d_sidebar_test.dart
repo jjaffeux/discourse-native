@@ -1,6 +1,7 @@
 import 'dart:ui' as ui show ImageByteFormat;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -90,6 +91,51 @@ Widget fixture({
 );
 
 void main() {
+  testWidgets('default panel keeps the dark hover accent distinguishable', (
+    tester,
+  ) async {
+    const sidebarKey = ValueKey('dark-sidebar');
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: DSidebarProvider(
+            child: Row(
+              children: [
+                DSidebar(
+                  key: sidebarKey,
+                  collapsible: DSidebarCollapsible.none,
+                  child: SizedBox(),
+                ),
+                Expanded(child: SizedBox()),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final colors = tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.byKey(sidebarKey),
+            matching: find.byType(Container),
+          ),
+        )
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .map((decoration) => decoration.color)
+        .whereType<Color>();
+    final tokens = AppTheme.dark.extension<DTokens>()!;
+    expect(colors, contains(tokens.muted));
+    final luminances = [
+      tokens.muted.computeLuminance(),
+      tokens.hover.computeLuminance(),
+    ]..sort();
+    final contrast = (luminances.last + 0.05) / (luminances.first + 0.05);
+    expect(contrast, greaterThan(1.1));
+  });
+
   test('configurable sidebar dimensions reject invalid values', () {
     expect(
       () => DSidebarProvider(mobileBreakpoint: -1, child: const SizedBox()),

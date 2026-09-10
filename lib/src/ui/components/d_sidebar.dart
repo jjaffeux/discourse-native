@@ -258,7 +258,7 @@ class _DSidebarState extends State<DSidebar> {
   Widget _panel(BuildContext context, bool icon, {bool mobile = false}) {
     final t = DTokens.of(context);
     final floating = widget.variant == DSidebarVariant.floating && !mobile;
-    final background = widget.backgroundColor ?? t.surface;
+    final background = widget.backgroundColor ?? t.muted;
     return Material(
       type: MaterialType.transparency,
       child: _PanelScope(
