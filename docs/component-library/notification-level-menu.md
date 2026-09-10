@@ -72,3 +72,33 @@ Flutter 3.47.2 / Dart 3.13.2, on macOS:
   wheel scrolling and revealing the final option with End both pass.
 
 Target-platform overrides in widget tests are not iOS or Linux device testing.
+
+## Native inspection
+
+An isolated, ad-hoc-signed macOS fixture mounted the production topic header,
+topic footer, and category header controls with an in-memory shell/API. It also
+opened the real UI kit styleguide. The bundle retained sandbox/debug networking
+and JIT entitlements, omitted production identity/push entitlements, passed
+strict signature verification, and launched successfully.
+
+CUA inspection confirmed the dark topic dropdown, its radio semantics, keyboard
+selection, trigger updates, Space reopening after selection, and Escape
+dismissal. Light and Forest previews used a 320px content column, 200% text,
+and RTL. After the overflow correction, End visibly scrolled the category menu
+to Muted, fully revealing its explanation and the scrollbar; Enter updated the
+production category trigger. The Forest topic menu retained readable wrapping
+and selection indicators. These are layout widths within a desktop window.
+
+The real styleguide's Notification level menu page displayed all five examples.
+Its topic example saved Watching locally and updated the trigger; the thread
+example rendered Normal, Tracking, and Watching with the selected checkmark.
+The Mac locked before the final thread-example selection and app cleanup, so
+UI interaction stopped and the desktop lease was released. The review app may
+remain open. No iOS/Linux device or spoken VoiceOver pass is claimed.
+
+The fixture source and final signed bundle remain under
+`/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/notification-level-review-o318l9ou`.
+The final component/app and shared-menu test logs are
+`/tmp/notification-level-app-final-tests.log` and
+`/tmp/notification-level-overflow-tests.log`; the final desktop-specific
+dropdown suite is `/tmp/notification-level-dropdown-final.log` (31 passed).
