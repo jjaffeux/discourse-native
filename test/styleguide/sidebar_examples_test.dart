@@ -1,4 +1,4 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui' show PointerDeviceKind, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/sidebar_examples.dart';
@@ -112,6 +112,63 @@ void main() {
     await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
     expect(find.text('Account selected'), findsOneWidget);
+  });
+
+  testWidgets('header and footer menu buttons respond to pointer hover', (
+    tester,
+  ) async {
+    final strategy = FocusManager.instance.highlightStrategy;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTouch;
+    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+    await tester.binding.setSurfaceSize(const Size(900, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const hoverColor = Color(0xff123456);
+    final theme = ThemeData(platform: TargetPlatform.macOS);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme.copyWith(
+          extensions: [DTokens.fromTheme(theme).copyWith(hover: hoverColor)],
+        ),
+        home: Scaffold(
+          body: Builder(builder: sidebarExamples.examples.first.builder),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final team = find.byWidgetPredicate(
+      (widget) =>
+          widget is DSidebarMenuButton &&
+          widget.semanticLabel == 'Switch team, Acme Inc, Enterprise',
+    );
+    final account = find.byWidgetPredicate(
+      (widget) =>
+          widget is DSidebarMenuButton &&
+          widget.semanticLabel == 'Open shadcn account menu',
+    );
+    bool usesHoverColor(Finder button) => tester
+        .widgetList<Container>(
+          find.descendant(of: button, matching: find.byType(Container)),
+        )
+        .any(
+          (container) =>
+              container.decoration is BoxDecoration &&
+              (container.decoration! as BoxDecoration).color == hoverColor,
+        );
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(team));
+    await tester.pumpAndSettle();
+    expect(usesHoverColor(team), isTrue);
+    expect(usesHoverColor(account), isFalse);
+
+    await mouse.moveTo(tester.getCenter(account));
+    await tester.pump();
+    expect(usesHoverColor(team), isFalse);
+    expect(usesHoverColor(account), isTrue);
   });
 
   testWidgets('reference icon collapse hides the Projects group', (
