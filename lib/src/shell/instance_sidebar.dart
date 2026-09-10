@@ -889,6 +889,7 @@ class _SectionState extends State<_Section> {
           loading: destination.id == widget.loadingDestinationId,
           badge: widget.badgeFor(destination.id),
           submenu: submenu,
+          iconSize: section.id.startsWith('custom-') ? 12 : 16,
           onTap: destination.onTap ?? () => widget.onSelect(destination),
         );
       }
@@ -1060,6 +1061,7 @@ class _DestinationTile extends StatelessWidget {
     this.loading = false,
     required this.badge,
     this.submenu = false,
+    this.iconSize = 16,
     required this.onTap,
   });
   final SidebarDestination destination;
@@ -1067,6 +1069,7 @@ class _DestinationTile extends StatelessWidget {
   final bool loading;
   final SidebarBadge badge;
   final bool submenu;
+  final double iconSize;
   final VoidCallback onTap;
 
   Widget _prefixArt(BuildContext context, Color foreground) {
@@ -1133,7 +1136,7 @@ class _DestinationTile extends StatelessWidget {
 
     return DIcon(
       destination.icon,
-      size: 16.0,
+      size: iconSize,
       color: destination.iconColor ?? foreground,
     );
   }

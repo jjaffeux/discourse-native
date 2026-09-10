@@ -4778,6 +4778,31 @@
           "candidateCommit": "42dc82c10faf829c9171acf56d60f2bef32f5b7a",
           "mergeCommit": "c62ba9936dde55f5ea8b01627528952bad813aa2",
           "mergedAt": "2026-09-10T14:39:17.951414+00:00"
+        },
+        "customChildIconsFollowUp": {
+          "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+          "branch": "codex/sidebar-custom-child-icons",
+          "mainBaseline": "65010094e8e5dc2af4bef1bcbd0e92dd8fe173ad",
+          "status": "accepted",
+          "dependencies": [
+            "sidebar"
+          ],
+          "acceptance": [
+            "Reduce icons in server-supplied custom sections from size 16 to 12 using DIcon.",
+            "Preserve the icon column, labels, row hit areas, disclosure arrows and other navigation artwork.",
+            "Verify focused sidebar checks and native fixture, then merge from the main checkout."
+          ],
+          "reviewStatus": "accepted",
+          "implementationCommit": "ecc1c7bf9d0d2ae48f827fab937f2f7fb66530a0",
+          "nativeInspectionStatus": "completed",
+          "evidence": "docs/component-library/sidebar-main-migration.md#custom-child-icon-follow-up--2026-09-10",
+          "buildEvidence": "docs/component-library/evidence/sidebar/custom-child-icons-review-build.json",
+          "verification": [
+            "111 existing shell navigation and sidebar width checks passed, seed 9102026; /tmp/sidebar-custom-child-icons-tests.log.",
+            "Root dart analyze --fatal-infos and touched-file formatting passed; /tmp/sidebar-custom-child-icons-analysis.log.",
+            "Native macOS production fixture inspected at 208px light/dark and 390px dark with an iOS target, all at 100% text. No physical iOS/Linux or spoken screen reader verification.",
+            "Original progress history and other owners preserved; no generic component API changed."
+          ]
         }
       }
     },

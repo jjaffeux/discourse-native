@@ -1,0 +1,33 @@
+{
+  "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+  "sourceCommit": "ecc1c7bf9d0d2ae48f827fab937f2f7fb66530a0",
+  "entrypoint": "tool/sidebar_review_main.dart",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/dce5/discourse-native/build/macos/Build/Products/Debug/Sidebar Review dce5.app",
+  "bundleIdentifier": "org.discourse.sidebarreviewdce5.dev",
+  "buildLog": "/tmp/sidebar-custom-child-icons-native-build.log",
+  "runnerRestored": true,
+  "deepStrictSignatureVerified": true,
+  "actualLaunchVerified": true,
+  "entitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "sourceSha256": {
+    "lib/src/shell/instance_sidebar.dart": "58f6c5c2e5397e05293668afc958082ad7689a7f493af76263c1faa82e871561",
+    "lib/src/theme/d_icon.dart": "80a1b96f18ffc72b8074c5308edc6416497ad515461803eb6d111e1c252fed2f",
+    "lib/src/ui/components/d_sidebar.dart": "8c9a38739fb0817151c0c079ed3a864e2a31a17d64911004d5aa163cc14ff9aa",
+    "tool/sidebar_review_main.dart": "4c19952ea0eadfdf0dd7da133b18baee12ee5f539096d1dbe5e1475902d720ae"
+  },
+  "kernelSha256": "e1959ca9c92d94938c2f9d186118d17b3feb731cda65674f89c3455f77932f32",
+  "checks": [
+    "Native macOS production fixture, light/dark 208px desktop at 100%: custom link icons render at size 12, retaining the standard column and label alignment.",
+    "Dark 390px iOS-target fixture at 100%: smaller custom icon fits the existing touch row and remains centered in its leading column.",
+    "Section disclosure and all primary navigation artwork retain their previous size."
+  ],
+  "limitations": [
+    "The compact fixture runs on macOS; no physical iOS/Linux or spoken screen reader verification."
+  ],
+  "cleanup": "Owned app quit and absence verified through CUA; desktop lease released."
+}
