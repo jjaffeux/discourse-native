@@ -301,3 +301,30 @@ Return reopens Direct messages with visible keyboard focus.
 records exact source, kernel and cleanup. No physical iOS/Linux or spoken
 screen reader verification was performed. Local merge history is stored in
 `chatHeaderTooltipsFollowUp` under the existing Sidebar progress row.
+
+## All header tooltips follow-up — 2026-09-10
+
+The user extended the request to every sidebar section, including custom
+sections, Categories and Voice rooms. The shell now renders disclosure buttons
+without a tooltip wrapper. The preceding Chat-specific `showHeaderTooltip`
+option and its model copies are no longer needed and were removed. Native
+menu buttons still own their accessible Expand/Collapse labels, expanded state
+and keyboard activation; independent section actions retain their tooltips.
+The public component library is unchanged.
+
+Existing tests now locate the menu buttons directly. The custom-section
+navigation check hovers expanded Projects/Categories and collapsed Projects,
+then reopens Projects with Enter. All 252 focused Chat, shell, width and
+section-store checks pass, with fatal-info root analysis and formatting clean
+(`/tmp/sidebar-no-header-tooltips-tests.log` and
+`/tmp/sidebar-no-header-tooltips-analysis.log`, seed 9102026).
+
+Native macOS inspection covered the real production fixture at 208px in
+light/dark at 100%, plus a dark 200% wrapped disclosure. Collapsed section
+headers display no popup under the pointer. Return reopens the Voice-style
+section with visible focus, and its independent plus action increments local
+feedback while the section stays collapsed. Full labels remain in native AX.
+[Build evidence](evidence/sidebar/all-header-tooltips-review-build.json)
+records source, kernel and cleanup. No physical iOS/Linux or spoken screen
+reader verification was performed. The local merge is recorded in
+`allHeaderTooltipsFollowUp` under the existing Sidebar progress row.
