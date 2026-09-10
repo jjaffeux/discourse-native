@@ -2267,7 +2267,7 @@ class _TopicBottomBar extends StatelessWidget {
                             label: const Text('Reply'),
                             tooltip: 'Reply to this topic',
                             shortcut: const DShortcut(topicReplyShortcut),
-                            variant: DButtonVariant.outline,
+                            variant: DButtonVariant.standard,
                             size: DButtonSize.small,
                           ),
                         if (showBookmark)
@@ -2275,14 +2275,14 @@ class _TopicBottomBar extends StatelessWidget {
                             siteUrl: siteUrl!,
                             topic: topic!,
                             busy: bookmarkBusy,
-                            variant: DButtonVariant.outline,
+                            variant: DButtonVariant.standard,
                           ),
                         if (showNotifications)
                           TopicNotificationLevelButton(
                             siteUrl: siteUrl!,
                             topic: topic!,
                             showLabel: constraints.maxWidth >= 580,
-                            variant: DButtonVariant.outline,
+                            variant: DButtonVariant.standard,
                           ),
                       ],
                     ),
