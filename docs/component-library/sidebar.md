@@ -204,3 +204,12 @@ scrolling, fixed header/footer placement and lazy viewport ownership remain.
 including rendered-pixel checks, wheel/touch/keyboard scrolling and retained
 position when scrollbar visibility changes. Root and full-profile analysis
 and the macOS debug build passed.
+
+After integrating the accepted section rows, 250 shell-navigation, sidebar-width
+and chat-shell tests passed. The rebuilt isolated macOS fixture at `d38d5cf7`
+showed the production sidebar without a scrollbar in light/dark themes; wheel
+scrolling moved its destinations normally. The styleguide navigation also hid
+its scrollbar, and its new Hidden scrollbar example scrolled without revealing
+a thumb. That example was checked at desktop width and in the 390px light
+preview. The narrow preview used an iOS theme override on macOS; no iOS device
+run is claimed.
