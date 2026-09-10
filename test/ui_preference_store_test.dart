@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/data/composer_geometry_store.dart';
+import 'package:discourse_native/src/data/composer_layout_store.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:discourse_native/src/data/topic_sidebar_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
@@ -23,21 +23,16 @@ void main() {
     await diagnostics.close();
   });
 
-  test('reports a rejected composer geometry write without failing', () async {
-    final persistence = _RejectingComposerGeometryPersistence();
-    const geometry = ComposerGeometryPreference(
-      width: 760,
-      height: 320,
-      horizontalPosition: 0.5,
-      verticalPosition: 1,
-    );
+  test('reports a rejected composer layout write without failing', () async {
+    final persistence = _RejectingComposerLayoutPersistence();
+    const geometry = ComposerLayoutPreference(sideWidth: 760);
 
-    await ComposerGeometryStore(persistence: persistence).write(geometry);
+    await ComposerLayoutStore(persistence: persistence).write(geometry);
 
     expect(persistence.encodedGeometry, isNotNull);
     expect(
       diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-      _isRejectedStorageWrite('composer.writeGeometry'),
+      _isRejectedStorageWrite('composer.writeLayout'),
     );
   });
 
@@ -87,15 +82,15 @@ Matcher _isRejectedStorageWrite(String operation) => isA<ErrorDiagnosticEvent>()
     .having((event) => event.handled, 'handled', isTrue)
     .having((event) => event.degraded, 'degraded', isTrue);
 
-final class _RejectingComposerGeometryPersistence
-    implements ComposerGeometryPersistence {
+final class _RejectingComposerLayoutPersistence
+    implements ComposerLayoutPersistence {
   String? encodedGeometry;
 
   @override
-  Future<String?> readGeometry() async => null;
+  Future<String?> readLayout() async => null;
 
   @override
-  Future<bool> writeGeometry(String encoded) async {
+  Future<bool> writeLayout(String encoded) async {
     encodedGeometry = encoded;
     return false;
   }

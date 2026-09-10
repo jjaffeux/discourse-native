@@ -95,9 +95,9 @@ abstract interface class PluginNavigationHost {
   NotificationTotals? get currentTotals;
   PluginVisibleTopicContext? get visibleTopicContext;
 
-  /// The painted bounds of the shell's floating composer in global logical
-  /// coordinates, or null when no composer is visible.
-  Rect? get floatingComposerBounds;
+  /// Remaining reader bounds in main-view global logical coordinates,
+  /// excluding shell navigation and a docked composer.
+  Rect? get readerContentBounds;
 
   void selectInstance(int index);
   void pushContent(ContentRoute route);

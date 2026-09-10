@@ -253,7 +253,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final handle = find.byKey(const ValueKey('diagnostics-resize-handle'));
-    expect(tester.getSize(handle).width, diagnosticsPanelResizeHandleWidth);
+    // This test uses Android's coarse pointer metrics, even at desktop width.
+    expect(tester.getSize(handle).width, 48);
     final node = tester.getSemantics(handle);
     final data = node.getSemanticsData();
     expect(data.label, 'Resize diagnostics panel');

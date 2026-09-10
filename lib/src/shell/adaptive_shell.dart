@@ -17,8 +17,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
-import 'composer_controller.dart';
-import 'composer_panel.dart';
+import 'composer_presentation.dart';
 import 'diagnostics_panel.dart';
 import 'empty_state.dart';
 import 'instance_actions.dart';
@@ -342,7 +341,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           return true;
         },
       },
-      child: _buildShell(context),
+      child: ComposerPresentationHost(child: _buildShell(context)),
     );
   }
 
@@ -432,7 +431,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 ),
               ),
               ...PluginScope.of(context).registry.shellOverlays(context),
-              const Positioned.fill(child: _ComposerViewportOverlay()),
             ],
           );
 
@@ -539,26 +537,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         if (!didPop && diagnostics.isPanelOpen) diagnostics.closePanel();
       },
       child: child,
-    );
-  }
-}
-
-class _ComposerViewportOverlay extends StatelessWidget {
-  const _ComposerViewportOverlay();
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
-    return ShellSelector<ComposerController?>(
-      select: (controller) => controller.visibleComposer,
-      builder: (context, composer, _) => composer == null
-          ? const SizedBox.shrink()
-          : FloatingComposerPanel(
-              key: ObjectKey(composer),
-              composer: composer,
-              onGeometryChanged: (bounds) =>
-                  shell.reportFloatingComposerBounds(composer, bounds),
-            ),
     );
   }
 }
@@ -839,53 +817,57 @@ class _CompactShell extends StatelessWidget {
                       pane: controller.mobilePane,
                       rootMode: controller.rootMode,
                     ),
-                    builder: (context, state, _) => AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: _slide,
-                      child: switch ((
-                        state.loadStatus,
-                        state.hasInstances,
-                        state.pane,
-                        state.rootMode,
-                      )) {
-                        (InstanceLoadStatus.loading, _, _, _) =>
-                          const _ShellLoadProgress(),
-                        (InstanceLoadStatus.failed, _, _, _) =>
-                          const _ShellLoadFailure(),
-                        (InstanceLoadStatus.ready, false, _, _) =>
-                          const EmptyState(key: ValueKey(MobilePane.sidebar)),
-                        (
-                          InstanceLoadStatus.ready,
-                          true,
-                          _,
-                          ShellRootMode.aggregate,
-                        ) =>
-                          const AggregateView(
-                            key: ValueKey(ShellRootMode.aggregate),
-                          ),
-                        (
-                          InstanceLoadStatus.ready,
-                          true,
-                          MobilePane.sidebar,
-                          ShellRootMode.forum,
-                        ) =>
-                          InstanceSidebar(
-                            key: const ValueKey(MobilePane.sidebar),
-                            showUserMenu: ShellTitleBar.columnsCarryUserMenu,
-                          ),
-                        (
-                          InstanceLoadStatus.ready,
-                          true,
-                          MobilePane.content,
-                          ShellRootMode.forum,
-                        ) =>
-                          const MainContent(
-                            key: ValueKey(MobilePane.content),
-                            layout: ShellLayout.compact,
-                          ),
-                      },
+                    builder: (context, state, _) => ComposerDock(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: _slide,
+                        child: switch ((
+                          state.loadStatus,
+                          state.hasInstances,
+                          state.pane,
+                          state.rootMode,
+                        )) {
+                          (InstanceLoadStatus.loading, _, _, _) =>
+                            const _ShellLoadProgress(),
+                          (InstanceLoadStatus.failed, _, _, _) =>
+                            const _ShellLoadFailure(),
+                          (InstanceLoadStatus.ready, false, _, _) =>
+                            const EmptyState(key: ValueKey(MobilePane.sidebar)),
+                          (
+                            InstanceLoadStatus.ready,
+                            true,
+                            _,
+                            ShellRootMode.aggregate,
+                          ) =>
+                            const AggregateView(
+                              key: ValueKey(ShellRootMode.aggregate),
+                            ),
+                          (
+                            InstanceLoadStatus.ready,
+                            true,
+                            MobilePane.sidebar,
+                            ShellRootMode.forum,
+                          ) =>
+                            InstanceSidebar(
+                              key: const ValueKey(MobilePane.sidebar),
+                              showUserMenu: ShellTitleBar.columnsCarryUserMenu,
+                            ),
+                          (
+                            InstanceLoadStatus.ready,
+                            true,
+                            MobilePane.content,
+                            ShellRootMode.forum,
+                          ) =>
+                            MainContent(
+                              key: ComposerPresentationHost.contentKeyOf(
+                                context,
+                              ),
+                              layout: ShellLayout.compact,
+                            ),
+                        },
+                      ),
                     ),
                   ),
             ),
@@ -969,7 +951,16 @@ class _WideShell extends StatelessWidget {
                               dividerWidth: 1,
                               child: const InstanceSidebar(),
                             ),
-                            Expanded(child: MainContent(layout: layout)),
+                            Expanded(
+                              child: ComposerDock(
+                                child: MainContent(
+                                  key: ComposerPresentationHost.contentKeyOf(
+                                    context,
+                                  ),
+                                  layout: layout,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         InstanceLoadStatus.ready => const EmptyState(),

@@ -1,8 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-
-import '../../discourse_ui.dart';
 
 import 'adaptive_dialog_action.dart';
 import 'composer_controller.dart';
@@ -15,11 +14,20 @@ Future<void> closeComposerFromPanel({
   ShellController? controller,
 }) async {
   final shell = controller ?? ShellScope.read(context);
-  if (composer.discarding || composer.closing) return;
+  if (composer.isDisposed || composer.discarding || composer.closing) return;
+  if (_hasPendingOperation(composer)) {
+    if (context.mounted) _showDiscardError(context, _pendingOperationMessage);
+    return;
+  }
   if (composer.canSaveDraft) {
-    if (!shell.hideComposerForClose(composer)) return;
-    if (!await shell.finishComposerDraftRestore(composer)) {
-      shell.restoreComposerAfterFailedClose(composer);
+    if (!await shell.prepareComposerForClose(composer)) {
+      if (context.mounted) {
+        DToast.show(
+          context,
+          'This draft could not be saved yet. Please try again.',
+          type: DToastType.error,
+        );
+      }
       return;
     }
     if (composer.hasUnappliedDraft && !composer.hasChanges) {
@@ -38,7 +46,7 @@ Future<void> closeComposerFromPanel({
     return;
   }
   if (!context.mounted) return;
-  if (!composer.hasChanges) {
+  if (!composer.hasChanges && !composer.metadataChanged) {
     shell.closeComposer(composer: composer);
     return;
   }
@@ -56,34 +64,56 @@ Future<void> requestComposerDiscard({
   ShellController? controller,
 }) async {
   final shell = controller ?? ShellScope.read(context);
-  if (composer.discarding ||
-      (composer.canSaveDraft &&
-          !await shell.finishComposerDraftRestore(composer))) {
+  if (composer.isDisposed || composer.discarding || composer.closing) return;
+  if (_hasPendingOperation(composer)) {
+    if (context.mounted) _showDiscardError(context, _pendingOperationMessage);
     return;
   }
-  if (!context.mounted) return;
+  if (composer.canSaveDraft &&
+      !await shell.finishComposerDraftRestore(composer)) {
+    return;
+  }
+  if (!context.mounted || composer.isDisposed) return;
+  if (_hasPendingOperation(composer)) {
+    _showDiscardError(context, _pendingOperationMessage);
+    return;
+  }
   if (composer.hasUnappliedDraft && !composer.hasChanges) {
     shell.closeComposer(composer: composer);
     return;
   }
-  if (!composer.hasChanges) {
+  if (!composer.hasChanges && !composer.metadataChanged) {
     final error = await shell.discardComposer(composer);
     if (error != null && context.mounted) _showDiscardError(context, error);
     return;
   }
 
   if (!composer.beginDiscardPrompt()) return;
+  final revision = composer.draftRevision;
   try {
     await showDiscourseDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (dialogContext) =>
-          _DiscardComposerDialog(composer: composer, controller: shell),
+      builder: (dialogContext) => _DiscardComposerDialog(
+        composer: composer,
+        controller: shell,
+        confirmedRevision: revision,
+      ),
     );
   } finally {
     composer.finishDiscardPrompt();
   }
 }
+
+const _pendingOperationMessage =
+    'Finish the current operation before closing this draft.';
+
+bool _hasPendingOperation(ComposerController composer) =>
+    composer.submitting ||
+    composer.discarding ||
+    composer.loadingBody ||
+    composer.hasActiveUploads ||
+    composer.state == ComposerState.checking;
 
 void _showDiscardError(BuildContext context, String error) {
   DToast.show(context, error, type: DToastType.error);
@@ -93,10 +123,12 @@ class _DiscardComposerDialog extends StatefulWidget {
   const _DiscardComposerDialog({
     required this.composer,
     required this.controller,
+    required this.confirmedRevision,
   });
 
   final ComposerController composer;
   final ShellController controller;
+  final int confirmedRevision;
 
   @override
   State<_DiscardComposerDialog> createState() => _DiscardComposerDialogState();
@@ -109,6 +141,18 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
 
   Future<void> _discard() async {
     if (_discarding) return;
+    if (_hasPendingOperation(widget.composer)) {
+      setState(() => _error = _pendingOperationMessage);
+      return;
+    }
+    if (widget.composer.draftRevision != widget.confirmedRevision) {
+      setState(() {
+        _error =
+            'This draft changed while the confirmation was open. '
+            'Cancel, review it, and try again.';
+      });
+      return;
+    }
     setState(() {
       _discarding = true;
       _error = null;

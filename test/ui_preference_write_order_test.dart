@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:discourse_native/src/data/composer_geometry_store.dart';
+import 'package:discourse_native/src/data/composer_layout_store.dart';
 import 'package:discourse_native/src/data/serial_operation_queue.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -49,14 +49,14 @@ void main() {
     },
   );
 
-  test('composer geometry persists the latest requested preference', () async {
-    final persistence = _ControlledComposerGeometryPersistence();
-    final firstStore = ComposerGeometryStore(persistence: persistence);
-    final replacementStore = ComposerGeometryStore(persistence: persistence);
+  test('composer layout persists the latest requested preference', () async {
+    final persistence = _ControlledComposerLayoutPersistence();
+    final firstStore = ComposerLayoutStore(persistence: persistence);
+    final replacementStore = ComposerLayoutStore(persistence: persistence);
 
-    final firstWrite = firstStore.write(_geometry(width: 640));
+    final firstWrite = firstStore.write(_layout(sideWidth: 640));
     await persistence.firstWriteStarted.future;
-    final secondWrite = replacementStore.write(_geometry(width: 720));
+    final secondWrite = replacementStore.write(_layout(sideWidth: 720));
     final replacementRead = replacementStore.read();
     await Future<void>.delayed(Duration.zero);
 
@@ -68,7 +68,7 @@ void main() {
 
     expect(persistence.attemptedWidths, [640, 720]);
     expect(persistence.persistedWidth, 720);
-    expect((await replacementRead)?.width, 720);
+    expect((await replacementRead).sideWidth, 720);
     expect(persistence.reads, 1);
   });
 
@@ -107,16 +107,11 @@ void main() {
   });
 }
 
-ComposerGeometryPreference _geometry({required double width}) =>
-    ComposerGeometryPreference(
-      width: width,
-      height: 320,
-      horizontalPosition: 0.5,
-      verticalPosition: 1,
-    );
+ComposerLayoutPreference _layout({required double sideWidth}) =>
+    ComposerLayoutPreference(sideWidth: sideWidth);
 
-final class _ControlledComposerGeometryPersistence
-    implements ComposerGeometryPersistence {
+final class _ControlledComposerLayoutPersistence
+    implements ComposerLayoutPersistence {
   final firstWriteStarted = Completer<void>();
   final finishFirstWrite = Completer<void>();
   final List<double> attemptedWidths = [];
@@ -124,23 +119,23 @@ final class _ControlledComposerGeometryPersistence
   int reads = 0;
 
   @override
-  Future<String?> readGeometry() async {
+  Future<String?> readLayout() async {
     reads++;
     final width = persistedWidth;
-    return width == null ? null : jsonEncode(_geometry(width: width).toJson());
+    return width == null
+        ? null
+        : jsonEncode(_layout(sideWidth: width).toJson());
   }
 
   @override
-  Future<bool> writeGeometry(String encoded) async {
-    final preference = ComposerGeometryPreference.fromJson(
-      jsonDecode(encoded),
-    )!;
-    attemptedWidths.add(preference.width);
+  Future<bool> writeLayout(String encoded) async {
+    final preference = ComposerLayoutPreference.fromJson(jsonDecode(encoded))!;
+    attemptedWidths.add(preference.sideWidth);
     if (attemptedWidths.length == 1) {
       firstWriteStarted.complete();
       await finishFirstWrite.future;
     }
-    persistedWidth = preference.width;
+    persistedWidth = preference.sideWidth;
     return true;
   }
 }
