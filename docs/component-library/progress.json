@@ -4836,6 +4836,35 @@
           "candidateCommit": "63db6c8cfc0af6f08661faff89ba1bc0f38392f9",
           "mergeCommit": "16fc134ee38675ae51a4f498c854e218de9912fd",
           "mergedAt": "2026-09-10T15:46:10.663620+00:00"
+        },
+        "allHeaderTooltipsFollowUp": {
+          "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+          "branch": "codex/sidebar-no-header-tooltips",
+          "mainBaseline": "62906e34b7c6b67d1bb351b1cbc4f20ce612fe4e",
+          "status": "accepted",
+          "dependencies": [
+            "sidebar"
+          ],
+          "acceptance": [
+            "Remove disclosure tooltips from all sidebar section headers, including custom sections, Categories and Voice rooms.",
+            "Keep Native disclosure semantics, keyboard activation, collapsed state and independently named action buttons.",
+            "Verify affected navigation and the native fixture before merging from the main checkout."
+          ],
+          "reviewStatus": "accepted",
+          "implementationCommit": "783c4101791796c23fb99f2f94276151a8cc68c6",
+          "nativeInspectionStatus": "completed",
+          "evidence": "docs/component-library/sidebar-main-migration.md#all-header-tooltips-follow-up--2026-09-10",
+          "buildEvidence": "docs/component-library/evidence/sidebar/all-header-tooltips-review-build.json",
+          "verification": [
+            "All 252 focused Chat/shell/width/section-store tests pass, seed 9102026; /tmp/sidebar-no-header-tooltips-tests.log.",
+            "Root dart analyze --fatal-infos and touched-file formatting pass; /tmp/sidebar-no-header-tooltips-analysis.log.",
+            "Native macOS production fixture at 208px light/dark, 100%/200% text: no disclosure popups; Return activation, accessible names and independent plus action verified.",
+            "Removed the shell disclosure tooltip wrapper and obsolete Chat-specific model option; no generic component API changed.",
+            "Other progress records and original Sidebar review history preserved."
+          ],
+          "limitations": [
+            "No physical iOS/Linux or spoken screen reader verification."
+          ]
         }
       }
     },

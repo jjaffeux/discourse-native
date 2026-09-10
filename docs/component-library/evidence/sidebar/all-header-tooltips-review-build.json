@@ -1,0 +1,37 @@
+{
+  "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+  "sourceCommit": "783c4101791796c23fb99f2f94276151a8cc68c6",
+  "entrypoint": "tool/sidebar_review_main.dart",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/dce5/discourse-native/build/macos/Build/Products/Debug/Sidebar Review dce5.app",
+  "bundleIdentifier": "org.discourse.sidebarreviewdce5.dev",
+  "buildLog": "/tmp/sidebar-no-header-tooltips-native-build.log",
+  "runnerRestored": true,
+  "deepStrictSignatureVerified": true,
+  "actualLaunchVerified": true,
+  "entitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "sourceSha256": {
+    "lib/src/models/sidebar.dart": "725f13038aef2c2d6c5da88fec815ae6d292ac17477f92a832fe5f3d250fd0f4",
+    "lib/src/models/discourse_instance.dart": "2bc11fd85fcb2f0ba8db6d8808c1c61c7245a258912619dc32e1ff130ff5a80a",
+    "lib/src/plugin_api/plugin_registry.dart": "cc2e4475c8e1a8be1d0cb1eb8a9b28189ffcf81f62dd52a961986e10eed63d62",
+    "lib/src/plugins/chat/chat_plugin.dart": "0bf4dd1cc38a90f734eec435e420c3e2e333a131722d7be050742491857267e6",
+    "lib/src/shell/instance_sidebar.dart": "98db4b8c2020a5a169a499f79fed44a1693c7a711f1763b8429ef7de385f777b",
+    "lib/src/ui/components/d_sidebar.dart": "8c9a38739fb0817151c0c079ed3a864e2a31a17d64911004d5aa163cc14ff9aa",
+    "tool/sidebar_review_main.dart": "3f300e644314618f1245b79a7e9433f75c8b76251b7c7e0425b89662d0da71d5"
+  },
+  "kernelSha256": "a51ff9247941daefe353efc57d9b93d36f07cf0b2acc06e700aca3544c564550",
+  "checks": [
+    "Native macOS production fixture, 208px light/dark at 100%: collapsed custom, Voice-style and Categories headers show no disclosure popup under the pointer.",
+    "Return reopens the Voice-style section with visible keyboard focus and its full accessible name.",
+    "The independent plus action retains its tooltip and increments local feedback without expanding its section.",
+    "At 200% text in dark mode, the wrapped Teach Lead Calls header collapses without a popup and retains its full native accessibility label."
+  ],
+  "limitations": [
+    "No physical iOS/Linux or spoken screen reader verification."
+  ],
+  "cleanup": "Owned app quit and absence verified through CUA; desktop lease released."
+}

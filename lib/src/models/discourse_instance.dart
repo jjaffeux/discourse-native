@@ -263,7 +263,6 @@ class DiscourseInstance {
           id: community.id,
           title: community.title,
           showHeader: community.showHeader,
-          showHeaderTooltip: community.showHeaderTooltip,
           collapsible: community.collapsible,
           destinations: community.destinations,
           moreDestinations: _communityMoreDestinations(
@@ -361,7 +360,6 @@ class DiscourseInstance {
             if (!hidden.contains(destination.id)) destination,
         ],
         showHeader: section.showHeader,
-        showHeaderTooltip: section.showHeaderTooltip,
         collapsible: section.collapsible,
         actionIcon: section.actionIcon,
         actionLabel: section.actionLabel,

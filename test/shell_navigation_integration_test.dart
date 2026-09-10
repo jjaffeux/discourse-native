@@ -1622,7 +1622,7 @@ void _registerShellNavigationTests() {
     expect(count.style.fontWeight, FontWeight.w500);
 
     final projectsChevron = find.descendant(
-      of: find.byTooltip('Collapse Projects'),
+      of: projectsHeader,
       matching: find.byWidgetPredicate(
         (widget) => widget is DIcon && widget.icon == DIcons.chevronDown,
       ),
@@ -1632,13 +1632,30 @@ void _registerShellNavigationTests() {
       lessThan(tester.getRect(find.text('Projects')).left),
     );
 
-    await tester.tap(find.byTooltip('Collapse Projects'));
-    await tester.pumpAndSettle();
-    expect(sidebarDestination('Roadmap'), findsNothing);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    try {
+      for (final title in ['Projects', 'Categories']) {
+        await mouse.moveTo(
+          tester.getCenter(find.widgetWithText(DSidebarMenuButton, title)),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Collapse $title'), findsNothing);
+      }
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    expect(sidebarDestination('Roadmap'), findsOneWidget);
+      await tester.tap(projectsHeader);
+      await tester.pumpAndSettle();
+      expect(sidebarDestination('Roadmap'), findsNothing);
+      await mouse.moveTo(tester.getCenter(projectsHeader));
+      await tester.pumpAndSettle();
+      expect(find.text('Expand Projects'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(sidebarDestination('Roadmap'), findsOneWidget);
+    } finally {
+      await mouse.removePointer();
+    }
 
     await tester.tap(sidebarDestination('Roadmap'));
     await tester.pumpAndSettle();
@@ -1870,7 +1887,10 @@ void _registerShellNavigationTests() {
       authenticator: auth,
     );
 
-    expect(find.byTooltip('Collapse Categories'), findsOneWidget);
+    expect(
+      find.widgetWithText(DSidebarMenuButton, 'Categories'),
+      findsOneWidget,
+    );
     expect(sidebarDestination('Child'), findsOneWidget);
     expect(sidebarDestination('Parent'), findsNothing);
     expect(sidebarDestination('Not selected'), findsNothing);
@@ -2117,7 +2137,10 @@ void _registerShellNavigationTests() {
 
     expect(api.feedPaths, contains('/latest.json'));
     expect(api.categoryRequests, [site.url]);
-    expect(find.byTooltip('Collapse Categories'), findsOneWidget);
+    expect(
+      find.widgetWithText(DSidebarMenuButton, 'Categories'),
+      findsOneWidget,
+    );
     expect(sidebarDestination('Support'), findsOneWidget);
   });
 
@@ -2481,7 +2504,7 @@ void _registerShellNavigationTests() {
     await pumpShell(tester, desktop);
 
     expect(find.text('COMMUNITY'), findsNothing);
-    expect(find.byTooltip('Collapse Community'), findsNothing);
+    expect(find.widgetWithText(DSidebarMenuButton, 'Community'), findsNothing);
     final topics = sidebarDestination('Topics');
     expect(topics, findsOneWidget);
 
