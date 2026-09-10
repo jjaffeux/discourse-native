@@ -13,7 +13,11 @@ upstream component catalogue is unchanged.
 
 - Category filters search their local categories and can expose All categories
   or All subcategories. The composer supplies asynchronous, permission-filtered
-  category search and full parent-path labels.
+  category search and full parent-path labels. It also uses a second instance
+  for the selected parent's creatable subcategories, filtered locally like the
+  topics list. Selecting a child keeps the parent and child in separate controls.
+  `clearSelectionLabel: 'No subcategory'` restores the parent when posting there
+  is allowed. Changing either value rechecks the category's tag requirements.
 - Tag filters support single or multiple selection, All tags and known-tag
   fallback. The composer supplies category-scoped search, selected tags and
   creation/limit capabilities. Selected tags remain available for removal.
@@ -55,3 +59,25 @@ button adoption. Root analysis remained clean.
 Merged locally into main from the main checkout with `--no-ff`:
 `44becaad5af517e9c34bbd00debe82af84108ada`. The merge tree matches the tested
 integration candidate exactly.
+
+## Composer subcategories follow-up
+
+The composer now shows the shared subcategory selector for parents with known
+creatable children, including an already selected child. The parent menu keeps
+full-path search so children of parents that cannot accept topics remain
+reachable. Replacing the parent retires the child popup; the actual selected
+child ID remains the draft/submission category and the tag-search scope.
+The Composer categories styleguide example demonstrates the paired controls.
+
+All 98 focused tests passed with seed `38126`, including selection/clearing,
+parent switching, popup retirement, posting permissions, tag revalidation and
+requirements, narrow composer geometry, and both styleguide controls at 320px
+with 200% text. Root `dart analyze` reported no issues.
+
+The real composer and updated styleguide were inspected in an isolated macOS
+debug fixture. Native checks covered searching a subcategory and selecting it
+with Enter, restoring the parent, changing parents and selecting another child,
+Escape dismissal, and a light 320px layout as well as the dark wide layout.
+The styleguide's subcategory choice updated independently of its parent. The
+app was quit and the desktop lease released after review. Enlarged text and
+touch-platform behavior were widget tests, not device sessions.

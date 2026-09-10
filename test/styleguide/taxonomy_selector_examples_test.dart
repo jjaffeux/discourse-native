@@ -3,6 +3,7 @@ import 'package:discourse_native/src/styleguide/examples/taxonomy_selector_examp
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -40,7 +41,10 @@ void main() {
         find.byKey(ValueKey('styleguide-component-${entry.id}')),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(entry.type), findsNWidgets(3));
+      expect(
+        find.byType(entry.type),
+        findsNWidgets(entry.id == 'category-selector' ? 4 : 3),
+      );
       final trigger = find.descendant(
         of: find.byType(entry.type).first,
         matching: find.byType(DButton),
@@ -93,12 +97,20 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DButton));
-      await tester.pumpAndSettle();
-      final popup = tester.getRect(find.byType(DComboboxContent));
-      expect(popup.left, greaterThanOrEqualTo(0));
-      expect(popup.right, lessThanOrEqualTo(320));
-      expect(tester.takeException(), isNull);
+      final controls = find.byType(DButton);
+      for (var index = 0; index < controls.evaluate().length; index++) {
+        await tester.tap(controls.at(index));
+        await tester.pumpAndSettle();
+        final popup = tester.getRect(find.byType(DComboboxContent));
+        expect(popup.left, greaterThanOrEqualTo(0));
+        expect(popup.right, lessThanOrEqualTo(320));
+        expect(tester.takeException(), isNull);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        // Move focus off the restored trigger before testing the next control.
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+      }
     });
   }
 }

@@ -484,10 +484,32 @@ class _TopicTaxonomy extends StatelessWidget {
                   .where((item) => item.id == categoryId)
                   .firstOrNull ??
               shell.categoryFor(categoryId, siteUrl: composer.target.siteUrl);
+          final parent = shell.categoryFor(
+            category?.parentCategoryId,
+            siteUrl: composer.target.siteUrl,
+          );
+          final rootCategory = parent ?? category;
+          final subcategories = rootCategory == null
+              ? const <TopicCategory>[]
+              : state.categories
+                    .where(
+                      (item) =>
+                          item.parentCategoryId == rootCategory.id &&
+                          item.canCreateTopic,
+                    )
+                    .toList();
           bool canEdit() =>
               !composer.isDisposed &&
               composer.isEditing &&
               identical(shell.visibleComposer, composer);
+          void selectCategory(TopicCategory? selected) {
+            if (canEdit() &&
+                selected != null &&
+                selected.id != composer.categoryId) {
+              unawaited(shell.changeComposerCategory(composer, selected.id));
+            }
+          }
+
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Align(
@@ -505,7 +527,7 @@ class _TopicTaxonomy extends StatelessWidget {
                         valueKey: const ValueKey('composer-category'),
                         siteUrl: composer.target.siteUrl,
                         categories: state.categories,
-                        selected: category,
+                        selected: rootCategory,
                         placeholder: 'Choose a category',
                         labelFor: (category) => shell.topicCategoryPathLabel(
                           category,
@@ -518,17 +540,30 @@ class _TopicTaxonomy extends StatelessWidget {
                                 ))
                                 .where((category) => category.canCreateTopic)
                                 .toList(),
+                        onSelected: composer.isEditing ? selectCategory : null,
+                      ),
+                    ),
+                  if (!composer.target.isTagsEdit &&
+                      rootCategory != null &&
+                      (subcategories.isNotEmpty || parent != null))
+                    SizedBox(
+                      key: const ValueKey('composer-subcategory-action'),
+                      child: TopicCategorySelector(
+                        key: ValueKey((composer, rootCategory.id)),
+                        keyPrefix: 'composer-subcategory',
+                        valueKey: const ValueKey('composer-subcategory'),
+                        siteUrl: composer.target.siteUrl,
+                        categories: subcategories,
+                        parent: rootCategory,
+                        selected: parent == null ? null : category,
+                        placeholder: 'Subcategories',
+                        clearSelectionLabel: rootCategory.canCreateTopic
+                            ? 'No subcategory'
+                            : null,
                         onSelected: composer.isEditing
-                            ? (category) {
-                                if (canEdit() &&
-                                    category != null &&
-                                    category.id != composer.categoryId) {
-                                  unawaited(
-                                    shell.changeComposerCategory(
-                                      composer,
-                                      category.id,
-                                    ),
-                                  );
+                            ? (selected) {
+                                if (composer.categoryId == categoryId) {
+                                  selectCategory(selected ?? rootCategory);
                                 }
                               }
                             : null,
