@@ -62,8 +62,26 @@ class ComponentReference {
     }
   }
 
+  /// The sections rendered by the native styleguide.
+  ///
+  /// Installation is repository-owned, and API reference blocks are omitted
+  /// together with their nested entries.
+  Iterable<ComponentReferenceSection> get documentOutline sync* {
+    var insideApiReference = false;
+    for (final section in outline) {
+      if (section.label == 'Installation') continue;
+      if (section.depth == 0) {
+        insideApiReference = section.label == 'API Reference';
+      }
+      if (!insideApiReference) yield section;
+    }
+  }
+
   bool matches(String query) {
-    final haystack = '$name $id ${sections.join(' ')}'.toLowerCase();
+    final documentedSections = documentOutline
+        .map((section) => section.label)
+        .join(' ');
+    final haystack = '$name $id $documentedSections'.toLowerCase();
     return query
         .toLowerCase()
         .trim()

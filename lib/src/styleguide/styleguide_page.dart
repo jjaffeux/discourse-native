@@ -509,9 +509,8 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     );
   }
 
-  List<ComponentReferenceSection> get _visibleSections => _selected.outline
-      .where((section) => section.label != 'Installation')
-      .toList(growable: false);
+  List<ComponentReferenceSection> get _visibleSections =>
+      _selected.documentOutline.toList(growable: false);
 
   List<List<int>> _assignExamples(
     List<ComponentReferenceSection> sections,
@@ -520,14 +519,12 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     final assignments = List.generate(sections.length, (_) => <int>[]);
     if (sections.isEmpty) return assignments;
 
-    final parents = _sectionParents(sections);
     final fallbackSections = <int>[
       for (var index = 0; index < sections.length; index++)
         if (sections[index].depth == 0 &&
             !const {
               'Usage',
               'Composition',
-              'API Reference',
               'Changelog',
             }.contains(sections[index].label))
           index,
@@ -542,7 +539,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
         sectionIndex < sections.length;
         sectionIndex++
       ) {
-        if (parents[sectionIndex] == 'API Reference') continue;
         final needle = _normalizedSectionLabel(sections[sectionIndex].label);
         final title = _normalizedSectionLabel(example.title);
         final states = example.states.map(_normalizedSectionLabel);
@@ -681,28 +677,13 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       ('Usage', _) =>
         "Import `package:discourse_native/discourse_ui.dart`; the runnable examples on this page use the public native API directly.",
       ('Composition', _) when group?.notes.isNotEmpty == true => group!.notes,
-      ('API Reference', _) =>
-        'The public native API is exported from `package:discourse_native/discourse_ui.dart`. Nested entries map the shadcn parts to their D-prefixed Dart counterparts.',
-      (_, 'API Reference') => _apiReferenceDescription(section.label),
       _ => null,
     };
     if (body == null) return const [];
     return [
       const SizedBox(height: 8),
-      Text(
-        body,
-        style: styleguideText(context, height: 24, muted: true).copyWith(
-          fontFamily: parent == 'API Reference' ? 'JetBrains Mono' : null,
-        ),
-      ),
+      Text(body, style: styleguideText(context, height: 24, muted: true)),
     ];
-  }
-
-  String _apiReferenceDescription(String label) {
-    if (RegExp(r'^[A-Z][A-Za-z0-9]+$').hasMatch(label)) {
-      return 'D$label — native counterpart of the shadcn $label part.';
-    }
-    return '$label — native Dart option documented by the component API.';
   }
 
   Widget _exampleDocumentation(
