@@ -126,7 +126,7 @@ void main() {
         await tester.tap(find.byTooltip('Edit topic category'));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(const ValueKey('topic-category-option-22')),
+          find.byKey(const ValueKey(('topic-category-picker-option', 22))),
         );
         await tester.pumpAndSettle();
         expect(server.requests, hasLength(2));

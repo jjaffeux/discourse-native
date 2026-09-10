@@ -13,13 +13,16 @@ capacity; this change adopts it in the application.
 - Visible tags use `DBadge.link`; the overflow uses `DBadge.action`. The pencil
   and empty-tag action use `DButton`. Clicking a tag still navigates, and the
   pencil/overflow opens editing. Middle-click navigation remains independent.
-- Category and tag editors use `DPopover` on pointer platforms and `DDrawer`
+- Category editing uses the shared `TopicCategorySelector`, also used by the
+  topics list and composer. Its Native Combobox supplies the compact search
+  field, normal-weight option rows, selected checkmark, keyboard navigation and
+  content-sized popup on pointer and touch platforms. Header controls supply
+  their tinted split trigger; category/subcategory removal is a selector option.
+- Tag editors use `DPopover` on pointer platforms and `DDrawer`
   on touch platforms. `TopicTaxonomyPickerAnchor` is application coordination
   for the existing asynchronous result API; Native owns overlay layout,
   dismissal, focus, theme updates and touch targets.
-- `DInput` and `DSeparator` stay above a bounded `DScrollArea`. Category choices
-  use `DCheckbox`, configured category icons and parent-path labels. The
-  remove-category/subcategory action uses `DButton`.
+- Tag search uses `DInput` and `DSeparator` above a bounded `DScrollArea`.
 - Tag choices compose a passive `DItem` with `DCheckbox`. The checkbox's
   `secondary` slot contains the independent browse `DButton`, which stays
   active when selection is disabled or the tag limit has been reached.
@@ -42,7 +45,7 @@ omit their separate browse half when both touch targets cannot fit; read-only
 categories retain navigation on their primary control. Tag overflow preserves
 editing when the pencil cannot fit.
 
-## Verification
+## Initial migration verification
 
 - Formatting, `git diff --check`, and root `flutter analyze --no-pub` passed.
 - 151 focused tests passed across `topic_tag_picker_test`,
@@ -98,3 +101,43 @@ Merged locally into `main` from the main checkout with `--no-ff`: `b0ac5fdf243c3
 The merge tree exactly matches the verified candidate. The later message-inbox
 tab integration left every migrated taxonomy source and the native fixture
 unchanged; final root analysis passed.
+
+
+## Shared category selector correction
+
+The header and sidebar now instantiate `TopicCategorySelector`, the same
+component used by the topic list and composer. The old `TopicCategoryPicker`
+checkbox list and separate asynchronous popup implementation are removed.
+The shared selector supplies its own search field, normal-weight rows,
+selected checkmark and popup that shrinks for short or empty results.
+`triggerBuilder` preserves the header's tinted Native Button Group and its
+independent browse action. Removal reuses the existing `clearSelectionLabel`
+API added by the concurrent composer subcategory change.
+
+The editor keys each selector by the account session, topic and category scope.
+Replacement removes the popup and retires its lookup. Captured callbacks,
+late search results and completed saves cannot mutate a replacement topic or
+clear a newer save. Root-only and parent-specific search, configured category
+icons, immediate persistence and current error toasts remain covered.
+
+Implementation `8ec0305c` was integrated with the concurrent composer
+subcategory and topic footer changes as `9024214f`. All 161 focused tests passed
+across the nine affected test files recorded in `progress.json`; root
+`flutter analyze --no-pub` reported no issues. Coverage includes keyboard
+selection and focus restoration from a custom trigger, compact empty/removal
+menus, stale account/topic callbacks, current errors, independent browsing,
+320px/200% layouts, shared composer filters and the selector styleguide.
+
+
+Native inspection exposed a focus bug during asynchronous subcategory removal:
+Combobox could refocus its closing search input, reopen the popup, and then
+notify its owner during the saving-state rebuild. `0f033b3a` fixes the existing
+closing policy by leaving focus restoration to Popover when `closeOnSelect`
+is true. The generic Combobox regression and the real header fixture regression
+cover selection after input blur, category saving, repeated palette changes,
+320px layout and 200% text. The local fixture now uses `DScrollArea`, matching
+the scrolling reader when enlarged preview content exceeds its window.
+
+Final verification passed 219 distinct tests across 13 affected files, including
+Combobox, its styleguide and group-page consumers. The fixture test's platform
+setup uses the runner's native platform variant. Root analysis is clean.

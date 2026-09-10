@@ -518,6 +518,36 @@
         ],
         "mergeCommit": "b0ac5fdf243c38f4df11daea7d74bea496dae2f4",
         "mergeVerification": "Merged with --no-ff from the main checkout after reconciling current main. Merge tree equals the verified candidate; Native fixture and migrated app sources match the inspected integrated source. Final root analysis passed."
+      },
+      "topicCategorySelectorFollowUp": {
+        "status": "in_progress",
+        "taskId": "01a08d19-7072-7dc2-8a77-2dcebba886b6",
+        "branch": "codex/topic-category-selector",
+        "dependencies": [
+          "button",
+          "button-group",
+          "combobox"
+        ],
+        "acceptanceCriteria": [
+          "Replace the topic header and sidebar category checkbox popup with the existing TopicCategorySelector used by the topics list and composer.",
+          "Preserve category-tinted split buttons, independent browsing, root/subcategory filtering, removal, immediate saves and account/topic ownership.",
+          "Verify category search, keyboard selection, dismissal, stale callbacks, narrow layouts and the actual production header on macOS."
+        ],
+        "evidencePath": "docs/component-library/topic-taxonomy-migration.md",
+        "decisions": [
+          "Compose the existing shared TopicCategorySelector through its Native Combobox trigger builder; retain the header Button Group and custom category colors.",
+          "Reuse the existing clearSelectionLabel API from the concurrent composer subcategory change. The app resolves the destination category; the Native kit is unchanged.",
+          "Remove the old category checkbox popup and lookup owner. Key the selector by its account/topic/search scope and reject retired search/save callbacks, including switching away and back.",
+          "Fix Combobox focus on selection: when closing, let Popover restore trigger focus instead of refocusing the popup input and reopening it during an asynchronous category save."
+        ],
+        "verification": [
+          "219 distinct focused tests passed across 13 files: the nine category migration consumers, the production fixture regression, Native Combobox, Combobox styleguide and group-page consumer. The fixture test was rerun after correcting its test-runner platform teardown.",
+          "Root flutter analyze --no-pub passed with no issues; touched-code formatting and git diff --check passed.",
+          "Built the real production topic_taxonomy_review_main.dart fixture from source 0f033b3a for debug macOS. Final native review pending the shared desktop lease."
+        ],
+        "integrationBranch": "codex/topic-category-selector-final",
+        "implementationCommit": "8ec0305c",
+        "verifiedSourceCommit": "0f033b3a"
       }
     },
     {

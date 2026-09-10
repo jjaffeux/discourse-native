@@ -41,6 +41,56 @@ DCombobox<String> _single({
 );
 
 void main() {
+  testWidgets(
+    'selecting after input blur closes without refocusing the popup',
+    (tester) async {
+      final inputFocus = FocusNode();
+      final controller = DComboboxController<String>();
+      addTearDown(inputFocus.dispose);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _app(
+          DCombobox<String>(
+            controller: controller,
+            focusNode: inputFocus,
+            options: _options,
+            anchor: DComboboxTrigger<String>(
+              builder: (context, trigger) => DButton(
+                label: const Text('Choose framework'),
+                onPressed: trigger.toggle,
+                focusNode: trigger.focusNode,
+              ),
+            ),
+            content: const DComboboxContent(
+              children: [
+                DComboboxInput<String>(
+                  registerAsAnchor: false,
+                  showTrigger: false,
+                ),
+                DComboboxList<String>(),
+              ],
+            ),
+          ),
+          theme: ThemeData(platform: TargetPlatform.macOS),
+        ),
+      );
+      await tester.tap(find.text('Choose framework'));
+      await tester.pumpAndSettle();
+      inputFocus.unfocus();
+      await tester.pump();
+      await tester.tap(find.text('SvelteKit'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(controller.value, 'svelte');
+      expect(controller.isOpen, isFalse);
+      expect(inputFocus.hasFocus, isFalse);
+      expect(
+        tester.widget<DButton>(find.byType(DButton)).focusNode!.hasFocus,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('filters, highlights and selects without leaving the editor', (
     tester,
   ) async {

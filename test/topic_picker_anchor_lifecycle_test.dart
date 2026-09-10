@@ -37,6 +37,7 @@ void main() {
             await harness.pump(tester);
             final state = tester.state(harness.anchor);
             await harness.open(tester);
+            final select = harness.captureSelection(tester);
 
             harness.rebuild(() {
               if (changeSite) {
@@ -49,7 +50,7 @@ void main() {
             expect(tester.state(harness.anchor), same(state));
             expect(state.mounted, isTrue);
 
-            await tester.tap(harness.option);
+            select();
             await tester.pumpAndSettle();
 
             expect(harness.shell.saves, isEmpty);
@@ -76,7 +77,7 @@ void main() {
         harness.selectedTags = const [_mobile];
       });
       await tester.pump();
-      await tester.enterText(harness.query, 'new search');
+      await harness.checkRetiredQuery(tester, 'new search');
       await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
       expect(harness.shell.searches, hasLength(searches));
@@ -90,11 +91,12 @@ void main() {
       await harness.pump(tester);
       final state = tester.state(harness.anchor);
       await harness.open(tester);
+      final select = harness.captureSelection(tester);
 
       harness.shell.reconnect(_siteA);
       await tester.pump();
       expect(tester.state(harness.anchor), same(state));
-      await tester.tap(harness.option);
+      select();
       await tester.pumpAndSettle();
 
       expect(harness.shell.saves, isEmpty);
@@ -121,7 +123,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(harness.option, findsNothing);
 
-      await tester.enterText(harness.query, 'another');
+      await harness.checkRetiredQuery(tester, 'another');
       await tester.pumpAndSettle(const Duration(milliseconds: 300));
       expect(harness.shell.searches, hasLength(1));
     });
@@ -153,7 +155,7 @@ void main() {
             revoked ? findsNothing : findsOneWidget,
           );
           if (revoked) {
-            await tester.enterText(harness.query, 'another');
+            await harness.checkRetiredQuery(tester, 'another');
             await tester.pumpAndSettle(const Duration(milliseconds: 300));
             expect(harness.shell.searches, hasLength(1));
           }
@@ -168,8 +170,12 @@ void main() {
     ) async {
       final shell = _PickerShell();
       addTearDown(shell.dispose);
-      Widget button(BuildContext context, VoidCallback? open, bool saving) =>
-          TextButton(onPressed: open, child: const Text('Edit'));
+      Widget button(
+        BuildContext context,
+        VoidCallback? open,
+        bool saving, [
+        DComboboxTriggerState<int>? trigger,
+      ]) => TextButton(onPressed: open, child: const Text('Edit'));
       Widget host({required bool visible}) => ShellScope(
         controller: shell,
         child: MaterialApp(
@@ -207,7 +213,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      expect(find.byType(TopicCategoryPicker), findsNothing);
+      expect(find.byType(DComboboxContent), findsNothing);
       expect(find.byType(TopicTagPicker), findsNothing);
       expect(shell.saves, isEmpty);
       expect(tester.takeException(), isNull);
@@ -262,12 +268,13 @@ void main() {
       final harness = _Harness(tags: tags);
       await harness.pump(tester);
       await harness.open(tester);
+      final select = harness.captureSelection(tester);
       harness.rebuild(() => harness.topicId = 20);
       await tester.pump();
       harness.rebuild(() => harness.topicId = 10);
       await tester.pump();
 
-      await tester.tap(harness.option);
+      select();
       await tester.pumpAndSettle();
       expect(harness.shell.saves, isEmpty);
     });
@@ -441,15 +448,20 @@ void main() {
     await harness.pump(tester);
     await harness.open(tester);
     expect(
-      find.byKey(const ValueKey('topic-category-option-1')),
+      find.byKey(const ValueKey(('topic-category-picker-option', 1))),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('topic-category-option-2')),
+      find.byKey(const ValueKey(('topic-category-picker-option', 2))),
       findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('topic-category-option-3')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('topic-category-option-1')));
+    expect(
+      find.byKey(const ValueKey(('topic-category-picker-option', 3))),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-category-picker-option', 1))),
+    );
     await tester.pumpAndSettle();
     expect(
       harness.shell.saves,
@@ -466,16 +478,21 @@ void main() {
     });
     await tester.pump();
     await harness.open(tester);
-    expect(find.byKey(const ValueKey('topic-category-option-1')), findsNothing);
-    expect(find.byKey(const ValueKey('topic-category-option-5')), findsNothing);
+    expect(
+      find.byKey(const ValueKey(('topic-category-picker-option', 1))),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey(('topic-category-picker-option', 5))),
+      findsNothing,
+    );
     expect(find.text('Support / Phones'), findsOneWidget);
     expect(
       tester
-          .widget<DCheckbox>(
-            find.byKey(const ValueKey('topic-category-option-3')),
-          )
+          .widget<DCombobox<int>>(find.byType(DCombobox<int>))
+          .controller!
           .value,
-      isTrue,
+      3,
     );
     expect(find.text('Remove subcategory'), findsOneWidget);
     await tester.tap(find.text('Remove subcategory'));
@@ -505,15 +522,35 @@ final class _Harness {
 
   Finder get anchor =>
       find.byType(tags ? TopicTagMenuAnchor : TopicCategoryMenuAnchor);
-  Finder get picker => find.byType(tags ? TopicTagPicker : TopicCategoryPicker);
+  Finder get picker => find.byType(tags ? TopicTagPicker : DComboboxContent);
   Finder get query => find.byKey(
     ValueKey(tags ? 'topic-tag-picker-query' : 'topic-category-picker-query'),
   );
   Finder get option => find.byKey(
     tags
         ? const ValueKey(('topic-tag-picker-option', 'mobile'))
-        : const ValueKey('topic-category-option-2'),
+        : const ValueKey(('topic-category-picker-option', 2)),
   );
+
+  VoidCallback captureSelection(WidgetTester tester) {
+    if (tags) {
+      final select = tester.widget<DCheckbox>(option).onChanged!;
+      return () => select(true);
+    }
+    final select = tester
+        .widget<TopicCategorySelector>(find.byType(TopicCategorySelector))
+        .onSelected!;
+    return () => select(_categories[1]);
+  }
+
+  Future<void> checkRetiredQuery(WidgetTester tester, String text) async {
+    if (tags) {
+      await tester.enterText(query, text);
+    } else {
+      expect(query, findsNothing);
+      expect(picker, findsNothing);
+    }
+  }
 
   Future<void> pump(WidgetTester tester) async {
     addTearDown(shell.dispose);
@@ -568,7 +605,12 @@ final class _Harness {
     );
   }
 
-  Widget _button(BuildContext context, VoidCallback? open, bool busy) {
+  Widget _button(
+    BuildContext context,
+    VoidCallback? open,
+    bool busy, [
+    DComboboxTriggerState<int>? trigger,
+  ]) {
     openMenu = open;
     saving = busy;
     return TextButton(onPressed: open, child: Text(busy ? 'Saving' : 'Edit'));
@@ -618,6 +660,10 @@ final class _PickerShell extends ShellController {
     lifecycle.capture(siteUrl);
     notifyListeners();
   }
+
+  @override
+  TopicCategory? categoryFor(int? id, {String? siteUrl}) =>
+      _categories.where((category) => category.id == id).firstOrNull;
 
   @override
   Future<TopicComposerCapabilities> prepareTopicTagEditor(
