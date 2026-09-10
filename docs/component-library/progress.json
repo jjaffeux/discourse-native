@@ -4892,11 +4892,14 @@
             "Root dart analyze --fatal-infos and touched-file formatting pass; /tmp/sidebar-row-gap-final-analysis.log.",
             "Existing hover test verifies selected Topics beside hovered Messages, exact 1px separation and no hover while the pointer is in the gap.",
             "Native macOS fixture inspected at 208px light/dark 100%, dark 200%, and dark 390px with an iOS target. Inspected source/kernel and cleanup recorded.",
-            "Aligned the stale rail avatar assertion with the already-merged Native avatar adoption. Other progress owners and original Sidebar history preserved."
+            "Aligned the stale rail avatar assertion with the already-merged Native avatar adoption. Other progress owners and original Sidebar history preserved.",
+            "Integrated current main composer border changes without overlap; all inspected Sidebar/fixture source hashes remain identical."
           ],
           "limitations": [
             "No physical iOS/Linux or spoken screen reader verification."
-          ]
+          ],
+          "integrationBranch": "codex/sidebar-row-gap-integration",
+          "integratedMain": "7453cfcc061117e3e5ef3ee5db0edcdcb5f87f2a"
         }
       }
     },
