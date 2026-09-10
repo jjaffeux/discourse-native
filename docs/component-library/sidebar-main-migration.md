@@ -279,3 +279,25 @@ link icons remained centered and readable beside the unchanged labels.
 the inspected source, kernel and cleanup. No physical iOS/Linux or spoken
 screen reader verification was performed. The local merge is recorded under
 `customChildIconsFollowUp` in the existing Sidebar progress row.
+
+## Chat header tooltip follow-up — 2026-09-10
+
+The user requested no disclosure tooltips on Starred channels, Chat and
+Direct messages. Chat opts those sections out through `showHeaderTooltip`;
+the shell uses the existing `DTooltip.disabled` and `excludeFromSemantics`
+options. The disclosure button retains its accessible Expand/Collapse label
+and expanded state. Other section and action tooltip settings retain their
+existing behavior. Model copies and the plugin ownership adapter preserve
+the option, keeping Chat-specific IDs out of the shell renderer.
+
+The first native pass caught the plugin adapter dropping this setting. A hover
+check in the existing starred-channel test reproduced the visible tooltip
+before that copy was fixed (`/tmp/chat-header-tooltips-hover-before.log`).
+All 244 focused Chat/shell/section-store tests now pass, with root fatal-info
+analysis and formatting clean. The final native macOS light/dark 208px fixture
+confirmed the three collapsed headers have no popup under the pointer and
+Return reopens Direct messages with visible keyboard focus.
+[Build evidence](evidence/sidebar/chat-header-tooltips-review-build.json)
+records exact source, kernel and cleanup. No physical iOS/Linux or spoken
+screen reader verification was performed. Local merge history is stored in
+`chatHeaderTooltipsFollowUp` under the existing Sidebar progress row.
