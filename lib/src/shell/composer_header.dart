@@ -16,7 +16,6 @@ class ComposerHeader extends StatelessWidget {
     required this.minimized,
     required this.onClose,
     required this.closeTooltip,
-    required this.onDiscard,
     this.onMinimize,
     this.onRestore,
     this.placement = ComposerPlacement.right,
@@ -29,7 +28,6 @@ class ComposerHeader extends StatelessWidget {
   final bool minimized;
   final VoidCallback onClose;
   final String closeTooltip;
-  final VoidCallback onDiscard;
   final VoidCallback? onMinimize;
   final VoidCallback? onRestore;
   final ComposerPlacement placement;
@@ -173,7 +171,7 @@ class ComposerHeader extends StatelessWidget {
 
     final controls = [
       ...pluginControls,
-      if (!minimized)
+      if (!minimized && onPlacementChanged != null)
         DPopover(
           reverseTransitionDuration: Duration.zero,
           content: DPopoverContent(
@@ -181,84 +179,47 @@ class ComposerHeader extends StatelessWidget {
             align: DPopoverAlign.end,
             width: 264,
             child: DPopoverClose(
-              builder: (context, closeMenu) => Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              builder: (context, closeMenu) => Row(
                 children: [
-                  if (onPlacementChanged != null) ...[
-                    Row(
-                      children: [
-                        const Expanded(child: Text('Dock side')),
-                        DToggleGroup<ComposerPlacement>(
-                          semanticLabel: 'Dock side',
-                          values: [placement],
-                          allowEmptySelection: false,
-                          spacing: 1,
-                          size: DToggleSize.small,
-                          onChanged: (values) {
-                            closeMenu();
-                            onPlacementChanged!(values.single);
-                          },
-                          items: [
-                            for (final value in ComposerPlacement.values)
-                              DToggleGroupItem.iconOnly(
-                                value: value,
-                                semanticLabel: value.label,
-                                tooltip: value.label,
-                                icon: switch (value) {
-                                  ComposerPlacement.left => const RotatedBox(
-                                    quarterTurns: 2,
-                                    child: Icon(
-                                      Icons.view_sidebar_outlined,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  ComposerPlacement.bottom => const RotatedBox(
-                                    quarterTurns: 1,
-                                    child: Icon(
-                                      Icons.view_sidebar_outlined,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  ComposerPlacement.right => const Icon(
-                                    Icons.view_sidebar_outlined,
-                                    size: 18,
-                                  ),
-                                },
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: DSeparator(),
-                    ),
-                  ],
-                  DButton(
-                    label: Text(closeTooltip),
-                    alignment: AlignmentDirectional.centerStart,
-                    variant: DButtonVariant.transparent,
-                    onPressed: () {
+                  const Expanded(child: Text('Dock side')),
+                  DToggleGroup<ComposerPlacement>(
+                    semanticLabel: 'Dock side',
+                    values: [placement],
+                    allowEmptySelection: false,
+                    spacing: 1,
+                    size: DToggleSize.small,
+                    onChanged: (values) {
                       closeMenu();
-                      onClose();
+                      onPlacementChanged!(values.single);
                     },
-                  ),
-                  DButton(
-                    key: const ValueKey('composer-discard'),
-                    label: Text(
-                      target.isEdit ? 'Cancel edit' : 'Discard',
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    alignment: AlignmentDirectional.centerStart,
-                    variant: DButtonVariant.transparent,
-                    onPressed: composer.isEditing && !composer.loadingBody
-                        ? () {
-                            closeMenu();
-                            onDiscard();
-                          }
-                        : null,
+                    items: [
+                      for (final value in ComposerPlacement.values)
+                        DToggleGroupItem.iconOnly(
+                          value: value,
+                          semanticLabel: value.label,
+                          tooltip: value.label,
+                          icon: switch (value) {
+                            ComposerPlacement.left => const RotatedBox(
+                              quarterTurns: 2,
+                              child: Icon(
+                                Icons.view_sidebar_outlined,
+                                size: 18,
+                              ),
+                            ),
+                            ComposerPlacement.bottom => const RotatedBox(
+                              quarterTurns: 1,
+                              child: Icon(
+                                Icons.view_sidebar_outlined,
+                                size: 18,
+                              ),
+                            ),
+                            ComposerPlacement.right => const Icon(
+                              Icons.view_sidebar_outlined,
+                              size: 18,
+                            ),
+                          },
+                        ),
+                    ],
                   ),
                 ],
               ),

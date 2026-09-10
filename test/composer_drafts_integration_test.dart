@@ -15,6 +15,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_discard.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
@@ -38,6 +39,18 @@ import 'support/shell_test_harness.dart';
 void main() {
   _registerTopicReplyTests();
   _registerComposerAndDraftTests();
+}
+
+// Exercise discard preservation directly; the dock menu only changes placement.
+Future<void> _requestDiscard(WidgetTester tester) async {
+  final panel = find.byType(ComposerPanel);
+  unawaited(
+    requestComposerDiscard(
+      context: tester.element(panel),
+      composer: tester.widget<ComposerPanel>(panel).composer,
+    ),
+  );
+  await tester.pump();
 }
 
 void _registerTopicReplyTests() {
@@ -316,12 +329,7 @@ void _registerTopicReplyTests() {
       final frame = tester.widget<Container>(
         find.byKey(const ValueKey('composer-frame')),
       );
-      expect(
-        (frame.decoration as BoxDecoration).border,
-        Border.all(
-          color: Theme.of(tester.element(replyOptions)).colorScheme.tertiary,
-        ),
-      );
+      expect((frame.decoration as BoxDecoration).border, isNull);
 
       await shell.submitComposer();
       await tester.pumpAndSettle();
@@ -1340,7 +1348,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api);
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
 
       expect(
@@ -1653,7 +1661,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       expect(shell.visibleComposer!.protectsUnappliedDraft, isTrue);
       await tester.pump();
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -1717,7 +1725,7 @@ void _registerComposerAndDraftTests() {
         await tester.pump();
         expect(api.draftsSaved, hasLength(1));
 
-        await tapComposerDiscard(tester);
+        await _requestDiscard(tester);
         await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const ValueKey('composer-confirm-discard')),
@@ -1799,7 +1807,7 @@ void _registerComposerAndDraftTests() {
         await tester.pump();
         expect(api.draftsSaved, hasLength(1));
 
-        await tapComposerDiscard(tester);
+        await _requestDiscard(tester);
         await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const ValueKey('composer-confirm-discard')),
@@ -1875,7 +1883,7 @@ void _registerComposerAndDraftTests() {
       expect(composer.draftSequence, 2);
       expect(composer.text.text, 'Second local revision');
 
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -1951,7 +1959,7 @@ void _registerComposerAndDraftTests() {
       await openComposer(tester, api, drafts: drafts);
       await tester.enterText(find.byType(TextField), 'Come back to this');
       await settleDraft(tester);
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
 
       expect(find.text('Do you want to discard your post?'), findsOneWidget);
@@ -1959,7 +1967,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       expect(find.text('Come back to this'), findsOneWidget);
 
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(1, 1));
       await tester.pumpAndSettle();
@@ -1969,7 +1977,7 @@ void _registerComposerAndDraftTests() {
       );
       expect(find.text('Come back to this'), findsOneWidget);
 
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -2029,7 +2037,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -2095,7 +2103,7 @@ void _registerComposerAndDraftTests() {
       final composer = shell.visibleComposer!;
       await tester.enterText(find.byType(TextField), 'First revision');
       await settleDraft(tester);
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
       final confirm = find.byKey(const ValueKey('composer-confirm-discard'));
       await tester.tap(confirm);
@@ -2167,7 +2175,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       expect(shell.visibleComposer?.text.text, 'Queued latest revision');
 
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pump();
@@ -2339,7 +2347,7 @@ void _registerComposerAndDraftTests() {
       await openComposer(tester, api);
       await tester.enterText(find.byType(TextField), 'Keep this revision');
       await settleDraft(tester);
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -2377,7 +2385,7 @@ void _registerComposerAndDraftTests() {
       await settleDraft(tester);
       drafts.clearFailures = 1;
 
-      await tapComposerDiscard(tester);
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();

@@ -122,8 +122,7 @@ void main() {
       lessThanOrEqualTo(844 - 336),
     );
     expect(find.text('Create topic'), findsOneWidget);
-    await tester.tap(find.byTooltip('Composer options'));
-    await tester.pumpAndSettle();
+    expect(find.byTooltip('Composer options'), findsNothing);
     expect(find.text('Dock side'), findsNothing);
     expect(tester.takeException(), isNull);
   });
