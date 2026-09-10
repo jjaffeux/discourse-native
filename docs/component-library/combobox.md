@@ -133,5 +133,5 @@ Retained deliberately:
   Command, Sheet or picker-owner reviews.
 - Topic list tag filtering accepts free-form/domain query clauses rather than a
   selection restricted to one returned object.
-- DSelect/DNativeSelect remain non-editable selection owners. Command menus remain
+- DSelect remains the non-editable selection owner. Command menus remain
   action selection owners, not form values.

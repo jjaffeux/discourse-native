@@ -48,14 +48,14 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../test/support/bundled_plugins.dart';
 import '../test/support/fakes.dart';
-import 'native_select_voice_fixture.dart';
+import 'voice_review_fixture.dart';
 
-const _site = 'https://native-select.invalid';
+const _site = 'https://select-review.invalid';
 
 /// Local-only native review entrypoint mounting the actual migrated owners.
-Future<void> main() => startNativeSelectReview();
+Future<void> main() => startSelectConsumersReview();
 
-Future<void> startNativeSelectReview({Widget Function(Widget)? wrap}) async {
+Future<void> startSelectConsumersReview({Widget Function(Widget)? wrap}) async {
   WidgetsFlutterBinding.ensureInitialized();
   // This executable deliberately uses the package’s in-memory test backend.
   // ignore: invalid_use_of_visible_for_testing_member
@@ -78,7 +78,7 @@ Future<void> startNativeSelectReview({Widget Function(Widget)? wrap}) async {
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
       instance(
-        'native-select.invalid',
+        'select-review.invalid',
       ).copyWith(user: user, config: const SiteConfig(userStatusEnabled: true)),
     ]),
     api: _ReviewApi(
@@ -374,7 +374,7 @@ class _ReviewState extends State<_Review> {
       onPressed: () => _page(
         context,
         'Actual Voice — simulated media',
-        const NativeSelectVoiceFixture(),
+        const VoiceReviewFixture(),
       ),
     ),
   ];
@@ -408,7 +408,7 @@ class _ReviewState extends State<_Review> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Native Select Review 89bf — local data'),
+                  const Text('Select consumers review — local data'),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 8,

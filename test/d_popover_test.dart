@@ -244,16 +244,16 @@ void main() {
     expect(find.text('Parent content'), findsNothing);
   });
 
-  testWidgets('nested Native Select owns choices and Escape before parent', (
+  testWidgets('nested Select owns choices and Escape before parent', (
     tester,
   ) async {
-    await tester.pumpWidget(_app(const _NativeSelectPopoverTest()));
+    await tester.pumpWidget(_app(const _SelectPopoverTest()));
     await tester.tap(find.text('Open parent'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('First choice'));
     await tester.pumpAndSettle();
 
-    final parentRect = tester.getRect(find.byType(DPopoverContent));
+    final parentRect = tester.getRect(find.byType(DPopoverContent).first);
     final outsideChoiceRect = tester.getRect(find.text('Outside choice'));
     expect(parentRect.overlaps(outsideChoiceRect), isFalse);
 
@@ -750,15 +750,14 @@ class _MenuPopoverTestState extends State<_MenuPopoverTest> {
   );
 }
 
-class _NativeSelectPopoverTest extends StatefulWidget {
-  const _NativeSelectPopoverTest();
+class _SelectPopoverTest extends StatefulWidget {
+  const _SelectPopoverTest();
 
   @override
-  State<_NativeSelectPopoverTest> createState() =>
-      _NativeSelectPopoverTestState();
+  State<_SelectPopoverTest> createState() => _SelectPopoverTestState();
 }
 
-class _NativeSelectPopoverTestState extends State<_NativeSelectPopoverTest> {
+class _SelectPopoverTestState extends State<_SelectPopoverTest> {
   String _selected = 'first';
 
   @override
@@ -769,11 +768,24 @@ class _NativeSelectPopoverTestState extends State<_NativeSelectPopoverTest> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text('Parent content'),
-          DNativeSelect<String>.controlled(
+          DSelect<String>.controlled(
             value: _selected,
             entries: const [
-              DNativeSelectOption(value: 'first', label: 'First choice'),
-              DNativeSelectOption(value: 'outside', label: 'Outside choice'),
+              DSelectOption(
+                value: null,
+                label: 'Select an option',
+                child: Text('Select an option'),
+              ),
+              DSelectOption(
+                value: 'first',
+                label: 'First choice',
+                child: Text('First choice'),
+              ),
+              DSelectOption(
+                value: 'outside',
+                label: 'Outside choice',
+                child: Text('Outside choice'),
+              ),
             ],
             onChanged: (value) {
               if (value != null) setState(() => _selected = value);

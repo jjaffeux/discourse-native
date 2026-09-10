@@ -279,14 +279,17 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
       ComposerPollType.number,
       if (_isRanked) ComposerPollType.rankedChoice,
     ];
-    return DNativeSelect<ComposerPollType>.controlled(
+    return DSelect<ComposerPollType>.controlled(
       isExpanded: true,
-      placeholderEnabled: false,
       value: _type,
-      label: 'Poll type',
+      label: const Text('Poll type'),
       entries: [
         for (final type in choices)
-          DNativeSelectOption(value: type, label: _typeLabel(type)),
+          DSelectOption(
+            value: type,
+            label: _typeLabel(type),
+            child: Text(_typeLabel(type)),
+          ),
       ],
       onChanged: _isRanked
           ? null
@@ -298,6 +301,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
               });
             },
       initialValue: _type,
+      enabled: !_isRanked,
     );
   }
 
@@ -416,19 +420,23 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
         PollResultMode.staffOnly,
       if (_results == PollResultMode.unknown) PollResultMode.unknown,
     ];
-    return DNativeSelect<PollResultMode>.controlled(
+    return DSelect<PollResultMode>.controlled(
       isExpanded: true,
-      placeholderEnabled: false,
       value: _results,
-      label: 'Show results',
+      label: const Text('Show results'),
       entries: [
         for (final result in choices)
-          DNativeSelectOption(
+          DSelectOption(
             value: result,
             enabled: result != PollResultMode.unknown,
             label: result == PollResultMode.unknown
                 ? 'Preserve “${widget.draft.resultsSource}”'
                 : result.label,
+            child: Text(
+              result == PollResultMode.unknown
+                  ? 'Preserve “${widget.draft.resultsSource}”'
+                  : result.label,
+            ),
           ),
       ],
       onChanged: (result) {

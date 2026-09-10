@@ -48,7 +48,6 @@ const _nestedSectionIndexes = <String, Set<int>>{
   'marker': {12, 13, 14, 15, 16, 18, 19, 20},
   'message': {10, 11, 13, 14, 15, 16, 17, 18},
   'message-scroller': {6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
-  'native-select': {3, 4, 11, 12, 13},
   'pagination': {8},
   'progress': {3},
   'resizable': {9},

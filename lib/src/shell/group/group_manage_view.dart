@@ -227,16 +227,27 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           title: 'Membership',
           description: 'Choose who can discover and join this group.',
         ),
-        DNativeSelect<String>.controlled(
+        DSelect<String>.controlled(
           isExpanded: true,
-          placeholderEnabled: false,
           key: const ValueKey('membership-admission'),
           value: controller.admission,
-          label: 'Who can join?',
+          label: const Text('Who can join?'),
           entries: const [
-            DNativeSelectOption(value: 'closed', label: 'Invitation only'),
-            DNativeSelectOption(value: 'request', label: 'Request approval'),
-            DNativeSelectOption(value: 'free', label: 'Anyone can join'),
+            DSelectOption(
+              value: 'closed',
+              label: 'Invitation only',
+              child: Text('Invitation only'),
+            ),
+            DSelectOption(
+              value: 'request',
+              label: 'Request approval',
+              child: Text('Request approval'),
+            ),
+            DSelectOption(
+              value: 'free',
+              label: 'Anyone can join',
+              child: Text('Anyone can join'),
+            ),
           ],
           onChanged: (value) => controller.setAdmission(value ?? 'closed'),
           initialValue: controller.admission,
@@ -525,14 +536,17 @@ class _LevelField extends StatelessWidget {
     final values = <int>{0, 1, 2, 3, 4, value}.toList()..sort();
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: DNativeSelect<int>.controlled(
+      child: DSelect<int>.controlled(
         isExpanded: true,
-        placeholderEnabled: false,
         value: value,
-        label: label,
+        label: Text(label),
         entries: [
           for (final option in values)
-            DNativeSelectOption(value: option, label: _levelLabel(option)),
+            DSelectOption(
+              value: option,
+              label: _levelLabel(option),
+              child: Text(_levelLabel(option)),
+            ),
         ],
         onChanged: (next) {
           if (next != null) onChanged(next);
@@ -559,14 +573,17 @@ class _InteractionLevelField extends StatelessWidget {
     final values = <int>{0, 1, 2, 3, 4, 99, value}.toList()..sort();
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: DNativeSelect<int>.controlled(
+      child: DSelect<int>.controlled(
         isExpanded: true,
-        placeholderEnabled: false,
         value: value,
-        label: label,
+        label: Text(label),
         entries: [
           for (final option in values)
-            DNativeSelectOption(value: option, label: _levelLabel(option)),
+            DSelectOption(
+              value: option,
+              label: _levelLabel(option),
+              child: Text(_levelLabel(option)),
+            ),
         ],
         onChanged: (next) {
           if (next != null) onChanged(next);

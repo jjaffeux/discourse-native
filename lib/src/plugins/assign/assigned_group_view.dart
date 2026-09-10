@@ -686,18 +686,32 @@ class _AssignedQueryControls extends StatelessWidget {
         ),
       ),
     );
-    final order = DNativeSelect<AssignedGroupOrder>.controlled(
+    final order = DSelect<AssignedGroupOrder>.controlled(
       isExpanded: true,
       placeholder: 'Default order',
       key: ValueKey('assigned-order-${query.order?.wireName ?? 'default'}'),
       value: query.order,
       entries: const [
-        DNativeSelectOption(
+        DSelectOption(
+          value: null,
+          label: 'Default order',
+          child: Text('Default order'),
+        ),
+        DSelectOption(
           value: AssignedGroupOrder.activity,
           label: 'Activity',
+          child: Text('Activity'),
         ),
-        DNativeSelectOption(value: AssignedGroupOrder.posts, label: 'Posts'),
-        DNativeSelectOption(value: AssignedGroupOrder.views, label: 'Views'),
+        DSelectOption(
+          value: AssignedGroupOrder.posts,
+          label: 'Posts',
+          child: Text('Posts'),
+        ),
+        DSelectOption(
+          value: AssignedGroupOrder.views,
+          label: 'Views',
+          child: Text('Views'),
+        ),
       ],
       onChanged: (value) => onQueryChanged(
         AssignedGroupTopicQuery(
@@ -725,7 +739,7 @@ class _AssignedQueryControls extends StatelessWidget {
     );
 
     return FocusTraversalGroup(
-      policy: WidgetOrderTraversalPolicy(),
+      policy: ReadingOrderTraversalPolicy(),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           horizontalPadding,

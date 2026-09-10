@@ -2520,15 +2520,16 @@
         "DSelect is the single rich rendering owner and Flutter FormField; DSelect.controlled represents controlled null explicitly, the default constructor owns initialValue, and DMultiSelect maps Base UI multiple mode. Borrowed FocusNode, DPopoverController and ScrollController remain caller-owned.",
         "The optional DPopoverPlacementResolver receives read-only target/boundary/content geometry and returns a candidate that remains subject to Popover boundary correction. Select alone decides touch and selected-row fallback; no overlay lifecycle is duplicated.",
         "Accepted Popover main merge dc6ab75fe99f2af8b401bae60285fdbe65e8012a is reconciled, retaining lifecycle correction 8281dda2, DNativeSelect layering regression 6a608c56 and topmost Escape ownership d9ecd110.",
-        "Accepted Field remains a metadata/layout owner around Select; DSelect stays the sole Form/value/validation/focus/action owner. Button Group's accepted joined-edge scope now adapts the trigger without moving the popup into joined geometry. Select's Back/Range/Next example uses the real DButtonGroup with independent action and selection state, verified in the Button Group native pass and final 169-test integration matrix."
+        "Accepted Field remains a metadata/layout owner around Select; DSelect stays the sole Form/value/validation/focus/action owner. Button Group's accepted joined-edge scope now adapts the trigger without moving the popup into joined geometry. Select's Back/Range/Next example uses the real DButtonGroup with independent action and selection state, verified in the Button Group native pass and final 169-test integration matrix.",
+        "2026-09-10: The user removed Native Select from scope. DSelect now owns plain and rich selection fields; the separate implementation, catalogue entry and dedicated examples/tests were removed."
       ],
       "migrations": [
         "Reduced lib/src/shell/select.dart to a compatibility export and moved DSelect/DSelectField rendering to lib/src/ui/components/d_select.dart; discourse_ui and discourse_plugin_sdk export the new owner.",
-        "Preserved accepted DNativeSelect across plain/simple Preferences, Poll, Local Dates, Chat, Assign, Voice, Bookmark, Invite, Group and status consumers; rich DSelect remains the public owner for composed selection, grouping, selected alignment, typeahead and multiple selection."
+        "Preserved accepted DNativeSelect across plain/simple Preferences, Poll, Local Dates, Chat, Assign, Voice, Bookmark, Invite, Group and status consumers; rich DSelect remains the public owner for composed selection, grouping, selected alignment, typeahead and multiple selection.",
+        "All Native Select callers migrated to DSelect through the public UI kit, preserving disabled states, callbacks, labels, descriptions and clearable placeholder values. Shared production review fixtures remain available under Select/Voice names."
       ],
       "retainedAlternatives": [
-        "DSelectField remains a source-compatibility FormField adapter only; it translates DropdownMenuItem/InputDecoration into DSelect entries and does not retain the old DropdownButton renderer.",
-        "Accepted DNativeSelect remains the owner for plain/simple platform-adapted selection. Searchable, date and other purpose-built pickers retain their distinct owners."
+        "DSelectField remains a source-compatibility FormField adapter only; it translates DropdownMenuItem/InputDecoration into DSelect entries and does not retain the old DropdownButton renderer."
       ],
       "verification": [
         "Independent review fixed controlled-open focusability, disabled selected fallback, repeated-letter typeahead, selected-row positioning, large-text sizing, initial scroll-arrow action, disabled hover, invalid semantics and trigger state artwork; review commits f930b2d7 and 7d474def preserve source history.",
@@ -2536,7 +2537,8 @@
         "flutter test --no-pub test/preferences_page_test.dart test/assignment_sheet_test.dart test/voice_room_view_test.dart test/topic_inbox_test.dart --test-randomize-ordering-seed=391447 passed all 168 downstream tests. Earlier Select/native-consumer and accepted-Popover integration runs passed 122 and 106 tests respectively with the same seed.",
         "Root and profiles/full flutter analyze --no-pub passed with no diagnostics after the final Popover/Select corrections; git diff --check passed.",
         "Exact reviewed source rebuilt as /private/tmp/select-review-56d8.VCyNHv/source/build/macos/Build/Products/Debug/Select Review 56d8.app with bundle org.discourse.select.review.56d8. DSelect, DPopover, examples and fixture hashes match the review branch; restricted debug entitlements read back correctly, strict deep signature passed, CDHash d9d20849ecee43fcbea8badef0e8dd312dfa57be and TeamIdentifier is not set.",
-        "Official ui.shadcn.com Base Select was inspected in light/dark for default, selected-item alignment, groups, scrollable, disabled, invalid and RTL surfaces. The isolated macOS fixture was inspected for pointer selection, keyboard typeahead/End/Tab/Escape and focus restoration, selected-row reveal, scroll arrows, disabled trigger/item, invalid Form state, actionable group/option semantics, multiple selection remaining open, light/dark/Forest/Plum palettes, RTL, 216px width, 200% text and reduced motion."
+        "Official ui.shadcn.com Base Select was inspected in light/dark for default, selected-item alignment, groups, scrollable, disabled, invalid and RTL surfaces. The isolated macOS fixture was inspected for pointer selection, keyboard typeahead/End/Tab/Escape and focus restoration, selected-row reveal, scroll arrows, disabled trigger/item, invalid Form state, actionable group/option semantics, multiple selection remaining open, light/dark/Forest/Plum palettes, RTL, 216px width, 200% text and reduced motion.",
+        "2026-09-10 Native Select removal: 363 focused component/styleguide/consumer tests passed with seed 391447, including clearable filters, disabled editing, nested Escape, keyboard traversal and all shared production fixtures. Root and profiles/full flutter analyze --no-pub passed; enforced-lockfile resolution preserved lockfiles and Flutter 3.47.2. Live native inspection was not run because the shared desktop lease was occupied."
       ],
       "limitations": [
         "Native device inspection was macOS only. Spoken VoiceOver output and iOS/Linux devices were not exercised; macOS Accessibility API roles, values and actions were inspected and widget regressions cover semantics and platform-independent behavior.",
@@ -2561,62 +2563,6 @@
       "reviewStatus": "merged",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f6b1/discourse-native",
       "reviewHandoffCommit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e"
-    },
-    {
-      "id": "native-select",
-      "status": "merged",
-      "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
-      "branch": "codex/ui-native-select",
-      "dependencies": [
-        "label"
-      ],
-      "acceptanceCriteria": [
-        "Port base-nova closed-control geometry (32/28px, 14/20px text, directional 10/32px padding, 16px chevron), token palette/radius, disabled opacity, invalid and keyboard focus rings.",
-        "Provide typed text options and disabled optgroups, placeholder, controlled and initial selection, Form save/reset/validation, borrowed focus lifecycle and accessible names.",
-        "Use Flutter MenuAnchor/MenuItemButton as selection/popup owner (coordinator correction: open overlays must update live), document exact platform adaptation distinct from custom rich Select; cover keyboard, touch, dismissal, scrolling, large text, RTL and theme changes.",
-        "Self-contained actual-component styleguide covers reference simple/groups/disabled/invalid/RTL plus form and state; audit core/plugins and migrate suitable simple selectors preserving callbacks and permission/busy guards.",
-        "Pass focused interaction/migration tests, touched format and root/full-profile analysis with unchanged pins/lockfiles; build isolated identifiable macOS local-data fixture with source/kernel/signature evidence.",
-        "Remain in_progress awaiting_slot until coordinator grants desktop and reference/native production-fixture review passes.",
-        "Provide typed-character prefix navigation and repeated-letter cycling; finish the concrete whole-app plain-selector audit rather than deferring eligible selectors to Select."
-      ],
-      "decisions": [
-        "Typed DNativeSelectOption/OptGroup, single DNativeSelect FormField adapter and Flutter MenuAnchor/MenuItemButton owner; no rich custom Select dependency.",
-        "Default content width measures widest text plus 44px including borders and a scaled em for grouped options; apps use isExpanded. 32/28px heights, input token/multiplicative alpha, proportional radii, exterior-only focus ring and exact Lucide chevron documented with hashed sources.",
-        "Controlled Form callbacks/validation/reset always see accepted props synchronously; uncontrolled defaults freeze at mount. Nonnullable app choices disable the placeholder and retain initial reset values.",
-        "Live menu palette/direction/text scale without dismissal; immediate transitions; type-ahead supports prefix and repeated-character cycling with disabled/headings skipped and no timers.",
-        "Expired/blurred/reset type-ahead sessions restart from current accepted selection; repeated-letter proposals can cycle while a controlled parent declines."
-      ],
-      "migrations": [
-        "28 plain selector owners across Preferences, Group management, Bookmarks, Invites, Status editor, Chat, Assign, Poll, Local Dates and Voice. Full per-owner callback/permission audit in native-select.md.",
-        "Preserved Voice _heldDevice fallback, Custom expiry cancellation, legacy Assign status, nullable Default order and controlled async preference/filter changes."
-      ],
-      "retainedAlternatives": [
-        "Topic-move category selector retains icons/colors/hierarchy for rich Select; searchable/multi-choice/action/date pickers keep their distinct capabilities.",
-        "Existing DSelect baseline source/export and documentation chrome remain per coordinator ownership; no simple app callers remain on DSelect."
-      ],
-      "verification": [
-        "Flutter 3.47.2 and pins/lockfiles unchanged; enforced root/full-profile pub resolution passed.",
-        "323 selected component, fixture, styleguide and production migration tests passed; routed Chat notification integration test also passed.",
-        "Root and profiles/full flutter analyze --no-pub passed; touched dart format and git diff --check passed.",
-        "Isolated uniquely identified macOS fixture built and ad-hoc signature verified; four matching kernel hashes and exact source provenance recorded in native-select-build.md. No launch.",
-        "2026-09-09 correction: 155 impact tests and 2 manual font-loaded render tests passed. Official light/dark/disabled/invalid/focus/groups/RTL/narrow browser capture compared with registered examples; production fixture renders captured in both app themes. See native-select-review.md and reference/native-select-review/manifest.json.",
-        "Corrected source d2e500f95d25f9901f74b37d0784aeb1e1ebf071 rebuilt into the unique ad-hoc verified review app; all four kernels match 47fabe4db51b73135427cc6ab941765ad04b53c4433693b36b29babf03691efc.",
-        "Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; final shared component implementations and all other progress rows preserved. 327 integration tests passed initially; sole obsolete 100px post-action test fixture resized to120px for final touch targets, all24 bookmark tests then passed. Root/full analysis clean.",
-        "Merge-queue bundle rebuilt from f9baeaa86c2bd88058ab815687543587aeec5296 with matching four-kernel hash bb7dca4c9c8906921f677cc834ff2b2bbe1990f4e29009a3b8144cedf1de8a37; restricted-free debug entitlements verified by signed read-back and strict deep signature.",
-        "Independent macOS review inspected the exact fixture and real Preferences route across light/dark, grouped scrolling, invalid, narrow RTL at 200% text, Form state, and accessibility. The first pass found popup choices exposed as static text; c58487c650c7ecb01f5ffe04ec35ddaf103189af adds bounded actionable choice semantics and a regression.",
-        "A second native pass confirmed AX choice actions and keyboard selection, then found Escape was not reliably dismissed by the native event path. 3512489c explicitly owns Escape while the select menu is open; the focused component suite passes and the final exact bundle confirmed dismissal with focus restoration.",
-        "Final exact bundle /tmp/native-select-review-escape-4d1e.2aGZte/Native Select Review Escape 4d1e.app has matching source/build/copied kernel SHA-256 962a99807d014c8b839aa00512c5c0afe50f2243476c2de6e23920c5829fa4f5, matching restricted entitlement read-back, and a passing strict deep signature.",
-        "Independent verification passed 180 focused component/styleguide/fixture/migration tests before the Escape-only correction, the 12-test component suite afterward, and a randomized 67-test component/styleguide/fixture/Preferences/Bookmark/Local Dates integration run after current-main reconciliation (seed 660499389). Root plus profiles/full flutter analyze --no-pub are clean."
-      ],
-      "limitations": [
-        "Native device inspection was macOS only. Spoken VoiceOver output and iOS/Linux devices were not exercised; macOS Accessibility API roles/actions were inspected directly and are covered by widget regressions.",
-        "The open popup is intentionally Flutter-owned, so neither the font-loaded browser comparison nor native inspection claims OS-popup parity."
-      ],
-      "implementationCommit": "f9baeaa86c2bd88058ab815687543587aeec5296",
-      "mergeCommit": "0cdec859288cb2fa0369f64e1a9c1c022dc033e4",
-      "reviewStatus": "merged",
-      "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee1b7d91d022",
-      "reviewBranch": "codex/review-native-select"
     },
     {
       "id": "field",
@@ -4801,7 +4747,7 @@
         "progress",
         "card",
         "dialog",
-        "native-select"
+        "select"
       ],
       "acceptanceCriteria": [
         "Match the frozen Base UI/base-nova Questionnaire complete API, behavior, geometry and all documented examples, with recorded exact primary-source mapping.",
@@ -4909,14 +4855,14 @@
           "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
         },
         {
-          "id": "native-select",
+          "id": "select",
           "status": "merged",
-          "taskId": "01a083f3-9a01-7c71-9931-3674b85e81b3",
-          "branch": "codex/ui-native-select",
-          "reviewTaskId": "01a08558-4ae6-7db2-bdd6-ee1b7d91d022",
-          "reviewBranch": "codex/review-native-select",
-          "implementationCommit": "f9baeaa86c2bd88058ab815687543587aeec5296",
-          "mergeCommit": "0cdec859288cb2fa0369f64e1a9c1c022dc033e4"
+          "taskId": "01a085bb-1d11-7f52-a7bd-667348469087",
+          "branch": "codex/ui-select",
+          "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
+          "reviewBranch": "codex/review-select",
+          "implementationCommit": "423d81eeaf9bdda9412fa2068d4f8132fbfb53de",
+          "mergeCommit": "57bbeb94368649a4665483180e4f5c84b5f33856"
         }
       ],
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/6384/discourse-native",

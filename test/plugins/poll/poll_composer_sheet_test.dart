@@ -281,6 +281,9 @@ void main() {
       );
 
       expect(find.text('Ranked choice'), findsOneWidget);
+      await tester.tap(find.text('Ranked choice'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DPopoverContent), findsNothing);
       expect(
         find.textContaining('Ranked-choice polls keep their type'),
         findsOneWidget,

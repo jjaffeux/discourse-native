@@ -172,16 +172,23 @@ class _SelectionState extends State<_Selection> {
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DNativeSelect<String>.controlled(
+      DSelect<String>.controlled(
         value: _value,
         initialValue: null,
         isExpanded: true,
         placeholder: 'Choose',
-        label: widget.label,
-        description: widget.description,
+        label: Text(widget.label),
+        description: widget.description == null
+            ? null
+            : Text(widget.description!),
         entries: [
+          const DSelectOption(
+            value: null,
+            label: 'Choose',
+            child: Text('Choose'),
+          ),
           for (final item in widget.items)
-            DNativeSelectOption(value: item, label: item),
+            DSelectOption(value: item, label: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _value = value),
       ),
@@ -525,16 +532,23 @@ class _SelectionState extends State<_Selection> {
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DNativeSelect<String>.controlled(
+      DSelect<String>.controlled(
         value: _value,
         initialValue: null,
         isExpanded: true,
         placeholder: 'Choose',
-        label: widget.label,
-        description: widget.description,
+        label: Text(widget.label),
+        description: widget.description == null
+            ? null
+            : Text(widget.description!),
         entries: [
+          const DSelectOption(
+            value: null,
+            label: 'Choose',
+            child: Text('Choose'),
+          ),
           for (final item in widget.items)
-            DNativeSelectOption(value: item, label: item),
+            DSelectOption(value: item, label: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _value = value),
       ),
@@ -781,16 +795,23 @@ class _SelectionState extends State<_Selection> {
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DNativeSelect<String>.controlled(
+      DSelect<String>.controlled(
         value: _value,
         initialValue: null,
         isExpanded: true,
         placeholder: 'Choose',
-        label: widget.label,
-        description: widget.description,
+        label: Text(widget.label),
+        description: widget.description == null
+            ? null
+            : Text(widget.description!),
         entries: [
+          const DSelectOption(
+            value: null,
+            label: 'Choose',
+            child: Text('Choose'),
+          ),
           for (final item in widget.items)
-            DNativeSelectOption(value: item, label: item),
+            DSelectOption(value: item, label: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _value = value),
       ),
@@ -1025,16 +1046,23 @@ class _SelectionState extends State<_Selection> {
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DNativeSelect<String>.controlled(
+      DSelect<String>.controlled(
         value: _value,
         initialValue: null,
         isExpanded: true,
         placeholder: 'Choose',
-        label: widget.label,
-        description: widget.description,
+        label: Text(widget.label),
+        description: widget.description == null
+            ? null
+            : Text(widget.description!),
         entries: [
+          const DSelectOption(
+            value: null,
+            label: 'Choose',
+            child: Text('Choose'),
+          ),
           for (final item in widget.items)
-            DNativeSelectOption(value: item, label: item),
+            DSelectOption(value: item, label: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _value = value),
       ),
@@ -1264,16 +1292,23 @@ class _SelectionState extends State<_Selection> {
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DNativeSelect<String>.controlled(
+      DSelect<String>.controlled(
         value: _value,
         initialValue: null,
         isExpanded: true,
         placeholder: 'Choose',
-        label: widget.label,
-        description: widget.description,
+        label: Text(widget.label),
+        description: widget.description == null
+            ? null
+            : Text(widget.description!),
         entries: [
+          const DSelectOption(
+            value: null,
+            label: 'Choose',
+            child: Text('Choose'),
+          ),
           for (final item in widget.items)
-            DNativeSelectOption(value: item, label: item),
+            DSelectOption(value: item, label: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _value = value),
       ),
@@ -1515,16 +1550,23 @@ class _SelectionState extends State<_Selection> {
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DNativeSelect<String>.controlled(
+      DSelect<String>.controlled(
         value: _value,
         initialValue: null,
         isExpanded: true,
         placeholder: 'Choose',
-        label: widget.label,
-        description: widget.description,
+        label: Text(widget.label),
+        description: widget.description == null
+            ? null
+            : Text(widget.description!),
         entries: [
+          const DSelectOption(
+            value: null,
+            label: 'Choose',
+            child: Text('Choose'),
+          ),
           for (final item in widget.items)
-            DNativeSelectOption(value: item, label: item),
+            DSelectOption(value: item, label: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _value = value),
       ),
@@ -1868,16 +1910,23 @@ class _SelectionState extends State<_Selection> {
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DNativeSelect<String>.controlled(
+      DSelect<String>.controlled(
         value: _value,
         initialValue: null,
         isExpanded: true,
         placeholder: 'Choose',
-        label: widget.label,
-        description: widget.description,
+        label: Text(widget.label),
+        description: widget.description == null
+            ? null
+            : Text(widget.description!),
         entries: [
+          const DSelectOption(
+            value: null,
+            label: 'Choose',
+            child: Text('Choose'),
+          ),
           for (final item in widget.items)
-            DNativeSelectOption(value: item, label: item),
+            DSelectOption(value: item, label: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _value = value),
       ),
@@ -2138,16 +2187,23 @@ class _SelectionState extends State<_Selection> {
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DNativeSelect<String>.controlled(
+      DSelect<String>.controlled(
         value: _value,
         initialValue: null,
         isExpanded: true,
         placeholder: 'Choose',
-        label: widget.label,
-        description: widget.description,
+        label: Text(widget.label),
+        description: widget.description == null
+            ? null
+            : Text(widget.description!),
         entries: [
+          const DSelectOption(
+            value: null,
+            label: 'Choose',
+            child: Text('Choose'),
+          ),
           for (final item in widget.items)
-            DNativeSelectOption(value: item, label: item),
+            DSelectOption(value: item, label: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _value = value),
       ),
@@ -2476,16 +2532,23 @@ class _SelectionState extends State<_Selection> {
   @override
   Widget build(BuildContext context) => DField(
     children: [
-      DNativeSelect<String>.controlled(
+      DSelect<String>.controlled(
         value: _value,
         initialValue: null,
         isExpanded: true,
         placeholder: 'Choose',
-        label: widget.label,
-        description: widget.description,
+        label: Text(widget.label),
+        description: widget.description == null
+            ? null
+            : Text(widget.description!),
         entries: [
+          const DSelectOption(
+            value: null,
+            label: 'Choose',
+            child: Text('Choose'),
+          ),
           for (final item in widget.items)
-            DNativeSelectOption(value: item, label: item),
+            DSelectOption(value: item, label: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _value = value),
       ),

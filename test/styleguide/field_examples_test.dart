@@ -151,16 +151,19 @@ void main() {
     expect(find.byType(RangeSlider), findsNothing);
   });
 
-  testWidgets('merged Native Select keeps selection and metadata ownership', (
+  testWidgets('merged Select keeps selection and metadata ownership', (
     tester,
   ) async {
     await tester.pumpWidget(host(const FieldEditorsExample()));
-    final select = find.byType(DNativeSelect<String>);
+    final select = find.byType(DSelect<String>);
     expect(select, findsOneWidget);
     expect(find.byType(DropdownButtonFormField<String>), findsNothing);
-    var widget = tester.widget<DNativeSelect<String>>(select);
-    expect(widget.label, 'Department');
-    expect(widget.description, 'Select your department or area of work.');
+    var widget = tester.widget<DSelect<String>>(select);
+    expect((widget.label as Text).data, 'Department');
+    expect(
+      (widget.description as Text).data,
+      'Select your department or area of work.',
+    );
     expect(widget.value, isNull);
 
     await tester.tap(select);
@@ -168,8 +171,15 @@ void main() {
     await tester.tap(find.text('Marketing').last);
     await tester.pumpAndSettle();
 
-    widget = tester.widget<DNativeSelect<String>>(select);
+    widget = tester.widget<DSelect<String>>(select);
     expect(widget.value, 'Marketing');
+
+    await tester.tap(select);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose').last);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<DSelect<String>>(select).value, isNull);
   });
 
   testWidgets(

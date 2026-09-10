@@ -15,7 +15,7 @@ final labelExamples = ComponentExamples(
       'Flutter has no element id registry, so the control slot replaces htmlFor: '
       'DCheckbox.title, DSwitchTile.title and DRadioGroupItem.label toggle their '
       'control and merge one accessible name; DFieldLabel, DInput.labelText, '
-      'DTextarea.labelText and DNativeSelect.label focus their editor. A '
+      'DTextarea.labelText and DSelect.label focus their editor. A '
       'standalone DLabel is ordinary text. A slot owner wraps the label in its '
       'own DLabel for line height, invalid color and the control-derived '
       'disabled treatment; a nested DLabel inherits those metrics, merges only '
