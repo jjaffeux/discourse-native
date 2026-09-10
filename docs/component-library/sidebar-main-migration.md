@@ -261,3 +261,21 @@ The isolated app was quit through its menu, its absence verified, and the
 desktop lease released. No physical iOS/Linux or spoken screen reader testing
 was performed. Original Sidebar review history remains in progress; this
 follow-up's local merge is recorded in `sectionRowsFollowUp`.
+
+## Custom child icon follow-up — 2026-09-10
+
+The user requested smaller icons for links inside custom sections. Those
+sections use the `custom-` ID prefix supplied by `SidebarSection.customFromJson`.
+Their destination icons now pass size 12 to `DIcon`, down from 16. The existing
+leading column stays centered and retains its width, so text alignment and row
+hit areas do not move. Disclosure arrows and other navigation artwork retain
+their existing sizes. This uses the existing public UI kit without an API change.
+
+All 111 existing shell navigation/width checks, root fatal-info analysis and
+formatting passed. Native macOS inspection covered the production fixture in
+light/dark at 208px and the dark 390px iOS-target layout at 100% text. Smaller
+link icons remained centered and readable beside the unchanged labels.
+[Build evidence](evidence/sidebar/custom-child-icons-review-build.json) records
+the inspected source, kernel and cleanup. No physical iOS/Linux or spoken
+screen reader verification was performed. The local merge is recorded under
+`customChildIconsFollowUp` in the existing Sidebar progress row.
