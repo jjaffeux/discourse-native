@@ -2,11 +2,98 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/taxonomy_selector_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final variant in [
+    (name: 'light narrow', theme: AppTheme.light, width: 320.0),
+    (name: 'dark wide', theme: AppTheme.dark, width: 640.0),
+  ]) {
+    testWidgets(
+      'category removal has one highlight during hover and keyboard navigation (${variant.name})',
+      (tester) async {
+        tester.view.physicalSize = Size(variant.width, 600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final example = categorySelectorExamples.examples.singleWhere(
+          (example) => example.title == 'Category removal',
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: variant.theme.copyWith(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: Center(child: Builder(builder: example.builder)),
+            ),
+          ),
+        );
+        await tester.tap(find.byType(DButton));
+        await tester.pumpAndSettle();
+
+        List<int> paintedHighlights() {
+          final values = <int>[];
+          for (final element in find.byType(DComboboxItem<int>).evaluate()) {
+            final background = tester.widget<DecoratedBox>(
+              find
+                  .descendant(
+                    of: find.byWidget(element.widget),
+                    matching: find.byType(DecoratedBox),
+                  )
+                  .first,
+            );
+            final color = (background.decoration as BoxDecoration).color;
+            if (color != null && color.a > 0) {
+              values.add((element.widget as DComboboxItem<int>).option.value);
+            }
+          }
+          return values;
+        }
+
+        expect(paintedHighlights(), [1]);
+        final removal = find.byKey(
+          const ValueKey(('category-selector-option', 0)),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(removal));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 40));
+        expect(paintedHighlights(), [0]);
+
+        // Keyboard navigation must replace hover even with a stationary mouse.
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        expect(paintedHighlights(), [1]);
+        expect(
+          tester
+              .widget<TopicCategorySelector>(find.byType(TopicCategorySelector))
+              .selected
+              ?.id,
+          1,
+        );
+
+        await mouse.moveTo(Offset.zero);
+        await mouse.moveTo(tester.getCenter(removal));
+        await tester.pump();
+        await mouse.down(tester.getCenter(removal));
+        await tester.pump(const Duration(milliseconds: 40));
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(find.byType(DComboboxContent), findsNothing);
+        expect(
+          tester
+              .widget<TopicCategorySelector>(find.byType(TopicCategorySelector))
+              .selected,
+          isNull,
+        );
+      },
+    );
+  }
+
   for (final entry in [
     (
       id: 'category-selector',
