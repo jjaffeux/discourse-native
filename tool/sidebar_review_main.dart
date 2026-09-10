@@ -127,7 +127,7 @@ Future<void> main() async {
         ],
       },
       chatMessagesByKey: {
-        for (var id = 1; id <= 100; id++)
+        for (var id = 1; id <= 101; id++)
           FakeDiscourseApi.chatMessagesKey(id): (
             messages: const [],
             canLoadMorePast: false,
@@ -145,9 +145,21 @@ Future<void> main() async {
                     ? 'Announcements and community updates'
                     : 'Channel $index',
                 kind: ChatChannelKind.category,
-                membership: const ChatMembership(following: true),
+                membership: ChatMembership(
+                  following: true,
+                  starred: index == 0,
+                ),
                 tracking: ChatTracking(mentionCount: index == 0 ? 1234 : 0),
               ),
+          ],
+          direct: const [
+            ChatChannel(
+              id: 101,
+              title: 'Review reader',
+              kind: ChatChannelKind.directMessage,
+              users: [ChatUser(id: 8, username: 'review-reader')],
+              membership: ChatMembership(following: true),
+            ),
           ],
         ),
       },

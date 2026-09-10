@@ -381,6 +381,7 @@ final class PluginRegistry
             _ownedDestination(plugin, destination),
         ],
         showHeader: section.showHeader,
+        showHeaderTooltip: section.showHeaderTooltip,
         collapsible: section.collapsible,
         actionIcon: section.actionIcon,
         actionLabel: section.actionLabel,

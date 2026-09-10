@@ -1028,6 +1028,8 @@ class _SectionHeader extends StatelessWidget {
       child: section.collapsible
           ? DTooltip(
               message: description,
+              disabled: !section.showHeaderTooltip,
+              excludeFromSemantics: !section.showHeaderTooltip,
               child: DSidebarMenuButton(
                 icon: DIcon(
                   collapsed ? expandIcon : DIcons.chevronDown,
