@@ -66,9 +66,7 @@ class ComposerHeader extends StatelessWidget {
     final label = minimized && destination.isNotEmpty
         ? '$modeLabel · $destination'
         : modeLabel;
-    final color = composer.whisper
-        ? theme.colorScheme.tertiary
-        : theme.colorScheme.onSurface;
+    final color = DTokens.of(context).foreground;
     final canToggleWhisper =
         !minimized &&
         whisperer &&
@@ -81,66 +79,75 @@ class ComposerHeader extends StatelessWidget {
         : registry.composerHeader(context, composer);
 
     final heading = canToggleWhisper
-        ? MenuAnchor(
-            menuChildren: [
-              for (final whisper in [false, true])
-                MenuItemButton(
-                  key: ValueKey(
-                    whisper
-                        ? 'composer-toggle-whisper'
-                        : 'composer-public-reply',
-                  ),
-                  onPressed: composer.isEditing && !composer.loadingBody
-                      ? () => composer.setWhisper(whisper)
+        ? DDropdownMenu(
+            content: DDropdownMenuContent(
+              semanticLabel: 'Reply visibility',
+              width: 240,
+              children: [
+                DDropdownMenuRadioGroup<bool>(
+                  value: composer.whisper,
+                  onChanged: composer.isEditing && !composer.loadingBody
+                      ? composer.setWhisper
                       : null,
-                  leadingIcon: DIcon(
-                    whisper ? DIcons.farEyeSlash : DIcons.reply,
-                    size: 16,
-                  ),
-                  trailingIcon: composer.whisper == whisper
-                      ? const Icon(Icons.check, size: 16)
-                      : const SizedBox(width: 16),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(whisper ? 'Whisper' : 'Reply'),
-                        if (whisper)
-                          Text(
-                            'Allowed groups only',
-                            style: theme.textTheme.labelSmall,
-                          ),
-                      ],
-                    ),
-                  ),
+                  children: [
+                    for (final whisper in [false, true])
+                      DDropdownMenuRadioItem<bool>(
+                        key: ValueKey(
+                          whisper
+                              ? 'composer-toggle-whisper'
+                              : 'composer-public-reply',
+                        ),
+                        value: whisper,
+                        semanticLabel: whisper
+                            ? 'Whisper, Allowed groups only'
+                            : 'Reply',
+                        closeOnSelect: true,
+                        leading: DIcon(
+                          whisper ? DIcons.farEyeSlash : DIcons.reply,
+                          size: 16,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(whisper ? 'Whisper' : 'Reply'),
+                            if (whisper)
+                              Text(
+                                'Allowed groups only',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: DTokens.of(context).mutedForeground,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
-            ],
-            builder: (context, menu, _) => Semantics(
-              button: true,
-              label: composer.whisper ? 'Whisper options' : 'Reply options',
-              expanded: menu.isOpen,
-              child: DButton(
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (context, trigger) => DButton(
                 key: const ValueKey('composer-reply-options'),
-                onPressed: menu.isOpen ? menu.close : menu.open,
+                onPressed: composer.isEditing && !composer.loadingBody
+                    ? trigger.toggle
+                    : null,
+                hasPopup: true,
+                expanded: trigger.open,
+                focusNode: trigger.focusNode,
+                semanticLabel: composer.whisper
+                    ? 'Whisper options'
+                    : 'Reply options',
                 variant: DButtonVariant.transparent,
                 size: DButtonSize.small,
+                icon: DIcon(
+                  composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
+                  size: 14,
+                  color: color,
+                ),
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    DIcon(
-                      composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
-                      size: 14,
-                      color: color,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        label,
-                        style: TextStyle(color: theme.colorScheme.onSurface),
-                      ),
-                    ),
+                    Flexible(child: Text(label)),
                     const SizedBox(width: 6),
                     const DIcon(DIcons.chevronDown, size: 10),
                   ],

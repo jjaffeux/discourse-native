@@ -86,20 +86,16 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
     final replyLabel = username == null
         ? 'Replying to this topic'
         : 'Replying to @$username';
-    final secondaryStyle = theme.textTheme.labelSmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
+    final postNumber = target.replyToPostNumber;
+    final destination =
+        '$replyLabel${postNumber == null ? '' : ' · #$postNumber'}';
     return LayoutBuilder(
       builder: (context, constraints) {
-        final lineHeight =
-            MediaQuery.textScalerOf(
-              context,
-            ).scale(secondaryStyle?.fontSize ?? DiscourseTypography.xs) *
-            (secondaryStyle?.height ?? DiscourseTypography.lineHeightMedium);
-        final showTopic = constraints.maxHeight >= lineHeight * 2 + 14;
+        final lineHeight = MediaQuery.textScalerOf(context).scale(14) * 1.5;
+        final showTopic = constraints.maxHeight >= lineHeight * 2 + 22;
         final headerHeight = math.min(
           constraints.maxHeight - 4,
-          math.max(44.0, lineHeight * (showTopic ? 2 : 1) + 10),
+          math.max(48.0, lineHeight * (showTopic ? 2 : 1) + 22),
         );
         // Leave room for a readable excerpt when the composer is resized short.
         final canExpand =
@@ -108,97 +104,6 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
         final toggle = canExpand
             ? () => setState(() => _expanded = !_expanded)
             : null;
-        final title = Row(
-          children: [
-            if (username != null)
-              DAvatar.frame(
-                child: SizedBox.square(
-                  dimension: 28,
-                  child: AvatarImage(
-                    key: const ValueKey('composer-reply-avatar'),
-                    url: avatarUrl,
-                    size: 28,
-                    fallback: ColoredBox(
-                      color: theme.colorScheme.surfaceContainerHigh,
-                      child: Center(
-                        child: Text(
-                          username.characters.first.toUpperCase(),
-                          style: theme.textTheme.labelSmall,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else
-              SizedBox.square(
-                dimension: 28,
-                child: Center(
-                  child: DIcon(
-                    DIcons.reply,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (username == null)
-                        Flexible(
-                          child: Text(
-                            replyLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: secondaryStyle,
-                          ),
-                        )
-                      else
-                        Flexible(
-                          child: Text(
-                            'Replying to ',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: secondaryStyle,
-                          ),
-                        ),
-                      if (username != null)
-                        Flexible(
-                          flex: 2,
-                          child: Text(
-                            '@$username',
-                            key: const ValueKey('composer-reply-username'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (showTopic) ...[
-                    const SizedBox(height: 2),
-                    TopicTitle(
-                      target.topicTitle,
-                      key: const ValueKey('composer-title'),
-                      siteUrl: target.siteUrl,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: secondaryStyle,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        );
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           child: Column(
@@ -206,36 +111,144 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DTooltip(
-                message: '$replyLabel\n${target.topicTitle}',
+                message: '$destination\n${target.topicTitle}',
                 child: Semantics(
-                  button: canExpand,
                   expanded: canExpand ? expanded : null,
-                  label: '$replyLabel, ${target.topicTitle}',
-                  onTap: toggle,
-                  child: ExcludeSemantics(
-                    child: InkWell(
+                  child: SizedBox(
+                    height: headerHeight,
+                    child: DItem(
                       key: const ValueKey('composer-reply-context'),
-                      onTap: toggle,
-                      borderRadius: BorderRadius.circular(5),
-                      child: SizedBox(
-                        height: headerHeight,
-                        child: Row(
+                      variant: DItemVariant.muted,
+                      size: DItemSize.sm,
+                      onPressed: toggle,
+                      semanticLabel: '$destination, ${target.topicTitle}',
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      children: [
+                        DItemContent(
                           children: [
-                            Expanded(child: title),
-                            if (canExpand) ...[
-                              const SizedBox(width: 8),
-                              RotatedBox(
-                                quarterTurns: expanded ? 2 : 0,
-                                child: DIcon(
-                                  DIcons.chevronDown,
-                                  size: 10,
-                                  color: theme.colorScheme.onSurfaceVariant,
+                            Row(
+                              children: [
+                                ExcludeSemantics(
+                                  child: username != null
+                                      ? DAvatar.frame(
+                                          child: SizedBox.square(
+                                            dimension: 28,
+                                            child: AvatarImage(
+                                              key: const ValueKey(
+                                                'composer-reply-avatar',
+                                              ),
+                                              url: avatarUrl,
+                                              size: 28,
+                                              fallback: ColoredBox(
+                                                color: theme
+                                                    .colorScheme
+                                                    .surfaceContainerHigh,
+                                                child: Center(
+                                                  child: Text(
+                                                    username.characters.first
+                                                        .toUpperCase(),
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelSmall,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : const SizedBox.square(
+                                          dimension: 28,
+                                          child: Center(
+                                            child: DIcon(
+                                              DIcons.reply,
+                                              size: 16,
+                                            ),
+                                          ),
+                                        ),
                                 ),
-                              ),
-                            ],
+                                Expanded(
+                                  child: DItemContent(
+                                    spacing: 2,
+                                    children: [
+                                      ExcludeSemantics(
+                                        child: DItemTitle(
+                                          child: Row(
+                                            children: [
+                                              if (username == null)
+                                                Flexible(
+                                                  child: Text(
+                                                    replyLabel,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                )
+                                              else ...[
+                                                const Flexible(
+                                                  child: Text(
+                                                    'Replying to ',
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                Flexible(
+                                                  child: Text(
+                                                    '@$username',
+                                                    key: const ValueKey(
+                                                      'composer-reply-username',
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                              if (postNumber != null)
+                                                Text(' · #$postNumber'),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      if (showTopic)
+                                        ExcludeSemantics(
+                                          child: DItemDescription(
+                                            maxLines: 1,
+                                            child: TopicTitle(
+                                              target.topicTitle,
+                                              key: const ValueKey(
+                                                'composer-title',
+                                              ),
+                                              siteUrl: target.siteUrl,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                if (canExpand)
+                                  ExcludeSemantics(
+                                    child: RotatedBox(
+                                      quarterTurns: expanded ? 2 : 0,
+                                      child: DIcon(
+                                        DIcons.chevronDown,
+                                        size: 10,
+                                        color: DTokens.of(
+                                          context,
+                                        ).mutedForeground,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),

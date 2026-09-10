@@ -150,7 +150,7 @@ Future<void> _closeComposerDuringProjectedEdit(
               final visible = shell.visibleComposer;
               return visible == null
                   ? const SizedBox.shrink()
-                  : ComposerPanel(composer: visible);
+                  : ComposerPanel(composer: visible, height: 500);
             },
           ),
         ),
@@ -222,7 +222,9 @@ void main() {
             theme: AppTheme.dark,
             home: ShellScope(
               controller: shell,
-              child: Scaffold(body: ComposerPanel(composer: composer)),
+              child: Scaffold(
+                body: ComposerPanel(composer: composer, height: 500),
+              ),
             ),
           ),
         );
@@ -276,7 +278,10 @@ void main() {
           home: ShellScope(
             controller: disabled,
             child: Scaffold(
-              body: ComposerPanel(composer: disabled.visibleComposer!),
+              body: ComposerPanel(
+                composer: disabled.visibleComposer!,
+                height: 500,
+              ),
             ),
           ),
         ),
@@ -299,7 +304,10 @@ void main() {
           home: ShellScope(
             controller: enabled,
             child: Scaffold(
-              body: ComposerPanel(composer: enabled.visibleComposer!),
+              body: ComposerPanel(
+                composer: enabled.visibleComposer!,
+                height: 500,
+              ),
             ),
           ),
         ),
@@ -310,10 +318,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('composer-insert')));
       await tester.pump();
       expect(find.text(tooltip), findsOneWidget);
-      final menuItem = tester.widget<MenuItemButton>(
-        find.widgetWithText(MenuItemButton, tooltip),
-      );
-      final shortcut = menuItem.shortcut! as SingleActivator;
+      final shortcut = tester
+          .widget<DShortcutKeycaps>(
+            find.descendant(
+              of: find.widgetWithText(DDropdownMenuItem, tooltip),
+              matching: find.byType(DShortcutKeycaps),
+            ),
+          )
+          .shortcut[0];
       expect(shortcut.trigger, LogicalKeyboardKey.period);
       expect(shortcut.control, isTrue);
       expect(shortcut.shift, isTrue);
@@ -347,7 +359,7 @@ void main() {
       enabled.visibleComposer!.beginSubmit();
       await tester.pump();
       final action = find.byKey(const ValueKey('composer-insert'));
-      expect(tester.widget<IconButton>(action).onPressed, isNull);
+      expect(tester.widget<DButton>(action).onPressed, isNull);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.period);
@@ -357,7 +369,7 @@ void main() {
       expect(enabled.visibleComposer!.text.text, '>');
       enabled.visibleComposer!.unresolved();
       await tester.pump();
-      expect(tester.widget<IconButton>(action).onPressed, isNotNull);
+      expect(tester.widget<DButton>(action).onPressed, isNotNull);
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
@@ -385,7 +397,9 @@ void main() {
             theme: AppTheme.dark,
             home: ShellScope(
               controller: shell,
-              child: Scaffold(body: ComposerPanel(composer: composer)),
+              child: Scaffold(
+                body: ComposerPanel(composer: composer, height: 500),
+              ),
             ),
           ),
         );
@@ -422,7 +436,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -471,7 +487,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -645,7 +663,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -706,7 +726,9 @@ void main() {
           navigatorObservers: [navigatorObserver],
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -756,7 +778,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -804,7 +828,7 @@ void main() {
           home: ShellScope(
             controller: shell,
             child: Scaffold(
-              body: ComposerPanel(composer: composer, height: 300),
+              body: ComposerPanel(composer: composer, height: 500),
             ),
           ),
         ),
@@ -870,7 +894,9 @@ void main() {
               theme: AppTheme.dark,
               home: ShellScope(
                 controller: shell,
-                child: Scaffold(body: ComposerPanel(composer: composer)),
+                child: Scaffold(
+                  body: ComposerPanel(composer: composer, height: 500),
+                ),
               ),
             ),
           );
@@ -936,7 +962,9 @@ void main() {
               theme: AppTheme.dark,
               home: ShellScope(
                 controller: shell,
-                child: Scaffold(body: ComposerPanel(composer: composer)),
+                child: Scaffold(
+                  body: ComposerPanel(composer: composer, height: 500),
+                ),
               ),
             ),
           );
@@ -986,7 +1014,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -1028,7 +1058,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -1074,7 +1106,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -1129,7 +1163,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -1251,7 +1287,7 @@ void main() {
                     final visible = shell.visibleComposer;
                     return visible == null
                         ? const SizedBox.shrink()
-                        : ComposerPanel(composer: visible);
+                        : ComposerPanel(composer: visible, height: 500);
                   },
                 ),
               ),
@@ -1300,7 +1336,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -1355,7 +1393,7 @@ void main() {
                     final visible = shell.visibleComposer;
                     return visible == null
                         ? const SizedBox.shrink()
-                        : ComposerPanel(composer: visible);
+                        : ComposerPanel(composer: visible, height: 500);
                   },
                 ),
               ),
@@ -1401,7 +1439,9 @@ void main() {
               theme: AppTheme.dark,
               home: ShellScope(
                 controller: shell,
-                child: Scaffold(body: ComposerPanel(composer: composer)),
+                child: Scaffold(
+                  body: ComposerPanel(composer: composer, height: 500),
+                ),
               ),
             ),
           );
@@ -1482,7 +1522,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -1533,7 +1575,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -1578,7 +1622,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );
@@ -1627,7 +1673,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );

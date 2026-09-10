@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -89,18 +90,24 @@ void main() {
         );
         composer.focus.requestFocus();
         await tester.pumpAndSettle();
-        final toolbar = find.byKey(
-          const ValueKey('composer-selection-toolbar'),
-        );
+        final toolbar = find.byKey(const ValueKey('composer-formatting'));
         final emoji = find.byKey(const ValueKey('composer-emoji-picker'));
         expect(toolbar, findsOneWidget);
-        expect(tester.widget<IconButton>(emoji).onPressed, isNotNull);
+        expect(tester.widget<DButton>(emoji).onPressed, isNotNull);
 
         await _shortcut(tester, LogicalKeyboardKey.enter);
         await tester.pump();
         expect(composer.submitting, isTrue);
-        expect(toolbar, findsNothing);
-        expect(tester.widget<IconButton>(emoji).onPressed, isNull);
+        expect(toolbar, findsOneWidget);
+        expect(
+          tester
+              .widget<DButton>(
+                find.byKey(const ValueKey('composer-format-bold')),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(tester.widget<DButton>(emoji).onPressed, isNull);
         await _shortcut(tester, LogicalKeyboardKey.keyL);
         await tester.pump();
         expect(
@@ -115,9 +122,9 @@ void main() {
           tester.widget<TextField>(find.byType(TextField)).readOnly,
           isFalse,
         );
-        expect(tester.widget<IconButton>(emoji).onPressed, isNotNull);
+        expect(tester.widget<DButton>(emoji).onPressed, isNotNull);
         expect(toolbar, findsOneWidget);
-        await tester.tap(find.byTooltip('Bold'));
+        await tester.tap(find.byKey(const ValueKey('composer-format-bold')));
         await tester.pumpAndSettle();
         expect(composer.raw, '**A post** ready to submit');
         await composer.flushDraft();

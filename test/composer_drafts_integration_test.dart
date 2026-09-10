@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
@@ -22,7 +23,6 @@ import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -32,7 +32,6 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
-import 'support/finders.dart';
 
 import 'support/shell_test_harness.dart';
 
@@ -310,7 +309,13 @@ void _registerTopicReplyTests() {
 
       await tester.tap(replyOptions);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('composer-toggle-whisper')));
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyW, character: 'w');
+      await tester.pumpAndSettle();
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        contains('Whisper'),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
 
       expect(
@@ -335,7 +340,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(api.created.single['whisper'], isTrue);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('to a post addresses it by post number', (tester) async {
       final api = FakeDiscourseApi(
@@ -502,7 +507,7 @@ void _registerTopicReplyTests() {
       expect(find.text('Your post is in the queue.'), findsOneWidget);
       expect(renderedText('Held for review.'), findsNothing);
 
-      expect(tester.widget<FilledButton>(sendButton()).onPressed, isNull);
+      expect(tester.widget<DButton>(sendButton()).onPressed, isNull);
     });
 
     testWidgets('undo does not hand a queued reply back', (tester) async {
@@ -537,7 +542,7 @@ void _registerTopicReplyTests() {
       // there to prevent: the text returns, and the send button it returns
       // under works.
       expect(find.text('Held for review.'), findsNothing);
-      expect(tester.widget<FilledButton>(sendButton()).onPressed, isNull);
+      expect(tester.widget<DButton>(sendButton()).onPressed, isNull);
     });
 
     testWidgets('switching sites mid-reply does not post to the new one', (
@@ -593,12 +598,12 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('You are posting too quickly.'), findsOneWidget);
-      expect(tester.widget<FilledButton>(sendButton()).onPressed, isNull);
+      expect(tester.widget<DButton>(sendButton()).onPressed, isNull);
 
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
 
-      expect(tester.widget<FilledButton>(sendButton()).onPressed, isNotNull);
+      expect(tester.widget<DButton>(sendButton()).onPressed, isNotNull);
     });
 
     testWidgets('an unreachable site is checked rather than retried', (
@@ -664,7 +669,7 @@ void _registerTopicReplyTests() {
 
       expect(find.text("Couldn't reach the site."), findsOneWidget);
       expect(find.text('Never arrived.'), findsOneWidget);
-      expect(tester.widget<FilledButton>(sendButton()).onPressed, isNotNull);
+      expect(tester.widget<DButton>(sendButton()).onPressed, isNotNull);
     });
 
     testWidgets('a check that cannot be made holds sending back', (
@@ -688,7 +693,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('may have posted'), findsOneWidget);
-      final button = find.widgetWithText(FilledButton, 'Check again');
+      final button = find.widgetWithText(DButton, 'Check again');
       expect(button, findsOneWidget);
       expect(find.text('Unknown fate.'), findsOneWidget);
 
@@ -901,11 +906,11 @@ void _registerComposerAndDraftTests() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.dIcon(DIcons.bold));
+      await tester.tap(find.byKey(const ValueKey('composer-format-bold')));
       await tester.pumpAndSettle();
       expect(field.controller!.text, 'say **hello**');
 
-      await tester.tap(find.dIcon(DIcons.italic));
+      await tester.tap(find.byKey(const ValueKey('composer-format-italic')));
       await tester.pumpAndSettle();
       expect(field.controller!.text, 'say ***hello***');
     });

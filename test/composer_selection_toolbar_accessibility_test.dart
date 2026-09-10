@@ -45,7 +45,12 @@ void main() {
               body: SizedBox(
                 width: 600,
                 height: 300,
-                child: ComposerPanel(composer: composer),
+                child: ComposerEditor(
+                  composer: composer,
+                  hintText: 'Write a reply…',
+                  textStyle: AppTheme.dark.textTheme.bodyLarge,
+                  hintStyle: AppTheme.dark.textTheme.bodyLarge,
+                ),
               ),
             ),
           ),
@@ -61,8 +66,14 @@ void main() {
       await tester.pumpAndSettle();
 
       final toolbar = find.byKey(const ValueKey('composer-selection-toolbar'));
-      final bold = find.byTooltip('Bold');
-      final italic = find.byTooltip('Italic');
+      final bold = find.descendant(
+        of: toolbar,
+        matching: find.byTooltip('Bold'),
+      );
+      final italic = find.descendant(
+        of: toolbar,
+        matching: find.byTooltip('Italic'),
+      );
       expect(toolbar, findsOneWidget);
       expect(tester.getSize(toolbar), const Size(88, 44));
       expect(tester.getSize(bold), const Size.square(44));

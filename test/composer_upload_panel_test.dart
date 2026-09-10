@@ -391,7 +391,7 @@ void main() {
       expect(pickerCalls, 1);
       expect(
         tester
-            .widget<IconButton>(find.byKey(const ValueKey('composer-upload')))
+            .widget<DButton>(find.byKey(const ValueKey('composer-upload')))
             .onPressed,
         isNull,
       );
@@ -447,7 +447,7 @@ void main() {
       await _pumpPanel(tester, shell, available);
       expect(
         tester
-            .widget<IconButton>(find.byKey(const ValueKey('composer-upload')))
+            .widget<DButton>(find.byKey(const ValueKey('composer-upload')))
             .onPressed,
         isNull,
       );
@@ -456,7 +456,7 @@ void main() {
       await tester.pump();
       expect(
         tester
-            .widget<IconButton>(find.byKey(const ValueKey('composer-upload')))
+            .widget<DButton>(find.byKey(const ValueKey('composer-upload')))
             .onPressed,
         isNotNull,
       );
@@ -813,7 +813,7 @@ void main() {
       addTearDown(composer.dispose);
       addTearDown(shell.dispose);
       composer.text.text = '![tall|640x480](upload://photo)';
-      await _pumpPanel(tester, shell, composer);
+      await _pumpPanel(tester, shell, composer, height: 340);
       await tester.pumpAndSettle();
 
       final editor = find.byType(EditableText);
@@ -1656,7 +1656,7 @@ Future<void> _pumpPanel(
       child: Scaffold(
         body: ComposerPanel(
           composer: composer,
-          height: height,
+          height: height ?? 500,
           pickImages: pickImages,
           readClipboardImages: readClipboardImages,
         ),
@@ -1675,7 +1675,7 @@ Future<void> _pasteShortcut(WidgetTester tester) async {
   await tester.sendKeyDownEvent(modifier);
   await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
   await tester.sendKeyUpEvent(modifier);
-  await tester.pump();
+  await tester.pumpAndSettle();
 }
 
 EditableText _composerEditable(WidgetTester tester) =>

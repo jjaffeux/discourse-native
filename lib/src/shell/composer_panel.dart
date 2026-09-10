@@ -52,6 +52,7 @@ import 'shell_scope.dart';
 import 'site_image.dart';
 import 'topic_category_picker.dart';
 import 'topic_tag_picker.dart';
+import 'topic_title.dart';
 
 bool get _usesCommandModifier =>
     defaultTargetPlatform == TargetPlatform.macOS ||
@@ -199,8 +200,8 @@ class ComposerPanel extends StatelessWidget {
                                 MediaQuery.textScalerOf(context).scale(
                                   target.createsTopic ||
                                           target.editsTopicMetadata
-                                      ? 210
-                                      : 120,
+                                      ? 320
+                                      : 240,
                                 ),
                               ),
                               child: Column(
@@ -213,7 +214,7 @@ class ComposerPanel extends StatelessWidget {
                                           140,
                                           math.max(
                                             48,
-                                            constraints.maxHeight * 0.48,
+                                            constraints.maxHeight * 0.6,
                                           ),
                                         ),
                                       ),
@@ -254,35 +255,59 @@ class ComposerPanel extends StatelessWidget {
                                         16,
                                         8,
                                       ),
-                                      child: TextField(
+                                      child: DInput(
                                         key: const ValueKey(
                                           'composer-topic-title',
                                         ),
                                         controller: composer.title,
                                         readOnly: !composer.isEditing,
+                                        labelText: 'Title',
+                                        hintText: 'Give your topic a title',
                                         textInputAction: TextInputAction.next,
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                        decoration: const InputDecoration(
-                                          isDense: true,
-                                          hintText: 'Title',
-                                          filled: false,
-                                          contentPadding: EdgeInsets.symmetric(
-                                            vertical: 6,
-                                          ),
-                                          border: InputBorder.none,
-                                          enabledBorder: InputBorder.none,
-                                          focusedBorder: InputBorder.none,
-                                        ),
                                       ),
                                     ),
                                   if (target.isNewTopic ||
                                       target.editsTopicMetadata ||
                                       target.isTaxonomyEdit)
                                     _TopicTaxonomy(composer: composer),
+                                  if (target.mode == ComposerMode.postEdit)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        8,
+                                      ),
+                                      child: DItem(
+                                        key: const ValueKey(
+                                          'composer-edit-context',
+                                        ),
+                                        variant: DItemVariant.muted,
+                                        size: DItemSize.xs,
+                                        children: [
+                                          DItemContent(
+                                            spacing: 3,
+                                            children: [
+                                              const DItemDescription(
+                                                child: Text('Topic'),
+                                              ),
+                                              DItemTitle(
+                                                maxLines: 2,
+                                                child: TopicTitle(
+                                                  target.topicTitle,
+                                                  siteUrl: target.siteUrl,
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   if (!target.isTaxonomyEdit) ...[
+                                    _FormattingToolbar(composer: composer),
                                     Expanded(
                                       child: Stack(
                                         fit: StackFit.expand,
@@ -296,6 +321,7 @@ class ComposerPanel extends StatelessWidget {
                                             ),
                                             child: ComposerEditor(
                                               composer: composer,
+                                              showSelectionToolbar: false,
                                               pickImages: pickImages,
                                               readClipboardImages:
                                                   readClipboardImages,
@@ -643,50 +669,24 @@ class _ComposerTaxonomyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DTooltip(
-      message: tooltip,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          minimumSize: Size(0, context.isTouch ? 44 : 34),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.standard,
-          foregroundColor: outlined
-              ? theme.colorScheme.onSurface
-              : theme.colorScheme.onSurfaceVariant,
-          backgroundColor: outlined
-              ? theme.colorScheme.surfaceContainerLow
-              : Colors.transparent,
-          side: outlined ? BorderSide(color: theme.shell.divider) : null,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          textStyle: theme.textTheme.labelMedium?.copyWith(
-            fontWeight: FontWeight.w400,
+    return DButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      semanticLabel: semanticLabel,
+      hasPopup: true,
+      variant: outlined ? DButtonVariant.outline : DButtonVariant.ghost,
+      label: Row(
+        key: valueKey,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ExcludeSemantics(child: leading),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
-        ),
-        child: Row(
-          key: valueKey,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ExcludeSemantics(child: leading),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                semanticsLabel: semanticLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-            DIcon(
-              trailing,
-              size: 12,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
-        ),
+          const SizedBox(width: 8),
+          DIcon(trailing, size: 12),
+        ],
       ),
     );
   }
@@ -794,6 +794,7 @@ class ComposerEditor extends StatefulWidget {
     required this.hintStyle,
     this.autofocus = true,
     this.enableDropTarget = true,
+    this.showSelectionToolbar = true,
     this.expands = true,
     this.pickImages = pickComposerImages,
     this.readClipboardImages = readComposerClipboardImages,
@@ -806,6 +807,9 @@ class ComposerEditor extends StatefulWidget {
   final TextStyle? hintStyle;
   final bool autofocus;
   final bool enableDropTarget;
+
+  /// Topic composers expose persistent Native formatting actions instead.
+  final bool showSelectionToolbar;
   final ComposerImagePicker pickImages;
   final ComposerClipboardImageReader readClipboardImages;
 
@@ -868,6 +872,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       composer: widget.composer,
       scroll: _scroll,
       menuWidth: _menuWidth,
+      showToolbar: () => widget.showSelectionToolbar,
       isMounted: () => mounted,
       renderEditable: () => _renderEditable,
       overlayBox: () {
@@ -1957,6 +1962,7 @@ final class _ComposerSelectionOverlay {
     required ComposerController composer,
     required this.scroll,
     required this.menuWidth,
+    required this.showToolbar,
     required this.isMounted,
     required this.renderEditable,
     required this.overlayBox,
@@ -1968,6 +1974,7 @@ final class _ComposerSelectionOverlay {
   ComposerController _composer;
   final ScrollController scroll;
   final double menuWidth;
+  final bool Function() showToolbar;
   final bool Function() isMounted;
   final RenderEditable? Function() renderEditable;
   final RenderBox? Function() overlayBox;
@@ -2033,7 +2040,7 @@ final class _ComposerSelectionOverlay {
     }
 
     final selection = _composer.text.selection;
-    if (!_canFormatSelection(selection)) {
+    if (!showToolbar() || !_canFormatSelection(selection)) {
       _syncToken = null;
       anchor.value = null;
       if (portal.isShowing) portal.hide();
@@ -2630,6 +2637,75 @@ class _ExistingGalleryImagesDialogState
   );
 }
 
+/// Exposes existing editor commands; source, selection and undo stay with the
+/// live editor. These are actions, not a second formatting-state model.
+class _FormattingToolbar extends StatelessWidget {
+  const _FormattingToolbar({required this.composer});
+
+  final ComposerController composer;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+    child: Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: TextFieldTapRegion(
+        child: DButtonGroup(
+          key: const ValueKey('composer-formatting'),
+          semanticLabel: 'Formatting',
+          children: [
+            for (final (label, icon, mark, key) in [
+              ('Bold', DIcons.bold, ComposerMark.bold, LogicalKeyboardKey.keyB),
+              (
+                'Italic',
+                DIcons.italic,
+                ComposerMark.italic,
+                LogicalKeyboardKey.keyI,
+              ),
+              (
+                'Inline code',
+                DIcons.code,
+                ComposerMark.inlineCode,
+                LogicalKeyboardKey.keyE,
+              ),
+            ])
+              DButton.iconOnly(
+                key: ValueKey('composer-format-${mark.name}'),
+                tooltip: label,
+                shortcut: DShortcut(_formattingShortcut(key)),
+                variant: DButtonVariant.ghost,
+                size: DButtonSize.small,
+                icon: DIcon(icon, size: 16),
+                onPressed: composer.isEditing && !composer.loadingBody
+                    ? () {
+                        composer.toggleMark(mark);
+                        composer.focus.requestFocus();
+                      }
+                    : null,
+              ),
+            DButton.iconOnly(
+              key: const ValueKey('composer-format-link'),
+              tooltip: 'Link',
+              shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
+              variant: DButtonVariant.ghost,
+              size: DButtonSize.small,
+              icon: const DIcon(DIcons.link, size: 16),
+              onPressed: composer.isEditing && !composer.loadingBody
+                  ? () => unawaited(
+                      showComposerLinkDialog(
+                        context: context,
+                        composer: composer,
+                      ),
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class _Toolbar extends StatelessWidget {
   const _Toolbar({required this.composer, required this.pickImages});
 
@@ -2638,9 +2714,7 @@ class _Toolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ShellSelector<int>(
-    // Plugin creation capabilities arrive independently of composer text, so
-    // select every input that can add or remove an action while this composer
-    // is already open.
+    // Plugin creation capabilities arrive independently of composer text.
     select: (controller) => Object.hash(
       controller.siteConfigFor(composer.target.siteUrl),
       controller.freshCurrentUserFor(composer.target.siteUrl),
@@ -2649,7 +2723,6 @@ class _Toolbar extends StatelessWidget {
   );
 
   Widget _buildToolbar(BuildContext context) {
-    final theme = Theme.of(context);
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final actions = registry.composerToolbar(context, composer);
@@ -2666,109 +2739,55 @@ class _Toolbar extends StatelessWidget {
         if (emojiEnabled)
           EmojiPickerAnchor(
             child: Builder(
-              builder: (buttonContext) => DTooltip(
-                message: 'Add emoji',
-                labelTrigger: true,
-                child: IconButton(
-                  key: const ValueKey('composer-emoji-picker'),
-                  onPressed: !composer.isEditing
-                      ? null
-                      : () => unawaited(
-                          openEmojiPickerForTopicComposer(
-                            context: buttonContext,
-                            composer: composer,
-                          ),
+              builder: (buttonContext) => DButton.iconOnly(
+                key: const ValueKey('composer-emoji-picker'),
+                tooltip: 'Add emoji',
+                variant: DButtonVariant.transparent,
+                size: DButtonSize.small,
+                onPressed: !composer.isEditing
+                    ? null
+                    : () => unawaited(
+                        openEmojiPickerForTopicComposer(
+                          context: buttonContext,
+                          composer: composer,
                         ),
-                  icon: const DIcon(DIcons.discourseEmojis, size: 18),
-                  tooltip: '',
-                  visualDensity: VisualDensity.compact,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        MenuAnchor(
-          menuChildren: [
-            for (final (label, icon, mark, key) in [
-              ('Bold', DIcons.bold, ComposerMark.bold, LogicalKeyboardKey.keyB),
-              (
-                'Italic',
-                DIcons.italic,
-                ComposerMark.italic,
-                LogicalKeyboardKey.keyI,
-              ),
-              (
-                'Inline code',
-                DIcons.code,
-                ComposerMark.inlineCode,
-                LogicalKeyboardKey.keyE,
-              ),
-            ])
-              MenuItemButton(
-                onPressed: composer.isEditing
-                    ? () => composer.toggleMark(mark)
-                    : null,
-                leadingIcon: DIcon(icon, size: 16),
-                shortcut: _formattingShortcut(key),
-                child: Text(label),
-              ),
-            MenuItemButton(
-              onPressed: composer.isEditing
-                  ? () => unawaited(
-                      showComposerLinkDialog(
-                        context: context,
-                        composer: composer,
                       ),
-                    )
-                  : null,
-              leadingIcon: const DIcon(DIcons.link, size: 16),
-              shortcut: _formattingShortcut(LogicalKeyboardKey.keyL),
-              child: const Text('Link'),
-            ),
-          ],
-          builder: (context, menu, _) => DTooltip(
-            message: 'Formatting',
-            labelTrigger: true,
-            child: IconButton(
-              key: const ValueKey('composer-formatting'),
-              onPressed: composer.isEditing
-                  ? (menu.isOpen ? menu.close : menu.open)
-                  : null,
-              icon: Text(
-                'Aa',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                icon: const DIcon(DIcons.discourseEmojis, size: 18),
               ),
-              tooltip: '',
-              visualDensity: VisualDensity.compact,
-              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-        ),
         if (actions.isNotEmpty)
-          MenuAnchor(
-            menuChildren: [
-              for (final action in actions)
-                MenuItemButton(
-                  onPressed: composer.isEditing ? action.onInvoke : null,
-                  leadingIcon: DIcon(action.icon, size: 16),
-                  shortcut: action.shortcut,
-                  child: Text(action.label),
-                ),
-            ],
-            builder: (context, menu, _) => DTooltip(
-              message: 'Insert',
-              labelTrigger: true,
-              child: IconButton(
+          DDropdownMenu(
+            content: DDropdownMenuContent(
+              semanticLabel: 'Insert',
+              side: DPopoverSide.top,
+              width: 240,
+              children: [
+                for (final action in actions)
+                  DDropdownMenuItem(
+                    onPressed: composer.isEditing ? action.onInvoke : null,
+                    leading: DIcon(action.icon, size: 16),
+                    trailing: switch (action.shortcut) {
+                      final SingleActivator shortcut => DShortcutKeycaps(
+                        shortcut: DShortcut(shortcut),
+                      ),
+                      _ => null,
+                    },
+                    child: Text(action.label),
+                  ),
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (context, trigger) => DButton.iconOnly(
                 key: const ValueKey('composer-insert'),
-                onPressed: composer.isEditing
-                    ? (menu.isOpen ? menu.close : menu.open)
-                    : null,
+                tooltip: 'Insert',
+                hasPopup: true,
+                expanded: trigger.open,
+                focusNode: trigger.focusNode,
+                variant: DButtonVariant.transparent,
+                size: DButtonSize.small,
+                onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.circlePlus, size: 18),
-                tooltip: '',
-                visualDensity: VisualDensity.compact,
-                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -2911,21 +2930,17 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
         ),
       ),
       alignment: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
-      child: DTooltip(
-        message: forward
+      child: DButton.iconOnly(
+        tooltip: forward
             ? 'Show more composer tools'
             : 'Show previous composer tools',
-        labelTrigger: true,
-        child: IconButton(
-          onPressed: onPressed,
-          icon: DIcon(
-            pointsRight ? DIcons.chevronRight : DIcons.chevronLeft,
-            size: 13,
-          ),
-          tooltip: '',
-          visualDensity: VisualDensity.compact,
-          color: theme.colorScheme.onSurfaceVariant,
+        onPressed: onPressed,
+        icon: DIcon(
+          pointsRight ? DIcons.chevronRight : DIcons.chevronLeft,
+          size: 13,
         ),
+        variant: DButtonVariant.transparent,
+        size: DButtonSize.small,
       ),
     );
   }
@@ -2989,23 +3004,16 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DTooltip(
-      message: 'Upload images',
-      labelTrigger: true,
-      child: IconButton(
-        key: const ValueKey('composer-upload'),
-        onPressed: !widget.composer.canUpload || _picking
-            ? null
-            : () => unawaited(_pick()),
-        icon: const DIcon(DIcons.paperclip, size: 18),
-        tooltip: '',
-        visualDensity: VisualDensity.compact,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DButton.iconOnly(
+    key: const ValueKey('composer-upload'),
+    tooltip: 'Upload images',
+    onPressed: !widget.composer.canUpload || _picking
+        ? null
+        : () => unawaited(_pick()),
+    icon: const DIcon(DIcons.paperclip, size: 18),
+    variant: DButtonVariant.transparent,
+    size: DButtonSize.small,
+  );
 }
 
 class ComposerUploadQueue extends StatelessWidget {
@@ -3193,10 +3201,18 @@ class _Footer extends StatelessWidget {
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final pluginControls = registry.composerFooter(context, composer);
 
-    final status = message == null
+    final draftMessage = !composer.canSaveDraft || composer.target.isEdit
+        ? null
+        : composer.draftPending || composer.draftStatus == DraftStatus.saving
+        ? 'Saving draft…'
+        : composer.draftStatus == DraftStatus.saved
+        ? 'Draft saved'
+        : null;
+    final statusMessage = message ?? draftMessage;
+    final status = statusMessage == null
         ? const SizedBox.shrink()
         : Text(
-            message!,
+            statusMessage,
             style: theme.textTheme.labelSmall?.copyWith(
               color: isError
                   ? theme.colorScheme.error
@@ -3224,41 +3240,47 @@ class _Footer extends StatelessWidget {
                   padding: const EdgeInsetsDirectional.only(end: 8),
                   child: control,
                 ),
-              DTooltip(
-                message: compact ? label : '',
-                excludeFromSemantics: true,
-                child: FilledButton(
-                  key: const ValueKey('composer-submit'),
-                  onPressed: busy ? null : onSubmit,
-                  style: FilledButton.styleFrom(
-                    minimumSize: compact ? const Size(44, 40) : null,
-                    padding: compact ? EdgeInsets.zero : null,
-                    backgroundColor: composer.whisper
-                        ? theme.colorScheme.tertiary
-                        : null,
-                    foregroundColor: composer.whisper
-                        ? theme.colorScheme.onTertiary
-                        : null,
-                  ),
-                  child: Semantics(
-                    label: label,
-                    excludeSemantics: true,
-                    child: busy
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: DSpinner(),
-                          )
-                        : compact
-                        ? DIcon(
-                            composer.target.isNewTopic
-                                ? DIcons.farPenToSquare
-                                : DIcons.reply,
-                            size: 18,
-                          )
-                        : Text(label),
-                  ),
-                ),
+              Theme(
+                data: composer.whisper
+                    ? theme.copyWith(
+                        extensions: [
+                          ...theme.extensions.values.where(
+                            (extension) => extension is! DTokens,
+                          ),
+                          DTokens.of(context).copyWith(
+                            colors: theme.colorScheme.copyWith(
+                              primary: theme.colorScheme.tertiary,
+                              onPrimary: theme.colorScheme.onTertiary,
+                            ),
+                          ),
+                        ],
+                      )
+                    : theme,
+                child: compact
+                    ? DButton.iconOnly(
+                        key: const ValueKey('composer-submit'),
+                        tooltip: label,
+                        semanticLabel: label,
+                        onPressed: busy ? null : onSubmit,
+                        loading: busy,
+                        icon: DIcon(
+                          composer.whisper
+                              ? DIcons.farEyeSlash
+                              : composer.target.isEdit
+                              ? DIcons.check
+                              : composer.target.isNewTopic
+                              ? DIcons.farPenToSquare
+                              : DIcons.reply,
+                          size: 18,
+                        ),
+                      )
+                    : DButton(
+                        key: const ValueKey('composer-submit'),
+                        onPressed: busy ? null : onSubmit,
+                        loading: busy,
+                        semanticLabel: label,
+                        label: Text(label),
+                      ),
               ),
             ],
           ),
@@ -3272,7 +3294,7 @@ class _Footer extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (message != null) ...[
+          if (statusMessage != null) ...[
             Align(alignment: Alignment.centerRight, child: status),
             const SizedBox(height: 4),
           ],
