@@ -673,7 +673,10 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       }
       _requestOpen(!combobox.closeOnSelect, reason);
     }
-    if (focusNode.canRequestFocus) focusNode.requestFocus();
+    // A closing popup restores its trigger; refocusing its input can reopen it.
+    if (!combobox.closeOnSelect && focusNode.canRequestFocus) {
+      focusNode.requestFocus();
+    }
   }
 
   void _emitValues(List<T> values, DComboboxChangeReason reason) {
