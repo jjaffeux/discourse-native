@@ -99,3 +99,5 @@ also exercised a submenu flipped to the left by collision handling. Continuous
 hover paths were verified with Flutter mouse-event tests; the native CUA API
 does not expose standalone pointer movement. No iOS or Linux device run was
 performed, and Chat checks used production widgets with fake data.
+
+Merged into local main as `c314da14` from the repository's main checkout.
