@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +13,95 @@ import 'package:flutter_test/flutter_test.dart';
 // CHECKBOX_EXPORT_DIR=/absolute/path flutter test test/ui/d_checkbox_paint_test.dart
 void main() {
   final exportDirectory = Platform.environment['CHECKBOX_EXPORT_DIR'];
+  for (final (name, theme) in [
+    ('app-light', AppTheme.light),
+    ('app-dark', AppTheme.dark),
+    (
+      'site-dark',
+      AppTheme.fromPalette(
+        ResolvedSitePalette.fromJson(const {
+          'brightness': 'dark',
+          'primary': 0xffdddddd,
+          'secondary': 0xff222222,
+          'tertiary': 0xff0099cc,
+          'contentBorderColor': 0xff333333,
+          'secondaryVeryHigh': 0xff333333,
+          'primaryLowMid': 0xff808080,
+        }),
+      ),
+    ),
+  ]) {
+    testWidgets('$name unchecked outline stays visible on a popup surface', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 96);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final boundaryKey = GlobalKey();
+      final background = theme.extension<DTokens>()!.surface;
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: boundaryKey,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: theme.copyWith(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              backgroundColor: background,
+              body: Center(
+                child: SizedBox(
+                  width: 280,
+                  child: DCheckbox(
+                    value: false,
+                    title: const Text('approved'),
+                    onChanged: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final control = tester.getRect(find.byType(AnimatedContainer));
+      final boundary =
+          boundaryKey.currentContext!.findRenderObject()!
+              as RenderRepaintBoundary;
+      await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        final offset =
+            (control.center.dy.floor() * image.width + control.left.floor()) *
+            4;
+        final outline = Color.fromARGB(
+          bytes.getUint8(offset + 3),
+          bytes.getUint8(offset),
+          bytes.getUint8(offset + 1),
+          bytes.getUint8(offset + 2),
+        );
+        final outlineLuminance = outline.computeLuminance();
+        final backgroundLuminance = background.computeLuminance();
+        final contrast = outlineLuminance > backgroundLuminance
+            ? (outlineLuminance + .05) / (backgroundLuminance + .05)
+            : (backgroundLuminance + .05) / (outlineLuminance + .05);
+        expect(
+          contrast,
+          greaterThan(1.5),
+          reason: 'The unchecked outline must not blend into the popup.',
+        );
+        if (exportDirectory != null) {
+          Directory(exportDirectory).createSync(recursive: true);
+          final png = await image.toByteData(format: ui.ImageByteFormat.png);
+          File(
+            '$exportDirectory/$name-popup.png',
+          ).writeAsBytesSync(png!.buffer.asUint8List());
+        }
+        image.dispose();
+      });
+    });
+  }
   for (final dark in [false, true]) {
     testWidgets(
       '${dark ? 'dark' : 'light'} unchecked focus and invalid rings stay outside translucent inputs',
