@@ -138,3 +138,9 @@ fit-width and light 360px previews. Native checks covered single-row keyboard
 highlighting and clicking removal to clear the category and close the dropdown.
 Transient mouse-hover overlap is covered by widget tests; no other native
 platform was exercised.
+
+Root `flutter analyze --no-pub` reported no issues. Integrated after the shared
+fix's accepted merge `05620468`, preserving the tested selector and Combobox
+source. Merged from the main checkout with `--no-ff` as
+`decc651f3d5b849369bf7a88866be73ec75a486c`; the merge tree matches the verified
+integration candidate `32aa28b5` exactly.
