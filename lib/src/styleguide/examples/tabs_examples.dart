@@ -7,7 +7,7 @@ final tabsExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Switch between related layers of content with tabs.',
   notes:
-      'The default list is 32px high with 3px inset, 25px triggers, 6px horizontal padding, 14/20 medium text and the host lg/md radius scale. The line variant uses 4px gaps and a 2px active rule offset 4px beyond the trigger. '
+      'The default list is 32px high with 3px inset, 25px triggers, 6px horizontal padding, 14/20 medium text and the host lg/md radius scale. The line variant uses 4px gaps and a 2px active rule offset 4px beyond the trigger. Horizontal line lists reserve 6px below the artwork so scrolling cannot clip the active rule. '
       'DTabs owns local selection, DTabs.controlled follows application routing, and DTabController is a borrowed imperative option. DTabList supports manual or automatic activation and looping roving focus. Arrow direction follows orientation and RTL; Home/End jump to the boundary; Enter/Space activate in manual mode. Disabled and dynamically removed triggers are skipped. '
       'DTabPanel unmounts hidden content by default; maintainState retains it offstage without ticking or semantics. Focus in a disappearing panel returns to its trigger. Horizontal lists scroll at narrow widths and reveal keyboard-focused tabs. Touch platforms retain a 48px interaction height around the compact artwork. All colors, font family, radius and reduced motion update live from the preview.',
   examples: [

@@ -1,13 +1,10 @@
-import 'dart:math' as math;
-
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
 import '../models/topic_feed.dart';
-import '../theme/discourse_typography.dart';
 import 'content_reading_lane.dart';
 import 'forum_search.dart';
-import 'list_navigation_tab.dart';
 import 'message_create_button.dart';
 import 'shell_scope.dart';
 import 'title_bar.dart';
@@ -49,62 +46,40 @@ class _MessageListNavigation extends StatelessWidget {
       group: controller.currentContent?.messageGroupName,
     ),
     builder: (context, state, _) {
-      final theme = Theme.of(context);
-      final style = theme.textTheme.bodyMedium;
-      final height = math.max(
-        52.0,
-        MediaQuery.textScalerOf(
-                  context,
-                ).scale(style?.fontSize ?? DiscourseTypography.sm) *
-                (style?.height ?? DiscourseTypography.lineHeightSmall) +
-            18,
-      );
       return ContentReadingLaneBox(
         widthLimit: topicListContentWidth,
         child: LayoutBuilder(
-          builder: (context, constraints) => SizedBox(
+          builder: (context, constraints) => ConstrainedBox(
             key: const ValueKey('message-list-navigation'),
-            height: height,
+            constraints: const BoxConstraints(minHeight: 52),
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: topicListHorizontalPadding,
+                vertical: 8,
               ),
               child: Row(
                 children: [
                   Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: SizedBox(
-                        height: height,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                    child: DTabs<MessageListMode>.controlled(
+                      value: state.mode,
+                      onChanged: (mode) {
+                        if (mode == null) return;
+                        ShellScope.read(context).selectMessageListMode(mode);
+                      },
+                      children: [
+                        DTabList<MessageListMode>(
+                          variant: DTabListVariant.line,
                           children: [
                             for (final mode in MessageListMode.values)
                               if (state.group == null || mode.supportsGroup)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 3),
-                                  child: IntrinsicWidth(
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        minWidth: 48,
-                                      ),
-                                      child: ListNavigationTab(
-                                        controlKey: ValueKey(
-                                          'message-list-${mode.name}',
-                                        ),
-                                        label: mode.label,
-                                        textStyle: style,
-                                        selected: state.mode == mode,
-                                        onTap: () => ShellScope.read(
-                                          context,
-                                        ).selectMessageListMode(mode),
-                                      ),
-                                    ),
-                                  ),
+                                DTabTrigger(
+                                  key: ValueKey('message-list-${mode.name}'),
+                                  value: mode,
+                                  child: Text(mode.label),
                                 ),
                           ],
                         ),
-                      ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),

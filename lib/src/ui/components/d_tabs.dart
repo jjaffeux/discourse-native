@@ -508,6 +508,10 @@ class DTabList<T> extends StatelessWidget {
       visual = SingleChildScrollView(
         controller: scrollController,
         scrollDirection: Axis.horizontal,
+        // Keep the active rule's paint overflow inside the scrolling viewport.
+        padding: variant == DTabListVariant.line
+            ? const EdgeInsets.only(bottom: 6)
+            : EdgeInsets.zero,
         child: visual,
       );
     } else {

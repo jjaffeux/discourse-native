@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -130,6 +131,70 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final group in [null, 'team']) {
+    testWidgets(
+      'activates ${group ?? 'Personal'} folders ahead of the selected message at 200% text',
+      (tester) async {
+        final setup = await _pumpInbox(tester, width: 360, textScale: 2);
+        setup.controller.selectMessageInbox(group);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('message-list-inbox')));
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(
+          setup.controller.currentContent?.messageListMode,
+          MessageListMode.inbox,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            group == null ? 'Unread personal message' : 'Unread group message',
+          ),
+          findsOneWidget,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        await tester.pumpAndSettle();
+        final archive = find.byKey(const ValueKey('message-list-archive'));
+        expect(archive.hitTestable(), findsOneWidget);
+        expect(
+          tester.getRect(archive).right,
+          lessThanOrEqualTo(
+            tester
+                .getRect(find.byKey(const ValueKey('new-message-button')))
+                .left,
+          ),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            group == null
+                ? 'Archived personal message'
+                : 'Archived group message',
+          ),
+          findsOneWidget,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            group == null ? 'Sent personal message' : 'Unread group message',
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
 
   testWidgets(
     'new personal message validates recipients and opens the native composer',
