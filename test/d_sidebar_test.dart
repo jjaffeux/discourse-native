@@ -429,6 +429,70 @@ void main() {
       );
     },
   );
+  testWidgets(
+    'menu actions accept replacement focus nodes without disposing them',
+    (tester) async {
+      final first = FocusNode();
+      final second = FocusNode();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      var activations = 0;
+
+      Widget action(FocusNode? focusNode) => MaterialApp(
+        home: Scaffold(
+          body: DSidebarMenuAction(
+            semanticLabel: 'Project options',
+            focusNode: focusNode,
+            onPressed: () => activations++,
+            child: const Icon(Icons.more_horiz),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(action(first));
+      first.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(activations, 1);
+
+      await tester.pumpWidget(action(second));
+      second.requestFocus();
+      await tester.pumpAndSettle();
+      expect(first.hasFocus, isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      expect(activations, 2);
+
+      await tester.pumpWidget(action(null));
+      await tester.tap(find.byType(DSidebarMenuAction));
+      await tester.pumpAndSettle();
+      expect(second.hasFocus, isFalse);
+      expect(activations, 3);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                for (final node in [first, second])
+                  DButton(
+                    focusNode: node,
+                    onPressed: () {},
+                    label: const Text('Reused focus node'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      for (final node in [first, second]) {
+        node.requestFocus();
+        await tester.pumpAndSettle();
+        expect(node.hasFocus, isTrue);
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('breakpoint dismissal clears obsolete mobile open state', (
     tester,
   ) async {

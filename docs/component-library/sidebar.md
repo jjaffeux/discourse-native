@@ -60,7 +60,12 @@ MenuSub/Item/Button, Header, Footer, Separator, Input, Trigger, Rail and Inset
 are exported. MenuItem takes optional trailing action/badge and submenu slots.
 Disclosure composes DCollapsible with caller state and `expanded` semantics.
 showOnHover actions reveal on row hover/focus,
-remain keyboard reachable, and stay visible on narrow surfaces. Null callbacks
+remain keyboard reachable, and stay visible on narrow surfaces. Actions with
+`expanded: true` also stay visible and highlighted while their popup has focus.
+Compose a project action using `DDropdownMenuTrigger`, passing its `focusNode`,
+`open` state as `expanded`, and `toggle` callback to `DSidebarMenuAction`. The
+borrowed focus node is never disposed by the action; the dropdown restores it
+on Escape or selection. Null callbacks
 disable actions. Icon menu callers should provide an icon and tooltip or
 semanticLabel to preserve a useful collapsed navigation name.
 

@@ -48,7 +48,10 @@ void main() {
           if (example.title != 'Loading and recovery') {
             expect(find.byType(DCollapsible), findsWidgets);
           }
-          expect(find.byType(DDropdownMenu), findsNWidgets(2));
+          expect(
+            find.byType(DDropdownMenu),
+            findsNWidgets(example.title == 'Application sidebar' ? 5 : 2),
+          );
           expect(find.byType(DAvatar), findsOneWidget);
           expect(
             tester.takeException(),
@@ -113,6 +116,154 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Account selected'), findsOneWidget);
   });
+
+  testWidgets('project row actions open a dropdown without selecting the row', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Builder(builder: sidebarExamples.examples.first.builder),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Toggle Playground'));
+    await tester.pumpAndSettle();
+
+    final action = find.byWidgetPredicate(
+      (widget) =>
+          widget is DSidebarMenuAction &&
+          widget.semanticLabel == 'More options for Design Engineering',
+    );
+    final focus = tester.widget<DSidebarMenuAction>(action).focusNode!;
+    double opacity() => tester
+        .widget<Opacity>(
+          find.descendant(of: action, matching: find.byType(Opacity)),
+        )
+        .opacity;
+    expect(opacity(), 0);
+    expect(
+      tester.getSemantics(action).flagsCollection.isExpanded,
+      Tristate.isFalse,
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(action));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    expect(find.text('View Project'), findsOneWidget);
+    expect(find.text('Share Project'), findsOneWidget);
+    expect(find.text('Delete Project'), findsOneWidget);
+    expect(find.text('Select a destination'), findsOneWidget);
+    expect(
+      tester.getSemantics(action).flagsCollection.isExpanded,
+      Tristate.isTrue,
+    );
+    await mouse.moveTo(const Offset(800, 500));
+    await tester.pumpAndSettle();
+    expect(focus.hasFocus, isFalse);
+    expect(opacity(), 1);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(focus.hasFocus, isTrue);
+    expect(
+      tester.getSemantics(action).flagsCollection.isExpanded,
+      Tristate.isFalse,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Share Project'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(find.text('Share Design Engineering selected'), findsOneWidget);
+    expect(focus.hasFocus, isTrue);
+
+    for (final (project, command) in [
+      ('Sales & Marketing', 'View'),
+      ('Travel', 'Delete'),
+    ]) {
+      await tester.tap(find.bySemanticsLabel('More options for $project'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('$command Project'));
+      await tester.pumpAndSettle();
+      expect(find.text('$command $project selected'), findsOneWidget);
+      expect(find.byType(DDropdownMenuContent), findsNothing);
+    }
+
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(800, 400));
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'project dropdown stays inside the mobile sidebar at large RTL text',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          home: Scaffold(
+            body: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(360, 640),
+                textScaler: TextScaler.linear(2),
+                disableAnimations: true,
+              ),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Builder(builder: sidebarExamples.examples.first.builder),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byType(DSidebarTrigger));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Toggle Playground'));
+      await tester.pumpAndSettle();
+      final action = find.bySemanticsLabel(
+        'More options for Design Engineering',
+      );
+      await tester.ensureVisible(action);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      final menu = tester.getRect(find.byType(DDropdownMenuContent));
+      expect(menu.left, greaterThanOrEqualTo(0));
+      expect(menu.right, lessThanOrEqualTo(360));
+      expect(menu.top, greaterThanOrEqualTo(0));
+      expect(menu.bottom, lessThanOrEqualTo(640));
+      await tester.tap(find.text('Share Project'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
+      expect(find.byType(DSheetContent), findsOneWidget);
+
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
+      expect(find.byType(DSheetContent), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsNothing);
+      expect(find.text('Share Design Engineering selected'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('header and footer menu buttons respond to pointer hover', (
     tester,
