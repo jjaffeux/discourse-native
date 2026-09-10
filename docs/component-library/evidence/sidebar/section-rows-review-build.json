@@ -1,0 +1,47 @@
+{
+  "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+  "sourceCommit": "c86ed14bf81682ef98a38bf90472b9d9c803c37c",
+  "branch": "codex/sidebar-section-rows",
+  "entrypoint": "tool/sidebar_review_main.dart",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/dce5/discourse-native/build/macos/Build/Products/Debug/Sidebar Review dce5.app",
+  "bundleIdentifier": "org.discourse.sidebarreviewdce5.dev",
+  "buildLog": "/tmp/sidebar-section-rows-native-build.log",
+  "runnerRestored": true,
+  "deepStrictSignatureVerified": true,
+  "actualLaunchVerified": true,
+  "platform": "macOS 26.6.2",
+  "flutter": "3.47.2",
+  "dart": "3.13.2",
+  "entitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "pushRegistrationExcluded": true,
+  "sourceSha256": {
+    "lib/src/shell/instance_sidebar.dart": "675c85600bb3dd9809b6e62446eac4f9b127d060e9dcb61dbd4ccec9b48f01d6",
+    "lib/src/ui/components/d_sidebar.dart": "4ed58e6af99e1f8a8e9ebd2f50e03994bd60f0197195e2135e1b9e26fc415e8a",
+    "lib/src/ui/components/d_collapsible.dart": "a64aef5377a36623dd4ffdfaad821f94483b4ac738881ea070fc10e52dd06913",
+    "lib/src/ui/components/d_scroll_area.dart": "c78bce4a25266d10dc50cd890d246e46836fbae322e66fba880afaf61be775cf",
+    "lib/src/theme/app_theme.dart": "04e354a2398351412305ff847e3ed675679d6dafbb1469971f6145b7b6f38196",
+    "tool/sidebar_review_main.dart": "cab224bed7a32c9b4af7b82d4819946621fc5ebd50bad3264959c8a21af00742"
+  },
+  "kernelSha256": {
+    "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "6465fd84e94f52db7052080d3250e15b9dc13e642306969f740698780c588d1f"
+  },
+  "nativeEvidence": "docs/component-library/sidebar-main-migration.md#section-row-follow-up--2026-09-10",
+  "checks": [
+    "Native production shell at 208px, light/dark, 100%: ordinary menu row typography, title casing, leading disclosure arrows, contiguous sections, one divider below More.",
+    "Collapse custom sections, retain independent section action; action counter increments without expanding the section.",
+    "Plum RTL at 208px and 200%: arrows mirror, labels fit within two lines and full names remain in AX; separate action increments counter.",
+    "Plum RTL at 390px and 200% with iOS target: collapsed rows and the separate plus action remain laid out without overflow.",
+    "Return to desktop 100% retains collapsed state across layout changes."
+  ],
+  "integrationEquivalence": "Candidate starts from de07b578, adding the independently merged 4px scrollbar defaults. InstanceSidebar, DSidebar, DCollapsible and the fixture are byte-identical to the inspected source; scrollbar thickness does not change row layout. No new native run is claimed for that separate update.",
+  "limitations": [
+    "No physical iOS/Linux or spoken VoiceOver verification; iOS is a target-platform/390px fixture on macOS.",
+    "Narrow 200% labels can wrap or ellipsize as ordinary menu rows do."
+  ],
+  "cleanup": "Owned app quit through its menu and absence verified with CUA; desktop lease released."
+}
