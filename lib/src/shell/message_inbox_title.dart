@@ -4,8 +4,15 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'choice_menu.dart';
 import 'shell_scope.dart';
+
+typedef _InboxOwner = ({
+  String? siteUrl,
+  Object? session,
+  String? tabId,
+  String? routeId,
+  List<String> groups,
+});
 
 class MessageInboxTitle extends StatelessWidget {
   const MessageInboxTitle({
@@ -20,18 +27,31 @@ class MessageInboxTitle extends StatelessWidget {
   final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<List<String>>(
-    select: (controller) =>
-        controller.currentInstance?.user?.messageGroupNames ?? const [],
-    builder: (context, memberships, _) {
+  Widget build(BuildContext context) => ShellSelector<_InboxOwner>(
+    select: (controller) {
+      final instance = controller.currentInstance;
+      return (
+        siteUrl: instance?.url,
+        session: instance == null
+            ? null
+            : controller.lifecycle.capture(instance.url).session,
+        tabId: controller.activeTabId,
+        routeId: controller.currentContent?.id,
+        groups: instance?.user?.messageGroupNames ?? const [],
+      );
+    },
+    builder: (context, owner, _) {
+      final controller = ShellScope.read(context);
+      final lease = owner.siteUrl == null
+          ? null
+          : controller.lifecycle.capture(owner.siteUrl!);
       final theme = Theme.of(context);
-      final groups = [
-        ...memberships,
+      final groups = {
+        ...owner.groups,
         // A restored inbox may precede a fresh membership payload. Preserve
         // its label while keeping Personal available as a way back.
-        if (selectedGroup != null && !memberships.contains(selectedGroup))
-          selectedGroup!,
-      ];
+        ?selectedGroup,
+      };
       return Row(
         key: const ValueKey('message-inbox-title'),
         children: [
@@ -55,60 +75,50 @@ class MessageInboxTitle extends StatelessWidget {
             flex: 2,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 240),
-              child: ChoiceMenuAnchor<String>(
-                key: const ValueKey('message-inbox-picker'),
-                title: 'Choose an inbox',
-                showPopoverTitle: false,
+              child: DMessageInboxMenu<String>(
+                key: ValueKey((
+                  controller,
+                  owner.siteUrl,
+                  owner.session,
+                  owner.tabId,
+                )),
+                buttonKey: const ValueKey('message-inbox-selector'),
                 value: selectedGroup == null
                     ? _personal
                     : 'group:$selectedGroup',
                 options: [
-                  const ChoiceMenuOption(
+                  const DMessageInboxOption(
                     value: _personal,
-                    title: 'Personal',
+                    label: 'Personal',
                     description: 'Private messages sent directly to you',
-                    icon: DIcons.user,
+                    icon: DIcon(DIcons.user),
                   ),
                   for (final group in groups)
-                    ChoiceMenuOption(
+                    DMessageInboxOption(
                       value: 'group:$group',
-                      title: group,
+                      label: group,
                       description: 'Private messages sent to @$group',
-                      icon: DIcons.users,
+                      icon: const DIcon(DIcons.users),
                     ),
                 ],
-                onSelected: (choice) =>
-                    ShellScope.read(context).selectMessageInbox(
-                      choice == _personal
-                          ? null
-                          : choice.substring('group:'.length),
-                    ),
-                builder: (context, openMenu) => DButton(
-                  key: const ValueKey('message-inbox-selector'),
-                  onPressed: openMenu,
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          selectedGroup ?? 'Personal',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const DIcon(DIcons.chevronDown, size: 10),
-                    ],
-                  ),
-                  icon: DIcon(
-                    selectedGroup == null ? DIcons.user : DIcons.users,
-                    size: 14,
-                  ),
-                  tooltip: 'Choose inbox',
-                  semanticLabel: 'Choose inbox: ${selectedGroup ?? 'Personal'}',
-                  variant: DButtonVariant.flat,
-                  size: DButtonSize.small,
-                ),
+                onChanged: lease == null
+                    ? null
+                    : (choice) {
+                        // Navigation or account replacement may precede the
+                        // next frame that removes the old popup.
+                        if (!context.mounted ||
+                            !lease.isCurrent ||
+                            controller.currentInstance?.url != owner.siteUrl ||
+                            controller.activeTabId != owner.tabId ||
+                            controller.currentContent?.id != owner.routeId) {
+                          return;
+                        }
+                        controller.selectMessageInbox(
+                          choice == _personal
+                              ? null
+                              : choice.substring('group:'.length),
+                        );
+                      },
               ),
             ),
           ),

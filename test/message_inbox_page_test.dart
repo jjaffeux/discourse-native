@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
@@ -132,6 +133,106 @@ void main() {
     },
   );
 
+  testWidgets('restored inbox keeps its label and a route back to Personal', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(tester);
+    setup.controller.replaceCurrentContent(
+      ContentRoute.messages(groupName: 'former-team'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Choose inbox: former-team'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+    await tester.pumpAndSettle();
+    final menu = find.byType(DDropdownMenuContent);
+    expect(
+      find.descendant(of: menu, matching: find.text('former-team')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.descendant(of: menu, matching: find.text('Personal')),
+    );
+    await tester.pumpAndSettle();
+    expect(setup.controller.currentContent, ContentRoute.messages());
+    expect(menu, findsNothing);
+  });
+
+  for (final change in ['session', 'folder', 'site']) {
+    testWidgets('open inbox menu rejects $change changes before rebuilding', (
+      tester,
+    ) async {
+      final setup = await _pumpInbox(tester, secondSite: true);
+      final shell = setup.controller;
+      await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+      await tester.pumpAndSettle();
+      switch (change) {
+        case 'session':
+          shell.lifecycle.invalidate(_site);
+        case 'folder':
+          shell.selectMessageListMode(MessageListMode.unread);
+        case 'site':
+          shell.selectInstance(1);
+          shell.selectDestination(
+            const SidebarDestination(
+              id: 'messages',
+              label: 'Messages',
+              icon: DIcons.inbox,
+            ),
+          );
+      }
+      final route = shell.currentContent;
+      // Activate the still-mounted old menu before its next frame.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DDropdownMenuContent),
+          matching: find.text('team'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentContent, route);
+      expect(shell.currentContent?.messageGroupName, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('navigation retires an open inbox menu', (tester) async {
+    final setup = await _pumpInbox(tester);
+    await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+    await tester.pumpAndSettle();
+    setup.controller.pushContent(ContentRoute.userActivity());
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(find.byTooltip('Choose inbox: Personal'), findsNothing);
+  });
+
+  testWidgets('keyboard inbox switching keeps the trigger focused', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(tester);
+    setup.controller.selectMessageListMode(MessageListMode.sent);
+    await tester.pumpAndSettle();
+    final picker = find.byKey(const ValueKey('message-inbox-selector'));
+    await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(
+      setup.controller.currentContent,
+      ContentRoute.messages(groupName: 'team'),
+    );
+    expect(tester.widget<DButton>(picker).focusNode!.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(setup.controller.currentContent, ContentRoute.messages());
+    expect(tester.widget<DButton>(picker).focusNode!.hasFocus, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   for (final group in [null, 'team']) {
     testWidgets(
       'activates ${group ?? 'Personal'} folders ahead of the selected message at 200% text',
@@ -249,6 +350,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
   WidgetTester tester, {
   double width = 1440,
   double textScale = 1,
+  bool secondSite = false,
   DiscourseUser user = const DiscourseUser(
     id: 1,
     username: 'reader',
@@ -281,9 +383,12 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(user: user),
+      if (secondSite) instance('team.example').copyWith(user: user),
     ]),
     api: api,
-    authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+    authenticator: FakeAuthenticator()
+      ..keys[_site] = 'api-key'
+      ..keys['https://team.example'] = 'other-key',
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
     forumTabsEnabled: false,
