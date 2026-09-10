@@ -2556,12 +2556,12 @@ void _registerShellNavigationTests() {
     await pumpShell(tester, desktop);
 
     final header = find.byKey(const ValueKey('forum-identity-header'));
-    final gear = find.descendant(
+    final chevrons = find.descendant(
       of: header,
-      matching: find.dIcon(DIcons.chevronDown),
+      matching: find.byIcon(Icons.unfold_more_rounded),
     );
-    expect(gear, findsOneWidget);
-    await tester.tap(gear);
+    expect(chevrons, findsOneWidget);
+    await tester.tap(chevrons);
     await tester.pumpAndSettle();
 
     final remove = find.widgetWithText(DDropdownMenuItem, 'Remove forum');

@@ -591,7 +591,6 @@ class _ForumIdentityHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
     final fallbackForeground =
         ThemeData.estimateBrightnessForColor(accentColor) == Brightness.dark
         ? Colors.white
@@ -626,17 +625,16 @@ class _ForumIdentityHeader extends StatelessWidget {
         builder: (context, menu) => DSidebarMenuButton(
           key: const ValueKey('forum-identity-button'),
           size: DSidebarMenuButtonSize.large,
-          variant: DSidebarMenuButtonVariant.outline,
           focusNode: menu.focusNode,
           expanded: menu.open,
           onPressed: menu.toggle,
-          iconSize: 24,
+          iconSize: 32,
           icon: DAvatar.frame(
             key: const ValueKey('forum-identity-logo'),
             borderRadius: BorderRadius.circular(6),
             child: AvatarImage(
               url: iconUrl,
-              size: 24,
+              size: 32,
               fit: BoxFit.contain,
               fallback: ColoredBox(
                 color: accentColor,
@@ -664,11 +662,7 @@ class _ForumIdentityHeader extends StatelessWidget {
                         key: const ValueKey('forum-identity-url'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 16 / 12,
-                          color: tokens.mutedForeground,
-                        ),
+                        style: const TextStyle(fontSize: 12, height: 16 / 12),
                       ),
                     ),
                   ],
@@ -677,7 +671,7 @@ class _ForumIdentityHeader extends StatelessWidget {
               const SizedBox(width: 8),
               const DTooltip(
                 message: 'Forum options',
-                child: DIcon(DIcons.chevronDown, size: 16),
+                child: Icon(Icons.unfold_more_rounded, size: 16),
               ),
             ],
           ),
