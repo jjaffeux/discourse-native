@@ -155,8 +155,8 @@ class _TopicListNavigationControls extends StatelessWidget {
     Future<void> selectMode(TopicListMode mode) =>
         controller.selectTopicListMode(mode, keepTopicOpen: keepTopicOpen);
     Widget filters({bool showColumns = false}) => Builder(
-      // Replacing a feed retires its anchors while their menu routes can remain
-      // open. In particular, their awaited results must not read new callbacks.
+      // Replacing a feed retires its anchors and dismisses their popups. The
+      // live owner check also rejects callbacks before the next frame.
       key: ValueKey(state.filterOwner),
       builder: (filterContext) {
         final lease = controller.lifecycle.capture(state.siteUrl!);

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -67,10 +68,10 @@ void main() {
           expect(tester.element(find.byType(TopicListNavigation)), navigation);
           final replacement = shell.topicListContent;
           expect(fixture.observer.pops, 0);
-          await _choose(tester, menu);
+          expect(find.byType(DComboboxContent), findsNothing);
           expect(shell.topicListContent, replacement);
           expect(tester.takeException(), isNull);
-          expect(fixture.observer.pops, 1);
+          expect(fixture.observer.pops, 0);
 
           await _open(tester, menu);
           await _choose(tester, menu);
@@ -83,7 +84,7 @@ void main() {
               menu == 'category' ? 1 : 2,
             );
           }
-          expect(fixture.observer.pops, 2);
+          expect(fixture.observer.pops, 0);
         },
       );
     }
@@ -157,10 +158,9 @@ void main() {
         await tester.pumpAndSettle();
         final replacement = shell.topicListContent;
         final searches = fixture.api.searches.length;
-        await _query(tester, 'Original');
-        await tester.pumpAndSettle();
+        expect(find.byType(DComboboxContent), findsNothing);
+        await tester.pump(const Duration(milliseconds: 300));
         expect(fixture.api.searches, hasLength(searches));
-        await _choose(tester, 'tag');
         expect(shell.topicListContent, replacement);
 
         await _open(tester, 'tag');
@@ -233,11 +233,12 @@ void main() {
       expect(find.text('Old result'), findsNothing);
       expect(fixture.observer.pops, 0);
 
-      await _query(tester, 'new');
-      await tester.pumpAndSettle();
+      expect(find.byType(DComboboxContent), findsNothing);
+      expect(
+        find.byKey(const ValueKey('topic-list-tag-filter-query')),
+        findsNothing,
+      );
       expect(api.searches, hasLength(1));
-      fixture.navigator.currentState!.pop();
-      await tester.pumpAndSettle();
 
       await _open(tester, 'tag');
       await _query(tester, 'new');
@@ -273,9 +274,9 @@ void main() {
     expect(fixture.observer.pops, 0);
     fixture.navigator.currentState!.pop();
     await tester.pumpAndSettle();
-    await _choose(tester, 'category');
+    expect(find.byType(DComboboxContent), findsNothing);
     expect(fixture.shell.topicListContent?.categoryId, isNull);
-    expect(fixture.observer.pops, 2);
+    expect(fixture.observer.pops, 1);
   });
 }
 

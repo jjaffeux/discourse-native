@@ -10,9 +10,7 @@ import '../models/topic_filter.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'anchored_picker.dart';
 import 'category_icon.dart';
-import 'choice_menu.dart';
 import 'content_reading_lane.dart';
 import 'topic_list_layout.dart';
 
@@ -83,10 +81,11 @@ class TopicListFilterBar extends StatelessWidget {
         onSelected: onCategorySelected,
       ),
       if (subcategories.isNotEmpty)
-        _SubcategoryFilterAnchor(
+        _CategoryFilterAnchor(
+          key: ValueKey(rootCategory!.id),
           siteUrl: siteUrl,
-          parent: rootCategory!,
-          subcategories: subcategories,
+          parent: rootCategory,
+          categories: subcategories,
           selected: selectedCategory?.parentCategoryId == null
               ? null
               : selectedCategory,
@@ -138,153 +137,165 @@ class TopicListFilterBar extends StatelessWidget {
   }
 }
 
-class _CategoryFilterAnchor extends StatelessWidget {
+class _CategoryFilterAnchor extends StatefulWidget {
   const _CategoryFilterAnchor({
+    super.key,
     required this.siteUrl,
     required this.categories,
     required this.selected,
     required this.onSelected,
+    this.parent,
   });
 
   final String siteUrl;
   final List<TopicCategory> categories;
   final TopicCategory? selected;
+  final TopicCategory? parent;
   final ValueChanged<TopicCategory?> onSelected;
 
   @override
-  Widget build(BuildContext context) {
-    final optionTextStyle = Theme.of(context).textTheme.bodyMedium;
-    return ChoiceMenuAnchor<int>(
-      title: 'Categories',
-      showPopoverTitle: false,
-      value: selected?.id ?? 0,
-      options: [
-        ChoiceMenuOption<int>(
-          value: 0,
-          title: 'All categories',
-          description: '',
-          icon: DIcons.layerGroup,
-          titleStyle: optionTextStyle,
-          compact: true,
-        ),
-        for (final category in categories)
-          ChoiceMenuOption<int>(
-            value: category.id,
-            title: category.name,
-            description: '',
-            leading: CategoryIcon(
-              key: ValueKey(('topic-list-category-indicator', category.id)),
-              category: category,
-              siteUrl: siteUrl,
-              size: 14,
-              squareSize: 10,
-            ),
-            titleStyle: optionTextStyle,
-            compact: true,
-          ),
-      ],
-      filterHint: 'Filter categories',
-      filterEmptyMessage: 'No matching categories.',
-      alwaysVisibleValues: const {0},
-      onSelected: (categoryId) => onSelected(
-        categoryId == 0
-            ? null
-            : categories.firstWhere((category) => category.id == categoryId),
-      ),
-      builder: (context, openMenu) => _FilterButton(
-        key: const ValueKey('topic-list-category-filter'),
-        active: selected != null,
-        label: selected?.name ?? 'Categories',
-        icon: selected == null
-            ? null
-            : CategoryIcon(
-                category: selected!,
-                siteUrl: siteUrl,
-                size: 14,
-                squareSize: 10,
-              ),
-        semanticLabel: selected == null
-            ? 'Filter by category'
-            : 'Category: ${selected!.name}',
-        onPressed: openMenu,
-        maximumWidth: 260,
-      ),
-    );
-  }
+  State<_CategoryFilterAnchor> createState() => _CategoryFilterAnchorState();
 }
 
-class _SubcategoryFilterAnchor extends StatelessWidget {
-  const _SubcategoryFilterAnchor({
-    required this.siteUrl,
-    required this.parent,
-    required this.subcategories,
-    required this.selected,
-    required this.onSelected,
-  });
+class _CategoryFilterAnchorState extends State<_CategoryFilterAnchor> {
+  final _combobox = DComboboxController<int>();
+  String _query = '';
 
-  final String siteUrl;
-  final TopicCategory parent;
-  final List<TopicCategory> subcategories;
-  final TopicCategory? selected;
-  final ValueChanged<TopicCategory> onSelected;
+  List<TopicCategory> get _matches => widget.categories
+      .where(
+        (category) =>
+            category.name.toLowerCase().contains(_query.trim().toLowerCase()),
+      )
+      .toList(growable: false);
+
+  void _highlight(int? value) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _combobox.isOpen) _combobox.highlight(value);
+    });
+  }
+
+  @override
+  void dispose() {
+    _combobox.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final optionTextStyle = Theme.of(context).textTheme.bodyMedium;
-    return ChoiceMenuAnchor<int>(
-      title: 'Subcategories of ${parent.name}',
-      showPopoverTitle: false,
+    final subcategories = widget.parent != null;
+    final kind = subcategories ? 'subcategory' : 'category';
+    final noun = subcategories ? 'subcategories' : 'categories';
+    final selected = widget.selected;
+    final matches = _matches;
+    return DCombobox<int>.controlled(
+      controller: _combobox,
       value: selected?.id ?? 0,
+      query: _query,
+      filterLocally: false,
+      onQueryChanged: (query, _) {
+        setState(() => _query = query);
+        _highlight(
+          query.trim().isEmpty ? selected?.id ?? 0 : _matches.firstOrNull?.id,
+        );
+      },
+      onOpenChanged: (open, _) {
+        setState(() => _query = '');
+        if (open) _highlight(selected?.id ?? 0);
+      },
       options: [
-        ChoiceMenuOption<int>(
+        DComboboxOption(
           value: 0,
-          title: 'All subcategories',
-          description: '',
-          icon: DIcons.layerGroup,
-          titleStyle: optionTextStyle,
-          compact: true,
+          label: 'All $noun',
+          itemKey: ValueKey(('topic-list-$kind-option', 0)),
         ),
-        for (final category in subcategories)
-          ChoiceMenuOption<int>(
+        for (final category in matches)
+          DComboboxOption(
             value: category.id,
-            title: category.name,
-            description: '',
-            leading: CategoryIcon(
-              key: ValueKey(('topic-list-category-indicator', category.id)),
-              category: category,
-              siteUrl: siteUrl,
-              size: 14,
-              squareSize: 10,
-            ),
-            titleStyle: optionTextStyle,
-            compact: true,
+            label: category.name,
+            itemKey: ValueKey(('topic-list-$kind-option', category.id)),
           ),
       ],
-      filterHint: 'Filter subcategories',
-      filterEmptyMessage: 'No matching subcategories.',
-      alwaysVisibleValues: const {0},
-      onSelected: (categoryId) => onSelected(
-        categoryId == 0
-            ? parent
-            : subcategories.firstWhere((category) => category.id == categoryId),
-      ),
-      builder: (context, openMenu) => _FilterButton(
-        key: const ValueKey('topic-list-subcategory-filter'),
-        active: selected != null,
-        label: selected?.name ?? 'Subcategories',
-        icon: selected == null
-            ? null
-            : CategoryIcon(
-                category: selected!,
-                siteUrl: siteUrl,
-                size: 14,
-                squareSize: 10,
+      onChanged: (categoryId, _) => widget.onSelected(
+        categoryId == null || categoryId == 0
+            ? widget.parent
+            : widget.categories.firstWhere(
+                (category) => category.id == categoryId,
               ),
-        semanticLabel: selected == null
-            ? 'Filter by subcategory of ${parent.name}'
-            : 'Subcategory: ${selected!.name}',
-        onPressed: openMenu,
-        maximumWidth: 230,
+      ),
+      anchor: DComboboxTrigger<int>(
+        builder: (context, trigger) => _FilterButton(
+          key: ValueKey('topic-list-$kind-filter'),
+          active: selected != null,
+          label:
+              selected?.name ??
+              (subcategories ? 'Subcategories' : 'Categories'),
+          icon: selected == null
+              ? null
+              : CategoryIcon(
+                  category: selected,
+                  siteUrl: widget.siteUrl,
+                  size: 14,
+                  squareSize: 10,
+                ),
+          semanticLabel: selected == null
+              ? subcategories
+                    ? 'Filter by subcategory of ${widget.parent!.name}'
+                    : 'Filter by category'
+              : '${subcategories ? 'Subcategory' : 'Category'}: ${selected.name}',
+          onPressed: trigger.toggle,
+          focusNode: trigger.focusNode,
+          expanded: trigger.open,
+          maximumWidth: subcategories ? 230 : 260,
+        ),
+      ),
+      content: DComboboxContent(
+        key: ValueKey('topic-list-$kind-popover'),
+        semanticLabel: subcategories
+            ? 'Subcategories of ${widget.parent!.name}'
+            : 'Categories',
+        width: 320,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(4),
+            child: DComboboxInput<int>(
+              key: ValueKey('topic-list-$kind-query'),
+              placeholder: 'Filter $noun',
+              semanticLabel: 'Filter $noun',
+              registerAsAnchor: false,
+              showTrigger: false,
+            ),
+          ),
+          DComboboxList<int>(
+            itemBuilder: (context, option) => Row(
+              children: [
+                if (option.value == 0)
+                  const DIcon(DIcons.layerGroup, size: 16)
+                else
+                  CategoryIcon(
+                    key: ValueKey((
+                      'topic-list-category-indicator',
+                      option.value,
+                    )),
+                    category: widget.categories.firstWhere(
+                      (category) => category.id == option.value,
+                    ),
+                    siteUrl: widget.siteUrl,
+                    size: 16,
+                    squareSize: 10,
+                  ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(option.label)),
+              ],
+            ),
+          ),
+          if (matches.isEmpty)
+            DComboboxStatus(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text('No matching $noun.'),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -312,198 +323,71 @@ class _TagFilterAnchor extends StatefulWidget {
 }
 
 class _TagFilterAnchorState extends State<_TagFilterAnchor> {
-  final GlobalKey _anchorKey = GlobalKey();
-  bool _showing = false;
-
-  Future<void> _show() async {
-    final anchorContext = _anchorKey.currentContext;
-    if (_showing || anchorContext == null) return;
-    _showing = true;
-    try {
-      final selected = await showAnchoredPicker<String>(
-        context: context,
-        anchorContext: anchorContext,
-        title: 'Tags',
-        barrierLabel: 'Dismiss tag filter',
-        popoverKey: const ValueKey('topic-list-tag-filter-popover'),
-        builder: (pickerContext) => _TagFilterPicker(
-          knownTags: widget.knownTags,
-          selectedTagName: widget.selectedTagName,
-          selectedTagNames: widget.selectedTagNames,
-          search: widget.search,
-          onSelected: Navigator.of(pickerContext).pop,
-        ),
-      );
-      if (!mounted || selected == null) return;
-      if (widget.onTagsSelected case final onSelected?) {
-        final tags = [...?widget.selectedTagNames];
-        if (selected.isEmpty) {
-          tags.clear();
-        } else if (tags.contains(selected)) {
-          tags.remove(selected);
-        } else {
-          tags.add(selected);
-        }
-        onSelected(tags);
-        return;
-      }
-      final normalized = selected.isEmpty ? null : selected;
-      if (normalized != widget.selectedTagName) widget.onSelected(normalized);
-    } finally {
-      _showing = false;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = _selectedKnownTag(
-      widget.knownTags,
-      widget.selectedTagName,
-    );
-    return SizedBox(
-      key: _anchorKey,
-      child: _FilterButton(
-        key: const ValueKey('topic-list-tag-filter'),
-        active: widget.selectedTagName != null,
-        label: (widget.selectedTagNames?.length ?? 0) > 1
-            ? 'Tags · ${widget.selectedTagNames!.length}'
-            : selected?.name ?? widget.selectedTagName ?? 'Tags',
-        icon: const DIcon(DIcons.tag, size: 14),
-        semanticLabel: widget.selectedTagName == null
-            ? 'Filter by tag'
-            : 'Tag: ${selected?.name ?? widget.selectedTagName}',
-        onPressed: _show,
-        maximumWidth: 210,
-      ),
-    );
-  }
-}
-
-class _FilterButton extends StatelessWidget {
-  const _FilterButton({
-    super.key,
-    required this.label,
-    required this.semanticLabel,
-    required this.onPressed,
-    required this.maximumWidth,
-    this.icon,
-    this.active = false,
-  });
-
-  final bool active;
-  final String label;
-  final String semanticLabel;
-  final VoidCallback? onPressed;
-  final double maximumWidth;
-  final Widget? icon;
-
-  @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    constraints: BoxConstraints(maxWidth: maximumWidth, minHeight: 32),
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: active
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: .08)
-            : null,
-        border: Border.all(
-          color: active
-              ? Theme.of(context).colorScheme.primary.withValues(alpha: .35)
-              : Theme.of(context).shell.divider,
-        ),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: DButton(
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
-            const SizedBox(width: 8),
-            const DIcon(DIcons.chevronDown, size: 12),
-          ],
-        ),
-        icon: icon,
-        semanticLabel: semanticLabel,
-        onPressed: onPressed,
-        alignment: Alignment.centerLeft,
-        size: DButtonSize.small,
-        variant: active
-            ? DButtonVariant.transparentPrimary
-            : DButtonVariant.flat,
-      ),
-    ),
-  );
-}
-
-class _TagFilterPicker extends StatefulWidget {
-  const _TagFilterPicker({
-    required this.knownTags,
-    required this.selectedTagName,
-    required this.search,
-    required this.onSelected,
-    this.selectedTagNames,
-  });
-
-  final List<String>? selectedTagNames;
-  final List<SidebarTag> knownTags;
-  final String? selectedTagName;
-  final TopicListTagSearch search;
-  final ValueChanged<String> onSelected;
-
-  @override
-  State<_TagFilterPicker> createState() => _TagFilterPickerState();
-}
-
-class _TagFilterPickerState extends State<_TagFilterPicker> {
-  final TextEditingController _query = TextEditingController();
-  Timer? _debounce;
+  final _combobox = DComboboxController<String>();
   late final LatestWinsQueuedLookupController<String, List<_TagChoice>> _lookup;
+  Timer? _debounce;
+  String _query = '';
   List<_TagChoice> _results = const [];
-  bool _loading = true;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
     _lookup = LatestWinsQueuedLookupController(
       lookup: _searchTags,
-      onResult: (result) {
-        setState(() {
-          _results = result;
-          _loading = false;
-        });
-      },
-      onError: (_, _) {
-        setState(() {
-          _results = _knownChoices(_query.text);
-          _loading = false;
-        });
-      },
+      onResult: _received,
+      onError: (_, _) => _received(_knownChoices(_query)),
     );
-    _search('');
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _lookup.dispose();
-    _query.dispose();
+    _combobox.dispose();
     super.dispose();
   }
 
-  void _changed(String value) {
+  void _received(List<_TagChoice> results) {
+    setState(() {
+      _results = results;
+      _loading = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          _combobox.isOpen &&
+          !_loading &&
+          identical(_results, results)) {
+        _combobox.highlight(results.firstOrNull?.value);
+      }
+    });
+  }
+
+  void _openChanged(bool open, DComboboxChangeReason reason) {
     _debounce?.cancel();
     _lookup.invalidate();
     setState(() {
+      _query = '';
+      _results = const [];
+      _loading = open;
+    });
+    if (open) _lookup.request('');
+  }
+
+  void _changed(String value, DComboboxChangeReason reason) {
+    if (reason != DComboboxChangeReason.input) return;
+    _debounce?.cancel();
+    _lookup.invalidate();
+    _combobox.highlight(null);
+    setState(() {
+      _query = value;
       _results = const [];
       _loading = true;
     });
-    _debounce = Timer(const Duration(milliseconds: 250), () => _search(value));
-  }
-
-  void _search(String term) {
-    setState(() => _loading = true);
-    _lookup.request(term);
+    _debounce = Timer(
+      const Duration(milliseconds: 250),
+      () => _lookup.request(value),
+    );
   }
 
   Future<List<_TagChoice>> _searchTags(String term) async {
@@ -534,58 +418,180 @@ class _TagFilterPickerState extends State<_TagFilterPicker> {
     ];
   }
 
-  void _submitQuery() {
-    if (!_loading && _results.isNotEmpty) {
-      widget.onSelected(_results.first.value);
-    }
-  }
+  bool _sameValue(String left, String right) =>
+      (_selectedKnownTag(widget.knownTags, left)?.name ?? left).toLowerCase() ==
+      (_selectedKnownTag(widget.knownTags, right)?.name ?? right).toLowerCase();
 
   @override
   Widget build(BuildContext context) {
-    return AnchoredPickerContent(
-      queryKey: const ValueKey('topic-list-tag-filter-query'),
-      queryController: _query,
-      queryHint: 'Search tags…',
-      onQueryChanged: _changed,
-      onQuerySubmitted: (_) => _submitQuery(),
-      separatorKey: const ValueKey('topic-list-tag-filter-divider'),
+    final values = widget.selectedTagNames ?? [?widget.selectedTagName];
+    final selected = _selectedKnownTag(widget.knownTags, values.firstOrNull);
+    final label = values.length > 1
+        ? 'Tags · ${values.length}'
+        : selected?.name ?? values.firstOrNull ?? 'Tags';
+    final options = [
+      const DComboboxOption(
+        value: '',
+        label: 'All tags',
+        itemKey: ValueKey('topic-list-tag-filter-all'),
+      ),
+      for (final tag in _results)
+        DComboboxOption(
+          value: tag.value,
+          label: tag.label,
+          itemKey: ValueKey(('topic-list-tag-filter-option', tag.value)),
+        ),
+    ];
+    final anchor = DComboboxTrigger<String>(
+      builder: (context, trigger) => _FilterButton(
+        key: const ValueKey('topic-list-tag-filter'),
+        active: values.isNotEmpty,
+        label: label,
+        icon: const DIcon(DIcons.tag, size: 14),
+        semanticLabel: values.isEmpty
+            ? 'Filter by tag'
+            : values.length > 1
+            ? 'Filter by tags: ${values.join(', ')}'
+            : 'Tag: $label',
+        onPressed: trigger.toggle,
+        focusNode: trigger.focusNode,
+        expanded: trigger.open,
+        maximumWidth: 210,
+      ),
+    );
+    final content = DComboboxContent(
+      key: const ValueKey('topic-list-tag-filter-popover'),
+      semanticLabel: 'Tags',
+      width: 280,
       children: [
-        AnchoredPickerOption(
-          key: const ValueKey('topic-list-tag-filter-all'),
-          selected: widget.selectedTagName == null,
-          showSelectionIndicator: true,
-          leading: const DIcon(DIcons.tag, size: 16),
-          title: const Text('All tags'),
-          onTap: () => widget.onSelected(''),
+        const Padding(
+          padding: EdgeInsets.all(4),
+          child: DComboboxInput<String>(
+            key: ValueKey('topic-list-tag-filter-query'),
+            placeholder: 'Search tags…',
+            semanticLabel: 'Search tags',
+            registerAsAnchor: false,
+            showTrigger: false,
+          ),
+        ),
+        DComboboxList<String>(
+          itemBuilder: (context, option) => Row(
+            children: [
+              const DIcon(DIcons.tag, size: 16),
+              const SizedBox(width: 8),
+              Expanded(child: Text(option.label)),
+            ],
+          ),
         ),
         if (_loading)
-          const AnchoredPickerProgress()
-        else ...[
-          for (final tag in _results) ...[
-            const SizedBox(height: 4),
-            AnchoredPickerOption(
-              key: ValueKey(('topic-list-tag-filter-option', tag.value)),
-              selected:
-                  widget.selectedTagNames?.any(
-                    (selected) => _sameTag(tag, selected),
-                  ) ??
-                  _sameTag(tag, widget.selectedTagName),
-              showSelectionIndicator: true,
-              leading: const DIcon(DIcons.tag, size: 16),
-              title: Text(tag.label),
-              onTap: () => widget.onSelected(tag.value),
+          const DComboboxStatus(
+            child: Padding(
+              padding: EdgeInsets.all(8),
+              child: DSpinner(semanticLabel: 'Loading tags'),
             ),
-          ],
-          if (_results.isEmpty)
-            AnchoredPickerMessage(
-              _query.text.trim().isEmpty
-                  ? 'No tags are available.'
-                  : 'No matching tags.',
+          )
+        else if (_results.isEmpty)
+          DComboboxStatus(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                _query.trim().isEmpty
+                    ? 'No tags are available.'
+                    : 'No matching tags.',
+              ),
             ),
-        ],
+          ),
       ],
     );
+    if (widget.onTagsSelected case final onSelected?) {
+      return DCombobox<String>.multipleControlled(
+        value: values.isEmpty ? const [''] : values,
+        controller: _combobox,
+        options: options,
+        query: _query,
+        equals: _sameValue,
+        filterLocally: false,
+        onQueryChanged: _changed,
+        onOpenChanged: _openChanged,
+        onValuesChanged: (next, _) {
+          final clear = next.contains('') && values.isNotEmpty;
+          if (_loading && !clear && next.any((value) => value.isNotEmpty)) {
+            return;
+          }
+          onSelected(
+            clear ? const [] : next.where((value) => value.isNotEmpty).toList(),
+          );
+        },
+        anchor: anchor,
+        content: content,
+      );
+    }
+    return DCombobox<String>.controlled(
+      value: widget.selectedTagName ?? '',
+      controller: _combobox,
+      options: options,
+      query: _query,
+      equals: _sameValue,
+      filterLocally: false,
+      onQueryChanged: _changed,
+      onOpenChanged: _openChanged,
+      onChanged: (value, _) {
+        if (_loading && value != null && value.isNotEmpty) return;
+        final normalized = value == null || value.isEmpty ? null : value;
+        if (normalized != widget.selectedTagName) widget.onSelected(normalized);
+      },
+      anchor: anchor,
+      content: content,
+    );
   }
+}
+
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({
+    super.key,
+    required this.label,
+    required this.semanticLabel,
+    required this.onPressed,
+    required this.focusNode,
+    required this.expanded,
+    required this.maximumWidth,
+    this.icon,
+    this.active = false,
+  });
+
+  final bool active;
+  final String label;
+  final String semanticLabel;
+  final VoidCallback onPressed;
+  final FocusNode focusNode;
+  final bool expanded;
+  final double maximumWidth;
+  final Widget? icon;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: BoxConstraints(maxWidth: maximumWidth),
+    child: DButton(
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          const SizedBox(width: 8),
+          const DIcon(DIcons.chevronDown, size: 16),
+        ],
+      ),
+      icon: icon,
+      semanticLabel: semanticLabel,
+      onPressed: onPressed,
+      focusNode: focusNode,
+      hasPopup: true,
+      expanded: expanded,
+      alignment: AlignmentDirectional.centerStart,
+      variant: active ? DButtonVariant.secondary : DButtonVariant.outline,
+    ),
+  );
 }
 
 @immutable
@@ -605,13 +611,6 @@ SidebarTag? _selectedKnownTag(List<SidebarTag> tags, String? selected) {
     }
   }
   return null;
-}
-
-bool _sameTag(_TagChoice choice, String? selected) {
-  if (selected == null) return false;
-  final folded = selected.toLowerCase();
-  return choice.value.toLowerCase() == folded ||
-      choice.label.toLowerCase() == folded;
 }
 
 int _compareCategories(TopicCategory left, TopicCategory right) {

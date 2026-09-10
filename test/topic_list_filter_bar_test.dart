@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
-import 'package:discourse_native/src/shell/anchored_picker.dart';
 import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
@@ -52,6 +52,9 @@ void main() {
     ValueChanged<List<String>>? onTagsSelected,
     Size size = const Size(390, 844),
     TargetPlatform platform = TargetPlatform.iOS,
+    double textScale = 1,
+    TextDirection direction = TextDirection.ltr,
+    bool wrap = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -59,10 +62,17 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light.copyWith(platform: platform),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: Directionality(textDirection: direction, child: child!),
+        ),
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
             child: TopicListFilterBar(
+              wrap: wrap,
               siteUrl: 'https://example.com',
               categories: categories ?? const [parent, child, other],
               knownTags: knownTags,
@@ -119,7 +129,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-list-category-filter')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('choice-menu-surface')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-list-category-popover')),
+      findsOneWidget,
+    );
     expect(find.text('All categories'), findsOneWidget);
     expect(find.text('Categories'), findsOneWidget);
   });
@@ -156,172 +169,202 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('uses compact, spaced rows and category indicators', (
-    tester,
-  ) async {
-    await pumpBar(tester, platform: TargetPlatform.macOS);
+  testWidgets(
+    'keeps All categories available without matching results and resets search on reopen',
+    (tester) async {
+      final selected = <TopicCategory?>[];
+      await pumpBar(
+        tester,
+        selectedCategoryId: parent.id,
+        onCategorySelected: selected.add,
+      );
+      final anchor = find.byKey(const ValueKey('topic-list-category-filter'));
+      final query = find.byKey(const ValueKey('topic-list-category-query'));
+      await tester.tap(anchor);
+      await tester.pumpAndSettle();
+      await tester.enterText(query, 'missing');
+      await tester.pumpAndSettle();
+      expect(find.text('No matching categories.'), findsOneWidget);
+      expect(find.text('All categories'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(selected, isEmpty);
+      await tester.tap(find.text('All categories'));
+      await tester.pumpAndSettle();
+      expect(selected, [null]);
+      await tester.tap(anchor);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(of: query, matching: find.byType(TextField)),
+            )
+            .controller!
+            .text,
+        isEmpty,
+      );
+      expect(find.text('Support'), findsOneWidget);
+    },
+  );
 
-    await tester.tap(find.byKey(const ValueKey('topic-list-category-filter')));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'multi-tag choices use names, reflect selected values and clear together',
+    (tester) async {
+      final selections = <List<String>>[];
+      await pumpBar(
+        tester,
+        selectedTagNames: const [],
+        onTagsSelected: selections.add,
+      );
+      final anchor = find.byKey(const ValueKey('topic-list-tag-filter'));
+      await tester.tap(anchor);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-list-tag-filter-option', 'Native'))),
+      );
+      await tester.pumpAndSettle();
+      expect(selections.single, ['Native']);
+      expect(find.byType(DComboboxContent), findsNothing);
 
-    final parentIndicator = find.byKey(
-      const ValueKey(('topic-list-category-indicator', 1)),
-    );
-    final otherIndicator = find.byKey(
-      const ValueKey(('topic-list-category-indicator', 3)),
-    );
-    expect(parentIndicator, findsOneWidget);
-    expect(otherIndicator, findsOneWidget);
-    expect(
-      tester
-          .widget<Container>(
-            find.descendant(
-              of: parentIndicator,
-              matching: find.byType(Container),
-            ),
-          )
-          .decoration,
-      isA<BoxDecoration>().having(
-        (decoration) => decoration.color,
-        'color',
-        const Color(0xFF563A93),
-      ),
-    );
-    expect(
-      tester
-          .widget<Container>(
-            find.descendant(
-              of: otherIndicator,
-              matching: find.byType(Container),
-            ),
-          )
-          .decoration,
-      isA<BoxDecoration>().having(
-        (decoration) => decoration.color,
-        'color',
-        const Color(0xFF3BBF7B),
-      ),
-    );
+      await pumpBar(
+        tester,
+        selectedTagNames: const ['Native', 'User experience'],
+        onTagsSelected: selections.add,
+      );
+      expect(find.text('Tags · 2'), findsOneWidget);
+      await tester.tap(anchor);
+      await tester.pumpAndSettle();
+      final combobox = tester.widget<DCombobox<String>>(
+        find.byType(DCombobox<String>),
+      );
+      expect(combobox.controlledValues, ['Native', 'User experience']);
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-list-tag-filter-option', 'Native'))),
+      );
+      await tester.pumpAndSettle();
+      expect(selections.last, ['User experience']);
+      await tester.tap(anchor);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter-all')));
+      await tester.pumpAndSettle();
+      expect(selections.last, isEmpty);
+    },
+  );
 
-    final categorySurface = find.byKey(const ValueKey('choice-menu-surface'));
-    expect(
-      find.descendant(
-        of: categorySurface,
-        matching: find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.folder,
-        ),
-      ),
-      findsNothing,
-    );
+  testWidgets(
+    'tag lookup starts on open and discards results after dismissal',
+    (tester) async {
+      final searches = <String>[];
+      final pending = Completer<List<TopicFilterLookupValue>>();
+      await pumpBar(
+        tester,
+        platform: TargetPlatform.macOS,
+        searchTags: (query) {
+          searches.add(query);
+          return query == 'old' ? pending.future : Future.value(const []);
+        },
+      );
+      expect(searches, isEmpty);
+      final anchor = find.byKey(const ValueKey('topic-list-tag-filter'));
+      await tester.tap(anchor);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-list-tag-filter-query')),
+        'old',
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(searches, ['', 'old']);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      pending.complete(const [TopicFilterLookupValue(name: 'retired-tag')]);
+      await tester.pumpAndSettle();
+      expect(find.byType(DComboboxContent), findsNothing);
+      await tester.tap(anchor);
+      await tester.pumpAndSettle();
+      expect(searches, ['', 'old', '']);
+      expect(find.text('retired-tag'), findsNothing);
+      expect(find.text('User experience'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-    final firstCategoryRow = find.byKey(
-      const ValueKey(('choice-menu-option-background', 1)),
-    );
-    final secondCategoryRow = find.byKey(
-      const ValueKey(('choice-menu-option-background', 3)),
-    );
-    final categorySingleRowHeight = tester.getSize(secondCategoryRow).height;
-    expect(categorySingleRowHeight, 32);
-    expect(
-      tester.getTopLeft(secondCategoryRow).dy -
-          tester.getBottomLeft(firstCategoryRow).dy,
-      4,
-    );
-
-    final categoryTextStyle = tester.widget<Text>(find.text('Support')).style!;
-    Navigator.of(tester.element(categorySurface)).pop();
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
-    await tester.pumpAndSettle();
-    final tagTile = find.ancestor(
-      of: find.text('User experience'),
-      matching: find.byType(ListTile),
-    );
-    final tagTextStyle = tester.widget<ListTile>(tagTile).titleTextStyle!;
-    final allTagsRow = find.byKey(const ValueKey('topic-list-tag-filter-all'));
-    final firstTagRow = find.byKey(
-      const ValueKey(('topic-list-tag-filter-option', 'ux')),
-    );
-
-    expect(categoryTextStyle.fontSize, tagTextStyle.fontSize);
-    expect(categoryTextStyle.color, tagTextStyle.color);
-    expect(categoryTextStyle.fontWeight, tagTextStyle.fontWeight);
-    expect(categoryTextStyle.fontWeight, FontWeight.normal);
-    expect(
-      tester.getTopLeft(firstTagRow).dy - tester.getBottomLeft(allTagsRow).dy,
-      4,
-    );
-    Navigator.of(
-      tester.element(
-        find.byKey(const ValueKey('topic-list-tag-filter-popover')),
-      ),
-    ).pop();
-    await tester.pumpAndSettle();
-
-    await pumpBar(
+  for (final direction in TextDirection.values) {
+    testWidgets('filter popups fit 320px with large text in $direction', (
       tester,
-      selectedCategoryId: parent.id,
-      platform: TargetPlatform.macOS,
-    );
-    final subcategoryFilter = find.byKey(
-      const ValueKey('topic-list-subcategory-filter'),
-    );
-    await tester.ensureVisible(subcategoryFilter);
-    await tester.tap(subcategoryFilter);
-    await tester.pumpAndSettle();
+    ) async {
+      await pumpBar(
+        tester,
+        selectedCategoryId: child.id,
+        size: const Size(320, 700),
+        textScale: 2,
+        direction: direction,
+        wrap: true,
+      );
+      for (final kind in ['category', 'subcategory', 'tag']) {
+        await tester.tap(find.byKey(ValueKey('topic-list-$kind-filter')));
+        await tester.pumpAndSettle();
+        final popup = tester.getRect(find.byType(DComboboxContent));
+        expect(popup.left, greaterThanOrEqualTo(0));
+        expect(popup.right, lessThanOrEqualTo(320));
+        expect(tester.takeException(), isNull);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+    });
+  }
 
-    expect(find.text('Subcategories of ${parent.name}'), findsNothing);
-    final childIndicator = find.byKey(
-      const ValueKey(('topic-list-category-indicator', 2)),
-    );
-    expect(childIndicator, findsOneWidget);
-    expect(
-      tester
-          .widget<Container>(
-            find.descendant(
-              of: childIndicator,
-              matching: find.byType(Container),
-            ),
-          )
-          .decoration,
-      isA<BoxDecoration>().having(
-        (decoration) => decoration.color,
-        'color',
-        const Color(0xFF3188CC),
-      ),
-    );
-    final subcategorySurface = find.byKey(
-      const ValueKey('choice-menu-surface'),
-    );
-    expect(
-      find.descendant(
-        of: subcategorySurface,
-        matching: find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.folder,
-        ),
-      ),
-      findsNothing,
-    );
-    final subcategoryTextStyle = tester
-        .widget<Text>(find.text(child.name))
-        .style!;
-    expect(subcategoryTextStyle.fontSize, tagTextStyle.fontSize);
-    expect(subcategoryTextStyle.color, tagTextStyle.color);
-    expect(subcategoryTextStyle.fontWeight, tagTextStyle.fontWeight);
-    final allSubcategoriesRow = find.byKey(
-      const ValueKey(('choice-menu-option-background', 0)),
-    );
-    final childRow = find.byKey(
-      const ValueKey(('choice-menu-option-background', 2)),
-    );
-    expect(tester.getSize(childRow).height, categorySingleRowHeight);
-    expect(
-      tester.getTopLeft(childRow).dy -
-          tester.getBottomLeft(allSubcategoriesRow).dy,
-      4,
-    );
-  });
+  testWidgets(
+    'uses kit rows and preserves category indicators across filters',
+    (tester) async {
+      await pumpBar(
+        tester,
+        platform: TargetPlatform.macOS,
+        selectedCategoryId: parent.id,
+      );
+      for (final kind in ['category', 'subcategory', 'tag']) {
+        await tester.ensureVisible(
+          find.byKey(ValueKey('topic-list-$kind-filter')),
+        );
+        await tester.tap(find.byKey(ValueKey('topic-list-$kind-filter')));
+        await tester.pumpAndSettle();
+        expect(find.byType(DComboboxContent), findsOneWidget);
+        expect(find.byType(ListTile), findsNothing);
+        final row = find.byKey(switch (kind) {
+          'category' => const ValueKey(('topic-list-category-option', 3)),
+          'subcategory' => const ValueKey(('topic-list-subcategory-option', 2)),
+          _ => const ValueKey(('topic-list-tag-filter-option', 'ux')),
+        });
+        expect(tester.getSize(row).height, 28);
+        if (kind != 'tag') {
+          final indicator = find.byKey(
+            ValueKey((
+              'topic-list-category-indicator',
+              kind == 'category' ? 3 : 2,
+            )),
+          );
+          final swatch = tester.widget<Container>(
+            find.descendant(of: indicator, matching: find.byType(Container)),
+          );
+          expect(
+            (swatch.decoration! as BoxDecoration).color,
+            kind == 'category'
+                ? const Color(0xFF3BBF7B)
+                : const Color(0xFF3188CC),
+          );
+        }
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(DComboboxContent), findsNothing);
+        final button = tester.widget<DButton>(
+          find.descendant(
+            of: find.byKey(ValueKey('topic-list-$kind-filter')),
+            matching: find.byType(DButton),
+          ),
+        );
+        expect(button.focusNode!.hasFocus, isTrue);
+      }
+    },
+  );
 
   testWidgets('uses configured icons in the selected filter and menu', (
     tester,
@@ -371,7 +414,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Show recent topics'), findsNothing);
     expect(find.textContaining('Show topics in'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 1))));
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-list-category-option', 1))),
+    );
     await tester.pumpAndSettle();
 
     expect(selected.single, parent);
@@ -395,7 +440,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Include every topic'), findsNothing);
     expect(find.textContaining('Show topics in'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 2))));
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-list-subcategory-option', 2))),
+    );
     await tester.pumpAndSettle();
 
     expect(selected.single, child);
@@ -468,7 +515,7 @@ void main() {
         await tester.pump();
 
         expect(find.text('alpha-tag'), findsNothing);
-        expect(find.byType(AnchoredPickerProgress), findsOneWidget);
+        expect(find.byType(DSpinner), findsOneWidget);
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pump();
         expect(selected, isEmpty);
@@ -529,7 +576,7 @@ void main() {
         expect(selected, isEmpty);
         expect(query, findsOneWidget);
         expect(find.text('alpha-tag'), findsNothing);
-        expect(find.byType(AnchoredPickerProgress), findsOneWidget);
+        expect(find.byType(DSpinner), findsOneWidget);
         if (!duringRequest) {
           await tester.pump(const Duration(milliseconds: 250));
         }
@@ -576,7 +623,7 @@ void main() {
     alpha.complete(const [TopicFilterLookupValue(name: 'alpha-tag')]);
     await tester.pump();
     expect(started, ['', 'alpha']);
-    expect(find.byType(AnchoredPickerProgress), findsOneWidget);
+    expect(find.byType(DSpinner), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 200));
     await tester.enterText(query, 'delta');
@@ -673,18 +720,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final filter = find.byKey(const ValueKey('choice-menu-filter'));
+    final filter = find.byKey(const ValueKey('topic-list-subcategory-query'));
     expect(filter, findsOneWidget);
-    expect(tester.widget<TextField>(filter).autofocus, isTrue);
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(of: filter, matching: find.byType(TextField)),
+          )
+          .focusNode!
+          .hasFocus,
+      isTrue,
+    );
     await tester.enterText(filter, 'design');
     await tester.pump();
 
     expect(
-      find.byKey(const ValueKey(('choice-menu-option', 2))),
+      find.byKey(const ValueKey(('topic-list-subcategory-option', 2))),
       findsOneWidget,
     );
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
 
