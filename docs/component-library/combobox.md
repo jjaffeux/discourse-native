@@ -123,6 +123,21 @@ Popover/Group Page regressions, root and full-profile static analysis, and an
 exact-source macOS debug build. iOS, Linux and spoken VoiceOver behavior were not
 inspected and remain explicit platform follow-up work.
 
+Hover regression follow-up (2026-09-11): all 82 focused tests in
+`test/ui/d_combobox_test.dart`, `test/d_select_test.dart`,
+`test/topic_taxonomy_selectors_test.dart`,
+`test/styleguide/combobox_examples_test.dart`, and
+`test/styleguide/taxonomy_selector_examples_test.dart` passed; root
+`flutter analyze --no-pub` was clean. New tests inspect painted backgrounds
+on the first and intermediate frames, stationary-pointer keyboard handoff,
+disabled options, disabled hover, and parent-controlled highlights. The native
+macOS debug fixture mounted the real Combobox Composition and Composer tags
+styleguide examples, including production `TopicTagSelector`: dark 320px and
+light 216px layouts, pointer-to-keyboard handoff, single-row highlighting,
+Enter selection and popup dismissal passed. Native pointer entry used a drag
+from the editor into an option; exact transition frames are covered by the
+widget tests.
+
 ## Application audit
 
 Adopted: the Add Group Members form is a true asynchronous multiple-value
