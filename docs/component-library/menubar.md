@@ -24,9 +24,9 @@
 | --- | --- | --- |
 | `flex h-8 items-center gap-0.5 rounded-lg border p-[3px]` | `DMenubar` | horizontal `Flex`, 32px minimum border box, 2px gaps, 3px padding, 1px `DTokens.border`, host `lg` radius |
 | trigger `rounded-sm px-1.5 py-[2px] text-sm font-medium` | `DMenubarTrigger` | macOS/Linux use the source-exact 24px minimum, host `sm` radius (`base × 0.6`), 6px horizontal / 2px vertical padding, 14px / 20px leading and weight 500; iOS retains the same visible styling in a 48px minimum touch surface |
-| `hover:bg-muted aria-expanded:bg-muted` | trigger state surface | live `DTokens.muted` for hover, press, keyboard focus and expanded state |
+| `hover:bg-muted aria-expanded:bg-muted` | trigger state surface | live `ThemeData.hoverColor` for hover, press, keyboard focus and expanded state; `AppTheme` derives it against the floating surface so it remains distinct from the bar |
 | content `min-w-36`, `rounded-lg`, `p-1`, ring, shadow, 8px side / -4px align offset | `DMenubarContent` + accepted `DDropdownMenuContent` | 144px minimum, host `lg` radius, 4px padding, live popover tokens, 8px / -4px defaults and collision-aware portal |
-| item `gap-1.5 rounded-md px-1.5 py-1 text-sm` | `DMenubarItem` | accepted menu row with 6px gaps/padding, 4px vertical padding, host `md` radius (`base × 0.8`), 14px / 20px text |
+| item `gap-1.5 rounded-md px-1.5 py-1 text-sm` | `DMenubarItem` | accepted menu row with 6px gaps/padding, 4px vertical padding, host `md` radius (`base × 0.8`), 14px / 20px text and the live menu hover surface |
 | `data-inset:pl-7` | item/label/sub-trigger `inset` | 28px logical start padding, mirrored in RTL |
 | checkbox/radio indicator `absolute left-1.5 size-4` | leading `_MenubarCheckIcon` slot | exact 16px leading reservation and 2px round-cap check artwork; unchecked rows retain alignment |
 | destructive focus opacity 10% light / 20% dark | destructive item variant | multiplicative live destructive-token alpha through the accepted menu surface |
@@ -113,6 +113,10 @@ persistent File/Edit/View-style in-app strip should adopt `DMenubar` directly.
 - Material chevron glyphs already mirror with text direction; selecting the left
   glyph in RTL mirrored twice. The shared Dropdown Menu now uses the directional
   right glyph once, matching the submenu's actual RTL opening direction.
+- Menubar triggers and delegated Dropdown Menu rows use the app's menu-specific
+  hover surface. The general shell hover token can be effectively identical to
+  a floating menu in dark/custom palettes; the menu color is derived against
+  that floating surface and preserves the visible separation shown by shadcn.
 
 Source `e3104c9ae1547b90629f85d6e7a7bb97c863f6c7` passes 64 combined randomized
 Menubar/Dropdown Menu/Popover/Table component and styleguide tests (seed

@@ -1020,7 +1020,10 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
                           ? 0.20
                           : 0.10),
                 )
-              : tokens.hover
+              // AppTheme derives this specifically against the floating menu
+              // surface, so active rows stay distinct even when the general
+              // shell hover token is nearly identical to that surface.
+              : Theme.of(context).hoverColor
         : Colors.transparent;
     final foreground = destructive
         ? tokens.destructive
