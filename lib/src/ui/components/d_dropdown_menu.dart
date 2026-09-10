@@ -540,6 +540,7 @@ class _DropdownMenuOverflowViewportState
   final _probeKey = GlobalKey();
   bool _overflows = false;
   bool _measurementScheduled = false;
+  BoxConstraints? _measurementConstraints;
 
   Widget get _paddedChild => KeyedSubtree(
     key: _probeKey,
@@ -555,6 +556,9 @@ class _DropdownMenuOverflowViewportState
   }
 
   void _measureAfterLayout(BoxConstraints constraints) {
+    // Popover can lay out twice: first against the viewport, then against the
+    // space beside the trigger. Measure overflow against the final layout.
+    _measurementConstraints = constraints;
     if (_measurementScheduled) return;
     _measurementScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -562,6 +566,7 @@ class _DropdownMenuOverflowViewportState
       if (!mounted) return;
       final naturalHeight = _probeKey.currentContext?.size?.height;
       if (naturalHeight == null) return;
+      final constraints = _measurementConstraints!;
       _setOverflowAfterLayout(
         constraints.hasBoundedHeight &&
             naturalHeight > constraints.maxHeight + precisionErrorTolerance,

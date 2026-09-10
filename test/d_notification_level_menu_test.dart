@@ -204,7 +204,7 @@ void main() {
                   child: Directionality(
                     textDirection: TextDirection.rtl,
                     child: Align(
-                      alignment: AlignmentDirectional.topEnd,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: Builder(builder: example.builder),
                     ),
                   ),
@@ -234,6 +234,13 @@ void main() {
         }
         if (example.title != 'Disabled') {
           await tester.sendKeyEvent(LogicalKeyboardKey.end);
+          await tester.pumpAndSettle();
+          final popup = tester.getRect(find.byType(DDropdownMenuContent));
+          final last = tester.getRect(
+            _option(example.title == 'Thread notifications' ? 3 : 0),
+          );
+          expect(last.top, greaterThanOrEqualTo(popup.top));
+          expect(last.bottom, lessThanOrEqualTo(popup.bottom));
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(find.byType(DDropdownMenuContent), findsNothing);

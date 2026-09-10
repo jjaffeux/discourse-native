@@ -24,6 +24,12 @@ scrolling, and collision handling. The preferred menu width is 336 logical
 pixels and shrinks to fit its available viewport. Names and descriptions wrap.
 The trigger tooltip and accessible name include the current notification level.
 
+Native inspection at 200% text exposed a shared Dropdown Menu overflow bug:
+Popover measures against the viewport, then lays out again against the space
+beside its trigger. The menu's deferred measurement now uses the final
+constraints. Menus that fit the whole screen but exceed their available side
+gain a scroll viewport, and wheel input or End can reveal the final option.
+
 The **Notification level menu** application entry in the UI kit styleguide has
 interactive topic, icon-only, category, thread, and disabled examples with local
 state. This application composition does not change the frozen upstream
@@ -56,5 +62,13 @@ Flutter 3.47.2 / Dart 3.13.2, on macOS:
   remained clean. This also covers the newly merged topic-footer sizing and
   compact reader controls. The notification component, adapters, examples,
   Button, Dropdown Menu, and Popover sources match the native fixture build.
+- The overflow correction passed 89 focused Dropdown Menu, notification-menu,
+  Popover, Context Menu, Menubar, and dropdown styleguide tests, including a new
+  regression for collision-only overflow and scaled notification menus anchored
+  midway down a narrow viewport. All 53 notification adapter/tracking tests
+  passed again, and static analysis remained clean.
+- The collision-overflow regression uses desktop row metrics and fails against
+  the original Dropdown Menu: no scroll viewport is created. With the correction,
+  wheel scrolling and revealing the final option with End both pass.
 
 Target-platform overrides in widget tests are not iOS or Linux device testing.
