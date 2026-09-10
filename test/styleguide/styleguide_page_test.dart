@@ -200,7 +200,9 @@ void main() {
         tester.widget<DSidebarMenuButton>(componentButton).onPressed!();
         await tester.pump(const Duration(milliseconds: 1));
 
-        final sections = component.documentOutline.toList(growable: false);
+        final sections = group
+            .documentOutlineFor(component)
+            .toList(growable: false);
         expect(
           keysStartingWith('styleguide-section-heading-'),
           findsNWidgets(sections.length),
@@ -376,7 +378,7 @@ void main() {
   );
 
   testWidgets(
-    'Attachment omits usage, composition, API, and accessibility from its document',
+    'Attachment leads with its overview and omits redundant document sections',
     (tester) async {
       await _pump(tester, size: const Size(1400, 900));
       await tester.enterText(
@@ -398,9 +400,13 @@ void main() {
       final reference = componentCatalogue.singleWhere(
         (component) => component.id == 'attachment',
       );
+      final attachment = componentExamples['attachment']!;
+      final sections = attachment
+          .documentOutlineFor(reference)
+          .toList(growable: false);
       expect(
         keysStartingWith('styleguide-section-heading-'),
-        findsNWidgets(reference.documentOutline.length),
+        findsNWidgets(sections.length),
       );
       expect(
         keysStartingWith('styleguide-example-panel'),
@@ -409,9 +415,25 @@ void main() {
       expect(find.text('API Reference'), findsNothing);
       expect(find.text('Accessibility'), findsNothing);
       expect(find.text('Composition'), findsNothing);
+      expect(find.text('Features'), findsNothing);
       expect(find.textContaining('DAttachmentGroup'), findsNothing);
       expect(find.text('Keyboard scrolling'), findsNothing);
-      final attachment = componentExamples['attachment']!;
+      expect(attachment.examples.first.topLevel, isTrue);
+      expect(attachment.examples.first.title, 'Overview');
+      expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('styleguide-example-panel')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey('styleguide-section-heading-0')),
+              )
+              .dy,
+        ),
+      );
+      expect(find.text('sales-dashboard.pdf'), findsWidgets);
+      expect(find.text('message-renderer.tsx'), findsWidgets);
       expect(find.text(attachment.description), findsNothing);
       expect(find.text(attachment.notes), findsNothing);
       expect(find.text(attachment.examples.first.description), findsNothing);
@@ -428,7 +450,7 @@ void main() {
       expect(
         tester
             .getTopLeft(
-              find.byKey(const ValueKey('styleguide-section-heading-5')),
+              find.byKey(const ValueKey('styleguide-section-heading-4')),
             )
             .dy,
         inInclusiveRange(0, 900),
@@ -542,7 +564,9 @@ void main() {
     final attachment = componentCatalogue.singleWhere(
       (component) => component.id == 'attachment',
     );
-    final sections = attachment.documentOutline.toList(growable: false);
+    final sections = componentExamples['attachment']!
+        .documentOutlineFor(attachment)
+        .toList(growable: false);
     final statesIndex = sections.indexWhere(
       (section) => section.label == 'States',
     );

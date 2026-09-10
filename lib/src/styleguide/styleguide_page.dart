@@ -84,7 +84,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   void _select(ComponentReference reference) {
     setState(() {
       _selected = reference;
-      _activeOutlineIndex = reference.documentOutline.isEmpty ? -1 : 0;
+      _activeOutlineIndex = _visibleSectionsFor(reference).isEmpty ? -1 : 0;
       _sectionKeys.clear();
     });
     _sidebarKey.currentState?.setOpenMobile(false);
@@ -412,6 +412,10 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     final examples = group?.examples ?? const <StyleguideExample>[];
     final sections = _visibleSections;
     final assignments = _assignExamples(sections, examples);
+    final topLevelExamples = [
+      for (var index = 0; index < examples.length; index++)
+        if (examples[index].topLevel) index,
+    ];
     final index = _entries.indexOf(_selected);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -468,11 +472,29 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                   if (examples.isNotEmpty) ...[
                     _previewControls(context),
                     for (
+                      var index = 0;
+                      index < topLevelExamples.length;
+                      index++
+                    ) ...[
+                      SizedBox(height: index == 0 ? 40 : 56),
+                      _exampleDocumentation(
+                        context,
+                        hostTheme,
+                        examples[topLevelExamples[index]],
+                        topLevelExamples[index],
+                        showTitle: false,
+                      ),
+                    ],
+                    for (
                       var sectionIndex = 0;
                       sectionIndex < sections.length;
                       sectionIndex++
                     ) ...[
-                      SizedBox(height: sectionIndex == 0 ? 40 : 56),
+                      SizedBox(
+                        height: sectionIndex == 0 && topLevelExamples.isEmpty
+                            ? 40
+                            : 56,
+                      ),
                       _sectionHeading(
                         context,
                         sections[sectionIndex],
@@ -508,8 +530,18 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     );
   }
 
+  List<ComponentReferenceSection> _visibleSectionsFor(
+    ComponentReference reference,
+  ) {
+    final group = componentExamples[reference.id];
+    return (group == null
+            ? reference.documentOutline
+            : group.documentOutlineFor(reference))
+        .toList(growable: false);
+  }
+
   List<ComponentReferenceSection> get _visibleSections =>
-      _selected.documentOutline.toList(growable: false);
+      _visibleSectionsFor(_selected);
 
   List<List<int>> _assignExamples(
     List<ComponentReferenceSection> sections,
@@ -526,6 +558,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
 
     for (var exampleIndex = 0; exampleIndex < examples.length; exampleIndex++) {
       final example = examples[exampleIndex];
+      if (example.topLevel) continue;
       var bestSection = -1;
       var bestScore = 0;
       for (
