@@ -724,17 +724,13 @@ class _AssignTopicButton extends StatelessWidget {
   Widget build(BuildContext context) => Builder(
     builder: (anchorContext) => SizedBox(
       width: double.infinity,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 46),
-        child: DButton(
-          key: const Key('assign-topic-button'),
-          label: const Text('Assign topic'),
-          icon: const DIcon(DIcons.userPlus),
-          variant: DButtonVariant.primary,
-          semanticLabel: 'Topic unassigned. Assign topic',
-          borderRadius: BorderRadius.circular(9),
-          onPressed: () => onTap(anchorContext),
-        ),
+      child: DButton(
+        key: const Key('assign-topic-button'),
+        label: const Text('Assign topic'),
+        icon: const DIcon(DIcons.userPlus),
+        variant: DButtonVariant.primary,
+        semanticLabel: 'Topic unassigned. Assign topic',
+        onPressed: () => onTap(anchorContext),
       ),
     ),
   );
@@ -758,7 +754,7 @@ class _PostAssignmentLedger extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showTopDivider)
-          DSeparator(space: 1, thickness: 1, color: dividerColor),
+          DSeparator(space: DSpacing.lg, thickness: 1, color: dividerColor),
         for (var index = 0; index < rows.length; index++) ...[
           rows[index],
           if (index < rows.length - 1)

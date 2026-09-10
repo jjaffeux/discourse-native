@@ -19,7 +19,10 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/button_surface.dart';
 
 const _siteUrl = 'https://forum.example.com';
 const _plugin = AssignPlugin();
@@ -684,6 +687,68 @@ void main() {
           isButton: true,
           hasTapAction: true,
         ),
+      );
+    });
+
+    testWidgets('keeps the post divider clear of the Assign focus ring', (
+      tester,
+    ) async {
+      final highlightStrategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(
+        () => FocusManager.instance.highlightStrategy = highlightStrategy,
+      );
+      const registry = PluginRegistry([AssignPlugin()]);
+      final topic = TopicDetail(
+        id: 10,
+        title: 'Post-only assignments',
+        stream: const [11, 22],
+        plugins: registry.readTopic(const {
+          'can_assign': true,
+          'indirectly_assigned_to': {
+            '22': {
+              'assigned_to': {'username': 'sam'},
+              'post_number': 2,
+            },
+          },
+        }, _siteUrl),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(12),
+              child: SizedBox(
+                width: 228,
+                child: Builder(
+                  builder: (context) => Column(
+                    children: _plugin
+                        .topicProperties(context, _siteUrl, topic)
+                        .single
+                        .values,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+
+      final button = find.byKey(const Key('assign-topic-button'));
+      final surface = buttonSurface(tester, of: button);
+      expect(surface.ringWidth, greaterThan(0));
+      final dividerLine = find.descendant(
+        of: find.byType(DSeparator).first,
+        matching: find.byType(DecoratedBox),
+      );
+      expect(
+        tester.getTopLeft(dividerLine).dy,
+        greaterThan(tester.getBottomLeft(button).dy + surface.ringWidth),
       );
     });
 
