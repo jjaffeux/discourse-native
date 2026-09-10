@@ -50,13 +50,14 @@ Implementation `6e251059` was integrated into a candidate based on local main
 The Chat root uses a 280px width and a 220px notification submenu. The fixed
 root width avoids asking the new overflow LayoutBuilder for intrinsic width.
 
-The combined candidate passed 139 focused menu/styleguide tests and 53 Chat
+The final candidate `193ff068` also preserves main's accepted menu hover-color
+change. It passed 140 focused menu/styleguide tests and 53 Chat
 sidebar integration tests. `flutter analyze --no-pub` reported no issues;
 `flutter build macos --debug --no-pub -t lib/styleguide_main.dart` succeeded.
 
 The native styleguide from `2f06606c` was launched as an isolated macOS review
 bundle with a separate identifier and permitted debug entitlements. Its shared
-menu implementation is unchanged by the subsequent Chat-width adjustment.
+pointer-intent implementation is unchanged by the subsequent integration.
 Inspected Dropdown Menu in the current app's dark palette: nested opening,
 deepest Escape, right-arrow reopening, and Message selection. Inspected Menubar
 in the light palette: File → Share → Notes. Inspected Context Menu in the light
