@@ -90,7 +90,9 @@ void main() {
       expect(
         component.documentOutline.map((section) => section.label),
         isNot(
-          contains(anyOf('Installation', 'API Reference', 'Accessibility')),
+          contains(
+            anyOf('Installation', 'Usage', 'API Reference', 'Accessibility'),
+          ),
         ),
         reason: component.id,
       );
@@ -112,6 +114,7 @@ void main() {
       ]),
     );
     expect(inputGroup.matches('InputGroupAddon'), isFalse);
+    expect(inputGroup.matches('Usage'), isFalse);
     expect(
       componentCatalogue
           .singleWhere((component) => component.id == 'attachment')
@@ -228,6 +231,11 @@ void main() {
           findsNothing,
           reason: component.id,
         );
+        expect(
+          find.widgetWithText(StyleguideAction, 'Usage'),
+          findsNothing,
+          reason: component.id,
+        );
         expect(tester.takeException(), isNull, reason: component.id);
       }
     },
@@ -259,7 +267,7 @@ void main() {
   });
 
   testWidgets(
-    'page outline follows shadcn hierarchy without setup, API, or accessibility sections',
+    'page outline omits installation, usage, API, and accessibility sections',
     (tester) async {
       await _pump(tester, size: const Size(1400, 900));
       await tester.enterText(
@@ -276,7 +284,7 @@ void main() {
         find.widgetWithText(StyleguideAction, 'Installation'),
         findsNothing,
       );
-      expect(find.widgetWithText(StyleguideAction, 'Usage'), findsOneWidget);
+      expect(find.widgetWithText(StyleguideAction, 'Usage'), findsNothing);
       expect(
         find.widgetWithText(StyleguideAction, 'Composition'),
         findsOneWidget,
@@ -330,20 +338,20 @@ void main() {
       expect(
         tester
             .getTopLeft(
-              find.byKey(const ValueKey('styleguide-section-heading-8')),
+              find.byKey(const ValueKey('styleguide-section-heading-7')),
             )
             .dy,
         inInclusiveRange(0, 900),
       );
 
-      await tester.tap(find.widgetWithText(StyleguideAction, 'Usage'));
+      await tester.tap(find.widgetWithText(StyleguideAction, 'Composition'));
       await tester.pump(const Duration(milliseconds: 300));
       expect(detail.position.pixels, lessThan(800));
     },
   );
 
   testWidgets(
-    'Attachment omits API and accessibility sections from its document',
+    'Attachment omits usage, API, and accessibility from its document',
     (tester) async {
       await _pump(tester, size: const Size(1400, 900));
       await tester.enterText(
@@ -386,7 +394,7 @@ void main() {
       expect(
         tester
             .getTopLeft(
-              find.byKey(const ValueKey('styleguide-section-heading-7')),
+              find.byKey(const ValueKey('styleguide-section-heading-6')),
             )
             .dy,
         inInclusiveRange(0, 900),
