@@ -357,3 +357,23 @@ source, kernel and cleanup. The fixture's unconfigured personal-message inbox
 showed an error when opened; hover inspection returned to Topics. No physical
 iOS/Linux or spoken screen reader verification was performed. The local
 merge is recorded under `rowGapFollowUp` in the existing Sidebar progress row.
+
+## Forum header tooltip follow-up — 2026-09-10
+
+The user requested no tooltip on the forum identity header. The URL and
+options-icon tooltip wrappers were removed. The existing Native dropdown
+trigger still owns the header button, focus and expanded state, while the
+visible name and hostname supply its accessible identity. No component API
+or header layout changed.
+
+All 111 existing shell navigation and width tests pass with seed 9102026
+(`/tmp/forum-header-no-tooltips-tests.log`). Fatal-info root analysis,
+formatting and diff checks pass (`/tmp/forum-header-no-tooltips-analysis.log`).
+
+Native macOS inspection at 208px in light/dark at 100% confirmed no tooltip
+over the URL or options icon. The full forum name and hostname remain in AX.
+Click opens the menu, Escape closes it with visible focus restored to the
+header, and Return reopens it. [Build evidence](evidence/sidebar/forum-header-tooltips-review-build.json)
+records the inspected source, kernel and cleanup. No physical iOS/Linux or
+spoken screen reader verification was performed. Local merge history is
+recorded under `forumHeaderTooltipsFollowUp` in the existing Sidebar row.

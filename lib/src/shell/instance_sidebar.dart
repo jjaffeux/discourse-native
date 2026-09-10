@@ -656,24 +656,18 @@ class _ForumIdentityHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    DTooltip(
-                      message: siteUrl,
-                      child: Text(
-                        siteUrl.replaceFirst(RegExp(r'^https?://'), ''),
-                        key: const ValueKey('forum-identity-url'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, height: 16 / 12),
-                      ),
+                    Text(
+                      siteUrl.replaceFirst(RegExp(r'^https?://'), ''),
+                      key: const ValueKey('forum-identity-url'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, height: 16 / 12),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              const DTooltip(
-                message: 'Forum options',
-                child: Icon(Icons.unfold_more_rounded, size: 16),
-              ),
+              const Icon(Icons.unfold_more_rounded, size: 16),
             ],
           ),
         ),
