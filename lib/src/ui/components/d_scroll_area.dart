@@ -14,6 +14,7 @@ class DScrollBar extends StatelessWidget {
     required this.child,
     this.controller,
     this.axis = Axis.vertical,
+    this.showScrollbar = true,
     this.thumbVisibility = true,
     this.thumb = const DScrollThumb(),
     this.cornerExtent = 0,
@@ -25,6 +26,13 @@ class DScrollBar extends StatelessWidget {
   /// Borrowed. When omitted, a single PrimaryScrollController is required.
   final ScrollController? controller;
   final Axis axis;
+
+  /// Whether to paint the thumb and allow scrollbar dragging or track clicks.
+  /// Hiding it preserves the viewport, its state and native scrolling.
+  final bool showScrollbar;
+
+  /// Keeps a shown thumb visible at rest. False enables native fading;
+  /// use [showScrollbar] to hide it even during scrolling and hover.
   final bool thumbVisibility;
   final DScrollThumb thumb;
 
@@ -37,10 +45,11 @@ class DScrollBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ScrollConfiguration(
     behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+    // Keep the viewport subtree mounted when the scrollbar is hidden.
     child: RawScrollbar(
       controller: controller,
-      thumbVisibility: thumbVisibility,
-      interactive: true,
+      thumbVisibility: showScrollbar && thumbVisibility,
+      interactive: showScrollbar,
       thickness: thumb.thickness,
       crossAxisMargin: 1,
       mainAxisMargin: 1,
@@ -49,7 +58,9 @@ class DScrollBar extends StatelessWidget {
           : EdgeInsetsDirectional.only(end: cornerExtent),
       radius: thumb.radius,
       minThumbLength: thumb.minLength,
-      thumbColor: thumb.color ?? DTokens.of(context).border,
+      thumbColor: showScrollbar
+          ? thumb.color ?? DTokens.of(context).border
+          : Colors.transparent,
       fadeDuration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
           : const Duration(milliseconds: 150),
@@ -136,6 +147,7 @@ class DScrollArea extends StatefulWidget {
     this.controller,
     this.horizontalController,
     this.padding = EdgeInsets.zero,
+    this.showScrollbar = true,
     this.thumbVisibility = true,
     this.borderRadius,
     this.corner = const DScrollCorner(),
@@ -158,6 +170,12 @@ class DScrollArea extends StatefulWidget {
 
   /// Insets the scrollable content on every enabled axis.
   final EdgeInsetsGeometry padding;
+
+  /// Whether to show scrollbar thumbs and the two-axis corner.
+  /// False preserves scrolling and keyboard navigation without scrollbar input.
+  final bool showScrollbar;
+
+  /// Keeps shown thumbs visible at rest; false enables native fading.
   final bool thumbVisibility;
   final BorderRadius? borderRadius;
   final Widget corner;
@@ -234,6 +252,7 @@ class _DScrollAreaState extends State<DScrollArea> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final both = widget.axes == DScrollAxes.both;
+    final showCorner = widget.showScrollbar && _hasCorner;
     final primary = widget.controller ?? _owned;
     final horizontal = widget.horizontalController ?? _ownedHorizontal;
     Widget content = widget.child;
@@ -260,8 +279,9 @@ class _DScrollAreaState extends State<DScrollArea> {
       axis: widget.axes == DScrollAxes.horizontal
           ? Axis.horizontal
           : Axis.vertical,
+      showScrollbar: widget.showScrollbar,
       thumbVisibility: widget.thumbVisibility,
-      cornerExtent: _hasCorner ? 10 : 0,
+      cornerExtent: showCorner ? 10 : 0,
       child: content,
     );
     if (both) {
@@ -269,8 +289,9 @@ class _DScrollAreaState extends State<DScrollArea> {
         controller: horizontal,
         axis: Axis.horizontal,
         notificationDepth: 1,
+        showScrollbar: widget.showScrollbar,
         thumbVisibility: widget.thumbVisibility,
-        cornerExtent: _hasCorner ? 10 : 0,
+        cornerExtent: showCorner ? 10 : 0,
         child: content,
       );
     }
@@ -285,7 +306,7 @@ class _DScrollAreaState extends State<DScrollArea> {
       content = Stack(
         children: [
           content,
-          if (_hasCorner)
+          if (showCorner)
             PositionedDirectional(
               bottom: 0,
               end: 0,
