@@ -6,17 +6,47 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('matches documented size, orientation, and media geometry', (
+  testWidgets('matches documented padding, size, and orientation geometry', (
     tester,
   ) async {
     for (final size in DAttachmentSize.values) {
-      await tester.pumpWidget(_app(_attachment(size: size)));
-      final media = tester.getSize(find.byKey(const ValueKey('media')));
-      expect(media.width, switch (size) {
+      await tester.pumpWidget(
+        _app(
+          _attachment(
+            size: size,
+            description: size == DAttachmentSize.extraSmall
+                ? null
+                : 'PDF · 2 MB',
+          ),
+        ),
+      );
+      final attachment = tester.getRect(find.byType(DAttachment));
+      final media = tester.getRect(find.byKey(const ValueKey('media')));
+      final content = tester.getRect(find.byKey(const ValueKey('content')));
+      final expectedMediaWidth = switch (size) {
         DAttachmentSize.regular => 40,
         DAttachmentSize.small => 32,
         DAttachmentSize.extraSmall => 28,
-      });
+      };
+      final expectedPadding = switch (size) {
+        DAttachmentSize.regular => 8,
+        DAttachmentSize.small => 6,
+        DAttachmentSize.extraSmall => 4,
+      };
+      final expectedGap = switch (size) {
+        DAttachmentSize.regular => 8,
+        DAttachmentSize.small => 10,
+        DAttachmentSize.extraSmall => 6,
+      };
+      final expectedHeight = switch (size) {
+        DAttachmentSize.regular => 58,
+        DAttachmentSize.small => 47,
+        DAttachmentSize.extraSmall => 38,
+      };
+      expect(media.width, expectedMediaWidth);
+      expect(media.left - attachment.left, expectedPadding + 1);
+      expect(content.left - media.right, expectedGap);
+      expect(attachment.height, expectedHeight);
       expect(tester.takeException(), isNull);
     }
 
@@ -31,13 +61,14 @@ void main() {
     expect(tester.getSize(find.byType(DAttachment)).width, 96);
     expect(
       tester.getSize(find.byKey(const ValueKey('media'))),
-      const Size(94, 94),
+      const Size(78, 78),
     );
   });
 
   testWidgets('all lifecycle states expose visible information beyond color', (
     tester,
   ) async {
+    double? attachmentHeight;
     for (final state in DAttachmentState.values) {
       final description = switch (state) {
         DAttachmentState.idle => 'Ready to upload',
@@ -58,6 +89,9 @@ void main() {
         state == DAttachmentState.uploading ||
             state == DAttachmentState.processing,
       );
+      final renderedHeight = tester.getSize(find.byType(DAttachment)).height;
+      attachmentHeight ??= renderedHeight;
+      expect(renderedHeight, attachmentHeight);
       expect(tester.takeException(), isNull);
     }
   });
@@ -331,7 +365,7 @@ Widget _attachment({
   DAttachmentMediaVariant mediaVariant = DAttachmentMediaVariant.icon,
   double? width,
   String title = 'report.pdf',
-  String description = 'PDF · 2 MB',
+  String? description = 'PDF · 2 MB',
   bool withAction = false,
 }) => DAttachment(
   width: width,
@@ -347,9 +381,11 @@ Widget _attachment({
           : const Icon(Icons.description_outlined),
     ),
     DAttachmentContent(
+      key: const ValueKey('content'),
       children: [
         DAttachmentTitle(child: Text(title)),
-        DAttachmentDescription(child: Text(description)),
+        if (description != null)
+          DAttachmentDescription(child: Text(description)),
       ],
     ),
     if (withAction)

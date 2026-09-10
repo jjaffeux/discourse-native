@@ -16,8 +16,8 @@ Source preparation inspected the complete Markdown, rendered documentation text,
 | Base-nova behavior | Flutter mapping |
 | --- | --- |
 | `Attachment` state: idle/uploading/processing/error/done | `DAttachmentState`; caller owns lifecycle and data. Idle paints a 4px/3px dashed border, in-progress titles use the accepted lifecycle-aware shimmer, error uses destructive border/media/description plus required text, and done returns to the neutral card. |
-| default/sm/xs | `DAttachmentSize.regular/small/extraSmall`; 14/20 then 12/16 text, 40/32/28 media, 8/10/6 gaps, 10×8 / 8×6 / 6×4 content padding. |
-| horizontal/vertical | `DAttachmentOrientation`; horizontal has a 160px minimum, vertical keeps the 96px reference card/media width and stacks content below. Large text grows the row; truncation stays one line. |
+| default/sm/xs | `DAttachmentSize.regular/small/extraSmall`; 14/17.5 then 12/15 title metrics, 12/16 metadata, 40/32/28 media, 8/10/6 gaps, and 8 / 6 / 4 root padding when media is present. Content-only cards use the source's 10×8 / 8×6 / 6×4 root padding. |
+| horizontal/vertical | `DAttachmentOrientation`; horizontal has a 160px minimum, while vertical keeps the 96px reference outer width, applies the same root inset, and stacks content below with its additional 4px horizontal inset. Large text grows the row; truncation stays one line. |
 | rounded-xl / xs rounded-lg | Host radius ×1.4 for default/sm and ×1 for xs; media uses host radius ×1 or ×0.8. |
 | border, card, muted, destructive and ring variables | `DTokens.surface`, `border`, `muted`, `destructive`, and an outside-only 3px half-alpha focus-within ring. Live light/dark/custom theme changes are read during every build. |
 | icon/image media | `DAttachmentMediaVariant.icon/image`; 16px icon, 14px xs icon, 24px vertical icon; images cover a square and use 60% opacity only for uploading/processing/error. Media is decorative unless explicitly labeled. |
