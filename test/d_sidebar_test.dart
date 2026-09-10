@@ -107,6 +107,54 @@ void main() {
     expect(() => DSidebarMenuSkeleton(widthFactor: 1.1), throwsAssertionError);
   });
 
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'expanded submenu paints a directional one-pixel guide in ${direction.name}',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Directionality(
+              textDirection: direction,
+              child: const Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 200,
+                  child: DSidebarMenuSub(
+                    children: [
+                      DSidebarMenuSubItem(
+                        child: SizedBox(height: 28, child: Text('Child')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final submenu = find.byType(DSidebarMenuSub);
+        final stack = find.descendant(
+          of: submenu,
+          matching: find.byType(Stack),
+        );
+        final guide = find.descendant(
+          of: submenu,
+          matching: find.byType(DSeparator),
+        );
+        final stackRect = tester.getRect(stack);
+        final guideRect = tester.getRect(guide);
+
+        expect(guideRect.width, 1);
+        expect(guideRect.height, stackRect.height);
+        if (direction == TextDirection.ltr) {
+          expect(guideRect.left, stackRect.left + 1);
+        } else {
+          expect(guideRect.right, stackRect.right - 1);
+        }
+      },
+    );
+  }
+
   testWidgets('collapsed icon buttons retain the child accessibility name', (
     tester,
   ) async {

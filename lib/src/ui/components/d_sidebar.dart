@@ -965,21 +965,28 @@ class DSidebarMenuSub extends StatelessWidget {
       ? const SizedBox.shrink()
       : Container(
           margin: const EdgeInsetsDirectional.only(start: 14, end: 14),
-          padding: const EdgeInsetsDirectional.only(
-            start: 10,
-            end: 10,
-            top: 2,
-            bottom: 2,
-          ),
-          decoration: BoxDecoration(
-            border: BorderDirectional(
-              start: BorderSide(color: DTokens.of(context).border),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 4,
-            children: children,
+          child: Stack(
+            children: [
+              const PositionedDirectional(
+                start: 1,
+                top: 0,
+                bottom: 0,
+                child: DSeparator(orientation: Axis.vertical),
+              ),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(
+                  start: 10,
+                  end: 10,
+                  top: 2,
+                  bottom: 2,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 4,
+                  children: children,
+                ),
+              ),
+            ],
           ),
         );
 }
