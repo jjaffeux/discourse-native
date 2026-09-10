@@ -363,110 +363,103 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 semanticsLabel: 'Resize topic list',
                 maximumWidth: maximumListWidth,
                 handleWidth: 8,
+                // The resize handle owns the list/reader boundary. When the
+                // list fills the reader, the shell or composer owns its edge.
                 dividerWidth: 1,
                 child: Offstage(
                   offstage: topicOpen && !split,
                   child: TickerMode(
                     enabled: !topicOpen || split,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: BorderDirectional(
-                          end: BorderSide(color: theme.shell.divider),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          // Topic actions follow the reading lane; account
-                          // controls keep their place at the pane's edge.
-                          ContentReadingLane(
-                            widthLimit: topicListContentWidth,
-                            builder: (context, lane) => SizedBox(
-                              height: shellHeaderHeight,
-                              child: Padding(
-                                // Match the sidebar account header's baseline.
-                                padding: EdgeInsets.only(
-                                  bottom: showsUserMenu ? 1 : 0,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Padding(
-                                        padding: EdgeInsetsDirectional.only(
-                                          start:
-                                              DDirection.of(context) ==
-                                                  TextDirection.ltr
-                                              ? lane.leftInset
-                                              : lane.rightInset,
-                                        ),
-                                        child: Align(
-                                          alignment:
-                                              AlignmentDirectional.centerStart,
-                                          child: SizedBox(
-                                            width: lane.width,
-                                            child: Padding(
-                                              padding: EdgeInsetsDirectional.only(
-                                                start:
-                                                    topicListHorizontalPadding,
-                                                end: split
-                                                    ? topicInboxDividerInset
-                                                    : topicListHorizontalPadding,
-                                              ),
-                                              child: heading,
+                    child: Column(
+                      children: [
+                        // Topic actions follow the reading lane; account
+                        // controls keep their place at the pane's edge.
+                        ContentReadingLane(
+                          widthLimit: topicListContentWidth,
+                          builder: (context, lane) => SizedBox(
+                            height: shellHeaderHeight,
+                            child: Padding(
+                              // Match the sidebar account header's baseline.
+                              padding: EdgeInsets.only(
+                                bottom: showsUserMenu ? 1 : 0,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsetsDirectional.only(
+                                        start:
+                                            DDirection.of(context) ==
+                                                TextDirection.ltr
+                                            ? lane.leftInset
+                                            : lane.rightInset,
+                                      ),
+                                      child: Align(
+                                        alignment:
+                                            AlignmentDirectional.centerStart,
+                                        child: SizedBox(
+                                          width: lane.width,
+                                          child: Padding(
+                                            padding: EdgeInsetsDirectional.only(
+                                              start: topicListHorizontalPadding,
+                                              end: split
+                                                  ? topicInboxDividerInset
+                                                  : topicListHorizontalPadding,
                                             ),
+                                            child: heading,
                                           ),
                                         ),
                                       ),
                                     ),
-                                    if (showsUserMenu)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsetsDirectional.only(
-                                              end: 8,
-                                            ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            ...registry.shellHeaderActions(
-                                              context,
-                                              surface:
-                                                  PluginHeaderSurface.content,
-                                              compact: layout.isCompact,
-                                              ringColor: theme.shell.content,
-                                            ),
-                                            UserMenuButton(
-                                              ringColor: theme.shell.content,
-                                            ),
-                                          ],
-                                        ),
+                                  ),
+                                  if (showsUserMenu)
+                                    Padding(
+                                      padding: const EdgeInsetsDirectional.only(
+                                        end: 8,
                                       ),
-                                  ],
-                                ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ...registry.shellHeaderActions(
+                                            context,
+                                            surface:
+                                                PluginHeaderSurface.content,
+                                            compact: layout.isCompact,
+                                            ringColor: theme.shell.content,
+                                          ),
+                                          UserMenuButton(
+                                            ringColor: theme.shell.content,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ),
-                          if (!ShellTitleBar.isSupported)
-                            const ContentReadingLaneBox(
-                              widthLimit: topicListContentWidth,
-                              child: Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  topicListHorizontalPadding,
-                                  0,
-                                  topicListHorizontalPadding,
-                                  8,
-                                ),
-                                child: ForumSearch(dense: true),
+                        ),
+                        if (!ShellTitleBar.isSupported)
+                          const ContentReadingLaneBox(
+                            widthLimit: topicListContentWidth,
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                topicListHorizontalPadding,
+                                0,
+                                topicListHorizontalPadding,
+                                8,
                               ),
-                            ),
-                          Expanded(
-                            child: _FeedBackedContent(
-                              route: sourceRoute,
-                              siteUrl: state.siteUrl,
-                              inbox: true,
-                              keepTopicOpen: split,
+                              child: ForumSearch(dense: true),
                             ),
                           ),
-                        ],
-                      ),
+                        Expanded(
+                          child: _FeedBackedContent(
+                            route: sourceRoute,
+                            siteUrl: state.siteUrl,
+                            inbox: true,
+                            keepTopicOpen: split,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
