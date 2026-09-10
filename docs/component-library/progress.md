@@ -2792,6 +2792,7 @@ Status: merged. Task: 01a08606-5dd7-73d2-b6f5-15b1bfbc34e7. Branch: codex/ui-nav
 - Follow-up source review compared 524413aa against the current official shadcn Base UI Navigation Menu source and verified logical forward/reverse panel travel, shared viewport width/height interpolation, indicator movement, RTL inversion, focus/pointer behavior and reduced-motion policy. Native inspection first reproduced infinite-width stretch content and zero-duration RenderAnimatedSize self-mutation; both are fixed by 01af94da with failing-before/passing-after widget regressions.
 - All 110 affected Navigation Menu, Popover, Combobox, Button Group and styleguide tests passed on the latest-main candidate with random seed 860610; root and profiles/full flutter analyze --no-pub passed with no diagnostics, git diff --check is clean and dependency locks are unchanged.
 - Under the 2026-09-10 desktop lease, the corrected macOS styleguide smoothly switched among differently sized Getting started, Components and With Icon panels in Dark and Light themes; trigger indicator/viewport motion settled correctly. Reduced-motion switches were immediate and clean with no runtime output. The app was quit and the desktop lease released. No additional iOS/Linux or spoken VoiceOver claim is made.
+- The repository main checkout accepted the reviewed transition candidate with --no-ff as c737a87be32e09004a674351ed750da2b75d92bb under the main lease.
 
 **limitations**
 
