@@ -478,7 +478,8 @@
           "Actual macOS example inspection: dark/light and Plum palettes, 320px/200%/RTL, independent browse actions, picker search and keyboard selection with live tint updates and visible focus.",
           "The isolated review app launched and was quit; its process disappeared and desktop lease was released. Native review kernel SHA-256 afa84d5f07db23cfab1e8bdadc0e371d3300e90a02326f575cf356ac2c4ae06d.",
           "No iOS/Linux device or spoken screen-reader session; production picker migration is outside this kit-capability follow-up."
-        ]
+        ],
+        "implementationCommit": "3fed56d428c07bdeea27be483daf56d890a29f6a"
       }
     },
     {
