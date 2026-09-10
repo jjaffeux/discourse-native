@@ -431,6 +431,7 @@ class DSidebarFooter extends DSidebarHeader {
   const DSidebarFooter({super.key, required super.child});
 }
 
+/// A scrollable sidebar body with hidden scrollbar artwork and drag targets.
 class DSidebarContent extends StatelessWidget {
   const DSidebarContent({super.key, required this.children, this.controller})
     : _slivers = false;
@@ -454,6 +455,7 @@ class DSidebarContent extends StatelessWidget {
       ? _SidebarSliverContent(controller: controller, slivers: children)
       : DScrollArea(
           controller: controller,
+          showScrollbar: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: children,
@@ -484,6 +486,7 @@ class _SidebarSliverContentState extends State<_SidebarSliverContent> {
     final controller = widget.controller ?? _ownedController;
     return DScrollBar(
       controller: controller,
+      showScrollbar: false,
       child: CustomScrollView(controller: controller, slivers: widget.slivers),
     );
   }
