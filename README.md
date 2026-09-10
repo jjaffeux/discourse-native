@@ -45,7 +45,7 @@ Flutter hot reload does not rebuild the native bundle.
 
 ### Diagnosing slow topic scrolling
 
-Open the affected topic, then **Diagnostics → Topic scroll → Start capture**.
+Open the affected topic or topic list, then **Diagnostics → Topic scroll → Start capture**.
 The panel closes so it does not compete with scrolling. Reproduce the slowdown
 for 5–10 seconds, pause for a second to let Flutter deliver its batched frame
 timings, then reopen Diagnostics and choose **Stop capture → Copy performance
@@ -78,6 +78,14 @@ isolate and does not change the VM's profiler settings or timeline streams.
 The live trace adds diagnostic work while recording; use a profile or release
 build to assess device performance; a debug
 build can reveal work patterns but adds substantial overhead.
+
+Topic lists also record row builds, list rebuilds, visible ranges, scroll
+geometry, and time spent saving position or scheduling pagination. These events
+use the same frame and CPU capture, and stay inactive until Start capture.
+For a repeatable local-data run of the production list, use
+`flutter run --profile -d macos -t tool/topic_list_scroll_profile_main.dart`.
+It prints reports and saves JSON for steady scrolling, fast scrolling, and the
+return trip in the application's temporary directory.
 
 ## Connecting a site
 
@@ -743,7 +751,7 @@ the Assign module rather than leaking plugin vocabulary into core.
 
 ### Scrolling
 
-The list is lazy already: `ListView.separated` with an `itemBuilder` is backed
+The list is lazy already: `SuperListView.separated` with an `itemBuilder` is backed
 by a `SliverChildBuilderDelegate`, so only rows near the viewport are built.
 That is Flutter's virtualization — there is no separate widget for it. The
 sidebar uses the same idea at destination-row granularity: its section shells
@@ -752,6 +760,13 @@ building their rows, while each section's fixed-height
 `SliverFixedExtentList` avoids building every destination upfront. The fixed
 extent also gives Flutter the exact scroll boundary without measuring every
 destination or estimating one independently updating section from another.
+
+The topic list defers filling its offscreen cache while fast scrolling replaces
+the entire viewport. Building those cached rows in each frame wastes work when
+the next frame discards them. Once scrolling slows, the sliver fills the cache
+normally. Its extent estimator distinguishes 1-pixel separators from topic rows;
+using the library's 100-pixel default for both caused large scroll corrections.
+Row heights remain variable and are measured when rendered.
 
 Pagination follows `topic_list.more_topics_url`, with one trap: Discourse
 reports it as `/latest?no_definitions=true&page=1` — **no extension**, and that

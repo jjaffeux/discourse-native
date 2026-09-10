@@ -575,7 +575,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Record scrolling in a topic, then copy a performance report '
+            'Record scrolling in a topic or topic list, then copy a performance report '
             'to share for investigation. The capture stays in '
             'memory and never includes post bodies, titles, site URLs, or '
             'credentials.',
@@ -589,7 +589,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Close Diagnostics, reproduce the issue in a topic, then return '
+              'Close Diagnostics, reproduce the issue in a topic or topic list, then return '
               'here and stop the capture. Scroll for 5–10 seconds, then wait '
               'a second for frame timings before stopping. Recording stops automatically after '
               '${controller.maximumDuration.inMinutes} minutes or '
@@ -638,7 +638,8 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             ),
           ] else ...[
             Text(
-              'The trace includes every topic scroll notification, post-sliver '
+              'The trace includes topic-list row builds and scroll bookkeeping, '
+              'topic scroll notifications, post-sliver '
               'visible range and geometry update, paging and anchor decision, '
               'row layout cost, viewport bookkeeping cost, and Flutter frame '
               'timing. The performance report summarizes slow frames and the '
