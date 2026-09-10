@@ -412,12 +412,6 @@ class _ComposerSurface extends StatelessWidget {
                       composer: composer,
                     ),
                   ),
-                  onDiscard: () => unawaited(
-                    requestComposerDiscard(
-                      context: context,
-                      composer: composer,
-                    ),
-                  ),
                   onRestore: onRestore,
                 ),
               ),
