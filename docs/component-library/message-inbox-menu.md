@@ -32,9 +32,13 @@ are outside this migration.
 
 Flutter 3.47.2 / Dart 3.13.2:
 
-- Focused component, Messages page, button-adoption, and full styleguide-page
-  checks passed (39 tests before the final keyboard regression; the updated
-  Messages page suite then passed all 15 tests).
+- `flutter test --no-pub test/d_message_inbox_menu_test.dart
+  test/message_inbox_page_test.dart test/d_button_adoption_test.dart
+  test/styleguide/styleguide_page_test.dart`: all **40 tests passed** after
+  integration with main `7fb2dd29`.
+- Inbox/message cases in `topic_reading_integration_test.dart` and
+  `group_pages_host_test.dart`: all **6 tests passed**, including full-shell
+  group selection, restored navigation, and loading state.
 - Component coverage includes controlled and live selection, checked semantics,
   disabled controls, keyboard dismissal/focus, and all five examples in light,
   dark, and Forest palettes at 320px, 200% text, and RTL. End reveals the final
@@ -70,3 +74,10 @@ styling, matching the previous notification-menu migration.
 Fixture source and signed bundle are retained under
 `/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/message-inbox-review-vf3w_n3p`.
 No iOS/Linux device or spoken VoiceOver pass is claimed.
+
+The native-reviewed inbox component, adapter, examples, Dropdown Menu, and
+Popover are unchanged after integration. Main's already accepted DButton change
+only adds the forbidden cursor for disabled buttons. Final logs are
+`/tmp/message-inbox-integration-tests.log`,
+`/tmp/message-inbox-shell-tests.log`, and
+`/tmp/message-inbox-integration-analysis.log`.
