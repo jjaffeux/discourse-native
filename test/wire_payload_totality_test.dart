@@ -713,7 +713,7 @@ void main() {
       'DiscourseUser',
       'ForumTabAnchor',
       'ResolvedSitePalette',
-      'ComposerGeometryPreference',
+      'ComposerLayoutPreference',
       // The diagnostics store reading back what it wrote.
       'DiagnosticEvent',
       'DiagnosticLogEvent',
