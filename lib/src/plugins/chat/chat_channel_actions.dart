@@ -90,7 +90,7 @@ class _DesktopChannelMenu extends StatelessWidget {
     final membership = channel.membership;
     return DDropdownMenu(
       content: DDropdownMenuContent(
-        width: null,
+        width: 280,
         constraints: const BoxConstraints(
           minWidth: 240,
           maxWidth: 380,

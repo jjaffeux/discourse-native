@@ -43,5 +43,29 @@ instead of the nested command-menu owner.
 - Chat's sidebar integration checks exercise the migrated desktop actions and
   the existing touch sheet with local fake data.
 
-Native inspection and final integration results are recorded below after the
-candidate is reconciled with current local main.
+## Integration and native inspection — 2026-09-10
+
+Implementation `6e251059` was integrated into a candidate based on local main
+`e440185d`, preserving the concurrent conditional-overflow viewport changes.
+The Chat root uses a 280px width and a 220px notification submenu. The fixed
+root width avoids asking the new overflow LayoutBuilder for intrinsic width.
+
+The combined candidate passed 139 focused menu/styleguide tests and 53 Chat
+sidebar integration tests. `flutter analyze --no-pub` reported no issues;
+`flutter build macos --debug --no-pub -t lib/styleguide_main.dart` succeeded.
+
+The native styleguide from `2f06606c` was launched as an isolated macOS review
+bundle with a separate identifier and permitted debug entitlements. Its shared
+menu implementation is unchanged by the subsequent Chat-width adjustment.
+Inspected Dropdown Menu in the current app's dark palette: nested opening,
+deepest Escape, right-arrow reopening, and Message selection. Inspected Menubar
+in the light palette: File → Share → Notes. Inspected Context Menu in the light
+palette at a 360px preview width: secondary-click opening, More Tools submenu,
+and Name Window selection. Menus retained their existing appearance and all
+three selection paths closed their popups.
+
+Native CUA exposes clicks and keyboard input but no standalone pointer-move
+operation, so continuous diagonal hover paths were verified with Flutter mouse
+gesture tests, not claimed as manual native hover verification. Chat migration
+was exercised with production widgets and fake data in widget tests; it was not
+inspected against a live account. No iOS or Linux device run was performed.
