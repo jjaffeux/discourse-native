@@ -14,6 +14,39 @@ import 'support/topic_scroll_capture.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'summarizes topic-list activity without requiring an open topic',
+    () async {
+      final capture = topicScrollCaptureWithoutVm();
+      addTearDown(capture.dispose);
+      capture.start();
+      capture.recordTopicEvent('topicList.capture.context', {
+        'topicCount': 300,
+        'inbox': false,
+        'viewportExtent': 600.0,
+      });
+      capture.recordTopicEvent('topicList.scroll.notification', {
+        'durationUs': 25,
+        'pixels': 100.0,
+      });
+      capture.recordTopicEvent('topicList.row.built', {'index': 10});
+      capture.stop();
+
+      final report =
+          jsonDecode(await capture.buildJsonReport()) as Map<String, Object?>;
+      final analysis = report['analysis']! as Map<String, Object?>;
+      final work = analysis['topicListScrollWorkUs']! as Map<String, Object?>;
+      final activity = analysis['activityCounts']! as Map<String, Object?>;
+      expect(analysis['topicListContextCount'], 1);
+      expect(work['total'], 25);
+      expect(activity['topicList.row.built'], 1);
+      final compact = await capture.buildPerformanceReport();
+      expect(compact, contains('300 loaded topics'));
+      expect(compact, contains('Topic-list scroll bookkeeping'));
+      expect(compact, isNot(contains('No topic context was recorded')));
+    },
+  );
+
   test('keeps a bounded JSON-safe in-memory topic trace', () async {
     var now = DateTime.utc(2026, 8, 30, 10);
     final capture = TopicScrollCaptureController(

@@ -17,6 +17,7 @@ String encodeTopicScrollReport(
   final posts = <(int, int), List<int>>{};
   final postLengths = <(int, int), int>{};
   final viewportDurations = <int>[];
+  final listScrollDurations = <int>[];
   final layoutDurations = <int>[];
   final cpuProfile = _map(report['cpuProfile']);
   final cpuByFrame = {
@@ -29,6 +30,7 @@ String encodeTopicScrollReport(
       frame['frameNumber']: frame,
   };
   final contexts = <Map<String, Object?>>[];
+  final listContexts = <Map<String, Object?>>[];
   final frames = <Map<String, Object?>>[];
 
   for (final event in events) {
@@ -43,6 +45,10 @@ String encodeTopicScrollReport(
       (byFrame[frameNumber] ??= []).add(event);
     }
     if (name == 'topic.capture.context') contexts.add(data);
+    if (name == 'topicList.capture.context') listContexts.add(data);
+    if (name == 'topicList.scroll.notification') {
+      listScrollDurations.add(_int(data['durationUs']));
+    }
     if (name == 'viewport.work') {
       viewportDurations.add(_int(data['durationUs']));
     }
@@ -73,9 +79,12 @@ String encodeTopicScrollReport(
     'allFrames': _frameStats(frames, budgetUs),
     'topicFrames': _frameStats(topicFrames, budgetUs),
     'viewportWorkUs': _distribution(viewportDurations),
+    'topicListScrollWorkUs': _distribution(listScrollDurations),
     'postLayoutUs': _distribution(layoutDurations),
     'activityCounts': activity,
     'topicContextCount': contexts.length,
+    'topicListContextCount': listContexts.length,
+    'topicLists': listContexts.take(8).toList(),
     'topics': [
       for (final context in contexts.take(8))
         {
@@ -209,9 +218,10 @@ String _formatReport(Map<String, Object?> report) {
       'shorter capture if the slow moment was missed.',
     );
   }
-  if (_int(analysis['topicContextCount']) == 0) {
+  if (_int(analysis['topicContextCount']) == 0 &&
+      _int(analysis['topicListContextCount']) == 0) {
     output.writeln(
-      'No topic context was recorded. Start in the affected topic '
+      'No topic context was recorded. Start in the affected topic or topic list '
       'and scroll before stopping.',
     );
   }
@@ -252,6 +262,19 @@ String _formatReport(Map<String, Object?> report) {
     ..writeln(
       'Post row layout: ${_timingLine(_map(analysis['postLayoutUs']))}',
     );
+
+  if (_int(analysis['topicListContextCount']) > 0) {
+    output.writeln(
+      'Topic-list scroll bookkeeping: '
+      '${_timingLine(_map(analysis['topicListScrollWorkUs']))}',
+    );
+    for (final list in _maps(analysis['topicLists'])) {
+      output.writeln(
+        'Topic list: ${list['topicCount']} loaded topics | '
+        'inbox ${list['inbox']} | viewport extent ${list['viewportExtent']}',
+      );
+    }
+  }
 
   for (final topic in _maps(analysis['topics'])) {
     output.writeln(

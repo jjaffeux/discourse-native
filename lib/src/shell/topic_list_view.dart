@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../app_shortcuts.dart';
+import '../diagnostics/diagnostics_scope.dart';
+import '../diagnostics/topic_scroll_capture.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
@@ -63,6 +65,33 @@ class _TopicListViewState extends State<TopicListView> {
   int _boundaryJumpRevision = 0;
 
   ShellController? _controller;
+  TopicScrollCaptureController? _scrollCapture;
+  (TopicScrollCaptureController, int, _TopicListIdentity?)? _captureContext;
+
+  bool get _recording => _scrollCapture?.isRecording == true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
+  }
+
+  void _recordScrollEvent(String name, Map<String, Object?> data) {
+    final capture = _scrollCapture;
+    if (capture == null || !capture.isRecording) return;
+    final identity = (capture, capture.captureId, _feedIdentity);
+    if (_captureContext != identity) {
+      _captureContext = identity;
+      capture.recordTopicEvent('topicList.capture.context', {
+        'topicCount': widget.feed.topicIds.length,
+        'inbox': widget.inbox,
+        if (_scroll?.hasClients == true)
+          'viewportExtent': _scroll!.position.viewportDimension,
+        'devicePixelRatio': View.of(context).devicePixelRatio,
+      });
+    }
+    capture.recordTopicEvent(name, data);
+  }
 
   void _revealCursor() {
     if (_cursor?.value == null) return;
@@ -437,6 +466,11 @@ class _TopicListViewState extends State<TopicListView> {
 
     _syncControllers(feedIdentity);
     _restore(controller, destination, feedIdentity);
+    if (_recording) {
+      _recordScrollEvent('topicList.view.built', {
+        'topicCount': feed.topicIds.length,
+      });
+    }
     final reading = widget.inbox && controller.currentContent?.isTopic == true;
     if (_reading != reading) {
       _reading = reading;
@@ -463,6 +497,7 @@ class _TopicListViewState extends State<TopicListView> {
               // applying new content dimensions during layout.
               onNotification: (notification) {
                 if (notification.depth != 0) return false;
+                final stopwatch = _recording ? (Stopwatch()..start()) : null;
                 // Opening a topic tears this list down, so the position has
                 // to be handed to the controller as it changes rather than
                 // on dispose.
@@ -479,6 +514,19 @@ class _TopicListViewState extends State<TopicListView> {
                     feedIdentity,
                     feed,
                   );
+                }
+                if (stopwatch != null) {
+                  stopwatch.stop();
+                  _recordScrollEvent('topicList.scroll.notification', {
+                    'type': notification.runtimeType.toString(),
+                    'pixels': notification.metrics.pixels,
+                    'maxScrollExtent': notification.metrics.maxScrollExtent,
+                    'viewportExtent': notification.metrics.viewportDimension,
+                    'durationUs': stopwatch.elapsedMicroseconds,
+                    if (_list?.isAttached == true)
+                      if (_list!.visibleRange case final range?)
+                        'visibleRange': [range.$1, range.$2],
+                  });
                 }
                 return false;
               },
@@ -511,6 +559,10 @@ class _TopicListViewState extends State<TopicListView> {
                     key: ValueKey(feedIdentity),
                     controller: _scroll,
                     listController: _list,
+                    // During a fast fling, build the visible rows first. The
+                    // sliver fills its cache once scrolling slows down.
+                    delayPopulatingCacheArea: true,
+                    extentEstimation: _estimateExtent,
                     padding: lane.padding,
                     itemCount:
                         feed.topicIds.length +
@@ -522,6 +574,11 @@ class _TopicListViewState extends State<TopicListView> {
                       color: Theme.of(context).shell.divider,
                     ),
                     itemBuilder: (context, index) {
+                      if (_recording) {
+                        _recordScrollEvent('topicList.row.built', {
+                          'index': index,
+                        });
+                      }
                       if (index >= feed.topicIds.length) {
                         if (feed.loadingMore) return const _LoadingMoreRow();
                         return _LoadMoreErrorRow(
@@ -571,6 +628,13 @@ class _TopicListViewState extends State<TopicListView> {
   }
 
   static const double _loadMoreThreshold = 800;
+
+  // Separators occupy half of the sliver indices. Estimating them at the
+  // library's default 100px forces large corrections as they are measured.
+  static double _estimateExtent(int? index, double crossAxisExtent) {
+    if (index == null) return 0;
+    return index.isOdd ? 1 : TopicListRow.minimumHeight;
+  }
 }
 
 class _TopicLedgerLayout {
