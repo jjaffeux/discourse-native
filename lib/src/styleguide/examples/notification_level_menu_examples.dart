@@ -16,17 +16,19 @@ final notificationLevelMenuExamples = ComponentExamples(
       'level. Enter or Space opens the menu; arrows, Home, End, and typeahead '
       'navigate; Escape dismisses and returns focus. Touch uses the same '
       'dropdown with scrolling and collision handling. Change the widget key '
-      'when its target or account changes. These examples save only local state.',
+      'when its target or account changes. Use variant to match an outlined '
+      'button group or another action surface. These examples save only local state.',
   examples: [
     StyleguideExample(
       title: 'Topic notifications',
       description: 'Choose a level from the labeled topic-footer button.',
-      states: const ['Labeled', 'Selection', 'Keyboard'],
+      states: const ['Labeled', 'Outline', 'Selection', 'Keyboard'],
       code: '''DNotificationLevelMenu<int>(
   value: level,
   options: topicOptions,
   semanticLabel: 'Topic notifications',
   showLabel: true,
+  variant: DButtonVariant.outline,
   onChanged: (value) => setState(() => level = value),
 )
 
@@ -37,7 +39,10 @@ const DNotificationLevelOption(
   description: 'Mentions and replies only',
   icon: DIcon(DIcons.farBell),
 )''',
-      builder: (_) => const _NotificationExample(showLabel: true),
+      builder: (_) => const _NotificationExample(
+        showLabel: true,
+        variant: DButtonVariant.outline,
+      ),
     ),
     StyleguideExample(
       title: 'Icon trigger',
@@ -102,6 +107,7 @@ class _NotificationExample extends StatefulWidget {
     this.thread = false,
     this.disabled = false,
     this.initialValue = 1,
+    this.variant,
   });
 
   final bool showLabel;
@@ -109,6 +115,7 @@ class _NotificationExample extends StatefulWidget {
   final bool thread;
   final bool disabled;
   final int initialValue;
+  final DButtonVariant? variant;
 
   @override
   State<_NotificationExample> createState() => _NotificationExampleState();
@@ -174,6 +181,7 @@ class _NotificationExampleState extends State<_NotificationExample> {
           ? 'Thread notifications'
           : 'Topic notifications',
       showLabel: widget.showLabel,
+      variant: widget.variant,
       size: widget.thread ? DButtonSize.regular : DButtonSize.small,
       onChanged: widget.disabled
           ? null

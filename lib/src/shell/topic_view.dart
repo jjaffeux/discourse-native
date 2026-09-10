@@ -2232,6 +2232,10 @@ class _TopicBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasTopic = topic != null && siteUrl != null;
+    final showBookmark =
+        hasTopic && ShellScope.read(context).currentInstance?.user != null;
+    final showNotifications = hasTopic && isConnected;
     return Material(
       key: const ValueKey('topic-bottom-bar'),
       color: topic == null ? theme.shell.panel : theme.shell.content,
@@ -2246,31 +2250,38 @@ class _TopicBottomBar extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               child: Row(
                 children: [
-                  if (canReply)
-                    DButton(
-                      key: const ValueKey('topic-reply-button'),
-                      onPressed: onReplyPressed,
-                      icon: const DIcon(DIcons.reply, size: 16),
-                      label: const Text('Reply'),
-                      tooltip: 'Reply to this topic',
-                      shortcut: const DShortcut(topicReplyShortcut),
-                      variant: DButtonVariant.primary,
-                      size: DButtonSize.small,
+                  if (canReply || showBookmark || showNotifications)
+                    DButtonGroup(
+                      key: const ValueKey('topic-footer-actions'),
+                      semanticLabel: 'Topic actions',
+                      children: [
+                        if (canReply)
+                          DButton(
+                            key: const ValueKey('topic-reply-button'),
+                            onPressed: onReplyPressed,
+                            icon: const DIcon(DIcons.reply, size: 16),
+                            label: const Text('Reply'),
+                            tooltip: 'Reply to this topic',
+                            shortcut: const DShortcut(topicReplyShortcut),
+                            variant: DButtonVariant.outline,
+                            size: DButtonSize.small,
+                          ),
+                        if (showBookmark)
+                          TopicBookmarkButton(
+                            siteUrl: siteUrl!,
+                            topic: topic!,
+                            busy: bookmarkBusy,
+                            variant: DButtonVariant.outline,
+                          ),
+                        if (showNotifications)
+                          TopicNotificationLevelButton(
+                            siteUrl: siteUrl!,
+                            topic: topic!,
+                            showLabel: constraints.maxWidth >= 580,
+                            variant: DButtonVariant.outline,
+                          ),
+                      ],
                     ),
-                  if (topic != null && siteUrl != null) ...[
-                    if (ShellScope.read(context).currentInstance?.user != null)
-                      TopicBookmarkButton(
-                        siteUrl: siteUrl!,
-                        topic: topic!,
-                        busy: bookmarkBusy,
-                      ),
-                    if (isConnected)
-                      TopicNotificationLevelButton(
-                        siteUrl: siteUrl!,
-                        topic: topic!,
-                        showLabel: constraints.maxWidth >= 580,
-                      ),
-                  ],
                   if (progressPosition case final position?)
                     Expanded(
                       child: Align(
