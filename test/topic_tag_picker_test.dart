@@ -24,6 +24,7 @@ void main() {
     required ValueChanged<List<TopicTag>?> onClosed,
     List<TopicTag> selectedTags = const [design, mobile],
     TopicTagNavigationCallback? onTagNavigate,
+    TopicTagSearchCallback? search,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -43,8 +44,11 @@ void main() {
                         canTagTopics: true,
                         maxTagsPerTopic: 2,
                       ),
-                      search: (_) async =>
-                          const TopicTagSearch(tags: [design, mobile, support]),
+                      search:
+                          search ??
+                          (_) async => const TopicTagSearch(
+                            tags: [design, mobile, support],
+                          ),
                     ),
                   );
                 },
@@ -267,6 +271,52 @@ void main() {
     await tester.pumpAndSettle();
     expect(results.single, tags.take(39).toList());
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('popup fits short results and shrinks with the search', (
+    tester,
+  ) async {
+    final results = <List<TopicTag>?>[];
+    await openPicker(
+      tester,
+      selectedTags: const [],
+      onClosed: results.add,
+      onTagNavigate: (_, {newTab = false}) {},
+      search: (term) async => TopicTagSearch(
+        tags: [
+          design,
+          mobile,
+          support,
+        ].where((tag) => tag.name.contains(term)).toList(),
+      ),
+    );
+
+    final query = find.byKey(const ValueKey('topic-tag-picker-query'));
+    final popup = find.byType(DPopoverContent);
+    final initialBounds = tester.getRect(popup);
+    final queryBounds = tester.getRect(query);
+    expect(
+      initialBounds.bottom - tester.getBottomLeft(option('support')).dy,
+      inInclusiveRange(0, 16),
+    );
+
+    await tester.enterText(query, 'mobile');
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
+    expect(option('design'), findsNothing);
+    expect(option('support'), findsNothing);
+    expect(tester.getRect(query), queryBounds);
+    expect(tester.getSize(popup).height, lessThan(initialBounds.height));
+    expect(
+      tester.getBottomLeft(popup).dy -
+          tester.getBottomLeft(option('mobile')).dy,
+      inInclusiveRange(0, 16),
+    );
+
+    await tester.tap(option('mobile'));
+    await tester.pumpAndSettle();
+    expect(results, [
+      [mobile],
+    ]);
   });
 
   testWidgets('search finds selected tags and Enter can remove a match', (
