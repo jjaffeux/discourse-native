@@ -87,12 +87,17 @@ void main() {
         everyElement(anyOf(0, 1)),
         reason: component.id,
       );
+      expect(
+        component.documentOutline.map((section) => section.label),
+        isNot(contains(anyOf('Installation', 'API Reference'))),
+        reason: component.id,
+      );
     }
+    final inputGroup = componentCatalogue.singleWhere(
+      (component) => component.id == 'input-group',
+    );
     expect(
-      componentCatalogue
-          .singleWhere((component) => component.id == 'input-group')
-          .outline
-          .map((section) => (section.label, section.depth)),
+      inputGroup.outline.map((section) => (section.label, section.depth)),
       containsAllInOrder(const [
         ('Align', 0),
         ('inline-start', 1),
@@ -104,6 +109,7 @@ void main() {
         ('InputGroup', 1),
       ]),
     );
+    expect(inputGroup.matches('InputGroupAddon'), isFalse);
     final progress =
         jsonDecode(
               File('docs/component-library/progress.json').readAsStringSync(),
@@ -176,9 +182,7 @@ void main() {
         tester.widget<DSidebarMenuButton>(componentButton).onPressed!();
         await tester.pump(const Duration(milliseconds: 1));
 
-        final sections = component.outline
-            .where((section) => section.label != 'Installation')
-            .toList(growable: false);
+        final sections = component.documentOutline.toList(growable: false);
         expect(
           keysStartingWith('styleguide-section-heading-'),
           findsNWidgets(sections.length),
@@ -203,6 +207,11 @@ void main() {
         }
         expect(
           find.widgetWithText(StyleguideAction, 'Installation'),
+          findsNothing,
+          reason: component.id,
+        );
+        expect(
+          find.widgetWithText(StyleguideAction, 'API Reference'),
           findsNothing,
           reason: component.id,
         );
@@ -237,7 +246,7 @@ void main() {
   });
 
   testWidgets(
-    'page outline follows shadcn heading order and depth without Installation',
+    'page outline follows shadcn hierarchy without setup or API sections',
     (tester) async {
       await _pump(tester, size: const Size(1400, 900));
       await tester.enterText(
@@ -264,9 +273,10 @@ void main() {
         find.widgetWithText(StyleguideAction, 'inline-start'),
         findsOneWidget,
       );
+      expect(find.widgetWithText(StyleguideAction, 'InputGroup'), findsNothing);
       expect(
-        find.widgetWithText(StyleguideAction, 'InputGroup'),
-        findsOneWidget,
+        find.widgetWithText(StyleguideAction, 'API Reference'),
+        findsNothing,
       );
       expect(
         tester
@@ -320,7 +330,7 @@ void main() {
   );
 
   testWidgets(
-    'Attachment renders one continuous anchored document including API parts',
+    'Attachment renders one continuous anchored document without API parts',
     (tester) async {
       await _pump(tester, size: const Size(1400, 900));
       await tester.enterText(
@@ -344,27 +354,27 @@ void main() {
       );
       expect(
         keysStartingWith('styleguide-section-heading-'),
-        findsNWidgets(
-          reference.sections
-              .where((section) => section != 'Installation')
-              .length,
-        ),
+        findsNWidgets(reference.documentOutline.length),
       );
       expect(
         keysStartingWith('styleguide-example-panel'),
         findsNWidgets(componentExamples['attachment']!.examples.length),
       );
-      expect(find.textContaining('DAttachmentGroup'), findsOneWidget);
+      expect(find.text('API Reference'), findsNothing);
+      expect(find.textContaining('DAttachmentGroup'), findsNothing);
 
-      final apiLink = find.widgetWithText(StyleguideAction, 'AttachmentGroup');
-      await tester.ensureVisible(apiLink);
+      final accessibilityLink = find.widgetWithText(
+        StyleguideAction,
+        'Keyboard scrolling',
+      );
+      await tester.ensureVisible(accessibilityLink);
       await tester.pump();
-      await tester.tap(apiLink);
+      await tester.tap(accessibilityLink);
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         tester
             .getTopLeft(
-              find.byKey(const ValueKey('styleguide-section-heading-22')),
+              find.byKey(const ValueKey('styleguide-section-heading-11')),
             )
             .dy,
         inInclusiveRange(0, 900),
