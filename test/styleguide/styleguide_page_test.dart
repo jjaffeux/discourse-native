@@ -181,90 +181,136 @@ void main() {
     }
   });
 
-  testWidgets(
-    'every component renders its documentation outline and every example',
-    (tester) async {
-      await _pump(tester, size: const Size(1400, 900));
+  testWidgets('every component renders every example without empty sections', (
+    tester,
+  ) async {
+    await _pump(tester, size: const Size(1400, 900));
 
-      Finder keysStartingWith(String prefix) =>
-          find.byWidgetPredicate((widget) {
-            final key = widget.key;
-            return key is ValueKey<String> && key.value.startsWith(prefix);
-          });
+    Finder keysStartingWith(String prefix) => find.byWidgetPredicate((widget) {
+      final key = widget.key;
+      return key is ValueKey<String> && key.value.startsWith(prefix);
+    });
 
-      for (final component in componentCatalogue) {
-        final group = componentExamples[component.id]!;
-        final componentButton = find.byKey(
-          ValueKey('styleguide-component-${component.id}'),
-        );
-        tester.widget<DSidebarMenuButton>(componentButton).onPressed!();
-        await tester.pump(const Duration(milliseconds: 1));
+    expect(keysStartingWith('styleguide-section-heading-'), findsOneWidget);
+    expect(keysStartingWith('styleguide-example-panel'), findsOneWidget);
+    expect(
+      find.widgetWithText(StyleguideAction, 'Theme tokens'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(StyleguideAction, 'Typography'), findsNothing);
 
-        final sections = component.documentOutline.toList(growable: false);
+    for (final component in componentCatalogue) {
+      final group = componentExamples[component.id]!;
+      final componentButton = find.byKey(
+        ValueKey('styleguide-component-${component.id}'),
+      );
+      tester.widget<DSidebarMenuButton>(componentButton).onPressed!();
+      await tester.pump(const Duration(milliseconds: 1));
+
+      final sections = keysStartingWith('styleguide-section-heading-');
+      final sectionCount = sections.evaluate().length;
+      expect(sectionCount, greaterThan(0), reason: component.id);
+      expect(
+        keysStartingWith('styleguide-example-panel'),
+        findsNWidgets(group.examples.length),
+        reason: '${component.id} must render every registered example',
+      );
+      expect(find.text(group.description), findsNothing, reason: component.id);
+      expect(find.text(group.notes), findsNothing, reason: component.id);
+      for (final example in group.examples) {
         expect(
-          keysStartingWith('styleguide-section-heading-'),
-          findsNWidgets(sections.length),
-          reason: '${component.id} must render every outline heading',
-        );
-        expect(
-          keysStartingWith('styleguide-example-panel'),
-          findsNWidgets(group.examples.length),
-          reason: '${component.id} must render every registered example',
-        );
-        expect(
-          find.text(group.description),
+          find.text(example.description),
           findsNothing,
-          reason: component.id,
+          reason: '${component.id}/${example.title}',
         );
-        expect(find.text(group.notes), findsNothing, reason: component.id);
-        for (final example in group.examples) {
-          expect(
-            find.text(example.description),
-            findsNothing,
-            reason: '${component.id}/${example.title}',
-          );
-        }
-        for (var index = 0; index < sections.length; index++) {
-          expect(
-            find.byKey(ValueKey('styleguide-section-$index')),
-            findsOneWidget,
-            reason: '${component.id}/${sections[index].label} needs a link',
-          );
-          expect(
-            find.byKey(ValueKey('styleguide-section-heading-$index')),
-            findsOneWidget,
-            reason: '${component.id}/${sections[index].label} needs an anchor',
-          );
-        }
-        expect(
-          find.widgetWithText(StyleguideAction, 'Installation'),
-          findsNothing,
-          reason: component.id,
-        );
-        expect(
-          find.widgetWithText(StyleguideAction, 'API Reference'),
-          findsNothing,
-          reason: component.id,
-        );
-        expect(
-          find.widgetWithText(StyleguideAction, 'Accessibility'),
-          findsNothing,
-          reason: component.id,
-        );
-        expect(
-          find.widgetWithText(StyleguideAction, 'Usage'),
-          findsNothing,
-          reason: component.id,
-        );
-        expect(
-          find.widgetWithText(StyleguideAction, 'Composition'),
-          findsNothing,
-          reason: component.id,
-        );
-        expect(tester.takeException(), isNull, reason: component.id);
       }
-    },
-  );
+      for (var index = 0; index < sectionCount; index++) {
+        expect(
+          find.byKey(ValueKey('styleguide-section-$index')),
+          findsOneWidget,
+          reason: '${component.id} section $index needs a link',
+        );
+        expect(
+          find.byKey(ValueKey('styleguide-section-heading-$index')),
+          findsOneWidget,
+          reason: '${component.id} section $index needs an anchor',
+        );
+        final heading = tester.widget<Text>(
+          find.byKey(ValueKey('styleguide-section-heading-$index')),
+        );
+        final documentedLabels = component.documentOutline
+            .map((section) => section.label)
+            .toSet();
+        final exampleLabels = group.examples
+            .map(
+              (example) =>
+                  omittedComponentDocumentationSections.contains(example.title)
+                  ? component.name
+                  : example.title,
+            )
+            .toSet();
+        expect(
+          {...documentedLabels, ...exampleLabels},
+          contains(heading.data),
+          reason:
+              '${component.id}/${heading.data} must describe reference or example content',
+        );
+      }
+
+      final documentItems = find
+          .byWidgetPredicate((widget) {
+            final key = widget.key;
+            return key is ValueKey<String> &&
+                (key.value.startsWith('styleguide-section-heading-') ||
+                    key.value.startsWith('styleguide-example-panel'));
+          })
+          .evaluate()
+          .map((element) => (element.widget.key! as ValueKey<String>).value)
+          .toList(growable: false);
+      for (var index = 0; index < documentItems.length; index++) {
+        if (!documentItems[index].startsWith('styleguide-section-heading-')) {
+          continue;
+        }
+        expect(
+          index + 1,
+          lessThan(documentItems.length),
+          reason: '${component.id} must not end with an empty section',
+        );
+        expect(
+          documentItems[index + 1],
+          startsWith('styleguide-example-panel'),
+          reason:
+              '${component.id}/${documentItems[index]} must contain an example',
+        );
+      }
+      expect(
+        find.widgetWithText(StyleguideAction, 'Installation'),
+        findsNothing,
+        reason: component.id,
+      );
+      expect(
+        find.widgetWithText(StyleguideAction, 'API Reference'),
+        findsNothing,
+        reason: component.id,
+      );
+      expect(
+        find.widgetWithText(StyleguideAction, 'Accessibility'),
+        findsNothing,
+        reason: component.id,
+      );
+      expect(
+        find.widgetWithText(StyleguideAction, 'Usage'),
+        findsNothing,
+        reason: component.id,
+      );
+      expect(
+        find.widgetWithText(StyleguideAction, 'Composition'),
+        findsNothing,
+        reason: component.id,
+      );
+      expect(tester.takeException(), isNull, reason: component.id);
+    }
+  });
 
   testWidgets('search finds documented capabilities and reports no matches', (
     tester,
@@ -361,11 +407,7 @@ void main() {
       );
       expect(detail.position.pixels, greaterThan(0));
       expect(
-        tester
-            .getTopLeft(
-              find.byKey(const ValueKey('styleguide-section-heading-6')),
-            )
-            .dy,
+        tester.getTopLeft(_sectionHeading('Text')).dy,
         inInclusiveRange(0, 900),
       );
 
@@ -395,12 +437,17 @@ void main() {
             return key is ValueKey<String> && key.value.startsWith(prefix);
           });
 
-      final reference = componentCatalogue.singleWhere(
-        (component) => component.id == 'attachment',
+      expect(
+        keysStartingWith('styleguide-section-heading-').evaluate().length,
+        componentExamples['attachment']!.examples.length,
       );
       expect(
-        keysStartingWith('styleguide-section-heading-'),
-        findsNWidgets(reference.documentOutline.length),
+        tester
+            .widget<StyleguideAction>(
+              find.byKey(const ValueKey('styleguide-section-0')),
+            )
+            .label,
+        'Attachment',
       );
       expect(
         keysStartingWith('styleguide-example-panel'),
@@ -426,11 +473,7 @@ void main() {
       await tester.tap(triggerLink);
       await tester.pump(const Duration(milliseconds: 300));
       expect(
-        tester
-            .getTopLeft(
-              find.byKey(const ValueKey('styleguide-section-heading-5')),
-            )
-            .dy,
+        tester.getTopLeft(_sectionHeading('Trigger')).dy,
         inInclusiveRange(0, 900),
       );
     },
@@ -539,14 +582,6 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    final attachment = componentCatalogue.singleWhere(
-      (component) => component.id == 'attachment',
-    );
-    final sections = attachment.documentOutline.toList(growable: false);
-    final statesIndex = sections.indexWhere(
-      (section) => section.label == 'States',
-    );
-    expect(statesIndex, greaterThan(0));
     expect(
       tester
           .widget<StyleguideAction>(
@@ -561,9 +596,7 @@ void main() {
         .descendant(of: detail, matching: find.byType(Scrollable))
         .first;
     final scrollState = tester.state<ScrollableState>(scrollable);
-    final heading = find.byKey(
-      ValueKey('styleguide-section-heading-$statesIndex'),
-    );
+    final heading = _sectionHeading('States');
     final targetOffset =
         scrollState.position.pixels +
         tester.getTopLeft(heading).dy -
@@ -580,7 +613,7 @@ void main() {
     expect(
       tester
           .widget<StyleguideAction>(
-            find.byKey(ValueKey('styleguide-section-$statesIndex')),
+            find.widgetWithText(StyleguideAction, 'States'),
           )
           .selected,
       isTrue,
@@ -972,6 +1005,14 @@ void main() {
     },
   );
 }
+
+Finder _sectionHeading(String label) => find.byWidgetPredicate((widget) {
+  final key = widget.key;
+  return widget is Text &&
+      widget.data == label &&
+      key is ValueKey<String> &&
+      key.value.startsWith('styleguide-section-heading-');
+});
 
 Future<void> _pump(
   WidgetTester tester, {
