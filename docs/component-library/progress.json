@@ -2874,7 +2874,8 @@
         "Native styleguide inspection covered light, Forest and Plum palettes, 200% text with bounded scrolling, 360 px layout, reduced motion and RTL Arabic content with mirrored submenu affordance. The Table Actions adoption performed Edit and Duplicate callbacks with row mutation, status feedback, expanded-row highlighting and restored trigger focus; Delete remains covered by the focused consumer test.",
         "Follow-up merge 85f9265bf2593a7edc0693582b7eadf1c6645b8d preserves the isolated Avatar registration-order correction and Menubar popup-local scrolling/RTL correction. The latest-main candidate passed 50 focused tests with seed 826145 and clean root/full analysis; 11 Context Menu consumer tests also passed against the exact combined Dropdown blob b5c53b46b86b28f8d8a9b6375b4798fdf7c233b6.",
         "Source-exact native Menubar runtime e3104c9ae1547b90629f85d6e7a7bb97c863f6c7 verified the combined blob at 360 px and 200% text in LTR/RTL, reduced motion and Plum RTL: popup focus scrolled rows without shifting the host, keyboard selection completed, Arabic chevrons pointed/opened left and Right returned to the parent. Bundle kernel SHA256 was 71ca16cbe8d2b65a202de67dfe39f3863d58d817a828b7661c2004f8edd6f318.",
-        "Parity follow-up 4839aae96e1861a109f92c77741d026154aee85b: live reference and supplied dark Composition capture were compared against the actual styleguide; 175 affected tests passed with seed 20260910 plus the explicit submenu width/shadow regression; root and profiles/full analysis, formatting and git diff checks passed; the source-exact isolated macOS styleguide passed dark root/submenu inspection and was closed before releasing the desktop lease."
+        "Parity follow-up 4839aae96e1861a109f92c77741d026154aee85b: live reference and supplied dark Composition capture were compared against the actual styleguide; 175 affected tests passed with seed 20260910 plus the explicit submenu width/shadow regression; root and profiles/full analysis, formatting and git diff checks passed; the source-exact isolated macOS styleguide passed dark root/submenu inspection and was closed before releasing the desktop lease.",
+        "Latest-main parity candidate 5c88fce9f39e2a5262490e536d8e031556598c7c passed all 74 Dropdown Menu, Popover, Context Menu and Menubar tests with seed 20260910 plus clean root/full analysis. It was merged from the main checkout as 819605380e5d26d5e5a867fabf97b92c0882ee73."
       ],
       "limitations": [
         "No iOS/Linux device, spoken VoiceOver session or pixel-identical screenshot claim is made; those platforms remain covered by widget behavior and geometry tests rather than this macOS acceptance pass."
@@ -2903,7 +2904,11 @@
         "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2ed6/discourse-native",
         "baseCommit": "7dbcce89516159fb0966f1035af3995235229c32",
         "implementationCommit": "4839aae96e1861a109f92c77741d026154aee85b",
-        "status": "ready-for-merge",
+        "status": "merged",
+        "integrationBranch": "codex/dropdown-menu-parity-integration",
+        "integratedMain": "6173bae082c230acde6e607adf5336242455c2f0",
+        "integrationCommit": "5c88fce9f39e2a5262490e536d8e031556598c7c",
+        "mergeCommit": "819605380e5d26d5e5a867fabf97b92c0882ee73",
         "reference": {
           "url": "https://ui.shadcn.com/docs/components/base/dropdown-menu",
           "registrySha256": "335c59dba30145f434a9cc9ccb0438a3c5e2afe857fc11b029de1ecb415224d7"
@@ -2912,7 +2917,8 @@
           "Live reference and supplied dark Composition capture were compared against the actual styleguide. The root retains the reference example's 160px width while submenus now use the 96px reference minimum, the submenu large shadow, an exterior ring, paired active foreground, exact inset and choice-indicator reserves, and component-owned Lucide-proportion strokes.",
           "All 175 randomized affected Dropdown Menu, Popover, Context Menu, Menubar, Select, Data Table, Button, Item, Breadcrumb and styleguide tests passed with seed 20260910; the explicit submenu width and shadow-depth regression also passed independently.",
           "Root and profiles/full flutter analyze --no-pub passed with no diagnostics; formatting and git diff --check passed; lockfiles and the Flutter pin remained unchanged.",
-          "A uniquely identified, ad-hoc-signed macOS styleguide copy built from the changed source and passed native dark Composition inspection for root/submenu geometry, active state, separators, ring and shadow hierarchy. The isolated app was closed and the desktop lease released."
+          "A uniquely identified, ad-hoc-signed macOS styleguide copy built from the changed source and passed native dark Composition inspection for root/submenu geometry, active state, separators, ring and shadow hierarchy. The isolated app was closed and the desktop lease released.",
+          "Latest-main candidate 5c88fce9f39e2a5262490e536d8e031556598c7c preserved the newer Sidebar, Collapsible, Scroll Area and Attachment changes and passed 74 focused tests plus root/full analysis before merge 819605380e5d26d5e5a867fabf97b92c0882ee73 from the main checkout."
         ]
       }
     },
