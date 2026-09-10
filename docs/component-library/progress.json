@@ -4811,7 +4811,7 @@
           "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
           "branch": "codex/chat-section-no-tooltips",
           "mainBaseline": "a779070d9f3c487fb4e71ff777d4c56380ce2f3c",
-          "status": "accepted",
+          "status": "merged",
           "dependencies": [
             "sidebar",
             "tooltip"
@@ -4821,7 +4821,7 @@
             "Retain accessible disclosure labels, collapse behavior and independently named actions.",
             "Verify affected navigation and native hover behavior before the local main merge."
           ],
-          "reviewStatus": "accepted",
+          "reviewStatus": "merged",
           "implementationCommit": "c2580e3f29ed5a0d85e67410cc126ae9aaa0c616",
           "nativeInspectionStatus": "completed",
           "evidence": "docs/component-library/sidebar-main-migration.md#chat-header-tooltip-follow-up--2026-09-10",
@@ -4832,7 +4832,10 @@
             "Root dart analyze --fatal-infos passed; /tmp/chat-header-tooltips-final-analysis.log. Touched Dart formatting and diff checks pass.",
             "Native macOS light/dark 208px Chat sidebar: collapsed headers display no tooltip; Return reopens Direct messages with visible focus. No physical iOS/Linux or spoken screen reader verification.",
             "App section settings are preserved by model and plugin copies; existing Native DTooltip disabled/excludeFromSemantics options are used without a library API change."
-          ]
+          ],
+          "candidateCommit": "63db6c8cfc0af6f08661faff89ba1bc0f38392f9",
+          "mergeCommit": "16fc134ee38675ae51a4f498c854e218de9912fd",
+          "mergedAt": "2026-09-10T15:46:10.663620+00:00"
         }
       }
     },
