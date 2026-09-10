@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final messageScrollerExamples = ComponentExamples(
+  topLevelExampleIndex: 7,
   status: ComponentStatus.implemented,
   description:
       'Reader-intent-aware message timelines with stable anchors, commands, live following and scalable virtualization.',
@@ -80,8 +81,229 @@ final messageScrollerExamples = ComponentExamples(
       states: const ['busy', 'live log', 'unstyled', 'reduced motion'],
       builder: (_) => const _AccessibilityExample(),
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical read-only chat card combines an empty transcript, reset action, queued prompt, composer tools, and send control.',
+      code: '''DMessageScrollerProvider(
+  child: DCard(children: [
+    DCardHeader(
+      title: DCardTitle(child: Text('New Chat')),
+      description: DCardDescription(
+        child: Text('How can I help you today?')),
+      action: DCardAction(child: resetButton),
+    ),
+    DCardContent(child: messages.isEmpty
+      ? DEmpty(children: [
+          DEmptyHeader(children: [
+            DEmptyMedia(child: Icon(Icons.chat_bubble_outline)),
+            DEmptyTitle('Morning, shadcn!'),
+            DEmptyDescription(
+              'What are we working on today? Press send to start a new conversation'),
+          ]),
+        ])
+      : DMessageScroller(children: [
+          DMessageScrollerViewport.builder(/* messages */),
+          DMessageScrollerButton(),
+        ])),
+  ], footer: DCardFooter(child: messageComposer)),
+)''',
+      states: const ['Empty', 'Messages', 'Reset', 'Composer', 'Read only'],
+      builder: (_) => const _MessageScrollerReferenceDemo(),
+    ),
   ],
 );
+
+class _MessageScrollerReferenceDemo extends StatefulWidget {
+  const _MessageScrollerReferenceDemo();
+
+  @override
+  State<_MessageScrollerReferenceDemo> createState() =>
+      _MessageScrollerReferenceDemoState();
+}
+
+class _MessageScrollerReferenceDemoState
+    extends State<_MessageScrollerReferenceDemo> {
+  static const _script = [
+    "I'm building a chat for our app and the scroll behavior is driving me nuts. Every time the AI streams a reply, the whole thread jumps around.",
+    "That's the classic streaming scroll problem. Message Scroller follows new content only while the reader is already at the live edge.",
+    'Okay, but when someone sends a new message the view still feels jarring.',
+    'Turn anchoring settles the new prompt near the top while preserving a small peek of the previous exchange.',
+  ];
+
+  final _messages = <String>[];
+  var _selectedTool = '';
+
+  String get _nextMessage => _messages.length < _script.length
+      ? _script[_messages.length]
+      : 'No messages queued. Reset the conversation.';
+
+  void _send() {
+    if (_messages.length >= _script.length) return;
+    setState(() => _messages.add(_nextMessage));
+  }
+
+  @override
+  Widget build(BuildContext context) => DMessageScrollerProvider(
+    autoScroll: true,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 384),
+      child: DCard(
+        spacing: DSpacing.md,
+        footer: DCardFooter(
+          muted: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DInputGroup(
+                semanticLabel: 'Read-only message composer',
+                children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      12,
+                      10,
+                      12,
+                      4,
+                    ),
+                    child: Text(
+                      _nextMessage,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DInputGroupAddon(
+                    alignment: DInputGroupAddonAlignment.blockEnd,
+                    child: Row(
+                      children: [
+                        DDropdownMenu(
+                          content: DDropdownMenuContent(
+                            semanticLabel: 'Add files and tools',
+                            side: DPopoverSide.top,
+                            width: 176,
+                            children: [
+                              for (final (label, icon) in const [
+                                ('Add Photos & Files', Icons.attach_file),
+                                ('Create Image', Icons.image_outlined),
+                                ('Deep Research', Icons.travel_explore),
+                                ('Web Search', Icons.public),
+                              ])
+                                DDropdownMenuItem(
+                                  leading: Icon(icon),
+                                  onPressed: () =>
+                                      setState(() => _selectedTool = label),
+                                  child: Text(label),
+                                ),
+                            ],
+                          ),
+                          child: DDropdownMenuTrigger(
+                            builder: (context, menu) => DInputGroupButton.icon(
+                              icon: const Icon(Icons.add),
+                              tooltip: 'Add files',
+                              hasPopup: true,
+                              focusNode: menu.focusNode,
+                              onPressed: menu.toggle,
+                              size: DInputGroupButtonSize.iconSmall,
+                              variant: DButtonVariant.outline,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        DInputGroupButton.icon(
+                          icon: const Icon(Icons.arrow_upward),
+                          tooltip: 'Send',
+                          onPressed: _messages.length < _script.length
+                              ? _send
+                              : null,
+                          size: DInputGroupButtonSize.iconSmall,
+                          variant: DButtonVariant.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: DSpacing.sm),
+              Text(
+                _selectedTool.isEmpty
+                    ? 'Demo is read only. Press send to send messages.'
+                    : '$_selectedTool selected · Demo is read only.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: DTokens.of(context).mutedForeground,
+                ),
+              ),
+            ],
+          ),
+        ),
+        children: [
+          DCardHeader(
+            border: true,
+            title: const DCardTitle(child: Text('New Chat')),
+            description: const DCardDescription(
+              child: Text('How can I help you today?'),
+            ),
+            action: DCardAction(
+              child: DTooltip(
+                message: 'Reset',
+                child: DButton.iconOnly(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Reset conversation',
+                  variant: DButtonVariant.outline,
+                  onPressed: _messages.isEmpty
+                      ? null
+                      : () => setState(_messages.clear),
+                ),
+              ),
+            ),
+          ),
+          DCardContent(
+            edgeToEdge: true,
+            child: SizedBox(
+              height: MediaQuery.textScalerOf(context).scale(320),
+              child: _messages.isEmpty
+                  ? const DEmpty(
+                      children: [
+                        DEmptyHeader(
+                          children: [
+                            DEmptyMedia(
+                              variant: DEmptyMediaVariant.icon,
+                              child: Icon(Icons.chat_bubble_outline),
+                            ),
+                            DEmptyTitle('Morning, shadcn!'),
+                            DEmptyDescription(
+                              'What are we working on today? Press send to start a new conversation',
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : DMessageScroller(
+                      children: [
+                        DMessageScrollerViewport.builder(
+                          itemCount: _messages.length,
+                          itemIdBuilder: (index) => 'reference-$index',
+                          scrollAnchorBuilder: (index) => index.isEven,
+                          announcementBuilder: (index) => _messages[index],
+                          contentPadding: const EdgeInsets.all(DSpacing.md),
+                          itemBuilder: (context, index) => _MessageRow(
+                            text: _messages[index],
+                            outgoing: index.isEven,
+                            sender: index.isEven ? 'You' : 'Assistant',
+                            animate: false,
+                            animation: _EntryAnimation.none,
+                          ),
+                        ),
+                        const DMessageScrollerButton(),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
 class _StreamingExample extends StatefulWidget {
   const _StreamingExample();

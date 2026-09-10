@@ -250,87 +250,130 @@ class _DeliveryDrawerState extends State<_DeliveryDrawer> {
   String? _confirmed;
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      DDrawer<String>(
-        open: _open,
-        onOpenChanged: (details) => setState(() {
-          _open = details.open;
-          if (details.result != null) _confirmed = details.result;
-        }),
-        showSwipeHandle: true,
-        trigger: DDrawerTrigger(
-          builder: (_, open) => DButton(
-            onPressed: open,
-            variant: DButtonVariant.secondary,
-            label: const Text('Open Drawer'),
-          ),
-        ),
-        content: DDrawerContent(
-          semanticLabel: 'Pick a delivery time',
-          children: [
-            const DDrawerHeader(
-              children: [
-                DDrawerTitle(child: Text('Pick a delivery time')),
-                DDrawerDescription(
-                  child: Text('We’ll prepare your order as soon as possible.'),
-                ),
-              ],
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DDrawer<String>(
+          open: _open,
+          onOpenChanged: (details) => setState(() {
+            _open = details.open;
+            if (details.result != null) _confirmed = details.result;
+          }),
+          showSwipeHandle: isMobile,
+          swipeDirection: isMobile
+              ? DDrawerSwipeDirection.down
+              : DDrawerSwipeDirection.right,
+          trigger: DDrawerTrigger(
+            builder: (_, open) => DButton(
+              onPressed: open,
+              variant: DButtonVariant.secondary,
+              label: const Text('Open Drawer'),
             ),
-            DDrawerScrollArea(
-              padding: const EdgeInsets.all(16),
-              child: DRadioGroup<String>.controlled(
-                groupValue: _time,
-                onChanged: (value) => setState(() => _time = value ?? _time),
-                child: Column(
-                  children: [
-                    for (final choice in const [
-                      ('asap', 'Standard delivery', '25–35 min · Fastest'),
-                      ('5:00', '5:00 PM – 5:15 PM', 'Prep starts at 4:45 PM'),
-                      (
-                        '5:30',
-                        '5:30 PM – 5:45 PM',
-                        'Good if you’re heading home',
-                      ),
-                    ])
-                      DRadioGroupItem<String>(
-                        value: choice.$1,
-                        label: Text(choice.$2),
-                        description: Text(choice.$3),
-                        card: true,
-                      ),
-                  ],
+          ),
+          content: DDrawerContent(
+            semanticLabel: 'Pick a delivery time',
+            children: [
+              const DDrawerHeader(
+                children: [
+                  DDrawerTitle(child: Text('Pick a delivery time')),
+                  DDrawerDescription(
+                    child: Text(
+                      'We’ll prepare your order as soon as possible.',
+                    ),
+                  ),
+                ],
+              ),
+              DDrawerScrollArea(
+                padding: const EdgeInsets.all(16),
+                child: DRadioGroup<String>.controlled(
+                  groupValue: _time,
+                  onChanged: (value) => setState(() => _time = value ?? _time),
+                  child: Column(
+                    children: [
+                      for (final choice in const [
+                        (
+                          'asap',
+                          'Standard delivery',
+                          '25–35 min · Driver assigned now',
+                          'Fastest',
+                        ),
+                        (
+                          '5:00',
+                          '5:00 PM – 5:15 PM',
+                          'Prep starts at 4:45 PM',
+                          null,
+                        ),
+                        (
+                          '5:30',
+                          '5:30 PM – 5:45 PM',
+                          "Good if you're heading home",
+                          null,
+                        ),
+                        (
+                          '6:00',
+                          '6:00 PM – 6:15 PM',
+                          'Most popular · High demand',
+                          null,
+                        ),
+                        (
+                          '6:30',
+                          '6:30 PM – 6:45 PM',
+                          'Last slot before kitchen closes',
+                          null,
+                        ),
+                      ])
+                        DRadioGroupItem<String>(
+                          value: choice.$1,
+                          label: Wrap(
+                            spacing: DSpacing.sm,
+                            runSpacing: DSpacing.xs,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(choice.$2),
+                              if (choice.$4 != null)
+                                DBadge(
+                                  variant: DBadgeVariant.secondary,
+                                  child: Text(choice.$4!),
+                                ),
+                            ],
+                          ),
+                          description: Text(choice.$3),
+                          card: true,
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            DDrawerFooter(
-              children: [
-                DDrawerClose<String>(
-                  result: _time,
-                  builder: (_, close) => DButton(
-                    onPressed: close,
-                    label: const Text('Confirm Delivery Time'),
+              DDrawerFooter(
+                children: [
+                  DDrawerClose<String>(
+                    result: _time,
+                    builder: (_, close) => DButton(
+                      onPressed: close,
+                      label: const Text('Confirm Delivery Time'),
+                    ),
                   ),
-                ),
-                DDrawerClose<String>(
-                  builder: (_, close) => DButton(
-                    onPressed: close,
-                    variant: DButtonVariant.outline,
-                    label: const Text('Cancel'),
+                  DDrawerClose<String>(
+                    builder: (_, close) => DButton(
+                      onPressed: close,
+                      variant: DButtonVariant.outline,
+                      label: const Text('Cancel'),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
-      if (_confirmed != null) ...[
-        const SizedBox(height: 8),
-        Text('Confirmed: $_confirmed'),
+        if (_confirmed != null) ...[
+          const SizedBox(height: 8),
+          Text('Confirmed: $_confirmed'),
+        ],
       ],
-    ],
-  );
+    );
+  }
 }
 
 class _PositionDrawers extends StatelessWidget {

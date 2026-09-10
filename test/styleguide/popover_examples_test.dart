@@ -19,6 +19,7 @@ void main() {
       'Controlled and close',
       'Sides and RTL',
       'Anchor, collision and movement',
+      'Reference demo',
     ]);
   });
 

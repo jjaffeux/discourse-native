@@ -152,6 +152,16 @@ void main() {
       expect(examples.notes.trim(), isNotEmpty, reason: id);
       expect(examples.examples, isNotEmpty, reason: id);
       expect(
+        examples.topLevelExampleIndex,
+        inInclusiveRange(0, examples.examples.length - 1),
+        reason: '$id must identify its canonical top-level example',
+      );
+      expect(
+        examples.topLevelExample,
+        same(examples.examples[examples.topLevelExampleIndex]),
+        reason: id,
+      );
+      expect(
         examples.examples.map((example) => example.title).toSet().length,
         examples.examples.length,
         reason: '$id example titles must be unique',
@@ -191,12 +201,9 @@ void main() {
       return key is ValueKey<String> && key.value.startsWith(prefix);
     });
 
-    expect(keysStartingWith('styleguide-section-heading-'), findsOneWidget);
+    expect(keysStartingWith('styleguide-section-heading-'), findsNothing);
     expect(keysStartingWith('styleguide-example-panel'), findsOneWidget);
-    expect(
-      find.widgetWithText(StyleguideAction, 'Theme tokens'),
-      findsOneWidget,
-    );
+    expect(find.widgetWithText(StyleguideAction, 'Theme tokens'), findsNothing);
     expect(find.widgetWithText(StyleguideAction, 'Typography'), findsNothing);
 
     for (final component in componentCatalogue) {
@@ -209,12 +216,29 @@ void main() {
 
       final sections = keysStartingWith('styleguide-section-heading-');
       final sectionCount = sections.evaluate().length;
-      expect(sectionCount, greaterThan(0), reason: component.id);
       expect(
         keysStartingWith('styleguide-example-panel'),
         findsNWidgets(group.examples.length),
         reason: '${component.id} must render every registered example',
       );
+      final topLevelPanel = find.byKey(
+        const ValueKey('styleguide-example-panel'),
+      );
+      expect(topLevelPanel, findsOneWidget, reason: component.id);
+      if (sectionCount > 0) {
+        expect(
+          tester.getTopLeft(topLevelPanel).dy,
+          lessThan(
+            tester
+                .getTopLeft(
+                  find.byKey(const ValueKey('styleguide-section-heading-0')),
+                )
+                .dy,
+          ),
+          reason:
+              '${component.id} must show its canonical demo before section headings',
+        );
+      }
       expect(find.text(group.description), findsNothing, reason: component.id);
       expect(find.text(group.notes), findsNothing, reason: component.id);
       for (final example in group.examples) {
@@ -328,7 +352,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('styleguide-component-drawer')));
     await tester.pump();
-    expect(find.text('Delivery time'), findsWidgets);
+    expect(find.text('Open Drawer'), findsWidgets);
 
     await tester.enterText(
       find.byKey(const ValueKey('styleguide-search')),
@@ -364,23 +388,12 @@ void main() {
       expect(find.widgetWithText(StyleguideAction, 'Align'), findsOneWidget);
       expect(
         find.widgetWithText(StyleguideAction, 'inline-start'),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.widgetWithText(StyleguideAction, 'InputGroup'), findsNothing);
       expect(
         find.widgetWithText(StyleguideAction, 'API Reference'),
         findsNothing,
-      );
-      expect(
-        tester
-                .getTopLeft(
-                  find.widgetWithText(StyleguideAction, 'inline-start'),
-                )
-                .dx -
-            tester
-                .getTopLeft(find.widgetWithText(StyleguideAction, 'Align'))
-                .dx,
-        32,
       );
       expect(
         find.widgetWithText(StyleguideAction, 'Default search'),

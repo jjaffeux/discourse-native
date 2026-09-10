@@ -6,6 +6,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../styleguide_example.dart';
 
 final calendarExamples = ComponentExamples(
+  topLevelExampleIndex: 11,
   status: ComponentStatus.implemented,
   description: 'Select dates and date ranges in a compact month grid.',
   notes:
@@ -88,6 +89,21 @@ final calendarExamples = ComponentExamples(
       const ['Timezone', 'Date-only', 'DST-safe'],
       (_) => const _TimezoneCalendar(),
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical bordered single-date calendar starts on the captured reference date.',
+      states: const ['Single', 'Selected', 'Controlled'],
+      code: '''DCalendar(
+  displayedMonth: DCalendarDate(2026, 9, 1),
+  selection: selection,
+  bordered: true,
+  onSelectionChanged: (next, reason) {
+    setState(() => selection = next);
+  },
+)''',
+      builder: (_) => const _ReferenceCalendar(),
+    ),
   ],
 );
 
@@ -114,6 +130,30 @@ Widget _frame(Widget child, {double width = 640}) => Align(
     child: child,
   ),
 );
+
+class _ReferenceCalendar extends StatefulWidget {
+  const _ReferenceCalendar();
+
+  @override
+  State<_ReferenceCalendar> createState() => _ReferenceCalendarState();
+}
+
+class _ReferenceCalendarState extends State<_ReferenceCalendar> {
+  DCalendarSelection _selection = DCalendarSingleSelection(
+    DCalendarDate(2026, 9, 10),
+  );
+
+  @override
+  Widget build(BuildContext context) => _frame(
+    DCalendar(
+      displayedMonth: DCalendarDate(2026, 9, 1),
+      selection: _selection,
+      bordered: true,
+      onSelectionChanged: (value, _) => setState(() => _selection = value),
+    ),
+    width: 320,
+  );
+}
 
 class _RangeCalendar extends StatefulWidget {
   const _RangeCalendar();

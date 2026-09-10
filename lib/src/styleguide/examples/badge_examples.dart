@@ -5,6 +5,7 @@ import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final badgeExamples = ComponentExamples(
+  topLevelExampleIndex: 6,
   description: 'Compact labels for status, counts, and short links.',
   status: ComponentStatus.implemented,
   notes:
@@ -22,7 +23,8 @@ final badgeExamples = ComponentExamples(
   examples: [
     StyleguideExample(
       title: 'Variants',
-      description: 'All six reference treatments. A link treatment alone is still static text.',
+      description:
+          'All six reference treatments. A link treatment alone is still static text.',
       states: const [
         'Default',
         'Secondary',
@@ -50,7 +52,8 @@ final badgeExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'With icon',
-      description: 'Verified and Bookmark preserve the documented composition; the variant rows mirror the linked registry coverage for both inline slots. Start and end follow preview direction.',
+      description:
+          'Verified and Bookmark preserve the documented composition; the variant rows mirror the linked registry coverage for both inline slots. Start and end follow preview direction.',
       states: const ['Leading', 'Trailing', 'All variants', 'RTL'],
       code: r'''DBadge(
   variant: DBadgeVariant.secondary,
@@ -112,7 +115,8 @@ DBadge(
     ),
     StyleguideExample(
       title: 'With spinner',
-      description: 'Every treatment accepts a real spinner. Complete or restart the local operation; status text and busy semantics change together.',
+      description:
+          'Every treatment accepts a real spinner. Complete or restart the local operation; status text and busy semantics change together.',
       states: const [
         'All variants',
         'Deleting',
@@ -132,7 +136,8 @@ DBadge(
     ),
     StyleguideExample(
       title: 'Links and actions',
-      description: 'Open the local detail route, return, then activate an action with Tab and Enter or Space. Disable actions without losing sample state.',
+      description:
+          'Open the local detail route, return, then activate an action with Tab and Enter or Space. Disable actions without losing sample state.',
       states: const [
         'Link',
         'Action',
@@ -158,7 +163,8 @@ const DBadge(invalid: true, child: Text('Invalid status'))''',
     ),
     StyleguideExample(
       title: 'Custom colors',
-      description: 'The linked registry\'s solid and adaptive color pairs are reproduced alongside a badge driven by the live host palette.',
+      description:
+          'The linked registry\'s solid and adaptive color pairs are reproduced alongside a badge driven by the live host palette.',
       states: const [
         'Solid',
         'Adaptive',
@@ -216,7 +222,8 @@ DBadge(
     ),
     StyleguideExample(
       title: 'Long labels and RTL',
-      description: 'Cycle through the documented Arabic, English and Hebrew translations. Try 360px, 200% text, and a custom palette; labels wrap and artwork keeps its logical position.',
+      description:
+          'Cycle through the documented Arabic, English and Hebrew translations. Try 360px, 200% text, and a custom palette; labels wrap and artwork keeps its logical position.',
       states: const [
         'Arabic',
         'English',
@@ -234,6 +241,35 @@ DBadge(
   ),
 )''',
       builder: (_) => const _BadgeDirection(),
+    ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical default, secondary, destructive, and outline badges.',
+      states: const ['Default', 'Secondary', 'Destructive', 'Outline'],
+      code: '''const Wrap(
+  spacing: DSpacing.sm,
+  children: [
+    DBadge(child: Text('Badge')),
+    DBadge(variant: DBadgeVariant.secondary, child: Text('Secondary')),
+    DBadge(variant: DBadgeVariant.destructive, child: Text('Destructive')),
+    DBadge(variant: DBadgeVariant.outline, child: Text('Outline')),
+  ],
+)''',
+      builder: (_) => const Wrap(
+        spacing: DSpacing.sm,
+        runSpacing: DSpacing.sm,
+        alignment: WrapAlignment.center,
+        children: [
+          DBadge(child: Text('Badge')),
+          DBadge(variant: DBadgeVariant.secondary, child: Text('Secondary')),
+          DBadge(
+            variant: DBadgeVariant.destructive,
+            child: Text('Destructive'),
+          ),
+          DBadge(variant: DBadgeVariant.outline, child: Text('Outline')),
+        ],
+      ),
     ),
   ],
 );
@@ -489,7 +525,8 @@ class _BadgeIcon extends StatelessWidget {
     ),
   );
   static const _paths = {
-    'badge-check': '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>',
+    'badge-check':
+        '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>',
     'bookmark':
         '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
     'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',

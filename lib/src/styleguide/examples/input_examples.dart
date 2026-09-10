@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final inputExamples = ComponentExamples(
+  topLevelExampleIndex: 7,
   status: ComponentStatus.implemented,
   description: 'A text input for forms and everyday data entry.',
   notes:
@@ -129,8 +130,69 @@ final inputExamples = ComponentExamples(
       ),
       states: const ['RTL', 'Long text', 'Text scaling', 'Narrow'],
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical API-key field combines a label, secure input, and supporting description.',
+      states: const ['Password', 'Placeholder', 'Field composition'],
+      code: '''DField(children: [
+  DFieldLabel(focusNode: focusNode, child: const Text('API Key')),
+  DFieldControl(
+    label: 'API Key',
+    description: 'Your API key is encrypted and stored securely.',
+    child: DInput(
+      focusNode: focusNode,
+      obscureText: true,
+      hintText: 'sk-...',
+    ),
+  ),
+  const DFieldDescription(
+    child: Text('Your API key is encrypted and stored securely.'),
+  ),
+])''',
+      builder: (_) => const _InputReferenceDemo(),
+    ),
   ],
 );
+
+class _InputReferenceDemo extends StatefulWidget {
+  const _InputReferenceDemo();
+
+  @override
+  State<_InputReferenceDemo> createState() => _InputReferenceDemoState();
+}
+
+class _InputReferenceDemoState extends State<_InputReferenceDemo> {
+  final _focusNode = FocusNode(debugLabel: 'API key');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 384),
+    child: DField(
+      children: [
+        DFieldLabel(focusNode: _focusNode, child: const Text('API Key')),
+        DFieldControl(
+          label: 'API Key',
+          description: 'Your API key is encrypted and stored securely.',
+          child: DInput(
+            focusNode: _focusNode,
+            obscureText: true,
+            hintText: 'sk-...',
+          ),
+        ),
+        const DFieldDescription(
+          child: Text('Your API key is encrypted and stored securely.'),
+        ),
+      ],
+    ),
+  );
+}
 
 class InputFormExample extends StatefulWidget {
   const InputFormExample({super.key});

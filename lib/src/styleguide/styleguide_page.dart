@@ -421,10 +421,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     final group = componentExamples[_selected.id];
     final examples = group?.examples ?? const <StyleguideExample>[];
     final sections = _documentSections;
-    final topLevelExamples = [
-      for (var index = 0; index < examples.length; index++)
-        if (examples[index].topLevel) index,
-    ];
+    final topLevelExampleIndex = group?.topLevelExampleIndex ?? 0;
     final index = _entries.indexOf(_selected);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -480,30 +477,21 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                   const SizedBox(height: 32),
                   if (examples.isNotEmpty) ...[
                     _previewControls(context),
-                    for (
-                      var index = 0;
-                      index < topLevelExamples.length;
-                      index++
-                    ) ...[
-                      SizedBox(height: index == 0 ? 40 : 56),
-                      _exampleDocumentation(
-                        context,
-                        hostTheme,
-                        examples[topLevelExamples[index]],
-                        topLevelExamples[index],
-                        showTitle: false,
-                      ),
-                    ],
+                    const SizedBox(height: 20),
+                    _exampleDocumentation(
+                      context,
+                      hostTheme,
+                      examples[topLevelExampleIndex],
+                      topLevelExampleIndex,
+                      topLevel: true,
+                      showTitle: false,
+                    ),
                     for (
                       var sectionIndex = 0;
                       sectionIndex < sections.length;
                       sectionIndex++
                     ) ...[
-                      SizedBox(
-                        height: sectionIndex == 0 && topLevelExamples.isEmpty
-                            ? 40
-                            : 56,
-                      ),
+                      const SizedBox(height: 56),
                       _sectionHeading(
                         context,
                         sections[sectionIndex].reference,
@@ -517,6 +505,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                           hostTheme,
                           examples[exampleIndex],
                           exampleIndex,
+                          topLevel: false,
                           showTitle:
                               !omittedComponentDocumentationSections.contains(
                                 examples[exampleIndex].title,
@@ -548,7 +537,12 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                 ? _selected.documentOutline
                 : group.documentOutlineFor(_selected))
             .toList(growable: false);
-    final assignments = _assignExamples(references, examples);
+    final topLevelExampleIndex = group?.topLevelExampleIndex ?? 0;
+    final assignments = _assignExamples(
+      references,
+      examples,
+      excludedExampleIndex: topLevelExampleIndex,
+    );
     final assignedExamples = assignments.expand((indexes) => indexes).toSet();
     final sections = <_StyleguideDocumentSection>[];
     var parentIsPopulated = false;
@@ -568,7 +562,8 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       );
     }
     for (var exampleIndex = 0; exampleIndex < examples.length; exampleIndex++) {
-      if (examples[exampleIndex].topLevel ||
+      if (exampleIndex == topLevelExampleIndex ||
+          examples[exampleIndex].topLevel ||
           assignedExamples.contains(exampleIndex)) {
         continue;
       }
@@ -597,12 +592,13 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
 
   List<List<int>> _assignExamples(
     List<ComponentReferenceSection> sections,
-    List<StyleguideExample> examples,
-  ) {
+    List<StyleguideExample> examples, {
+    required int excludedExampleIndex,
+  }) {
     final assignments = List.generate(sections.length, (_) => <int>[]);
     if (sections.isEmpty) return assignments;
-
     for (var exampleIndex = 0; exampleIndex < examples.length; exampleIndex++) {
+      if (exampleIndex == excludedExampleIndex) continue;
       final example = examples[exampleIndex];
       if (example.topLevel) continue;
       var bestSection = -1;
@@ -729,6 +725,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     ThemeData hostTheme,
     StyleguideExample example,
     int exampleIndex, {
+    required bool topLevel,
     required bool showTitle,
   }) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -753,6 +750,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
         key: ValueKey('${_selected.id}/$exampleIndex'),
         componentId: _selected.id,
         exampleIndex: exampleIndex,
+        topLevel: topLevel,
         example: example,
         hostTheme: hostTheme,
         theme: _theme,
@@ -808,6 +806,7 @@ class _StyleguideExamplePanel extends StatefulWidget {
     super.key,
     required this.componentId,
     required this.exampleIndex,
+    required this.topLevel,
     required this.example,
     required this.hostTheme,
     required this.theme,
@@ -820,6 +819,7 @@ class _StyleguideExamplePanel extends StatefulWidget {
 
   final String componentId;
   final int exampleIndex;
+  final bool topLevel;
   final StyleguideExample example;
   final ThemeData hostTheme;
   final StyleguideTheme theme;
@@ -845,9 +845,8 @@ class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
     super.dispose();
   }
 
-  ValueKey<String> _key(String base) => ValueKey(
-    widget.exampleIndex == 0 ? base : '$base-${widget.exampleIndex}',
-  );
+  ValueKey<String> _key(String base) =>
+      ValueKey(widget.topLevel ? base : '$base-${widget.exampleIndex}');
 
   @override
   Widget build(BuildContext context) {
@@ -896,6 +895,8 @@ class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
                               height: switch (widget.componentId) {
                                 'accordion' => 800,
                                 'card' => 480,
+                                'context-menu' || 'dropdown-menu' => 680,
+                                'message-scroller' => 680,
                                 'sidebar' => 500,
                                 _ => 400,
                               },

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final breadcrumbExamples = ComponentExamples(
+  topLevelExampleIndex: 7,
   status: ComponentStatus.implemented,
   description: 'Compact, composable paths to the current resource.',
   notes:
@@ -112,8 +113,104 @@ final breadcrumbExamples = ComponentExamples(
 )''',
       builder: (_) => const SizedBox(width: 240, child: _LongBreadcrumb()),
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical path keeps omitted pages available from an ellipsis menu between Home and Components.',
+      states: const ['Links', 'Collapsed menu', 'Current page'],
+      code: '''DBreadcrumb(
+  child: DBreadcrumbList(children: [
+    DBreadcrumbItem(
+      child: DBreadcrumbLink(onPressed: openHome, child: Text('Home')),
+    ),
+    DBreadcrumbSeparator(),
+    DBreadcrumbItem(
+      child: DDropdownMenu(
+        content: DDropdownMenuContent(
+          align: DPopoverAlign.start,
+          children: [
+            DDropdownMenuGroup(children: [
+              DDropdownMenuItem(child: Text('Documentation')),
+              DDropdownMenuItem(child: Text('Themes')),
+              DDropdownMenuItem(child: Text('GitHub')),
+            ]),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            icon: DBreadcrumbEllipsis(), tooltip: 'Toggle menu',
+            variant: DButtonVariant.ghost, size: DButtonSize.small,
+            hasPopup: true, expanded: state.open,
+            focusNode: state.focusNode, onPressed: state.toggle,
+          ),
+        ),
+      ),
+    ),
+    DBreadcrumbSeparator(),
+    DBreadcrumbItem(
+      child: DBreadcrumbLink(
+        onPressed: openComponents, child: Text('Components')),
+    ),
+    DBreadcrumbSeparator(),
+    DBreadcrumbItem(child: DBreadcrumbPage(child: Text('Breadcrumb'))),
+  ]),
+)''',
+      builder: (_) => const _BreadcrumbReferenceDemo(),
+    ),
   ],
 );
+
+class _BreadcrumbReferenceDemo extends StatelessWidget {
+  const _BreadcrumbReferenceDemo();
+
+  @override
+  Widget build(BuildContext context) => DBreadcrumb(
+    child: DBreadcrumbList(
+      children: [
+        const DBreadcrumbItem(
+          child: DBreadcrumbLink(onPressed: _noop, child: Text('Home')),
+        ),
+        const DBreadcrumbSeparator(),
+        DBreadcrumbItem(
+          child: DDropdownMenu(
+            content: DDropdownMenuContent(
+              semanticLabel: 'Hidden pages',
+              align: DPopoverAlign.start,
+              children: [
+                DDropdownMenuGroup(
+                  children: [
+                    for (final page in ['Documentation', 'Themes', 'GitHub'])
+                      DDropdownMenuItem(onPressed: _noop, child: Text(page)),
+                  ],
+                ),
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (context, state) => DButton.iconOnly(
+                icon: const DBreadcrumbEllipsis(),
+                tooltip: 'Toggle menu',
+                variant: DButtonVariant.ghost,
+                size: DButtonSize.small,
+                hasPopup: true,
+                expanded: state.open,
+                focusNode: state.focusNode,
+                onPressed: state.toggle,
+              ),
+            ),
+          ),
+        ),
+        const DBreadcrumbSeparator(),
+        const DBreadcrumbItem(
+          child: DBreadcrumbLink(onPressed: _noop, child: Text('Components')),
+        ),
+        const DBreadcrumbSeparator(),
+        const DBreadcrumbItem(
+          child: DBreadcrumbPage(child: Text('Breadcrumb')),
+        ),
+      ],
+    ),
+  );
+}
 
 class _BasicBreadcrumb extends StatefulWidget {
   const _BasicBreadcrumb();

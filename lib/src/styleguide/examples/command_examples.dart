@@ -103,7 +103,7 @@ class _EmbeddedCommandState extends State<_EmbeddedCommand> {
         child: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DCommandInput<String>(),
+            DCommandInput<String>(placeholder: 'Type a command or search...'),
             DCommandList<String>(
               children: [
                 DCommandEmpty(child: Text('No results found.')),
@@ -147,8 +147,8 @@ class _EmbeddedCommandState extends State<_EmbeddedCommand> {
                     ),
                     DCommandItem(
                       value: 'Settings',
-                      checked: true,
                       leading: DIcon(DIcons.gear),
+                      trailing: DCommandShortcut(Text('⌘S')),
                       child: Text('Settings'),
                     ),
                   ],
@@ -393,7 +393,7 @@ const _compositionCode = '''DCommand<String>(
   loop: true,
   onSelected: run,
   child: Column(children: [
-    DCommandInput<String>(),
+    DCommandInput<String>(placeholder: 'Type a command or search...'),
     DCommandList<String>(children: [
       DCommandEmpty(child: Text('No results found.')),
       DCommandGroup<String>(heading: Text('Suggestions'), items: [

@@ -311,16 +311,7 @@ void main() {
     );
     await tester.pump();
     expect(find.text('Usage'), findsNothing);
-    expect(
-      find.byWidgetPredicate((widget) {
-        final key = widget.key;
-        return widget is Text &&
-            widget.data == 'Separator' &&
-            key is ValueKey<String> &&
-            key.value.startsWith('styleguide-section-heading-');
-      }),
-      findsOneWidget,
-    );
+    expect(find.text('Blog'), findsWidgets);
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('styleguide-preview')),
       200,

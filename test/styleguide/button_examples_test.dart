@@ -17,6 +17,7 @@ void main() {
       'Rich labels and trigger states',
       'RTL',
       'Application variants',
+      'Reference demo',
     ]);
   });
 

@@ -19,6 +19,7 @@ void main() {
       'Rich labels and wrapping',
       'Label in a form',
       'RTL labels',
+      'Reference demo',
     ]);
     final formSnippet = labelExamples.examples[2].code;
     expect(formSnippet, contains('final emailFocus = FocusNode();'));
@@ -213,7 +214,10 @@ void main() {
         find.byKey(const ValueKey('styleguide-component-label')),
       );
       await tester.pumpAndSettle();
-      final terms = find.text('Accept terms and conditions');
+      final terms = find.descendant(
+        of: find.byKey(const ValueKey('styleguide-example-panel-0')),
+        matching: find.text('Accept terms and conditions'),
+      );
       await tester.scrollUntilVisible(
         terms,
         200,

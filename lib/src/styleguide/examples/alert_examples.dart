@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../styleguide_example.dart';
 
 final alertExamples = ComponentExamples(
+  topLevelExampleIndex: 1,
   status: ComponentStatus.implemented,
   description: 'A compact callout for user attention.',
   notes:
@@ -41,7 +42,7 @@ final alertExamples = ComponentExamples(
       title: 'Demo',
       description: 'The two original success and information callouts.',
       code:
-          r'''Align(alignment: AlignmentDirectional.topStart, child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 448), child: Column(mainAxisSize: MainAxisSize.min, children: [DAlert(icon: const AlertExampleIcon('circle-check'), title: DAlertTitle(child: Text('Payment successful')), description: DAlertDescription(child: Text(r'Your payment of $29.99 has been processed. A receipt has been sent to your email address.'))), const SizedBox(height: 16), DAlert(icon: const AlertExampleIcon('info'), title: DAlertTitle(child: Text('New feature available')), description: DAlertDescription(child: Text('We have added dark mode support. You can enable it in your account settings.')))])))''',
+          r'''Align(alignment: AlignmentDirectional.topStart, child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 448), child: Column(mainAxisSize: MainAxisSize.min, children: [DAlert(icon: const AlertExampleIcon('circle-check'), title: DAlertTitle(child: Text('Payment successful')), description: DAlertDescription(child: Text(r'Your payment of $29.99 has been processed. A receipt has been sent to your email address.'))), const SizedBox(height: 16), DAlert(icon: const AlertExampleIcon('info'), title: DAlertTitle(child: Text('New feature available')), description: DAlertDescription(child: Text("We've added dark mode support. You can enable it in your account settings.")))])))''',
       builder: (context) => Align(
         alignment: AlignmentDirectional.topStart,
         child: ConstrainedBox(
@@ -64,7 +65,7 @@ final alertExamples = ComponentExamples(
                 title: DAlertTitle(child: Text('New feature available')),
                 description: DAlertDescription(
                   child: Text(
-                    'We have added dark mode support. You can enable it in your account settings.',
+                    "We've added dark mode support. You can enable it in your account settings.",
                   ),
                 ),
               ),

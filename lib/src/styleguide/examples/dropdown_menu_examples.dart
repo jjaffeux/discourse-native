@@ -39,7 +39,7 @@ StyleguideExample _example(
   title: title,
   description: switch (kind) {
     _DropdownExampleKind.composition =>
-      'All public primitives composed into one controlled menu.',
+      'The canonical account menu with groups, shortcuts, a submenu, separators, and a disabled API action.',
     _DropdownExampleKind.basic =>
       'Labels, groups, separators, a disabled item, and ordinary actions.',
     _DropdownExampleKind.submenu =>
@@ -306,29 +306,40 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
   ];
 
   List<Widget> get _composition => [
-    const DDropdownMenuGroup(
-      children: [DDropdownMenuLabel(child: Text('My Account'))],
-    ),
-    _item('Profile'),
-    _item('Billing'),
-    const DDropdownMenuSeparator(),
-    DDropdownMenuCheckboxItem(
-      checked: _panel,
-      onChanged: (value) => setState(() => _panel = value),
-      child: const Text('Panel'),
-    ),
-    DDropdownMenuRadioGroup<String>(
-      value: _theme,
-      onChanged: (value) => setState(() => _theme = value),
-      children: const [
-        DDropdownMenuRadioItem(value: 'light', child: Text('Light')),
-        DDropdownMenuRadioItem(value: 'dark', child: Text('Dark')),
+    DDropdownMenuGroup(
+      children: [
+        const DDropdownMenuLabel(child: Text('My Account')),
+        _item('Profile', shortcut: '⇧⌘P'),
+        _item('Billing', shortcut: '⌘B'),
+        _item('Settings', shortcut: '⌘S'),
       ],
     ),
-    DDropdownMenuSub(
-      trigger: const Text('Invite users'),
-      children: [_item('Email'), _item('Message')],
+    const DDropdownMenuSeparator(),
+    DDropdownMenuGroup(
+      children: [
+        _item('Team'),
+        DDropdownMenuSub(
+          trigger: const Text('Invite users'),
+          children: [
+            _item('Email'),
+            _item('Message'),
+            const DDropdownMenuSeparator(),
+            _item('More...'),
+          ],
+        ),
+        _item('New Team', shortcut: '⌘+T'),
+      ],
     ),
+    const DDropdownMenuSeparator(),
+    DDropdownMenuGroup(
+      children: [
+        _item('GitHub'),
+        _item('Support'),
+        _item('API', enabled: false),
+      ],
+    ),
+    const DDropdownMenuSeparator(),
+    DDropdownMenuGroup(children: [_item('Log out', shortcut: '⇧⌘Q')]),
   ];
 
   List<Widget> get _complex => [
@@ -551,23 +562,73 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
       mainAxisSize: MainAxisSize.min,
       children: [
         resolved,
-        const SizedBox(height: 12),
-        Semantics(liveRegion: true, child: Text(_status)),
+        if (kind != _DropdownExampleKind.composition ||
+            _status != 'No action selected') ...[
+          const SizedBox(height: 12),
+          Semantics(liveRegion: true, child: Text(_status)),
+        ],
       ],
     );
   }
 }
 
 const _usageCode = r'''DDropdownMenu(
-  content: DDropdownMenuContent(children: [
-    const DDropdownMenuLabel(child: Text('My Account')),
-    DDropdownMenuItem(onPressed: openProfile, child: const Text('Profile')),
-    DDropdownMenuCheckboxItem(
-      checked: panelVisible,
-      onChanged: (value) => setState(() => panelVisible = value),
-      child: const Text('Panel'),
-    ),
-  ]),
+  content: DDropdownMenuContent(
+    width: 160,
+    align: DPopoverAlign.start,
+    children: [
+      DDropdownMenuGroup(children: [
+        DDropdownMenuLabel(child: Text('My Account')),
+        DDropdownMenuItem(
+          onPressed: openProfile,
+          trailing: DDropdownMenuShortcut('⇧⌘P'),
+          child: Text('Profile'),
+        ),
+        DDropdownMenuItem(
+          onPressed: openBilling,
+          trailing: DDropdownMenuShortcut('⌘B'),
+          child: Text('Billing'),
+        ),
+        DDropdownMenuItem(
+          onPressed: openSettings,
+          trailing: DDropdownMenuShortcut('⌘S'),
+          child: Text('Settings'),
+        ),
+      ]),
+      DDropdownMenuSeparator(),
+      DDropdownMenuGroup(children: [
+        DDropdownMenuItem(onPressed: openTeam, child: Text('Team')),
+        DDropdownMenuSub(
+          trigger: Text('Invite users'),
+          children: [
+            DDropdownMenuItem(onPressed: inviteByEmail, child: Text('Email')),
+            DDropdownMenuItem(onPressed: inviteByMessage, child: Text('Message')),
+            DDropdownMenuSeparator(),
+            DDropdownMenuItem(onPressed: showMore, child: Text('More...')),
+          ],
+        ),
+        DDropdownMenuItem(
+          onPressed: createTeam,
+          trailing: DDropdownMenuShortcut('⌘+T'),
+          child: Text('New Team'),
+        ),
+      ]),
+      DDropdownMenuSeparator(),
+      DDropdownMenuGroup(children: [
+        DDropdownMenuItem(onPressed: openGitHub, child: Text('GitHub')),
+        DDropdownMenuItem(onPressed: openSupport, child: Text('Support')),
+        DDropdownMenuItem(child: Text('API')),
+      ]),
+      DDropdownMenuSeparator(),
+      DDropdownMenuGroup(children: [
+        DDropdownMenuItem(
+          onPressed: logOut,
+          trailing: DDropdownMenuShortcut('⇧⌘Q'),
+          child: Text('Log out'),
+        ),
+      ]),
+    ],
+  ),
   child: DDropdownMenuTrigger(
     builder: (context, menu) => DButton(
       label: const Text('Open'),

@@ -20,6 +20,7 @@ void main() {
       'Image loading and error',
       'Dropdown',
       'RTL',
+      'Reference demo',
     ]);
   });
   testWidgets('touch group actions keep separate 48px targets', (tester) async {

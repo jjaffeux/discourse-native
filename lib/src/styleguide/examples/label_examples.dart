@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final labelExamples = ComponentExamples(
+  topLevelExampleIndex: 4,
   description: 'An accessible label for a form control.',
   status: ComponentStatus.implemented,
   notes:
@@ -164,8 +165,41 @@ DDirection(
 )''',
       builder: (_) => const _RtlPreview(),
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical checkbox and associated label share one activation and accessible name.',
+      states: const ['Checkbox', 'Label association', 'Keyboard', 'Touch'],
+      code: '''DCheckbox(
+  value: accepted,
+  onChanged: (value) => setState(() => accepted = value ?? false),
+  title: const DLabel(
+    child: Text('Accept terms and conditions'),
+  ),
+)''',
+      builder: (_) => const _LabelReferenceDemo(),
+    ),
   ],
 );
+
+class _LabelReferenceDemo extends StatefulWidget {
+  const _LabelReferenceDemo();
+
+  @override
+  State<_LabelReferenceDemo> createState() => _LabelReferenceDemoState();
+}
+
+class _LabelReferenceDemoState extends State<_LabelReferenceDemo> {
+  bool _accepted = false;
+
+  @override
+  Widget build(BuildContext context) => DCheckbox(
+    contentPadding: EdgeInsets.zero,
+    value: _accepted,
+    onChanged: (value) => setState(() => _accepted = value ?? false),
+    title: const DLabel(child: Text('Accept terms and conditions')),
+  );
+}
 
 class _ControlPreview extends StatefulWidget {
   const _ControlPreview();

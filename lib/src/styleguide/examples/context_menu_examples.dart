@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final contextMenuExamples = ComponentExamples(
+  topLevelExampleIndex: 10,
   status: ComponentStatus.implemented,
   description: 'Displays actions at a secondary click or long-press location.',
   notes:
@@ -159,8 +160,145 @@ final contextMenuExamples = ComponentExamples(
 )''',
       builder: (_) => const _RtlContextMenu(),
     ),
+    StyleguideExample(
+      title: 'Reference demo',
+      description:
+          'The canonical browser-style context menu combines shortcuts, a submenu, checkboxes, and a radio group.',
+      states: const [
+        'Submenu',
+        'Shortcuts',
+        'Checkboxes',
+        'Radio',
+        'Destructive',
+      ],
+      code: '''DContextMenu(
+  content: DContextMenuContent(width: 192, children: [
+    DContextMenuGroup(children: [
+      DContextMenuItem(onPressed: back,
+        trailing: DContextMenuShortcut('⌘['), child: Text('Back')),
+      DContextMenuItem(
+        trailing: DContextMenuShortcut('⌘]'), child: Text('Forward')),
+      DContextMenuItem(onPressed: reload,
+        trailing: DContextMenuShortcut('⌘R'), child: Text('Reload')),
+      moreToolsSubmenu,
+    ]),
+    DContextMenuSeparator(),
+    bookmarkCheckboxes,
+    DContextMenuSeparator(),
+    peopleRadioGroup,
+  ]),
+  child: DContextMenuTrigger(child: contextTarget),
+)''',
+      builder: (_) => const _ContextMenuReferenceDemo(),
+    ),
   ],
 );
+
+class _ContextMenuReferenceDemo extends StatefulWidget {
+  const _ContextMenuReferenceDemo();
+
+  @override
+  State<_ContextMenuReferenceDemo> createState() =>
+      _ContextMenuReferenceDemoState();
+}
+
+class _ContextMenuReferenceDemoState extends State<_ContextMenuReferenceDemo> {
+  bool _bookmarks = true;
+  bool _fullUrls = false;
+  String _person = 'pedro';
+  String _status = '';
+
+  DContextMenuItem _item(
+    String label, {
+    String? shortcut,
+    bool enabled = true,
+    bool destructive = false,
+  }) => DContextMenuItem(
+    onPressed: enabled ? () => setState(() => _status = label) : null,
+    trailing: shortcut == null ? null : DContextMenuShortcut(shortcut),
+    variant: destructive
+        ? DContextMenuItemVariant.destructive
+        : DContextMenuItemVariant.standard,
+    child: Text(label),
+  );
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _contextMenu(
+        width: 192,
+        children: [
+          DContextMenuGroup(
+            children: [
+              _item('Back', shortcut: '⌘['),
+              _item('Forward', shortcut: '⌘]', enabled: false),
+              _item('Reload', shortcut: '⌘R'),
+              DContextMenuSub(
+                width: 176,
+                trigger: const Text('More Tools'),
+                children: [
+                  DContextMenuGroup(
+                    children: [
+                      _item('Save Page...'),
+                      _item('Create Shortcut...'),
+                      _item('Name Window...'),
+                    ],
+                  ),
+                  const DContextMenuSeparator(),
+                  DContextMenuGroup(children: [_item('Developer Tools')]),
+                  const DContextMenuSeparator(),
+                  DContextMenuGroup(
+                    children: [_item('Delete', destructive: true)],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const DContextMenuSeparator(),
+          DContextMenuGroup(
+            children: [
+              DContextMenuCheckboxItem(
+                checked: _bookmarks,
+                onChanged: (value) => setState(() => _bookmarks = value),
+                child: const Text('Show Bookmarks'),
+              ),
+              DContextMenuCheckboxItem(
+                checked: _fullUrls,
+                onChanged: (value) => setState(() => _fullUrls = value),
+                child: const Text('Show Full URLs'),
+              ),
+            ],
+          ),
+          const DContextMenuSeparator(),
+          DContextMenuGroup(
+            children: [
+              const DContextMenuLabel(child: Text('People')),
+              DContextMenuRadioGroup<String>(
+                value: _person,
+                onChanged: (value) => setState(() => _person = value),
+                children: const [
+                  DContextMenuRadioItem(
+                    value: 'pedro',
+                    child: Text('Pedro Duarte'),
+                  ),
+                  DContextMenuRadioItem(
+                    value: 'colm',
+                    child: Text('Colm Tuite'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+      if (_status.isNotEmpty) ...[
+        const SizedBox(height: DSpacing.sm),
+        Semantics(liveRegion: true, child: Text(_status)),
+      ],
+    ],
+  );
+}
 
 class _BasicContextMenu extends StatefulWidget {
   const _BasicContextMenu();

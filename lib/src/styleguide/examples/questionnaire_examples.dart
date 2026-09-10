@@ -172,7 +172,7 @@ List<DQuestionnaireItem> _planningItems() => [
       ),
     ],
     input: const DQuestionnaireInputConfiguration(
-      label: 'Describe another feature',
+      label: 'Another agent feature',
       placeholder: 'Describe another feature…',
     ),
   ),
