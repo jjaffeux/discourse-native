@@ -16,6 +16,11 @@ leading border and `p-px` leave a 7px thumb, 1px from the trailing viewport edge
 Base UI constants impose a 16px minimum thumb. RawScrollbar supplies the same
 proportional geometry, dragging and track paging, with 1px main-axis margins.
 The default transparent corner reserves 10px only when both axes overflow.
+The app uses a thinner 4px thumb, as requested on 2026-09-10, through
+`DScrollThumb.defaultThickness`. The same value supplies the global
+`AppTheme` scrollbar theme and explicit native scrollbar adapters, including
+iOS where Flutter's adaptive scrollbar ignores the theme thickness. Hover
+and dragging retain this width. The existing track margins and corner remain.
 Viewport focus paints only the exterior 3px token ring, multiplying alpha by 50%; the live reference outline-style is none.
 The viewport inherits the host radius. No default border or padding is invented.
 
@@ -113,3 +118,14 @@ scroll-area-native.md for final commands/build provenance.
 The styleguide entry is implemented after the reference-rendered and isolated
 macOS native reviews passed. No iOS/Linux device, VoiceOver or pixel-parity
 claim is made from widget tests.
+
+The 2026-09-10 shared-width follow-up passed 233 focused tests across
+`app_theme`, `d_scroll_area`, `d_sidebar_lazy`, Scroll Area and Skeleton
+styleguide examples, `code_block`, `users_page`, `topic_view_rebuild`, and
+`shell_navigation_integration`. Root and full-profile static analysis and the
+macOS debug build passed. An isolated `tool/sidebar_review_main.dart` app showed the
+production sidebar in light/dark themes and wheel-scrolled its virtualized
+destinations. The Scroll Area styleguide's vertical and horizontal thumbs
+were visually inspected and dragged successfully; the horizontal example also
+rendered correctly in the fixture's 390px viewport. This was macOS inspection,
+including an iOS theme override for the narrow preview, not an iOS device run.

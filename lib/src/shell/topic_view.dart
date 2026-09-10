@@ -2090,25 +2090,22 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         ),
       ),
     );
-    final postStream = ScrollbarTheme(
-      data: const ScrollbarThemeData(thickness: WidgetStatePropertyAll(4)),
-      child: ReadingShortcuts(
-        commands: {
-          ReadingCommand.nextPost: () => _navigatePost(controller, snapshot, 1),
-          ReadingCommand.previousPost: () =>
-              _navigatePost(controller, snapshot, -1),
-          ReadingCommand.replyToPost: () => _replyToSelectedPost(controller),
-        },
-        child: ListBoundaryShortcuts(
-          key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
-          debugLabel: 'topic post stream',
-          initiallyActive: true,
-          focusNode: _keyboardFocus,
-          scrollController: _scroll!,
-          onStart: () => _jumpToBoundary(end: false),
-          onEnd: () => _jumpToBoundary(end: true),
-          child: postStreamContent,
-        ),
+    final postStream = ReadingShortcuts(
+      commands: {
+        ReadingCommand.nextPost: () => _navigatePost(controller, snapshot, 1),
+        ReadingCommand.previousPost: () =>
+            _navigatePost(controller, snapshot, -1),
+        ReadingCommand.replyToPost: () => _replyToSelectedPost(controller),
+      },
+      child: ListBoundaryShortcuts(
+        key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
+        debugLabel: 'topic post stream',
+        initiallyActive: true,
+        focusNode: _keyboardFocus,
+        scrollController: _scroll!,
+        onStart: () => _jumpToBoundary(end: false),
+        onEnd: () => _jumpToBoundary(end: true),
+        child: postStreamContent,
       ),
     );
 

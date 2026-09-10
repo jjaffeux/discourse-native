@@ -72,10 +72,14 @@ class DScrollBar extends StatelessWidget {
 class DScrollThumb {
   const DScrollThumb({
     this.color,
-    this.thickness = 7,
+    this.thickness = defaultThickness,
     this.minLength = 16,
     this.radius = const Radius.circular(999),
   });
+
+  /// Shared width in logical pixels for UI kit and native app scrollbars.
+  static const double defaultThickness = 4;
+
   final Color? color;
   final double thickness;
   final double minLength;
