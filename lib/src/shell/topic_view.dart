@@ -2241,7 +2241,7 @@ class _TopicBottomBar extends StatelessWidget {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) => SizedBox(
-            height: topic == null ? 48 : 52,
+            height: topicBottomBarHeight,
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: Row(
