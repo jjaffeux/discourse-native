@@ -106,6 +106,14 @@ entire Sidebar example remain byte-identical. No iOS/Linux device or spoken
 screen-reader verification was performed; the RTL/200% case is widget-test
 coverage.
 
+Alignment follow-up: trailing actions and badges are vertically centered within
+the primary row, independently of any submenu below it. This removes the fixed
+4px top offset that put a 20px project action 2px above center in a 32px row and
+keeps alignment proportional for taller rows. All 51 Sidebar, Sidebar example
+and styleguide-page tests and fatal-info root analysis pass. The corrected
+project-row alignment, menu opening and Share feedback were inspected in the
+actual macOS styleguide with the current dark app palette.
+
 ## Dependency boundary
 
 The actual registry lists Button,Input,Separator,Sheet,Skeleton,Tooltip and
