@@ -70,3 +70,5 @@ operation, so continuous diagonal hover paths were verified with Flutter mouse
 gesture tests, not claimed as manual native hover verification. Chat migration
 was exercised with production widgets and fake data in widget tests; it was not
 inspected against a live account. No iOS or Linux device run was performed.
+
+Merged into local main as `793de4d3` from the repository's main checkout.
