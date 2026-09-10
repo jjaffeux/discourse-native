@@ -35,7 +35,9 @@ final categorySelectorExamples = ComponentExamples(
       'TopicCategorySelector is the complete component used by the topics list '
       'and composer. It composes the Native Combobox, Button, and category artwork. '
       'Filtering can include All categories; authoring accepts a permission-filtered '
-      'asynchronous search and parent-path labels. Search resets on reopen, ignores '
+      'asynchronous search and parent-path labels. The composer pairs the parent '
+      'with another instance scoped to its subcategories; No subcategory restores '
+      'the parent. Search resets on reopen, ignores '
       'retired requests, and supports arrows, Enter, and Escape. Change the widget '
       'key when its account or search scope changes. The composer example accepts '
       '“fail” to show a lookup error. All example data stays local.',
@@ -54,13 +56,24 @@ final categorySelectorExamples = ComponentExamples(
     StyleguideExample(
       title: 'Composer categories',
       description:
-          'Choose a category using asynchronous search and parent paths.',
-      states: const ['Async search', 'Subcategory', 'Empty', 'Error'],
-      code: '''TopicCategorySelector(
-  siteUrl: siteUrl, categories: categories, selected: selected,
-  placeholder: 'Choose a category', labelFor: categoryPath,
-  search: searchCreatableCategories,
-  onSelected: (value) => setState(() => selected = value),
+          'Choose a parent and subcategory with the same searchable control.',
+      states: const ['Async search', 'Subcategory', 'Clear', 'Empty', 'Error'],
+      code: '''Wrap(
+  spacing: 8, runSpacing: 8,
+  children: [
+    TopicCategorySelector(
+      siteUrl: siteUrl, categories: categories, selected: parent,
+      placeholder: 'Choose a category', labelFor: categoryPath,
+      search: searchCreatableCategories, onSelected: selectCategory,
+    ),
+    if (parent != null && subcategories.isNotEmpty)
+      TopicCategorySelector(
+        key: ValueKey(parent.id), siteUrl: siteUrl,
+        categories: subcategories, parent: parent, selected: subcategory,
+        placeholder: 'Subcategories', clearSelectionLabel: 'No subcategory',
+        onSelected: (value) => selectCategory(value ?? parent),
+      ),
+  ],
 )''',
       builder: (_) => const _CategoryExample(composer: true),
     ),
@@ -164,18 +177,45 @@ class _CategoryExampleState extends State<_CategoryExample> {
   }
 
   @override
-  Widget build(BuildContext context) => TopicCategorySelector(
-    siteUrl: 'https://styleguide.invalid',
-    categories: _categories,
-    selected: _selected,
-    placeholder: widget.composer ? 'Choose a category' : 'Categories',
-    includeAll: !widget.composer,
-    labelFor: widget.composer ? _path : null,
-    search: widget.composer ? _search : null,
-    onSelected: widget.disabled
-        ? null
-        : (value) => setState(() => _selected = value),
-  );
+  Widget build(BuildContext context) {
+    final parent = _categories
+        .where((category) => category.id == _selected?.parentCategoryId)
+        .firstOrNull;
+    final root = parent ?? _selected;
+    final children = _categories
+        .where((category) => category.parentCategoryId == root?.id)
+        .toList();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        TopicCategorySelector(
+          siteUrl: 'https://styleguide.invalid',
+          categories: _categories,
+          selected: widget.composer ? root : _selected,
+          placeholder: widget.composer ? 'Choose a category' : 'Categories',
+          includeAll: !widget.composer,
+          labelFor: widget.composer ? _path : null,
+          search: widget.composer ? _search : null,
+          onSelected: widget.disabled
+              ? null
+              : (value) => setState(() => _selected = value),
+        ),
+        if (widget.composer && root != null && children.isNotEmpty)
+          TopicCategorySelector(
+            key: ValueKey(root.id),
+            keyPrefix: 'styleguide-composer-subcategory',
+            siteUrl: 'https://styleguide.invalid',
+            categories: children,
+            parent: root,
+            selected: parent == null ? null : _selected,
+            placeholder: 'Subcategories',
+            clearSelectionLabel: 'No subcategory',
+            onSelected: (value) => setState(() => _selected = value ?? root),
+          ),
+      ],
+    );
+  }
 }
 
 class _TagExample extends StatefulWidget {

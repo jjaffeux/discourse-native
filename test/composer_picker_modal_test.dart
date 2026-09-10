@@ -10,6 +10,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -309,7 +310,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('the category value and picker include a subcategory parent', (
+  testWidgets('a selected subcategory has separate parent and child controls', (
     tester,
   ) async {
     const parent = TopicCategory(
@@ -341,7 +342,14 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('composer-category')),
-        matching: find.text(categoryPath),
+        matching: find.text(parent.name),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('composer-subcategory')),
+        matching: find.text(child.name),
       ),
       findsOneWidget,
     );
@@ -357,6 +365,254 @@ void main() {
     );
     await tester.pump(const Duration(seconds: 2));
   });
+
+  testWidgets('selecting and clearing a subcategory rechecks category rules', (
+    tester,
+  ) async {
+    const parent = TopicCategory(
+      id: 5,
+      name: 'Support',
+      color: '0088CC',
+      permission: 1,
+    );
+    const child = TopicCategory(
+      id: 6,
+      name: 'Bugs',
+      color: 'FF6600',
+      parentCategoryId: 5,
+      permission: 1,
+      minimumRequiredTags: 2,
+    );
+    final shell = await pumpComposer(
+      tester,
+      platform: TargetPlatform.macOS,
+      categories: const [parent, child],
+      categorySearches: const {
+        '': [parent, child],
+      },
+    );
+    await open(tester, const ValueKey('composer-category-action'));
+    await tester.tap(
+      find.byKey(const ValueKey(('category-selector-option', 5))),
+    );
+    await tester.pump();
+    final composer = shell.visibleComposer!;
+    composer.setTags(const [
+      TopicTag(id: 7, name: 'design'),
+      TopicTag(id: 8, name: 'mobile'),
+    ]);
+    await open(tester, const ValueKey('composer-subcategory-action'));
+    expect(find.text('No subcategory'), findsOneWidget);
+    expect(find.text('All subcategories'), findsNothing);
+    await tester.tap(
+      find.byKey(const ValueKey(('composer-subcategory-option', 6))),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(composer.categoryId, child.id);
+    expect(composer.tags, const [TopicTag(id: 8, name: 'mobile')]);
+    expect(
+      composer.taxonomyValidationMessage,
+      'Choose at least 2 tags for this category.',
+    );
+    expect(find.byType(ComposerTagRemovalNotice), findsOneWidget);
+
+    await open(tester, const ValueKey('composer-subcategory-action'));
+    await tester.tap(
+      find.byKey(const ValueKey(('composer-subcategory-option', 0))),
+    );
+    await tester.pump();
+    expect(composer.categoryId, parent.id);
+    expect(composer.taxonomyValidationMessage, isNull);
+    expect(find.text('Subcategories'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('subcategory choices follow the parent and create permissions', (
+    tester,
+  ) async {
+    const parent = TopicCategory(
+      id: 5,
+      name: 'Support',
+      color: '0088CC',
+      permission: 1,
+    );
+    const child = TopicCategory(
+      id: 6,
+      name: 'Bugs',
+      color: 'FF6600',
+      parentCategoryId: 5,
+      permission: 1,
+    );
+    const restricted = TopicCategory(
+      id: 7,
+      name: 'Announcements',
+      color: 'FF6600',
+      parentCategoryId: 5,
+      permission: 2,
+    );
+    const other = TopicCategory(
+      id: 8,
+      name: 'Development',
+      color: '0088CC',
+      permission: 1,
+    );
+    const otherChild = TopicCategory(
+      id: 9,
+      name: 'Plugins',
+      color: '0088CC',
+      parentCategoryId: 8,
+      permission: 1,
+    );
+    const categories = [parent, child, restricted, other, otherChild];
+    final shell = await pumpComposer(
+      tester,
+      platform: TargetPlatform.macOS,
+      categories: categories,
+      categorySearches: const {
+        '': categories,
+        'Bugs': [child],
+      },
+    );
+    final composer = shell.visibleComposer!;
+    composer.setCategory(parent.id);
+    await tester.pump();
+    await open(tester, const ValueKey('composer-subcategory-action'));
+    expect(
+      find.byKey(const ValueKey(('composer-subcategory-option', 6))),
+      findsOneWidget,
+    );
+    for (final id in [5, 7, 8, 9]) {
+      expect(
+        find.byKey(ValueKey(('composer-subcategory-option', id))),
+        findsNothing,
+      );
+    }
+    await tester.enterText(
+      find.byKey(const ValueKey('composer-subcategory-query')),
+      'Bugs',
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(composer.categoryId, child.id);
+
+    await open(tester, const ValueKey('composer-category-action'));
+    await tester.tap(
+      find.byKey(const ValueKey(('category-selector-option', 8))),
+    );
+    await tester.pump();
+    expect(composer.categoryId, other.id);
+    expect(find.text('Subcategories'), findsOneWidget);
+    await open(tester, const ValueKey('composer-subcategory-action'));
+    expect(
+      find.byKey(const ValueKey(('composer-subcategory-option', 9))),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey(('composer-subcategory-option', 6))),
+      findsNothing,
+    );
+    composer.setCategory(parent.id);
+    await tester.pump();
+    expect(find.byType(DComboboxContent), findsNothing);
+    await open(tester, const ValueKey('composer-subcategory-action'));
+    expect(
+      find.byKey(const ValueKey(('composer-subcategory-option', 6))),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('a subcategory cannot be cleared into a restricted parent', (
+    tester,
+  ) async {
+    const parent = TopicCategory(
+      id: 5,
+      name: 'Support',
+      color: '0088CC',
+      permission: 2,
+    );
+    const child = TopicCategory(
+      id: 6,
+      name: 'Bugs',
+      color: 'FF6600',
+      parentCategoryId: 5,
+      permission: 1,
+    );
+    final shell = await pumpComposer(
+      tester,
+      platform: TargetPlatform.macOS,
+      categories: const [parent, child],
+      categorySearches: const {
+        '': [parent, child],
+      },
+    );
+    shell.visibleComposer!.setCategory(child.id);
+    await tester.pump();
+    await open(tester, const ValueKey('composer-subcategory-action'));
+    expect(find.text('No subcategory'), findsNothing);
+    expect(
+      find.byKey(const ValueKey(('composer-subcategory-option', 0))),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey(('composer-subcategory-option', 6))),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets(
+    'subcategory controls wrap and stay reachable on a narrow composer',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const parent = TopicCategory(
+        id: 5,
+        name: 'Discourse Native App',
+        color: '0088CC',
+        permission: 1,
+      );
+      const child = TopicCategory(
+        id: 6,
+        name: 'Interface improvements',
+        color: 'FF6600',
+        parentCategoryId: 5,
+        permission: 1,
+      );
+      final shell = await pumpComposer(
+        tester,
+        platform: TargetPlatform.iOS,
+        categories: const [parent, child],
+        categorySearches: const {
+          '': [parent, child],
+        },
+      );
+      shell.visibleComposer!.setCategory(child.id);
+      await tester.pump();
+      for (final name in ['category', 'subcategory']) {
+        final control = find.byKey(ValueKey('composer-$name-action'));
+        expect(control.hitTestable(), findsOneWidget);
+        expect(tester.getRect(control).right, lessThanOrEqualTo(304));
+      }
+      await open(tester, const ValueKey('composer-subcategory-action'));
+      final popup = tester.getRect(find.byType(DComboboxContent));
+      expect(popup.left, greaterThanOrEqualTo(0));
+      expect(popup.right, lessThanOrEqualTo(320));
+      expect(
+        find
+            .byKey(const ValueKey(('composer-subcategory-option', 6)))
+            .hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 2));
+    },
+  );
 
   testWidgets('the composer uses the shared tag dropdown on desktop', (
     tester,

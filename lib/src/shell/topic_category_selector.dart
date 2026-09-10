@@ -15,6 +15,8 @@ import 'topic_taxonomy_button.dart';
 /// A null [search] filters [categories] locally. An asynchronous search owns its
 /// permissions and data source; obsolete results are ignored on close/disposal.
 /// [includeAll] exposes a null selection for list filtering.
+/// [clearSelectionLabel] exposes the same null selection with authoring copy,
+/// such as "No subcategory" when the caller restores the parent category.
 class TopicCategorySelector extends StatefulWidget {
   const TopicCategorySelector({
     super.key,
@@ -26,6 +28,7 @@ class TopicCategorySelector extends StatefulWidget {
     this.labelFor,
     this.parent,
     this.includeAll = false,
+    this.clearSelectionLabel,
     this.placeholder = 'Categories',
     this.keyPrefix = 'category-selector',
     this.valueKey,
@@ -39,6 +42,7 @@ class TopicCategorySelector extends StatefulWidget {
   final String Function(TopicCategory category)? labelFor;
   final TopicCategory? parent;
   final bool includeAll;
+  final String? clearSelectionLabel;
   final String placeholder;
   final String keyPrefix;
   final Key? valueKey;
@@ -70,6 +74,8 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
   String _label(TopicCategory category) =>
       widget.labelFor?.call(category) ?? category.name;
 
+  bool get _canClear => widget.includeAll || widget.clearSelectionLabel != null;
+
   List<TopicCategory> get _matches => widget.search != null
       ? _results
       : widget.categories
@@ -86,7 +92,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
       final selected = widget.selected?.id;
       _combobox.highlight(
         _query.trim().isEmpty &&
-                (selected == null && widget.includeAll ||
+                (selected == null && _canClear ||
                     _matches.any((category) => category.id == selected))
             ? selected ?? 0
             : _matches.firstOrNull?.id,
@@ -158,17 +164,17 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
     final prefix = widget.keyPrefix;
     return DCombobox<int>.controlled(
       controller: _combobox,
-      value: selected?.id ?? (widget.includeAll ? 0 : null),
+      value: selected?.id ?? (_canClear ? 0 : null),
       enabled: widget.onSelected != null,
       query: _query,
       filterLocally: false,
       onQueryChanged: _queryChanged,
       onOpenChanged: _openChanged,
       options: [
-        if (widget.includeAll)
+        if (_canClear)
           DComboboxOption(
             value: 0,
-            label: 'All $noun',
+            label: widget.clearSelectionLabel ?? 'All $noun',
             itemKey: ValueKey(('$prefix-option', 0)),
           ),
         for (final category in matches)
@@ -179,7 +185,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
           ),
       ],
       onChanged: (id, _) {
-        if (id == 0 && widget.includeAll) {
+        if (id == 0 && _canClear) {
           widget.onSelected?.call(null);
         } else if (!_loading && id != null) {
           final category = matches.where((item) => item.id == id).firstOrNull;
@@ -204,7 +210,9 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
                     ? widget.includeAll
                           ? 'Filter by category'
                           : 'Choose category'
-                    : 'Filter by subcategory of ${parent.name}'
+                    : widget.includeAll
+                    ? 'Filter by subcategory of ${parent.name}'
+                    : 'Choose subcategory of ${parent.name}'
               : '${parent == null ? 'Category' : 'Subcategory'}: $label',
           tooltip: label,
           onPressed: widget.onSelected == null ? null : trigger.toggle,
