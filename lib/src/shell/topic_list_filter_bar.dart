@@ -225,7 +225,6 @@ class _CategoryFilterAnchorState extends State<_CategoryFilterAnchor> {
       anchor: DComboboxTrigger<int>(
         builder: (context, trigger) => _FilterButton(
           key: ValueKey('topic-list-$kind-filter'),
-          active: selected != null,
           label:
               selected?.name ??
               (subcategories ? 'Subcategories' : 'Categories'),
@@ -441,7 +440,6 @@ class _TagFilterAnchorState extends State<_TagFilterAnchor> {
     final anchor = DComboboxTrigger<String>(
       builder: (context, trigger) => _FilterButton(
         key: const ValueKey('topic-list-tag-filter'),
-        active: values.isNotEmpty,
         label: label,
         icon: const DIcon(DIcons.tag, size: 14),
         semanticLabel: values.isEmpty
@@ -552,10 +550,8 @@ class _FilterButton extends StatelessWidget {
     required this.expanded,
     required this.maximumWidth,
     this.icon,
-    this.active = false,
   });
 
-  final bool active;
   final String label;
   final String semanticLabel;
   final VoidCallback onPressed;
@@ -585,7 +581,7 @@ class _FilterButton extends StatelessWidget {
       hasPopup: true,
       expanded: expanded,
       alignment: AlignmentDirectional.centerStart,
-      variant: active ? DButtonVariant.secondary : DButtonVariant.outline,
+      variant: DButtonVariant.secondary,
     ),
   );
 }
