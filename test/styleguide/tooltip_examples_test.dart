@@ -68,6 +68,9 @@ void main() {
     addTearDown(mouse.removePointer);
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(find.text('Hover')));
+    await tester.pump(const Duration(milliseconds: 249));
+    expect(find.text('Add to library'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 1));
     await tester.pumpAndSettle();
     expect(find.text('Add to library'), findsOneWidget);
     await tester.tap(find.text('Hover'));

@@ -788,7 +788,7 @@ abstract final class AppTheme {
           fontWeight: FontWeight.w400,
         ),
         textAlign: TextAlign.start,
-        waitDuration: Duration.zero,
+        waitDuration: DTooltip.defaultHoverDelay,
         showDuration: const Duration(milliseconds: 1800),
         exitDuration: const Duration(milliseconds: 100),
       ),

@@ -11,6 +11,7 @@ final tooltipExamples = ComponentExamples(
   notes:
       'Tooltip reproduces the frozen base-nova surface and arrow. The reference '
       'compositions use the accepted outline and icon-sm DButton owners. '
+      'Hover waits 250 ms by default; keyboard focus opens immediately. '
       'Leaving the trigger or popup dismisses only a hover-engaged hint; keyboard, '
       'controller and parent-controlled openings wait for their own dismissal. '
       'Tooltips supplement a named trigger; put essential instructions inline. '
