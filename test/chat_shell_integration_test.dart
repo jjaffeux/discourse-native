@@ -4171,6 +4171,28 @@ void _registerChatShellTests() {
           expect(sidebarDestination('Alpha'), findsOneWidget);
           expect(sidebarDestination('Alice'), findsOneWidget);
           expect(sidebarDestination('Zoe'), findsOneWidget);
+
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          try {
+            for (final title in [
+              'Starred channels',
+              'Chat',
+              'Direct messages',
+            ]) {
+              await mouse.moveTo(
+                tester.getCenter(
+                  find.widgetWithText(DSidebarMenuButton, title),
+                ),
+              );
+              await tester.pumpAndSettle();
+              expect(find.text('Collapse $title'), findsNothing);
+            }
+          } finally {
+            await mouse.removePointer();
+          }
         },
       );
 

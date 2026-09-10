@@ -1,0 +1,36 @@
+{
+  "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+  "sourceCommit": "c2580e3f29ed5a0d85e67410cc126ae9aaa0c616",
+  "entrypoint": "tool/sidebar_review_main.dart",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/dce5/discourse-native/build/macos/Build/Products/Debug/Sidebar Review dce5.app",
+  "bundleIdentifier": "org.discourse.sidebarreviewdce5.dev",
+  "buildLog": "/tmp/chat-header-tooltips-native-final-build.log",
+  "runnerRestored": true,
+  "deepStrictSignatureVerified": true,
+  "actualLaunchVerified": true,
+  "entitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "sourceSha256": {
+    "lib/src/models/sidebar.dart": "430c0da476689554f202d05b4f55a6e5993b14943e6045c4c95999bc0d06a2d7",
+    "lib/src/models/discourse_instance.dart": "4c7454a1672fe071312e65a95f56a94dec7810667f056fdc14a660c88dc4454b",
+    "lib/src/plugin_api/plugin_registry.dart": "e71c18046179e6de688f7a5dce0dea6cd544e38601f895ac6f2516b49b21de26",
+    "lib/src/plugins/chat/chat_plugin.dart": "6f3557cc9aef793650a602b157dbdeb77d056a0e38e60899361279ea2c34cb79",
+    "lib/src/shell/instance_sidebar.dart": "aa141e010cefb4ad5fac1522930f5556ddc119c8ecdcf75cd502643c3f5691f2",
+    "lib/src/ui/components/d_tooltip.dart": "96317ad44a5523e5a0ea5533dc8e5f6c5b2aa6adb73ae4be048659cb8ce0aafe",
+    "tool/sidebar_review_main.dart": "3f300e644314618f1245b79a7e9433f75c8b76251b7c7e0425b89662d0da71d5"
+  },
+  "kernelSha256": "684219b03e458eb5706fc42e0822f1ec47ecef329fdc95ea766920f9bca9c5df",
+  "checks": [
+    "The initial native pass exposed PluginRegistry dropping the header-tooltip setting; the three-header hover regression reproduced this before the registry fix.",
+    "Corrected native macOS Chat sidebar, 208px light/dark at 100%: Starred channels, Chat and Direct messages collapse with no disclosure popup under the pointer.",
+    "Return reopens Direct messages after pointer collapse, retaining visible keyboard focus and its full accessible name."
+  ],
+  "limitations": [
+    "No physical iOS/Linux or spoken screen reader verification."
+  ],
+  "cleanup": "Owned app quit and absence verified through CUA; desktop lease released."
+}
