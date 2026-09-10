@@ -302,6 +302,10 @@ void main() {
   testWidgets(
     'pointer activation owns keyboard focus for buttons and actions',
     (tester) async {
+      final strategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
       final focus = FocusNode();
       addTearDown(focus.dispose);
       var primary = 0, secondary = 0;
@@ -331,13 +335,50 @@ void main() {
       await tester.tap(find.text('Primary'));
       await tester.pump();
       expect(focus.hasFocus, true);
+      BoxDecoration foregroundOf(Finder owner) =>
+          tester
+                  .widgetList<Container>(
+                    find.descendant(
+                      of: owner,
+                      matching: find.byType(Container),
+                    ),
+                  )
+                  .singleWhere(
+                    (container) =>
+                        container.foregroundDecoration is BoxDecoration,
+                  )
+                  .foregroundDecoration!
+              as BoxDecoration;
+      final primaryButton = find.byType(DSidebarMenuButton);
+      final secondaryAction = find.byType(DSidebarMenuAction);
+      Container actionArtwork() => tester
+          .widgetList<Container>(
+            find.descendant(
+              of: secondaryAction,
+              matching: find.byType(Container),
+            ),
+          )
+          .singleWhere(
+            (container) =>
+                container.constraints?.minWidth == 20 &&
+                container.constraints?.minHeight == 20,
+          );
+      expect(foregroundOf(primaryButton).border, isNull);
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
       expect(primary, 2);
-      await tester.tap(find.byType(DSidebarMenuAction));
+      expect(foregroundOf(primaryButton).border, isNotNull);
+      await tester.tap(secondaryAction);
       await tester.pump();
       expect(focus.hasFocus, false);
+      expect(actionArtwork().foregroundDecoration, isNull);
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
       expect(secondary, 2);
+      expect(
+        (actionArtwork().foregroundDecoration! as BoxDecoration).border,
+        isNotNull,
+      );
     },
   );
   testWidgets('breakpoint dismissal clears obsolete mobile open state', (

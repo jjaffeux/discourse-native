@@ -84,6 +84,41 @@ void main() {
   );
 
   testWidgets(
+    'pointer activation keeps focus without painting the keyboard outline',
+    (tester) async {
+      final strategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+      final node = FocusNode();
+      addTearDown(node.dispose);
+      late DCollapsibleTriggerState triggerState;
+      await tester.pumpWidget(
+        host(
+          DCollapsible(
+            child: DCollapsibleTrigger(
+              focusNode: node,
+              builder: (context, state) {
+                triggerState = state;
+                return const Text('Section');
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Section'));
+      await tester.pump();
+      expect(node.hasPrimaryFocus, isTrue);
+      expect(triggerState.focused, isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(triggerState.focused, isTrue);
+    },
+  );
+
+  testWidgets(
     'controlled state only changes when owner accepts request and disabled blocks activation',
     (tester) async {
       final changes = <bool>[];

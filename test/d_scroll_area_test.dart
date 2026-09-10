@@ -438,4 +438,78 @@ void main() {
       expect(await pixel(6, 50), [32, 64, 96, 255]);
     },
   );
+
+  testWidgets('focused descendants do not outline the scroll viewport', (
+    tester,
+  ) async {
+    const background = Color(0xff204060);
+    final strategy = FocusManager.instance.highlightStrategy;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+    final boundaryKey = GlobalKey();
+    final childFocus = FocusNode();
+    addTearDown(childFocus.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.red,
+          ).copyWith(primary: const Color(0xffff0000)),
+        ),
+        home: Center(
+          child: RepaintBoundary(
+            key: boundaryKey,
+            child: ColoredBox(
+              color: background,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: SizedBox(
+                  width: 100,
+                  height: 100,
+                  child: DScrollArea(
+                    borderRadius: BorderRadius.zero,
+                    child: SizedBox(
+                      height: 500,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: DSidebarMenuButton(
+                          focusNode: childFocus,
+                          onPressed: _noop,
+                          child: const Text('Section'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<List<int>> pixel(
+      int x,
+      int y,
+    ) async => (await tester.runAsync(() async {
+      final image =
+          await (boundaryKey.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary)
+              .toImage();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final offset = (y * image.width + x) * 4;
+      final result = bytes!.buffer.asUint8List().sublist(offset, offset + 4);
+      image.dispose();
+      return result;
+    }))!;
+
+    await tester.tap(find.text('Section'));
+    await tester.pumpAndSettle();
+    expect(childFocus.hasPrimaryFocus, isTrue);
+    expect(await pixel(8, 50), [32, 64, 96, 255]);
+  });
 }
+
+void _noop() {}

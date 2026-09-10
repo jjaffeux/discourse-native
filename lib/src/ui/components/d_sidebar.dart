@@ -591,11 +591,49 @@ class DSidebarMenuButton extends StatefulWidget {
 
 class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
   bool hover = false, focus = false, pressed = false;
+  // Retain pointer-acquired focus without painting keyboard-only artwork.
+  bool _pointerFocused = false;
   final _ownedFocus = FocusNode();
   FocusNode get _focusNode => widget.focusNode ?? _ownedFocus;
   void _activate() {
     _focusNode.requestFocus();
     widget.onPressed?.call();
+  }
+
+  void _handleFocusHighlight(bool visible) {
+    final focused = visible && !_pointerFocused;
+    if (focused != focus) setState(() => focus = focused);
+  }
+
+  void _handleFocusChange(bool focused) {
+    if (!focused) _pointerFocused = false;
+  }
+
+  void _handlePointerDown() {
+    setState(() {
+      _pointerFocused = true;
+      focus = false;
+      pressed = true;
+    });
+  }
+
+  void _handlePointerCancel() {
+    setState(() {
+      _pointerFocused = false;
+      focus =
+          _focusNode.hasFocus &&
+          FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+      pressed = false;
+    });
+  }
+
+  void _showKeyboardFocus() {
+    if (_pointerFocused || !focus) {
+      setState(() {
+        _pointerFocused = false;
+        focus = true;
+      });
+    }
   }
 
   @override
@@ -631,7 +669,8 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
         enabled: enabled,
         focusNode: _focusNode,
         autofocus: widget.autofocus,
-        onShowFocusHighlight: (v) => setState(() => focus = v),
+        onFocusChange: _handleFocusChange,
+        onShowFocusHighlight: _handleFocusHighlight,
         onShowHoverHighlight: (v) => setState(() => hover = v),
         mouseCursor: enabled
             ? SystemMouseCursors.click
@@ -639,6 +678,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(
             onInvoke: (_) {
+              _showKeyboardFocus();
               widget.onPressed?.call();
               return null;
             },
@@ -647,8 +687,8 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onPressed == null ? null : _activate,
-          onTapDown: enabled ? (_) => setState(() => pressed = true) : null,
-          onTapCancel: () => setState(() => pressed = false),
+          onTapDown: enabled ? (_) => _handlePointerDown() : null,
+          onTapCancel: _handlePointerCancel,
           onTapUp: (_) => setState(() => pressed = false),
           child: _SidebarTouchTarget(
             child: Opacity(
@@ -776,10 +816,39 @@ class DSidebarMenuAction extends StatefulWidget {
 
 class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
   bool focus = false, hover = false;
+  // Retain pointer-acquired focus without painting keyboard-only artwork.
+  bool _pointerFocused = false;
   final _focusNode = FocusNode();
   void _activate() {
     _focusNode.requestFocus();
     widget.onPressed?.call();
+  }
+
+  void _handleFocusHighlight(bool visible) {
+    final focused = visible && !_pointerFocused;
+    if (focused != focus) setState(() => focus = focused);
+  }
+
+  void _handleFocusChange(bool focused) {
+    if (!focused) _pointerFocused = false;
+  }
+
+  void _handlePointerCancel() {
+    setState(() {
+      _pointerFocused = false;
+      focus =
+          _focusNode.hasFocus &&
+          FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+    });
+  }
+
+  void _showKeyboardFocus() {
+    if (_pointerFocused || !focus) {
+      setState(() {
+        _pointerFocused = false;
+        focus = true;
+      });
+    }
   }
 
   @override
@@ -801,11 +870,13 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
     return FocusableActionDetector(
       focusNode: _focusNode,
       enabled: widget.onPressed != null,
-      onShowFocusHighlight: (v) => setState(() => focus = v),
+      onFocusChange: _handleFocusChange,
+      onShowFocusHighlight: _handleFocusHighlight,
       onShowHoverHighlight: (v) => setState(() => hover = v),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {
+            _showKeyboardFocus();
             widget.onPressed?.call();
             return null;
           },
@@ -818,6 +889,13 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onPressed == null ? null : _activate,
+          onTapDown: widget.onPressed == null
+              ? null
+              : (_) => setState(() {
+                  _pointerFocused = true;
+                  focus = false;
+                }),
+          onTapCancel: _handlePointerCancel,
           child: _SidebarTouchTarget(
             child: Opacity(
               opacity: reveal ? (widget.onPressed != null ? 1 : .5) : 0,

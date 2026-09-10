@@ -155,6 +155,45 @@ class _TriggerState extends State<DCollapsibleTrigger> {
   bool _hovered = false;
   bool _pressed = false;
   bool _focused = false;
+  // Flutter desktop treats pointer-acquired focus as traditional focus. Keep
+  // that focus for keyboard activation, but match focus-visible artwork.
+  bool _pointerFocused = false;
+
+  void _handleFocusHighlight(bool visible) {
+    final focused = visible && !_pointerFocused;
+    if (focused != _focused) setState(() => _focused = focused);
+  }
+
+  void _handleFocusChange(bool focused) {
+    if (!focused) _pointerFocused = false;
+  }
+
+  void _handlePointerDown() {
+    setState(() {
+      _pointerFocused = true;
+      _focused = false;
+      _pressed = true;
+    });
+  }
+
+  void _handlePointerCancel() {
+    setState(() {
+      _pointerFocused = false;
+      _focused =
+          _focus.hasFocus &&
+          FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+      _pressed = false;
+    });
+  }
+
+  void _showKeyboardFocus() {
+    if (_pointerFocused || !_focused) {
+      setState(() {
+        _pointerFocused = false;
+        _focused = true;
+      });
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -221,7 +260,8 @@ class _TriggerState extends State<DCollapsibleTrigger> {
         mouseCursor: enabled
             ? SystemMouseCursors.click
             : SystemMouseCursors.basic,
-        onShowFocusHighlight: (value) => setState(() => _focused = value),
+        onFocusChange: _handleFocusChange,
+        onShowFocusHighlight: _handleFocusHighlight,
         onShowHoverHighlight: (value) => setState(() => _hovered = value),
         shortcuts: const {
           SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
@@ -230,6 +270,7 @@ class _TriggerState extends State<DCollapsibleTrigger> {
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(
             onInvoke: (_) {
+              _showKeyboardFocus();
               activate();
               return null;
             },
@@ -239,9 +280,9 @@ class _TriggerState extends State<DCollapsibleTrigger> {
           behavior: HitTestBehavior.opaque,
           excludeFromSemantics: true,
           onTap: enabled ? activate : null,
-          onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+          onTapDown: enabled ? (_) => _handlePointerDown() : null,
           onTapUp: (_) => setState(() => _pressed = false),
-          onTapCancel: () => setState(() => _pressed = false),
+          onTapCancel: _handlePointerCancel,
           child: CustomPaint(
             foregroundPainter: _FocusOutline(
               color: DTokens.of(context).focusRing,

@@ -167,10 +167,24 @@ class _DScrollAreaState extends State<DScrollArea> {
   final _focus = FocusNode(skipTraversal: true);
   final _owned = ScrollController();
   final _ownedHorizontal = ScrollController();
+  bool _focusHighlightRequested = false;
   bool _focusVisible = false;
   bool _hasCorner = false;
   bool _hasOverflow = false;
   bool _metricsScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_updateFocusVisibility);
+  }
+
+  void _updateFocusVisibility() {
+    // FocusableActionDetector reports focus within its subtree. The viewport
+    // ring belongs only to the viewport's own keyboard focus.
+    final visible = _focusHighlightRequested && _focus.hasPrimaryFocus;
+    if (visible != _focusVisible) setState(() => _focusVisible = visible);
+  }
 
   void _updateOverflow() {
     if (_metricsScheduled) return;
@@ -205,6 +219,7 @@ class _DScrollAreaState extends State<DScrollArea> {
 
   @override
   void dispose() {
+    _focus.removeListener(_updateFocusVisibility);
     _focus.dispose();
     _owned.dispose();
     _ownedHorizontal.dispose();
@@ -346,7 +361,10 @@ class _DScrollAreaState extends State<DScrollArea> {
       },
       child: FocusableActionDetector(
         focusNode: _focus,
-        onShowFocusHighlight: (value) => setState(() => _focusVisible = value),
+        onShowFocusHighlight: (value) {
+          _focusHighlightRequested = value;
+          _updateFocusVisibility();
+        },
         child: CustomPaint(
           foregroundPainter: _focusVisible
               ? _ScrollFocusRing(
