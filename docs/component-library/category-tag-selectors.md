@@ -81,3 +81,7 @@ Escape dismissal, and a light 320px layout as well as the dark wide layout.
 The styleguide's subcategory choice updated independently of its parent. The
 app was quit and the desktop lease released after review. Enlarged text and
 touch-platform behavior were widget tests, not device sessions.
+
+The follow-up implementation is `59e4b4e6`, merged from the main checkout with
+`--no-ff` as `a5d1bbb11b5af9b8bf08a530a7d5a6b106bc1644`. The merge tree exactly
+matches the tested source.
