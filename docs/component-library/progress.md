@@ -2503,6 +2503,7 @@ Status: merged. Task: 01a085b3-05fc-79f1-bde2-dc6936b2bcd4. Branch: codex/ui-dro
 - Parity follow-up 4839aae96e1861a109f92c77741d026154aee85b: live reference and supplied dark Composition capture were compared against the actual styleguide; 175 affected tests passed with seed 20260910 plus the explicit submenu width/shadow regression; root and profiles/full analysis, formatting and git diff checks passed; the source-exact isolated macOS styleguide passed dark root/submenu inspection and was closed before releasing the desktop lease.
 - Latest-main parity candidate 5c88fce9f39e2a5262490e536d8e031556598c7c passed all 74 Dropdown Menu, Popover, Context Menu and Menubar tests with seed 20260910 plus clean root/full analysis. It was merged from the main checkout as 819605380e5d26d5e5a867fabf97b92c0882ee73.
 - Scroll-parity source 1ac5ad8d69fbee4128f486ad5296c38447c99bfa passed 78 randomized Dropdown Menu, Popover, Context Menu, Menubar and styleguide checks with seed 20260910. Coverage proves fitting menus ignore wheel input with no scroll owner, constrained overflow remains wheel/draggable/keyboard accessible, focus survives the adaptive transition and host pages do not move; root/full analysis and git diff checks passed.
+- Latest-main scroll candidate 28878f5329cfb228e06931e7ba623ec7f3c34248 preserved accepted Combobox and Button Group changes, passed all 98 menu/shared-owner/styleguide/Button Group tests with seed 20260910 and clean root/full analysis, then merged from the main checkout as 63ae7adc007e16e7db7e730a8f8f8dbc77db6d54.
 
 **limitations**
 
