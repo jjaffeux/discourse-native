@@ -48,6 +48,12 @@ void main() {
           findsOneWidget,
         );
         expect(find.byType(DShortcutKeycaps), findsWidgets);
+        expect(
+          tester
+              .widgetList<DShortcutKeycaps>(find.byType(DShortcutKeycaps))
+              .where((hint) => hint.shortcut.length == 2),
+          hasLength(2),
+        );
         expect(find.widgetWithText(DKbd, '?'), findsOneWidget);
         expect(tester.takeException(), isNull);
         final firstRow = find.text('Next topic in the list');

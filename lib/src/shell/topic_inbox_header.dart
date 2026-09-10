@@ -582,8 +582,6 @@ class _TopicHeaderActions extends StatelessWidget {
           key: const ValueKey('topic-header-common-actions'),
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (header.keepTopicListOpen && width >= 640)
-              const _TopicInboxNavigation(),
             if (topic != null && siteUrl != null) ...[
               TopicStatusButton(
                 siteUrl: siteUrl,
@@ -797,78 +795,6 @@ class _TopicActivitySummary extends StatelessWidget {
               final age => 'Last activity $age ago',
             }, style: style),
           ],
-        ],
-      );
-    },
-  );
-}
-
-class _TopicInboxNavigation extends StatelessWidget {
-  const _TopicInboxNavigation();
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) => ShellSelector<({int? previous, int? next, bool more, bool busy})>(
-    select: (shell) {
-      final ids = shell.currentFeed?.topicIds ?? const <int>[];
-      final index = ids.indexOf(shell.currentContent?.topicId ?? -1);
-      return (
-        previous: index > 0 ? ids[index - 1] : null,
-        next: index >= 0 && index + 1 < ids.length ? ids[index + 1] : null,
-        more:
-            index >= 0 &&
-            index == ids.length - 1 &&
-            shell.currentFeed?.hasMore == true,
-        busy: shell.currentFeed?.loadingMore == true,
-      );
-    },
-    builder: (context, state, _) {
-      final shell = ShellScope.read(context);
-      Future<void> open(int? id, {bool loadNext = false}) async {
-        final siteUrl = shell.currentInstance?.url;
-        final source = shell.currentFeedId;
-        final current = shell.currentContent?.topicId;
-        if (siteUrl == null) return;
-        if (loadNext && source != null) {
-          await shell.loadMoreFeed(source);
-          if (shell.currentInstance?.url != siteUrl ||
-              shell.currentFeedId != source ||
-              shell.currentContent?.topicId != current) {
-            return;
-          }
-          final ids = shell.currentFeed?.topicIds ?? const <int>[];
-          final index = ids.indexOf(current ?? -1);
-          id = index >= 0 && index + 1 < ids.length ? ids[index + 1] : null;
-        }
-        final topic = id == null ? null : shell.store.read<Topic>(siteUrl, id);
-        if (topic != null) shell.openTopicFromList(topic);
-      }
-
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DButton.iconOnly(
-            key: const ValueKey('inbox-previous-topic'),
-            tooltip: 'Previous topic',
-            icon: const DIcon(DIcons.chevronLeft, size: 13),
-            onPressed: state.previous == null
-                ? null
-                : () => unawaited(open(state.previous)),
-            variant: DButtonVariant.flat,
-            size: DButtonSize.small,
-          ),
-          DButton.iconOnly(
-            key: const ValueKey('inbox-next-topic'),
-            tooltip: 'Next topic',
-            icon: const DIcon(DIcons.chevronRight, size: 13),
-            onPressed: state.busy || (state.next == null && !state.more)
-                ? null
-                : () =>
-                      unawaited(open(state.next, loadNext: state.next == null)),
-            variant: DButtonVariant.flat,
-            size: DButtonSize.small,
-          ),
         ],
       );
     },

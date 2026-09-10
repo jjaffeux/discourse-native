@@ -6,6 +6,7 @@ through posts when a topic is open and through the list when no topic is open.
 
 | Shortcut | Behavior |
 | --- | --- |
+| `G` then `J` / `G` then `K` | Open the next / previous topic from the source list, including while reading in a narrow layout. |
 | `Shift+J` / `Shift+K` | Highlight the next / previous topic in the visible list. Leave the open reader unchanged. |
 | `O` / `Enter` | Open the highlighted topic at its unread position. Both keys run the same command with the same focus rules. |
 | `J` / `K` | Select and reveal the next / previous post in the open topic. When no topic is open, highlight the next / previous topic in the visible list. |
@@ -42,8 +43,16 @@ and opens the normal composer with the existing permission checks. Mouse or
 touch scrolling clears the post selection so an offscreen post does not
 remain an invisible reply target. `Shift+R` remains available for a topic reply.
 
-In narrow layouts, the list is hidden while reading. Its shortcuts are idle
-until `U` returns to the list; `J/K` continue to address posts. Editors, form
+The adjacent-topic arrows sit in a fixed bar below the source list. They and
+`G` then `J/K` open topics at the unread position without adding reader history
+entries. Next loads another page when needed. Sequences expire after one second
+and reset on an unrelated key, focus change, pointer press, or route change.
+Pending keyboard navigation is cancelled if its tab, topic, account, or focus
+changes.
+
+In narrow layouts, the list is hidden while reading. Its selection shortcuts
+are idle until `U` returns to the list; `G` then `J/K` still opens adjacent topics
+and `J/K` continue to address posts. Editors, form
 controls, menus, and dialogs keep their local keys. Focused buttons keep
 normal activation instead of opening an unrelated highlighted topic.
 
@@ -78,8 +87,11 @@ always address the visible topic list; core uses that shifted pair for
 sections. This resolves the ambiguity of showing both panes at once. Native
 retains the familiar open, back, reply, and help keys.
 
-Further web bindings can be added separately: `g …` destination and adjacent
-topic sequences, quote/like/bookmark/edit, jump-to-post/unread, incoming-topic
+Confirmed core’s `g j` / `g k` adjacent-topic bindings in the local core checkout
+on 2026-09-10 and implemented them in Native.
+
+Further web bindings can be added separately: other `g …` destination sequences,
+quote/like/bookmark/edit, jump-to-post/unread, incoming-topic
 refresh, and moderation. These are not advertised by the native reference.
 Native keeps its existing `Cmd/Ctrl+F` search and modified-arrow tab switching.
 

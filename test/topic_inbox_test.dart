@@ -188,8 +188,6 @@ void main() {
       final controls = [
         for (final finder in [
           find.byKey(const ValueKey('topic-close-reader')),
-          find.byKey(const ValueKey('inbox-previous-topic')),
-          find.byKey(const ValueKey('inbox-next-topic')),
           find.byKey(const ValueKey('topic-status-button')),
           find.byType(TopicShareButton),
         ])
@@ -913,11 +911,11 @@ void main() {
 
       for (final compact in [false, true]) {
         var wideTagCount = 0;
-        for (final (width, navigation, share) in [
-          (1200.0, true, true),
-          (780.0, true, true),
-          (600.0, false, true),
-          (390.0, false, false),
+        for (final (width, share) in [
+          (1200.0, true),
+          (780.0, true),
+          (600.0, true),
+          (390.0, false),
         ]) {
           await tester.pumpWidget(
             ShellScope(
@@ -1011,12 +1009,9 @@ void main() {
           }
           expect(
             find.byKey(const ValueKey('inbox-previous-topic')),
-            navigation ? findsOneWidget : findsNothing,
+            findsNothing,
           );
-          expect(
-            find.byKey(const ValueKey('inbox-next-topic')),
-            navigation ? findsOneWidget : findsNothing,
-          );
+          expect(find.byKey(const ValueKey('inbox-next-topic')), findsNothing);
           expect(
             find.byType(TopicShareButton),
             share ? findsOneWidget : findsNothing,
@@ -1949,6 +1944,27 @@ void main() {
       final list = find.byType(TopicListView);
       final listState = tester.state(list);
       final readerState = tester.state(find.byType(TopicView));
+      final footer = find.byKey(const ValueKey('topic-list-bottom-bar'));
+      final footerRect = tester.getRect(footer);
+      expect(footerRect.top, closeTo(tester.getRect(list).bottom, 1));
+      for (final action in ['inbox-previous-topic', 'inbox-next-topic']) {
+        expect(
+          find.descendant(of: footer, matching: find.byKey(ValueKey(action))),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-content-header')),
+            matching: find.byKey(ValueKey(action)),
+          ),
+          findsNothing,
+        );
+      }
+      await tester.drag(list, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(footer), footerRect);
+      await tester.drag(list, const Offset(0, 300));
+      await tester.pumpAndSettle();
       expect(tester.getSize(list).width, 325);
       final row = find.byKey(const ValueKey('inbox-row-1'));
       expect(tester.getRect(row).left, greaterThan(tester.getRect(list).left));
