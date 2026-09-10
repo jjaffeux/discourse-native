@@ -1,5 +1,8 @@
+import 'dart:ui' as ui show ImageByteFormat;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -154,6 +157,55 @@ void main() {
       },
     );
   }
+
+  testWidgets('expanded submenu guide stays visible on a matching border', (
+    tester,
+  ) async {
+    const background = Color(0xff313131);
+    final key = GlobalKey();
+    final theme = ThemeData.dark();
+    final tokens = DTokens.fromTheme(
+      theme,
+    ).copyWith(background: background, surface: background, border: background);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme.copyWith(extensions: [tokens]),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: RepaintBoundary(
+              key: key,
+              child: const ColoredBox(
+                color: background,
+                child: SizedBox(
+                  width: 200,
+                  child: DSidebarMenuSub(children: [SizedBox(height: 28)]),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final bytes = await tester.runAsync(() async {
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await boundary.toImage();
+      try {
+        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        return data!.buffer.asUint8List();
+      } finally {
+        image.dispose();
+      }
+    });
+    List<int> pixel(int x, int y) =>
+        bytes!.sublist((y * 200 + x) * 4, (y * 200 + x) * 4 + 4);
+
+    expect(pixel(14, 10), [49, 49, 49, 255]);
+    expect(pixel(15, 10), isNot([49, 49, 49, 255]));
+    expect(pixel(16, 10), [49, 49, 49, 255]);
+  });
 
   testWidgets('collapsed icon buttons retain the child accessibility name', (
     tester,
