@@ -187,6 +187,7 @@ void main() {
           });
 
       for (final component in componentCatalogue) {
+        final group = componentExamples[component.id]!;
         final componentButton = find.byKey(
           ValueKey('styleguide-component-${component.id}'),
         );
@@ -201,9 +202,22 @@ void main() {
         );
         expect(
           keysStartingWith('styleguide-example-panel'),
-          findsNWidgets(componentExamples[component.id]!.examples.length),
+          findsNWidgets(group.examples.length),
           reason: '${component.id} must render every registered example',
         );
+        expect(
+          find.text(group.description),
+          findsNothing,
+          reason: component.id,
+        );
+        expect(find.text(group.notes), findsNothing, reason: component.id);
+        for (final example in group.examples) {
+          expect(
+            find.text(example.description),
+            findsNothing,
+            reason: '${component.id}/${example.title}',
+          );
+        }
         for (var index = 0; index < sections.length; index++) {
           expect(
             find.byKey(ValueKey('styleguide-section-$index')),
@@ -385,6 +399,14 @@ void main() {
       expect(find.text('Accessibility'), findsNothing);
       expect(find.textContaining('DAttachmentGroup'), findsNothing);
       expect(find.text('Keyboard scrolling'), findsNothing);
+      final attachment = componentExamples['attachment']!;
+      expect(find.text(attachment.description), findsNothing);
+      expect(find.text(attachment.notes), findsNothing);
+      expect(find.text(attachment.examples.first.description), findsNothing);
+      expect(
+        find.text(attachment.examples.first.states.join(' · ')),
+        findsNothing,
+      );
 
       final triggerLink = find.widgetWithText(StyleguideAction, 'Trigger');
       await tester.ensureVisible(triggerLink);
