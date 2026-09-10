@@ -20,12 +20,14 @@ Future<void> showKeyboardShortcuts(BuildContext context) async {
             'Shift+J and Shift+K select topics without opening them. '
             'J and K move through posts in the open topic. '
             'When no topic is open, J and K select topics in the list. '
+            'G then J or K opens the next or previous topic. '
             'Navigation shortcuts pause while you type or use a menu.',
           ),
           const SizedBox(height: 16),
           for (final command in ReadingCommand.values)
             _ShortcutRow(
               label: command.label,
+              prefix: command.prefix,
               shortcuts: [
                 for (final shortcut in command.shortcuts)
                   if (shortcut is! SingleActivator ||
@@ -82,10 +84,15 @@ Future<void> showKeyboardShortcuts(BuildContext context) async {
 }
 
 class _ShortcutRow extends StatelessWidget {
-  const _ShortcutRow({required this.label, required this.shortcuts});
+  const _ShortcutRow({
+    required this.label,
+    required this.shortcuts,
+    this.prefix,
+  });
 
   final String label;
   final List<ShortcutActivator> shortcuts;
+  final SingleActivator? prefix;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -103,7 +110,11 @@ class _ShortcutRow extends StatelessWidget {
               for (var i = 0; i < shortcuts.length; i++) ...[
                 if (i > 0) const Text('or'),
                 if (shortcuts[i] case final SingleActivator shortcut)
-                  DShortcutKeycaps(shortcut: DShortcut(shortcut))
+                  DShortcutKeycaps(
+                    shortcut: prefix == null
+                        ? DShortcut(shortcut)
+                        : DShortcut.sequence(prefix!, [shortcut]),
+                  )
                 else if (shortcuts[i] case final CharacterActivator shortcut)
                   DKbd(shortcut.character),
               ],
