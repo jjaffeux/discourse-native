@@ -899,18 +899,21 @@ class DPopoverContent extends StatelessWidget {
         child: content,
       );
       if (width == null) target = IntrinsicWidth(child: target);
+      final duration = DMotion.duration(context, animationDuration);
       surface = decorate(
-        AnimatedSize(
-          alignment: switch (align) {
-            DPopoverAlign.start => AlignmentDirectional.topStart,
-            DPopoverAlign.center => Alignment.topCenter,
-            DPopoverAlign.end => AlignmentDirectional.topEnd,
-          },
-          duration: DMotion.duration(context, animationDuration),
-          curve: sizeAnimationCurve,
-          clipBehavior: Clip.hardEdge,
-          child: target,
-        ),
+        duration == Duration.zero
+            ? target
+            : AnimatedSize(
+                alignment: switch (align) {
+                  DPopoverAlign.start => AlignmentDirectional.topStart,
+                  DPopoverAlign.center => Alignment.topCenter,
+                  DPopoverAlign.end => AlignmentDirectional.topEnd,
+                },
+                duration: duration,
+                curve: sizeAnimationCurve,
+                clipBehavior: Clip.hardEdge,
+                child: target,
+              ),
       );
     }
     return Semantics(

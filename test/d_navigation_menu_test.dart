@@ -186,6 +186,50 @@ void main() {
     },
   );
 
+  testWidgets('stretch content stays bounded while panels overlap', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(_stretchTransitionMenu()));
+
+    await tester.tap(find.text('First'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Second'));
+    await tester.pump(const Duration(milliseconds: 175));
+
+    expect(find.text('First row'), findsOneWidget);
+    expect(find.text('Second row'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+    expect(find.text('First row'), findsNothing);
+    expect(find.text('Second row'), findsOneWidget);
+  });
+
+  testWidgets('reduced-motion RTL swaps stretch panels immediately', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        const MediaQuery(
+          data: MediaQueryData(size: Size(800, 600), disableAnimations: true),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: DNavigationMenu<String>(child: _stretchTransitionList),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('First'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Second'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('First row'), findsNothing);
+    expect(find.text('Second row'), findsOneWidget);
+    expect(tester.getSize(find.byType(DPopoverContent)).width, 400);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('reverse and RTL switches mirror panel travel', (tester) async {
     for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
       await tester.pumpWidget(
@@ -211,6 +255,36 @@ void main() {
       expect(outgoing.sign, -expectedSign);
       await tester.pumpAndSettle();
     }
+  });
+
+  testWidgets('controlled switches retain direction after repeated updates', (
+    tester,
+  ) async {
+    final value = ValueNotifier<String?>('first');
+    addTearDown(value.dispose);
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<String?>(
+          valueListenable: value,
+          builder: (context, selected, child) =>
+              DNavigationMenu<String>.controlled(
+                value: selected,
+                child: _stretchTransitionList,
+              ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    value.value = 'second';
+    await tester.pumpAndSettle();
+    value.value = 'first';
+    await tester.pump();
+
+    expect(_slideOffset(tester, 'first').dx, closeTo(-.5, .001));
+    await tester.pump(const Duration(milliseconds: 175));
+    expect(_slideOffset(tester, 'second').dx, greaterThan(0));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('logical arrows rove triggers in LTR and RTL', (tester) async {
@@ -603,6 +677,38 @@ Widget _transitionMenu() => const DNavigationMenu<String>(
       ),
     ],
   ),
+);
+
+Widget _stretchTransitionMenu() =>
+    const DNavigationMenu<String>(child: _stretchTransitionList);
+
+const _stretchTransitionList = DNavigationMenuList<String>(
+  children: [
+    DNavigationMenuItem<String>(
+      value: 'first',
+      trigger: DNavigationMenuTrigger(child: Text('First')),
+      content: DNavigationMenuContent(
+        width: 240,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [Text('First row')],
+        ),
+      ),
+    ),
+    DNavigationMenuItem<String>(
+      value: 'second',
+      trigger: DNavigationMenuTrigger(child: Text('Second')),
+      content: DNavigationMenuContent(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [Text('Second row')],
+        ),
+      ),
+    ),
+  ],
 );
 
 Widget _menu({

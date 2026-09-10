@@ -430,7 +430,7 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
     }
   }
 
-  Widget _content(DNavigationMenuItem<T> item) {
+  Widget _content(DNavigationMenuItem<T> item, {required double width}) {
     final content = item.content!;
     final direction = _activationDirection(item.value);
     final duration = DMotion.duration(
@@ -479,7 +479,11 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
               ),
             );
           },
-          child: KeyedSubtree(key: ValueKey(item.value), child: content.child),
+          child: SizedBox(
+            key: ValueKey(item.value),
+            width: width,
+            child: content.child,
+          ),
         ),
       ),
     );
@@ -519,7 +523,10 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
               close: () => _select(null, DNavigationMenuChangeReason.linkPress),
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: _content(selected),
+                child: _content(
+                  selected,
+                  width: safeWidth > 8 ? safeWidth - 8 : 0,
+                ),
               ),
             ),
     );
