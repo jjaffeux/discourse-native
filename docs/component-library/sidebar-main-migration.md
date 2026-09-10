@@ -114,5 +114,102 @@ task. The review task completes official rendered-reference comparison, any
 remaining palette/resize/site-switch checks and independent source review.
 No physical iOS/Linux device or spoken VoiceOver verification is claimed.
 
+## Independent acceptance — 2026-09-10
+
+Reviewer: `01a08b90-a915-7e83-a5c4-af5ea7981e23`.
+Review branch: `codex/review-main-sidebar-ui-kit`, based on local main
+`b9ff6ebc5eff4c39cb30fc1bf291031efcfe781f` and preserving implementation
+`eea76c81dc985c945218a7764279f51332e3725c` plus final handoff `802036d0`.
+Accepted source: `d9106662` (production fixes in `e71fb259`).
+
+Source review found and corrected two shared-layout defects. An `IntrinsicWidth`
+row measured its label before reserving the trailing controls, reducing the
+test label from 114px to 49px. A submenu also inherited its parent row's badge
+reservation, so changing the parent count narrowed the nested destination in
+both directions. The regressions failed before correction in
+`/tmp/sidebar-review-layout-before.log`. Intrinsic and dry measurements now
+compensate for the current trailing width without mutating measurement state;
+the item scope surrounds only the primary row. Tests also cover badge growth
+and shrinkage, intrinsic height, predicted versus actual resized layout, and
+keyboard focus following reordered stable keys in both lazy menu types.
+
+The active separate Chat panel now exposes **Chat navigation** as its native
+region label; Forum retains **Forum navigation**. This has an integration
+semantics assertion and was confirmed in native AX. The offline fixture gained
+Forest/Plum controls and empty local message responses for all 100 channels.
+The latter fixes a fixture-only unreachable-site gate when navigating to a
+channel with no configured fake message response.
+
+### Verification
+
+- All **401** focused checks pass with seed `9102026` in
+  `/tmp/sidebar-review-focused-final.log`: the implementation's 17-file matrix
+  above plus `test/d_sidebar_layout_review_test.dart`. This includes affected
+  Sidebar, Collapsible, styleguide, Forum/Chat, resizing, routing, persistence,
+  permissions, Events, Voice and editor compositions.
+- Root and `profiles/full` `dart analyze --fatal-infos` pass in
+  `/tmp/sidebar-review-root-analysis-final.log` and
+  `/tmp/sidebar-review-full-analysis-final.log`. The subsequent fixture-only
+  response map also passes targeted fatal-info analysis in
+  `/tmp/sidebar-review-fixture-analysis.log`.
+- Formatting and `git diff --check` pass. Root/full dependency resolution used
+  `--enforce-lockfile`; dependency files and Flutter 3.47.2 are unchanged.
+- Every other progress row and top-level progress record matches the main
+  baseline. All required owners are already accepted and merged in main.
+
+### Rendered reference and native inspection
+
+The official [Sidebar demo](https://ui.shadcn.com/view/base-nova/sidebar-demo)
+was inspected in Chrome at 1024×800 and 390×800, at 100% scale. Desktop light
+and dark, expanded submenus, desktop project actions and the mobile action
+dropdown were rendered. The registry hash still matches the original Sidebar
+snapshot; the current sidebar-07 registry hash is
+`2c1bfd041147775f01ef5c9ac26f74b1475a9a450af6779d3a62141ba9e50d06`.
+Measured reference geometry includes the 256px panel, 8px group padding, 32px
+group label, 14px/20px menu typography, 20px actions and submenu 2px/10px
+padding with 4px gaps. The native styleguide's 256px Application sidebar was
+compared at 100% in light and dark, including the independently opening project
+menu, centered action, submenu guide, fixed account footer and Share feedback.
+The existing app font, palette and radius mapping are retained; this is a
+logical-geometry and visual comparison, not pixel equality across renderers.
+
+The reviewer ran the real `AdaptiveShell`, registered Lazy navigation builder
+and actual `ComponentStyleguidePage` on macOS 26.6.2, Flutter 3.47.2, using the
+project's existing Skia renderer and native font family. Captures and AX trees
+are inline in this review task. The following checks were completed:
+
+- Production light at the default 208px; dragging to the explicit 200px minimum
+  confirmed **Resize sidebar, 200 pixels wide** in AX. Forest at 200% retained
+  separate status/count tokens, disabled styling and the fixed Chat footer.
+  Long labels remain ellipsized at that minimum while their full navigation
+  names are available to accessibility.
+- A collapsed Voice section survived switching to Second community and back.
+  Unmounting the shell through Lazy example and returning to Production
+  restored both the collapsed section and the saved 200px width. These checks
+  used `e71fb259`; only the later fixture message map changed before the final
+  bundle, with the relevant production/component source identical.
+- Final-bundle 390px Chat at 200% in Plum and Forest: successful local channel
+  navigation, the mobile Back path to Chat navigation, visible actions opening
+  below independently of the row, live palette updates while the menu remained
+  open, Escape closing with a visible action focus ring, and Return reopening.
+  Plum RTL preserved icon, label, unread indicator and action ordering.
+- Final-bundle Plum RTL lazy example at 200%: count 1234 → 2234, section hiding
+  and Return reopening, scrolling to channel 399 with the Community header and
+  400-channel footer fixed. Native AX exposed only nearby final rows.
+- Final-bundle desktop Sidebar styleguide page: existing eager compositions,
+  project action feedback and the new Lazy navigation section.
+
+The exact-source isolated bundle, hashes, signing and launch details are in
+[the review build record](evidence/sidebar/main-migration-review-build.json).
+The first fixture-only Chat failure is resolved; it was not a production
+regression. All account/store data was local and fake. Physical iOS/Linux and
+spoken VoiceOver were not tested. The owned app was quit and its absence was
+verified, the owned reference tab was closed, temporary browser viewport and
+reference theme changes were restored, and the desktop lease was released.
+
+The accepted local main merge is recorded under the existing Sidebar row's
+`mainSidebarMigration` object in `progress.json`; original Sidebar history is
+preserved.
+
 Cleanup: the isolated app was quit through its menu and its absence verified
 with CUA. Desktop lease released; the user application was left running.
