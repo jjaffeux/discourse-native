@@ -40,6 +40,9 @@ const _post = Post(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setPrefix('quiet_dock_review.');
+  final draftGate = const bool.fromEnvironment('QUIET_DOCK_BLOCK_DRAFTS')
+      ? Completer<void>()
+      : null;
   final user = DiscourseUser(
     id: 7,
     username: 'reviewer',
@@ -60,6 +63,7 @@ Future<void> main() async {
     ]),
     api: FakeDiscourseApi(
       user: user,
+      draftGate: draftGate,
       siteConfigs: {
         _site: SiteConfig(
           plugins: PluginData.none.withValue(
@@ -91,12 +95,13 @@ Future<void> main() async {
   await shell.load();
   await shell.openNewTopicFromSidebar();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-  runApp(_Review(shell: shell));
+  runApp(_Review(shell: shell, draftGate: draftGate));
 }
 
 class _Review extends StatefulWidget {
-  const _Review({required this.shell});
+  const _Review({required this.shell, this.draftGate});
   final ShellController shell;
+  final Completer<void>? draftGate;
 
   @override
   State<_Review> createState() => _ReviewState();
@@ -169,6 +174,13 @@ class _ReviewState extends State<_Review> {
                           : ThemeMode.light,
                     ),
                   ),
+                  if (widget.draftGate case final gate?)
+                    DButton(
+                      label: const Text('Finish server save'),
+                      onPressed: gate.isCompleted
+                          ? null
+                          : () => setState(gate.complete),
+                    ),
                 ],
               ),
             ),

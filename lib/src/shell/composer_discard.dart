@@ -20,27 +20,28 @@ Future<void> closeComposerFromPanel({
     return;
   }
   if (composer.canSaveDraft) {
-    if (!await shell.prepareComposerForClose(composer)) {
-      if (context.mounted) {
-        DToast.show(
-          context,
-          'This draft could not be saved yet. Please try again.',
-          type: DToastType.error,
-        );
+    if (!shell.hideComposerForClose(composer)) return;
+    try {
+      // Paint the closed dock before restoration, encoding or network work.
+      // The presentation host retains this editor until persistence is safe.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!await shell.prepareComposerForClose(composer)) {
+        if (context.mounted) {
+          DToast.show(
+            context,
+            'This draft could not be saved yet. Please try again.',
+            type: DToastType.error,
+          );
+        }
+        return;
       }
-      return;
-    }
-    if (composer.hasUnappliedDraft && !composer.hasChanges) {
-      shell.closeComposer(composer: composer);
-      return;
-    }
-    if (composer.hasChanges) {
-      shell.closeComposer(composer: composer);
-      return;
-    }
-    final error = await shell.discardComposer(composer);
-    if (!composer.isDisposed) {
-      if (error != null) composer.showNotice(error);
+      if (composer.hasUnappliedDraft || composer.hasChanges) {
+        shell.closeComposer(composer: composer);
+        return;
+      }
+      final error = await shell.discardComposer(composer);
+      if (!composer.isDisposed && error != null) composer.showNotice(error);
+    } finally {
       shell.restoreComposerAfterFailedClose(composer);
     }
     return;

@@ -1394,8 +1394,147 @@ void _registerComposerAndDraftTests() {
       ]);
     });
 
+    for (final empty in [false, true]) {
+      testWidgets(
+        'save and close hides the dock while ${empty ? 'deletion' : 'saving'} is pending',
+        (tester) async {
+          final gate = Completer<void>();
+          addTearDown(() {
+            if (!gate.isCompleted) gate.complete();
+          });
+          final drafts = FakeDraftStore();
+          final api = FakeDiscourseApi(
+            feeds: {'/latest.json': listed},
+            topics: {7: detail()},
+            draftGate: empty ? null : gate,
+            draftDeleteGate: empty ? gate : null,
+          );
+          await openComposer(tester, api, drafts: drafts);
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final composer = shell.visibleComposer!;
+          if (!empty) {
+            await tester.enterText(
+              find.byType(TextField),
+              'Keep my reply safe',
+            );
+          }
+
+          await tester.tap(find.byTooltip('Save and close'));
+          await tester.pump();
+
+          expect(find.byType(ComposerPanel), findsNothing);
+          expect(composer.closing, isTrue);
+          expect(composer.isDisposed, isFalse);
+          expect(
+            find.byType(ComposerPanel, skipOffstage: false),
+            findsOneWidget,
+          );
+          if (!empty) {
+            expect(
+              ComposerDraft.decode(
+                drafts.saved['https://meta.discourse.org::topic_7'],
+              )?.reply,
+              'Keep my reply safe',
+            );
+          }
+          await tester.pump(const Duration(seconds: 1));
+          expect(find.byType(ComposerPanel), findsNothing);
+          expect(composer.isDisposed, isFalse);
+
+          gate.complete();
+          await tester.pumpAndSettle();
+          expect(composer.isDisposed, isTrue);
+          expect(find.byType(ComposerPanel, skipOffstage: false), findsNothing);
+          expect(api.created, isEmpty);
+        },
+      );
+    }
+
     testWidgets(
-      'save and close keeps the editor until restoration is safely saved',
+      'reopening during a pending close keeps the replacement editor',
+      (tester) async {
+        final gate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+          draftGate: gate,
+        );
+        await openComposer(tester, api);
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final closing = shell.visibleComposer!;
+        await tester.enterText(find.byType(TextField), 'The earlier reply');
+        await tester.tap(find.byTooltip('Save and close'));
+        await tester.pump();
+
+        await tester.tap(find.byTooltip('Reply to this topic'));
+        await tester.pumpAndSettle();
+        final replacement = shell.visibleComposer!;
+        expect(replacement, isNot(same(closing)));
+        await tester.enterText(find.byType(TextField), 'The replacement reply');
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(closing.isDisposed, isTrue);
+        expect(shell.visibleComposer, same(replacement));
+        expect(replacement.text.text, 'The replacement reply');
+        expect(replacement.isEditing, isTrue);
+        expect(find.byType(ComposerPanel), findsOneWidget);
+      },
+    );
+
+    testWidgets('a failed close restores the same editor and can retry', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final drafts = _FailingDraftStore(failures: 1);
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+        draftGate: gate,
+        draftFailure: const WriteException(WriteFailure.unreachable),
+      );
+      await openComposer(tester, api, drafts: drafts);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final composer = shell.visibleComposer!;
+      await tester.enterText(find.byType(TextField), 'Keep the exact editor');
+      final editor = tester.state(find.byType(ComposerEditor));
+
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pump();
+      expect(find.byType(ComposerPanel), findsNothing);
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(shell.visibleComposer, same(composer));
+      expect(composer.closing, isFalse);
+      expect(tester.state(find.byType(ComposerEditor)), same(editor));
+      expect(composer.text.text, 'Keep the exact editor');
+      expect(
+        find.text('This draft could not be saved yet. Please try again.'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+      expect(composer.isDisposed, isTrue);
+      expect(
+        ComposerDraft.decode(
+          drafts.saved['https://meta.discourse.org::topic_7'],
+        )?.reply,
+        'Keep the exact editor',
+      );
+    });
+
+    testWidgets(
+      'save and close retains the hidden editor until restoration is safely saved',
       (tester) async {
         final drafts = _GatedDraftReadStore();
         addTearDown(() {
@@ -1418,7 +1557,8 @@ void _registerComposerAndDraftTests() {
         await tester.tap(find.byTooltip('Save and close'));
         await tester.pump();
 
-        expect(find.byType(ComposerPanel), findsOneWidget);
+        expect(find.byType(ComposerPanel), findsNothing);
+        expect(find.byType(ComposerPanel, skipOffstage: false), findsOneWidget);
         expect(api.userDraftsDeleted, isEmpty);
 
         drafts.release.complete();

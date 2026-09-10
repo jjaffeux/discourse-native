@@ -7538,6 +7538,7 @@ class ShellController extends FrameSafeNotifier
     final existing = _composer;
     if (existing?.discarding == true) return;
     if (existing != null &&
+        !existing.closing &&
         !existing.target.isEdit &&
         existing.target.topicId == topicId &&
         existing.target.siteUrl == instance.url &&
