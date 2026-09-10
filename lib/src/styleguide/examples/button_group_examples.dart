@@ -148,22 +148,35 @@ final buttonGroupExamples = ComponentExamples(
     StyleguideExample(
       title: 'Input Group composition',
       description:
-          'The public DInputGroup owns the nested field and voice action surface '
-          'while Button Group owns the outside join.',
-      states: const ['Input Group API', 'Voice state', 'State retention'],
+          'Two nested groups preserve the attachment and composer as complete '
+          'rounded surfaces with an 8px gap. The public DInputGroup owns the '
+          'field and voice action surface.',
+      states: const [
+        'Nested groups',
+        '8px gap',
+        'Input Group API',
+        'Voice state',
+        'State retention',
+      ],
       code: '''
 DButtonGroup(children: [
-  DButton.iconOnly(icon: Icon(Icons.add), tooltip: 'Add attachment', onPressed: add),
+  DButtonGroup(children: [
+    DButton.iconOnly(icon: Icon(Icons.add), tooltip: 'Add attachment', onPressed: add),
+  ]),
   DButtonGroupExpanded(
-    child: DInputGroup(children: [
-      DInputGroupInput(hintText: 'Send a message...'),
-      DInputGroupAddon(
-        alignment: DInputGroupAddonAlignment.inlineEnd,
-        child: DInputGroupButton.icon(
-          icon: Icon(Icons.graphic_eq),
-          tooltip: 'Enable voice mode',
-          onPressed: toggleVoice,
-        ),
+    child: DButtonGroup(mainAxisSize: MainAxisSize.max, children: [
+      DButtonGroupExpanded(
+        child: DInputGroup(children: [
+          DInputGroupInput(hintText: 'Send a message...'),
+          DInputGroupAddon(
+            alignment: DInputGroupAddonAlignment.inlineEnd,
+            child: DInputGroupButton.icon(
+              icon: Icon(Icons.graphic_eq),
+              tooltip: 'Enable voice mode',
+              onPressed: toggleVoice,
+            ),
+          ),
+        ]),
       ),
     ]),
   ),
@@ -630,31 +643,44 @@ class _VoiceFixtureState extends State<_VoiceFixture> {
     child: DButtonGroup(
       mainAxisSize: MainAxisSize.max,
       children: [
-        DButton.iconOnly(
-          variant: DButtonVariant.outline,
-          icon: const Icon(Icons.add),
-          tooltip: 'Add attachment',
-          onPressed: () {},
+        DButtonGroup(
+          children: [
+            DButton.iconOnly(
+              variant: DButtonVariant.outline,
+              icon: const Icon(Icons.add),
+              tooltip: 'Add attachment',
+              onPressed: () {},
+            ),
+          ],
         ),
         DButtonGroupExpanded(
-          child: DInputGroup(
-            semanticLabel: 'Message composer',
+          child: DButtonGroup(
+            mainAxisSize: MainAxisSize.max,
             children: [
-              DInputGroupInput(
-                hintText: _voice
-                    ? 'Record and send audio...'
-                    : 'Send a message...',
-                enabled: !_voice,
-              ),
-              DInputGroupAddon(
-                alignment: DInputGroupAddonAlignment.inlineEnd,
-                child: DInputGroupButton.icon(
-                  variant: _voice
-                      ? DButtonVariant.secondary
-                      : DButtonVariant.ghost,
-                  icon: const Icon(Icons.graphic_eq),
-                  tooltip: _voice ? 'Disable voice mode' : 'Enable voice mode',
-                  onPressed: () => setState(() => _voice = !_voice),
+              DButtonGroupExpanded(
+                child: DInputGroup(
+                  semanticLabel: 'Message composer',
+                  children: [
+                    DInputGroupInput(
+                      hintText: _voice
+                          ? 'Record and send audio...'
+                          : 'Send a message...',
+                      enabled: !_voice,
+                    ),
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      child: DInputGroupButton.icon(
+                        variant: _voice
+                            ? DButtonVariant.secondary
+                            : DButtonVariant.ghost,
+                        icon: const Icon(Icons.graphic_eq),
+                        tooltip: _voice
+                            ? 'Disable voice mode'
+                            : 'Enable voice mode',
+                        onPressed: () => setState(() => _voice = !_voice),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
