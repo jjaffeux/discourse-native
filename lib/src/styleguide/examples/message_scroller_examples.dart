@@ -86,27 +86,53 @@ final messageScrollerExamples = ComponentExamples(
       description:
           'The canonical read-only chat card combines an empty transcript, reset action, queued prompt, composer tools, and send control.',
       code: '''DMessageScrollerProvider(
-  child: DCard(children: [
-    DCardHeader(
-      title: DCardTitle(child: Text('New Chat')),
-      description: DCardDescription(
-        child: Text('How can I help you today?')),
-      action: DCardAction(child: resetButton),
+  child: Column(children: [
+    DCard(
+      spacing: DSpacing.xl,
+      children: [
+        DCardHeader(
+          border: true,
+          title: DCardTitle(child: Text('New Chat')),
+          description: DCardDescription(
+            child: Text('How can I help you today?')),
+          action: DCardAction(child: resetButton),
+        ),
+        DCardContent(
+          edgeToEdge: true,
+          joinNext: true,
+          child: SizedBox(
+            height: 294,
+            child: messages.isEmpty
+              ? DEmpty(
+                  padding: EdgeInsets.all(DSpacing.xl),
+                  children: [
+                    DEmptyHeader(children: [
+                      DEmptyMedia(
+                        variant: DEmptyMediaVariant.icon,
+                        child: Icon(Icons.chat_bubble_outline),
+                      ),
+                      DEmptyTitle('Morning, shadcn!'),
+                      DEmptyDescription(
+                        'What are we working on today? Press send to start a new conversation'),
+                    ]),
+                  ],
+                )
+              : DMessageScroller(children: [
+                  DMessageScrollerViewport.builder(/* messages */),
+                  DMessageScrollerButton(),
+                ]),
+          ),
+        ),
+      ],
+      footer: DCardFooter(
+        border: false,
+        muted: false,
+        child: messageComposer,
+      ),
     ),
-    DCardContent(child: messages.isEmpty
-      ? DEmpty(children: [
-          DEmptyHeader(children: [
-            DEmptyMedia(child: Icon(Icons.chat_bubble_outline)),
-            DEmptyTitle('Morning, shadcn!'),
-            DEmptyDescription(
-              'What are we working on today? Press send to start a new conversation'),
-          ]),
-        ])
-      : DMessageScroller(children: [
-          DMessageScrollerViewport.builder(/* messages */),
-          DMessageScrollerButton(),
-        ])),
-  ], footer: DCardFooter(child: messageComposer)),
+    SizedBox(height: DSpacing.lg),
+    Text('Demo is read only. Press send to send messages.'),
+  ]),
 )''',
       states: const ['Empty', 'Messages', 'Reset', 'Composer', 'Read only'],
       builder: (_) => const _MessageScrollerReferenceDemo(),
@@ -148,14 +174,16 @@ class _MessageScrollerReferenceDemoState
     autoScroll: true,
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 384),
-      child: DCard(
-        spacing: DSpacing.md,
-        footer: DCardFooter(
-          muted: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              DInputGroup(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DCard(
+            spacing: DSpacing.xl,
+            footer: DCardFooter(
+              border: false,
+              muted: false,
+              child: DInputGroup(
                 semanticLabel: 'Read-only message composer',
                 children: [
                   Padding(
@@ -222,81 +250,87 @@ class _MessageScrollerReferenceDemoState
                   ),
                 ],
               ),
-              const SizedBox(height: DSpacing.sm),
-              Text(
-                _selectedTool.isEmpty
-                    ? 'Demo is read only. Press send to send messages.'
-                    : '$_selectedTool selected · Demo is read only.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: DTokens.of(context).mutedForeground,
+            ),
+            children: [
+              DCardHeader(
+                border: true,
+                title: const DCardTitle(child: Text('New Chat')),
+                description: const DCardDescription(
+                  child: Text('How can I help you today?'),
+                ),
+                action: DCardAction(
+                  child: DTooltip(
+                    message: 'Reset',
+                    child: DButton.iconOnly(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: 'Reset conversation',
+                      variant: DButtonVariant.outline,
+                      onPressed: () => setState(() {
+                        _messages.clear();
+                        _selectedTool = '';
+                      }),
+                    ),
+                  ),
+                ),
+              ),
+              DCardContent(
+                edgeToEdge: true,
+                joinNext: true,
+                child: SizedBox(
+                  height: MediaQuery.textScalerOf(context).scale(294),
+                  child: _messages.isEmpty
+                      ? const DEmpty(
+                          padding: EdgeInsets.all(DSpacing.xl),
+                          children: [
+                            DEmptyHeader(
+                              children: [
+                                DEmptyMedia(
+                                  variant: DEmptyMediaVariant.icon,
+                                  child: Icon(Icons.chat_bubble_outline),
+                                ),
+                                DEmptyTitle('Morning, shadcn!'),
+                                DEmptyDescription(
+                                  'What are we working on today? Press send to start a new conversation',
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : DMessageScroller(
+                          children: [
+                            DMessageScrollerViewport.builder(
+                              itemCount: _messages.length,
+                              itemIdBuilder: (index) => 'reference-$index',
+                              scrollAnchorBuilder: (index) => index.isEven,
+                              announcementBuilder: (index) => _messages[index],
+                              contentPadding: const EdgeInsets.all(DSpacing.md),
+                              itemBuilder: (context, index) => _MessageRow(
+                                text: _messages[index],
+                                outgoing: index.isEven,
+                                sender: index.isEven ? 'You' : 'Assistant',
+                                animate: false,
+                                animation: _EntryAnimation.none,
+                              ),
+                            ),
+                            const DMessageScrollerButton(),
+                          ],
+                        ),
                 ),
               ),
             ],
           ),
-        ),
-        children: [
-          DCardHeader(
-            border: true,
-            title: const DCardTitle(child: Text('New Chat')),
-            description: const DCardDescription(
-              child: Text('How can I help you today?'),
-            ),
-            action: DCardAction(
-              child: DTooltip(
-                message: 'Reset',
-                child: DButton.iconOnly(
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Reset conversation',
-                  variant: DButtonVariant.outline,
-                  onPressed: _messages.isEmpty
-                      ? null
-                      : () => setState(_messages.clear),
-                ),
+          const SizedBox(height: DSpacing.lg),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
+              _selectedTool.isEmpty
+                  ? 'Demo is read only. Press send to send messages.'
+                  : '$_selectedTool selected · Demo is read only.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: DTokens.of(context).mutedForeground,
               ),
-            ),
-          ),
-          DCardContent(
-            edgeToEdge: true,
-            child: SizedBox(
-              height: MediaQuery.textScalerOf(context).scale(320),
-              child: _messages.isEmpty
-                  ? const DEmpty(
-                      children: [
-                        DEmptyHeader(
-                          children: [
-                            DEmptyMedia(
-                              variant: DEmptyMediaVariant.icon,
-                              child: Icon(Icons.chat_bubble_outline),
-                            ),
-                            DEmptyTitle('Morning, shadcn!'),
-                            DEmptyDescription(
-                              'What are we working on today? Press send to start a new conversation',
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  : DMessageScroller(
-                      children: [
-                        DMessageScrollerViewport.builder(
-                          itemCount: _messages.length,
-                          itemIdBuilder: (index) => 'reference-$index',
-                          scrollAnchorBuilder: (index) => index.isEven,
-                          announcementBuilder: (index) => _messages[index],
-                          contentPadding: const EdgeInsets.all(DSpacing.md),
-                          itemBuilder: (context, index) => _MessageRow(
-                            text: _messages[index],
-                            outgoing: index.isEven,
-                            sender: index.isEven ? 'You' : 'Assistant',
-                            animate: false,
-                            animation: _EntryAnimation.none,
-                          ),
-                        ),
-                        const DMessageScrollerButton(),
-                      ],
-                    ),
             ),
           ),
         ],
