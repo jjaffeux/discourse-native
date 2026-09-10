@@ -141,3 +141,28 @@ the scrolling reader when enlarged preview content exceeds its window.
 Final verification passed 219 distinct tests across 13 affected files, including
 Combobox, its styleguide and group-page consumers. The fixture test's platform
 setup uses the runner's native platform variant. Root analysis is clean.
+
+
+The final candidate `317dfd0` also preserves the concurrent Combobox
+`TextFieldTapRegion` pointer fix and topic-list scrolling changes. All 105
+integration checks passed, and root analysis reported no issues.
+
+The final native macOS review used the real production header in the isolated
+ad-hoc signed bundle `org.discourse.native.topic-category-selector-ready`, built
+with `flutter build macos --debug --no-pub --target
+tool/topic_taxonomy_review_main.dart`. The permitted debug entitlements were
+read back, deep/strict signature verification passed, and the app launched.
+The inspected kernel SHA-256 is
+`f815d798e0be7ee4563f1b89fd2442d254f77725d95dad4df1e1eddb11aa1268`.
+
+CUA confirmed the compact normal-weight category rows and selected checkmark,
+filtering to `todo` and saving with Return, the light empty subcategory menu and
+mouse removal, and the formerly failing palette change after saving. Plum at
+320px with 200% text and RTL preserved the reachable selector, wrapped the long
+urgent category label, and displayed a compact readable search error. Escape
+closed the popup. The category save count advanced exactly once per selection;
+separate browse links remained exposed in native accessibility output.
+
+The isolated app was quit, process disappearance verified, and the desktop
+lease released. No production account data was used. Native device evidence
+is macOS only; iOS/touch coverage is from widget tests.

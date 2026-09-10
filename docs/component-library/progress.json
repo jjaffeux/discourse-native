@@ -520,7 +520,7 @@
         "mergeVerification": "Merged with --no-ff from the main checkout after reconciling current main. Merge tree equals the verified candidate; Native fixture and migrated app sources match the inspected integrated source. Final root analysis passed."
       },
       "topicCategorySelectorFollowUp": {
-        "status": "in_progress",
+        "status": "review_ready",
         "taskId": "01a08d19-7072-7dc2-8a77-2dcebba886b6",
         "branch": "codex/topic-category-selector",
         "dependencies": [
@@ -543,11 +543,15 @@
         "verification": [
           "219 distinct focused tests passed across 13 files: the nine category migration consumers, the production fixture regression, Native Combobox, Combobox styleguide and group-page consumer. The fixture test was rerun after correcting its test-runner platform teardown.",
           "Root flutter analyze --no-pub passed with no issues; touched-code formatting and git diff --check passed.",
-          "Built the real production topic_taxonomy_review_main.dart fixture from source 0f033b3a for debug macOS. Final native review pending the shared desktop lease."
+          "Final macOS production fixture inspection passed on source 317dfd0; kernel SHA-256 f815d798e0be7ee4563f1b89fd2442d254f77725d95dad4df1e1eddb11aa1268. Checked dark/light/Plum, category search and Return save, empty subcategory removal, popup closing, palette changes after saving, 320px/200% RTL wrapping, search error and Escape.",
+          "105 integration tests and root analysis passed after preserving the concurrent Combobox TextFieldTapRegion mouse-selection fix and topic-list scrolling changes."
         ],
-        "integrationBranch": "codex/topic-category-selector-final",
+        "integrationBranch": "codex/topic-category-selector-ready",
         "implementationCommit": "8ec0305c",
-        "verifiedSourceCommit": "0f033b3a"
+        "verifiedSourceCommit": "317dfd0005798d1ebaa744b4fddd6e534c39958e",
+        "limitations": [
+          "Native macOS review only; touch and enlarged-layout widget tests do not constitute iOS or Linux device testing."
+        ]
       }
     },
     {
