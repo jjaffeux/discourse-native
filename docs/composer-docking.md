@@ -121,6 +121,8 @@ reader then collapsing that split by docking at the side. Subsequent integration
 changes leave the boundary-owning widgets unchanged. Native observations cover
 placement and split transitions; drag resizing remains covered by widget tests.
 The isolated app was quit and the desktop lease released after inspection.
+Final integration with main `70993230` passed the 100-test focused suite and
+root/full-profile analysis; the inspected boundary-owning source is unchanged.
 
 The placement-only popup follow-up passed 160 focused composer, draft,
 topic-action, and mobile-layout tests. Root and full-profile static analysis,
