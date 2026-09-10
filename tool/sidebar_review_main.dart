@@ -112,7 +112,7 @@ Future<void> main() async {
             ],
           ),
           SidebarSection(
-            id: 'review-lazy',
+            id: 'custom-review-lazy',
             title: '400 custom links',
             destinations: [
               for (var index = 0; index < 400; index++)
