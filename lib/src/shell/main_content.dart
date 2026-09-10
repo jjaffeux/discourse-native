@@ -201,6 +201,9 @@ class _MainContentBody extends StatelessWidget {
     final Key contentKey;
     if (groupPages.childIdentity case final childIdentity?) {
       contentKey = ValueKey<GroupPagesChildIdentity>(childIdentity);
+    } else if (route.isMessages && pluginContent == null && !pluginOwnsChrome) {
+      // Folder changes must retain focus in the shared message navigation.
+      contentKey = ValueKey((state.siteUrl, state.activeTabId, 'messages'));
     } else {
       contentKey = ValueKey<(String?, String?, String, int?)>((
         state.siteUrl,
