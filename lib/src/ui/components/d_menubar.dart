@@ -531,7 +531,9 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: active ? tokens.muted : Colors.transparent,
+                      color: active
+                          ? Theme.of(context).hoverColor
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(tokens.radius * 0.6),
                     ),
                     child: DefaultTextStyle(style: style, child: widget.child),

@@ -85,6 +85,60 @@ void main() {
     expect(find.text('Undo'), findsOneWidget);
   });
 
+  testWidgets('triggers and menu rows use the visible menu hover surface', (
+    tester,
+  ) async {
+    const menuHover = Color(0xFF444444);
+    final tokens = _tokens(
+      const Color(0xFF313131),
+    ).copyWith(hover: const Color(0xFF313131));
+    await tester.pumpWidget(
+      _TestApp(
+        tokens: tokens,
+        hoverColor: menuHover,
+        child: const DMenubar(
+          children: [
+            DMenubarMenu(
+              trigger: DMenubarTrigger(child: Text('File')),
+              content: DMenubarContent(
+                children: [
+                  DMenubarItem(onPressed: _noop, child: Text('New Tab')),
+                  DMenubarItem(onPressed: _noop, child: Text('New Window')),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+    await mouse.moveTo(tester.getCenter(find.text('New Window')));
+    await tester.pump();
+
+    final trigger = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byType(DMenubarTrigger).first,
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    expect((trigger.decoration as BoxDecoration).color, menuHover);
+    final rowColors = tester
+        .widgetList<Container>(
+          find.ancestor(
+            of: find.text('New Window'),
+            matching: find.byType(Container),
+          ),
+        )
+        .map((widget) => (widget.decoration as BoxDecoration?)?.color);
+    expect(rowColors, contains(menuHover));
+  });
+
   testWidgets('Home End and RTL use logical top-level navigation', (
     tester,
   ) async {
@@ -476,6 +530,7 @@ class _TestApp extends StatelessWidget {
   const _TestApp({
     required this.child,
     this.tokens,
+    this.hoverColor,
     this.textDirection = TextDirection.ltr,
     this.textScaler = TextScaler.noScaling,
     this.disableAnimations = false,
@@ -483,6 +538,7 @@ class _TestApp extends StatelessWidget {
 
   final Widget child;
   final DTokens? tokens;
+  final Color? hoverColor;
   final TextDirection textDirection;
   final TextScaler textScaler;
   final bool disableAnimations;
@@ -490,6 +546,7 @@ class _TestApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     theme: ThemeData.light().copyWith(
+      hoverColor: hoverColor,
       extensions: [tokens ?? _tokens(Colors.white)],
     ),
     home: MediaQuery(
