@@ -426,30 +426,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    group?.description.isNotEmpty == true
-                        ? group!.description
-                        : 'This component is part of the library catalogue.',
-                    style: styleguideText(
-                      context,
-                      size: 16,
-                      height: 24,
-                      muted: true,
-                    ),
-                  ),
-                  if (group?.status == ComponentStatus.baseline) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      'App baseline · shadcn implementation pending',
-                      style: styleguideText(
-                        context,
-                        size: 12,
-                        height: 18,
-                        muted: true,
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 32),
                   if (examples.isNotEmpty) ...[
                     _previewControls(context),
@@ -463,12 +439,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                         context,
                         sections[sectionIndex],
                         sectionIndex,
-                      ),
-                      ..._sectionIntroduction(
-                        context,
-                        sections,
-                        sectionIndex,
-                        group,
                       ),
                       for (final exampleIndex in assignments[sectionIndex]) ...[
                         const SizedBox(height: 20),
@@ -487,18 +457,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                         ),
                       ],
                     ],
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: DTokens.of(context).border),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Text(
-                        'Its implementation and interactive examples are scheduled.',
-                        style: styleguideText(context, muted: true),
-                      ),
-                    ),
                   ],
                 ],
               ),
@@ -651,24 +609,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     ),
   );
 
-  List<Widget> _sectionIntroduction(
-    BuildContext context,
-    List<ComponentReferenceSection> sections,
-    int index,
-    ComponentExamples? group,
-  ) {
-    final section = sections[index];
-    final body = switch (section.label) {
-      'Composition' when group?.notes.isNotEmpty == true => group!.notes,
-      _ => null,
-    };
-    if (body == null) return const [];
-    return [
-      const SizedBox(height: 8),
-      Text(body, style: styleguideText(context, height: 24, muted: true)),
-    ];
-  }
-
   Widget _exampleDocumentation(
     BuildContext context,
     ThemeData hostTheme,
@@ -692,20 +632,8 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
       ],
-      Text(
-        example.description,
-        style: styleguideText(context, height: 24, muted: true),
-      ),
-      if (example.states.isNotEmpty) ...[
-        const SizedBox(height: 12),
-        Text(
-          example.states.join(' · '),
-          style: styleguideText(context, size: 12, height: 20, muted: true),
-        ),
-      ],
-      const SizedBox(height: 16),
       _StyleguideExamplePanel(
         key: ValueKey('${_selected.id}/$exampleIndex'),
         componentId: _selected.id,
