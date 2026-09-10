@@ -100,7 +100,7 @@ final class ChatShellService
       _host.forumActive && _host.currentInstance != null;
   DiscourseUser? get currentUser => _host.currentInstance?.user;
   NotificationTotals? get currentTotals => _host.currentTotals;
-  Rect? get floatingComposerBounds => _host.floatingComposerBounds;
+  Rect? get readerContentBounds => _host.readerContentBounds;
   ContentRoute? get currentContent =>
       drawerActive ? drawerCurrentContent : _host.currentContent;
   bool get fullPageChatActive =>

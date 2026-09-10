@@ -1905,12 +1905,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   @override
-  Rect? get floatingComposerBounds {
-    final composer = visibleComposer;
-    return identical(composer, _floatingComposerBoundsOwner)
-        ? _floatingComposerBounds
-        : null;
-  }
+  Rect? get readerContentBounds => _readerContentBounds;
 
   int railBadgeFor(DiscourseInstance instance) =>
       accountActivity.totalsFor(instance.url)?.badge ?? 0;
@@ -6807,8 +6802,11 @@ class ShellController extends FrameSafeNotifier
   Iterable<ComposerController> _composersForSite(String siteUrl) =>
       _composers.values.where((composer) => composer.target.siteUrl == siteUrl);
 
-  ComposerController? _floatingComposerBoundsOwner;
-  Rect? _floatingComposerBounds;
+  /// Sessions remain owned by their existing forum tab.
+  Iterable<ComposerController> get liveComposers =>
+      List.unmodifiable(_composers.values);
+
+  Rect? _readerContentBounds;
 
   late final ComposerDraftCoordinator _composerDrafts =
       ComposerDraftCoordinator(
@@ -6876,24 +6874,10 @@ class ShellController extends FrameSafeNotifier
     return composer;
   }
 
-  /// Receives the actual painted composer rectangle without making its
-  /// movable presentation geometry part of the composer domain model.
-  void reportFloatingComposerBounds(ComposerController composer, Rect? bounds) {
-    if (isDisposed) return;
-    if (bounds == null) {
-      if (!identical(_floatingComposerBoundsOwner, composer)) return;
-      _floatingComposerBoundsOwner = null;
-      _floatingComposerBounds = null;
-      _notify();
-      return;
-    }
-    if (!identical(visibleComposer, composer) ||
-        identical(_floatingComposerBoundsOwner, composer) &&
-            _floatingComposerBounds == bounds) {
-      return;
-    }
-    _floatingComposerBoundsOwner = composer;
-    _floatingComposerBounds = bounds;
+  /// Painted reader space, excluding the docked composer and navigation.
+  void reportReaderContentBounds(Rect? bounds) {
+    if (isDisposed || bounds == _readerContentBounds) return;
+    _readerContentBounds = bounds;
     _notify();
   }
 
@@ -10559,6 +10543,36 @@ class ShellController extends FrameSafeNotifier
   Future<bool> finishComposerDraftRestore(ComposerController composer) =>
       _composerDrafts.finishRestore(composer);
 
+  /// Preserves a draft before closing its composer. False leaves
+  /// the session open for retry or an explicit discard choice by the UI.
+  Future<bool> prepareComposerForClose(ComposerController composer) async {
+    if (!_ownsComposer(composer)) return true;
+    if (_composerHasPendingOperation(composer)) return false;
+    if (!composer.canSaveDraft) {
+      return !composer.hasChanges && !composer.metadataChanged;
+    }
+    if (!await finishComposerDraftRestore(composer)) return false;
+    if (!_ownsComposer(composer)) return true;
+    if (_composerHasPendingOperation(composer)) return false;
+    if (composer.hasUnappliedDraft && !composer.hasChanges) return true;
+
+    if (composer.hasChanges || composer.localDraftFailed) {
+      await composer.flushDraft();
+    }
+    await composer.finishDraftSaves();
+    return !_ownsComposer(composer) ||
+        (!_composerHasPendingOperation(composer) &&
+            !composer.localDraftFailed &&
+            !composer.draftPersistencePending);
+  }
+
+  bool _composerHasPendingOperation(ComposerController composer) =>
+      composer.discarding ||
+      composer.submitting ||
+      composer.loadingBody ||
+      composer.hasActiveUploads ||
+      composer.state == ComposerState.checking;
+
   Future<String?> discardComposer(ComposerController composer) =>
       _composerDrafts.discard(composer);
 
@@ -10620,9 +10634,12 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  Future<void> submitComposer() async {
-    final composer = _composer;
+  Future<void> submitComposer({ComposerController? composer}) =>
+      _submitComposer(composer ?? _composer);
+
+  Future<void> _submitComposer(ComposerController? composer) async {
     if (composer == null ||
+        !_ownsComposer(composer) ||
         composer.discarding ||
         composer.submitting ||
         !composer.canSubmit) {
@@ -11049,8 +11066,8 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  Future<void> recheckComposer() async {
-    final composer = _composer;
+  Future<void> recheckComposer({ComposerController? composer}) async {
+    composer ??= _composer;
     if (composer == null || !composer.canRecheck) return;
     if (composer.target.createsTopic) {
       await _reconcileNewTopic(
@@ -14179,7 +14196,7 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
       _shell.visibleTopicContext;
 
   @override
-  Rect? get floatingComposerBounds => _shell.floatingComposerBounds;
+  Rect? get readerContentBounds => _shell.readerContentBounds;
 
   @override
   void selectInstance(int index) => _shell.selectInstance(index);

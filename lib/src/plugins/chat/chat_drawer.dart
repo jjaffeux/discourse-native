@@ -341,53 +341,46 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
     final titleBarOffset = ShellTitleBar.isSupported
         ? ShellTitleBar.height
         : 0.0;
+    final overlay = _globalOverlayBounds(constraints);
+    final reader = (shell.readerContentBounds ?? overlay)
+        .intersect(overlay)
+        .shift(-overlay.topLeft);
+    final endOffset =
+        ChatDrawerOverlay.endMargin +
+        (DDirection.of(context) == TextDirection.ltr
+            ? constraints.maxWidth - reader.right
+            : reader.left);
     final maximumWidth = math.max(
-      ChatDrawerPreferencesStore.minimumWidth,
-      constraints.maxWidth - ChatDrawerOverlay.endMargin * 2,
+      1.0,
+      reader.width - ChatDrawerOverlay.endMargin * 2,
     );
-    final unobstructedMaximumHeight = math.max(
-      ChatDrawerPreferencesStore.minimumHeight,
-      constraints.maxHeight - titleBarOffset - ChatDrawerOverlay.topMargin,
+    final minimumWidth = math.min(
+      ChatDrawerPreferencesStore.minimumWidth,
+      maximumWidth,
     );
     final expandedWidth = _preferredWidth
-        .clamp(ChatDrawerPreferencesStore.minimumWidth, maximumWidth)
+        .clamp(minimumWidth, maximumWidth)
         .toDouble();
-    final unobstructedExpandedHeight = _preferredHeight
-        .clamp(
-          ChatDrawerPreferencesStore.minimumHeight,
-          unobstructedMaximumHeight,
-        )
-        .toDouble();
-    final collapsedWidth = math.max(
-      ChatDrawerPreferencesStore.minimumWidth,
-      math.min(expandedWidth, constraints.maxWidth * 0.25),
+    final collapsedWidth = math.min(
+      expandedWidth,
+      math.max(minimumWidth, constraints.maxWidth * .25),
     );
     final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
-    // Closing resets the retained drawer to expanded. Keeping its last content
-    // mounted offstage lets active edits and uploads survive close/reopen just
-    // as they do while the web drawer is hidden.
     final expanded = shell.drawerActive ? shell.drawerExpanded : true;
     final drawerWidth = expanded ? expandedWidth : collapsedWidth;
-    final candidateHeight = expanded
-        ? unobstructedExpandedHeight
-        : ChatDrawerOverlay.headerHeight;
-    final bottomOffset = _composerBottomOffset(
-      shell: shell,
-      constraints: constraints,
-      drawerWidth: drawerWidth,
-      drawerHeight: candidateHeight,
-      titleBarOffset: titleBarOffset,
-      minimumBottomOffset: safeBottom,
+    final bottomOffset = math.max(
+      safeBottom,
+      constraints.maxHeight - reader.bottom,
     );
     final maximumHeight = math.max(
-      ChatDrawerPreferencesStore.minimumHeight,
-      constraints.maxHeight -
-          titleBarOffset -
-          ChatDrawerOverlay.topMargin -
-          bottomOffset,
+      ChatDrawerOverlay.headerHeight,
+      reader.height - ChatDrawerOverlay.topMargin,
     );
     final expandedHeight = _preferredHeight
-        .clamp(ChatDrawerPreferencesStore.minimumHeight, maximumHeight)
+        .clamp(
+          math.min(ChatDrawerPreferencesStore.minimumHeight, maximumHeight),
+          maximumHeight,
+        )
         .toDouble();
     final frameHeight = expanded
         ? expandedHeight
@@ -397,7 +390,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
       key: ChatDrawerOverlay.drawerKey,
       children: [
         PositionedDirectional(
-          end: ChatDrawerOverlay.endMargin,
+          end: endOffset,
           bottom: bottomOffset,
           width: drawerWidth,
           height: frameHeight,
@@ -410,7 +403,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
           ),
         ),
         PositionedDirectional(
-          end: ChatDrawerOverlay.endMargin,
+          end: endOffset,
           bottom: bottomOffset,
           width: drawerWidth,
           height: frameHeight,
@@ -472,7 +465,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
         if (expanded)
           PositionedDirectional(
             end:
-                ChatDrawerOverlay.endMargin +
+                endOffset +
                 expandedWidth -
                 _DrawerResizeHandle.extent +
                 _DrawerResizeHandle.overhang,
@@ -493,41 +486,6 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
           ),
       ],
     );
-  }
-
-  double _composerBottomOffset({
-    required ChatShellService shell,
-    required BoxConstraints constraints,
-    required double drawerWidth,
-    required double drawerHeight,
-    required double titleBarOffset,
-    required double minimumBottomOffset,
-  }) {
-    final composerBounds = shell.floatingComposerBounds;
-    if (composerBounds == null) return minimumBottomOffset;
-
-    final overlayBounds = _globalOverlayBounds(constraints);
-    final left = DDirection.of(context) == TextDirection.ltr
-        ? overlayBounds.right - ChatDrawerOverlay.endMargin - drawerWidth
-        : overlayBounds.left + ChatDrawerOverlay.endMargin;
-    final candidate = Rect.fromLTWH(
-      left,
-      overlayBounds.bottom - minimumBottomOffset - drawerHeight,
-      drawerWidth,
-      drawerHeight,
-    );
-    if (!candidate.overlaps(composerBounds)) return minimumBottomOffset;
-
-    final availableOffset = math.max(
-      minimumBottomOffset,
-      constraints.maxHeight -
-          titleBarOffset -
-          ChatDrawerOverlay.topMargin -
-          ChatDrawerPreferencesStore.minimumHeight,
-    );
-    return (overlayBounds.bottom - composerBounds.top)
-        .clamp(minimumBottomOffset, availableOffset)
-        .toDouble();
   }
 
   Rect _globalOverlayBounds(BoxConstraints constraints) {
@@ -565,7 +523,10 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
           .clamp(ChatDrawerPreferencesStore.minimumWidth, maximumWidth)
           .toDouble();
       _preferredHeight = (_preferredHeight - delta.dy)
-          .clamp(ChatDrawerPreferencesStore.minimumHeight, maximumHeight)
+          .clamp(
+            math.min(ChatDrawerPreferencesStore.minimumHeight, maximumHeight),
+            maximumHeight,
+          )
           .toDouble();
     });
   }

@@ -4,14 +4,14 @@ import 'dart:math' as math;
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
-import '../data/composer_geometry_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../models/composer_placement.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
@@ -53,9 +53,6 @@ import 'site_image.dart';
 import 'topic_category_picker.dart';
 import 'topic_tag_picker.dart';
 
-const double _composerPanelRadius = 22;
-const double _composerHeaderHeight = ComposerHeader.height;
-
 bool get _usesCommandModifier =>
     defaultTargetPlatform == TargetPlatform.macOS ||
     defaultTargetPlatform == TargetPlatform.iOS;
@@ -74,8 +71,8 @@ class ComposerPanel extends StatelessWidget {
     this.minimized = false,
     this.onMinimize,
     this.onRestore,
-    this.onMove,
-    this.onMoveEnd,
+    this.placement = ComposerPlacement.right,
+    this.onPlacementChanged,
     this.pickImages = pickComposerImages,
     this.readClipboardImages = readComposerClipboardImages,
   });
@@ -85,8 +82,8 @@ class ComposerPanel extends StatelessWidget {
   final bool minimized;
   final VoidCallback? onMinimize;
   final VoidCallback? onRestore;
-  final ValueChanged<Offset>? onMove;
-  final VoidCallback? onMoveEnd;
+  final ComposerPlacement placement;
+  final ValueChanged<ComposerPlacement>? onPlacementChanged;
   final ComposerImagePicker pickImages;
   final ComposerClipboardImageReader readClipboardImages;
 
@@ -134,27 +131,25 @@ class ComposerPanel extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: theme.shell.content,
-            borderRadius: BorderRadius.circular(_composerPanelRadius),
             border: Border.all(
               color: composer.whisper
                   ? theme.colorScheme.tertiary
                   : theme.shell.divider,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           child: CallbackShortcuts(
             bindings: {
-              const SingleActivator(LogicalKeyboardKey.enter, meta: true):
-                  controller.submitComposer,
-              const SingleActivator(LogicalKeyboardKey.enter, control: true):
-                  controller.submitComposer,
+              const SingleActivator(LogicalKeyboardKey.enter, meta: true): () =>
+                  controller.submitComposer(composer: composer),
+              const SingleActivator(
+                LogicalKeyboardKey.enter,
+                control: true,
+              ): () =>
+                  controller.submitComposer(composer: composer),
               const SingleActivator(LogicalKeyboardKey.escape): close,
+              const SingleActivator(LogicalKeyboardKey.keyW, meta: true): close,
+              const SingleActivator(LogicalKeyboardKey.keyW, control: true):
+                  close,
               const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
                   composer.toggleMark(ComposerMark.bold),
               const SingleActivator(
@@ -204,173 +199,198 @@ class ComposerPanel extends StatelessWidget {
                           : 'Close composer',
                       onMinimize: minimized ? null : onMinimize,
                       onRestore: minimized ? onRestore : null,
-                      onMove: minimized ? null : onMove,
-                      onMoveEnd: onMoveEnd,
+                      placement: placement,
+                      onPlacementChanged: onPlacementChanged,
                     ),
                     if (!minimized)
                       Expanded(
                         child: LayoutBuilder(
-                          builder: (context, constraints) => Column(
-                            children: [
-                              if (target.mode == ComposerMode.reply &&
-                                  constraints.maxHeight >= 80)
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxHeight: math.min(
-                                      140,
-                                      math.max(
-                                        48,
-                                        constraints.maxHeight * 0.48,
-                                      ),
-                                    ),
-                                  ),
-                                  child: ComposerReplyContext(
-                                    key: ValueKey((
-                                      target.siteUrl,
-                                      target.topicId,
-                                      target.replyToPostNumber,
-                                    )),
-                                    target: target,
-                                  ),
+                          builder: (context, constraints) => DScrollArea(
+                            thumbVisibility: false,
+                            child: SizedBox(
+                              height: math.max(
+                                constraints.maxHeight,
+                                MediaQuery.textScalerOf(context).scale(
+                                  target.createsTopic ||
+                                          target.editsTopicMetadata
+                                      ? 210
+                                      : 120,
                                 ),
-                              if (target.isPrivateMessage)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    2,
-                                    16,
-                                    6,
-                                  ),
-                                  child: InputDecorator(
-                                    key: const ValueKey(
-                                      'composer-private-message-recipients',
-                                    ),
-                                    decoration: const InputDecoration(
-                                      isDense: true,
-                                      labelText: 'To',
-                                    ),
-                                    child: Text(target.targetRecipients!),
-                                  ),
-                                ),
-                              if (target.createsTopic ||
-                                  target.editsTopicMetadata)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    2,
-                                    16,
-                                    8,
-                                  ),
-                                  child: TextField(
-                                    key: const ValueKey('composer-topic-title'),
-                                    controller: composer.title,
-                                    readOnly: !composer.isEditing,
-                                    textInputAction: TextInputAction.next,
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                    decoration: const InputDecoration(
-                                      isDense: true,
-                                      hintText: 'Title',
-                                      filled: false,
-                                      contentPadding: EdgeInsets.symmetric(
-                                        vertical: 6,
-                                      ),
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                    ),
-                                  ),
-                                ),
-                              if (target.isNewTopic ||
-                                  target.editsTopicMetadata ||
-                                  target.isTaxonomyEdit)
-                                _TopicTaxonomy(composer: composer),
-                              if (!target.isTaxonomyEdit) ...[
-                                Expanded(
-                                  child: Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          2,
-                                          16,
-                                          8,
-                                        ),
-                                        child: ComposerEditor(
-                                          composer: composer,
-                                          pickImages: pickImages,
-                                          readClipboardImages:
-                                              readClipboardImages,
-                                          onSuggestionAction:
-                                              ({
-                                                required context,
-                                                required composer,
-                                                required suggestion,
-                                                anchor,
-                                              }) async {
-                                                if (suggestion.action !=
-                                                    ComposerSuggestionAction
-                                                        .openEmojiPicker) {
-                                                  return;
-                                                }
-                                                await openEmojiPickerForTopicComposer(
-                                                  context: context,
-                                                  composer: composer,
-                                                  initialQuery:
-                                                      composer
-                                                          .autocomplete
-                                                          .trigger
-                                                          ?.query ??
-                                                      suggestion.value,
-                                                  anchor: anchor,
-                                                );
-                                              },
-                                          hintText: switch (target) {
-                                            _ when composer.loadingBody =>
-                                              'Loading that post…',
-                                            _ when target.isPrivateMessage =>
-                                              'Write your message…',
-                                            _ when target.isNewTopic =>
-                                              'Write your topic…',
-                                            _ when target.isEdit =>
-                                              'Edit this post…',
-                                            _
-                                                when target.replyToUsername !=
-                                                    null =>
-                                              'Reply to @${target.replyToUsername}…',
-                                            _ => 'Write a reply…',
-                                          },
-                                          textStyle: theme.textTheme.bodyLarge,
-                                          hintStyle: theme.textTheme.bodyLarge
-                                              ?.copyWith(
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
-                                        ),
-                                      ),
-                                      if (composer.tagRemovalNotice
-                                          case final message?)
-                                        Positioned(
-                                          left: 16,
-                                          right: 16,
-                                          bottom: 12,
-                                          child: Align(
-                                            alignment: Alignment.bottomCenter,
-                                            child: ComposerTagRemovalNotice(
-                                              message: message,
-                                              onDismiss: composer
-                                                  .dismissTagRemovalNotice,
-                                            ),
+                              ),
+                              child: Column(
+                                children: [
+                                  if (target.mode == ComposerMode.reply &&
+                                      constraints.maxHeight >= 80)
+                                    ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxHeight: math.min(
+                                          140,
+                                          math.max(
+                                            48,
+                                            constraints.maxHeight * 0.48,
                                           ),
                                         ),
-                                    ],
-                                  ),
-                                ),
-                              ] else
-                                const Spacer(),
-                            ],
+                                      ),
+                                      child: ComposerReplyContext(
+                                        key: ValueKey((
+                                          target.siteUrl,
+                                          target.topicId,
+                                          target.replyToPostNumber,
+                                        )),
+                                        target: target,
+                                      ),
+                                    ),
+                                  if (target.isPrivateMessage)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        2,
+                                        16,
+                                        6,
+                                      ),
+                                      child: InputDecorator(
+                                        key: const ValueKey(
+                                          'composer-private-message-recipients',
+                                        ),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          labelText: 'To',
+                                        ),
+                                        child: Text(target.targetRecipients!),
+                                      ),
+                                    ),
+                                  if (target.createsTopic ||
+                                      target.editsTopicMetadata)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        2,
+                                        16,
+                                        8,
+                                      ),
+                                      child: TextField(
+                                        key: const ValueKey(
+                                          'composer-topic-title',
+                                        ),
+                                        controller: composer.title,
+                                        readOnly: !composer.isEditing,
+                                        textInputAction: TextInputAction.next,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          hintText: 'Title',
+                                          filled: false,
+                                          contentPadding: EdgeInsets.symmetric(
+                                            vertical: 6,
+                                          ),
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                        ),
+                                      ),
+                                    ),
+                                  if (target.isNewTopic ||
+                                      target.editsTopicMetadata ||
+                                      target.isTaxonomyEdit)
+                                    _TopicTaxonomy(composer: composer),
+                                  if (!target.isTaxonomyEdit) ...[
+                                    Expanded(
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.fromLTRB(
+                                              16,
+                                              2,
+                                              16,
+                                              8,
+                                            ),
+                                            child: ComposerEditor(
+                                              composer: composer,
+                                              pickImages: pickImages,
+                                              readClipboardImages:
+                                                  readClipboardImages,
+                                              onSuggestionAction:
+                                                  ({
+                                                    required context,
+                                                    required composer,
+                                                    required suggestion,
+                                                    anchor,
+                                                  }) async {
+                                                    if (suggestion.action !=
+                                                        ComposerSuggestionAction
+                                                            .openEmojiPicker) {
+                                                      return;
+                                                    }
+                                                    await openEmojiPickerForTopicComposer(
+                                                      context: context,
+                                                      composer: composer,
+                                                      initialQuery:
+                                                          composer
+                                                              .autocomplete
+                                                              .trigger
+                                                              ?.query ??
+                                                          suggestion.value,
+                                                      anchor: anchor,
+                                                    );
+                                                  },
+                                              hintText: switch (target) {
+                                                _ when composer.loadingBody =>
+                                                  'Loading that post…',
+                                                _
+                                                    when target
+                                                        .isPrivateMessage =>
+                                                  'Write your message…',
+                                                _ when target.isNewTopic =>
+                                                  'Write your topic…',
+                                                _ when target.isEdit =>
+                                                  'Edit this post…',
+                                                _
+                                                    when target
+                                                            .replyToUsername !=
+                                                        null =>
+                                                  'Reply to @${target.replyToUsername}…',
+                                                _ => 'Write a reply…',
+                                              },
+                                              textStyle:
+                                                  theme.textTheme.bodyLarge,
+                                              hintStyle: theme
+                                                  .textTheme
+                                                  .bodyLarge
+                                                  ?.copyWith(
+                                                    color: theme
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                            ),
+                                          ),
+                                          if (composer.tagRemovalNotice
+                                              case final message?)
+                                            Positioned(
+                                              left: 16,
+                                              right: 16,
+                                              bottom: 12,
+                                              child: Align(
+                                                alignment:
+                                                    Alignment.bottomCenter,
+                                                child: ComposerTagRemovalNotice(
+                                                  message: message,
+                                                  onDismiss: composer
+                                                      .dismissTagRemovalNotice,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ] else
+                                    const Spacer(),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -409,9 +429,10 @@ class ComposerPanel extends StatelessWidget {
                         },
                         onSubmit: switch (composer) {
                           _ when composer.canRecheck =>
-                            controller.recheckComposer,
+                            () =>
+                                controller.recheckComposer(composer: composer),
                           _ when composer.canSubmit =>
-                            controller.submitComposer,
+                            () => controller.submitComposer(composer: composer),
                           _ => null,
                         },
                       ),
@@ -424,523 +445,6 @@ class ComposerPanel extends StatelessWidget {
       },
     );
   }
-}
-
-class FloatingComposerPanel extends StatefulWidget {
-  const FloatingComposerPanel({
-    super.key,
-    required this.composer,
-    this.geometryStore = const ComposerGeometryStore(),
-    this.onGeometryChanged,
-  });
-
-  final ComposerController composer;
-  final ComposerGeometryStore geometryStore;
-  final ValueChanged<Rect?>? onGeometryChanged;
-
-  @override
-  State<FloatingComposerPanel> createState() => _FloatingComposerPanelState();
-}
-
-class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
-  static const double _inset = 16;
-  static const double _defaultWidth = 760;
-  static const double _minimumWidth = 360;
-  static const double _minimumReplyHeight = 180;
-  static const double _minimumTopicHeight = 300;
-  static const double _minimizedHeight = _composerHeaderHeight + 2;
-  static const double _edgeHandleExtent = 16;
-  static const double _cornerHandleExtent =
-      _edgeHandleExtent + _composerPanelRadius;
-  static const Duration _geometryRestoreDeadline = Duration(milliseconds: 100);
-
-  final GlobalKey _panelKey = GlobalKey();
-
-  Size? _size;
-  Offset? _position;
-  ComposerGeometryPreference? _restoredPreference;
-  bool _geometryChanged = false;
-  bool _geometryLoaded = false;
-  bool _minimized = false;
-  bool _geometryReportScheduled = false;
-  Rect? _reportedGeometry;
-  Future<void> _pendingGeometryWrite = Future.value();
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_restoreGeometry());
-  }
-
-  @override
-  void dispose() {
-    if (_reportedGeometry != null) widget.onGeometryChanged?.call(null);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      if (!_geometryLoaded) return const SizedBox.shrink();
-
-      final bounds = Size(constraints.maxWidth, constraints.maxHeight);
-      final expandedGeometry = _geometryFor(bounds);
-      final geometry = _minimized
-          ? _minimizedGeometry(expandedGeometry, bounds)
-          : expandedGeometry;
-      _scheduleGeometryReport();
-
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // The panel inset leaves room for resize targets centered over the
-          // frame, so the painted border itself activates the resize cursor.
-          Positioned(
-            left: geometry.position.dx - _edgeHandleExtent,
-            top: geometry.position.dy - _edgeHandleExtent,
-            width: geometry.size.width + _edgeHandleExtent * 2,
-            height: geometry.size.height + _edgeHandleExtent * 2,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  left: _edgeHandleExtent,
-                  top: _edgeHandleExtent,
-                  width: geometry.size.width,
-                  height: geometry.size.height,
-                  child: ComposerPanel(
-                    key: _panelKey,
-                    composer: widget.composer,
-                    height: geometry.size.height,
-                    minimized: _minimized,
-                    onMinimize: _minimize,
-                    onRestore: _restore,
-                    onMove: (delta) => _move(delta, bounds),
-                    onMoveEnd: () => _persistGeometry(bounds),
-                  ),
-                ),
-                if (!_minimized) ...[
-                  _resizeHandle(
-                    key: const ValueKey('composer-resize-top'),
-                    cursor: SystemMouseCursors.resizeUpDown,
-                    top: _edgeHandleExtent / 2,
-                    left: _cornerHandleExtent,
-                    right: _cornerHandleExtent,
-                    height: _edgeHandleExtent,
-                    onResize: (delta) => _resize(delta, bounds, top: true),
-                    onResizeEnd: () => _persistGeometry(bounds),
-                  ),
-                  _resizeHandle(
-                    key: const ValueKey('composer-resize-bottom'),
-                    cursor: SystemMouseCursors.resizeUpDown,
-                    bottom: _edgeHandleExtent / 2,
-                    left: _cornerHandleExtent,
-                    right: _cornerHandleExtent,
-                    height: _edgeHandleExtent,
-                    onResize: (delta) => _resize(delta, bounds, bottom: true),
-                    onResizeEnd: () => _persistGeometry(bounds),
-                  ),
-                  _resizeHandle(
-                    key: const ValueKey('composer-resize-left'),
-                    cursor: SystemMouseCursors.resizeLeftRight,
-                    top: _cornerHandleExtent,
-                    bottom: _cornerHandleExtent,
-                    left: _edgeHandleExtent / 2,
-                    width: _edgeHandleExtent,
-                    onResize: (delta) => _resize(delta, bounds, left: true),
-                    onResizeEnd: () => _persistGeometry(bounds),
-                  ),
-                  _resizeHandle(
-                    key: const ValueKey('composer-resize-right'),
-                    cursor: SystemMouseCursors.resizeLeftRight,
-                    top: _cornerHandleExtent,
-                    bottom: _cornerHandleExtent,
-                    right: _edgeHandleExtent / 2,
-                    width: _edgeHandleExtent,
-                    onResize: (delta) => _resize(delta, bounds, right: true),
-                    onResizeEnd: () => _persistGeometry(bounds),
-                  ),
-                  _cornerResizeHandle(
-                    key: const ValueKey('composer-resize-top-left'),
-                    cursor: _cornerResizeCursor(
-                      macOS: SystemMouseCursors.resizeLeft,
-                      otherwise: SystemMouseCursors.resizeUpLeftDownRight,
-                    ),
-                    top: true,
-                    left: true,
-                    onResize: (delta) =>
-                        _resize(delta, bounds, top: true, left: true),
-                    onResizeEnd: () => _persistGeometry(bounds),
-                  ),
-                  _cornerResizeHandle(
-                    key: const ValueKey('composer-resize-top-right'),
-                    cursor: _cornerResizeCursor(
-                      macOS: SystemMouseCursors.resizeRight,
-                      otherwise: SystemMouseCursors.resizeUpRightDownLeft,
-                    ),
-                    top: true,
-                    left: false,
-                    onResize: (delta) =>
-                        _resize(delta, bounds, top: true, right: true),
-                    onResizeEnd: () => _persistGeometry(bounds),
-                  ),
-                  _cornerResizeHandle(
-                    key: const ValueKey('composer-resize-bottom-left'),
-                    cursor: _cornerResizeCursor(
-                      macOS: SystemMouseCursors.resizeLeft,
-                      otherwise: SystemMouseCursors.resizeUpRightDownLeft,
-                    ),
-                    top: false,
-                    left: true,
-                    onResize: (delta) =>
-                        _resize(delta, bounds, bottom: true, left: true),
-                    onResizeEnd: () => _persistGeometry(bounds),
-                  ),
-                  _cornerResizeHandle(
-                    key: const ValueKey('composer-resize-bottom-right'),
-                    cursor: _cornerResizeCursor(
-                      macOS: SystemMouseCursors.resizeRight,
-                      otherwise: SystemMouseCursors.resizeUpLeftDownRight,
-                    ),
-                    top: false,
-                    left: false,
-                    onResize: (delta) =>
-                        _resize(delta, bounds, bottom: true, right: true),
-                    onResizeEnd: () => _persistGeometry(bounds),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      );
-    },
-  );
-
-  void _scheduleGeometryReport() {
-    if (_geometryReportScheduled || widget.onGeometryChanged == null) return;
-    _geometryReportScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _geometryReportScheduled = false;
-      if (!mounted) return;
-      final renderObject = _panelKey.currentContext?.findRenderObject();
-      if (renderObject is! RenderBox ||
-          !renderObject.attached ||
-          !renderObject.hasSize) {
-        return;
-      }
-      final topLeft = renderObject.localToGlobal(Offset.zero);
-      final bounds = topLeft & renderObject.size;
-      if (_reportedGeometry == bounds) return;
-      _reportedGeometry = bounds;
-      widget.onGeometryChanged?.call(bounds);
-    });
-  }
-
-  Widget _resizeHandle({
-    required Key key,
-    required MouseCursor cursor,
-    required ValueChanged<Offset> onResize,
-    required VoidCallback onResizeEnd,
-    double? top,
-    double? right,
-    double? bottom,
-    double? left,
-    double? width,
-    double? height,
-    Widget? child,
-  }) => Positioned(
-    top: top,
-    right: right,
-    bottom: bottom,
-    left: left,
-    width: width,
-    height: height,
-    child: _resizeRegion(
-      key: key,
-      cursor: cursor,
-      onResize: onResize,
-      onResizeEnd: onResizeEnd,
-      child: child,
-    ),
-  );
-
-  Widget _cornerResizeHandle({
-    required Key key,
-    required MouseCursor cursor,
-    required bool top,
-    required bool left,
-    required ValueChanged<Offset> onResize,
-    required VoidCallback onResizeEnd,
-  }) => Positioned(
-    top: top ? 0 : null,
-    right: left ? null : 0,
-    bottom: top ? null : 0,
-    left: left ? 0 : null,
-    width: _cornerHandleExtent,
-    height: _cornerHandleExtent,
-    child: SizedBox.expand(
-      key: key,
-      child: Stack(
-        children: [
-          Positioned(
-            top: top ? _edgeHandleExtent / 2 : null,
-            right: 0,
-            bottom: top ? null : _edgeHandleExtent / 2,
-            left: 0,
-            height: _edgeHandleExtent,
-            child: _resizeRegion(
-              cursor: cursor,
-              onResize: onResize,
-              onResizeEnd: onResizeEnd,
-            ),
-          ),
-          Positioned(
-            top: 0,
-            right: left ? null : _edgeHandleExtent / 2,
-            bottom: 0,
-            left: left ? _edgeHandleExtent / 2 : null,
-            width: _edgeHandleExtent,
-            child: _resizeRegion(
-              cursor: cursor,
-              onResize: onResize,
-              onResizeEnd: onResizeEnd,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _resizeRegion({
-    Key? key,
-    required MouseCursor cursor,
-    required ValueChanged<Offset> onResize,
-    required VoidCallback onResizeEnd,
-    Widget? child,
-  }) => MouseRegion(
-    cursor: cursor,
-    child: GestureDetector(
-      key: key,
-      behavior: HitTestBehavior.opaque,
-      onPanUpdate: (details) => onResize(details.delta),
-      onPanEnd: (_) => onResizeEnd(),
-      child: child,
-    ),
-  );
-
-  MouseCursor _cornerResizeCursor({
-    required MouseCursor macOS,
-    required MouseCursor otherwise,
-  }) => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS
-      ? macOS
-      : otherwise;
-
-  _ComposerGeometry _minimizedGeometry(
-    _ComposerGeometry expanded,
-    Size bounds,
-  ) {
-    final verticalInset = math.min(_inset, bounds.height / 2);
-    final height = math.min(
-      _minimizedHeight,
-      math.max(0.0, bounds.height - verticalInset * 2),
-    );
-    return _ComposerGeometry(
-      size: Size(expanded.size.width, height),
-      position: Offset(
-        expanded.position.dx,
-        bounds.height - height - verticalInset,
-      ),
-    );
-  }
-
-  void _minimize() {
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _minimized = true);
-  }
-
-  void _restore() => setState(() => _minimized = false);
-
-  _ComposerGeometry _geometryFor(Size bounds) {
-    final horizontalInset = math.min(_inset, bounds.width / 2);
-    final verticalInset = math.min(_inset, bounds.height / 2);
-    final maximumWidth = math.max(0.0, bounds.width - horizontalInset * 2);
-    final maximumHeight = math.max(0.0, bounds.height - verticalInset * 2);
-    final minimumWidth = math.min(_minimumWidth, maximumWidth);
-    final minimumHeight = math.min(_minimumHeight, maximumHeight);
-    final wantedHeight = switch (widget.composer.target) {
-      final target when target.createsTopic || target.editsTopicMetadata =>
-        topicComposerHeight,
-      final target when target.isTaxonomyEdit => 190.0,
-      _ => composerHeight,
-    };
-    final restoredPreference = _restoredPreference;
-    final size = Size(
-      (_size?.width ??
-              restoredPreference?.width ??
-              math.min(_defaultWidth, maximumWidth))
-          .clamp(minimumWidth, maximumWidth),
-      (_size?.height ?? restoredPreference?.height ?? wantedHeight).clamp(
-        minimumHeight,
-        maximumHeight,
-      ),
-    );
-    final defaultPosition = Offset(
-      (bounds.width - size.width) / 2,
-      bounds.height - size.height - verticalInset,
-    );
-    final maximumX = math.max(
-      horizontalInset,
-      bounds.width - size.width - horizontalInset,
-    );
-    final maximumY = math.max(
-      verticalInset,
-      bounds.height - size.height - verticalInset,
-    );
-    final restoredPosition = restoredPreference == null
-        ? null
-        : Offset(
-            horizontalInset +
-                (maximumX - horizontalInset) *
-                    restoredPreference.horizontalPosition,
-            verticalInset +
-                (maximumY - verticalInset) *
-                    restoredPreference.verticalPosition,
-          );
-    final wantedPosition = _position ?? restoredPosition ?? defaultPosition;
-    return _ComposerGeometry(
-      size: size,
-      position: Offset(
-        wantedPosition.dx.clamp(horizontalInset, maximumX),
-        wantedPosition.dy.clamp(verticalInset, maximumY),
-      ),
-    );
-  }
-
-  void _move(Offset delta, Size bounds) {
-    final geometry = _geometryFor(bounds);
-    setState(() {
-      _geometryChanged = true;
-      _restoredPreference = null;
-      _size = geometry.size;
-      _position = geometry.position + delta;
-    });
-  }
-
-  void _resize(
-    Offset delta,
-    Size bounds, {
-    bool top = false,
-    bool right = false,
-    bool bottom = false,
-    bool left = false,
-  }) {
-    final geometry = _geometryFor(bounds);
-    var leftEdge = geometry.position.dx;
-    var topEdge = geometry.position.dy;
-    var rightEdge = leftEdge + geometry.size.width;
-    var bottomEdge = topEdge + geometry.size.height;
-    final maximumRight = bounds.width - math.min(_inset, bounds.width / 2);
-    final maximumBottom = bounds.height - math.min(_inset, bounds.height / 2);
-    final minimumLeft = math.min(_inset, bounds.width / 2);
-    final minimumTop = math.min(_inset, bounds.height / 2);
-    final minimumWidth = math.min(_minimumWidth, maximumRight - minimumLeft);
-    final minimumHeight = math.min(_minimumHeight, maximumBottom - minimumTop);
-
-    if (left) {
-      leftEdge = (leftEdge + delta.dx).clamp(
-        minimumLeft,
-        rightEdge - minimumWidth,
-      );
-    }
-    if (right) {
-      rightEdge = (rightEdge + delta.dx).clamp(
-        leftEdge + minimumWidth,
-        maximumRight,
-      );
-    }
-    if (top) {
-      topEdge = (topEdge + delta.dy).clamp(
-        minimumTop,
-        bottomEdge - minimumHeight,
-      );
-    }
-    if (bottom) {
-      bottomEdge = (bottomEdge + delta.dy).clamp(
-        topEdge + minimumHeight,
-        maximumBottom,
-      );
-    }
-
-    setState(() {
-      _geometryChanged = true;
-      _restoredPreference = null;
-      _position = Offset(leftEdge, topEdge);
-      _size = Size(rightEdge - leftEdge, bottomEdge - topEdge);
-    });
-  }
-
-  Future<void> _restoreGeometry() async {
-    // The panel must not paint its default geometry and then jump when the
-    // persisted geometry arrives. Storage is optional, so bound how long it
-    // can delay the first correctly positioned frame.
-    final preference = await widget.geometryStore.read().timeout(
-      _geometryRestoreDeadline,
-      onTimeout: () => null,
-    );
-    if (!mounted) return;
-    setState(() {
-      if (!_geometryChanged) _restoredPreference = preference;
-      _geometryLoaded = true;
-    });
-  }
-
-  void _persistGeometry(Size bounds) {
-    final geometry = _geometryFor(bounds);
-    final horizontalInset = math.min(_inset, bounds.width / 2);
-    final verticalInset = math.min(_inset, bounds.height / 2);
-    final horizontalRange = math.max(
-      0.0,
-      bounds.width - geometry.size.width - horizontalInset * 2,
-    );
-    final verticalRange = math.max(
-      0.0,
-      bounds.height - geometry.size.height - verticalInset * 2,
-    );
-    final preference = ComposerGeometryPreference(
-      width: geometry.size.width,
-      height: geometry.size.height,
-      horizontalPosition: horizontalRange == 0
-          ? 0.5
-          : ((geometry.position.dx - horizontalInset) / horizontalRange).clamp(
-              0.0,
-              1.0,
-            ),
-      verticalPosition: verticalRange == 0
-          ? 1
-          : ((geometry.position.dy - verticalInset) / verticalRange).clamp(
-              0.0,
-              1.0,
-            ),
-    );
-    _pendingGeometryWrite = _pendingGeometryWrite.then(
-      (_) => widget.geometryStore.write(preference),
-    );
-  }
-
-  double get _minimumHeight {
-    final target = widget.composer.target;
-    return target.createsTopic || target.editsTopicMetadata
-        ? _minimumTopicHeight
-        : _minimumReplyHeight;
-  }
-}
-
-class _ComposerGeometry {
-  const _ComposerGeometry({required this.size, required this.position});
-
-  final Size size;
-  final Offset position;
 }
 
 class _TopicTaxonomy extends StatefulWidget {

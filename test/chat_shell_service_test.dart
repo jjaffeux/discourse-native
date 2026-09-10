@@ -458,7 +458,7 @@ final class _NavigationHost implements PluginNavigationHost {
   PluginVisibleTopicContext? get visibleTopicContext => null;
 
   @override
-  Rect? get floatingComposerBounds => null;
+  Rect? get readerContentBounds => null;
 
   @override
   void selectInstance(int index) {}

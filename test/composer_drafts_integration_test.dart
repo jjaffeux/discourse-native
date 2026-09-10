@@ -1382,7 +1382,7 @@ void _registerComposerAndDraftTests() {
     });
 
     testWidgets(
-      'save and close is immediate while draft restoration finishes',
+      'save and close keeps the editor until restoration is safely saved',
       (tester) async {
         final drafts = _GatedDraftReadStore();
         addTearDown(() {
@@ -1405,14 +1405,16 @@ void _registerComposerAndDraftTests() {
         await tester.tap(find.byTooltip('Save and close'));
         await tester.pump();
 
-        expect(find.byType(ComposerPanel), findsNothing);
+        expect(find.byType(ComposerPanel), findsOneWidget);
         expect(api.userDraftsDeleted, isEmpty);
 
         drafts.release.complete();
         await tester.pumpAndSettle();
 
+        expect(find.byType(ComposerPanel), findsNothing);
         expect(api.userDraftsDeleted, isEmpty);
-        expect(drafts.saved.values.single, contains('Restored after close'));
+        expect(api.draftsSaved.last['data'], contains('Restored after close'));
+        expect(drafts.saved, isEmpty);
       },
     );
 
@@ -1443,7 +1445,8 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.userDraftsDeleted, isEmpty);
-      expect(drafts.saved.values.single, contains('Temporarily unreadable'));
+      expect(api.draftsSaved.last['data'], contains('Temporarily unreadable'));
+      expect(drafts.saved, isEmpty);
     });
 
     testWidgets('a malformed legacy draft gives a recoverable restore notice', (
@@ -1488,7 +1491,8 @@ void _registerComposerAndDraftTests() {
 
       expect(tester.takeException(), isNull);
       expect(find.byType(ComposerPanel), findsNothing);
-      expect(persistence.values[storageKey], recovered);
+      expect(api.draftsSaved.last['data'], contains('Recovered legacy draft'));
+      expect(persistence.values, isEmpty);
       expect(prefs.containsKey(storageKey), isFalse);
       expect(api.userDraftsDeleted, isEmpty);
     });
