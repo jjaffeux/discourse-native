@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
@@ -146,7 +147,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(TopicListView), findsOneWidget);
-      expect(find.byKey(const ValueKey('message-inbox-picker')), findsNothing);
+      expect(find.byType(DMessageInboxMenu<String>), findsNothing);
       expect(find.text('Nothing here yet.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

@@ -4,6 +4,17 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'message-inbox-menu',
+    name: 'Message inbox menu',
+    sections: [
+      'Personal and groups',
+      'Group inbox',
+      'Personal only',
+      'Many groups',
+      'Disabled',
+    ],
+  ),
+  ComponentReference(
     id: 'notification-level-menu',
     name: 'Notification level menu',
     sections: [

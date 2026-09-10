@@ -764,10 +764,7 @@ void _registerTopicReadingTests() {
       await tester.tap(sidebarDestination('Messages'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('message-inbox-picker')),
-        findsOneWidget,
-      );
+      expect(find.byType(DMessageInboxMenu<String>), findsOneWidget);
       expect(find.text('Personal'), findsOneWidget);
       expect(find.text('A private message'), findsOneWidget);
 
