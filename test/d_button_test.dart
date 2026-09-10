@@ -174,7 +174,9 @@ void main() {
     expect((shape! as RoundedRectangleBorder).borderRadius, radius);
   });
 
-  testWidgets('buttons use a pointer cursor when enabled', (tester) async {
+  testWidgets('buttons use pointer and forbidden cursors by enabled state', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
@@ -199,7 +201,7 @@ void main() {
       expect(button.style!.mouseCursor!.resolve({}), SystemMouseCursors.click);
       expect(
         button.style!.mouseCursor!.resolve({WidgetState.disabled}),
-        SystemMouseCursors.basic,
+        SystemMouseCursors.forbidden,
       );
     }
   });

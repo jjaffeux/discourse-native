@@ -745,7 +745,11 @@ class DButton extends StatelessWidget {
           ? MaterialTapTargetSize.padded
           : MaterialTapTargetSize.shrinkWrap,
       splashFactory: NoSplash.splashFactory,
-      mouseCursor: WidgetStateMouseCursor.clickable,
+      mouseCursor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled)
+            ? SystemMouseCursors.forbidden
+            : SystemMouseCursors.click,
+      ),
       alignment: alignment,
       backgroundBuilder: (context, states, child) {
         final state = resolveState(states);
