@@ -4744,7 +4744,7 @@
           "taskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
           "branch": "codex/sidebar-section-rows",
           "mainBaseline": "af4cc047410004998b40d141a0caf13d99e2393d",
-          "status": "accepted",
+          "status": "merged",
           "dependencies": [
             "sidebar",
             "collapsible",
@@ -4756,7 +4756,7 @@
             "Keep disclosure persistence, keyboard/expanded semantics and independent section actions.",
             "Verify focused shell and narrow/scaled tests plus the changed native production fixture."
           ],
-          "reviewStatus": "accepted",
+          "reviewStatus": "merged",
           "integrationBranch": "codex/sidebar-section-rows-integration",
           "integratedMain": "de07b578b5e29a15dd999f3a0f2494a8ee5146cd",
           "implementationCommit": "c86ed14bf81682ef98a38bf90472b9d9c803c37c",
@@ -4774,7 +4774,10 @@
           "limitations": [
             "No physical iOS/Linux or spoken screen reader verification.",
             "Narrow 200% section titles can wrap or ellipsize, with their full accessible labels retained."
-          ]
+          ],
+          "candidateCommit": "42dc82c10faf829c9171acf56d60f2bef32f5b7a",
+          "mergeCommit": "c62ba9936dde55f5ea8b01627528952bad813aa2",
+          "mergedAt": "2026-09-10T14:39:17.951414+00:00"
         }
       }
     },
