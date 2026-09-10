@@ -486,7 +486,7 @@
         "mergeVerification": "Merged with --no-ff from the main checkout. The merge tree exactly matches verified branch commit 3309eff1a84de9e289a9387c5316e7da58275816."
       },
       "topicTaxonomyMigration": {
-        "status": "verified",
+        "status": "merged",
         "taskId": "01a08d19-7072-7dc2-8a77-2dcebba886b6",
         "branch": "codex/topic-taxonomy-ui-kit",
         "dependencies": [
@@ -515,7 +515,9 @@
           "Integration with current main preserved TopicTaxonomyButton and passed 84 composer/header/adoption checks and root analysis.",
           "Actual macOS production fixture: dark/light and Plum, 320px/200%/RTL, search and Enter category selection, empty subcategory removal, tag browse/select/create/remove, and search errors.",
           "Native AX exposes independent edit/browse controls and checkbox/link pairs. Isolated app quit, process disappearance verified and desktop lease released. No iOS/Linux device or spoken VoiceOver session."
-        ]
+        ],
+        "mergeCommit": "b0ac5fdf243c38f4df11daea7d74bea496dae2f4",
+        "mergeVerification": "Merged with --no-ff from the main checkout after reconciling current main. Merge tree equals the verified candidate; Native fixture and migrated app sources match the inspected integrated source. Final root analysis passed."
       }
     },
     {

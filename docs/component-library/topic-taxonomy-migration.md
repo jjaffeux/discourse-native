@@ -91,3 +91,8 @@ The isolated app was quit using its native menu, its process disappearance was
 verified, and the desktop lease was released. The Native kit's existing
 styleguide/color capability evidence remains in `button-custom-colors.md`;
 this review exercised the actual production header and editors.
+
+Merged locally into `main` from the main checkout with `--no-ff`: `b0ac5fdf243c38f4df11daea7d74bea496dae2f4`.
+The merge tree exactly matches the verified candidate. The later message-inbox
+tab integration left every migrated taxonomy source and the native fixture
+unchanged; final root analysis passed.
