@@ -23,7 +23,8 @@ upstream component catalogue is unchanged.
   Button Group and independent browse link. `clearSelectionLabel` adds a null selection
   for removing a subcategory or moving to Uncategorized; callers resolve the
   destination. It remains reachable while searching, including loading/error
-  states, but an empty result does not automatically highlight removal.
+  states. An empty search does not implicitly select removal in place of the
+  current category.
 - Tag filters support single or multiple selection, All tags and known-tag
   fallback. The composer supplies category-scoped search, selected tags and
   creation/limit capabilities. Selected tags remain available for removal.

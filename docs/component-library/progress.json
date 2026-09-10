@@ -536,14 +536,18 @@
         "evidencePath": "docs/component-library/topic-taxonomy-migration.md",
         "decisions": [
           "Compose the existing shared TopicCategorySelector through its Native Combobox trigger builder; retain the header Button Group and custom category colors.",
-          "Represent removal as an explicit null selector option with a caller-provided label. The app resolves the destination category; the Native kit is unchanged.",
-          "Remove the old category checkbox popup and lookup owner. Key the selector by its account/topic/search scope and reject retired search/save callbacks, including switching away and back."
+          "Reuse the existing clearSelectionLabel API from the concurrent composer subcategory change. The app resolves the destination category; the Native kit is unchanged.",
+          "Remove the old category checkbox popup and lookup owner. Key the selector by its account/topic/search scope and reject retired search/save callbacks, including switching away and back.",
+          "Fix Combobox focus on selection: when closing, let Popover restore trigger focus instead of refocusing the popup input and reopening it during an asynchronous category save."
         ],
         "verification": [
-          "155 distinct focused tests passed across shared taxonomy selectors, composer dropdowns, topic-list filters, topic picker lifecycle, inbox headers, title ownership, selector styleguide, taxonomy fields and button adoption.",
+          "219 distinct focused tests passed across 13 files: the nine category migration consumers, the production fixture regression, Native Combobox, Combobox styleguide and group-page consumer. The fixture test was rerun after correcting its test-runner platform teardown.",
           "Root flutter analyze --no-pub passed with no issues; touched-code formatting and git diff --check passed.",
-          "Built the production topic_taxonomy_review_main.dart fixture for debug macOS; native visual review pending the shared desktop lease."
-        ]
+          "Built the real production topic_taxonomy_review_main.dart fixture from source 0f033b3a for debug macOS. Final native review pending the shared desktop lease."
+        ],
+        "integrationBranch": "codex/topic-category-selector-final",
+        "implementationCommit": "8ec0305c",
+        "verifiedSourceCommit": "0f033b3a"
       }
     },
     {
