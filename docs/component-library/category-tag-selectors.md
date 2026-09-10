@@ -120,3 +120,21 @@ removal. The Combobox, selectors, composer, filters, styleguide and focused test
 match the inspected implementation. Merged locally from the main checkout with
 `--no-ff` as `9bac0c36899566fad4a85341039133ded3995fcf`; its tree exactly matches
 integration candidate `bea87496`.
+
+## Category removal hover follow-up
+
+The Category removal example uses the shared Combobox hover fix `054dc7ff`.
+Only the accepted highlighted value paints a row background, and backgrounds
+switch immediately. Moving onto removal no longer cross-fades with the selected
+category; keyboard navigation also replaces a stationary pointer's highlight.
+
+The actual styleguide example has regression coverage in light 320px and dark
+640px layouts. Both cases reproduced two painted highlights before the fix and
+now pass, including mouse removal and popup dismissal. All 57 focused Combobox,
+taxonomy selector and styleguide tests passed with seed `19762`.
+
+The isolated macOS styleguide built from `13303070` was inspected in the dark
+fit-width and light 360px previews. Native checks covered single-row keyboard
+highlighting and clicking removal to clear the category and close the dropdown.
+Transient mouse-hover overlap is covered by widget tests; no other native
+platform was exercised.
