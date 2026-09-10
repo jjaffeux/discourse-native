@@ -289,6 +289,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('controlled switch stays open when outgoing content had focus', (
+    tester,
+  ) async {
+    final value = ValueNotifier<String?>('getting');
+    final requests = <String?>[];
+    addTearDown(value.dispose);
+    final menu = _menu(onRoute: (_) {}) as DNavigationMenu<String>;
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<String?>(
+          valueListenable: value,
+          builder: (context, selected, child) =>
+              DNavigationMenu<String>.controlled(
+                value: selected,
+                onValueChanged: requests.add,
+                child: menu.child,
+              ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    _menuFocus(tester, 'getting').requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('Introduction'), findsOneWidget);
+    expect(FocusManager.instance.primaryFocus?.debugLabel, contains('link'));
+
+    value.value = 'components';
+    await tester.pump();
+    expect(find.text('Introduction'), findsNothing);
+    expect(find.text('Alert Dialog'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 60));
+
+    expect(requests, isNot(contains(null)));
+    expect(find.text('Alert Dialog'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('logical arrows rove triggers in LTR and RTL', (tester) async {
     for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
       await tester.pumpWidget(
