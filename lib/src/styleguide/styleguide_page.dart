@@ -486,12 +486,15 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                           examples[exampleIndex],
                           exampleIndex,
                           showTitle:
-                              _normalizedSectionLabel(
+                              !omittedComponentDocumentationSections.contains(
                                 examples[exampleIndex].title,
-                              ) !=
+                              ) &&
                               _normalizedSectionLabel(
-                                sections[sectionIndex].label,
-                              ),
+                                    examples[exampleIndex].title,
+                                  ) !=
+                                  _normalizedSectionLabel(
+                                    sections[sectionIndex].label,
+                                  ),
                         ),
                       ],
                     ],
@@ -517,8 +520,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
 
     final fallbackSections = <int>[
       for (var index = 0; index < sections.length; index++)
-        if (sections[index].depth == 0 &&
-            !const {'Composition', 'Changelog'}.contains(sections[index].label))
+        if (sections[index].depth == 0 && sections[index].label != 'Changelog')
           index,
     ];
 

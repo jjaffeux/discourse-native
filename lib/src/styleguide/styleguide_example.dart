@@ -1,5 +1,13 @@
 import 'package:flutter/widgets.dart';
 
+const omittedComponentDocumentationSections = {
+  'Installation',
+  'Usage',
+  'Composition',
+  'API Reference',
+  'Accessibility',
+};
+
 enum ComponentStatus { planned, baseline, implemented }
 
 /// A runnable example and the source a caller can copy to reproduce it.
@@ -64,18 +72,16 @@ class ComponentReference {
 
   /// The sections rendered by the native styleguide.
   ///
-  /// Installation, Usage, API reference, and accessibility blocks are omitted
-  /// together with their nested entries.
+  /// Setup, usage, composition, API reference, and accessibility blocks are
+  /// omitted together with their nested entries. Those sections depend on
+  /// explanatory prose that the native styleguide does not render.
   Iterable<ComponentReferenceSection> get documentOutline sync* {
     var insideOmittedBlock = false;
     for (final section in outline) {
-      if (section.label == 'Installation') continue;
       if (section.depth == 0) {
-        insideOmittedBlock = const {
-          'Usage',
-          'API Reference',
-          'Accessibility',
-        }.contains(section.label);
+        insideOmittedBlock = omittedComponentDocumentationSections.contains(
+          section.label,
+        );
       }
       if (!insideOmittedBlock) yield section;
     }
