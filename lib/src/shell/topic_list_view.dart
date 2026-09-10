@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
@@ -898,7 +898,12 @@ class _IncomingBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
-    final foreground = theme.colorScheme.onSurface;
+    final label = Text(
+      _label,
+      softWrap: true,
+      maxLines: 4,
+      textAlign: TextAlign.center,
+    );
 
     return ContentReadingLaneBox(
       widthLimit: topicListContentWidth,
@@ -908,61 +913,26 @@ class _IncomingBanner extends StatelessWidget {
           alignment: Alignment.center,
           child: Semantics(
             liveRegion: true,
-            value: loading ? 'Loading' : null,
-            child: TextButton(
+            child: DButton(
               key: const ValueKey('incoming-topics-button'),
-              onPressed: loading ? null : onTap,
-              style: ButtonStyle(
-                minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
-                padding: const WidgetStatePropertyAll(
-                  EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                ),
-                foregroundColor: WidgetStatePropertyAll(foreground),
-                backgroundColor: WidgetStateProperty.resolveWith((states) {
-                  final interactive =
-                      states.contains(WidgetState.hovered) ||
-                      states.contains(WidgetState.pressed);
-                  return Color.alphaBlend(
-                    accent.withValues(alpha: interactive ? 0.16 : 0.07),
-                    theme.shell.content,
-                  );
-                }),
-                side: WidgetStateProperty.resolveWith((states) {
-                  if (states.contains(WidgetState.focused)) {
-                    return BorderSide(color: accent, width: 2);
-                  }
-                  return BorderSide(color: accent.withValues(alpha: 0.25));
-                }),
-                shape: WidgetStatePropertyAll(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-                textStyle: WidgetStatePropertyAll(
-                  theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-                splashFactory: NoSplash.splashFactory,
-                visualDensity: VisualDensity.standard,
-                tapTargetSize: MaterialTapTargetSize.padded,
+              variant: DButtonVariant.outline,
+              size: DButtonSize.large,
+              borderRadius: BorderRadius.circular(999),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              backgroundColor: Color.alphaBlend(
+                accent.withValues(alpha: 0.07),
+                theme.shell.content,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ExcludeSemantics(
-                    child: loading
-                        ? SizedBox.square(
-                            dimension: 16,
-                            child: DSpinner(color: accent, size: 16),
-                          )
-                        : DIcon(DIcons.arrowUp, size: 16, color: accent),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(child: Text(_label, textAlign: TextAlign.center)),
-                ],
+              interactiveBackgroundColor: Color.alphaBlend(
+                accent.withValues(alpha: 0.16),
+                theme.shell.content,
               ),
+              borderColor: accent.withValues(alpha: 0.25),
+              icon: DIcon(DIcons.arrowUp, size: 16, color: accent),
+              label: label,
+              loading: loading,
+              loadingLabel: label,
+              onPressed: onTap,
             ),
           ),
         ),
