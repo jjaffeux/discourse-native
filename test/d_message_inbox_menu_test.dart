@@ -1,4 +1,4 @@
-import 'dart:ui' show CheckedState;
+import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/application_component_catalogue.dart';
@@ -26,7 +26,16 @@ const _options = [
 ];
 
 Finder _option(String value) => find.byWidgetPredicate(
-  (widget) => widget is DDropdownMenuRadioItem<String> && widget.value == value,
+  (widget) =>
+      widget is DComboboxItem<DMessageInboxOption<String>> &&
+      widget.option.value.value == value,
+);
+
+Finder _itemSemantics(String value) => find.descendant(
+  of: _option(value),
+  matching: find.byWidgetPredicate(
+    (widget) => widget is Semantics && widget.properties.button == true,
+  ),
 );
 
 void main() {
@@ -72,17 +81,25 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
       await tester.pumpAndSettle();
       final selected = tester
-          .getSemantics(_option('personal:'))
+          .getSemantics(_itemSemantics('personal:'))
           .getSemanticsData();
-      expect(selected.flagsCollection.isChecked, CheckedState.isTrue);
-      expect(selected.flagsCollection.isInMutuallyExclusiveGroup, isTrue);
-      expect(selected.label, 'Personal. Private messages sent directly to you');
+      expect(selected.flagsCollection.isSelected, Tristate.isTrue);
+      expect(selected.label, contains('Personal'));
+      expect(selected.label, contains('Private messages sent directly to you'));
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+        isTrue,
+      );
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(changes, ['group:team']);
-      expect(find.byType(DDropdownMenuContent), findsNothing);
+      expect(find.byType(DComboboxContent), findsNothing);
       expect(find.text('Personal'), findsOneWidget);
       expect(tester.widget<DButton>(trigger).focusNode!.hasFocus, isTrue);
 
@@ -94,25 +111,27 @@ void main() {
       await tester.pumpAndSettle();
       value.value = 'personal:';
       await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pumpAndSettle();
       expect(
         tester
-            .getSemantics(_option('personal:'))
+            .getSemantics(_itemSemantics('personal:'))
             .getSemanticsData()
             .flagsCollection
-            .isChecked,
-        CheckedState.isTrue,
+            .isSelected,
+        Tristate.isTrue,
       );
       expect(
         tester
-            .getSemantics(_option('group:team'))
+            .getSemantics(_itemSemantics('group:team'))
             .getSemanticsData()
             .flagsCollection
-            .isChecked,
-        CheckedState.isFalse,
+            .isSelected,
+        Tristate.isFalse,
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.byType(DDropdownMenuContent), findsNothing);
+      expect(find.byType(DComboboxContent), findsNothing);
       expect(tester.widget<DButton>(trigger).focusNode!.hasFocus, isTrue);
       expect(changes, ['group:team']);
     } finally {
@@ -135,8 +154,82 @@ void main() {
     expect(tester.widget<DButton>(find.byType(DButton)).onPressed, isNull);
     await tester.tap(find.byType(DButton));
     await tester.pumpAndSettle();
-    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(find.byType(DComboboxContent), findsNothing);
   });
+
+  testWidgets(
+    'search filters names, handles no matches, and resets on reopen',
+    (tester) async {
+      final example = messageInboxMenuExamples.examples.firstWhere(
+        (example) => example.title == 'Many groups',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(child: Builder(builder: example.builder)),
+          ),
+        ),
+      );
+      final trigger = find.byType(DButton);
+      String currentInbox() => tester
+          .widget<DMessageInboxMenu<String>>(
+            find.byType(DMessageInboxMenu<String>),
+          )
+          .value;
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(DComboboxItem<DMessageInboxOption<String>>),
+        findsNWidgets(16),
+      );
+      await tester.enterText(find.byType(TextField), 'SAFETY');
+      await tester.pumpAndSettle();
+      expect(_option('group:trust-and-safety'), findsOneWidget);
+      expect(_option('personal:'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(currentInbox(), 'group:trust-and-safety');
+      expect(find.byType(DComboboxContent), findsNothing);
+
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      expect(_option('personal:'), findsOneWidget);
+      // Descriptions are not search keywords: their shared wording would match
+      // every inbox and make name filtering less useful.
+      await tester.enterText(find.byType(TextField), 'Private messages');
+      await tester.pumpAndSettle();
+      expect(find.text('No inboxes found.'), findsOneWidget);
+      expect(
+        find.byType(DComboboxItem<DMessageInboxOption<String>>),
+        findsNothing,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(currentInbox(), 'group:trust-and-safety');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DComboboxContent), findsNothing);
+      expect(tester.widget<DButton>(trigger).focusNode!.hasFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      await tester.enterText(find.byType(TextField), '  personal  ');
+      await tester.pumpAndSettle();
+      expect(_option('personal:'), findsOneWidget);
+      await tester.tap(_option('personal:'));
+      await tester.pumpAndSettle();
+      expect(currentInbox(), 'personal:');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'styleguide examples scroll in narrow scaled RTL and update live palettes',
@@ -188,32 +281,46 @@ void main() {
             );
             continue;
           }
-          if (find.byType(DDropdownMenuContent).evaluate().isEmpty) {
+          if (find.byType(DComboboxContent).evaluate().isEmpty) {
             await tester.tap(find.byType(DButton));
             await tester.pumpAndSettle();
           }
-          final popup = tester.getRect(find.byType(DDropdownMenuContent));
+          final popup = tester.getRect(find.byType(DComboboxContent));
           expect(popup.left, greaterThanOrEqualTo(0));
           expect(popup.right, lessThanOrEqualTo(320));
           expect(popup.bottom, lessThanOrEqualTo(640));
+          expect(popup.height, lessThanOrEqualTo(288));
           expect(tester.takeException(), isNull, reason: example.title);
         }
         if (example.title == 'Disabled') continue;
-        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        final count = find
+            .byType(DComboboxItem<DMessageInboxOption<String>>)
+            .evaluate()
+            .length;
+        for (var index = 1; index < count; index++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        }
         await tester.pumpAndSettle();
         final lastValue = switch (example.title) {
           'Many groups' => 'group:trust-and-safety',
           'Personal only' => 'personal:',
           _ => 'group:engineers-emea',
         };
-        final popup = tester.getRect(find.byType(DDropdownMenuContent));
+        final popup = tester.getRect(find.byType(DComboboxContent));
+        final list = find.byType(DComboboxList<DMessageInboxOption<String>>);
         final last = tester.getRect(_option(lastValue));
-        // Scroll offsets and physical-pixel rounding can differ fractionally.
-        expect(last.top, greaterThanOrEqualTo(popup.top - 1));
-        expect(last.bottom, lessThanOrEqualTo(popup.bottom + 1));
+        expect(last.overlaps(tester.getRect(list)), isTrue);
+        // At 200% with the test font, a rich row can exceed the capped list.
+        // Its remaining description must still be reachable by scrolling.
+        await tester.drag(list, Offset(0, -last.height));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(_option(lastValue)).bottom,
+          lessThanOrEqualTo(popup.bottom + 1),
+        );
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
-        expect(find.byType(DDropdownMenuContent), findsNothing);
+        expect(find.byType(DComboboxContent), findsNothing);
         expect(
           tester
               .widget<DMessageInboxMenu<String>>(

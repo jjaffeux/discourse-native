@@ -5,7 +5,7 @@ import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
-import 'd_dropdown_menu.dart';
+import 'd_combobox.dart';
 
 /// One inbox's value, name, explanation, and personal or group artwork.
 @immutable
@@ -25,17 +25,18 @@ class DMessageInboxOption<T> {
   final Widget icon;
 }
 
-/// An inbox switcher composed of a button and descriptive radio-menu choices.
+/// An inbox switcher with a button and searchable, descriptive choices.
 ///
 /// [value] must match exactly one option. The caller owns selection, navigation,
 /// and the available inboxes. A null [onChanged] disables the control. The
 /// trigger truncates long names; its tooltip and semantics retain the full name.
-/// Menu labels and descriptions wrap, and long lists scroll.
+/// Menu labels and descriptions wrap, and long lists scroll. Each opening starts
+/// with an empty search. Filtering matches inbox names without changing selection.
 ///
-/// Dropdown Menu owns keyboard navigation, dismissal, and focus restoration.
+/// Combobox owns keyboard navigation, dismissal, and focus restoration.
 /// Change this widget's key when its page or account changes to retire an open
 /// menu that belongs to the previous owner.
-class DMessageInboxMenu<T> extends StatelessWidget {
+class DMessageInboxMenu<T> extends StatefulWidget {
   const DMessageInboxMenu({
     super.key,
     required this.value,
@@ -54,47 +55,100 @@ class DMessageInboxMenu<T> extends StatelessWidget {
   final Key? buttonKey;
 
   @override
+  State<DMessageInboxMenu<T>> createState() => _DMessageInboxMenuState<T>();
+}
+
+class _DMessageInboxMenuState<T> extends State<DMessageInboxMenu<T>> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final selected = options.singleWhere((option) => option.value == value);
-    final label = '$semanticLabel: ${selected.label}';
-    return DDropdownMenu(
-      content: DDropdownMenuContent(
-        semanticLabel: semanticLabel,
+    final selected = widget.options.singleWhere(
+      (option) => option.value == widget.value,
+    );
+    final label = '${widget.semanticLabel}: ${selected.label}';
+    final tokens = DTokens.of(context);
+    return DCombobox<DMessageInboxOption<T>>.controlled(
+      value: selected,
+      equals: (left, right) => left.value == right.value,
+      options: [
+        for (final option in widget.options)
+          DComboboxOption(value: option, label: option.label),
+      ],
+      enabled: widget.onChanged != null,
+      autoHighlight: true,
+      textController: _search,
+      onOpenChanged: (open, _) {
+        if (open) _search.clear();
+      },
+      onChanged: (option, _) {
+        if (option != null) widget.onChanged?.call(option.value);
+      },
+      content: DComboboxContent(
+        semanticLabel: widget.semanticLabel,
         width: 336,
         children: [
-          DDropdownMenuRadioGroup<T>(
-            value: value,
-            onChanged: onChanged,
-            children: [
-              for (final option in options)
-                DDropdownMenuRadioItem<T>(
-                  value: option.value,
-                  leading: option.icon,
-                  closeOnSelect: true,
-                  semanticLabel: '${option.label}. ${option.description}',
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(option.label),
-                      Text(
-                        option.description,
-                        style: TextStyle(
-                          color: DTokens.of(context).mutedForeground,
-                          fontSize: DiscourseTypography.xs,
-                          height: DiscourseTypography.lineHeightCaption,
-                        ),
-                      ),
-                    ],
+          Padding(
+            padding: const EdgeInsets.all(4),
+            child: DComboboxInput<DMessageInboxOption<T>>(
+              placeholder: 'Search inboxes…',
+              semanticLabel: 'Search inboxes',
+              registerAsAnchor: false,
+              showTrigger: false,
+            ),
+          ),
+          DComboboxEmpty<DMessageInboxOption<T>>(
+            child: const Text('No inboxes found.'),
+          ),
+          DComboboxList<DMessageInboxOption<T>>(
+            itemBuilder: (context, item) => Semantics(
+              label: item.value.description,
+              excludeSemantics: true,
+              child: Row(
+                children: [
+                  IconTheme.merge(
+                    data: IconThemeData(size: 16, color: tokens.foreground),
+                    child: item.value.icon,
                   ),
-                ),
-            ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.label,
+                          style: const TextStyle(
+                            fontSize: DiscourseTypography.sm,
+                            height: 20 / DiscourseTypography.sm,
+                          ),
+                        ),
+                        Text(
+                          item.value.description,
+                          style: TextStyle(
+                            color: tokens.mutedForeground,
+                            fontSize: DiscourseTypography.xs,
+                            height: DiscourseTypography.lineHeightCaption,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
-      child: DDropdownMenuTrigger(
+      anchor: DComboboxTrigger<DMessageInboxOption<T>>(
         builder: (context, state) => DButton(
-          key: buttonKey,
+          key: widget.buttonKey,
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -112,12 +166,12 @@ class DMessageInboxMenu<T> extends StatelessWidget {
           icon: selected.icon,
           tooltip: label,
           semanticLabel: label,
-          onPressed: onChanged == null ? null : state.toggle,
+          onPressed: widget.onChanged == null ? null : state.toggle,
           focusNode: state.focusNode,
           hasPopup: true,
           expanded: state.open,
           variant: DButtonVariant.flat,
-          size: size,
+          size: widget.size,
         ),
       ),
     );
