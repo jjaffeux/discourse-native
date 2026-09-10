@@ -591,8 +591,13 @@ void main() {
         find.byKey(const ValueKey('composer-selection-toolbar')),
         findsNothing,
       );
-      expect(find.byTooltip('Bold'), findsNothing);
-      expect(find.byTooltip('Italic'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('composer-format-bold')));
+      await tester.pump();
+      expect(composer.raw, source);
+      expect(
+        find.byKey(const ValueKey('composer-selection-toolbar')),
+        findsNothing,
+      );
 
       composer.text.selection = TextSelection(
         baseOffset: 0,
@@ -865,7 +870,7 @@ Future<void> _pumpPanel(
     theme: AppTheme.dark,
     home: ShellScope(
       controller: shell,
-      child: Scaffold(body: ComposerPanel(composer: composer)),
+      child: Scaffold(body: ComposerPanel(composer: composer, height: 500)),
     ),
   ),
 );

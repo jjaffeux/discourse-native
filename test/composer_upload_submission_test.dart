@@ -104,19 +104,19 @@ void main() {
       });
       final uploadButton = find.byKey(const ValueKey('composer-upload'));
       final retryButton = _iconButton('Retry upload');
-      expect(tester.widget<IconButton>(uploadButton).onPressed, isNotNull);
+      expect(tester.widget<DButton>(uploadButton).onPressed, isNotNull);
       expect(
         tester.widget<DAttachmentAction>(retryButton).onPressed,
         isNotNull,
       );
 
       await tester.tap(
-        find.widgetWithText(FilledButton, editing ? 'Save' : 'Reply'),
+        find.widgetWithText(DButton, editing ? 'Save' : 'Reply'),
       );
       await tester.pump();
       expect((editing ? api.updated : api.created).single['raw'], _body);
       expect(composer.submitting, isTrue);
-      expect(tester.widget<IconButton>(uploadButton).onPressed, isNull);
+      expect(tester.widget<DButton>(uploadButton).onPressed, isNull);
       expect(tester.widget<DAttachmentAction>(retryButton).onPressed, isNull);
       expect(
         tester
@@ -133,7 +133,7 @@ void main() {
       gate.completeError(_writeFailure);
       await tester.pump();
       expect(composer.submitting, isFalse);
-      expect(tester.widget<IconButton>(uploadButton).onPressed, isNotNull);
+      expect(tester.widget<DButton>(uploadButton).onPressed, isNotNull);
       expect(
         tester.widget<DAttachmentAction>(retryButton).onPressed,
         isNotNull,

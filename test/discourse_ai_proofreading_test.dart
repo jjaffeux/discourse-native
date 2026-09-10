@@ -199,6 +199,7 @@ Future<void> _pumpComposer(
         body: ComposerPanel(
           composer: composer ?? shell.visibleComposer!,
           minimized: minimized,
+          height: minimized ? null : 500,
         ),
       ),
     ),
@@ -360,18 +361,18 @@ void main() {
       findsNothing,
     );
     final submit = find.byKey(const ValueKey('composer-submit'));
-    final format = find.byKey(const ValueKey('composer-formatting'));
+    final footer = find.byKey(const ValueKey('composer-toolbar-scroll'));
     expect(
       find.descendant(of: submit, matching: find.text('Reply')),
       findsNothing,
     );
     expect(
       tester.getCenter(control).dy,
-      closeTo(tester.getCenter(format).dy, 1),
+      closeTo(tester.getCenter(footer).dy, 1),
     );
     expect(
       tester.getCenter(submit).dy,
-      closeTo(tester.getCenter(format).dy, 1),
+      closeTo(tester.getCenter(footer).dy, 1),
     );
     final semantics = tester.ensureSemantics();
     try {

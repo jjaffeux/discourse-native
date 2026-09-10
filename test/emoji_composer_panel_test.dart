@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -321,7 +322,7 @@ void main() {
     );
     await tester.pump();
 
-    final action = tester.widget<IconButton>(
+    final action = tester.widget<DButton>(
       find.byKey(const ValueKey('composer-emoji-picker')),
     );
     expect(action.onPressed, isNull);
@@ -330,9 +331,7 @@ void main() {
     await tester.pump();
     expect(
       tester
-          .widget<IconButton>(
-            find.byKey(const ValueKey('composer-emoji-picker')),
-          )
+          .widget<DButton>(find.byKey(const ValueKey('composer-emoji-picker')))
           .onPressed,
       isNotNull,
     );

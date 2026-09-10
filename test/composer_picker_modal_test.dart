@@ -73,7 +73,7 @@ void main() {
         home: ShellScope(
           controller: shell,
           child: Scaffold(
-            body: ComposerPanel(composer: shell.visibleComposer!),
+            body: ComposerPanel(composer: shell.visibleComposer!, height: 500),
           ),
         ),
       ),
@@ -84,6 +84,8 @@ void main() {
   }
 
   Future<void> open(WidgetTester tester, Key actionKey) async {
+    await tester.ensureVisible(find.byKey(actionKey));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.byKey(actionKey));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -101,7 +103,7 @@ void main() {
       await tester.pump();
       final editorBounds = tester.getRect(find.byType(ComposerEditor));
       final submitBounds = tester.getRect(
-        find.widgetWithText(FilledButton, 'Create topic'),
+        find.widgetWithText(DButton, 'Create topic'),
       );
 
       await shell.changeComposerCategory(composer, 5);
@@ -113,7 +115,7 @@ void main() {
       expect(composer.notice, isNull);
       expect(tester.getRect(find.byType(ComposerEditor)), editorBounds);
       expect(
-        tester.getRect(find.widgetWithText(FilledButton, 'Create topic')),
+        tester.getRect(find.widgetWithText(DButton, 'Create topic')),
         submitBounds,
       );
       final notice = find.byType(ComposerTagRemovalNotice);
@@ -238,6 +240,7 @@ void main() {
     }
     expect(tester.takeException(), isNull);
 
+    await tester.pump();
     await open(tester, const ValueKey('composer-add-tag'));
     expect(find.byType(TopicTagPicker), findsOneWidget);
     expect(find.byType(BottomSheet), findsOneWidget);
