@@ -78,3 +78,9 @@ The fixture source and signed bundle are retained under
 The original dropdown composition was merged as
 `a1af6f7a6499cfc06ff40895ec46b23d47fe91b8`; this follow-up replaces its popup with
 the searchable Combobox while preserving the public inbox component API.
+
+Final integration against main `302fbbaf` passed all 19 inbox component and
+Messages page tests again, with clean static analysis. The native-reviewed
+component, adapter, examples, Button, Combobox, and Popover are unchanged.
+Logs: `/tmp/inbox-combobox-final-tests.log` and
+`/tmp/inbox-combobox-final-analysis.log`.
