@@ -107,3 +107,9 @@ topic-list and styleguide category menus also closed after mouse selection.
 Reviewed dark 700px and light 320px content layouts. The app launched with
 permitted debug entitlements, was quit, and the desktop lease was released.
 Native evidence is macOS only.
+
+Integrated from main `759916ca` while preserving its category-heading tooltip
+removal. The Combobox, selectors, composer, filters, styleguide and focused tests
+match the inspected implementation. Merged locally from the main checkout with
+`--no-ff` as `9bac0c36899566fad4a85341039133ded3995fcf`; its tree exactly matches
+integration candidate `bea87496`.
