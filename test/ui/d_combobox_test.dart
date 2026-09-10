@@ -41,6 +41,129 @@ DCombobox<String> _single({
 );
 
 void main() {
+  testWidgets('pointer highlight switches rows without an overlap frame', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(_single()));
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+    await mouse.moveTo(tester.getCenter(find.text('Next.js')));
+    await tester.pumpAndSettle();
+    final hover = DTokens.of(tester.element(find.text('Next.js'))).hover;
+    expect(_rowBackground(tester, 'next'), hover);
+
+    await mouse.moveTo(tester.getCenter(find.text('SvelteKit')));
+    await tester.pump();
+    expect(_rowBackground(tester, 'next').a, 0);
+    expect(_rowBackground(tester, 'svelte'), hover);
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(_rowBackground(tester, 'next').a, 0);
+    expect(_rowBackground(tester, 'svelte'), hover);
+  });
+
+  testWidgets('keyboard highlight replaces a stationary pointer highlight', (
+    tester,
+  ) async {
+    String? selected;
+    await tester.pumpWidget(
+      _app(_single(changed: (value) => selected = value)),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+    await mouse.moveTo(tester.getCenter(find.text('Next.js')));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(_rowBackground(tester, 'next').a, 0);
+    expect(_rowBackground(tester, 'svelte').a, greaterThan(0));
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+      isTrue,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(selected, 'svelte');
+  });
+
+  for (final scenario in [
+    (
+      name: 'disabled option',
+      hover: true,
+      controlled: false,
+      value: 'next',
+      target: 'nuxt',
+    ),
+    (
+      name: 'disabled pointer highlighting',
+      hover: false,
+      controlled: false,
+      value: 'next',
+      target: 'svelte',
+    ),
+    (
+      name: 'controlled highlight',
+      hover: true,
+      controlled: true,
+      value: 'next',
+      target: 'svelte',
+    ),
+    (
+      name: 'controlled null highlight',
+      hover: true,
+      controlled: true,
+      value: null,
+      target: 'svelte',
+    ),
+  ]) {
+    testWidgets('${scenario.name} does not paint an extra hovered row', (
+      tester,
+    ) async {
+      String? requested;
+      await tester.pumpWidget(
+        _app(
+          DCombobox<String>(
+            options: _options,
+            highlightItemOnHover: scenario.hover,
+            highlightControlled: scenario.controlled,
+            highlightedValue: scenario.value,
+            onHighlightChanged: (value, _) => requested = value,
+            anchor: const DComboboxInput<String>(),
+            content: const DComboboxContent(
+              children: [DComboboxList<String>()],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer();
+      await mouse.moveTo(
+        tester.getCenter(
+          find.text(
+            _options.firstWhere((o) => o.value == scenario.target).label,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_rowBackground(tester, scenario.target).a, 0);
+      expect(
+        _rowBackground(tester, 'next').a,
+        scenario.value == null ? 0 : greaterThan(0),
+      );
+      expect(requested, scenario.controlled ? scenario.target : null);
+    });
+  }
+
   testWidgets(
     'selecting after input blur closes without refocusing the popup',
     (tester) async {
@@ -966,6 +1089,25 @@ void main() {
       Brightness.dark,
     );
   });
+}
+
+Color _rowBackground(WidgetTester tester, String value) {
+  final row = find.byWidgetPredicate(
+    (widget) => widget is DComboboxItem<String> && widget.option.value == value,
+  );
+  final background = tester.widget<DecoratedBox>(
+    find
+        .descendant(
+          of: row,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is DecoratedBox &&
+                widget.position == DecorationPosition.background,
+          ),
+        )
+        .first,
+  );
+  return (background.decoration as BoxDecoration).color!;
 }
 
 @immutable

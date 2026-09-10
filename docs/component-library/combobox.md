@@ -67,7 +67,11 @@ value, focus, Form and IME owner.
   ordinary and chip inputs. Done leaves focus and selection unchanged when
   there is no eligible highlight, including while async results are replaced.
   Escape dismisses and restores the accepted single label.
-  Pointer hover can own highlight without moving editor focus.
+  Pointer hover can own highlight without moving editor focus. The root's
+  accepted highlighted value is the sole row-background owner, including when
+  controlled by the parent. Highlight changes are immediate, matching Select;
+  rows do not cross-fade or retain a separate pointer highlight when keyboard
+  navigation moves to another option. Disabled options never highlight.
 - The popup belongs to the editor's `TextFieldTapRegion`. A mouse press on an
   option preserves editor focus, so selection closes according to
   `closeOnSelect` without focus restoration reopening the menu. Clicks outside
@@ -118,6 +122,21 @@ Automated acceptance covers the focused Combobox/styleguide/Input Group/Item/
 Popover/Group Page regressions, root and full-profile static analysis, and an
 exact-source macOS debug build. iOS, Linux and spoken VoiceOver behavior were not
 inspected and remain explicit platform follow-up work.
+
+Hover regression follow-up (2026-09-11): all 82 focused tests in
+`test/ui/d_combobox_test.dart`, `test/d_select_test.dart`,
+`test/topic_taxonomy_selectors_test.dart`,
+`test/styleguide/combobox_examples_test.dart`, and
+`test/styleguide/taxonomy_selector_examples_test.dart` passed; root
+`flutter analyze --no-pub` was clean. New tests inspect painted backgrounds
+on the first and intermediate frames, stationary-pointer keyboard handoff,
+disabled options, disabled hover, and parent-controlled highlights. The native
+macOS debug fixture mounted the real Combobox Composition and Composer tags
+styleguide examples, including production `TopicTagSelector`: dark 320px and
+light 216px layouts, pointer-to-keyboard handoff, single-row highlighting,
+Enter selection and popup dismissal passed. Native pointer entry used a drag
+from the editor into an option; exact transition frames are covered by the
+widget tests.
 
 ## Application audit
 
