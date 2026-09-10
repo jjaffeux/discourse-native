@@ -76,24 +76,49 @@ void main() {
     },
   );
 
-  testWidgets('search validates submits and exposes local support feedback', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: EmptySearchSample())),
-    );
-    await tester.tap(find.text('Search'));
-    await tester.pump();
-    expect(find.text('Enter a search query.'), findsOneWidget);
-    await tester.enterText(find.byType(DInputGroupInput), 'guide');
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pump();
-    expect(find.text('No local pages match “guide”.'), findsOneWidget);
-    await tester.tap(find.text('Contact support'));
-    await tester.pump();
-    expect(
-      find.text('Support is available at help@example.test.'),
-      findsOneWidget,
-    );
-  });
+  testWidgets(
+    'search composition matches the reference and submits from input',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: EmptySearchSample())),
+      );
+
+      final inputGroup = find.byType(DInputGroup);
+      final input = find.byType(DInputGroupInput);
+      final shortcut = find.descendant(
+        of: inputGroup,
+        matching: find.byType(DKbd),
+      );
+      final shortcutAddon = find.ancestor(
+        of: shortcut,
+        matching: find.byType(DInputGroupAddon),
+      );
+      expect(find.text('Search'), findsNothing);
+      expect(shortcut, findsOneWidget);
+      expect(
+        tester.getRect(inputGroup).right - tester.getRect(shortcut).right,
+        lessThan(16),
+      );
+
+      await tester.tap(shortcutAddon);
+      await tester.pump();
+      expect(
+        tester.widget<DInputGroupInput>(input).focusNode!.hasFocus,
+        isTrue,
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      expect(find.text('Enter a search query.'), findsOneWidget);
+      await tester.enterText(input, 'guide');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      expect(find.text('No local pages match “guide”.'), findsOneWidget);
+      await tester.tap(find.text('Contact support'));
+      await tester.pump();
+      expect(
+        find.text('Support is available at help@example.test.'),
+        findsOneWidget,
+      );
+    },
+  );
 }

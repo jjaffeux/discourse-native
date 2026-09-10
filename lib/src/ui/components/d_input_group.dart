@@ -134,9 +134,9 @@ class _DInputGroupState extends State<DInputGroup> {
       if (child is DInputGroupAddon) {
         switch (child.alignment) {
           case DInputGroupAddonAlignment.inlineStart:
-            inlineStart.add(Flexible(child: ordered));
+            inlineStart.add(ordered);
           case DInputGroupAddonAlignment.inlineEnd:
-            inlineEnd.add(Flexible(child: ordered));
+            inlineEnd.add(ordered);
           case DInputGroupAddonAlignment.blockStart:
             blockStart.add(ordered);
           case DInputGroupAddonAlignment.blockEnd:
@@ -152,11 +152,29 @@ class _DInputGroupState extends State<DInputGroup> {
     }
     assert(controls.length == 1, 'DInputGroup requires exactly one control.');
 
-    Widget inline = Row(
-      crossAxisAlignment: multiline
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.center,
-      children: [...inlineStart, ...controls, ...inlineEnd],
+    Widget inline = LayoutBuilder(
+      builder: (context, constraints) {
+        // Keep both addon lanes shrinkable at large text sizes while reserving
+        // space for the editor between them.
+        final maxSideWidth = constraints.maxWidth * .4;
+        Widget side(List<Widget> children) => ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxSideWidth),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [for (final child in children) Flexible(child: child)],
+          ),
+        );
+        return Row(
+          crossAxisAlignment: multiline
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.center,
+          children: [
+            if (inlineStart.isNotEmpty) side(inlineStart),
+            ...controls,
+            if (inlineEnd.isNotEmpty) side(inlineEnd),
+          ],
+        );
+      },
     );
     Widget content = blockStart.isEmpty && blockEnd.isEmpty
         ? inline
