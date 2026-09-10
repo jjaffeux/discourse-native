@@ -63,6 +63,11 @@ An explicit menu regression ensures the separate-window action is absent.
 - Root and full-profile static analysis passed. Both macOS debug application
   builds passed, as did the root macOS review-fixture build.
 
+Integration with main `62906e34` passed 449 focused composer, chat, diagnostics,
+navigation, sidebar, upload, and preference tests, plus root and full-profile
+static analysis and macOS debug builds. The newer sidebar and scrolling changes
+are preserved.
+
 The local-only `tool/composer_docking_review_main.dart` fixture mounts the real
 production composer with isolated preferences, in-memory APIs and test
 credentials. Earlier native checks verified desktop left/bottom/right docking
