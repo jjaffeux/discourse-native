@@ -837,7 +837,9 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
           constraints: BoxConstraints(maxHeight: combobox.content.maxHeight),
           padding: EdgeInsets.zero,
           scrollable: false,
-          child: combobox.content,
+          // Options belong to the editor's tap region. Otherwise a mouse-down
+          // blurs the input and selection's focus restoration reopens the menu.
+          child: TextFieldTapRegion(child: combobox.content),
         ),
         child: KeyedSubtree(key: _anchorKey, child: combobox.anchor),
       ),
