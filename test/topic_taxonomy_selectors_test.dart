@@ -44,6 +44,68 @@ void main() {
   Finder tagOption(String name) =>
       find.byKey(ValueKey(('tag-selector-option', name)));
 
+  for (final category in [true, false]) {
+    testWidgets(
+      '${category ? 'category' : 'tag'} selector shows a forbidden cursor while disabled',
+      (tester) async {
+        var enabled = false;
+        late StateSetter setEnabled;
+        await pump(
+          tester,
+          StatefulBuilder(
+            builder: (context, setState) {
+              setEnabled = setState;
+              return category
+                  ? TopicCategorySelector(
+                      siteUrl: 'https://example.invalid',
+                      categories: const [support],
+                      selected: support,
+                      onSelected: enabled ? (_) {} : null,
+                    )
+                  : TopicTagSelector(
+                      selectedTags: const [design],
+                      search: (_) async => const TopicTagSearch(tags: [design]),
+                      onChanged: enabled ? (_) {} : null,
+                    );
+            },
+          ),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer();
+        final button = find.byType(DButton);
+        final bounds = tester.getRect(button);
+        for (final position in [
+          Offset(bounds.left + 12, bounds.center.dy),
+          bounds.center,
+          Offset(bounds.right - 12, bounds.center.dy),
+        ]) {
+          await mouse.moveTo(position);
+          await tester.pump();
+          expect(
+            tester.binding.mouseTracker.debugDeviceActiveCursor(1),
+            SystemMouseCursors.forbidden,
+          );
+        }
+        await mouse.down(bounds.center);
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(find.byType(DComboboxContent), findsNothing);
+
+        setEnabled(() => enabled = true);
+        await tester.pumpAndSettle();
+        expect(
+          tester.binding.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.click,
+        );
+        await mouse.down(bounds.center);
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(find.byType(DComboboxContent), findsOneWidget);
+      },
+    );
+  }
+
   for (final remote in [false, true]) {
     testWidgets(
       'mouse category selection closes the ${remote ? 'remote' : 'local'} dropdown',

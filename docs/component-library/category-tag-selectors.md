@@ -144,3 +144,18 @@ fix's accepted merge `05620468`, preserving the tested selector and Combobox
 source. Merged from the main checkout with `--no-ff` as
 `decc651f3d5b849369bf7a88866be73ec75a486c`; the merge tree matches the verified
 integration candidate `32aa28b5` exactly.
+
+## Disabled cursor follow-up
+
+The shared Native Button now requests the forbidden mouse cursor when disabled
+or loading, including both selector triggers. Enabled buttons retain the hand
+cursor. Mouse regressions reproduced the previous arrow cursor and verify the
+icon, label and chevron areas, ignored disabled clicks, and switching to enabled
+while the pointer remains over the control.
+
+All 133 focused integration tests passed with seed `35171`; `dart analyze` was
+clean. The macOS styleguide build passed, and an isolated native app from
+`fd8d7eb9` showed the disabled category example in dark mode and tag example in
+a light 360px preview. Both remained closed when clicked. Cursor assertions
+come from widget mouse-tracker tests; native inspection covered appearance and
+disabled click behavior. Integration preserves the inspected Button source.
