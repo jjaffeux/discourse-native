@@ -73,6 +73,7 @@ class _DAttachmentState extends State<DAttachment> {
               child is! DAttachmentTrigger && child is! DAttachmentActions,
         )
         .toList();
+    final padding = _rootPadding(visual);
     final radius =
         widget.borderRadius ??
         BorderRadius.circular(
@@ -104,7 +105,11 @@ class _DAttachmentState extends State<DAttachment> {
       fit: StackFit.passthrough,
       children: [
         if (trigger != null) Positioned.fill(child: trigger),
-        IgnorePointer(child: inScope(_layout(visual, actions))),
+        IgnorePointer(
+          child: inScope(
+            Padding(padding: padding, child: _layout(visual, actions)),
+          ),
+        ),
         if (actions.isNotEmpty)
           if (widget.orientation == DAttachmentOrientation.vertical)
             PositionedDirectional(
@@ -116,7 +121,7 @@ class _DAttachmentState extends State<DAttachment> {
             PositionedDirectional(
               top: 0,
               bottom: 0,
-              end: 0,
+              end: padding.right,
               child: Center(child: inScope(actions.first)),
             ),
       ],
@@ -131,9 +136,13 @@ class _DAttachmentState extends State<DAttachment> {
       decoration: BoxDecoration(
         color: background,
         borderRadius: radius,
-        border: widget.state == DAttachmentState.idle
-            ? null
-            : Border.all(color: borderColor),
+        // Keep the border's layout inset while the idle state's dashed stroke
+        // is painted separately below.
+        border: Border.all(
+          color: widget.state == DAttachmentState.idle
+              ? Colors.transparent
+              : borderColor,
+        ),
       ),
       foregroundDecoration: _focused
           ? BoxDecoration(
@@ -147,16 +156,17 @@ class _DAttachmentState extends State<DAttachment> {
               ),
             )
           : null,
-      child: widget.state == DAttachmentState.idle
-          ? CustomPaint(
-              foregroundPainter: _DashedAttachmentBorder(
-                color: borderColor,
-                radius: radius,
-              ),
-              child: card,
-            )
-          : card,
+      child: card,
     );
+    if (widget.state == DAttachmentState.idle) {
+      card = CustomPaint(
+        foregroundPainter: _DashedAttachmentBorder(
+          color: borderColor,
+          radius: radius,
+        ),
+        child: card,
+      );
+    }
     card = MouseRegion(
       cursor: trigger?.enabled == true
           ? SystemMouseCursors.click
@@ -179,6 +189,36 @@ class _DAttachmentState extends State<DAttachment> {
       liveRegion: widget.liveRegion,
       child: card,
     );
+  }
+
+  EdgeInsets _rootPadding(List<Widget> visual) {
+    // The reference applies its size padding to Attachment itself through
+    // `:has()` selectors. Media's all-sided padding wins over Content's
+    // horizontal padding when both documented parts are present.
+    if (visual.any((child) => child is DAttachmentMedia)) {
+      return EdgeInsets.all(switch (widget.size) {
+        DAttachmentSize.regular => 8,
+        DAttachmentSize.small => 6,
+        DAttachmentSize.extraSmall => 4,
+      });
+    }
+    if (visual.any((child) => child is DAttachmentContent)) {
+      return switch (widget.size) {
+        DAttachmentSize.regular => const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 8,
+        ),
+        DAttachmentSize.small => const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 6,
+        ),
+        DAttachmentSize.extraSmall => const EdgeInsets.symmetric(
+          horizontal: 6,
+          vertical: 4,
+        ),
+      };
+    }
+    return EdgeInsets.zero;
   }
 
   Widget _layout(List<Widget> visual, List<DAttachmentActions> actions) {
@@ -352,24 +392,10 @@ class DAttachmentContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scope = _DAttachmentScope.of(context);
-    final padding = switch (scope.size) {
-      DAttachmentSize.regular => const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 8,
-      ),
-      DAttachmentSize.small => const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 6,
-      ),
-      DAttachmentSize.extraSmall => const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 4,
-      ),
-    };
     return Padding(
       padding: scope.orientation == DAttachmentOrientation.vertical
-          ? padding.add(const EdgeInsets.symmetric(horizontal: 4))
-          : padding,
+          ? const EdgeInsets.symmetric(horizontal: 4)
+          : EdgeInsets.zero,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,7 +425,8 @@ class DAttachmentTitle extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: fontSize,
-          height: (scope.size == DAttachmentSize.regular ? 20 : 16) / fontSize,
+          height:
+              (scope.size == DAttachmentSize.regular ? 17.5 : 15) / fontSize,
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
           color: DTokens.of(context).foreground,
