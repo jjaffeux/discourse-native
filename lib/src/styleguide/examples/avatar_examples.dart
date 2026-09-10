@@ -347,8 +347,9 @@ DDropdownMenu(
     StyleguideExample(
       title: 'RTL',
       description:
-          'Arabic initials, a trailing status badge and a localized '
-          'count. The group starts on the right and overlaps toward the left.',
+          'Arabic initials, a bottom-right status badge and a localized '
+          'count. The group starts on the right and overlaps toward the left '
+          'without covering the badge.',
       states: const ['RTL', 'Arabic', 'Group', 'Badge'],
       code: '''const DDirection(textDirection: TextDirection.rtl, child:
   DAvatarGroup(children: [
