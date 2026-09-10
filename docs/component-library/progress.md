@@ -560,6 +560,7 @@ Status: merged. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/ui-but
 - PollCard cast-votes, vote-on-web and connect-account buttons adopt DButton; existing ownership/permission/deadline behavior retained.
 - StyleguideAction uses actual DButton ghost/outline controls without changing DSidebar shell ownership.
 - UserSummary numeric count actions use DButtonVariant.link and retain destination callbacks/names.
+- Topic taxonomy follow-up: production category split buttons, tag badges and searchable editors now compose Native controls; see docs/component-library/topic-taxonomy-migration.md.
 
 **retainedAlternatives**
 

@@ -89,6 +89,8 @@ void main() {
     await tester.tap(find.byKey(actionKey));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    // OverlayPortal mounts the picker on its next frame; flush lookup results.
+    await tester.pump();
   }
 
   testWidgets(
@@ -240,7 +242,7 @@ void main() {
     await tester.pump();
     await open(tester, const ValueKey('composer-add-tag'));
     expect(find.byType(TopicTagPicker), findsOneWidget);
-    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(DDrawerContent), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
   });
 
@@ -257,7 +259,7 @@ void main() {
     );
     expect(find.byType(TopicCategoryPicker), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(DDrawerContent), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('topic-category-option-5')));
     await tester.pump();
@@ -372,7 +374,7 @@ void main() {
     );
     expect(find.byType(TopicTagPicker), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(DDrawerContent), findsNothing);
 
     await tester.tap(
       find.byKey(const ValueKey(('topic-tag-picker-option', 'design'))),
@@ -411,7 +413,9 @@ void main() {
       }
 
       await open(tester, const ValueKey('composer-add-tag'));
-      await tester.tapAt(const Offset(790, 10));
+      // Native popovers permit outside interaction. Dismiss in empty space,
+      // away from the composer's close button.
+      await tester.tapAt(const Offset(5, 590));
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
 
@@ -433,7 +437,7 @@ void main() {
     await open(tester, const ValueKey('composer-category-action'));
 
     expect(find.byType(TopicCategoryPicker), findsOneWidget);
-    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(DDrawerContent), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
   });
 
@@ -443,7 +447,7 @@ void main() {
     await open(tester, const ValueKey('composer-add-tag'));
 
     expect(find.byType(TopicTagPicker), findsOneWidget);
-    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(DDrawerContent), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
   });
 }
