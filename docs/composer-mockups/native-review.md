@@ -135,3 +135,60 @@ composer_reply_context.dart 8aadbef5db8c647a15d1b0cc595b650035e58a3055465e02d5f5
 quiet_dock_review_main.dart 275641816d8ec35435058c8d80da776668ddbdef28e253e04930483238349ca8
 kernel_blob.bin            453c50482d32eec0f8c2c2d0f559c24bcce0c485ed27fd942274328b0bfbdaf1
 ```
+
+## Follow-up: avatar spacing and close responsiveness
+
+The follow-up starts from merged main
+`14ecc9e0c624c0a0fab558e67c3c389fd5ef3ea4` and addresses the user's
+2026-09-10 feedback about the avatar touching the reply text and slow closing.
+
+The reply row now uses `DSpacing.md` (12 logical pixels) between the avatar,
+text and disclosure icon. No component API changed.
+
+Closing previously awaited draft restoration and all server persistence before
+hiding the dock. It now uses the existing closing state to hide the dock on the
+next frame, then performs that work. The presentation host retains the editor
+until persistence completes; failure restores the same controller, widget state
+and text. Upload/submission guards and post-edit discard confirmation remain in
+place. Reopening a reply while its previous close is pending creates a new
+composer through the existing draft-retirement path, so an earlier close cannot
+dismiss the reopened editor.
+
+The delayed-save and delayed-delete regressions failed on the previous source
+and pass after the fix. **188 focused tests pass**, covering:
+
+```text
+composer_drafts_integration_test.dart
+composer_close_safety_test.dart
+composer_panel_controls_test.dart
+composer_docking_test.dart
+composer_upload_panel_test.dart
+composer_authoring_submission_test.dart
+composer_background_draft_test.dart
+composer_draft_failure_test.dart
+composer_authoring_admission_test.dart
+```
+
+New integration coverage checks next-frame dismissal with a blocked save or
+delete, retention through draft restoration, save-failure recovery and retry,
+and reopening while an earlier close is pending. Root and full-profile analysis
+pass, and touched Dart files are formatted.
+
+The review fixture accepts `--dart-define=QUIET_DOCK_BLOCK_DRAFTS=true` to hold
+server draft responses until its **Finish server save** button is pressed. The
+isolated macOS debug bundle `/tmp/QuietDockComposerPolishFinal.app` passed strict
+signature verification and launched successfully. Native inspection confirmed
+the gap in light/dark side docks, reply-context expansion, closing while the
+server remained blocked, immediate reopening with the prior draft, and continued
+editing after the earlier save was released. Production Xcode settings were
+restored after the isolated build. No device or real-server run was performed.
+
+Inspected follow-up source and bundle SHA-256:
+
+```text
+composer_discard.dart       f6c90c35e3eefc67131f09be89352684d37a35e88beba13cf2d188b0f54c06af
+composer_reply_context.dart 726be00fbbf14c331c9dc294c490763d10cc66153220b093e1e2edb5e06081d5
+shell_controller.dart       ae8a200bdd5fb05e47ec58d5d41fe539707ff551083a46428c4938cb2cb0a9f7
+quiet_dock_review_main.dart  e24129959b7cb98471a63c24f1d86fd0c4cd8b1b088f6a89ea95d62f1e99bc82
+kernel_blob.bin             da495f0974d82111d90e414ae498aea2b49d6eb52e1af7e929c16b1567abf57b
+```

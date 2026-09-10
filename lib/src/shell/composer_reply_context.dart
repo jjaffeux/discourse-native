@@ -130,6 +130,7 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
                         DItemContent(
                           children: [
                             Row(
+                              spacing: DSpacing.md,
                               children: [
                                 ExcludeSemantics(
                                   child: username != null
