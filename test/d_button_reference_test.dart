@@ -40,6 +40,208 @@ void main() {
   DTokens tokensOf(WidgetTester tester) =>
       DTokens.of(tester.element(find.byType(FilledButton)));
 
+  for (final iconOnly in [false, true]) {
+    testWidgets(
+      'custom ${iconOnly ? 'icon' : 'text'} colors preserve alpha through hover and expanded states',
+      (tester) async {
+        const fill = Color(0x1aed1681);
+        const border = Color(0x40ed1681);
+        const interactiveFill = Color(0x2ded1681);
+        Widget button({Color? interactive, bool expanded = false}) => iconOnly
+            ? DButton.iconOnly(
+                icon: const Icon(Icons.open_in_new),
+                tooltip: 'Browse sales',
+                variant: DButtonVariant.outline,
+                backgroundColor: fill,
+                borderColor: border,
+                interactiveBackgroundColor: interactive,
+                hasPopup: true,
+                expanded: expanded,
+                onPressed: () {},
+              )
+            : DButton(
+                label: const Text('sales'),
+                variant: DButtonVariant.outline,
+                backgroundColor: fill,
+                borderColor: border,
+                interactiveBackgroundColor: interactive,
+                hasPopup: true,
+                expanded: expanded,
+                onPressed: () {},
+              );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: Offset.zero);
+
+        for (final theme in [AppTheme.light, AppTheme.dark]) {
+          final desktop = theme.copyWith(platform: TargetPlatform.macOS);
+          await pump(tester, button(), theme: desktop);
+          expect(buttonSurface(tester).color, fill);
+          expect(buttonSurface(tester).borderColor, border);
+
+          await mouse.moveTo(tester.getCenter(find.byType(FilledButton)));
+          await tester.pump();
+          expect(buttonSurface(tester).color, fill, reason: 'default hover');
+
+          await pump(
+            tester,
+            button(interactive: interactiveFill),
+            theme: desktop,
+          );
+          expect(buttonSurface(tester).color, interactiveFill);
+          expect(buttonSurface(tester).borderColor, border);
+          await mouse.down(tester.getCenter(find.byType(FilledButton)));
+          await tester.pump();
+          expect(buttonSurface(tester).color, interactiveFill);
+          await mouse.up();
+          await mouse.moveTo(Offset.zero);
+          await pump(
+            tester,
+            button(interactive: interactiveFill, expanded: true),
+            theme: desktop,
+          );
+          expect(buttonSurface(tester).color, fill, reason: 'expanded fill');
+          expect(buttonSurface(tester).borderColor, border);
+        }
+      },
+    );
+  }
+
+  testWidgets(
+    'custom borders retain focus rings and yield to invalid styling',
+    (tester) async {
+      final highlightStrategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(
+        () => FocusManager.instance.highlightStrategy = highlightStrategy,
+      );
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      const fill = Color(0x1aed1681);
+      const border = Color(0x40ed1681);
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        for (final invalid in [false, true]) {
+          await pump(
+            tester,
+            DButton(
+              label: const Text('sales'),
+              focusNode: focus,
+              variant: DButtonVariant.outline,
+              backgroundColor: fill,
+              borderColor: border,
+              invalid: invalid,
+              onPressed: () {},
+            ),
+            theme: theme.copyWith(platform: TargetPlatform.macOS),
+          );
+          focus.requestFocus();
+          await tester.pumpAndSettle();
+          final tokens = tokensOf(tester);
+          final surface = buttonSurface(tester);
+          expect(surface.color, fill);
+          expect(surface.ringWidth, 3);
+          expect(
+            surface.borderColor,
+            invalid
+                ? tokens.destructive.withValues(
+                    alpha: theme.brightness == Brightness.dark ? .5 : 1,
+                  )
+                : border,
+          );
+          expect(
+            surface.ringColor,
+            invalid
+                ? tokens.destructive.withValues(
+                    alpha: theme.brightness == Brightness.dark ? .4 : .2,
+                  )
+                : tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5),
+          );
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'custom colors update live and removing them restores the variant',
+    (tester) async {
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        for (final color in <Color?>[
+          const Color(0xffed1681),
+          const Color(0xff0088cc),
+          Colors.transparent,
+          null,
+        ]) {
+          await pump(
+            tester,
+            DButton(
+              label: const Text('Category'),
+              variant: DButtonVariant.outline,
+              backgroundColor: color?.withValues(alpha: color.a * .1),
+              borderColor: color?.withValues(alpha: color.a * .25),
+              onPressed: () {},
+            ),
+            theme: theme.copyWith(platform: TargetPlatform.macOS),
+          );
+          await tester.pumpAndSettle();
+          final tokens = tokensOf(tester);
+          final dark = theme.brightness == Brightness.dark;
+          expect(
+            buttonSurface(tester).color,
+            color?.withValues(alpha: color.a * .1) ??
+                (dark
+                    ? tokens.colors.outlineVariant.withValues(
+                        alpha: tokens.colors.outlineVariant.a * .3,
+                      )
+                    : tokens.background),
+          );
+          expect(
+            buttonSurface(tester).borderColor,
+            color?.withValues(alpha: color.a * .25) ??
+                (dark ? tokens.colors.outlineVariant : tokens.border),
+          );
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'custom disabled and loading buttons keep their fill and block activation',
+    (tester) async {
+      var presses = 0;
+      const fill = Color(0x1aed1681);
+      const border = Color(0x40ed1681);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      for (final loading in [false, true]) {
+        await pump(
+          tester,
+          DButton(
+            label: const Text('sales'),
+            backgroundColor: fill,
+            borderColor: border,
+            interactiveBackgroundColor: Colors.green,
+            variant: DButtonVariant.outline,
+            loading: loading,
+            onPressed: loading ? () => presses++ : null,
+          ),
+        );
+        await mouse.moveTo(tester.getCenter(find.byType(FilledButton)));
+        await tester.pump();
+        await tester.tap(find.byType(DButton));
+        expect(buttonSurface(tester).color, fill);
+        expect(buttonSurface(tester).borderColor, border);
+        expect(presses, 0);
+        final opacity = find.ancestor(
+          of: find.byType(FilledButton),
+          matching: find.byType(Opacity),
+        );
+        expect(tester.widget<Opacity>(opacity).opacity, .5);
+      }
+    },
+  );
+
   testWidgets(
     'disabled opacity follows the scoped theme without enabling activation',
     (tester) async {

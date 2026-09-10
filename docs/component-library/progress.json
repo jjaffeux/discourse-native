@@ -412,7 +412,8 @@
         "Radius follow-up: xs/icon-xs=min(.8×base,10px), sm/icon-sm=min(.8×base,12px), regular/large=base per official theming scale; preserves caller radius overrides.",
         "Restore existing disabledOpacity scoped override with .5 default; preserve disabled/loading activation guards. No Input changes.",
         "Users search height follows touch targets; reorder arrows are outside CheckboxListTile semantics/height constraints, with authored40px pointer and48px touch targets.",
-        "Native AX correction: icon-only tooltip becomes default spoken label; UserSummary count label moves onto DButton to eliminate duplicate nested buttons."
+        "Native AX correction: icon-only tooltip becomes default spoken label; UserSummary count label moves onto DButton to eliminate duplicate nested buttons.",
+        "Custom-color follow-up (2026-09-10): user authorized optional per-button backgroundColor and borderColor for category-tinted split controls. Existing Button/Group/Combobox owners compose the working example; see docs/component-library/button-custom-colors.md and customColorsFollowUp for its current verification status."
       ],
       "migrations": [
         "All existing direct Button imports migrated to discourse_ui.dart; obsolete theme/d_button.dart removed.",
@@ -453,7 +454,32 @@
       "implementationCommit": "355aa84f83c5949dd5be13eaaf56dd1032c6241b",
       "mergeCommit": "eb6d8ea0d9417f0edc830c5ce715b52436f12c94",
       "nativeInspectionStatus": "complete",
-      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native"
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native",
+      "customColorsFollowUp": {
+        "status": "verified",
+        "taskId": "01a08d19-7072-7dc2-8a77-2dcebba886b6",
+        "branch": "codex/ui-button-custom-colors",
+        "dependencies": [
+          "button-group",
+          "combobox"
+        ],
+        "acceptanceCriteria": [
+          "Both DButton constructors accept optional backgroundColor and borderColor without changing default variants.",
+          "Custom fills and borders retain their alpha across state changes; interactiveBackgroundColor remains authoritative for existing interactive states.",
+          "Invalid borders and themed focus rings remain visible; disabled/loading callbacks remain blocked.",
+          "Joined category-style controls use the same color overrides and retain independent selection/navigation actions.",
+          "Add a working styleguide composition and verify focused tests, static analysis and native rendering."
+        ],
+        "evidence": "docs/component-library/button-custom-colors.md",
+        "verification": [
+          "Locked pub resolution, formatting and root flutter analyze --no-pub passed without lockfile or Flutter pin changes.",
+          "105 distinct focused Button/reference/Group/styleguide/Combobox/adoption tests passed across the final runs with seed 9102026; stale composer raw-button exception was removed.",
+          "Rendered join pixels verify one translucent border between the two custom fills. Both constructors retain custom alpha, focus/invalid priority, disabled/loading guards and live resets.",
+          "Actual macOS example inspection: dark/light and Plum palettes, 320px/200%/RTL, independent browse actions, picker search and keyboard selection with live tint updates and visible focus.",
+          "The isolated review app launched and was quit; its process disappeared and desktop lease was released. Native review kernel SHA-256 afa84d5f07db23cfab1e8bdadc0e371d3300e90a02326f575cf356ac2c4ae06d.",
+          "No iOS/Linux device or spoken screen-reader session; production picker migration is outside this kit-capability follow-up."
+        ]
+      }
     },
     {
       "id": "separator",

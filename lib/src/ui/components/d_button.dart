@@ -348,6 +348,8 @@ class DButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.padding,
     this.borderRadius,
+    this.backgroundColor,
+    this.borderColor,
     this.interactiveBackgroundColor,
   }) : insetSurface = false,
        _iconOnly = false;
@@ -368,6 +370,8 @@ class DButton extends StatelessWidget {
     this.autofocus = false,
     this.alignment = Alignment.center,
     this.borderRadius,
+    this.backgroundColor,
+    this.borderColor,
     this.interactiveBackgroundColor,
     this.expanded = false,
     this.invalid = false,
@@ -421,6 +425,18 @@ class DButton extends StatelessWidget {
   /// Replaces the size's padding, including its 1px border inset.
   final EdgeInsetsGeometry? padding;
   final BorderRadiusGeometry? borderRadius;
+
+  /// Overrides the variant's fill in every state, including expanded and
+  /// disabled. [interactiveBackgroundColor] takes precedence on hover/focus
+  /// and compatibility-variant presses. Foreground colors remain variant-owned.
+  final Color? backgroundColor;
+
+  /// Overrides the 1px border in every state except [invalid]. The themed focus
+  /// ring remains visible, and joined groups still omit the shared border.
+  final Color? borderColor;
+
+  /// Overrides the hover/focus fill and compatibility-variant pressed fill.
+  /// An expanded secondary button keeps its expanded fill instead.
   final Color? interactiveBackgroundColor;
   final bool _iconOnly;
 
@@ -604,8 +620,13 @@ class DButton extends StatelessWidget {
         ? _alpha(tokens.destructive, dark ? .4 : .2)
         : _alpha(tokens.focusRing, .5);
 
-    DButtonStateStyle withInteractiveBackground(DButtonStateStyle state) {
-      final background = interactiveBackgroundColor;
+    DButtonStateStyle withBackground(
+      DButtonStateStyle state, {
+      bool interactive = false,
+    }) {
+      final background = interactive
+          ? interactiveBackgroundColor ?? backgroundColor
+          : backgroundColor;
       if (background == null) return state;
       return DButtonStateStyle(
         foregroundColor: state.foregroundColor,
@@ -616,7 +637,9 @@ class DButton extends StatelessWidget {
     }
 
     DButtonStateStyle resolveState(Set<WidgetState> states) {
-      if (states.contains(WidgetState.disabled)) return variantStyle.enabled;
+      if (states.contains(WidgetState.disabled)) {
+        return withBackground(variantStyle.enabled);
+      }
       // Reference hover surfaces sit behind a (hover: hover) media query, so
       // a touch press only translates. Compatibility variants keep their
       // pressed fill as touch feedback.
@@ -626,15 +649,15 @@ class DButton extends StatelessWidget {
       // aria-expanded:bg-secondary is declared after the secondary hover mix,
       // so an open secondary trigger keeps its expanded surface while hovered.
       if (expanded && (!interactive || variant == DButtonVariant.secondary)) {
-        return variantStyle.expanded;
+        return withBackground(variantStyle.expanded);
       }
       if (interactive) {
-        return withInteractiveBackground(variantStyle.interactive);
+        return withBackground(variantStyle.interactive, interactive: true);
       }
       if (states.contains(WidgetState.focused)) {
-        return withInteractiveBackground(variantStyle.focused);
+        return withBackground(variantStyle.focused, interactive: true);
       }
-      return variantStyle.enabled;
+      return withBackground(variantStyle.enabled);
     }
 
     final style = ButtonStyle(
@@ -728,13 +751,14 @@ class DButton extends StatelessWidget {
         final state = resolveState(states);
         final focused = states.contains(WidgetState.focused);
         final border = state.border;
-        final borderColor = invalid
+        final resolvedBorderColor = invalid
             ? _alpha(tokens.destructive, dark ? .5 : 1)
-            : focused && focusBorderColor != null
-            ? focusBorderColor
-            : border.style == BorderStyle.none || border.width == 0
-            ? Colors.transparent
-            : border.color;
+            : borderColor ??
+                  (focused && focusBorderColor != null
+                      ? focusBorderColor
+                      : border.style == BorderStyle.none || border.width == 0
+                      ? Colors.transparent
+                      : border.color);
         return AnimatedContainer(
           duration: animationDuration,
           curve: Curves.ease,
@@ -745,7 +769,7 @@ class DButton extends StatelessWidget {
           ),
           decoration: DButtonDecoration(
             color: state.backgroundColor,
-            borderColor: borderColor,
+            borderColor: resolvedBorderColor,
             borderRadius: radius,
             ringColor: ringColor,
             ringWidth: focused || invalid ? 3 : 0,
