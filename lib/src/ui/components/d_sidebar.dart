@@ -16,6 +16,44 @@ bool _touchPlatform(BuildContext context) =>
       _ => false,
     };
 
+const _minimumSidebarGuideContrast = 1.25;
+
+double _contrastRatio(Color first, Color second) {
+  final firstLuminance = first.computeLuminance();
+  final secondLuminance = second.computeLuminance();
+  final lighter = firstLuminance > secondLuminance
+      ? firstLuminance
+      : secondLuminance;
+  final darker = firstLuminance > secondLuminance
+      ? secondLuminance
+      : firstLuminance;
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+Color _sidebarGuideColor(BuildContext context) {
+  final tokens = DTokens.of(context);
+  final background = _PanelScope.backgroundOf(context) ?? tokens.surface;
+  final paintedBorder = Color.alphaBlend(tokens.border, background);
+  if (_contrastRatio(paintedBorder, background) >=
+      _minimumSidebarGuideContrast) {
+    return tokens.border;
+  }
+
+  // Some site palettes map the semantic border to the Sidebar surface. The
+  // shadcn neutral guide is a subtle foreground tint, so recover that contrast
+  // only when the configured border would disappear.
+  for (final alpha in const [.10, .12, .14, .16, .20, .24, .30]) {
+    final candidate = Color.alphaBlend(
+      tokens.foreground.withValues(alpha: alpha),
+      background,
+    );
+    if (_contrastRatio(candidate, background) >= _minimumSidebarGuideContrast) {
+      return candidate;
+    }
+  }
+  return tokens.foreground;
+}
+
 class _SidebarTouchTarget extends StatelessWidget {
   const _SidebarTouchTarget({required this.child});
   final Widget child;
@@ -130,15 +168,19 @@ class _PanelScope extends InheritedWidget {
   const _PanelScope({
     required this.icon,
     required this.side,
+    required this.background,
     required super.child,
   });
   final bool icon;
   final DSidebarSide side;
+  final Color background;
   static bool iconOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_PanelScope>()?.icon ?? false;
+  static Color? backgroundOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_PanelScope>()?.background;
   @override
   bool updateShouldNotify(_PanelScope old) =>
-      icon != old.icon || side != old.side;
+      icon != old.icon || side != old.side || background != old.background;
 }
 
 /// A sidebar with fixed header/footer and a bounded content slot. Place it in
@@ -216,17 +258,19 @@ class _DSidebarState extends State<DSidebar> {
   Widget _panel(BuildContext context, bool icon, {bool mobile = false}) {
     final t = DTokens.of(context);
     final floating = widget.variant == DSidebarVariant.floating && !mobile;
+    final background = widget.backgroundColor ?? t.surface;
     return Material(
       type: MaterialType.transparency,
       child: _PanelScope(
         icon: icon,
         side: widget.side,
+        background: background,
         child: Semantics(
           container: !mobile,
           label: mobile ? null : widget.semanticLabel,
           child: Container(
             decoration: BoxDecoration(
-              color: widget.backgroundColor ?? t.surface,
+              color: background,
               borderRadius: floating ? t.borderRadius : null,
 
               boxShadow: floating
@@ -975,11 +1019,14 @@ class DSidebarMenuSub extends StatelessWidget {
           margin: const EdgeInsetsDirectional.only(start: 14, end: 14),
           child: Stack(
             children: [
-              const PositionedDirectional(
+              PositionedDirectional(
                 start: 1,
                 top: 0,
                 bottom: 0,
-                child: DSeparator(orientation: Axis.vertical),
+                child: DSeparator(
+                  orientation: Axis.vertical,
+                  color: _sidebarGuideColor(context),
+                ),
               ),
               Padding(
                 padding: const EdgeInsetsDirectional.only(
