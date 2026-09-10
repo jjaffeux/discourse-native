@@ -2538,7 +2538,8 @@
         "Root and profiles/full flutter analyze --no-pub passed with no diagnostics after the final Popover/Select corrections; git diff --check passed.",
         "Exact reviewed source rebuilt as /private/tmp/select-review-56d8.VCyNHv/source/build/macos/Build/Products/Debug/Select Review 56d8.app with bundle org.discourse.select.review.56d8. DSelect, DPopover, examples and fixture hashes match the review branch; restricted debug entitlements read back correctly, strict deep signature passed, CDHash d9d20849ecee43fcbea8badef0e8dd312dfa57be and TeamIdentifier is not set.",
         "Official ui.shadcn.com Base Select was inspected in light/dark for default, selected-item alignment, groups, scrollable, disabled, invalid and RTL surfaces. The isolated macOS fixture was inspected for pointer selection, keyboard typeahead/End/Tab/Escape and focus restoration, selected-row reveal, scroll arrows, disabled trigger/item, invalid Form state, actionable group/option semantics, multiple selection remaining open, light/dark/Forest/Plum palettes, RTL, 216px width, 200% text and reduced motion.",
-        "2026-09-10 Native Select removal: 363 focused component/styleguide/consumer tests passed with seed 391447, including clearable filters, disabled editing, nested Escape, keyboard traversal and all shared production fixtures. Root and profiles/full flutter analyze --no-pub passed; enforced-lockfile resolution preserved lockfiles and Flutter 3.47.2. Live native inspection was not run because the shared desktop lease was occupied."
+        "2026-09-10 Native Select removal: 363 focused component/styleguide/consumer tests passed with seed 391447, including clearable filters, disabled editing, nested Escape, keyboard traversal and all shared production fixtures. Root and profiles/full flutter analyze --no-pub passed; enforced-lockfile resolution preserved lockfiles and Flutter 3.47.2. Live native inspection was not run because the shared desktop lease was occupied.",
+        "2026-09-10: Native Select removal merged locally as 702e5ff39c12fc1641567d91767112e20c60d878 from the main checkout. The candidate preserved current main’s Dropdown Menu changes; all 34 additional Dropdown Menu/styleguide/production-fixture integration tests passed with seed 391447 and root analysis was clean. The merged source tree exactly matches the tested candidate 443499ec4fb07f3af4c0f4b7edb18509abbe0665."
       ],
       "limitations": [
         "Native device inspection was macOS only. Spoken VoiceOver output and iOS/Linux devices were not exercised; macOS Accessibility API roles, values and actions were inspected and widget regressions cover semantics and platform-independent behavior.",
@@ -2562,7 +2563,16 @@
       "reviewBranch": "codex/review-select",
       "reviewStatus": "merged",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/f6b1/discourse-native",
-      "reviewHandoffCommit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e"
+      "reviewHandoffCommit": "69e5ec663e92bb61fa734ee43b6c3e738e96961e",
+      "nativeSelectRemoval": {
+        "status": "merged",
+        "taskId": "01a08b31-2ac1-7d93-9bcd-a05d3ce28813",
+        "branch": "codex/remove-native-select",
+        "implementationCommit": "55bdc8d0b536704aea31096545aad47a0a7c87bc",
+        "integrationBranch": "codex/remove-native-select-integration",
+        "integrationCommit": "443499ec4fb07f3af4c0f4b7edb18509abbe0665",
+        "mergeCommit": "702e5ff39c12fc1641567d91767112e20c60d878"
+      }
     },
     {
       "id": "field",
