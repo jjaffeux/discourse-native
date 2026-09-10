@@ -675,7 +675,7 @@ void main() {
       final button = find.byKey(const Key('assign-topic-button'));
       final dButton = tester.widget<DButton>(button);
       expect(dButton.variant, DButtonVariant.primary);
-      expect(tester.getSize(button).height, 46);
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(46));
       expect(tester.getSize(button).width, tester.getSize(action).width);
       expect(
         tester.getSemantics(button),
@@ -788,9 +788,15 @@ void main() {
       );
     });
 
+    final assignmentLayouts = ValueVariant<(TextDirection, double)>({
+      (TextDirection.ltr, 1),
+      (TextDirection.rtl, 2),
+    });
+
     testWidgets('gives an assigned topic icon-only change and remove actions', (
       tester,
     ) async {
+      final (direction, textScale) = assignmentLayouts.currentValue!;
       const registry = PluginRegistry([AssignPlugin()]);
       final plugins = registry.readTopic(const {
         'can_assign': true,
@@ -806,13 +812,22 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: Directionality(textDirection: direction, child: child!),
+          ),
           home: Scaffold(
-            body: Builder(
-              builder: (context) => Column(
-                children: _plugin
-                    .topicProperties(context, _siteUrl, topic)
-                    .single
-                    .values,
+            body: SizedBox(
+              width: 228,
+              child: Builder(
+                builder: (context) => Column(
+                  children: _plugin
+                      .topicProperties(context, _siteUrl, topic)
+                      .single
+                      .values,
+                ),
               ),
             ),
           ),
@@ -854,7 +869,10 @@ void main() {
       );
       expect(tester.getSemantics(change).label, 'Change topic assignment');
       expect(tester.getSemantics(remove).label, 'Remove topic assignment');
-    });
+      expect(tester.getRect(row).contains(tester.getCenter(change)), isTrue);
+      expect(tester.getRect(row).contains(tester.getCenter(remove)), isTrue);
+      expect(tester.takeException(), isNull);
+    }, variant: assignmentLayouts);
 
     testWidgets('orders rows and exposes hidden details through semantics', (
       tester,

@@ -600,6 +600,7 @@ void main() {
           '/assign/suggestions.json?target_id=7&target_type=Topic',
           '/assign/suggestions.json?target_id=12&target_type=Post',
         ]);
+        expect(api.topicPostNumbersOpened, everyElement(isNull));
       },
     );
 

@@ -8,7 +8,6 @@ import '../../models/post.dart';
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/inline_action.dart';
 import '../../shell/pill.dart';
 import '../../shell/post_action.dart';
 import '../../theme/d_icon.dart';
@@ -752,8 +751,9 @@ class _PostAssignmentLedger extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dividerColor = Theme.of(context).colorScheme.outlineVariant
-        .withValues(alpha: 0.55);
+    final dividerColor = Theme.of(
+      context,
+    ).colorScheme.outlineVariant.withValues(alpha: 0.55);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -795,123 +795,82 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isPost = assignment.isPostAssignment;
-    final eyebrowStyle = theme.textTheme.labelSmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-      fontWeight: FontWeight.w500,
-    );
-    final handleStyle = theme.textTheme.labelMedium?.copyWith(
-      color: theme.colorScheme.onSurface,
-      fontWeight: FontWeight.w700,
-    );
     final actionTarget = isPost ? targetLabel : 'topic';
     final openTarget = onOpenTarget;
-    final targetIsLink = isPost && openTarget != null;
-    final identity = ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 40),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text.rich(
-              TextSpan(
-                text: 'Assigned to',
-                children: [
-                  if (isPost) ...[
-                    const TextSpan(text: ' · '),
-                    TextSpan(
-                      text: targetLabel,
-                      style: targetIsLink
-                          ? TextStyle(color: theme.colorScheme.primary)
-                          : null,
-                    ),
-                  ],
-                ],
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: eyebrowStyle,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '@${assignment.assignee.identifier}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: handleStyle,
-            ),
-          ],
-        ),
-      ),
-    );
 
     return Semantics(
       container: true,
       explicitChildNodes: true,
       label: assignmentSummary(assignment, targetLabel),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: isPost ? 7 : 4),
-        child: Row(
-          children: [
-            ExcludeSemantics(
+      child: DItem(
+        key: openTarget == null ? null : postTargetKey,
+        size: DItemSize.xs,
+        padding: EdgeInsets.symmetric(
+          vertical: isPost ? DSpacing.sm : DSpacing.xs,
+        ),
+        link: openTarget != null,
+        onPressed: openTarget,
+        semanticLabel: openTarget == null ? null : 'Open $targetLabel',
+        children: [
+          DItemMedia(
+            variant: DItemMediaVariant.avatar,
+            child: ExcludeSemantics(
               child: AssignmentAssigneeAvatar(
                 assignee: assignment.assignee,
                 size: isPost ? 30 : 34,
               ),
             ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: openTarget != null
-                  ? DTooltip(
-                      message: 'Open $targetLabel',
-                      child: InlineAction.link(
-                        key: postTargetKey,
-                        onTap: openTarget,
-                        semanticLabel: 'Open $targetLabel',
-                        excludeChildSemantics: true,
-                        borderRadius: BorderRadius.circular(4),
-                        child: identity,
-                      ),
-                    )
-                  : ExcludeSemantics(child: identity),
-            ),
-            if (onChange != null || onRemove != null) ...[
-              const SizedBox(width: 5),
-              Builder(
-                builder: (anchorContext) => Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (onChange != null)
-                      DButton.iconOnly(
-                        key: changeKey,
-                        icon: const DIcon(DIcons.pencil, size: 13),
-                        tooltip: 'Change assignee',
-                        semanticLabel: 'Change $actionTarget assignment',
-                        variant: DButtonVariant.transparent,
-                        size: DButtonSize.small,
-                        onPressed: writing
-                            ? null
-                            : () => onChange!(anchorContext),
-                      ),
-                    if (onRemove != null)
-                      DButton.iconOnly(
-                        key: removeKey,
-                        icon: const DIcon(DIcons.xmark, size: 13),
-                        tooltip: 'Remove assignment',
-                        semanticLabel: 'Remove $actionTarget assignment',
-                        variant: DButtonVariant.transparentDanger,
-                        size: DButtonSize.small,
-                        loading: writing,
-                        onPressed: () => onRemove!(anchorContext),
-                      ),
-                  ],
+          ),
+          DItemContent(
+            children: [
+              DItemDescription(
+                child: ExcludeSemantics(
+                  child: Text(
+                    isPost ? 'Assigned to · $targetLabel' : 'Assigned to',
+                  ),
+                ),
+              ),
+              DItemTitle(
+                child: ExcludeSemantics(
+                  child: Text('@${assignment.assignee.identifier}'),
                 ),
               ),
             ],
-          ],
-        ),
+          ),
+          if (onChange != null || onRemove != null)
+            DItemActions(
+              children: [
+                if (onChange != null)
+                  Builder(
+                    builder: (anchorContext) => DButton.iconOnly(
+                      key: changeKey,
+                      icon: const DIcon(DIcons.pencil, size: 13),
+                      tooltip: 'Change assignee',
+                      semanticLabel: 'Change $actionTarget assignment',
+                      variant: DButtonVariant.transparent,
+                      size: DButtonSize.small,
+                      onPressed: writing
+                          ? null
+                          : () => onChange!(anchorContext),
+                    ),
+                  ),
+                if (onRemove != null)
+                  Builder(
+                    builder: (anchorContext) => DButton.iconOnly(
+                      key: removeKey,
+                      icon: const DIcon(DIcons.xmark, size: 13),
+                      tooltip: 'Remove assignment',
+                      semanticLabel: 'Remove $actionTarget assignment',
+                      variant: DButtonVariant.transparentDanger,
+                      size: DButtonSize.small,
+                      loading: writing,
+                      onPressed: () => onRemove!(anchorContext),
+                    ),
+                  ),
+              ],
+            ),
+        ],
       ),
     );
   }
