@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../app_shortcuts.dart';
 import '../models/badge_route.dart';
 import '../models/bookmark.dart';
 import '../models/category_feed.dart';
@@ -29,6 +30,7 @@ import 'group_pages_host.dart';
 import 'group_pages_port.dart';
 import 'group_pages_shell_port.dart';
 import 'inline_action.dart';
+import 'keyboard_navigation.dart';
 import 'message_inbox_page.dart';
 import 'message_inbox_title.dart';
 import 'open_link.dart';
@@ -42,6 +44,7 @@ import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
 import 'topic_filter_page.dart';
+import 'topic_list_bottom_bar.dart';
 import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
 import 'topic_list_view.dart';
@@ -293,7 +296,24 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
   }
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder<double>(
+  Widget build(BuildContext context) => ReadingShortcuts(
+    sequenceContext: (
+      widget.state.siteUrl,
+      widget.state.activeTabId,
+      widget.state.route,
+    ),
+    commands: {
+      ReadingCommand.openNextTopic: () =>
+          openAdjacentTopic(context, next: true, fromKeyboard: true),
+      ReadingCommand.openPreviousTopic: () =>
+          openAdjacentTopic(context, next: false, fromKeyboard: true),
+    },
+    child: _buildWorkspace(context),
+  );
+
+  Widget _buildWorkspace(
+    BuildContext context,
+  ) => ValueListenableBuilder<double>(
     valueListenable: _listWidth,
     builder: (context, _, _) => LayoutBuilder(
       builder: (context, constraints) {
@@ -465,6 +485,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                               keepTopicOpen: split,
                             ),
                           ),
+                          const TopicListBottomBar(),
                         ],
                       ),
                     ),
