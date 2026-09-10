@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../discourse_ui.dart';
@@ -38,6 +39,8 @@ class ComponentStyleguidePage extends StatefulWidget {
 }
 
 class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
+  static const double _outlineActivationOffset = 40;
+
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocus = FocusNode(debugLabel: 'Component search');
   final ScrollController _detailScroll = ScrollController();
@@ -52,11 +55,18 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   bool _rtl = false;
   bool _reducedMotion = false;
   bool _settingsOpen = false;
-  int _activeOutlineIndex = -1;
+  int _activeOutlineIndex = 0;
   int _reset = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _detailScroll.addListener(_syncActiveOutlineToScroll);
+  }
+
+  @override
   void dispose() {
+    _detailScroll.removeListener(_syncActiveOutlineToScroll);
     _search.dispose();
     _searchFocus.dispose();
     _detailScroll.dispose();
@@ -74,7 +84,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   void _select(ComponentReference reference) {
     setState(() {
       _selected = reference;
-      _activeOutlineIndex = -1;
+      _activeOutlineIndex = reference.documentOutline.isEmpty ? -1 : 0;
       _sectionKeys.clear();
     });
     _sidebarKey.currentState?.setOpenMobile(false);
@@ -90,14 +100,42 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
   void _scrollToSection(int index) {
     setState(() => _activeOutlineIndex = index);
     final target = _sectionKey(index).currentContext?.findRenderObject();
-    if (target is! RenderBox || !_detailScroll.hasClients) return;
+    if (target == null || !_detailScroll.hasClients) return;
+    final viewport = RenderAbstractViewport.of(target);
     final offset =
-        (_detailScroll.offset + target.localToGlobal(Offset.zero).dy - 100)
+        (viewport.getOffsetToReveal(target, 0).offset -
+                _outlineActivationOffset)
             .clamp(
               _detailScroll.position.minScrollExtent,
               _detailScroll.position.maxScrollExtent,
             );
     _detailScroll.jumpTo(offset);
+  }
+
+  void _syncActiveOutlineToScroll() {
+    if (!mounted || !_detailScroll.hasClients) return;
+    final sections = _visibleSections;
+    if (sections.isEmpty) return;
+
+    final position = _detailScroll.position;
+    var activeIndex = 0;
+    if (position.pixels >= position.maxScrollExtent - .5) {
+      activeIndex = sections.length - 1;
+    } else {
+      final activationOffset = position.pixels + _outlineActivationOffset;
+      for (var index = 0; index < sections.length; index++) {
+        final target = _sectionKeys[index]?.currentContext?.findRenderObject();
+        if (target == null) continue;
+        final viewport = RenderAbstractViewport.of(target);
+        final sectionOffset = viewport.getOffsetToReveal(target, 0).offset;
+        if (sectionOffset > activationOffset) break;
+        activeIndex = index;
+      }
+    }
+
+    if (activeIndex != _activeOutlineIndex) {
+      setState(() => _activeOutlineIndex = activeIndex);
+    }
   }
 
   @override
