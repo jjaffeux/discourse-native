@@ -379,8 +379,22 @@ class DCollapsibleContent extends StatefulWidget {
     this.keepMounted = false,
     this.duration = Duration.zero,
     this.curve = Curves.easeInOut,
-  });
+  }) : _sliver = false;
+
+  /// Lazy scroll content with the same focus restoration and hidden-state
+  /// behavior. Sliver disclosure is immediate, matching the default reference
+  /// behavior, so changing its size does not animate the viewport's extent.
+  const DCollapsibleContent.sliver({
+    super.key,
+    required Widget sliver,
+    this.keepMounted = false,
+  }) : child = sliver,
+       _sliver = true,
+       duration = Duration.zero,
+       curve = Curves.easeInOut;
+
   final Widget child;
+  final bool _sliver;
   final bool keepMounted;
   final Duration duration;
   final Curve curve;
@@ -434,6 +448,20 @@ class _ContentState extends State<DCollapsibleContent>
   @override
   Widget build(BuildContext context) {
     final open = _Scope.of(context).open;
+    if (widget._sliver) {
+      return SliverVisibility(
+        visible: open,
+        maintainState: widget.keepMounted,
+        sliver: ExcludeFocus(
+          excluding: !open,
+          child: Focus(
+            focusNode: _focus,
+            includeSemantics: false,
+            child: widget.child,
+          ),
+        ),
+      );
+    }
     if (!open && _animation.isDismissed && !widget.keepMounted) {
       return const SizedBox.shrink();
     }

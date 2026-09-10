@@ -1113,43 +1113,44 @@ void _registerChatShellTests() {
           );
           final chatShell = shell.pluginSession.require(chatShellService);
 
-          Text sidebarLabel() =>
-              tester.widget<Text>(sidebarDestination('Bugs'));
-          expect(sidebarLabel().style?.fontWeight, FontWeight.w400);
+          TextStyle sidebarLabelStyle() => DefaultTextStyle.of(
+            tester.element(sidebarDestination('Bugs')),
+          ).style;
+          expect(sidebarLabelStyle().fontWeight, FontWeight.w400);
 
           await tester.tap(shortcut);
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
           await tester.pumpAndSettle();
 
-          expect(sidebarLabel().style?.fontWeight, FontWeight.w600);
+          expect(sidebarLabelStyle().fontWeight, FontWeight.w500);
 
           expect(
             chatShell.openChannelInfo(siteUrl: site, channelId: 9),
             isTrue,
           );
           await tester.pumpAndSettle();
-          expect(sidebarLabel().style?.fontWeight, FontWeight.w600);
+          expect(sidebarLabelStyle().fontWeight, FontWeight.w500);
 
           expect(
             chatShell.openChannelThreads(siteUrl: site, channelId: 9),
             isTrue,
           );
           await tester.pumpAndSettle();
-          expect(sidebarLabel().style?.fontWeight, FontWeight.w600);
+          expect(sidebarLabelStyle().fontWeight, FontWeight.w500);
 
           await tester.tap(find.byKey(ChatDrawerOverlay.collapseButtonKey));
           await tester.pumpAndSettle();
-          expect(sidebarLabel().style?.fontWeight, FontWeight.w400);
+          expect(sidebarLabelStyle().fontWeight, FontWeight.w400);
 
           await tester.tap(find.byKey(ChatDrawerOverlay.headerKey));
           await tester.pumpAndSettle();
-          expect(sidebarLabel().style?.fontWeight, FontWeight.w600);
+          expect(sidebarLabelStyle().fontWeight, FontWeight.w500);
 
           await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
           await tester.pumpAndSettle();
 
-          expect(sidebarLabel().style?.fontWeight, FontWeight.w400);
+          expect(sidebarLabelStyle().fontWeight, FontWeight.w400);
         },
       );
 
@@ -2552,7 +2553,7 @@ void _registerChatShellTests() {
 
           expect(switcherContent, findsOneWidget);
           expect(switcherRect.center.dy, greaterThan(sidebarRect.center.dy));
-          expect(sidebarRect.bottom - switcherRect.bottom, 12);
+          expect(sidebarRect.bottom - switcherRect.bottom, 8);
           expect(switcherRect.height, greaterThan(36));
           expect(
             tester.getRect(switcherContent).center.dx,
@@ -2644,40 +2645,49 @@ void _registerChatShellTests() {
         testWidgets('appears when Chat totals arrive after the sidebar', (
           tester,
         ) async {
-          await pumpChat(
-            tester,
-            totals: withoutChat,
-            public: [channel(9)],
-            messages: {key(9): page(const [])},
-            user: chatUser(separateSidebarMode: ChatSeparateSidebarMode.always),
-          );
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
+          final semantics = tester.ensureSemantics();
+          try {
+            await pumpChat(
+              tester,
+              totals: withoutChat,
+              public: [channel(9)],
+              messages: {key(9): page(const [])},
+              user: chatUser(
+                separateSidebarMode: ChatSeparateSidebarMode.always,
+              ),
+            );
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            );
 
-          expect(
-            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-            findsNothing,
-          );
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+              findsNothing,
+            );
 
-          shell.accountActivity.applyCounts(site, (_) => withChat);
-          await tester.pumpAndSettle();
+            shell.accountActivity.applyCounts(site, (_) => withChat);
+            await tester.pumpAndSettle();
 
-          expect(shell.currentTotals?.hasChatEnabled, isTrue);
-          expect(
-            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-            findsOneWidget,
-          );
-          await tester.tap(
-            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-          );
-          await tester.pumpAndSettle();
+            expect(shell.currentTotals?.hasChatEnabled, isTrue);
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+              findsOneWidget,
+            );
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            );
+            await tester.pumpAndSettle();
 
-          expect(shell.currentContent?.id, 'chat-c-9');
-          expect(
-            find.byKey(const ValueKey('sidebar-panel-switch-main')),
-            findsOneWidget,
-          );
+            expect(find.bySemanticsLabel('Chat navigation'), findsOneWidget);
+            expect(find.bySemanticsLabel('Forum navigation'), findsNothing);
+            expect(shell.currentContent?.id, 'chat-c-9');
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-main')),
+              findsOneWidget,
+            );
+          } finally {
+            semantics.dispose();
+          }
         });
 
         for (final scenario in [
@@ -3550,10 +3560,11 @@ void _registerChatShellTests() {
         try {
           await pumpChat(tester, public: [channel(9)]);
 
-          final reveal = find.byKey(
-            const ValueKey('sidebar-hover-action-chat-c-9'),
+          final reveal = find.descendant(
+            of: find.byKey(const ValueKey('chat-channel-menu-button-9')),
+            matching: find.byType(Opacity),
           );
-          expect(tester.widget<AnimatedOpacity>(reveal).opacity, 0);
+          expect(tester.widget<Opacity>(reveal).opacity, 0);
 
           final mouse = await tester.createGesture(
             kind: PointerDeviceKind.mouse,
@@ -3563,7 +3574,7 @@ void _registerChatShellTests() {
           await mouse.moveTo(tester.getCenter(sidebarDestination('Bugs')));
           await tester.pumpAndSettle();
 
-          expect(tester.widget<AnimatedOpacity>(reveal).opacity, 1);
+          expect(tester.widget<Opacity>(reveal).opacity, 1);
           expect(
             find.descendant(
               of: find.byKey(const ValueKey('chat-channel-menu-button-9')),
@@ -3799,71 +3810,80 @@ void _registerChatShellTests() {
         },
       );
 
-      testWidgets('opens the channel actions from a long press on touch', (
-        tester,
-      ) async {
-        final previous = debugDefaultTargetPlatformOverride;
-        debugDefaultTargetPlatformOverride = TargetPlatform.android;
-        try {
-          final api = FakeDiscourseApi(
-            totals: withChat,
-            user: me,
-            chatChannelsBySite: {
-              site: ChatChannels(public: [channel(9)]),
-            },
-          );
-          await pumpChat(tester, api: api, size: phone);
+      testWidgets(
+        'visible touch row actions open a dropdown without navigating',
+        (tester) async {
+          final previous = debugDefaultTargetPlatformOverride;
+          debugDefaultTargetPlatformOverride = TargetPlatform.android;
+          try {
+            final api = FakeDiscourseApi(
+              totals: withChat,
+              user: me,
+              chatChannelsBySite: {
+                site: ChatChannels(public: [channel(9)]),
+              },
+            );
+            await pumpChat(tester, api: api, size: phone);
 
-          expect(
-            find.byKey(const ValueKey('chat-channel-menu-button-9')),
-            findsNothing,
-          );
-          await tester.longPress(sidebarDestination('Bugs'));
-          await tester.pumpAndSettle();
+            expect(
+              find.byKey(const ValueKey('chat-channel-menu-button-9')),
+              findsOneWidget,
+            );
+            final shell = ShellScope.read(
+              tester.element(find.byType(InstanceSidebar)),
+            );
+            final currentContent = shell.currentContent?.id;
+            await tester.tap(
+              find.byKey(const ValueKey('chat-channel-menu-button-9')),
+            );
+            await tester.pumpAndSettle();
 
-          expect(
-            find.widgetWithText(ListTile, 'Notifications'),
-            findsOneWidget,
-          );
-          expect(
-            find.widgetWithText(ListTile, 'Channel settings'),
-            findsOneWidget,
-          );
-          expect(
-            find.widgetWithText(ListTile, 'Add to starred channels'),
-            findsOneWidget,
-          );
-          expect(
-            find.widgetWithText(ListTile, 'Leave channel'),
-            findsOneWidget,
-          );
+            expect(shell.currentContent?.id, currentContent);
+            expect(find.byType(InstanceSidebar), findsOneWidget);
+            expect(
+              find.widgetWithText(DDropdownMenuSub, 'Notifications'),
+              findsOneWidget,
+            );
+            expect(
+              find.widgetWithText(DDropdownMenuItem, 'Channel settings'),
+              findsOneWidget,
+            );
+            expect(
+              find.widgetWithText(DDropdownMenuItem, 'Add to starred channels'),
+              findsOneWidget,
+            );
+            expect(
+              find.widgetWithText(DDropdownMenuItem, 'Leave channel'),
+              findsOneWidget,
+            );
 
-          await tester.tap(
-            find.byKey(const ValueKey('chat-channel-notifications-9')),
-          );
-          await tester.pumpAndSettle();
-          expect(find.text('Mentions only'), findsOneWidget);
+            await tester.tap(
+              find.byKey(const ValueKey('chat-channel-notifications-9')),
+            );
+            await tester.pumpAndSettle();
+            expect(find.text('Mentions only'), findsOneWidget);
 
-          await tester.tap(
-            find.byKey(const ValueKey('chat-channel-notification-9-always')),
-          );
-          await tester.pumpAndSettle();
+            await tester.tap(
+              find.byKey(const ValueKey('chat-channel-notification-9-always')),
+            );
+            await tester.pumpAndSettle();
 
-          expect(api.chatChannelNotificationsUpdated, const [
-            (
-              channelId: 9,
-              muted: null,
-              notificationLevel: ChatChannelNotificationLevel.always,
-            ),
-          ]);
-          expect(
-            find.widgetWithText(ListTile, 'Channel settings'),
-            findsNothing,
-          );
-        } finally {
-          debugDefaultTargetPlatformOverride = previous;
-        }
-      });
+            expect(api.chatChannelNotificationsUpdated, const [
+              (
+                channelId: 9,
+                muted: null,
+                notificationLevel: ChatChannelNotificationLevel.always,
+              ),
+            ]);
+            expect(
+              find.widgetWithText(DDropdownMenuItem, 'Channel settings'),
+              findsNothing,
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = previous;
+          }
+        },
+      );
 
       testWidgets(
         'refreshes the current channel without replacing its composer',
@@ -4190,10 +4210,9 @@ void _registerChatShellTests() {
           );
           expect(avatar, findsOneWidget);
           expect(chatAvatar, findsOneWidget);
-          // The compact desktop sidebar leaves one pixel around each side of a
-          // round avatar inside its 20-pixel prefix slot.
+          // Touch rows use 22px identity artwork inside the larger hit target.
           final size = tester.getSize(avatar);
-          expect(size, const Size.square(18));
+          expect(size, const Size.square(22));
         },
       );
 
@@ -4211,7 +4230,7 @@ void _registerChatShellTests() {
           matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
         );
         expect(ring, findsOneWidget);
-        expect(tester.getSize(ring), const Size.square(18));
+        expect(tester.getSize(ring), const Size.square(22));
 
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {

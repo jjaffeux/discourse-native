@@ -4602,7 +4602,8 @@
         "macOS inspected reference dark/light/icon modes; native all six examples,documentation30px,360px RTL200 Forest/Plum live open modal,controlled pointer/Return toggle,immediate Escape,loading/error/retry,submenu selection/disclosure and scrolling. App/tab cleanup verified and slot released.",
         "Coordinator integration passed the 160 affected tests plus the final 14 styleguide-page tests. Compact menu semantic bounds have a dedicated regression; native first-adoption observations and final-scrollbar limit are recorded in docs/component-library/styleguide-design.md.",
         "Merged separately into local main at 93bfcf65f64868c92340f9aec8236d77585c3cd8; documentation adoption and semantic-bound corrections are included by 0eb34a59ab5de86a1c28c6ebbf08ccb746dab9a5. The integrated real application build passes.",
-        "2026-09-10: project action dropdowns verified with borrowed focus ownership, expanded visibility and semantics, keyboard/outside dismissal and 360px RTL/200% tests; actual macOS dark/light desktop/mobile previews and official reference inspected. See sidebar.md project action dropdown verification."
+        "2026-09-10: project action dropdowns verified with borrowed focus ownership, expanded visibility and semantics, keyboard/outside dismissal and 360px RTL/200% tests; actual macOS dark/light desktop/mobile previews and official reference inspected. See sidebar.md project action dropdown verification.",
+        "Main-sidebar follow-up accepted by reviewer 01a08b90-a915-7e83-a5c4-af5ea7981e23 on codex/review-main-sidebar-ui-kit: intrinsic/dry layout and nested scope fixes, accurate Chat region, 401 focused checks, root/full analysis and official/native review complete. Evidence and final local merge are tracked in mainSidebarMigration and docs/component-library/sidebar-main-migration.md."
       ],
       "limitations": [
         "Native CUA Cmd/Ctrl+B attempts did not visibly toggle; exact bindings pass widget tests. Return,Tab and Escape visibly verified. No spoken VoiceOver or iOS/Linux device run.",
@@ -4685,6 +4686,56 @@
           "implementationCommit": "77e194f1753cd6dfb35e3fe5d2175408d8dd3f93",
           "mergeCommit": "59174ab5f99ccd66fd90b7f1d17c1aa68ff39e4c"
         }
+      },
+      "mainSidebarMigration": {
+        "taskId": "01a08b5d-17c8-7de0-9c87-9679d9695d60",
+        "branch": "codex/main-sidebar-ui-kit",
+        "status": "review_ready",
+        "dependencies": [
+          "collapsible",
+          "scroll-area",
+          "dropdown-menu",
+          "avatar",
+          "skeleton"
+        ],
+        "acceptance": [
+          "Lazy grouped/sidebar submenu rendering preserves stable keys and scrolling.",
+          "Forum/Chat adopts Native sidebar presentation with existing shell layout, routing and persistence.",
+          "Mobile row actions remain visible and open dropdowns without navigation.",
+          "Trailing counts and actions fit at narrow widths and 200% text.",
+          "Focused regressions, root/full analysis and native fixture review are recorded."
+        ],
+        "verification": [
+          "394 focused tests pass after final native label correction; /tmp/sidebar-final-verification.log.",
+          "Root and full-profile dart analyze --fatal-infos pass.",
+          "Native production and registered styleguide spot checks are recorded in docs/component-library/sidebar-main-migration.md; isolated bundle provenance in evidence/sidebar/main-migration-build.json."
+        ],
+        "implementationCommit": "eea76c81dc985c945218a7764279f51332e3725c",
+        "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+        "reviewStatus": "accepted",
+        "reviewBranch": "codex/review-main-sidebar-ui-kit",
+        "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/dce5/discourse-native",
+        "reviewSourceCommit": "d910666280c2168a18912ca09a4baacbd16bc9fb",
+        "evidence": "docs/component-library/sidebar-main-migration.md",
+        "reviewBuildEvidence": "docs/component-library/evidence/sidebar/main-migration-review-build.json",
+        "nativeInspectionStatus": "completed",
+        "reviewFixes": [
+          "Correct intrinsic/dry measurement of trailing content and isolate nested submenu scope; failing regressions captured before fixes.",
+          "Identify the active Chat panel as Chat navigation in native semantics.",
+          "Complete offline native fixture with representative site palettes and local empty Chat message responses."
+        ],
+        "reviewVerification": [
+          "401 focused checks passed with seed 9102026; /tmp/sidebar-review-focused-final.log.",
+          "Root/full fatal-info analysis passed; subsequent fixture-only map passed targeted fatal-info analysis. Formatting and git diff --check pass; dependencies, lockfiles and Flutter pin unchanged.",
+          "Official rendered reference inspected at 1024x800 and 390x800; native light/dark 256px styleguide composition and project actions compared.",
+          "Native macOS production 208/200px, Forest/Plum palettes, site/section/width restoration, 390px Chat at 200%, live open-menu palette changes, Escape/Return focus, RTL and lazy row399 verified.",
+          "Other progress owners and original Sidebar implementation/review history preserved; all required component owners already merged."
+        ],
+        "limitations": [
+          "No physical iOS/Linux or spoken VoiceOver verification.",
+          "Long labels remain ellipsized at the saved 200px minimum, with full native accessibility names.",
+          "Rendering comparison accounts for the app font/palette/radius mapping; no pixel-equality claim."
+        ]
       }
     },
     {

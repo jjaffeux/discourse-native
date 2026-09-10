@@ -1,0 +1,39 @@
+{
+  "reviewTaskId": "01a08b90-a915-7e83-a5c4-af5ea7981e23",
+  "reviewBranch": "codex/review-main-sidebar-ui-kit",
+  "sourceCommit": "d910666280c2168a18912ca09a4baacbd16bc9fb",
+  "productionFixCommit": "e71fb25906edf9371567a7ce75755720dcb97cc5",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/dce5/discourse-native/build/macos/Build/Products/Debug/Sidebar Review dce5.app",
+  "bundleIdentifier": "org.discourse.sidebarreviewdce5.dev",
+  "entrypoint": "tool/sidebar_review_main.dart",
+  "buildLog": "/tmp/sidebar-review-native-build-final.log",
+  "runnerRestored": true,
+  "deepStrictSignatureVerified": true,
+  "actualLaunchVerified": true,
+  "platform": "macOS 26.6.2",
+  "flutter": "3.47.2",
+  "dart": "3.13.2",
+  "renderer": "Skia (existing project FLTEnableImpeller=false)",
+  "entitlements": [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "pushRegistrationExcluded": true,
+  "sourceSha256": {
+    "lib/src/ui/components/d_sidebar.dart": "4ed58e6af99e1f8a8e9ebd2f50e03994bd60f0197195e2135e1b9e26fc415e8a",
+    "lib/src/ui/components/d_collapsible.dart": "a64aef5377a36623dd4ffdfaad821f94483b4ac738881ea070fc10e52dd06913",
+    "lib/src/shell/instance_sidebar.dart": "68eb261da06a1dba2206c57f0eaa061786990d317fdf2fe78e9c4546eef8194b",
+    "lib/src/plugins/chat/chat_channel_actions.dart": "6208182206d51ee697e49f7602f68779eb181c3c0c02d776985f3daddc1b271b",
+    "lib/src/plugins/chat/chat_plugin.dart": "0bf4dd1cc38a90f734eec435e420c3e2e333a131722d7be050742491857267e6",
+    "lib/src/styleguide/examples/sidebar_examples.dart": "19fe991662aba35b41171b428568dab3a0b658454953b71957e7d9c1462070ba",
+    "tool/sidebar_review_main.dart": "f7feb2396e2218d00d22e99dc4b8bd162ff064d764100610c087a5a38ebb0f3a"
+  },
+  "kernelSha256": {
+    "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin": "8c4814aa8582f8098285068c9278a8fa160102d5d0d9319a21ab4ef41245f84a"
+  },
+  "nativeEvidence": "docs/component-library/sidebar-main-migration.md#independent-acceptance--2026-09-10",
+  "earlierReviewSourceEquivalence": "The 200px resize, site-switch and section/width restoration checks ran on e71fb259. Final d9106662 changes only the fixture to return local empty Chat message pages; production and component bytes are identical.",
+  "cleanup": "Owned app quit and absence verified through CUA; owned reference tab closed; viewport override and reference theme restored; desktop lease released."
+}

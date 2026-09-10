@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -429,47 +432,108 @@ class DSidebarFooter extends DSidebarHeader {
 }
 
 class DSidebarContent extends StatelessWidget {
-  const DSidebarContent({super.key, required this.children, this.controller});
+  const DSidebarContent({super.key, required this.children, this.controller})
+    : _slivers = false;
+
+  /// One viewport for lazy groups and menus. Slivers share this controller;
+  /// they must not introduce their own scroll views.
+  const DSidebarContent.slivers({
+    super.key,
+    required List<Widget> slivers,
+    this.controller,
+  }) : children = slivers,
+       _slivers = true;
+
   final List<Widget> children;
+  final bool _slivers;
 
   /// Borrowed; the caller disposes it.
   final ScrollController? controller;
   @override
-  Widget build(BuildContext context) => DScrollArea(
-    controller: controller,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: children,
-    ),
-  );
+  Widget build(BuildContext context) => _slivers
+      ? _SidebarSliverContent(controller: controller, slivers: children)
+      : DScrollArea(
+          controller: controller,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        );
+}
+
+class _SidebarSliverContent extends StatefulWidget {
+  const _SidebarSliverContent({required this.slivers, this.controller});
+  final List<Widget> slivers;
+  final ScrollController? controller;
+
+  @override
+  State<_SidebarSliverContent> createState() => _SidebarSliverContentState();
+}
+
+class _SidebarSliverContentState extends State<_SidebarSliverContent> {
+  final _ownedController = ScrollController();
+
+  @override
+  void dispose() {
+    _ownedController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller ?? _ownedController;
+    return DScrollBar(
+      controller: controller,
+      child: CustomScrollView(controller: controller, slivers: widget.slivers),
+    );
+  }
 }
 
 class DSidebarGroup extends StatelessWidget {
-  const DSidebarGroup({
+  const DSidebarGroup({super.key, required this.child, this.label, this.action})
+    : _sliver = false;
+
+  /// Keeps the group label eager while its content can build rows lazily.
+  const DSidebarGroup.sliver({
     super.key,
-    required this.child,
+    required Widget sliver,
     this.label,
     this.action,
-  });
+  }) : child = sliver,
+       _sliver = true;
+
   final Widget child;
   final Widget? label, action;
+  final bool _sliver;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(8),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (label != null && !_PanelScope.iconOf(context))
-          Row(
+  Widget build(BuildContext context) {
+    final header = label != null && !_PanelScope.iconOf(context)
+        ? Row(
             children: [
               Expanded(child: label!),
               ?action,
             ],
-          ),
-        child,
-      ],
-    ),
-  );
+          )
+        : null;
+    if (_sliver) {
+      return SliverPadding(
+        padding: const EdgeInsets.all(8),
+        sliver: SliverMainAxisGroup(
+          slivers: [
+            if (header != null) SliverToBoxAdapter(child: header),
+            child,
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [?header, child],
+      ),
+    );
+  }
 }
 
 class DSidebarGroupLabel extends StatelessWidget {
@@ -505,30 +569,61 @@ class DSidebarGroupContent extends StatelessWidget {
 }
 
 class DSidebarMenu extends StatelessWidget {
-  const DSidebarMenu({super.key, required this.children});
+  const DSidebarMenu({super.key, required this.children})
+    : _delegate = null,
+      itemExtent = null;
+
+  /// A lazy menu sliver. Omit [itemExtent] for rows that can wrap or otherwise
+  /// vary in height. Supply stable child keys and [findChildIndexCallback] when
+  /// destinations can move within this menu.
+  DSidebarMenu.sliverBuilder({
+    super.key,
+    required int itemCount,
+    required IndexedWidgetBuilder itemBuilder,
+    ChildIndexGetter? findChildIndexCallback,
+    this.itemExtent,
+  }) : assert(itemCount >= 0),
+       assert(itemExtent == null || itemExtent > 0),
+       children = const [],
+       _delegate = SliverChildBuilderDelegate(
+         itemBuilder,
+         childCount: itemCount,
+         findChildIndexCallback: findChildIndexCallback,
+         addSemanticIndexes: false,
+       );
+
   final List<Widget> children;
+  final SliverChildDelegate? _delegate;
+  final double? itemExtent;
   @override
-  Widget build(BuildContext context) => FocusTraversalGroup(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: children,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final delegate = _delegate;
+    return FocusTraversalGroup(
+      child: delegate == null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            )
+          : itemExtent == null
+          ? SliverList(delegate: delegate)
+          : SliverFixedExtentList(itemExtent: itemExtent!, delegate: delegate),
+    );
+  }
 }
 
 class _ItemScope extends InheritedWidget {
   const _ItemScope({
     required this.reveal,
-    required this.trailing,
+    required this.metrics,
     required super.child,
   });
   final bool reveal;
-  final double trailing;
+  final _SidebarRowMetrics metrics;
   static _ItemScope? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ItemScope>();
   @override
   bool updateShouldNotify(_ItemScope old) =>
-      reveal != old.reveal || trailing != old.trailing;
+      reveal != old.reveal || metrics != old.metrics;
 }
 
 class DSidebarMenuItem extends StatefulWidget {
@@ -547,6 +642,7 @@ class DSidebarMenuItem extends StatefulWidget {
 
 class _DSidebarMenuItemState extends State<DSidebarMenuItem> {
   bool hover = false, focus = false;
+  final _metrics = _SidebarRowMetrics();
   @override
   Widget build(BuildContext context) {
     final icon = _PanelScope.iconOf(context);
@@ -559,43 +655,280 @@ class _DSidebarMenuItemState extends State<DSidebarMenuItem> {
         // with the full row's box.
         includeSemantics: false,
         onFocusChange: (v) => setState(() => focus = v),
-        child: _ItemScope(
-          reveal: hover || focus,
-          trailing: icon
-              ? 0
-              : (widget.action != null
-                        ? (_touchPlatform(context) ? 48 : 28)
-                        : 0) +
-                    (widget.badge != null ? 28 : 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Stack(
-                alignment: AlignmentDirectional.centerEnd,
-                children: [
-                  widget.child,
-                  if (!icon)
-                    PositionedDirectional(
-                      end: 4,
-                      top: 0,
-                      bottom: 0,
-                      child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ItemScope(
+              reveal: hover || focus,
+              metrics: _metrics,
+              child: _SidebarRowLayout(
+                metrics: _metrics,
+                direction: Directionality.of(context),
+                trailing:
+                    !icon && (widget.badge != null || widget.action != null)
+                    ? Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (widget.badge != null) widget.badge!,
-                          if (widget.action != null) widget.action!,
+                          if (widget.badge != null)
+                            Flexible(child: widget.badge!),
+                          ?widget.action,
                         ],
-                      ),
-                    ),
-                ],
+                      )
+                    : const SizedBox.shrink(),
+                child: widget.child,
               ),
-              if (!icon && widget.submenu != null) widget.submenu!,
-            ],
-          ),
+            ),
+            if (!icon && widget.submenu != null) widget.submenu!,
+          ],
         ),
       ),
     );
   }
+}
+
+// Measure the trailing controls before laying out the full-width button. Its
+// text inset updates in the same layout pass, without a second frame or a
+// nested button/semantics owner around the independent trailing action.
+class _SidebarRowMetrics {
+  double width = 0;
+  final insets = <_RenderSidebarTrailingInset>{};
+
+  void update(double value) {
+    if (value == width) return;
+    width = value;
+    for (final inset in insets) {
+      inset.markNeedsLayout();
+    }
+  }
+}
+
+class _SidebarRowLayout extends MultiChildRenderObjectWidget {
+  _SidebarRowLayout({
+    required this.metrics,
+    required this.direction,
+    required Widget child,
+    required Widget trailing,
+  }) : super(children: [child, trailing]);
+
+  final _SidebarRowMetrics metrics;
+  final TextDirection direction;
+
+  @override
+  _RenderSidebarRowLayout createRenderObject(BuildContext context) =>
+      _RenderSidebarRowLayout(metrics, direction);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSidebarRowLayout renderObject,
+  ) {
+    renderObject.direction = direction;
+  }
+}
+
+class _SidebarRowParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderSidebarRowLayout extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _SidebarRowParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _SidebarRowParentData> {
+  _RenderSidebarRowLayout(this.metrics, this._direction);
+  final _SidebarRowMetrics metrics;
+  TextDirection _direction;
+
+  set direction(TextDirection value) {
+    if (value == _direction) return;
+    _direction = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _SidebarRowParentData) {
+      child.parentData = _SidebarRowParentData();
+    }
+  }
+
+  // Leave room for leading artwork and a readable label when a status or count
+  // becomes very wide. The trailing controls otherwise use their natural size.
+  BoxConstraints _trailingConstraints(BoxConstraints constraints) =>
+      constraints.loosen().copyWith(
+        maxWidth: math.max(
+          0,
+          constraints.maxWidth - math.min(96, constraints.maxWidth / 2),
+        ),
+      );
+
+  @override
+  void performLayout() {
+    final primary = firstChild!;
+    final trailing = lastChild!;
+    trailing.layout(_trailingConstraints(constraints), parentUsesSize: true);
+    invokeLayoutCallback<BoxConstraints>(
+      (_) => metrics.update(trailing.size.width),
+    );
+    primary.layout(
+      constraints.copyWith(
+        minHeight: math.max(constraints.minHeight, trailing.size.height),
+      ),
+      parentUsesSize: true,
+    );
+    size = constraints.constrain(primary.size);
+    (primary.parentData! as _SidebarRowParentData).offset = Offset.zero;
+    (trailing.parentData! as _SidebarRowParentData).offset = Offset(
+      _direction == TextDirection.ltr
+          ? size.width - trailing.size.width - 4
+          : 4,
+      (size.height - trailing.size.height) / 2,
+    );
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final trailing = lastChild!.getDryLayout(_trailingConstraints(constraints));
+    // The button's inset contains the last laid-out width. Compensate for that
+    // reservation when measuring with the current trailing content, without
+    // mutating layout state or invalidating caches during an intrinsic query.
+    final change = trailing.width - metrics.width;
+    final primary = firstChild!.getDryLayout(
+      constraints.copyWith(
+        minWidth: math.max(0, constraints.minWidth - change),
+        maxWidth: math.max(0, constraints.maxWidth - change),
+        minHeight: math.max(constraints.minHeight, trailing.height),
+      ),
+    );
+    return constraints.constrain(Size(primary.width + change, primary.height));
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      firstChild!.getMinIntrinsicWidth(height) -
+      metrics.width +
+      lastChild!.getMinIntrinsicWidth(height);
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      firstChild!.getMaxIntrinsicWidth(height) -
+      metrics.width +
+      lastChild!.getMaxIntrinsicWidth(height);
+
+  double _intrinsicHeight(double width, {required bool maximum}) {
+    final trailing = lastChild!.getDryLayout(
+      _trailingConstraints(BoxConstraints(maxWidth: width)),
+    );
+    final primaryWidth = math.max(0.0, width - trailing.width + metrics.width);
+    return math.max(
+      maximum
+          ? firstChild!.getMaxIntrinsicHeight(primaryWidth)
+          : firstChild!.getMinIntrinsicHeight(primaryWidth),
+      trailing.height,
+    );
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      _intrinsicHeight(width, maximum: false);
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      _intrinsicHeight(width, maximum: true);
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) =>
+      defaultComputeDistanceToFirstActualBaseline(baseline);
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
+class _SidebarTrailingInset extends SingleChildRenderObjectWidget {
+  const _SidebarTrailingInset({
+    required this.metrics,
+    required this.direction,
+    required super.child,
+  });
+  final _SidebarRowMetrics? metrics;
+  final TextDirection direction;
+  @override
+  _RenderSidebarTrailingInset createRenderObject(BuildContext context) =>
+      _RenderSidebarTrailingInset(metrics, direction);
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSidebarTrailingInset renderObject,
+  ) {
+    renderObject
+      ..metrics = metrics
+      ..direction = direction;
+  }
+}
+
+class _RenderSidebarTrailingInset extends RenderShiftedBox {
+  _RenderSidebarTrailingInset(this._metrics, this._direction) : super(null);
+  _SidebarRowMetrics? _metrics;
+  TextDirection _direction;
+
+  set metrics(_SidebarRowMetrics? value) {
+    if (value == _metrics) return;
+    _metrics?.insets.remove(this);
+    _metrics = value;
+    if (attached) _metrics?.insets.add(this);
+    markNeedsLayout();
+  }
+
+  set direction(TextDirection value) {
+    if (value == _direction) return;
+    _direction = value;
+    markNeedsLayout();
+  }
+
+  EdgeInsets get _padding => _direction == TextDirection.ltr
+      ? EdgeInsets.only(right: _metrics?.width ?? 0)
+      : EdgeInsets.only(left: _metrics?.width ?? 0);
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _metrics?.insets.add(this);
+  }
+
+  @override
+  void detach() {
+    _metrics?.insets.remove(this);
+    super.detach();
+  }
+
+  @override
+  void performLayout() {
+    final padding = _padding;
+    child!.layout(constraints.deflate(padding), parentUsesSize: true);
+    size = constraints.constrain(
+      Size(child!.size.width + padding.horizontal, child!.size.height),
+    );
+    (child!.parentData! as BoxParentData).offset = Offset(padding.left, 0);
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final padding = _padding;
+    final childSize = child!.getDryLayout(constraints.deflate(padding));
+    return constraints.constrain(
+      Size(childSize.width + padding.horizontal, childSize.height),
+    );
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      child!.getMinIntrinsicWidth(height) + _padding.horizontal;
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      child!.getMaxIntrinsicWidth(height) + _padding.horizontal;
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      child!.getMinIntrinsicHeight(math.max(0, width - _padding.horizontal));
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      child!.getMaxIntrinsicHeight(math.max(0, width - _padding.horizontal));
 }
 
 /// An accessible navigation action; null [onPressed] disables it. Height is a
@@ -751,9 +1084,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                   ),
                   padding: EdgeInsetsDirectional.only(
                     start: collapsedLarge ? 0 : 8,
-                    end: collapsedLarge
-                        ? 0
-                        : 8 + (_ItemScope.of(context)?.trailing ?? 0),
+                    end: collapsedLarge ? 0 : 8,
                     top: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
                     bottom: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
                   ),
@@ -773,63 +1104,67 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                         ? Border.all(color: t.border)
                         : null,
                   ),
-                  child: IconTheme(
-                    data: IconThemeData(size: 16, color: t.foreground),
-                    child: DefaultTextStyle(
-                      maxLines:
-                          iconOnly ||
-                              MediaQuery.textScalerOf(context).scale(14) <= 14
-                          ? 1
-                          : null,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        fontSize: fontSize,
-                        height: (fontSize == 12 ? 16 : 20) / fontSize,
-                        color: t.foreground,
-                        fontWeight: widget.isActive
-                            ? FontWeight.w500
-                            : FontWeight.w400,
-                      ),
-                      child: Row(
-                        children: [
-                          if (widget.icon != null)
-                            ExcludeSemantics(
-                              child: SizedBox(
-                                width: widget.iconSize,
-                                height: widget.iconSize,
-                                child: widget.icon,
+                  child: _SidebarTrailingInset(
+                    metrics: _ItemScope.of(context)?.metrics,
+                    direction: Directionality.of(context),
+                    child: IconTheme(
+                      data: IconThemeData(size: 16, color: t.foreground),
+                      child: DefaultTextStyle(
+                        maxLines:
+                            iconOnly ||
+                                MediaQuery.textScalerOf(context).scale(14) <= 14
+                            ? 1
+                            : null,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                          fontSize: fontSize,
+                          height: (fontSize == 12 ? 16 : 20) / fontSize,
+                          color: t.foreground,
+                          fontWeight: widget.isActive
+                              ? FontWeight.w500
+                              : FontWeight.w400,
+                        ),
+                        child: Row(
+                          children: [
+                            if (widget.icon != null)
+                              ExcludeSemantics(
+                                child: SizedBox(
+                                  width: widget.iconSize,
+                                  height: widget.iconSize,
+                                  child: widget.icon,
+                                ),
                               ),
-                            ),
-                          if (iconOnly &&
-                              widget.icon != null &&
-                              widget.semanticLabel == null &&
-                              widget.tooltip == null)
-                            SizedBox.shrink(
-                              child: Opacity(
-                                opacity: 0,
-                                alwaysIncludeSemantics: true,
-                                child: widget.child,
+                            if (iconOnly &&
+                                widget.icon != null &&
+                                widget.semanticLabel == null &&
+                                widget.tooltip == null)
+                              SizedBox.shrink(
+                                child: Opacity(
+                                  opacity: 0,
+                                  alwaysIncludeSemantics: true,
+                                  child: widget.child,
+                                ),
                               ),
-                            ),
-                          if (!iconOnly) ...[
-                            if (widget.icon != null) const SizedBox(width: 8),
-                            Flexible(
-                              child: ExcludeSemantics(
-                                excluding: widget.semanticLabel != null,
-                                child: widget.child,
+                            if (!iconOnly) ...[
+                              if (widget.icon != null) const SizedBox(width: 8),
+                              Flexible(
+                                child: ExcludeSemantics(
+                                  excluding: widget.semanticLabel != null,
+                                  child: widget.child,
+                                ),
                               ),
-                            ),
+                            ],
+                            if (iconOnly && widget.icon == null)
+                              Expanded(
+                                child: ExcludeSemantics(
+                                  excluding:
+                                      widget.semanticLabel != null ||
+                                      widget.tooltip != null,
+                                  child: widget.child,
+                                ),
+                              ),
                           ],
-                          if (iconOnly && widget.icon == null)
-                            Expanded(
-                              child: ExcludeSemantics(
-                                excluding:
-                                    widget.semanticLabel != null ||
-                                    widget.tooltip != null,
-                                child: widget.child,
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -1024,41 +1359,126 @@ class DSidebarMenuBadge extends StatelessWidget {
         );
 }
 
-class DSidebarMenuSub extends StatelessWidget {
-  const DSidebarMenuSub({super.key, required this.children});
-  final List<Widget> children;
+class _SidebarSubmenuDelegate extends SliverChildBuilderDelegate {
+  _SidebarSubmenuDelegate(
+    super.builder, {
+    required int itemCount,
+    required double? itemExtent,
+    required super.childCount,
+    super.findChildIndexCallback,
+    super.addSemanticIndexes,
+  }) : _extent = itemExtent == null
+           ? null
+           : itemCount * itemExtent + math.max(0, itemCount - 1) * 4;
+  final double? _extent;
   @override
-  Widget build(BuildContext context) => _PanelScope.iconOf(context)
-      ? const SizedBox.shrink()
-      : Container(
-          margin: const EdgeInsetsDirectional.only(start: 14, end: 14),
-          child: Stack(
-            children: [
-              PositionedDirectional(
-                start: 1,
-                top: 0,
-                bottom: 0,
-                child: DSeparator(
-                  orientation: Axis.vertical,
-                  color: _sidebarGuideColor(context),
-                ),
+  double? estimateMaxScrollOffset(
+    int firstIndex,
+    int lastIndex,
+    double leadingScrollOffset,
+    double trailingScrollOffset,
+  ) => _extent;
+}
+
+class DSidebarMenuSub extends StatelessWidget {
+  const DSidebarMenuSub({super.key, required this.children})
+    : _delegate = null,
+      itemExtent = null;
+
+  /// A lazy submenu, including the same directional guide and row spacing as
+  /// the eager composition. [itemExtent] excludes the 4px inter-row gap.
+  DSidebarMenuSub.sliverBuilder({
+    super.key,
+    required int itemCount,
+    required IndexedWidgetBuilder itemBuilder,
+    ChildIndexGetter? findChildIndexCallback,
+    this.itemExtent,
+  }) : assert(itemCount >= 0),
+       assert(itemExtent == null || itemExtent > 0),
+       children = const [],
+       _delegate = _SidebarSubmenuDelegate(
+         itemCount: itemCount,
+         itemExtent: itemExtent,
+         (context, index) => index.isOdd
+             ? const SizedBox(height: 4)
+             : itemBuilder(context, index ~/ 2),
+         childCount: math.max(0, itemCount * 2 - 1),
+         findChildIndexCallback: findChildIndexCallback == null
+             ? null
+             : (key) {
+                 final index = findChildIndexCallback(key);
+                 return index == null ? null : index * 2;
+               },
+         addSemanticIndexes: false,
+       );
+
+  final List<Widget> children;
+  final SliverChildDelegate? _delegate;
+  final double? itemExtent;
+  @override
+  Widget build(BuildContext context) {
+    if (_delegate case final delegate?) {
+      if (_PanelScope.iconOf(context)) return const SliverToBoxAdapter();
+      return FocusTraversalGroup(
+        child: SliverPadding(
+          padding: const EdgeInsetsDirectional.only(start: 14, end: 14),
+          sliver: DecoratedSliver(
+            decoration: BoxDecoration(
+              border: BorderDirectional(
+                start: BorderSide(color: _sidebarGuideColor(context)),
               ),
-              Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: 10,
-                  end: 10,
-                  top: 2,
-                  bottom: 2,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: 4,
-                  children: children,
-                ),
+            ),
+            sliver: SliverPadding(
+              padding: const EdgeInsetsDirectional.only(
+                start: 10,
+                end: 10,
+                top: 2,
+                bottom: 2,
               ),
-            ],
+              sliver: itemExtent == null
+                  ? SliverList(delegate: delegate)
+                  : SliverVariedExtentList(
+                      itemExtentBuilder: (index, _) =>
+                          index.isOdd ? 4 : itemExtent,
+                      delegate: delegate,
+                    ),
+            ),
           ),
-        );
+        ),
+      );
+    }
+    return _PanelScope.iconOf(context)
+        ? const SizedBox.shrink()
+        : Container(
+            margin: const EdgeInsetsDirectional.only(start: 14, end: 14),
+            child: Stack(
+              children: [
+                PositionedDirectional(
+                  start: 1,
+                  top: 0,
+                  bottom: 0,
+                  child: DSeparator(
+                    orientation: Axis.vertical,
+                    color: _sidebarGuideColor(context),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(
+                    start: 10,
+                    end: 10,
+                    top: 2,
+                    bottom: 2,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: 4,
+                    children: children,
+                  ),
+                ),
+              ],
+            ),
+          );
+  }
 }
 
 class DSidebarMenuSubItem extends DSidebarGroupContent {
