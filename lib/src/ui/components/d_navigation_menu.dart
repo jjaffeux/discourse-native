@@ -450,23 +450,14 @@ class _DNavigationMenuState<T> extends State<DNavigationMenu<T>> {
         node: _contentFocus,
         child: AnimatedSwitcher(
           duration: duration,
-          reverseDuration: duration,
+          reverseDuration: Duration.zero,
           switchInCurve: const Cubic(0.22, 1, 0.36, 1),
-          switchOutCurve: const Cubic(0.22, 1, 0.36, 1),
-          layoutBuilder: (currentChild, previousChildren) => Stack(
-            alignment: AlignmentDirectional.topStart,
-            clipBehavior: Clip.none,
-            children: [
-              for (final child in previousChildren)
-                PositionedDirectional(start: 0, top: 0, child: child),
-              ?currentChild,
-            ],
-          ),
+          layoutBuilder: (currentChild, _) =>
+              currentChild ?? const SizedBox.shrink(),
           transitionBuilder: (child, animation) {
-            final entering = child.key == ValueKey(item.value);
             final offset = direction == 0
                 ? Offset.zero
-                : Offset((entering ? direction : -direction) * .5, 0);
+                : Offset(direction * .5, 0);
             return FadeTransition(
               opacity: animation,
               child: SlideTransition(
