@@ -108,3 +108,6 @@ and topic-inbox tests again, with clean static analysis. The native-reviewed
 notification components, adapters, and examples are unchanged in this candidate.
 Logs: `/tmp/notification-level-final-main-tests.log` and
 `/tmp/notification-level-final-main-analysis.log`.
+
+Merged from the repository's main checkout into local main as
+`5c06f79910b8c28ab327f7c017a3d7f2187d0bd2`. No remote push was performed.
