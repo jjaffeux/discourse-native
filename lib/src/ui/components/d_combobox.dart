@@ -605,18 +605,26 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     combobox.onHighlightChanged?.call(value, reason);
     if (mounted) setState(() {});
     _controller._changed();
-    if (value != null) {
+    // A pointer can only highlight a row that is already visible. Recentring
+    // that row makes a scrollable menu chase the cursor as it moves.
+    if (value != null && reason != DComboboxChangeReason.pointer) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final itemContext = _entryFor(_itemKeys, value)?.value.currentContext;
         if (mounted && isOpen && itemContext != null) {
-          Scrollable.ensureVisible(
-            itemContext,
-            alignment: .5,
-            duration: DMotion.duration(
-              context,
-              const Duration(milliseconds: 100),
-            ),
-          );
+          final target = itemContext.findRenderObject();
+          if (target != null && target.attached) {
+            // OverlayPortal preserves the anchor's scroll ancestors. Reveal
+            // highlights only in the popup list so hovering a row cannot move
+            // the surrounding page.
+            Scrollable.maybeOf(itemContext)?.position.ensureVisible(
+              target,
+              alignment: .5,
+              duration: DMotion.duration(
+                context,
+                const Duration(milliseconds: 100),
+              ),
+            );
+          }
         }
       });
     }
@@ -821,6 +829,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
           width: popupWidth,
           constraints: BoxConstraints(maxHeight: combobox.content.maxHeight),
           padding: EdgeInsets.zero,
+          scrollable: false,
           child: combobox.content,
         ),
         child: KeyedSubtree(key: _anchorKey, child: combobox.anchor),

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -82,6 +83,91 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(selected, 'remix');
+  });
+
+  testWidgets('hovering a row does not scroll its list or the host page', (
+    tester,
+  ) async {
+    final controller = DComboboxController<String>();
+    final pageScroll = ScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(pageScroll.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            controller: pageScroll,
+            child: Column(
+              children: [
+                const SizedBox(height: 150),
+                SizedBox(
+                  width: 360,
+                  height: 360,
+                  child: Navigator(
+                    onGenerateRoute: (_) => MaterialPageRoute<void>(
+                      builder: (_) => Center(
+                        child: DCombobox<String>(
+                          controller: controller,
+                          options: [
+                            for (var index = 0; index < 20; index++)
+                              DComboboxOption(
+                                value: 'option-$index',
+                                label: 'Option $index',
+                              ),
+                          ],
+                          anchor: const DComboboxInput<String>(),
+                          content: const DComboboxContent(
+                            maxHeight: 120,
+                            children: [DComboboxList<String>()],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 1000),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+
+    final row = find.text('Option 1');
+    final popupScroll = tester
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byType(DComboboxList<String>),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .position;
+    final initialPopupOffset = popupScroll.pixels;
+    expect(pageScroll.offset, 0);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(row));
+    await tester.pumpAndSettle();
+
+    expect(controller.highlightedValue, 'option-1');
+    expect(popupScroll.pixels, initialPopupOffset);
+    expect(pageScroll.offset, 0);
+
+    await mouse.moveTo(Offset.zero);
+    for (var index = 0; index < 15; index++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    }
+    await tester.pumpAndSettle();
+
+    expect(controller.highlightedValue, 'option-16');
+    expect(popupScroll.maxScrollExtent, greaterThan(0));
+    expect(popupScroll.pixels, greaterThan(initialPopupOffset));
+    expect(pageScroll.offset, 0);
   });
 
   testWidgets('loop focus passes through the input between list ends', (
