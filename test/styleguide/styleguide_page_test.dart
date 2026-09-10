@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/styleguide/application_component_catalogue.dart';
 import 'package:discourse_native/src/styleguide/component_catalogue.dart';
 import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_chrome.dart';
@@ -170,7 +171,10 @@ void main() {
       componentExamples.keys.toSet().difference(
         components.map((entry) => entry['id'] as String).toSet(),
       ),
-      {'foundations'},
+      {
+        'foundations',
+        ...applicationComponentCatalogue.map((entry) => entry.id),
+      },
     );
     final available = <String>{};
     for (final entry in scheduled) {

@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../discourse_ui.dart';
+import 'application_component_catalogue.dart';
 import 'component_catalogue.dart';
 import 'component_examples.dart';
 import 'styleguide_chrome.dart';
@@ -26,7 +27,9 @@ const _foundations = ComponentReference(
   name: 'Foundations',
   sections: ['Theme tokens', 'Typography', 'Motion', 'Spacing'],
 );
-const _entries = [_foundations, ...componentCatalogue];
+final _components = [...componentCatalogue, ...applicationComponentCatalogue]
+  ..sort((left, right) => left.name.compareTo(right.name));
+final _entries = [_foundations, ..._components];
 
 class _StyleguideDocumentSection {
   const _StyleguideDocumentSection({
@@ -407,7 +410,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
               ),
               DSidebarGroup(
                 label: const DSidebarGroupLabel(child: Text('Components')),
-                child: menu(componentCatalogue),
+                child: menu(_components),
               ),
             ],
           ],

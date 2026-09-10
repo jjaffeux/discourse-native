@@ -25,9 +25,11 @@ capacity; this change adopts it in the application.
   active when selection is disabled or the tag limit has been reached.
   Selected tags retain both a checkmark and a muted row background. Creating
   an allowed tag uses `DButton`.
-- The same editors are used by the header, property/sidebar anchors and the
-  composer. The read-only overflow also uses Native input, scrolling and Item
-  links. Unrelated users of the older anchored-picker adapter are unchanged.
+- The same editors are used by the header and property/sidebar anchors. The
+  composer now shares the topics-list selectors documented in
+  [Category and tag selectors](category-tag-selectors.md). The read-only
+  overflow also uses Native input, scrolling and Item links. Unrelated users
+  of the older anchored-picker adapter are unchanged.
 
 No new kit API is introduced. Debounced/latest-wins search, capability checks,
 parent/subcategory filtering, immediate saves, tag creation/limits, error

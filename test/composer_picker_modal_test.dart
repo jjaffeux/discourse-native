@@ -6,8 +6,6 @@ import 'package:discourse_native/src/shell/composer_tag_removal_notice.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_category_path.dart';
-import 'package:discourse_native/src/shell/topic_category_picker.dart';
-import 'package:discourse_native/src/shell/topic_tag_picker.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -173,7 +171,6 @@ void main() {
     expect(tags.bottom, lessThan(tester.getRect(editor).top));
     expect(tags.center.dy, category.center.dy);
     expect(tags.left, greaterThan(category.right));
-    expect(find.byKey(const ValueKey('composer-category-color')), findsNothing);
 
     shell.visibleComposer!
       ..setCategory(5)
@@ -185,7 +182,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('composer-tags')),
-        matching: find.text('design, mobile'),
+        matching: find.text('Tags · 2'),
       ),
       findsOneWidget,
     );
@@ -241,12 +238,12 @@ void main() {
 
     await tester.pump();
     await open(tester, const ValueKey('composer-add-tag'));
-    expect(find.byType(TopicTagPicker), findsOneWidget);
-    expect(find.byType(DDrawerContent), findsOneWidget);
+    expect(find.byType(DComboboxContent), findsOneWidget);
+    expect(find.byType(DDrawerContent), findsNothing);
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('the category picker is the sidebar popover on desktop', (
+  testWidgets('the composer uses the shared category dropdown on desktop', (
     tester,
   ) async {
     final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
@@ -254,14 +251,16 @@ void main() {
     await open(tester, const ValueKey('composer-category-action'));
 
     expect(
-      find.byKey(const ValueKey('topic-category-picker-popover')),
+      find.byKey(const ValueKey('category-selector-popover')),
       findsOneWidget,
     );
-    expect(find.byType(TopicCategoryPicker), findsOneWidget);
+    expect(find.byType(DComboboxContent), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
     expect(find.byType(DDrawerContent), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('topic-category-option-5')));
+    await tester.tap(
+      find.byKey(const ValueKey(('category-selector-option', 5))),
+    );
     await tester.pump();
     expect(shell.visibleComposer!.categoryId, 5);
     await tester.pump(const Duration(seconds: 2));
@@ -304,9 +303,7 @@ void main() {
     await open(tester, const ValueKey('composer-category-action'));
 
     expect(
-      configuredIcon(
-        find.byKey(const ValueKey(('topic-category-option-icon', 5))),
-      ),
+      configuredIcon(find.byKey(const ValueKey(('category-selector-icon', 5)))),
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 2));
@@ -353,7 +350,7 @@ void main() {
 
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('topic-category-option-6')),
+        of: find.byKey(const ValueKey(('category-selector-option', 6))),
         matching: find.text(categoryPath),
       ),
       findsOneWidget,
@@ -361,23 +358,20 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('the tag picker is the sidebar popover on desktop', (
+  testWidgets('the composer uses the shared tag dropdown on desktop', (
     tester,
   ) async {
     final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
 
     await open(tester, const ValueKey('composer-add-tag'));
 
-    expect(
-      find.byKey(const ValueKey('topic-tag-picker-popover')),
-      findsOneWidget,
-    );
-    expect(find.byType(TopicTagPicker), findsOneWidget);
+    expect(find.byKey(const ValueKey('tag-selector-popover')), findsOneWidget);
+    expect(find.byType(DComboboxContent), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
     expect(find.byType(DDrawerContent), findsNothing);
 
     await tester.tap(
-      find.byKey(const ValueKey(('topic-tag-picker-option', 'design'))),
+      find.byKey(const ValueKey(('tag-selector-option', 'design'))),
     );
     await tester.pump();
     expect(shell.visibleComposer!.tags, const [
@@ -400,12 +394,10 @@ void main() {
 
       for (final name in ['design', 'mobile']) {
         await open(tester, const ValueKey('composer-add-tag'));
-        await tester.tap(
-          find.byKey(ValueKey(('topic-tag-picker-option', name))),
-        );
+        await tester.tap(find.byKey(ValueKey(('tag-selector-option', name))));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
-        expect(find.byType(TopicTagPicker), findsNothing);
+        expect(find.byType(DComboboxContent), findsNothing);
         expect(
           shell.visibleComposer!.tags.map((tag) => tag.name),
           isNot(contains(name)),
@@ -413,13 +405,14 @@ void main() {
       }
 
       await open(tester, const ValueKey('composer-add-tag'));
-      // Native popovers permit outside interaction. Dismiss in empty space,
-      // away from the composer's close button.
-      await tester.tapAt(const Offset(5, 590));
+      await tester.tapAt(
+        tester.getBottomRight(find.byType(ComposerEditor)) -
+            const Offset(16, 16),
+      );
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
 
-      expect(find.byType(TopicTagPicker), findsNothing);
+      expect(find.byType(DComboboxContent), findsNothing);
       expect(shell.visibleComposer!.tags, const [support]);
       expect(
         find.descendant(
@@ -431,23 +424,27 @@ void main() {
     },
   );
 
-  testWidgets('the category picker stays a sheet on touch', (tester) async {
+  testWidgets('the category selector uses the same dropdown on touch', (
+    tester,
+  ) async {
     await pumpComposer(tester, platform: TargetPlatform.iOS);
 
     await open(tester, const ValueKey('composer-category-action'));
 
-    expect(find.byType(TopicCategoryPicker), findsOneWidget);
-    expect(find.byType(DDrawerContent), findsOneWidget);
+    expect(find.byType(DComboboxContent), findsOneWidget);
+    expect(find.byType(DDrawerContent), findsNothing);
     expect(find.byType(Dialog), findsNothing);
   });
 
-  testWidgets('the tag picker stays a sheet on touch', (tester) async {
+  testWidgets('the tag selector uses the same dropdown on touch', (
+    tester,
+  ) async {
     await pumpComposer(tester, platform: TargetPlatform.iOS);
 
     await open(tester, const ValueKey('composer-add-tag'));
 
-    expect(find.byType(TopicTagPicker), findsOneWidget);
-    expect(find.byType(DDrawerContent), findsOneWidget);
+    expect(find.byType(DComboboxContent), findsOneWidget);
+    expect(find.byType(DDrawerContent), findsNothing);
     expect(find.byType(Dialog), findsNothing);
   });
 }
