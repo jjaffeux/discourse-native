@@ -445,7 +445,8 @@
         "Actual V6/V8 macOS CUA inspection completed: light/dark/custom, sizes/icons,360px/200%/RTL, loading/disabled/repeat/keyboard/link behavior and real Poll/Users/UserSummary integrations. Evidence and provenance in button-native-review.md; native/browser slots explicitly RELEASED.",
         "Final40 focused tests pass;48 Users tests pass with only two unrelated Avatar assertions already fixed on coordinator main. Root/full analysis clean. Final source-exact V8 kernel f1d36a8fc4850705bb5fcc310bef9d27677695a3c96499f5a45fd05e95843f8c.",
         "Coordinator reviewed source, native V6/V8 evidence and actual application migrations; merged root search/Sidebar AX correction passed native desktop/mobile verification before Button promotion. Main merge reconciliation retains existing Avatar assertions and named independent controls.",
-        "Coordinator main integration: 274 affected tests passed initially; Chat and Like assertions were updated from tooltip to accessible label to reflect the native icon-name fix, retaining focus/tap/keyboard checks. All 12 final affected accessibility tests pass. Root/full-profile analysis clean; source/SDK/lock pins unchanged. Logs /private/tmp/button-main-integration-tests.log and /private/tmp/button-main-accessibility-tests-final.log."
+        "Coordinator main integration: 274 affected tests passed initially; Chat and Like assertions were updated from tooltip to accessible label to reflect the native icon-name fix, retaining focus/tap/keyboard checks. All 12 final affected accessibility tests pass. Root/full-profile analysis clean; source/SDK/lock pins unchanged. Logs /private/tmp/button-main-integration-tests.log and /private/tmp/button-main-accessibility-tests-final.log.",
+        "Custom-color follow-up: merged into local main as ec8de1e49df8cfd199db95c0c27ccd36d49a3bdb from the main checkout. The merge tree exactly matches verified implementation branch 3309eff1; focused tests, analysis and macOS evidence are recorded in docs/component-library/button-custom-colors.md."
       ],
       "limitations": [
         "Coordinator owns baseline root styleguide AX correction and final combined review. Preserve main Avatar assertions when merging. Catalogue baseline status remains for coordinator promotion after merged root AX recheck.",
@@ -456,7 +457,7 @@
       "nativeInspectionStatus": "complete",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/3a88/discourse-native",
       "customColorsFollowUp": {
-        "status": "verified",
+        "status": "merged",
         "taskId": "01a08d19-7072-7dc2-8a77-2dcebba886b6",
         "branch": "codex/ui-button-custom-colors",
         "dependencies": [
@@ -479,7 +480,9 @@
           "The isolated review app launched and was quit; its process disappeared and desktop lease was released. Native review kernel SHA-256 afa84d5f07db23cfab1e8bdadc0e371d3300e90a02326f575cf356ac2c4ae06d.",
           "No iOS/Linux device or spoken screen-reader session; production picker migration is outside this kit-capability follow-up."
         ],
-        "implementationCommit": "3fed56d428c07bdeea27be483daf56d890a29f6a"
+        "implementationCommit": "3fed56d428c07bdeea27be483daf56d890a29f6a",
+        "mergeCommit": "ec8de1e49df8cfd199db95c0c27ccd36d49a3bdb",
+        "mergeVerification": "Merged with --no-ff from the main checkout. The merge tree exactly matches verified branch commit 3309eff1a84de9e289a9387c5316e7da58275816."
       }
     },
     {

@@ -588,6 +588,7 @@ Status: merged. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/ui-but
 - Final40 focused tests pass;48 Users tests pass with only two unrelated Avatar assertions already fixed on coordinator main. Root/full analysis clean. Final source-exact V8 kernel f1d36a8fc4850705bb5fcc310bef9d27677695a3c96499f5a45fd05e95843f8c.
 - Coordinator reviewed source, native V6/V8 evidence and actual application migrations; merged root search/Sidebar AX correction passed native desktop/mobile verification before Button promotion. Main merge reconciliation retains existing Avatar assertions and named independent controls.
 - Coordinator main integration: 274 affected tests passed initially; Chat and Like assertions were updated from tooltip to accessible label to reflect the native icon-name fix, retaining focus/tap/keyboard checks. All 12 final affected accessibility tests pass. Root/full-profile analysis clean; source/SDK/lock pins unchanged. Logs /private/tmp/button-main-integration-tests.log and /private/tmp/button-main-accessibility-tests-final.log.
+- Custom-color follow-up: merged into local main as ec8de1e49df8cfd199db95c0c27ccd36d49a3bdb from the main checkout. The merge tree exactly matches verified implementation branch 3309eff1; focused tests, analysis and macOS evidence are recorded in docs/component-library/button-custom-colors.md.
 
 **limitations**
 
