@@ -518,12 +518,7 @@ void main() {
           findsNothing,
         );
         expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
-        await tester.tap(find.byKey(const ValueKey('composer-options')));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('composer-discard')).hitTestable(),
-          findsOneWidget,
-        );
+        expect(find.byKey(const ValueKey('composer-options')), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );

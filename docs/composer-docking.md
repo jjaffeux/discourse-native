@@ -8,7 +8,8 @@ scope.
 
 - The compact Native overflow popup shows **Dock side** followed by left,
   bottom, and right icons. Each has a tooltip, accessible name, and selected
-  state. Save/close, discard, minimize, and restore remain available.
+  state. The popup contains only placement choices. Save/close, minimize, and
+  restore remain in the header; closing an unsaved edit retains its confirmation.
 - Desktop defaults to the right at 420 logical pixels. Side docking keeps a
   360-pixel composer and 320-pixel reader minimum. If they cannot fit, the
   composer temporarily moves to the bottom and restores the preferred side
@@ -20,7 +21,7 @@ scope.
   against neighboring containers for every dock position.
   Bottom-dock resize padding uses the composer background, avoiding another
   visible edge while retaining the divider's accessible hit area.
-- Mobile always docks at the bottom and hides placement choices. The editor
+- Mobile always docks at the bottom and hides the overflow button. The editor
   body and cramped reader chrome scroll inside bounded areas, leaving editor
   actions above the keyboard. Minimize shows a compact bottom strip; restore
   retains the draft, selection, undo history, and previous placement and size.
@@ -38,7 +39,7 @@ The reader's scroll ancestry remains stable when the composer opens or closes.
 
 Application controls use the Native UI kit through
 `package:discourse_native/discourse_ui.dart`: `DPopover`, `DToggleGroup`,
-`DButton`, `DSeparator`, `DTooltip`, `DResizablePanelGroup`, and `DScrollArea`.
+`DButton`, `DTooltip`, `DResizablePanelGroup`, and `DScrollArea`.
 No new generic Native component is needed for the amended design.
 
 Submission and recheck actions explicitly target their composer. Closing or
@@ -88,6 +89,10 @@ closed afterward.
 The border follow-up passed 30 focused docking, viewport, editor-control, and
 whisper tests. Native macOS inspection confirmed single left/right boundaries
 and a bottom resize inset that blends into the composer background.
+
+The placement-only popup follow-up passed 160 focused composer, draft,
+topic-action, and mobile-layout tests. Root and full-profile static analysis,
+the root macOS review-fixture build, and the full-profile macOS build passed.
 
 Linux builds and live Linux/physical mobile checks were not run on this macOS
 host. Widget tests with platform overrides are not device verification. The

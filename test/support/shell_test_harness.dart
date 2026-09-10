@@ -225,9 +225,3 @@ final Uint8List emojiPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
   'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
-
-Future<void> tapComposerDiscard(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('composer-options')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('composer-discard')));
-}
