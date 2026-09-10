@@ -25,6 +25,9 @@ final avatarExamples = ComponentExamples(
       'Reference sm/default/lg diameters are 24/32/40px; initials 12/14/14px; '
       'groups overlap 8px and rings are 2px. Circles stay circular independent '
       'of the configured radius; forum adapters may explicitly use rounded squares. '
+      'The optional ring matches Discourse core: a 1px live success edge and '
+      '1px live page-color gap inset the image without growing the avatar. '
+      'Name its meaning with ringSemanticLabel so status is not color-only. '
       'Unconstrained library avatars grow with accessibility text above 100% '
       'so initials remain readable. Fixed app dimensions remain caller-owned. '
       'Checker artwork is embedded local PNG data, identical in both app profiles. '
@@ -64,6 +67,40 @@ DAvatar(
           const DAvatar(
             decorative: true,
             fallback: DAvatarFallback(child: Icon(Icons.person_outline)),
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
+      title: 'Ring',
+      description:
+          'The online treatment keeps the same outer size while insetting the '
+          'image behind a success edge and background gap. Its accessible label '
+          'announces the state instead of relying on green alone.',
+      states: const ['Online', 'Success', 'Semantics', 'Live palette'],
+      code: '''const DAvatar(
+  ring: true,
+  ringSemanticLabel: 'Online',
+  semanticLabel: 'Chris',
+  fallback: DAvatarFallback(child: Text('CN')),
+)''',
+      builder: (_) => Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const DAvatar(
+            ring: true,
+            ringSemanticLabel: 'Online',
+            semanticLabel: 'Chris',
+            fallback: DAvatarFallback(child: Text('CN')),
+          ),
+          DAvatar(
+            ring: true,
+            ringSemanticLabel: 'Online',
+            semanticLabel: 'Evil Rabbit',
+            image: DAvatarImage(image: avatarExampleImage),
+            fallback: const DAvatarFallback(child: Text('ER')),
           ),
         ],
       ),

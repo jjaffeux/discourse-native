@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
@@ -27,6 +28,8 @@ class DAvatar extends StatelessWidget {
     this.fallback = const DAvatarFallback(child: SizedBox.shrink()),
     this.child,
     this.badge,
+    this.ring = false,
+    this.ringSemanticLabel,
     this.semanticLabel,
     this.decorative = false,
     this.borderRadius,
@@ -40,6 +43,8 @@ class DAvatar extends StatelessWidget {
     super.key,
     required this.child,
     this.badge,
+    this.ring = false,
+    this.ringSemanticLabel,
     this.semanticLabel,
     this.decorative = false,
     this.borderRadius,
@@ -55,6 +60,15 @@ class DAvatar extends StatelessWidget {
   final Widget fallback;
   final Widget? child;
   final Widget? badge;
+
+  /// Applies Discourse's online treatment without changing the avatar's outer
+  /// dimensions: a one-pixel success ring, a one-pixel background gap, then
+  /// the image. The host supplies both colors through [DTokens].
+  final bool ring;
+
+  /// Accessible meaning of [ring], such as "Online". It is combined with
+  /// [semanticLabel], so the state is not communicated by color alone.
+  final String? ringSemanticLabel;
   final String? semanticLabel;
   final bool decorative;
 
@@ -66,23 +80,39 @@ class DAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveSize = _AvatarGroupScope.of(context)?.overrideSize ?? size;
     final radius = borderRadius ?? BorderRadius.circular(9999);
+    final tokens = DTokens.of(context);
     Widget picture = ClipRRect(
       borderRadius: radius,
       child: child ?? image ?? fallback,
     );
-    picture = CustomPaint(
-      foregroundPainter: _AvatarBorder(
-        DTokens.of(context).border,
-        radius,
-        Theme.of(context).brightness == Brightness.dark
-            ? BlendMode.lighten
-            : BlendMode.darken,
-      ),
-      child: picture,
-    );
-    if (decorative || semanticLabel != null) {
+    if (ring) {
+      picture = DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.background,
+          borderRadius: radius,
+          border: Border.all(color: tokens.success),
+        ),
+        child: _AvatarRingInset(child: picture),
+      );
+    } else {
+      picture = CustomPaint(
+        foregroundPainter: _AvatarBorder(
+          tokens.border,
+          radius,
+          Theme.of(context).brightness == Brightness.dark
+              ? BlendMode.lighten
+              : BlendMode.darken,
+        ),
+        child: picture,
+      );
+    }
+    final semanticsLabel = [
+      ?semanticLabel,
+      if (ring) ?ringSemanticLabel,
+    ].join(', ');
+    if (decorative || semanticsLabel.isNotEmpty) {
       picture = Semantics(
-        label: decorative ? null : semanticLabel,
+        label: decorative ? null : semanticsLabel,
         image: !decorative,
         excludeSemantics: true,
         child: picture,
@@ -110,6 +140,51 @@ class DAvatar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Keeps the child's former outer extent while laying its visible content out
+/// four pixels smaller. This reproduces core's border-box `padding: 2px` for
+/// both enum-sized avatars and intrinsically sized application frames.
+class _AvatarRingInset extends SingleChildRenderObjectWidget {
+  const _AvatarRingInset({required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderAvatarRingInset();
+}
+
+class _RenderAvatarRingInset extends RenderShiftedBox {
+  _RenderAvatarRingInset([super.child]);
+
+  static const _inset = 2.0;
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    final naturalSize = child.getDryLayout(constraints.loosen());
+    size = constraints.constrain(naturalSize);
+    child.layout(
+      BoxConstraints.tight(
+        Size(
+          math.max(0, size.width - _inset * 2),
+          math.max(0, size.height - _inset * 2),
+        ),
+      ),
+    );
+    (child.parentData! as BoxParentData).offset = const Offset(_inset, _inset);
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final child = this.child;
+    return constraints.constrain(
+      child?.getDryLayout(constraints.loosen()) ?? constraints.smallest,
     );
   }
 }

@@ -14,6 +14,7 @@ class DTokens extends ThemeExtension<DTokens> {
     required this.hover,
     required this.selected,
     required this.selectedForeground,
+    this.successColor,
     this.radius = 4,
   });
 
@@ -28,6 +29,7 @@ class DTokens extends ThemeExtension<DTokens> {
       hover: colors.surfaceContainerHigh,
       selected: colors.secondaryContainer,
       selectedForeground: colors.onSecondaryContainer,
+      successColor: colors.tertiary,
     );
   }
 
@@ -44,6 +46,9 @@ class DTokens extends ThemeExtension<DTokens> {
   final Color hover;
   final Color selected;
   final Color selectedForeground;
+
+  /// Optional positive-state override supplied by the host palette.
+  final Color? successColor;
   final double radius;
 
   Color get foreground => colors.onSurface;
@@ -53,6 +58,11 @@ class DTokens extends ThemeExtension<DTokens> {
   Color get destructive => colors.error;
   Color get destructiveForeground => colors.onError;
   Color get focusRing => colors.primary;
+
+  /// Positive state color supplied by the host palette.
+  ///
+  /// Ordinary Material themes fall back to their tertiary color.
+  Color get success => successColor ?? colors.tertiary;
 
   BorderRadius get borderRadius => BorderRadius.circular(radius);
 
@@ -66,6 +76,7 @@ class DTokens extends ThemeExtension<DTokens> {
     Color? hover,
     Color? selected,
     Color? selectedForeground,
+    Color? successColor,
     double? radius,
   }) => DTokens(
     colors: colors ?? this.colors,
@@ -76,6 +87,7 @@ class DTokens extends ThemeExtension<DTokens> {
     hover: hover ?? this.hover,
     selected: selected ?? this.selected,
     selectedForeground: selectedForeground ?? this.selectedForeground,
+    successColor: successColor ?? success,
     radius: radius ?? this.radius,
   );
 
@@ -95,6 +107,7 @@ class DTokens extends ThemeExtension<DTokens> {
         other.selectedForeground,
         t,
       )!,
+      successColor: Color.lerp(success, other.success, t)!,
       radius: lerpDouble(radius, other.radius, t)!,
     );
   }

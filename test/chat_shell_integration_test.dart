@@ -5193,6 +5193,15 @@ void _registerChatShellTests() {
         );
         expect((decoration.border! as Border).top.width, 1);
         expect(decoration.color, theme.shell.content);
+        final avatar = tester.widget<DAvatar>(ring);
+        expect(avatar.ring, isTrue);
+        expect(avatar.ringSemanticLabel, 'Online');
+        expect(
+          tester.getSize(
+            find.descendant(of: ring, matching: find.byType(AvatarImage)),
+          ),
+          const Size.square(24),
+        );
 
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {

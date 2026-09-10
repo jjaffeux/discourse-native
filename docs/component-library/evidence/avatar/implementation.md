@@ -58,6 +58,15 @@ Sizes, Dropdown and RTL all have runnable examples. Embedded local PNG bytes
 avoid package-asset path differences entirely; no assets or manifests were added.
 Stateful examples retain state when inherited preview configuration changes.
 
+## Core online ring follow-up — 2026-09-10
+
+The public `DAvatar.ring` option now owns the online presentation previously
+duplicated by Chat. The source comparison and acceptance evidence are recorded
+in [ring-follow-up.md](ring-follow-up.md). It preserves the outer avatar size,
+insets image/fallback content by 2px, and paints the same 1px success edge plus
+1px page-color gap as Discourse core. The host maps its live site success color
+into `DTokens`; callers can name the state with `ringSemanticLabel`.
+
 ## Application audit
 
 Searched every Dart file in core and all bundled plugins for AvatarImage,
@@ -84,10 +93,11 @@ adapters (including user-directory ID palette and forum monograms).
 
 Retained alternatives and reasons:
 
-- Chat online ring and GroupFlair/GroupFlairBadge: domain status, live presence,
-  server flair artwork/colors, 45% flair size and 10% overhang remain owned by
-  these adapters. DAvatar frames the underlying identity. Generic dot badges
-  cannot replace arbitrary transparent flair artwork without changing meaning.
+- Chat retains live presence subscription/state ownership and passes the
+  resulting boolean to `DAvatar.ring`. GroupFlair/GroupFlairBadge retains
+  server artwork/colors, 45% flair size and 10% overhang. A generic ring or dot
+  badge cannot replace arbitrary transparent flair artwork without changing
+  meaning.
 - UserStatus emoji bubble and unread/count/recording indicators in rail, tabs,
   topic indicators, Chat headers/composer/thread/pinned rows: these are status
   or action indicators with domain-specific counts, not user identity pictures.
@@ -102,7 +112,8 @@ Retained alternatives and reasons:
 ## Review fixture
 
 `tool/avatar_review_main.dart` mounts the actual production AvatarImage and
-ForumIcon with an in-memory MockClient. Pending, HTTP error and valid PNG
-responses are local. The forum action uses the real DButton owner and increments
-only local state. The same executable opens the actual component styleguide.
-No account, store or external mutation is involved.
+ForumIcon with an in-memory MockClient, plus the public online-ring example.
+Pending, HTTP error and valid PNG responses are local. The forum action uses the
+real DButton owner and increments only local state. The same executable opens
+the actual component styleguide. No account, store or external mutation is
+involved.

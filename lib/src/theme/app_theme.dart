@@ -677,6 +677,7 @@ abstract final class AppTheme {
           hover: shell.hover,
           selected: shell.selected,
           selectedForeground: shell.selectedForeground,
+          successColor: discourse.success,
           radius: borderRadius,
         ),
         shell,
