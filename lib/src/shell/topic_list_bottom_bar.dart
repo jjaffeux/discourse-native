@@ -101,51 +101,51 @@ class TopicListBottomBar extends StatelessWidget {
       builder: (context, state, _) => ColoredBox(
         key: const ValueKey('topic-list-bottom-bar'),
         color: Theme.of(context).shell.content,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DSeparator(color: Theme.of(context).shell.divider),
-            SizedBox(
-              height: topicBottomBarHeight - 1,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    DButton.iconOnly(
-                      key: const ValueKey('inbox-previous-topic'),
-                      tooltip: 'Previous topic',
-                      shortcut: DShortcut.sequence(
-                        ReadingCommand.openPreviousTopic.prefix!,
-                        ReadingCommand.openPreviousTopic.shortcuts.cast(),
-                      ),
-                      icon: const DIcon(DIcons.chevronLeft, size: 13),
-                      onPressed: state.previous == null
-                          ? null
-                          : () => openAdjacentTopic(context, next: false),
-                      variant: DButtonVariant.flat,
-                      size: DButtonSize.small,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: Theme.of(context).shell.divider),
+            ),
+          ),
+          child: SizedBox(
+            height: topicBottomBarHeight(context),
+            child: Padding(
+              padding: topicBottomBarPadding,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  DButton.iconOnly(
+                    key: const ValueKey('inbox-previous-topic'),
+                    tooltip: 'Previous topic',
+                    shortcut: DShortcut.sequence(
+                      ReadingCommand.openPreviousTopic.prefix!,
+                      ReadingCommand.openPreviousTopic.shortcuts.cast(),
                     ),
-                    DButton.iconOnly(
-                      key: const ValueKey('inbox-next-topic'),
-                      tooltip: 'Next topic',
-                      shortcut: DShortcut.sequence(
-                        ReadingCommand.openNextTopic.prefix!,
-                        ReadingCommand.openNextTopic.shortcuts.cast(),
-                      ),
-                      icon: const DIcon(DIcons.chevronRight, size: 13),
-                      onPressed:
-                          state.next == null && (!state.more || state.busy)
-                          ? null
-                          : () => openAdjacentTopic(context, next: true),
-                      variant: DButtonVariant.flat,
-                      size: DButtonSize.small,
+                    icon: const DIcon(DIcons.chevronLeft, size: 13),
+                    onPressed: state.previous == null
+                        ? null
+                        : () => openAdjacentTopic(context, next: false),
+                    variant: DButtonVariant.ghost,
+                    size: DButtonSize.small,
+                  ),
+                  DButton.iconOnly(
+                    key: const ValueKey('inbox-next-topic'),
+                    tooltip: 'Next topic',
+                    shortcut: DShortcut.sequence(
+                      ReadingCommand.openNextTopic.prefix!,
+                      ReadingCommand.openNextTopic.shortcuts.cast(),
                     ),
-                  ],
-                ),
+                    icon: const DIcon(DIcons.chevronRight, size: 13),
+                    onPressed: state.next == null && (!state.more || state.busy)
+                        ? null
+                        : () => openAdjacentTopic(context, next: true),
+                    variant: DButtonVariant.ghost,
+                    size: DButtonSize.small,
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     ),
