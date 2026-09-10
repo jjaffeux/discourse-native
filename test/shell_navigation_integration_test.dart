@@ -1950,7 +1950,9 @@ void _registerShellNavigationTests() {
 
     await tester.tap(subcategoryFilter);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 0))));
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-list-subcategory-option', 0))),
+    );
     await tester.pumpAndSettle();
 
     expect(controller.currentContent?.id, 'category-1');
@@ -1959,7 +1961,9 @@ void _registerShellNavigationTests() {
 
     await tester.tap(subcategoryFilter);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 2))));
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-list-subcategory-option', 2))),
+    );
     await tester.pumpAndSettle();
     expect(controller.currentContent?.id, 'category-2');
     expect(find.text('A category topic'), findsOneWidget);
@@ -2271,7 +2275,9 @@ void _registerShellNavigationTests() {
       find.byKey(const ValueKey('topic-list-subcategory-filter')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 2))));
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-list-subcategory-option', 2))),
+    );
     await tester.pumpAndSettle();
 
     expect(controller.currentContent?.id, 'category-2');

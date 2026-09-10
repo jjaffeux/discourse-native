@@ -302,7 +302,15 @@ void main() {
       await tester.pump();
       controller.closeAppSettingsModal();
       await tester.pump();
-      expect(tester.widget<TextField>(query).controller!.text, 'experience');
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(of: query, matching: find.byType(TextField)),
+            )
+            .controller!
+            .text,
+        'experience',
+      );
       await tester.tap(
         find.byKey(const ValueKey(('topic-list-tag-filter-option', 'ux'))),
       );

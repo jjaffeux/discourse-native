@@ -63,7 +63,10 @@ value, focus, Form and IME owner.
   resolves to an enabled visible option is cleared.
 - Arrow Up/Down moves through enabled filtered items and optionally loops through
   the input between list ends, matching the ARIA combobox focus model. Enter
-  selects the highlight. Escape dismisses and restores the accepted single label.
+  and the keyboard Done action select the enabled, visible highlight in both
+  ordinary and chip inputs. Done leaves focus and selection unchanged when
+  there is no eligible highlight, including while async results are replaced.
+  Escape dismisses and restores the accepted single label.
   Pointer hover can own highlight without moving editor focus.
 - Multiple selection toggles values, clears the filter and closes by default;
   `closeOnSelect: false` preserves an open rapid-entry workflow. Remove actions and
