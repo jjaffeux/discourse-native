@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_card.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
@@ -58,6 +59,7 @@ void main() {
         );
         await tester.pumpWidget(
           MaterialApp(
+            builder: (context, child) => DToaster(child: child!),
             home: Scaffold(
               body: view == _View.card
                   ? SingleChildScrollView(

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -339,7 +340,7 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: DiscourseTypography.sm,
             height: 20 / 14,
             fontWeight: FontWeight.w500,
           ),
@@ -350,7 +351,7 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: tokens.mutedForeground,
-            fontSize: 12,
+            fontSize: DiscourseTypography.xs,
             height: 16 / 12,
           ),
         ),

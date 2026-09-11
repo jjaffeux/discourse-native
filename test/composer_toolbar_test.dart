@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_marks.dart';
@@ -303,10 +304,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     final urlField = find.byKey(const ValueKey('composer-link-url'));
-    expect(tester.widget<TextField>(urlField).controller!.text, url);
+    expect(tester.widget<DInput>(urlField).controller!.text, url);
     expect(
       tester
-          .widget<TextField>(find.byKey(const ValueKey('composer-link-anchor')))
+          .widget<DInput>(find.byKey(const ValueKey('composer-link-anchor')))
           .controller!
           .text,
       'Dart',

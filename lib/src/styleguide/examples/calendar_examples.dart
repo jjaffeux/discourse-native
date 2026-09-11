@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:timezone/timezone.dart' as tz;
@@ -443,7 +444,9 @@ class _PricedCalendarState extends State<_PricedCalendar> {
                   MediaQuery.withNoTextScaling(
                     child: Text(
                       details.date.weekday >= 6 ? r'$120' : r'$100',
-                      style: const TextStyle(fontSize: 9),
+                      style: const TextStyle(
+                        fontSize: DiscourseTypography.lg / 2,
+                      ),
                     ),
                   ),
                 ],

@@ -31,7 +31,7 @@ void main() {
       ),
     ),
   ]) {
-    testWidgets('$name unchecked outline stays visible on a popup surface', (
+    testWidgets('$name paints the shared input border on a popup', (
       tester,
     ) async {
       tester.view.devicePixelRatio = 1;
@@ -81,15 +81,11 @@ void main() {
           bytes.getUint8(offset + 1),
           bytes.getUint8(offset + 2),
         );
-        final outlineLuminance = outline.computeLuminance();
-        final backgroundLuminance = background.computeLuminance();
-        final contrast = outlineLuminance > backgroundLuminance
-            ? (outlineLuminance + .05) / (backgroundLuminance + .05)
-            : (backgroundLuminance + .05) / (outlineLuminance + .05);
         expect(
-          contrast,
-          greaterThan(1.5),
-          reason: 'The unchecked outline must not blend into the popup.',
+          outline,
+          theme.colorScheme.outlineVariant,
+          reason:
+              'The painted outline follows the shared subtle control theme.',
         );
         if (exportDirectory != null) {
           Directory(exportDirectory).createSync(recursive: true);

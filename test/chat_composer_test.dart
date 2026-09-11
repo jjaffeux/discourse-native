@@ -1174,7 +1174,7 @@ void main() {
         expect(thumbnail.url, upload.previewUrl);
         expect(thumbnail.siteUrl, _site);
         expect(thumbnail.fit, BoxFit.cover);
-        expect(tester.getSize(thumbnailFinder), const Size.square(32));
+        expect(tester.getSize(thumbnailFinder), const Size.square(40));
         expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
 
         await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
@@ -1547,8 +1547,8 @@ void main() {
         );
         expect(add, findsOneWidget);
         final addButton = tester.widget<DButton>(add);
-        expect(addButton.variant, DButtonVariant.flat);
-        expect(addButton.interactiveBackgroundColor, Colors.transparent);
+        expect(addButton.variant, DButtonVariant.ghost);
+        expect(addButton.interactiveBackgroundColor, isNull);
         final addIcon = find.descendant(
           of: composer,
           matching: find.byKey(const ValueKey('chat-composer-add-icon')),

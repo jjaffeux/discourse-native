@@ -1,3 +1,5 @@
+import 'package:discourse_native/src/theme/discourse_typography.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../discourse_ui.dart';
@@ -520,7 +522,7 @@ class _InlineLink extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final style = DefaultTextStyle.of(context).style.copyWith(
-        fontSize: 14,
+        fontSize: DiscourseTypography.sm,
         height: 20 / 14,
         fontWeight: FontWeight.w400,
         color: DTokens.of(context).foreground,

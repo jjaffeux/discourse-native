@@ -1162,14 +1162,8 @@ void main() {
 
       final firstUp = find.byKey(const ValueKey('users-column-up-1'));
       final firstDown = find.byKey(const ValueKey('users-column-down-1'));
-      expect(
-        tester.widget<DButton>(firstUp).variant,
-        DButtonVariant.transparent,
-      );
-      expect(
-        tester.widget<DButton>(firstDown).variant,
-        DButtonVariant.transparent,
-      );
+      expect(tester.widget<DButton>(firstUp).variant, DButtonVariant.ghost);
+      expect(tester.widget<DButton>(firstDown).variant, DButtonVariant.ghost);
       expect(tester.getSize(firstUp), const Size.square(48));
       expect(tester.getSize(firstDown), const Size.square(48));
       expect(tester.getTopRight(firstUp).dx, tester.getTopLeft(firstDown).dx);

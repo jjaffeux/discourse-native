@@ -611,7 +611,7 @@ class _PollOptionRow extends StatelessWidget {
               html: option.html,
               siteUrl: siteUrl,
               textStyle: TextStyle(
-                fontSize: 14,
+                fontSize: DiscourseTypography.sm,
                 height: 20 / 14,
                 color: DTokens.of(context).foreground,
               ),

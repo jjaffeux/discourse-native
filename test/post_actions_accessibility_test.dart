@@ -54,7 +54,10 @@ void main() {
     );
     await pointer.moveTo(tester.getCenter(action));
     await tester.pump();
-    expect(buttonSurface(tester, of: button).color, theme.shell.hover);
+    expect(
+      buttonSurface(tester, of: button).color,
+      DTokens.of(tester.element(button)).muted,
+    );
     expect(
       filledButton.style!.fixedSize!.resolve({}),
       const Size.square(

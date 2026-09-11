@@ -1073,7 +1073,7 @@ class _QuestionnaireShortcut extends StatelessWidget {
         value,
         style: TextStyle(
           fontFamily: 'JetBrains Mono',
-          fontSize: 10,
+          fontSize: DiscourseTypography.xs - 2,
           height: 1,
           fontWeight: FontWeight.w500,
           color: tokens.mutedForeground,

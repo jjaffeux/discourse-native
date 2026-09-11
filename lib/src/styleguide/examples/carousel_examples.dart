@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -169,7 +170,7 @@ class _CarouselDemo extends StatelessWidget {
               child: Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 24,
+                  fontSize: DiscourseTypography.xxl,
                   fontWeight: FontWeight.w600,
                 ),
               ),

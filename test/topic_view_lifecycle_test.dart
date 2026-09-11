@@ -455,7 +455,11 @@ void main() {
         );
         // Pointer drags are clipped by the test viewport, so walk the lazy list
         // down in a few screen-sized gestures instead of using one huge offset.
-        for (var i = 0; i < 6; i++) {
+        for (
+          var i = 0;
+          i < 12 && api.topicReadsRecorded.lastOrNull?.postNumber != 30;
+          i++
+        ) {
           await tester.drag(vertical.first, const Offset(0, -500));
           await tester.pumpAndSettle();
         }
@@ -2561,7 +2565,7 @@ void main() {
         expect(find.text('Post 5188 of 5188'), findsOneWidget);
         expect(
           tester
-              .widget<Slider>(
+              .widget<DSlider>(
                 find.byKey(const ValueKey('topic-progress-slider')),
               )
               .max,
@@ -2618,9 +2622,9 @@ void main() {
         expect(
           actions.map((action) => tester.widget<DButton>(action).variant),
           [
-            DButtonVariant.standard,
             DButtonVariant.primary,
-            DButtonVariant.standard,
+            DButtonVariant.primary,
+            DButtonVariant.primary,
           ],
         );
 
