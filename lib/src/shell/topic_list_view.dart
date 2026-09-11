@@ -1091,6 +1091,15 @@ class _TopicRowBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleSmall;
+    final titleLineHeight =
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(effectiveTitleStyle?.fontSize ?? 14) *
+        (effectiveTitleStyle?.height ?? 1.5);
+    Widget statusIcon(DIconData icon, String label) => SizedBox(
+      height: titleLineHeight,
+      child: Center(child: DIcon(icon, size: 14, semanticLabel: label)),
+    );
     final pluginMetadata =
         (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
             .topicListMetadata(context, siteUrl, topic);
@@ -1146,23 +1155,11 @@ class _TopicRowBody extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (topic.closed)
-                                const DIcon(
-                                  DIcons.lock,
-                                  size: 14,
-                                  semanticLabel: 'Closed',
-                                ),
+                                statusIcon(DIcons.lock, 'Closed'),
                               if (topic.pinned)
-                                const DIcon(
-                                  DIcons.thumbtack,
-                                  size: 14,
-                                  semanticLabel: 'Pinned',
-                                ),
+                                statusIcon(DIcons.thumbtack, 'Pinned'),
                               if (topic.bookmarked)
-                                const DIcon(
-                                  DIcons.bookmark,
-                                  size: 14,
-                                  semanticLabel: 'Bookmarked',
-                                ),
+                                statusIcon(DIcons.bookmark, 'Bookmarked'),
                               Flexible(
                                 child: TopicTitle(
                                   topic.title,
