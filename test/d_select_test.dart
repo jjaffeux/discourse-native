@@ -215,6 +215,99 @@ void main() {
     );
   }
 
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets(
+      'Select rows match Dropdown Menu styling in ${theme.brightness}',
+      (tester) async {
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer();
+        await _mount(
+          tester,
+          DDropdownMenu(
+            defaultOpen: true,
+            content: DDropdownMenuContent(
+              width: 180,
+              children: [
+                DDropdownMenuCheckboxItem(
+                  checked: true,
+                  onChanged: (_) {},
+                  child: const Text('Reference'),
+                ),
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (_, state) =>
+                  DButton(label: const Text('Open'), onPressed: state.toggle),
+            ),
+          ),
+          theme: theme,
+        );
+        await tester.pumpAndSettle();
+        final referenceText = find.text('Reference');
+        final referenceRow = find
+            .ancestor(
+              of: referenceText,
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Container && widget.decoration is BoxDecoration,
+              ),
+            )
+            .first;
+        await mouse.moveTo(tester.getCenter(referenceText));
+        await tester.pumpAndSettle();
+        final decoration = tester.widget<Container>(referenceRow).decoration;
+        final padding = tester.widget<Container>(referenceRow).padding;
+        final textStyle = DefaultTextStyle.of(
+          tester.element(referenceText),
+        ).style;
+        final referenceBounds = tester.getRect(referenceRow);
+        final referencePopup = tester.getRect(find.byType(DPopoverContent));
+        final inset = referenceBounds.left - referencePopup.left;
+        await tester.pumpWidget(const SizedBox());
+        await _mount(
+          tester,
+          DSelect<String>(
+            initialValue: 'reference',
+            width: 180,
+            entries: const [
+              DSelectOption(
+                value: 'reference',
+                label: 'Reference',
+                child: Text('Reference'),
+              ),
+            ],
+            onChanged: _noopString,
+          ),
+          theme: theme,
+        );
+        await tester.tap(find.text('Reference'));
+        await tester.pumpAndSettle();
+        final row = find.byKey(
+          const ValueKey<(String, String?)>(('d-select-item', 'reference')),
+        );
+        await mouse.moveTo(tester.getCenter(row));
+        await tester.pumpAndSettle();
+        final selectContainer = tester.widget<Container>(row);
+        expect(selectContainer.decoration, decoration);
+        expect(selectContainer.padding, padding);
+        final actualText = find.descendant(
+          of: row,
+          matching: find.text('Reference'),
+        );
+        final actualStyle = DefaultTextStyle.of(
+          tester.element(actualText),
+        ).style;
+        expect(actualStyle.color, textStyle.color);
+        expect(actualStyle.fontSize, textStyle.fontSize);
+        expect(actualStyle.height, textStyle.height);
+        final popup = tester.getRect(find.byType(DPopoverContent));
+        expect(tester.getRect(row).left - popup.left, inset);
+        expect(popup.right - tester.getRect(row).right, inset);
+      },
+    );
+  }
+
   testWidgets('disabled pointer highlighting preserves one keyboard row', (
     tester,
   ) async {
