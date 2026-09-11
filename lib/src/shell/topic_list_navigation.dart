@@ -165,6 +165,8 @@ class _TopicListNavigationControls extends StatelessWidget {
       },
       children: [
         DTabList<TopicListMode>(
+          size: DControlSize.small,
+          variant: DTabListVariant.line,
           children: [
             const DTabTrigger(
               key: ValueKey('topic-list-latest'),
