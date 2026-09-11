@@ -388,7 +388,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 siteUrl: state.siteUrl!,
                 categoryId: sourceRoute.categoryId!,
               ),
-            createAction,
           ],
         );
         // Account controls stay at the pane edge; title, tabs and actions
@@ -495,7 +494,13 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                             topicListHeadingBuilder: buildHeading,
                           ),
                         ),
-                        const TopicListBottomBar(),
+                        TopicListBottomBar(
+                          leading: createAction,
+                          // Keep actions outside the resize handle's touch area.
+                          trailingInset: split
+                              ? DResizableHandle.resolveHitExtent(context, 8)
+                              : 0,
+                        ),
                       ],
                     ),
                   ),

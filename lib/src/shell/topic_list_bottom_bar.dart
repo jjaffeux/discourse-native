@@ -93,7 +93,10 @@ bool openAdjacentTopic(
 }
 
 class TopicListBottomBar extends StatelessWidget {
-  const TopicListBottomBar({super.key});
+  const TopicListBottomBar({super.key, this.leading, this.trailingInset = 0});
+
+  final Widget? leading;
+  final double trailingInset;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -112,10 +115,14 @@ class TopicListBottomBar extends StatelessWidget {
           child: SizedBox(
             height: topicBottomBarHeight(context),
             child: Padding(
-              padding: topicBottomBarPadding,
+              padding: topicBottomBarPadding.add(
+                EdgeInsetsDirectional.only(end: trailingInset),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
+                  ?leading,
+                  const Spacer(),
                   DButton.iconOnly(
                     key: const ValueKey('inbox-previous-topic'),
                     tooltip: 'Previous topic',
