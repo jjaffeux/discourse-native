@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart' show DPopoverContent;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -71,18 +72,17 @@ void main() {
             ),
             findsOneWidget,
           );
-          await tester.tap(find.byTooltip('Close'));
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
-          expect(find.text('Open progress'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('topic-progress-button')),
+            findsOneWidget,
+          );
           expect(tester.takeException(), isNull);
         });
       }
 
-      for (final dismissal in [
-        'Close',
-        'back',
-        if (platform == TargetPlatform.iOS) 'drag' else 'barrier',
-      ]) {
+      for (final dismissal in ['Escape', 'barrier']) {
         testWidgets('late success after $dismissal preserves a new route', (
           tester,
         ) async {
@@ -94,8 +94,6 @@ void main() {
           );
           final shell = await _loadShell(api, cacheTarget: false);
           final navigator = await _openProgress(tester, shell, platform);
-          final editorContext = tester.element(find.byKey(_jumpKey));
-          final progressRoute = ModalRoute.of(editorContext)!;
 
           await tester.tap(find.byKey(_jumpKey));
           await tester.pump();
@@ -104,23 +102,12 @@ void main() {
           ]);
           expect(shell.currentContent?.postNumber, 1);
 
-          switch (dismissal) {
-            case 'Close':
-              await tester.tap(find.byTooltip('Close'));
-            case 'back':
-              await tester.binding.handlePopRoute();
-            case 'drag':
-              await tester.fling(
-                find.byType(BottomSheet),
-                const Offset(0, 80),
-                1500,
-              );
-            case 'barrier':
-              await tester.tapAt(const Offset(5, 5));
+          if (dismissal == 'Escape') {
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          } else {
+            await tester.tapAt(const Offset(5, 5));
           }
           await tester.pump();
-          expect(progressRoute.isActive, isFalse);
-          expect(editorContext.mounted, isTrue);
 
           unawaited(
             navigator.push<void>(
@@ -132,7 +119,7 @@ void main() {
             ),
           );
           await tester.pump();
-          expect(editorContext.mounted, isTrue);
+
           expect(find.text('Replacement route'), findsOneWidget);
 
           gate.complete();
@@ -147,60 +134,54 @@ void main() {
         });
       }
 
-      for (final succeeds in [false, true]) {
-        testWidgets(
-          'a covered progress route handles lookup ${succeeds ? 'success' : 'failure'} without popping its cover',
-          (tester) async {
-            final gate = Completer<void>();
-            final responses = <int, Post>{if (succeeds) 200: _target};
-            final api = FakeDiscourseApi(
-              user: _user,
-              postGate: gate,
-              postsById: responses,
-            );
-            final shell = await _loadShell(api, cacheTarget: false);
-            final navigator = await _openProgress(tester, shell, platform);
-            final progressRoute = ModalRoute.of(
-              tester.element(find.byKey(_jumpKey)),
-            )!;
-            await tester.tap(find.byKey(_jumpKey));
-            await tester.pump();
-            expect(api.postFetches, [
-              [200],
-            ]);
-
-            unawaited(
-              navigator.push<void>(
-                DialogRoute<void>(
-                  context: navigator.context,
-                  builder: (_) => const AlertDialog(content: Text('Cover')),
-                ),
-              ),
-            );
-            await tester.pump();
-            expect(progressRoute.isActive, isTrue);
-            expect(progressRoute.isCurrent, isFalse);
-            gate.complete();
-            await tester.pumpAndSettle();
-
-            expect(find.text('Cover'), findsOneWidget);
-            navigator.pop();
-            await tester.pumpAndSettle();
-            expect(find.text('Topic progress'), findsOneWidget);
-            expect(find.byType(DSpinner), findsNothing);
-            expect(
-              find.text('Could not open that post. Try again.'),
-              succeeds ? findsNothing : findsOneWidget,
-            );
-
-            responses[200] = _target;
-            await tester.tap(find.byKey(_jumpKey));
-            await tester.pumpAndSettle();
-            expect(shell.currentContent?.postNumber, _target.postNumber);
-            expect(find.text('Topic progress'), findsNothing);
-            expect(tester.takeException(), isNull);
-          },
+      testWidgets('late completion cannot close a reopened popover', (
+        tester,
+      ) async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          user: _user,
+          postGate: gate,
+          postsById: const {200: _target},
         );
+        final shell = await _loadShell(api, cacheTarget: false);
+        await _openProgress(tester, shell, platform);
+        await tester.tap(find.byKey(_jumpKey));
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
+        await tester.pumpAndSettle();
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('Topic progress'), findsOneWidget);
+        expect(find.text('Post 2 of 3'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      for (final action in ['First post', 'Latest post']) {
+        testWidgets('$action jumps and closes the popover', (tester) async {
+          final api = FakeDiscourseApi(
+            user: _user,
+            postsById: const {
+              300: Post(
+                id: 300,
+                postNumber: 12,
+                username: 'sam',
+                cooked: '<p>Last</p>',
+              ),
+            },
+          );
+          final shell = await _loadShell(api);
+          await _openProgress(tester, shell, platform);
+          await tester.tap(find.text(action));
+          await tester.pumpAndSettle();
+          expect(
+            shell.currentContent?.postNumber,
+            action == 'First post' ? 1 : 12,
+          );
+          expect(find.text('Topic progress'), findsNothing);
+          expect(tester.takeException(), isNull);
+        });
       }
 
       testWidgets('an unchanged source can retry a failed lookup and jump', (
@@ -231,7 +212,10 @@ void main() {
         ]);
         expect(shell.currentContent?.postNumber, _target.postNumber);
         expect(find.text('Topic progress'), findsNothing);
-        expect(find.text('Open progress'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('topic-progress-button')),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       });
     });
@@ -335,28 +319,24 @@ Future<NavigatorState> _openProgress(
       navigatorKey: navigatorKey,
       theme: AppTheme.light.copyWith(platform: platform),
       home: Scaffold(
-        body: Builder(
-          builder: (context) => FilledButton(
-            onPressed: () => unawaited(
-              showTopicProgress(
-                context: context,
-                controller: shell,
-                position: 2,
-                total: 3,
-              ),
-            ),
-            child: const Text('Open progress'),
-          ),
+        body: Align(
+          alignment: Alignment.bottomRight,
+          child: TopicProgressPopover(controller: shell, position: 2, total: 3),
         ),
       ),
     ),
   );
-  await tester.tap(find.text('Open progress'));
+  await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
   await tester.pumpAndSettle();
   expect(find.text('Post 2 of 3'), findsOneWidget);
+  expect(find.byType(DPopoverContent), findsOneWidget);
+  expect(find.byType(Dialog), findsNothing);
+  expect(find.byType(BottomSheet), findsNothing);
   expect(
-    find.byType(platform == TargetPlatform.iOS ? BottomSheet : Dialog),
-    findsOneWidget,
+    tester.getRect(find.byType(DPopoverContent)).bottom,
+    lessThanOrEqualTo(
+      tester.getRect(find.byKey(const ValueKey('topic-progress-button'))).top,
+    ),
   );
   return navigatorKey.currentState!;
 }

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
-import 'shell_sheet.dart';
 
 class TopicProgressButton extends StatelessWidget {
   const TopicProgressButton({
@@ -14,11 +13,15 @@ class TopicProgressButton extends StatelessWidget {
     required this.position,
     required this.total,
     required this.onPressed,
+    this.focusNode,
+    this.expanded,
   });
 
   final int position;
   final int total;
   final VoidCallback onPressed;
+  final FocusNode? focusNode;
+  final bool? expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +31,7 @@ class TopicProgressButton extends StatelessWidget {
       message: 'Topic progress',
       child: Semantics(
         button: true,
+        expanded: expanded,
         label: 'Topic progress, post $boundedPosition of $total',
         child: Material(
           color: theme.shell.floating,
@@ -36,6 +40,7 @@ class TopicProgressButton extends StatelessWidget {
           child: InkWell(
             key: const ValueKey('topic-progress-button'),
             onTap: onPressed,
+            focusNode: focusNode,
             child: SizedBox(
               height: topicBottomBarControlHeight(context),
               child: ConstrainedBox(
@@ -84,58 +89,61 @@ class TopicProgressButton extends StatelessWidget {
   }
 }
 
-Future<void> showTopicProgress({
-  required BuildContext context,
-  required ShellController controller,
-  required int position,
-  required int total,
-}) async {
-  final siteUrl = controller.currentInstance?.url;
-  final topicId = controller.currentContent?.topicId;
-  final tabId = controller.activeTabId;
-  if (controller.accountSessionDisposed ||
-      siteUrl == null ||
-      topicId == null ||
-      tabId == null) {
-    return;
-  }
-  final lease = controller.lifecycle.capture(siteUrl);
-  final accountIdentity = controller.currentAccountIdentity;
-  final rootMode = controller.rootMode;
-  var sourceIsCurrent = true;
-  void checkSource() {
-    sourceIsCurrent =
-        sourceIsCurrent &&
-        !controller.accountSessionDisposed &&
-        lease.isCurrent &&
-        controller.currentInstance?.url == siteUrl &&
-        controller.currentContent?.topicId == topicId &&
-        controller.activeTabId == tabId &&
-        controller.currentAccountIdentity == accountIdentity &&
-        controller.rootMode == rootMode;
+class TopicProgressPopover extends StatefulWidget {
+  const TopicProgressPopover({
+    super.key,
+    required this.controller,
+    required this.position,
+    required this.total,
+  });
+
+  final ShellController controller;
+  final int position;
+  final int total;
+
+  @override
+  State<TopicProgressPopover> createState() => _TopicProgressPopoverState();
+}
+
+class _TopicProgressPopoverState extends State<TopicProgressPopover> {
+  final _popover = DPopoverController();
+  int _session = 0;
+
+  @override
+  void dispose() {
+    _popover.dispose();
+    super.dispose();
   }
 
-  // Returning to the same topic must not revive a sheet from an earlier visit.
-  controller.addListener(checkSource);
-  try {
-    await showShellSheet<void>(
-      context: context,
-      title: 'Topic progress',
-      dialogOnDesktop: true,
-      builder: (context) => _TopicProgressEditor(
-        controller: controller,
-        position: position,
-        total: total,
-        route: ModalRoute.of<void>(context)!,
-        ownsSource: () {
-          checkSource();
-          return sourceIsCurrent;
-        },
+  @override
+  Widget build(BuildContext context) => DPopover(
+    controller: _popover,
+    onOpenChange: (open, _) {
+      if (open) setState(() => _session++);
+    },
+    content: DPopoverContent(
+      side: DPopoverSide.top,
+      align: DPopoverAlign.end,
+      width: 360,
+      child: _TopicProgressEditor(
+        key: ValueKey(_session),
+        controller: widget.controller,
+        position: widget.position,
+        total: widget.total,
+        isOpen: () => _popover.isOpen,
+        close: _popover.close,
       ),
-    );
-  } finally {
-    controller.removeListener(checkSource);
-  }
+    ),
+    child: DPopoverTrigger(
+      builder: (context, trigger) => TopicProgressButton(
+        position: widget.position,
+        total: widget.total,
+        onPressed: trigger.toggle,
+        focusNode: trigger.focusNode,
+        expanded: trigger.open,
+      ),
+    ),
+  );
 }
 
 class _TopicProgressEditor extends StatefulWidget {
@@ -143,15 +151,16 @@ class _TopicProgressEditor extends StatefulWidget {
     required this.controller,
     required this.position,
     required this.total,
-    required this.route,
-    required this.ownsSource,
+    super.key,
+    required this.isOpen,
+    required this.close,
   });
 
   final ShellController controller;
   final int position;
   final int total;
-  final ModalRoute<void> route;
-  final bool Function() ownsSource;
+  final bool Function() isOpen;
+  final VoidCallback close;
 
   @override
   State<_TopicProgressEditor> createState() => _TopicProgressEditorState();
@@ -162,8 +171,56 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
   bool _jumping = false;
   String? _error;
 
+  late final bool Function() _ownsSource;
+  late final VoidCallback _sourceListener;
+
+  @override
+  void initState() {
+    super.initState();
+    final controller = widget.controller;
+    final siteUrl = controller.currentInstance?.url;
+    final topicId = controller.currentContent?.topicId;
+    final tabId = controller.activeTabId;
+    if (controller.accountSessionDisposed ||
+        siteUrl == null ||
+        topicId == null ||
+        tabId == null) {
+      _ownsSource = () => false;
+      _sourceListener = () {};
+      return;
+    }
+    final lease = controller.lifecycle.capture(siteUrl);
+    final accountIdentity = controller.currentAccountIdentity;
+    final rootMode = controller.rootMode;
+    var sourceIsCurrent = true;
+    void checkSource() {
+      sourceIsCurrent =
+          sourceIsCurrent &&
+          !controller.accountSessionDisposed &&
+          lease.isCurrent &&
+          controller.currentInstance?.url == siteUrl &&
+          controller.currentContent?.topicId == topicId &&
+          controller.activeTabId == tabId &&
+          controller.currentAccountIdentity == accountIdentity &&
+          controller.rootMode == rootMode;
+    }
+
+    _sourceListener = checkSource;
+    _ownsSource = () {
+      checkSource();
+      return sourceIsCurrent;
+    };
+    controller.addListener(_sourceListener);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_sourceListener);
+    super.dispose();
+  }
+
   bool _checkSource() {
-    if (widget.ownsSource()) return true;
+    if (_ownsSource()) return true;
     setState(() {
       _jumping = false;
       _error = 'Close and reopen topic progress to jump in the current topic.';
@@ -172,7 +229,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
   }
 
   Future<void> _jump([int? position]) async {
-    if (!mounted || _jumping || !widget.route.isCurrent || !_checkSource()) {
+    if (!mounted || _jumping || !widget.isOpen() || !_checkSource()) {
       return;
     }
     final target = (position ?? _selected).clamp(1, widget.total);
@@ -182,16 +239,14 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
       _error = null;
     });
     final opened = await widget.controller.jumpToCurrentTopicIndex(target);
-    // Dismissal leaves the editor mounted during its exit animation; only an
-    // active route may receive the result, and only a current one may pop.
-    if (!mounted || !widget.route.isActive || !_checkSource()) return;
-    if (opened && widget.route.isCurrent) {
-      widget.route.navigator!.pop();
+    if (!mounted || !widget.isOpen() || !_checkSource()) return;
+    if (opened) {
+      widget.close();
       return;
     }
     setState(() {
       _jumping = false;
-      _error = opened ? null : 'Could not open that post. Try again.';
+      _error = 'Could not open that post. Try again.';
     });
   }
 
@@ -202,6 +257,10 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const DPopoverHeader(
+          children: [DPopoverTitle(child: Text('Topic progress'))],
+        ),
+        const SizedBox(height: 12),
         Text(
           'Post $_selected of ${widget.total}',
           key: const ValueKey('topic-progress-selection'),

@@ -831,9 +831,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
-    context,
-  ).width.clamp(0.0, _TopicSidebarPanel.dockedWidth).toDouble();
+  double _sidebarOverlayWidth(BuildContext context) =>
+      MediaQuery.sizeOf(context).width
+          .clamp(0.0, _TopicSidebarPanel.dockedWidth)
+          .toDouble();
 
   void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
@@ -1670,16 +1671,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         progressPosition: showProgress ? progressPosition : null,
         totalPosts: totalPosts,
         canReply: widget.canReply,
-        onProgressPressed: showProgress
-            ? () => unawaited(
-                showTopicProgress(
-                  context: context,
-                  controller: controller,
-                  position: progressPosition,
-                  total: totalPosts,
-                ),
-              )
-            : null,
+        controller: controller,
         onReplyPressed: controller.openReply,
       );
     },
@@ -2213,7 +2205,7 @@ class _TopicBottomBar extends StatelessWidget {
     required this.progressPosition,
     required this.totalPosts,
     required this.canReply,
-    required this.onProgressPressed,
+    required this.controller,
     required this.onReplyPressed,
     this.topic,
     this.siteUrl,
@@ -2224,7 +2216,7 @@ class _TopicBottomBar extends StatelessWidget {
   final int? progressPosition;
   final int totalPosts;
   final bool canReply;
-  final VoidCallback? onProgressPressed;
+  final ShellController controller;
   final VoidCallback onReplyPressed;
   final TopicDetail? topic;
   final String? siteUrl;
@@ -2300,10 +2292,10 @@ class _TopicBottomBar extends StatelessWidget {
                         alignment: AlignmentDirectional.centerEnd,
                         child: Padding(
                           padding: const EdgeInsetsDirectional.only(start: 8),
-                          child: TopicProgressButton(
+                          child: TopicProgressPopover(
+                            controller: controller,
                             position: position,
                             total: totalPosts,
-                            onPressed: onProgressPressed!,
                           ),
                         ),
                       ),
@@ -3352,9 +3344,8 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    ),
+    style: Theme.of(context).textTheme.labelMedium
+        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
   );
 }
 
@@ -3510,9 +3501,9 @@ class _MoreTopics extends StatelessWidget {
                       topic: selection.topics[index],
                       siteUrl: siteUrl,
                       recommendation: true,
-                      onTap: () => ShellScope.read(
-                        context,
-                      ).openTopicFromList(selection.topics[index]),
+                      onTap: () =>
+                          ShellScope.read(context)
+                              .openTopicFromList(selection.topics[index]),
                     )
                   else
                     TopicListRow(
