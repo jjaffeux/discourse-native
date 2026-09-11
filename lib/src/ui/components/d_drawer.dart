@@ -733,7 +733,15 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _sendOpenCompletionIfReady();
-      if (!widget.configuration.requestInitialFocus) return;
+      _measurePopup();
+      if (!widget.configuration.requestInitialFocus) {
+        // A modal still owns keyboard dismissal without focusing an editor
+        // (and opening the software keyboard).
+        if (widget.configuration.modalMode != DDrawerModalMode.nonModal) {
+          _focusScope.requestFocus();
+        }
+        return;
+      }
       final initial = widget.configuration.initialFocusNode;
       if (initial?.canRequestFocus ?? false) {
         initial!.requestFocus();
@@ -741,7 +749,6 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
         _focusScope.requestFocus();
         _focusScope.nextFocus();
       }
-      _measurePopup();
     });
   }
 
@@ -1862,6 +1869,12 @@ class DDrawerScrollArea extends StatelessWidget {
 }
 
 /// Opens a route-owned Drawer and returns its typed result.
+///
+/// [canDismiss] is read for each close request, including the controller,
+/// close buttons, Escape, system back, outside press and swipe. Returning false
+/// keeps the route open; a denied swipe settles back to the current snap point.
+/// Omit it to allow closing. Explicit Navigator route removal remains a
+/// lifecycle operation, not a dismiss request.
 Future<T?> showDDrawer<T>({
   required BuildContext context,
   required DDrawerContentBuilder<T> builder,
@@ -1872,6 +1885,7 @@ Future<T?> showDDrawer<T>({
   bool showSwipeHandle = false,
   bool disablePointerDismissal = false,
   bool dismissOnEscape = true,
+  bool Function()? canDismiss,
   bool useRootNavigator = false,
   String barrierLabel = 'Dismiss drawer',
   RouteSettings? routeSettings,
@@ -1937,19 +1951,19 @@ Future<T?> showDDrawer<T>({
   }
 
   late _DDrawerRoute<T> route;
+  bool requestClose(T? result) {
+    if (!(canDismiss?.call() ?? true)) return false;
+    route.authorizePop(result);
+    return true;
+  }
+
   route = _DDrawerRoute<T>(
     settings: routeSettings,
     environment: environment,
     configuration: configuration,
     modalMode: modalMode,
-    onDismissRequested: (_) {
-      route.authorizePop();
-      return true;
-    },
-    onCloseRequested: (result) {
-      route.authorizePop(result);
-      return true;
-    },
+    onDismissRequested: (_) => requestClose(null),
+    onCloseRequested: requestClose,
     onSnapRequested: updateSnap,
     onOpenComplete: () {},
     parentStack: null,
@@ -1966,7 +1980,7 @@ Future<T?> showDDrawer<T>({
   controller._attach(
     route,
     (_) {},
-    (result, _) => route.authorizePop(result),
+    (result, _) => requestClose(result),
     updateSnap,
     swipeDirection,
   );

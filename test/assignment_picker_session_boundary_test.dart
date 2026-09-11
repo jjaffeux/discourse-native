@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -16,6 +17,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -27,6 +29,88 @@ const _forbidden =
     "You can't post that here — or the connection to this site has expired.";
 
 void main() {
+  for (final size in [const Size(1000, 800), const Size(390, 844)]) {
+    for (final action in ['save', 'unassign']) {
+      testWidgets(
+        '$action blocks every dismissal while writing at width ${size.width}',
+        (tester) async {
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final fixture = await _fixture(tester);
+          await tester.pumpWidget(fixture.host());
+          await _openAndSelect(tester);
+          fixture.api.pendingWrite = Completer<Map<String, dynamic>>();
+          await tester.tap(find.byKey(Key('assignment-$action')));
+          await tester.pump();
+          await tester.tap(find.byKey(const Key('assignment-close')));
+          await tester.tap(find.byKey(const Key('assignment-cancel')));
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.binding.handlePopRoute();
+          await tester.tapAt(const Offset(4, 4));
+          if (size.width < 768) {
+            await tester.drag(
+              find.byType(DDrawerSwipeHandle),
+              const Offset(0, 650),
+            );
+          }
+          await tester.pump(const Duration(seconds: 1));
+          expect(find.byType(AssignmentEditor), findsOneWidget);
+          expect(fixture.writeAdmissions, 1);
+          fixture.api.pendingWrite!.complete(const {'success': 'OK'});
+          await tester.pumpAndSettle();
+          expect(find.byType(AssignmentEditor), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'a resize preserves the mounted draft and selects the next presentation on reopen',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final fixture = await _fixture(tester);
+      await tester.pumpWidget(fixture.host());
+      await _openAndSelect(tester);
+      final state = tester.state(find.byType(AssignmentEditor));
+      await tester.tap(find.byKey(const Key('assignment-note-toggle')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('assignment-note')),
+        'Retain this note',
+      );
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(AssignmentEditor)), same(state));
+      expect(find.byType(DDialogContent), findsOneWidget);
+      expect(
+        tester
+            .widget<DTextarea>(find.byKey(const Key('assignment-note')))
+            .controller!
+            .text,
+        'Retain this note',
+      );
+      expect(tester.takeException(), isNull);
+      await _close(tester);
+      await _openAndSelect(tester);
+      expect(find.byType(DDrawerContent), findsOneWidget);
+      expect(
+        tester
+            .widget<DTextarea>(
+              find.byKey(const Key('assignment-note'), skipOffstage: false),
+            )
+            .controller!
+            .text,
+        isEmpty,
+      );
+    },
+  );
+
   for (final target in [
     const AssignmentTarget.topic(7),
     const AssignmentTarget.post(12, topicId: 7),
@@ -329,6 +413,7 @@ class _AssignmentApi extends FakeDiscourseApi {
       );
 
   bool failSuggestions = false;
+  Completer<Map<String, dynamic>>? pendingWrite;
   final calls =
       <
         ({
@@ -424,6 +509,6 @@ class _AssignmentApi extends FakeDiscourseApi {
       apiKey: apiKey,
       body: body,
     ));
-    return const {'success': 'OK'};
+    return pendingWrite?.future ?? Future.value(const {'success': 'OK'});
   }
 }

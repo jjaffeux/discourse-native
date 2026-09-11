@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
+import 'guarded_modal_example.dart';
 
 final dialogExamples = ComponentExamples(
   status: ComponentStatus.implemented,
@@ -18,6 +19,22 @@ final dialogExamples = ComponentExamples(
       'owned by their catalogue task. Dialog owns neither form '
       'validation nor asynchronous persistence.',
   examples: [
+    StyleguideExample(
+      title: 'Guarded helper dismissal',
+      description:
+          'Block every closing path until the local policy allows dismissal.',
+      code: '''showDDialog<void>(context: context,
+  canDismiss: () => !saving,
+  builder: (_, controller) => formWithClose(controller.close));''',
+      builder: (_) => const GuardedModalExample(),
+      states: const [
+        'guarded',
+        'Escape',
+        'outside',
+        'back',
+        'controller close',
+      ],
+    ),
     StyleguideExample(
       title: 'Edit profile',
       description:
