@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Topics · Round 2</title>
+  <link rel="stylesheet" href="review.css">
+</head>
+<body>
+  <header class="review-header">
+    <div><span class="eyebrow">DISCOURSE NATIVE / ROUND 2 / DIRECT ACCESS</span><h1>Categories and tags, always within reach.</h1></div>
+    <button id="theme">Light theme</button>
+  </header>
+  <main>
+    <nav class="concepts" aria-label="Design concepts">
+      <button data-concept="a" aria-pressed="true"><span>01</span> Direct filter row <small>Start here</small></button>
+      <button data-concept="b" aria-pressed="false"><span>02</span> Browse first</button>
+      <button data-concept="c" aria-pressed="false"><span>03</span> Focused feed</button>
+    </nav>
+    <div class="description"><h2 id="concept-title"></h2><p id="concept-description"></p></div>
+    <div class="preview-tools">
+      <div class="modes" aria-label="Preview mode"><button data-mode="compare" aria-pressed="true">Wide + narrow</button><button data-mode="resize" aria-pressed="false">Resize</button></div>
+      <div id="resizer" hidden><label for="width">Panel width</label><input id="width" type="range" min="320" max="1600" value="1100" step="10"><output id="width-label">1100px</output><button data-width="320">320</button><button data-width="390">390</button><button data-width="640">640</button><button data-width="1100">1100</button><button data-width="1440">1440</button></div>
+      <label for="scenario">Example</label><select id="scenario"><option value="all">Unfiltered</option><option value="subcategory" selected>With subcategory</option><option value="long">Long hierarchy</option></select><button id="scale" aria-pressed="false">Large text</button><a id="open-concept" href="a.html" target="_blank">Open standalone ↗</a>
+    </div>
+    <div id="previews" class="previews">
+      <section class="wide-preview"><div class="frame-label"><span>WIDE PANEL</span><span id="wide-dimension"></span></div><div class="frame-scroll"><iframe id="wide" src="a.html" title="Wide compact toolbar mockup"></iframe></div></section>
+      <section class="small-preview"><div class="frame-label"><span>NARROW PANEL</span><span>390 px</span></div><iframe id="small" src="a.html" title="Narrow compact toolbar mockup"></iframe></section>
+    </div>
+    <div class="notes">
+      <section><h3>Why this arrangement</h3><p id="rationale"></p><p class="tradeoff" id="tradeoff"></p></section>
+      <section><h3>Built from the kit</h3><p id="kit"></p><p class="muted">HTML/CSS approximations of the local Native components. No Flutter components are added or changed.</p></section>
+      <section><h3>The rule for this round</h3><p><strong>Category, subcategory and tags stay directly accessible at every width.</strong> Open each picker directly; selection applies immediately. There is no intermediate Filters button or Apply step.</p><p class="muted">The default example shows Support → Installation + documentation. Try Long hierarchy, Large text, and the width slider. Changing the parent clears its subcategory. All three studies use the same sample topics.</p></section>
+    </div>
+    <details><summary>Scope and kit notes</summary><div class="detail-grid"><p>These are HTML/CSS approximations of existing Native controls. No Flutter UI or component API is changed in this round. Creation, drafts, feed tabs, scope tabs, taxonomy search and clearing all work locally.</p><p>The 83 / 52 counts reproduce your screenshot. Eight example topics demonstrate filtering; this is not a complete feed. Support includes an Installation subcategory to try. Layouts adapt to the content pane, with 320px through 1600px available in Resize.</p></div></details>
+  </main>
+  <script src="review.js"></script>
+</body>
+</html>

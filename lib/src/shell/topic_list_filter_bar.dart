@@ -25,8 +25,7 @@ class TopicListFilterBar extends StatelessWidget {
     required this.onTagSelected,
     this.inline = false,
     this.wrap = false,
-    this.wrapAlignment = WrapAlignment.start,
-    this.vertical = false,
+    this.compact = false,
     this.selectedTagNames,
     this.onTagsSelected,
   });
@@ -42,8 +41,7 @@ class TopicListFilterBar extends StatelessWidget {
   final ValueChanged<String?> onTagSelected;
   final bool inline;
   final bool wrap;
-  final WrapAlignment wrapAlignment;
-  final bool vertical;
+  final bool compact;
   final List<String>? selectedTagNames;
   final ValueChanged<List<String>>? onTagsSelected;
 
@@ -135,23 +133,27 @@ class TopicListFilterBar extends StatelessWidget {
           },
         ),
     ];
-    final controls = vertical
+    final controls = compact
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (var index = 0; index < controlChildren.length; index++) ...[
-                if (index > 0) const SizedBox(height: DSpacing.lg),
-                controlChildren[index],
+              Row(
+                children: [
+                  Expanded(child: controlChildren.first),
+                  if (controlChildren.length > 1) ...[
+                    const SizedBox(width: DSpacing.sm),
+                    Expanded(child: controlChildren[1]),
+                  ],
+                ],
+              ),
+              if (controlChildren.length > 2) ...[
+                const SizedBox(height: DSpacing.sm),
+                controlChildren[2],
               ],
             ],
           )
         : wrap
-        ? Wrap(
-            alignment: wrapAlignment,
-            spacing: 8,
-            runSpacing: 8,
-            children: controlChildren,
-          )
+        ? Wrap(spacing: 8, runSpacing: 8, children: controlChildren)
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -168,15 +170,10 @@ class TopicListFilterBar extends StatelessWidget {
     return Material(
       key: const ValueKey('topic-list-filter-bar'),
       color: theme.shell.content,
-      child: vertical
+      child: compact
           ? controls
           : wrap
-          ? Align(
-              alignment: wrapAlignment == WrapAlignment.end
-                  ? AlignmentDirectional.centerEnd
-                  : AlignmentDirectional.centerStart,
-              child: controls,
-            )
+          ? Align(alignment: AlignmentDirectional.centerStart, child: controls)
           : inline
           ? controls
           : ContentReadingLaneBox(

@@ -12,16 +12,13 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
-import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
-import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
-import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -60,15 +57,32 @@ const _popularTopic = Topic(id: 8, title: 'Popular topic', slug: 'popular');
 void main() {
   for (final width in [320.0, 390.0, 760.0, 1120.0]) {
     for (final scale in [1.0, 2.0]) {
-      testWidgets('compact toolbar fits $width at ${scale}x including RTL', (
+      testWidgets('focused toolbar fits $width at ${scale}x including RTL', (
         tester,
       ) async {
         tester.view.physicalSize = Size(width, 850);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
-        final setup = await _controller(canCreateTopics: true);
+        const parent = TopicCategory(
+          id: 21,
+          name: 'Product design and accessibility',
+          slug: 'design',
+          color: '3188CC',
+        );
+        const child = TopicCategory(
+          id: 22,
+          parentCategoryId: 21,
+          name: 'Keyboard navigation and assistive technology',
+          slug: 'keyboard',
+          color: '3188CC',
+        );
+        final setup = await _controller(
+          canCreateTopics: true,
+          categoryList: [parent, child],
+        );
         addTearDown(setup.controller.dispose);
         await setup.controller.selectTopicListMode(TopicListMode.newActivity);
+        setup.controller.selectTopicListCategory(child);
         for (final direction in TextDirection.values) {
           await tester.pumpWidget(
             ShellScope(
@@ -91,19 +105,35 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final narrow = width / scale < 760;
+
           expect(
             find.byKey(const ValueKey('topic-list-filters')),
-            narrow ? findsOneWidget : findsNothing,
+            findsNothing,
           );
           expect(
             find.byKey(const ValueKey('topic-list-category-filter')),
-            narrow ? findsNothing : findsOneWidget,
+            findsOneWidget,
           );
           expect(
             find.byKey(const ValueKey('topic-list-new-segments')),
             findsOneWidget,
           );
+          for (final key in [
+            'topic-list-category-filter',
+            'topic-list-subcategory-filter',
+            'topic-list-tag-filter',
+            'topic-list-feed-select',
+          ]) {
+            final rect = tester.getRect(find.byKey(ValueKey(key)));
+            expect(rect.left, greaterThanOrEqualTo(0));
+            expect(rect.right, lessThanOrEqualTo(width));
+          }
+          expect(
+            find.byKey(const ValueKey('topic-list-ledger-header')),
+            findsNothing,
+          );
+          expect(find.text('Clear all'), findsNothing);
+          expect(find.text('Latest conversations'), findsNothing);
           expect(tester.takeException(), isNull);
         }
       });
@@ -111,21 +141,29 @@ void main() {
   }
 
   testWidgets(
-    'narrow filter sheet stages, cancels and atomically applies category and tag',
+    'narrow selectors apply parent, subcategory and tag immediately',
     (tester) async {
       tester.view.physicalSize = const Size(390, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      const category = TopicCategory(
+      const parent = TopicCategory(
         id: 42,
         name: 'Support',
         slug: 'support',
         color: '3188CC',
       );
-      const tag = SidebarTag(id: 5, name: 'release', slug: 'release');
+      const child = TopicCategory(
+        id: 43,
+        parentCategoryId: 42,
+        name: 'Installation',
+        slug: 'installation',
+        color: '3188CC',
+      );
       final setup = await _controller(
-        categoryList: const [category],
-        categorySiteTopTags: const [tag],
+        categoryList: [parent, child],
+        categorySiteTopTags: const [
+          SidebarTag(id: 5, name: 'release', slug: 'release'),
+        ],
       );
       final shell = setup.controller;
       addTearDown(shell.dispose);
@@ -133,7 +171,7 @@ void main() {
         ShellScope(
           controller: shell,
           child: MaterialApp(
-            theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+            theme: AppTheme.dark,
             home: const Scaffold(
               body: TopicListNavigation(stacked: true, child: SizedBox()),
             ),
@@ -141,89 +179,69 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final original = shell.topicListContent;
-      final requests = [...setup.api.feedPaths];
-      Future<void> openFilters() async {
-        await tester.tap(find.byKey(const ValueKey('topic-list-filters')));
-        await tester.pumpAndSettle();
-      }
-
-      Future<void> chooseCategory() async {
-        await tester.tap(
-          find.byKey(const ValueKey('topic-list-category-filter')),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Support').last);
-        await tester.pumpAndSettle();
-      }
-
-      await openFilters();
-      await chooseCategory();
-      expect(shell.topicListContent, original);
-      expect(setup.api.feedPaths, requests);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.tap(
+        find.byKey(const ValueKey('topic-list-category-filter')),
+      );
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('topic-list-filter-sheet')),
-        findsNothing,
+      await tester.tap(find.text('Support').last);
+      await tester.pumpAndSettle();
+      expect(shell.topicListContent?.categoryId, 42);
+      final parentRect = tester.getRect(
+        find.byKey(const ValueKey('topic-list-category-filter')),
       );
-      await openFilters();
-      expect(
-        tester
-            .widget<TopicListFilterBar>(find.byType(TopicListFilterBar))
-            .selectedCategoryId,
-        isNull,
+      final childRect = tester.getRect(
+        find.byKey(const ValueKey('topic-list-subcategory-filter')),
       );
-      await chooseCategory();
+      final tagRect = tester.getRect(
+        find.byKey(const ValueKey('topic-list-tag-filter')),
+      );
+      expect(parentRect.top, childRect.top);
+      expect(tagRect.top, greaterThanOrEqualTo(childRect.bottom));
+      await tester.tap(
+        find.byKey(const ValueKey('topic-list-subcategory-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Installation').last);
+      await tester.pumpAndSettle();
+      expect(shell.topicListContent?.categoryId, 43);
       await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey(('topic-list-tag-filter-option', 'release'))),
       );
       await tester.pumpAndSettle();
-      if (find.byType(DComboboxContent).evaluate().isNotEmpty) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-      }
-      expect(shell.topicListContent, original);
-      expect(setup.api.feedPaths, requests);
-      await tester.tap(find.byKey(const ValueKey('topic-list-apply-filters')));
+      expect(shell.topicListContent?.categoryId, 43);
+      expect(shell.topicListContent?.tagNames, ['release']);
+      expect(
+        setup.api.feedPaths.last,
+        '/tags/c/support/installation/43/release.json',
+      );
+      expect(find.byKey(const ValueKey('topic-list-filters')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('topic-list-clear-filters')),
+        findsNothing,
+      );
+      // Returning to the parent retains tags and clears only the subcategory.
+      await tester.tap(
+        find.byKey(const ValueKey('topic-list-subcategory-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All subcategories').last);
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, 42);
       expect(shell.topicListContent?.tagNames, ['release']);
-      expect(setup.api.feedPaths, [
-        ...requests,
-        '/tags/c/support/42/release.json',
-      ]);
-      expect(
-        find.byKey(const ValueKey('topic-list-filter-sheet')),
-        findsNothing,
-      );
-      final semantics = tester.ensureSemantics();
-      await tester.pump();
-      expect(find.bySemanticsLabel('Remove category filter'), findsOneWidget);
-      expect(find.bySemanticsLabel('Remove tag release'), findsOneWidget);
-      semantics.dispose();
-      await tester.tap(find.byKey(const ValueKey('topic-list-clear-filters')));
-      await tester.pumpAndSettle();
-      expect(shell.topicListContent?.categoryId, isNull);
-      expect(shell.topicListContent?.tagNames, isEmpty);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'retired filter sheet cannot apply to a replaced feed before rebuild',
+    'retired direct selector cannot change a replaced feed before rebuild',
     (tester) async {
-      tester.view.physicalSize = const Size(390, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
       final setup = await _controller();
-      final shell = setup.controller;
-      addTearDown(shell.dispose);
+      addTearDown(setup.controller.dispose);
       await tester.pumpWidget(
         ShellScope(
-          controller: shell,
+          controller: setup.controller,
           child: MaterialApp(
             theme: AppTheme.light,
             home: const Scaffold(
@@ -233,24 +251,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topic-list-filters')));
-      await tester.pumpAndSettle();
-      final apply = tester
-          .widget<DButton>(
-            find.byKey(const ValueKey('topic-list-apply-filters')),
-          )
-          .onPressed!;
-      await shell.selectTopicListMode(TopicListMode.topYearly);
-      final replacement = shell.topicListContent;
+      final select = tester
+          .widget<TopicListFilterBar>(find.byType(TopicListFilterBar))
+          .onTagSelected;
+      await setup.controller.selectTopicListMode(TopicListMode.topYearly);
+      final replacement = setup.controller.topicListContent;
       final requests = [...setup.api.feedPaths];
-      apply();
+      select('stale');
       await tester.pumpAndSettle();
-      expect(shell.topicListContent, replacement);
+      expect(setup.controller.topicListContent, replacement);
       expect(setup.api.feedPaths, requests);
-      expect(
-        find.byKey(const ValueKey('topic-list-filter-sheet')),
-        findsNothing,
-      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -827,41 +837,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('topic-list-navigation')), findsOneWidget);
-    expect(find.byKey(const ValueKey('topic-list-filters')), findsOneWidget);
-    expect(find.byKey(const ValueKey('topic-list-latest')), findsOneWidget);
-    expect(find.text('New'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-list-category-filter')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<DSelect<TopicListMode>>(
+            find.byKey(const ValueKey('topic-list-feed-select')),
+          )
+          .value,
+      TopicListMode.latest,
+    );
     expect(find.text('1059'), findsNothing);
-    final semantics = tester.ensureSemantics();
-    try {
-      expect(find.bySemanticsLabel('New, 1059'), findsOneWidget);
-      expect(
-        tester
-            .getSemantics(find.byKey(const ValueKey('topic-list-latest')))
-            .flagsCollection
-            .isSelected,
-        Tristate.isTrue,
-      );
-      expect(
-        tester
-            .getSemantics(find.byKey(const ValueKey('topic-list-new')))
-            .flagsCollection
-            .isSelected,
-        Tristate.isFalse,
-      );
-    } finally {
-      semantics.dispose();
-    }
     expect(find.byKey(const ValueKey('topic-list-unread')), findsNothing);
     expect(find.text('Unread (5)'), findsNothing);
-    expect(find.text('Top'), findsOneWidget);
-    expect(find.text('Trending'), findsOneWidget);
+    expect(find.text('Top'), findsNothing);
+    expect(find.text('Trending'), findsNothing);
     expect(find.text('Latest topic'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
     expect(controller.sidebarBadgeFor('latest').count, 1059);
 
-    await tester.ensureVisible(find.byKey(const ValueKey('topic-list-new')));
-
-    await tester.tap(find.byKey(const ValueKey('topic-list-new')));
+    await _selectFeed(tester, 'topic-list-new');
     await tester.pumpAndSettle();
 
     expect(controller.currentTopicListMode, TopicListMode.newActivity);
@@ -913,9 +910,7 @@ void main() {
 
     expect(controller.currentTopicListMode, TopicListMode.newReplies);
     expect(find.text('New reply only'), findsOneWidget);
-
-    await tester.ensureVisible(find.byKey(const ValueKey('topic-list-top')));
-    await tester.tap(find.byKey(const ValueKey('topic-list-top')));
+    await _selectFeed(tester, 'topic-list-top');
     await tester.pumpAndSettle();
 
     expect(controller.currentTopicListMode, TopicListMode.topYearly);
@@ -929,11 +924,7 @@ void main() {
 
     expect(controller.currentTopicListMode, TopicListMode.topWeekly);
     expect(find.text('Top this week'), findsOneWidget);
-
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('topic-list-popular')),
-    );
-    await tester.tap(find.byKey(const ValueKey('topic-list-popular')));
+    await _selectFeed(tester, 'topic-list-popular');
     await tester.pumpAndSettle();
 
     expect(controller.currentTopicListMode, TopicListMode.popular);
@@ -953,7 +944,7 @@ void main() {
     );
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.byKey(const ValueKey('topic-list-latest')));
+    await _selectFeed(tester, 'topic-list-latest');
     await tester.pumpAndSettle();
 
     expect(controller.currentTopicListMode, TopicListMode.latest);
@@ -996,19 +987,17 @@ void main() {
 
         await pump(1);
         final tabs = tester.getRect(
-          find.byKey(const ValueKey('topic-list-feed-tabs')),
+          find.byKey(const ValueKey('topic-list-feed-select')),
         );
         final segments = find.byKey(const ValueKey('topic-list-new-segments'));
         final segmentRect = tester.getRect(segments);
         expect(tabs.left, 16);
-        expect(tabs.right, 309);
+        expect(tabs.right, lessThanOrEqualTo(309));
         expect(segmentRect.left, tabs.left);
         final filters = tester.getRect(
-          find.byKey(const ValueKey('topic-list-filters')),
+          find.byKey(const ValueKey('topic-list-category-filter')),
         );
-        expect(segmentRect.right, lessThan(filters.left));
-        expect(filters.right, tabs.right);
-        expect(segmentRect.top, greaterThanOrEqualTo(tabs.bottom + 12));
+        expect(segmentRect.top, greaterThanOrEqualTo(filters.bottom + 12));
         expect(segmentRect.height, inInclusiveRange(32, 40));
         final all = find.byKey(const ValueKey('topic-list-new-all'));
         final topics = find.byKey(const ValueKey('topic-list-new-topics'));
@@ -1129,70 +1118,48 @@ void main() {
     },
   );
 
-  testWidgets('wide toolbar puts taxonomy below the feed tabs', (tester) async {
-    final setup = await _controller();
-    addTearDown(setup.controller.dispose);
-
-    tester.view.physicalSize = const Size(800, 700);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(
-      ShellScope(
-        controller: setup.controller,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(body: TopicListNavigation(child: SizedBox())),
+  testWidgets(
+    'wide toolbar keeps selectors before contextual controls without a table heading',
+    (tester) async {
+      tester.view.physicalSize = const Size(1120, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final setup = await _controller();
+      addTearDown(setup.controller.dispose);
+      await setup.controller.selectTopicListMode(TopicListMode.newActivity);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: setup.controller,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(
+              body: MainContent(layout: ShellLayout.expanded),
+            ),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final row = tester.getRect(
-      find.byKey(const ValueKey('topic-list-primary-row')),
-    );
-    final recent = tester.getRect(
-      find.byKey(const ValueKey('topic-list-latest')),
-    );
-    final newTopics = tester.getRect(
-      find.byKey(const ValueKey('topic-list-new')),
-    );
-    final popular = tester.getRect(
-      find.byKey(const ValueKey('topic-list-popular')),
-    );
-    final top = tester.getRect(find.byKey(const ValueKey('topic-list-top')));
-    final category = tester.getRect(
-      find.byKey(const ValueKey('topic-list-category-filter')),
-    );
-    final tags = tester.getRect(
-      find.byKey(const ValueKey('topic-list-tag-filter')),
-    );
-    final recentLabel = tester.getRect(find.text('Recent'));
-    final newLabel = tester.getRect(find.text('New'));
-    final topLabel = tester.getRect(find.text('Top'));
-    final popularLabel = tester.getRect(find.text('Trending'));
-
-    expect(row.left, topicListHorizontalPadding);
-    expect(row.right, 800 - topicListHorizontalPadding);
-    expect(category.top, greaterThanOrEqualTo(row.bottom));
-    expect(tags.left, category.right + 8);
-    expect(recent.left, row.left + 3);
-    expect(newTopics.left, recent.right + 4);
-    expect(top.left, newTopics.right + 4);
-    expect(popular.left, top.right + 4);
-    expect(popular.right, lessThan(row.right - topicListHorizontalPadding));
-    final tabs = [recent, newTopics, top, popular];
-    final labels = [recentLabel, newLabel, topLabel, popularLabel];
-    for (var index = 0; index < tabs.length; index++) {
-      expect(tabs[index].center.dx, closeTo(labels[index].center.dx, 0.1));
-      expect(tabs[index].width, lessThanOrEqualTo(labels[index].width + 24));
-    }
-    expect(tester.takeException(), isNull);
-  });
+      );
+      await tester.pumpAndSettle();
+      final category = tester.getRect(
+        find.byKey(const ValueKey('topic-list-category-filter')),
+      );
+      final scope = tester.getRect(
+        find.byKey(const ValueKey('topic-list-new-segments')),
+      );
+      expect(category.right, lessThan(scope.left));
+      expect(category.center.dy, closeTo(scope.center.dy, 4));
+      expect(
+        find.byKey(const ValueKey('topic-list-ledger-header')),
+        findsNothing,
+      );
+      expect(find.text('People'), findsNothing);
+      expect(find.text('Latest conversations'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final stacked in [false, true]) {
     testWidgets(
-      'feed tabs retain keyboard focus across routes (stacked: $stacked)',
+      'feed select retains keyboard focus across routes (stacked: $stacked)',
       (tester) async {
         final setup = await _controller();
         addTearDown(setup.controller.dispose);
@@ -1216,62 +1183,33 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          final recent = find.byKey(const ValueKey('topic-list-latest'));
-          final newTopics = find.byKey(const ValueKey('topic-list-new'));
-          final top = find.byKey(const ValueKey('topic-list-top'));
-          final trending = find.byKey(const ValueKey('topic-list-popular'));
-          bool focused(Finder tab) => tester
-              .widget<FocusableActionDetector>(
-                find.descendant(
-                  of: tab,
-                  matching: find.byType(FocusableActionDetector),
-                ),
-              )
-              .focusNode!
-              .hasPrimaryFocus;
-          bool selected(Finder tab) =>
-              tester.getSemantics(tab).flagsCollection.isSelected ==
-              Tristate.isTrue;
-
-          await tester.tap(recent);
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          final trigger = find.byKey(const ValueKey('topic-list-feed-select'));
+          await tester.tap(trigger);
           await tester.pumpAndSettle();
-          expect(focused(newTopics), isTrue);
-          expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(
             setup.controller.currentTopicListMode,
             TopicListMode.newActivity,
           );
-          expect(focused(newTopics), isTrue);
-          expect(selected(newTopics), isTrue);
-
+          expect(
+            tester.widget<DSelect<TopicListMode>>(trigger).value,
+            TopicListMode.newActivity,
+          );
           await setup.controller.selectTopicListMode(TopicListMode.newReplies);
           await tester.pumpAndSettle();
-          expect(selected(newTopics), isTrue);
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          expect(
+            tester.widget<DSelect<TopicListMode>>(trigger).value,
+            TopicListMode.newActivity,
+          );
           await tester.sendKeyEvent(LogicalKeyboardKey.space);
           await tester.pumpAndSettle();
-          expect(
-            setup.controller.currentTopicListMode,
-            TopicListMode.topYearly,
-          );
-          expect(focused(top), isTrue);
-          expect(selected(top), isTrue);
-
-          await setup.controller.selectTopicListMode(TopicListMode.topWeekly);
-          await tester.pumpAndSettle();
-          expect(selected(top), isTrue);
+          expect(find.byType(DPopoverContent), findsOneWidget);
           await tester.sendKeyEvent(LogicalKeyboardKey.end);
-          await tester.pumpAndSettle();
-          expect(focused(trending), isTrue);
-          expect(trending.hitTestable(), findsOneWidget);
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(setup.controller.currentTopicListMode, TopicListMode.popular);
-          expect(selected(trending), isTrue);
-          expect(focused(trending), isTrue);
           expect(tester.takeException(), isNull);
         } finally {
           semantics.dispose();
@@ -1376,7 +1314,7 @@ void main() {
     ),
   ]) {
     testWidgets(
-      'signed-out ${scenario.name} discovery keeps public tabs above filters and loads their feeds',
+      'signed-out ${scenario.name} discovery keeps the feed selector above filters and loads their feeds',
       (tester) async {
         final previousPlatform = debugDefaultTargetPlatformOverride;
         debugDefaultTargetPlatformOverride = scenario.platform;
@@ -1419,57 +1357,28 @@ void main() {
           expect(controller.currentInstance?.user, isNull);
           final primary = find.byKey(const ValueKey('topic-list-primary-row'));
           expect(primary, findsOneWidget);
-          for (final key in [
-            'topic-list-latest',
-            'topic-list-top',
-            'topic-list-popular',
-          ]) {
-            expect(find.byKey(ValueKey(key)), findsOneWidget);
-          }
-          expect(find.byKey(const ValueKey('topic-list-new')), findsNothing);
-          expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
-          final row = tester.getRect(primary);
-          final categoryFilter = tester.getRect(
-            find.byKey(
-              ValueKey(
-                scenario.layout.isCompact
-                    ? 'topic-list-filters'
-                    : 'topic-list-category-filter',
-              ),
-            ),
+          final select = tester.widget<DSelect<TopicListMode>>(
+            find.byKey(const ValueKey('topic-list-feed-select')),
           );
-          expect(row.height, greaterThanOrEqualTo(38));
           expect(
-            tester
-                .getSize(find.byKey(const ValueKey('topic-list-latest')))
-                .height,
-            scenario.platform == TargetPlatform.iOS
-                ? greaterThanOrEqualTo(48)
-                : greaterThanOrEqualTo(25),
+            select.entries.whereType<DSelectItem<TopicListMode>>().map(
+              (e) => e.textValue,
+            ),
+            ['Recent', 'Top', 'Trending'],
           );
-          expect(categoryFilter.top, greaterThanOrEqualTo(row.bottom));
-          final recent = tester.getRect(
-            find.byKey(const ValueKey('topic-list-latest')),
+          expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
+          final categoryFilter = tester.getRect(
+            find.byKey(const ValueKey('topic-list-category-filter')),
           );
-          expect(categoryFilter.right, lessThanOrEqualTo(scenario.size.width));
-          expect(recent.top, lessThan(categoryFilter.top));
-          if (scenario.forumTabsEnabled) {
-            expect(
-              row.top,
-              greaterThanOrEqualTo(
-                tester.getRect(find.byType(ForumTabsBar)).bottom,
-              ),
-            );
-            final ledger = tester.getRect(
-              find.byKey(const ValueKey('topic-list-ledger-header')),
-            );
-            expect(ledger.top, greaterThanOrEqualTo(categoryFilter.bottom));
-          }
-
-          await tester.ensureVisible(
-            find.byKey(const ValueKey('topic-list-top')),
+          expect(
+            categoryFilter.top,
+            greaterThanOrEqualTo(tester.getRect(primary).bottom),
           );
-          await tester.tap(find.byKey(const ValueKey('topic-list-top')));
+          expect(
+            find.byKey(const ValueKey('topic-list-ledger-header')),
+            findsNothing,
+          );
+          await _selectFeed(tester, 'topic-list-top');
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.topYearly);
           expect(find.text('Top this year'), findsOneWidget);
@@ -1479,11 +1388,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.topWeekly);
           expect(find.text('Top this week'), findsOneWidget);
-
-          await tester.ensureVisible(
-            find.byKey(const ValueKey('topic-list-popular')),
-          );
-          await tester.tap(find.byKey(const ValueKey('topic-list-popular')));
+          await _selectFeed(tester, 'topic-list-popular');
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.popular);
           expect(find.text('Popular topic'), findsOneWidget);
@@ -1491,17 +1396,10 @@ void main() {
             find.byKey(const ValueKey('topic-list-top-period')),
             findsNothing,
           );
-
-          await tester.ensureVisible(
-            find.byKey(const ValueKey('topic-list-latest')),
-          );
-          await tester.tap(find.byKey(const ValueKey('topic-list-latest')));
+          await _selectFeed(tester, 'topic-list-latest');
           await tester.pumpAndSettle();
           expect(find.text('Latest topic'), findsOneWidget);
-          if (scenario.layout.isCompact) {
-            await tester.tap(find.byKey(const ValueKey('topic-list-filters')));
-            await tester.pumpAndSettle();
-          }
+
           await tester.ensureVisible(
             find.byKey(const ValueKey('topic-list-category-filter')),
           );
@@ -1511,12 +1409,6 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(find.text('Support'));
           await tester.pumpAndSettle();
-          if (scenario.layout.isCompact) {
-            await tester.tap(
-              find.byKey(const ValueKey('topic-list-apply-filters')),
-            );
-            await tester.pumpAndSettle();
-          }
           expect(controller.currentContent?.categoryId, category.id);
           expect(find.text('Public support topic'), findsOneWidget);
           expect(primary, findsOneWidget);
@@ -1553,143 +1445,49 @@ void main() {
     expect(setup.api.feedPaths, initialPaths);
   });
 
-  testWidgets('list-only Inbox aligns its heading, tabs, filters, and rows', (
-    tester,
-  ) async {
-    final previousPlatform = debugDefaultTargetPlatformOverride;
-    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-    try {
-      tester.view.physicalSize = const Size(1800, 700);
+  testWidgets(
+    'heading, feed selector and creation stay on one row when resizing',
+    (tester) async {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final setup = await _controller(canCreateTopics: true);
       addTearDown(setup.controller.dispose);
-      await tester.pumpWidget(
-        ShellScope(
-          controller: setup.controller,
-          child: MaterialApp(
-            theme: AppTheme.dark,
-            home: const Scaffold(
-              body: MainContent(layout: ShellLayout.expanded),
+      for (final width in [1800.0, 390.0]) {
+        tester.view.physicalSize = Size(width, 700);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: setup.controller,
+            child: MaterialApp(
+              theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+              home: const Scaffold(
+                body: MainContent(layout: ShellLayout.expanded),
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final toolbar = tester.getRect(
-        find.byKey(const ValueKey('topic-list-primary-row')),
-      );
-      final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
-      expect(create.top, greaterThanOrEqualTo(toolbar.top));
-      expect(create.bottom, lessThanOrEqualTo(toolbar.bottom));
-      expect(create.height, 30);
-      final recent = tester.getRect(
-        find.byKey(const ValueKey('topic-list-latest')),
-      );
-
-      final category = tester.getRect(
-        find.byKey(const ValueKey('topic-list-category-filter')),
-      );
-      final tags = tester.getRect(
-        find.byKey(const ValueKey('topic-list-tag-filter')),
-      );
-      final ledger = tester.getRect(
-        find.byKey(const ValueKey('topic-list-ledger-header')),
-      );
-      final heading = tester.getRect(
-        find.byKey(const ValueKey('topic-list-heading')),
-      );
-      final title = tester.getRect(
-        find.byKey(const ValueKey('topic-list-title')),
-      );
-      expect(ledger.width, topicListContentWidth);
-      expect(heading.left, greaterThan(topicListHorizontalPadding));
-      expect(
-        heading.left,
-        closeTo(ledger.left + topicListHorizontalPadding, .01),
-      );
-      expect(recent.left, greaterThan(title.right));
-      expect(recent.center.dy, closeTo(title.center.dy, 4));
-      expect(
-        create.right,
-        closeTo(ledger.right - topicListHorizontalPadding, .01),
-      );
-      expect(category.top, greaterThanOrEqualTo(toolbar.bottom));
-      expect(category.left, greaterThan(recent.left));
-      expect(tags.left, closeTo(category.right + 8, 0.01));
-      expect(find.text('Categories'), findsOneWidget);
-      expect(find.text('All categories'), findsNothing);
-      expect(find.text('Tags'), findsOneWidget);
-      expect(find.text('All tags'), findsNothing);
-      expect(
-        tester
-            .widget<TopicCreateButton>(find.byType(TopicCreateButton))
-            .showLabel,
-        isTrue,
-      );
-      expect(ledger.top, greaterThanOrEqualTo(category.bottom));
-      expect(tags.center.dy, closeTo(category.center.dy, .01));
-      for (final label in ['People', 'Replies', 'Views', 'Activity']) {
-        expect(
-          tester.getCenter(find.text(label)).dy,
-          greaterThan(category.bottom),
         );
+        await tester.pumpAndSettle();
+        final heading = tester.getRect(
+          find.byKey(const ValueKey('topic-list-heading')),
+        );
+        final select = tester.getRect(
+          find.byKey(const ValueKey('topic-list-feed-select')),
+        );
+        final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
+        expect(select.top, greaterThanOrEqualTo(heading.top));
+        expect(create.bottom, lessThanOrEqualTo(heading.bottom));
+        expect(select.right, lessThanOrEqualTo(create.left));
+        expect(
+          find.byKey(const ValueKey('topic-list-category-filter')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('topic-list-ledger-header')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
       }
-      expect(find.text('Topics'), findsOneWidget);
-      expect(find.text('Topic'), findsNothing);
-      expect(find.text('Latest activity'), findsNothing);
-      expect(find.text('Top'), findsOneWidget);
-      expect(find.byTooltip('Hide topic sidebar'), findsNothing);
-
-      expect(
-        tester.widget<TopicTitle>(find.byType(TopicTitle).first).maxLines,
-        2,
-      );
-      tester.view.physicalSize = const Size(390, 700);
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<TopicCreateButton>(find.byType(TopicCreateButton))
-            .showLabel,
-        isTrue,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-list-category-filter')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-list-ledger-header')),
-        findsNothing,
-      );
-      final narrowFilters = tester.getRect(
-        find.byKey(const ValueKey('topic-list-filters')),
-      );
-      final narrowToolbar = tester.getRect(
-        find.byKey(const ValueKey('topic-list-primary-row')),
-      );
-      expect(
-        narrowFilters.top,
-        greaterThanOrEqualTo(narrowToolbar.bottom + 12),
-      );
-      final narrowTitle = tester.getRect(
-        find.byKey(const ValueKey('topic-list-title')),
-      );
-      expect(narrowTitle.bottom, lessThan(narrowToolbar.top));
-      expect(tester.takeException(), isNull);
-
-      await tester.tap(find.byKey(const ValueKey('topic-list-top')));
-      await tester.pumpAndSettle();
-      expect(find.text('Top'), findsOneWidget);
-      expect(
-        tester.widget<TopicTitle>(find.byType(TopicTitle).first).maxLines,
-        2,
-      );
-      expect(tester.takeException(), isNull);
-    } finally {
-      debugDefaultTargetPlatformOverride = previousPlatform;
-    }
-  });
+    },
+  );
 
   testWidgets('category and tag selections preserve each other in the feed', (
     tester,
@@ -1802,11 +1600,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('topic-list-category-filter')),
-      findsNothing,
+      findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('topic-list-filters')), findsOneWidget);
-    expect(find.bySemanticsLabel('Remove category filter'), findsOneWidget);
-    expect(find.bySemanticsLabel('Remove tag ux'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-list-filters')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('topic-list-subcategory-filter')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('topic-list-tag-filter')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     controller.selectTopicListTag(null);
@@ -1831,7 +1632,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('category routes show their names and retain primary tabs', (
+  testWidgets('category routes show their names and retain the feed selector', (
     tester,
   ) async {
     const parent = TopicCategory(
@@ -1890,10 +1691,10 @@ void main() {
         find.byKey(const ValueKey('topic-list-primary-row')),
         findsOneWidget,
       );
-      expect(find.byKey(const ValueKey('topic-list-latest')), findsOneWidget);
-      expect(find.byKey(const ValueKey('topic-list-new')), findsOneWidget);
-      expect(find.byKey(const ValueKey('topic-list-top')), findsOneWidget);
-      expect(find.byKey(const ValueKey('topic-list-popular')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-list-feed-select')),
+        findsOneWidget,
+      );
     }
 
     const renamed = TopicCategory(
@@ -2057,4 +1858,11 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   );
   await controller.load();
   return (controller: controller, api: api);
+}
+
+Future<void> _selectFeed(WidgetTester tester, String key) async {
+  await tester.tap(find.byKey(const ValueKey('topic-list-feed-select')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(ValueKey(key)));
+  await tester.pumpAndSettle();
 }

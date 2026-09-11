@@ -7,15 +7,11 @@ import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
-import 'topic_list_filter_sheet.dart';
 import 'topic_list_layout.dart';
-import 'topic_list_view.dart';
 
 typedef _TopicListNavigationSnapshot = ({
   TopicListMode? mode,
@@ -161,127 +157,129 @@ class _TopicListNavigationControls extends StatelessWidget {
     void selectMode(TopicListMode value) => unawaited(
       controller.selectTopicListMode(value, keepTopicOpen: keepTopicOpen),
     );
-    final navigation = DTabs<TopicListMode>.controlled(
+    final navigation = DSelect<TopicListMode>(
+      key: const ValueKey('topic-list-feed-select'),
+      width: 128,
+      semanticLabel: 'Topic feed',
       value: mode.isNew
           ? TopicListMode.newActivity
           : mode.isTop
           ? TopicListMode.topYearly
           : mode,
+      entries: [
+        const DSelectItem(
+          value: TopicListMode.latest,
+          textValue: 'Recent',
+          child: Text('Recent', key: ValueKey('topic-list-latest')),
+        ),
+        if (state.signedIn)
+          const DSelectItem(
+            value: TopicListMode.newActivity,
+            textValue: 'New',
+            child: Text('New', key: ValueKey('topic-list-new')),
+          ),
+        const DSelectItem(
+          value: TopicListMode.topYearly,
+          textValue: 'Top',
+          child: Text('Top', key: ValueKey('topic-list-top')),
+        ),
+        const DSelectItem(
+          value: TopicListMode.popular,
+          textValue: 'Trending',
+          child: Text('Trending', key: ValueKey('topic-list-popular')),
+        ),
+      ],
       onChanged: (value) {
         if (value != null) {
           selectMode(value.isTop ? controller.defaultTopTopicListMode : value);
         }
       },
-      children: [
-        DTabList<TopicListMode>(
-          key: const ValueKey('topic-list-feed-tabs'),
-          variant: DTabListVariant.line,
+    );
+    Widget? contextualFor(bool wide) {
+      if (showsTabs && mode.isNew && state.unifiedNew) {
+        return DTabs<TopicListMode>.controlled(
+          value: mode,
+          onChanged: (value) {
+            if (value != null) selectMode(value);
+          },
           children: [
-            const DTabTrigger(
-              key: ValueKey('topic-list-latest'),
-              value: TopicListMode.latest,
-              child: Text('Recent'),
-            ),
-            if (state.signedIn)
-              DTabTrigger(
-                key: const ValueKey('topic-list-new'),
-                value: TopicListMode.newActivity,
-                semanticLabel: state.allCount > 0
-                    ? 'New, ${state.allCount}'
-                    : 'New',
-                child: const ExcludeSemantics(child: Text('New')),
+            Align(
+              alignment: wide
+                  ? AlignmentDirectional.centerEnd
+                  : AlignmentDirectional.centerStart,
+              child: DTabList<TopicListMode>(
+                key: const ValueKey('topic-list-new-segments'),
+                children: [
+                  const DTabTrigger(
+                    key: ValueKey('topic-list-new-all'),
+                    value: TopicListMode.newActivity,
+                    child: Text('All'),
+                  ),
+                  for (final tab in [
+                    (
+                      key: 'topics',
+                      label: 'Topics',
+                      value: TopicListMode.newTopics,
+                      count: state.topicCount,
+                    ),
+                    (
+                      key: 'replies',
+                      label: 'Replies',
+                      value: TopicListMode.newReplies,
+                      count: state.replyCount,
+                    ),
+                  ])
+                    DTabTrigger(
+                      key: ValueKey('topic-list-new-${tab.key}'),
+                      value: tab.value,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(tab.label),
+                          if (tab.count > 0) ...[
+                            const SizedBox(width: 6),
+                            DBadge(
+                              variant: DBadgeVariant.secondary,
+                              child: Text('${tab.count}'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
               ),
-            const DTabTrigger(
-              key: ValueKey('topic-list-top'),
-              value: TopicListMode.topYearly,
-              child: Text('Top'),
-            ),
-            const DTabTrigger(
-              key: ValueKey('topic-list-popular'),
-              value: TopicListMode.popular,
-              child: Text('Trending'),
             ),
           ],
-        ),
-      ],
-    );
-    final Widget? contextual;
-    if (showsTabs && mode.isNew && state.unifiedNew) {
-      contextual = DTabs<TopicListMode>.controlled(
-        value: mode,
-        onChanged: (value) {
-          if (value != null) selectMode(value);
-        },
-        children: [
-          DTabList<TopicListMode>(
-            key: const ValueKey('topic-list-new-segments'),
-            children: [
-              const DTabTrigger(
-                key: ValueKey('topic-list-new-all'),
-                value: TopicListMode.newActivity,
-                child: Text('All'),
-              ),
-              for (final tab in [
-                (
-                  key: 'topics',
-                  label: 'Topics',
-                  value: TopicListMode.newTopics,
-                  count: state.topicCount,
-                ),
-                (
-                  key: 'replies',
-                  label: 'Replies',
-                  value: TopicListMode.newReplies,
-                  count: state.replyCount,
-                ),
-              ])
-                DTabTrigger(
-                  key: ValueKey('topic-list-new-${tab.key}'),
-                  value: tab.value,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(tab.label),
-                      if (tab.count > 0) ...[
-                        const SizedBox(width: 6),
-                        DBadge(
-                          variant: DBadgeVariant.secondary,
-                          child: Text('${tab.count}'),
-                        ),
-                      ],
-                    ],
+        );
+      } else if (showsTabs && mode.topPeriod != null) {
+        return Align(
+          key: const ValueKey('topic-list-top-period-segment'),
+          alignment: wide
+              ? AlignmentDirectional.centerEnd
+              : AlignmentDirectional.centerStart,
+          child: DSelect<TopPeriod>(
+            key: const ValueKey('topic-list-top-period'),
+            value: mode.topPeriod,
+            semanticLabel: 'Top period',
+            entries: [
+              for (final period in TopPeriod.values)
+                DSelectItem(
+                  value: period,
+                  textValue: period.label,
+                  child: Text(
+                    period.label,
+                    key: ValueKey('topic-list-top-period-${period.queryValue}'),
                   ),
                 ),
             ],
+            onChanged: (value) {
+              if (value != null) selectMode(TopicListMode.top(value));
+            },
           ),
-        ],
-      );
-    } else if (showsTabs && mode.topPeriod != null) {
-      contextual = Align(
-        key: const ValueKey('topic-list-top-period-segment'),
-        alignment: AlignmentDirectional.centerStart,
-        child: DSelect<TopPeriod>(
-          key: const ValueKey('topic-list-top-period'),
-          value: mode.topPeriod,
-          semanticLabel: 'Top period',
-          entries: [
-            for (final period in TopPeriod.values)
-              DSelectItem(
-                value: period,
-                textValue: period.label,
-                child: Text(
-                  period.label,
-                  key: ValueKey('topic-list-top-period-${period.queryValue}'),
-                ),
-              ),
-          ],
-          onChanged: (value) {
-            if (value != null) selectMode(TopicListMode.top(value));
-          },
-        ),
-      );
-    } else {
-      contextual = null;
+        );
+      } else {
+        return null;
+      }
     }
 
     return Semantics(
@@ -300,6 +298,7 @@ class _TopicListNavigationControls extends StatelessWidget {
               ContentReadingLane.breakpointWidthOf(context, lane.width) /
               MediaQuery.textScalerOf(context).scale(1);
           final wide = effectiveWidth >= 760;
+          final contextual = contextualFor(wide);
           final heading = headingBuilder;
           Widget inset(Widget child) => ContentReadingLaneBox(
             widthLimit: topicListContentWidth,
@@ -313,7 +312,8 @@ class _TopicListNavigationControls extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 38),
             child: Row(
               children: [
-                if (showsTabs) Expanded(child: navigation) else const Spacer(),
+                if (showsTabs) Flexible(child: navigation),
+                const Spacer(),
                 if (trailing != null) ...[
                   const SizedBox(width: DSpacing.sm),
                   trailing!,
@@ -326,13 +326,10 @@ class _TopicListNavigationControls extends StatelessWidget {
             children: [
               if (heading != null)
                 KeyedSubtree(
-                  key: wide ? const ValueKey('topic-list-primary-row') : null,
-                  child: heading(
-                    context,
-                    wide && showsTabs ? navigation : null,
-                  ),
+                  key: const ValueKey('topic-list-primary-row'),
+                  child: heading(context, showsTabs ? navigation : null),
                 ),
-              if (heading == null || !wide) inset(primary()),
+              if (heading == null) inset(primary()),
               if (contextual != null || showsFilters)
                 inset(
                   Padding(
@@ -359,12 +356,11 @@ class _TopicListNavigationControls extends StatelessWidget {
 
                         final Widget? filters = !showsFilters
                             ? null
-                            : wide
-                            ? TopicListFilterBar(
+                            : TopicListFilterBar(
                                 key: ValueKey(state.filterOwner),
                                 inline: true,
-                                wrap: true,
-                                wrapAlignment: WrapAlignment.end,
+                                wrap: wide,
+                                compact: !wide,
                                 siteUrl: state.siteUrl!,
                                 categories: state.categories,
                                 knownTags: state.tags,
@@ -401,155 +397,41 @@ class _TopicListNavigationControls extends StatelessWidget {
                                         }
                                       }
                                     : null,
-                              )
-                            : TopicListFilterSheet(
-                                key: ValueKey(state.filterOwner),
-                                siteUrl: state.siteUrl!,
-                                multiple: stacked,
-                                categories: state.categories,
-                                knownTags: state.tags,
-                                categoryId: state.route!.categoryId,
-                                tags: state.route!.tagNames,
-                                taggingEnabled: state.taggingEnabled,
-                                searchTags: searchTags,
-                                showLabel: effectiveWidth >= 390,
-                                onApply: (selection) {
-                                  if (ownsFeed()) {
-                                    controller.selectTopicListFilters(
-                                      category: selection.category,
-                                      tags: selection.tags,
-                                      keepTopicOpen: keepTopicOpen,
-                                    );
-                                  }
-                                },
                               );
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        return Flex(
+                          key: const ValueKey('topic-list-refinement-row'),
+                          direction: wide ? Axis.horizontal : Axis.vertical,
+                          crossAxisAlignment: wide
+                              ? CrossAxisAlignment.center
+                              : CrossAxisAlignment.stretch,
                           children: [
-                            Row(
-                              key: const ValueKey('topic-list-refinement-row'),
-                              children: [
-                                if (contextual != null)
-                                  Expanded(child: contextual)
-                                else if (wide)
-                                  const Spacer(),
-                                if (contextual != null && filters != null)
-                                  const SizedBox(width: DSpacing.sm),
-                                if (filters != null)
-                                  if (wide)
-                                    Flexible(
-                                      child: Align(
-                                        alignment:
-                                            AlignmentDirectional.centerEnd,
-                                        child: filters,
-                                      ),
-                                    )
-                                  else
-                                    filters,
-                              ],
-                            ),
-                            if (!wide &&
-                                showsFilters &&
-                                (state.route!.categoryId != null ||
-                                    state.route!.tagNames.isNotEmpty))
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: DSpacing.sm,
-                                ),
-                                child: Wrap(
-                                  spacing: DSpacing.xs,
-                                  runSpacing: DSpacing.xs,
-                                  children: [
-                                    if (state.route!.categoryId
-                                        case final categoryId?)
-                                      _FilterChip(
-                                        label:
-                                            state.categories
-                                                .where(
-                                                  (c) => c.id == categoryId,
-                                                )
-                                                .firstOrNull
-                                                ?.name ??
-                                            'Category',
-                                        semanticLabel: 'Remove category filter',
-                                        onPressed: () {
-                                          if (ownsFeed()) {
-                                            controller.selectTopicListCategory(
-                                              null,
-                                              keepTopicOpen: keepTopicOpen,
-                                            );
-                                          }
-                                        },
-                                      ),
-                                    for (final tag in state.route!.tagNames)
-                                      _FilterChip(
-                                        label: tag,
-                                        semanticLabel: 'Remove tag $tag',
-                                        onPressed: () {
-                                          if (ownsFeed()) {
-                                            controller.selectTopicListTags(
-                                              state.route!.tagNames
-                                                  .where((t) => t != tag)
-                                                  .toList(),
-                                              keepTopicOpen: keepTopicOpen,
-                                            );
-                                          }
-                                        },
-                                      ),
-                                    DButton(
-                                      key: const ValueKey(
-                                        'topic-list-clear-filters',
-                                      ),
-                                      variant: DButtonVariant.ghost,
-                                      size: DButtonSize.small,
-                                      label: const Text('Clear all'),
-                                      onPressed: () {
-                                        if (ownsFeed()) {
-                                          controller.selectTopicListFilters(
-                                            category: null,
-                                            tags: const [],
-                                            keepTopicOpen: keepTopicOpen,
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
+                            if (filters != null)
+                              if (wide) Expanded(child: filters) else filters,
+                            if (filters != null && contextual != null)
+                              SizedBox(
+                                width: wide ? 16 : 0,
+                                height: wide ? 0 : 12,
                               ),
+                            if (contextual != null)
+                              if (wide)
+                                Flexible(
+                                  child: Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: contextual,
+                                  ),
+                                )
+                              else
+                                contextual,
                           ],
                         );
                       },
                     ),
                   ),
                 ),
-              if (stacked) const TopicListHeader(),
             ],
           );
         },
       ),
     );
   }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.semanticLabel,
-    required this.onPressed,
-  });
-
-  final String label;
-  final String semanticLabel;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => DButton(
-    variant: DButtonVariant.outline,
-    size: DButtonSize.small,
-    label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-    icon: const DIcon(DIcons.xmark, size: 12),
-    iconPosition: DButtonIconPosition.end,
-    semanticLabel: semanticLabel,
-    onPressed: onPressed,
-  );
 }

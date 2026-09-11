@@ -351,7 +351,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               child: Row(
                 children: [
                   Flexible(
-                    flex: navigation == null ? 1 : 0,
+                    flex: 1,
                     fit: navigation == null ? FlexFit.tight : FlexFit.loose,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
@@ -364,8 +364,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     ),
                   ),
                   if (navigation != null) ...[
-                    const SizedBox(width: DSpacing.xl),
-                    Expanded(child: navigation),
+                    const SizedBox(width: DSpacing.sm),
+                    Flexible(child: navigation),
                   ],
                 ],
               ),
@@ -385,7 +385,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               showLabel:
                   ContentReadingLane.breakpointWidthOf(context, listWidth) /
                       MediaQuery.textScalerOf(context).scale(1) >=
-                  360,
+                  760,
               leadingPadding: false,
             ),
           ],
@@ -672,7 +672,7 @@ class _FeedBackedContent extends StatelessWidget {
           content = TopicListView(
             feed: feed,
             inbox: inbox,
-            showHeader: !(inbox && route.isTopicListFilter),
+            showHeader: !route.isTopicListFilter,
           );
         }
 
