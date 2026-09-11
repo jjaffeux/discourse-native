@@ -629,6 +629,11 @@ class _AggregateTopicRow extends StatelessWidget {
           topic: topic,
           forum: forum,
           itemVariant: DItemVariant.standard,
+          outerPadding: EdgeInsets.zero,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: DSpacing.xl,
+            vertical: DSpacing.lg,
+          ),
           onTap: () {
             final result = controller.openAggregateTopic(
               reference.siteUrl,
