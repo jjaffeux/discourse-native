@@ -2268,6 +2268,7 @@ class _TopicBottomBar extends StatelessWidget {
                             tooltip: 'Reply to this topic',
                             shortcut: const DShortcut(topicReplyShortcut),
                             variant: DButtonVariant.primary,
+                            borderColor: buttonBorder,
                             size: DButtonSize.small,
                           ),
                         if (showBookmark)

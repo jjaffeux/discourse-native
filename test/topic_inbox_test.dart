@@ -2025,6 +2025,10 @@ void main() {
             buttonSurface(tester, of: control).color,
             control == reply ? theme.colorScheme.primary : theme.shell.floating,
           );
+          expect(
+            buttonSurface(tester, of: control).borderColor,
+            buttonSurface(tester, of: bookmark).borderColor,
+          );
           expect(tester.getSize(control).height, tester.getSize(reply).height);
         }
         expect(tester.getRect(reply).right, tester.getRect(bookmark).left);
