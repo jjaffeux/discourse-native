@@ -74,13 +74,125 @@ void main() {
     ],
   );
 
+  testWidgets('touch backgrounds retain their inset with enlarged text', (
+    tester,
+  ) async {
+    for (final size in DControlSize.values) {
+      for (final scale in [1.0, 2.0]) {
+        await mount(
+          tester,
+          DTabs<String>(
+            children: [
+              DTabList<String>(
+                size: size,
+                children: const [DTabTrigger(value: 'all', child: Text('All'))],
+              ),
+            ],
+          ),
+          platform: TargetPlatform.iOS,
+          scale: scale,
+        );
+        await tester.pumpAndSettle();
+        final background = find.descendant(
+          of: find.byType(DTabList<String>),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+        );
+        final artwork = find.descendant(
+          of: find.byType(DTabTrigger<String>),
+          matching: find.byType(AnimatedContainer),
+        );
+        final outer = tester.getRect(background.first);
+        final inner = tester.getRect(artwork);
+        expect(inner.top - outer.top, greaterThanOrEqualTo(3));
+        expect(outer.bottom - inner.bottom, greaterThanOrEqualTo(3));
+        expect(
+          tester.getSize(find.byType(DTabTrigger<String>)).height,
+          greaterThanOrEqualTo(48),
+        );
+      }
+    }
+  });
+
+  testWidgets('mixed labels stay centered inside inset selected artwork', (
+    tester,
+  ) async {
+    for (final brightness in Brightness.values) {
+      for (final size in DControlSize.values) {
+        await mount(
+          tester,
+          DTabs<String>(
+            key: ValueKey((brightness, size)),
+            initialValue: 'all',
+            children: [
+              DTabList<String>(
+                size: size,
+                children: const [
+                  DTabTrigger(value: 'all', child: Text('All')),
+                  DTabTrigger(
+                    value: 'topics',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Topics'),
+                        SizedBox(width: 6),
+                        DBadge(
+                          variant: DBadgeVariant.secondary,
+                          child: Text('82'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          theme: ThemeData(brightness: brightness),
+        );
+        await tester.pumpAndSettle();
+        final list = tester.getRect(find.byType(DTabList<String>));
+        final trigger = tester.getRect(find.byType(DTabTrigger<String>).first);
+        expect(trigger.top - list.top, greaterThanOrEqualTo(3));
+        expect(list.bottom - trigger.bottom, greaterThanOrEqualTo(3));
+        expect(
+          tester.getCenter(find.text('All')).dy,
+          closeTo(list.center.dy, .01),
+        );
+        expect(
+          tester.getCenter(find.text('Topics')).dy,
+          closeTo(list.center.dy, .01),
+        );
+        final surface = tester.widget<AnimatedContainer>(
+          find
+              .descendant(
+                of: find.byType(DTabTrigger<String>).first,
+                matching: find.byType(AnimatedContainer),
+              )
+              .first,
+        );
+        final shadow = (surface.decoration! as BoxDecoration).boxShadow!.single;
+        expect(shadow.color.r, 0);
+        expect(shadow.color.g, 0);
+        expect(shadow.color.b, 0);
+        await tester.tap(find.text('Topics'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getCenter(find.text('All')).dy,
+          closeTo(tester.getCenter(find.text('Topics')).dy, .01),
+        );
+      }
+    }
+  });
+
   testWidgets(
     'matches compact default and line geometry on pointer platforms',
     (tester) async {
       await mount(tester, tabs());
       await tester.pumpAndSettle();
       expect(tester.getSize(find.byType(DTabList<String>)).height, 32);
-      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 32);
+      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 25);
 
       await mount(
         tester,
