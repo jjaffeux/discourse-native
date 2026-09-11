@@ -93,7 +93,7 @@ No FormField is introduced for a passive presentation container.
 - **Migrated core Users directory (2026-09-11):** `users_page.dart` uses
   `DDataTable` in manual mode, backed by DTable's lazy body. Identity and metrics
   share one horizontal viewport. Column resizing, saved widths, server queries,
-  incremental loading and metric marks remain supported. See
+  incremental loading and formatted metric values remain supported. See
   [Data Table](data-table.md) for the API and migration verification.
 - **Retained cooked HTML:** `CookedHtml` delegates authored table markup to
   HtmlWidget and its CSS/span/selection rendering. Replacing DOM rendering with

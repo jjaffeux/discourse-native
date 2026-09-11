@@ -101,7 +101,37 @@ and controlled widths. Regression tests cover lazy construction, large text,
 stationary headers, resize persistence, restored widths followed by another
 column resize, and lazy footer/caption rendering.
 
-## Users migration verification — 2026-09-11
+## Standard Users composition — 2026-09-11
+
+The initial migration retained too much of the old directory presentation. The
+corrected route follows the Data Table styleguide composition directly:
+
+- `DDataTableFilterField` and `DDataTableColumnToggle` own filtering and local
+  column visibility. The native dropdown applies visibility immediately; staff
+  configuration remains a separate “Manage columns” action.
+- Username/profile links, a separate Name column and formatted metric values
+  are plain cells with inherited table typography. The old avatar stacks,
+  badges, metric bars, maxima calculations and sidebar-colored toolbar are gone.
+- The table owns borders, header/cell padding, row heights, hover and its
+  no-results row. The route supplies only standard page/control spacing.
+- Saved resizing, virtual scrolling, server queries and incremental loading
+  remain. Search drafts survive row refreshes and reset on owner changes.
+
+Verification: 43 users-page tests and 16 related navigation/controller/store/
+control-adoption tests passed; root analysis is clean. The macOS offline review
+fixture built and launched successfully. Its wide/light native screenshot
+confirmed the standard compact text rows, plain metrics, separate Name column,
+filter field and Columns control. The native AX tree exposes those controls and
+profile actions independently. Large text, dark-theme interactions, visibility,
+resizing and loading states are covered by widget tests; this correction does
+not claim a new full native interaction pass. The only subsequent render change
+is a plain Name header (the server does not offer name sorting).
+
+An independent source review found no new ownership, sorting, visibility,
+persistence or incremental-loading regression. The shared Data Table component
+was not extended for this correction; the route now uses its existing parts.
+
+## Initial Users migration verification — 2026-09-11 (superseded presentation)
 
 The Users route now composes Native Input, Select, Dialog, Badge and Data Table.
 Initial, empty and error states retain Empty; incremental loading remains owned

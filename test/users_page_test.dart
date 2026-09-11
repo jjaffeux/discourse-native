@@ -4,7 +4,6 @@ import 'dart:collection';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/models/json.dart';
-import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/user_directory_controller.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
@@ -82,7 +81,7 @@ void main() {
     'not a number with all its original text',
   ]) {
     testWidgets(
-      'invalid directory ${value is String ? 'text' : 'number'} $value renders as unscaled text',
+      'invalid directory ${value is String ? 'text' : 'number'} $value renders as plain text',
       (tester) async {
         const columns = [_timeRead, _likes, _solutions];
         await _pump(
@@ -109,11 +108,8 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.text('$value'), findsNWidgets(columns.length));
-        expect(_barWidths(tester, 'invalid'), isEmpty);
-        expect(_barWidths(tester, 'half'), [.5, .5, .5]);
-        expect(_barWidths(tester, 'full'), [1, 1, 1]);
         for (final text in tester.widgetList<Text>(find.text('$value'))) {
-          expect(text.style?.fontWeight, FontWeight.w400);
+          expect(text.style, isNull);
         }
       },
     );
@@ -151,7 +147,11 @@ void main() {
 
         expect(tester.takeException(), isNull);
         final texts = tester.widgetList<Text>(
-          find.descendant(of: _metrics('sam'), matching: find.byType(Text)),
+          find.descendant(
+            of: _metrics('sam'),
+            matching: find.byType(Text),
+            matchRoot: true,
+          ),
         );
         expect(texts.map((text) => text.data), ['$value']);
       },
@@ -205,6 +205,7 @@ void main() {
       final texts = tester.widgetList<Text>(
         find.descendant(
           of: _metrics('user$index'),
+          matchRoot: true,
           matching: find.byType(Text),
         ),
       );
@@ -293,168 +294,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final change in [
-    'page append',
-    'refresh',
-    'query',
-    'forum',
-    'account',
-    'column definition',
-    'column addition',
-  ]) {
-    testWidgets('metric bars use the new maxima after $change', (tester) async {
-      const first = UserDirectoryItem(
-        id: 1,
-        user: UserDirectoryUser(id: 1, username: 'first'),
-        values: {'likes_received': 10, 'post_count': 40},
-      );
-      const second = UserDirectoryItem(
-        id: 2,
-        user: UserDirectoryUser(id: 2, username: 'second'),
-        values: {'likes_received': 20, 'post_count': 50},
-      );
-      var items = [first, second];
-      var columns = [_likes];
-      var query = const UserDirectoryQuery();
-      var site = 'https://example.com';
-      var account = 'first';
-      late StateSetter update;
-      await _pump(
-        tester,
-        StatefulBuilder(
-          builder: (context, setState) {
-            update = setState;
-            return UsersPage(
-              siteUrl: site,
-              data: UsersPageData(
-                items: items,
-                columns: columns,
-                currentUsername: account,
-                query: query,
-                loaded: true,
-              ),
-            );
-          },
-        ),
-      );
-      expect(_barWidths(tester, 'first'), [.5]);
-      var expected = [.25];
-      update(() {
-        switch (change) {
-          case 'page append':
-            items = [
-              ...items,
-              const UserDirectoryItem(
-                id: 3,
-                user: UserDirectoryUser(id: 3, username: 'third'),
-                values: {'likes_received': 40},
-              ),
-            ];
-          case 'column definition':
-            columns = [
-              const UserDirectoryColumn(
-                id: 1,
-                name: 'post_count',
-                type: UserDirectoryColumnType.plugin,
-                position: 1,
-              ),
-            ];
-            expected = [.8];
-          case 'column addition':
-            columns = [_likes, _replies];
-            expected = [.5, .8];
-          default:
-            if (change == 'query') {
-              query = const UserDirectoryQuery(
-                period: UserDirectoryPeriod.daily,
-              );
-            }
-            if (change == 'forum') site = 'https://another.example';
-            if (change == 'account') account = 'second';
-            items = [
-              first,
-              UserDirectoryItem(
-                id: second.id,
-                user: second.user,
-                values: const {'likes_received': 40},
-              ),
-            ];
-        }
-      });
-      await tester.pump();
-      expect(_barWidths(tester, 'first'), expected);
-      expect(find.text('You'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  }
-
-  testWidgets('unchanged metrics reuse maxima through directory interactions', (
-    tester,
-  ) async {
-    final items = _countedItems();
-    final offscreenValues = items.last.values as _CountingValues;
-    var loadingMore = false;
-    var theme = AppTheme.light;
-    late StateSetter update;
-    await _pump(
-      tester,
-      StatefulBuilder(
-        builder: (context, setState) {
-          update = setState;
-          return Theme(
-            data: theme,
-            child: UsersPage(
-              siteUrl: 'https://example.com',
-              data: UsersPageData(
-                items: List.of(items),
-                columns: List.of(_countedColumns),
-                loadingMore: loadingMore,
-                loaded: true,
-              ),
-            ),
-          );
-        },
-      ),
-    );
-    expect(offscreenValues.reads, 5);
-    offscreenValues.reads = 0;
-    await tester.enterText(
-      find.byKey(const ValueKey('users-search')),
-      'person',
-    );
-    await tester.pump(const Duration(milliseconds: 350));
-    expect(offscreenValues.reads, 0, reason: 'typing');
-    await tester.drag(_resize('Metric0'), const Offset(60, 0));
-    await tester.pumpAndSettle();
-    expect(offscreenValues.reads, 0, reason: 'resizing');
-    update(() {
-      loadingMore = true;
-      theme = AppTheme.dark;
-    });
-    await tester.pumpAndSettle();
-    expect(offscreenValues.reads, 0, reason: 'loading feedback and theme');
-    await tester.tap(find.byKey(const ValueKey('users-columns')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('users-column-2')));
-    await tester.tap(find.text('Done'));
-    await tester.pumpAndSettle();
-    expect(find.text('Metric1'), findsNothing);
-    expect(offscreenValues.reads, 0, reason: 'hiding a column');
-    await tester.tap(find.byKey(const ValueKey('users-columns')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('users-column-2')));
-    await tester.tap(find.text('Done'));
-    await tester.pumpAndSettle();
-    expect(find.text('Metric1'), findsOneWidget);
-    expect(offscreenValues.reads, 0, reason: 'showing a column');
-    expect(_barWidths(tester, 'user1'), [
-      for (var metric = 0; metric < 5; metric++) .06,
-    ]);
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets(
-    'Matrix supports search, periods, sorting, columns, and omits selection',
+    'directory supports search, periods, sorting, columns, and omits selection',
     (tester) async {
       String? search;
       String? group;
@@ -499,22 +340,21 @@ void main() {
         find.byKey(const ValueKey('users-table')),
       );
       expect(pageRect, const Rect.fromLTWH(0, 0, 1100, 820));
-      expect(tableRect.left, 0);
-      expect(tableRect.right, 1100);
-      expect(tableRect.bottom, 820);
+      expect(tableRect.left, 16);
+      expect(tableRect.right, 1084);
+      expect(tableRect.bottom, 804);
 
-      final searchFinder = find.byKey(const ValueKey('users-search'));
-      final periodFinder = find.byKey(const ValueKey('users-period-filter'));
-      final searchHeight = tester.getSize(searchFinder).height;
-      expect(searchHeight, tester.getSize(periodFinder).height);
-      expect(tester.widget<DInput>(searchFinder).controller, isNotNull);
-      expect(find.text('You'), findsOneWidget);
-      expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
-      expect(find.byKey(const ValueKey('user-avatar-sam')), findsOneWidget);
-      final avatar = tester.widget<DAvatar>(
-        find.byKey(const ValueKey('user-avatar-sam')),
+      expect(find.byType(DDataTableFilterField), findsOneWidget);
+      expect(
+        find.byType(DDataTableColumnToggle<UserDirectoryItem>),
+        findsOneWidget,
       );
-      expect(avatar.borderRadius, BorderRadius.circular(16));
+      expect(find.byType(DAvatar), findsNothing);
+      expect(find.byType(FractionallySizedBox), findsNothing);
+      expect(find.text('You'), findsNothing);
+      expect(find.text('Name'), findsOneWidget);
+      expect(find.text('Sam Saffron'), findsOneWidget);
+      expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
       expect(find.byKey(const ValueKey('users-select-all')), findsNothing);
       expect(find.byKey(const ValueKey('user-select-sam')), findsNothing);
       expect(
@@ -556,8 +396,10 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('users-columns')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('users-column-2')));
-      await tester.tap(find.text('Done'));
+      await tester.tap(
+        find.widgetWithText(DDropdownMenuCheckboxItem, 'Replies posted'),
+      );
+      await tester.tapAt(const Offset(2, 2));
       await tester.pumpAndSettle();
       expect(find.text('Replies posted'), findsNothing);
 
@@ -567,6 +409,40 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('refreshing rows preserves in-progress search text', (
+    tester,
+  ) async {
+    var items = const [_sam];
+    final searches = <String>[];
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return UsersPage(
+            siteUrl: 'https://example.com',
+            data: UsersPageData(
+              items: items,
+              columns: const [_likes],
+              loaded: true,
+            ),
+            onSearchChanged: searches.add,
+          );
+        },
+      ),
+    );
+    final search = find.byKey(const ValueKey('users-search'));
+    await tester.enterText(search, 'saff');
+    await tester.pump(const Duration(milliseconds: 100));
+    update(() => items = const [_sam, _hawk]);
+    await tester.pump();
+    expect(tester.widget<DDataTableFilterField>(search).value, 'saff');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(searches, ['saff']);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final changesAccount in [false, true]) {
     testWidgets(
@@ -611,7 +487,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
 
         expect(searches, isEmpty);
-        expect(tester.widget<DInput>(search).controller?.text, 'restored');
+        expect(tester.widget<DDataTableFilterField>(search).value, 'restored');
         await tester.enterText(search, 'new search');
         await tester.pump(const Duration(milliseconds: 350));
         expect(searches, ['new search']);
@@ -651,7 +527,7 @@ void main() {
 
   for (final dialogOpen in [false, true]) {
     testWidgets(
-      'column visibility ${dialogOpen ? 'drafts' : 'choices'} stay with their forum',
+      'column visibility resets for a new forum with menu ${dialogOpen ? 'open' : 'closed'}',
       (tester) async {
         var site = 'https://example.com';
         late StateSetter update;
@@ -673,9 +549,11 @@ void main() {
         );
         await tester.tap(find.byKey(const ValueKey('users-columns')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('users-column-2')));
+        await tester.tap(
+          find.widgetWithText(DDropdownMenuCheckboxItem, 'Replies posted'),
+        );
         if (!dialogOpen) {
-          await tester.tap(find.text('Done'));
+          await tester.tapAt(const Offset(2, 2));
           await tester.pumpAndSettle();
           expect(find.text('Replies posted'), findsNothing);
         }
@@ -683,7 +561,7 @@ void main() {
         update(() => site = 'https://another.example');
         await tester.pump();
         if (dialogOpen) {
-          await tester.tap(find.text('Done'));
+          await tester.tapAt(const Offset(2, 2));
           await tester.pumpAndSettle();
         }
         expect(find.text('Likes received'), findsOneWidget);
@@ -726,7 +604,7 @@ void main() {
           },
         ),
       );
-      await tester.tap(find.byKey(const ValueKey('users-columns')));
+      await tester.tap(find.byKey(const ValueKey('users-manage-columns')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('users-manage-column-9')));
       update(() {
@@ -905,7 +783,7 @@ void main() {
             .height,
         dimension,
       );
-      await tester.tap(find.byKey(const ValueKey('users-columns')));
+      await tester.tap(find.byKey(const ValueKey('users-manage-columns')));
       await tester.pumpAndSettle();
       final down = find.byKey(const ValueKey('users-column-down-1'));
       final up = find.byKey(const ValueKey('users-column-up-2'));
@@ -958,7 +836,7 @@ void main() {
         size: const Size(1100, 820),
       );
 
-      await tester.tap(find.byKey(const ValueKey('users-columns')));
+      await tester.tap(find.byKey(const ValueKey('users-manage-columns')));
       await tester.pumpAndSettle();
 
       expect(find.text('Directory columns'), findsOneWidget);
@@ -1043,7 +921,7 @@ void main() {
       size: const Size(1100, 700),
     );
 
-    await tester.tap(find.byKey(const ValueKey('users-columns')));
+    await tester.tap(find.byKey(const ValueKey('users-manage-columns')));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(390, 700);
     await tester.pumpAndSettle();
@@ -1068,31 +946,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Matrix follows an explicit theme avatar radius', (tester) async {
-    final theme = AppTheme.fromPalette(
-      ResolvedSitePalette.fromJson({
-        'primary': Colors.black.toARGB32(),
-        'secondary': Colors.white.toARGB32(),
-        'tertiary': discourseBlue.toARGB32(),
-        'avatarBorderRadius': const AvatarBorderRadius.pixels(5).toJson(),
-      }),
-    );
-    await _pump(
-      tester,
-      const UsersPage(
-        siteUrl: 'https://example.com',
-        data: UsersPageData(items: [_sam], loaded: true),
-      ),
-      theme: theme,
-    );
-
-    final avatar = tester.widget<DAvatar>(
-      find.byKey(const ValueKey('user-avatar-sam')),
-    );
-    expect(avatar.borderRadius, BorderRadius.circular(5));
-  });
-
-  testWidgets('Matrix loads the next page automatically near the end', (
+  testWidgets('directory loads the next page automatically near the end', (
     tester,
   ) async {
     final items = List.generate(
@@ -1134,7 +988,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Matrix remains usable in a narrow content lane', (tester) async {
+  testWidgets('directory remains usable in a narrow content lane', (
+    tester,
+  ) async {
     await _pump(
       tester,
       const UsersPage(
@@ -1187,7 +1043,7 @@ void main() {
     });
   }
 
-  testWidgets('Matrix exposes stable loading, empty, and error states', (
+  testWidgets('directory exposes stable loading, empty, and error states', (
     tester,
   ) async {
     var data = const UsersPageData(loading: true);
@@ -1217,7 +1073,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Matrix does not show a progress strip while rows update', (
+  testWidgets('directory does not show a progress strip while rows update', (
     tester,
   ) async {
     await _pump(
@@ -1261,19 +1117,15 @@ void main() {
     );
 
     final refresh = find.byKey(const ValueKey('users-refresh'));
-    final button = find.descendant(of: refresh, matching: find.byType(DButton));
+    final button = find.descendant(
+      of: refresh,
+      matching: find.byType(DButton),
+      matchRoot: true,
+    );
     expect(tester.widget<DButton>(button).loading, isTrue);
     expect(
       find.descendant(of: refresh, matching: find.byType(DSpinner)),
       findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<FilledButton>(
-            find.descendant(of: refresh, matching: find.byType(FilledButton)),
-          )
-          .onPressed,
-      isNull,
     );
 
     await tester.tap(refresh);
@@ -1313,30 +1165,14 @@ Finder _metrics(String username) => find.byWidgetPredicate(
       ),
 );
 
-Future<void> _resizeBy(WidgetTester tester, String label, double delta) async {
-  final gesture = await tester.startGesture(tester.getCenter(_resize(label)));
-  // Establish the drag past touch slop before measuring the resize delta.
-  await gesture.moveBy(const Offset(20, 0));
-  await tester.pump();
-  await gesture.moveBy(Offset(delta, 0));
-  await gesture.up();
-}
+Future<void> _resizeBy(WidgetTester tester, String label, double delta) =>
+    tester.drag(_resize(label), Offset(delta, 0));
 
 Finder _resize(String label) => find.byWidgetPredicate(
   (widget) =>
       widget is DResizableHandle &&
       widget.semanticLabel == 'Resize $label column',
 );
-
-List<double?> _barWidths(WidgetTester tester, String username) => [
-  for (final bar in tester.widgetList<FractionallySizedBox>(
-    find.descendant(
-      of: _metrics(username),
-      matching: find.byType(FractionallySizedBox),
-    ),
-  ))
-    bar.widthFactor,
-];
 
 final class _CountingValues extends MapBase<String, Object?> {
   _CountingValues(this._values);
