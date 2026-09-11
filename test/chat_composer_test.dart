@@ -69,6 +69,47 @@ const _gif = GifResult(
 );
 
 void main() {
+  for (final width in [360.0, 1024.0]) {
+    for (final dark in [false, true]) {
+      testWidgets(
+        'composer footer fits at $width in ${dark ? 'dark' : 'light'}',
+        (tester) async {
+          tester.view.physicalSize = Size(width, 800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final fixture = await _fixture(
+            pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          );
+          addTearDown(fixture.shell.dispose);
+          await tester.pumpWidget(_TestView(shell: fixture.shell, dark: dark));
+          await tester.pumpAndSettle();
+          final add = find.byKey(const ValueKey('chat-composer-add'));
+          final emoji = find.byKey(const ValueKey('chat-composer-emoji'));
+          final send = find.byKey(const ValueKey('chat-composer-send'));
+          expect(
+            tester.getRect(_composerField()).bottom,
+            lessThan(tester.getRect(send).top),
+          );
+          expect(tester.getCenter(add).dy, tester.getCenter(send).dy);
+          expect(
+            tester.getRect(emoji).right,
+            lessThan(tester.getRect(send).left),
+          );
+          expect(_button(tester, 'chat-composer-send').onPressed, isNull);
+          await tester.enterText(
+            _composerField(),
+            'A first pass, with a little more room to compose.',
+          );
+          await tester.pumpAndSettle();
+          expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
+          expect(tester.getRect(send).right, lessThanOrEqualTo(width));
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   group('inline replies', () {
     for (final kind in [
       ChatChannelKind.category,
@@ -928,7 +969,7 @@ void main() {
       final add = tester.getRect(
         find.byKey(const ValueKey('chat-composer-add')),
       );
-      final chromeTarget = Offset(add.right + 8, bar.top + 8);
+      final chromeTarget = Offset(bar.center.dx, add.center.dy);
       expect(tester.getRect(fieldFinder).contains(chromeTarget), isFalse);
       expect(add.contains(chromeTarget), isFalse);
       expect(tester.getRect(sendFinder).contains(chromeTarget), isFalse);
@@ -939,7 +980,10 @@ void main() {
 
       field.focusNode!.unfocus();
       await tester.pump();
-      final trailingTarget = Offset(bar.right - 2, bar.center.dy);
+      final trailingTarget = Offset(
+        tester.getRect(sendFinder).left - 12,
+        add.center.dy,
+      );
       expect(tester.getRect(fieldFinder).contains(trailingTarget), isFalse);
       expect(tester.getRect(sendFinder).contains(trailingTarget), isFalse);
       await tester.tapAt(trailingTarget);
@@ -953,7 +997,8 @@ void main() {
       await tester.tap(sendFinder);
       await tester.pump();
 
-      expect(field.focusNode!.hasFocus, isFalse);
+      // Input-group addons focus the editor even when the send action is disabled.
+      expect(field.focusNode!.hasFocus, isTrue);
     });
 
     testWidgets('one-line drafts keep their height at every zoom', (
@@ -1000,7 +1045,15 @@ void main() {
 
         final bar = find.byKey(const ValueKey('chat-composer'));
         final initialHeight = tester.getSize(bar).height;
-        expect(initialHeight, 61);
+        expect(
+          tester.getRect(_composerField()).bottom,
+          lessThan(
+            tester
+                .getRect(find.byKey(const ValueKey('chat-composer-send')))
+                .top,
+          ),
+        );
+        expect(find.text('Send'), findsOneWidget);
         expect(_field(tester).focusNode!.hasFocus, isTrue);
         expect(_field(tester).expands, isFalse);
         expect(_field(tester).minLines, 1);
@@ -1230,7 +1283,7 @@ void main() {
         final compactComposerHeight = tester
             .getSize(find.byKey(const ValueKey('chat-composer')))
             .height;
-        expect(compactComposerHeight, 61);
+        expect(find.text('Send'), findsOneWidget);
         await tester.enterText(_composerField(), 'unrelated draft');
         final pointer = await tester.createGesture(
           kind: PointerDeviceKind.mouse,
@@ -1555,9 +1608,8 @@ void main() {
         );
         expect(addIcon, findsOneWidget);
         expect(
-          (tester.widget<DecoratedBox>(addIcon).decoration as BoxDecoration)
-              .shape,
-          BoxShape.circle,
+          find.descendant(of: addIcon, matching: find.byType(DecoratedBox)),
+          findsNothing,
         );
 
         await tester.tap(add);
@@ -2374,14 +2426,15 @@ Future<void> _closeGifPicker(WidgetTester tester, [GifResult? result]) async {
 }
 
 final class _TestView extends StatelessWidget {
-  const _TestView({required this.shell});
+  const _TestView({required this.shell, this.dark = false});
 
   final ShellController shell;
+  final bool dark;
 
   @override
   Widget build(BuildContext context) {
     final app = MaterialApp(
-      theme: AppTheme.light,
+      theme: dark ? AppTheme.dark : AppTheme.light,
       builder: (context, child) =>
           AppTextScaleRegion(controller: shell.appSettings, child: child!),
       home: const Scaffold(body: ChatChannelView(channelId: 9)),

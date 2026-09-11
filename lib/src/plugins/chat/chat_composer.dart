@@ -859,9 +859,6 @@ class _ChatComposerState extends State<ChatComposer> {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_replyTo case final reply?
-                    when widget.editingMessage == null)
-                  _replyPreview(context, reply),
                 if (composer.uploads.isNotEmpty)
                   ComposerUploadQueue(composer: composer),
                 if (composer.notice case final message?)
@@ -896,48 +893,45 @@ class _ChatComposerState extends State<ChatComposer> {
     final theme = Theme.of(context);
     return Semantics(
       liveRegion: true,
-      child: Padding(
+      child: Row(
         key: const ValueKey('chat-composer-reply'),
-        padding: const EdgeInsets.fromLTRB(12, 0, 0, 6),
-        child: Row(
-          children: [
-            DIcon(
-              DIcons.reply,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Replying to @${reply.username}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium,
+        children: [
+          DIcon(
+            DIcons.reply,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Replying to @${reply.username}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium,
+                ),
+                SiteEmojiText.plain(
+                  reply.excerpt,
+                  siteUrl: widget.siteUrl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  SiteEmojiText.plain(
-                    reply.excerpt,
-                    siteUrl: widget.siteUrl,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            DButton.iconOnly(
-              key: const ValueKey('chat-composer-cancel-reply'),
-              onPressed: _clearReply,
-              tooltip: 'Cancel reply',
-              icon: const DIcon(DIcons.xmark, size: 16),
-              variant: DButtonVariant.ghost,
-            ),
-          ],
-        ),
+          ),
+          DButton.iconOnly(
+            key: const ValueKey('chat-composer-cancel-reply'),
+            onPressed: _clearReply,
+            tooltip: 'Cancel reply',
+            icon: const DIcon(DIcons.xmark, size: 16),
+            variant: DButtonVariant.ghost,
+          ),
+        ],
       ),
     );
   }
@@ -1017,228 +1011,227 @@ class _ChatComposerState extends State<ChatComposer> {
         else if (_replyTo != null)
           const SingleActivator(LogicalKeyboardKey.escape): _clearReply,
       },
-      child: Container(
+      child: DInputGroup(
         key: const ValueKey('chat-composer'),
-        constraints: const BoxConstraints(minHeight: 58),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.shell.divider),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            ValueListenableBuilder<SiteConfig>(
-              valueListenable: host.siteConfigListenableFor(
-                composer.target.siteUrl,
+        children: [
+          DInputGroupControl(
+            focusNode: composer.focus,
+            multiline: true,
+            builder: (context, focusNode) => GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTap: focusNode.requestFocus,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.25,
+                  ),
+                  child: Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    onKeyEvent: (_, event) =>
+                        _handleEditLastMessage(event, composer),
+                    child: ComposerEditor(
+                      composer: composer,
+                      expands: false,
+                      enableDropTarget: widget.uploadDropController == null,
+                      pickImages: widget.pickImages,
+                      onSuggestionAction:
+                          ({
+                            required context,
+                            required composer,
+                            required suggestion,
+                            anchor,
+                          }) async {
+                            if (suggestion.action !=
+                                ComposerSuggestionAction.openEmojiPicker) {
+                              return;
+                            }
+                            await _pickEmoji(
+                              pickerContext: context,
+                              initialQuery:
+                                  composer.autocomplete.trigger?.query ??
+                                  suggestion.value,
+                              anchor: anchor,
+                            );
+                          },
+                      hintText: hint,
+                      textStyle: theme.textTheme.bodyLarge,
+                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              builder: (context, _, _) {
-                final gifs = PluginUiScope.maybe(context, chatGifsService);
-                final canUpload = composer.imageUploader != null;
-                final canInsertGif =
-                    widget.editingMessage == null &&
-                    (gifs?.isAvailable(widget.siteUrl) ?? false);
-                final options = <CommandMenuOption<_ChatComposerAddAction>>[
-                  if (canUpload)
-                    const CommandMenuOption(
-                      value: _ChatComposerAddAction.uploadImages,
-                      label: 'Upload images',
-                      icon: DIcons.upload,
-                      key: ValueKey('chat-composer-upload'),
-                    ),
-                  if (canInsertGif)
-                    const CommandMenuOption(
-                      value: _ChatComposerAddAction.gif,
-                      label: 'Insert GIF',
-                      icon: gifsPickerIcon,
-                      key: ValueKey('chat-composer-gif'),
-                    ),
-                ];
-                if (options.isEmpty) return const SizedBox.shrink();
+            ),
+          ),
+          if (_replyTo case final reply? when widget.editingMessage == null)
+            DInputGroupAddon(
+              alignment: DInputGroupAddonAlignment.blockStart,
+              child: _replyPreview(context, reply),
+            ),
+          DInputGroupAddon(
+            alignment: DInputGroupAddonAlignment.blockEnd,
+            child: Row(
+              spacing: DSpacing.sm,
+              children: [
+                ValueListenableBuilder<SiteConfig>(
+                  valueListenable: host.siteConfigListenableFor(
+                    composer.target.siteUrl,
+                  ),
+                  builder: (context, _, _) {
+                    final gifs = PluginUiScope.maybe(context, chatGifsService);
+                    final canUpload = composer.imageUploader != null;
+                    final canInsertGif =
+                        widget.editingMessage == null &&
+                        (gifs?.isAvailable(widget.siteUrl) ?? false);
+                    final options = <CommandMenuOption<_ChatComposerAddAction>>[
+                      if (canUpload)
+                        const CommandMenuOption(
+                          value: _ChatComposerAddAction.uploadImages,
+                          label: 'Upload images',
+                          icon: DIcons.upload,
+                          key: ValueKey('chat-composer-upload'),
+                        ),
+                      if (canInsertGif)
+                        const CommandMenuOption(
+                          value: _ChatComposerAddAction.gif,
+                          label: 'Insert GIF',
+                          icon: gifsPickerIcon,
+                          key: ValueKey('chat-composer-gif'),
+                        ),
+                    ];
+                    if (options.isEmpty) return const SizedBox.shrink();
 
-                final enabled =
-                    !_pickingGif &&
-                    !_pickingImages &&
-                    !_pickingEmoji &&
-                    !_savingEdit &&
-                    (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false);
-                return Center(
-                  heightFactor: 1,
-                  child: CommandMenuAnchor<_ChatComposerAddAction>(
-                    title: 'Add to message',
-                    options: options,
-                    enabled: enabled,
-                    onSelected: (action) => switch (action) {
-                      _ChatComposerAddAction.uploadImages => unawaited(
-                        _pickImages(),
-                      ),
-                      _ChatComposerAddAction.gif => unawaited(_pickGif()),
-                    },
-                    builder: (context, openMenu) => DButton.iconOnly(
-                      key: const ValueKey('chat-composer-add'),
-                      onPressed: openMenu,
-                      icon: DecoratedBox(
-                        key: const ValueKey('chat-composer-add-icon'),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.08,
+                    final enabled =
+                        !_pickingGif &&
+                        !_pickingImages &&
+                        !_pickingEmoji &&
+                        !_savingEdit &&
+                        (_chat?.canSendMessageTo(widget.siteUrl, _target) ??
+                            false);
+                    return Center(
+                      heightFactor: 1,
+                      child: CommandMenuAnchor<_ChatComposerAddAction>(
+                        title: 'Add to message',
+                        options: options,
+                        enabled: enabled,
+                        onSelected: (action) => switch (action) {
+                          _ChatComposerAddAction.uploadImages => unawaited(
+                            _pickImages(),
                           ),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(5),
-                          child: DIcon(DIcons.plus, size: 18),
+                          _ChatComposerAddAction.gif => unawaited(_pickGif()),
+                        },
+                        builder: (context, openMenu) => DButton.iconOnly(
+                          key: const ValueKey('chat-composer-add'),
+                          onPressed: openMenu,
+                          icon: const DIcon(
+                            DIcons.plus,
+                            key: ValueKey('chat-composer-add-icon'),
+                            size: 16,
+                          ),
+                          tooltip: 'Add to message',
+                          variant: DButtonVariant.ghost,
                         ),
                       ),
-                      tooltip: 'Add to message',
+                    );
+                  },
+                ),
+                ValueListenableBuilder<SiteConfig>(
+                  valueListenable: host.siteConfigListenableFor(
+                    composer.target.siteUrl,
+                  ),
+                  builder: (context, config, _) {
+                    final emojiEnabled = config.emojiEnabled;
+                    _closeDisabledEmojiAutocomplete(emojiEnabled);
+                    _updateMarkdownLinkify(config);
+                    return emojiEnabled
+                        ? EmojiPickerAnchor(
+                            child: Center(
+                              heightFactor: 1,
+                              child: Builder(
+                                builder: (buttonContext) => DButton.iconOnly(
+                                  key: const ValueKey('chat-composer-emoji'),
+                                  onPressed:
+                                      _pickingGif ||
+                                          _pickingImages ||
+                                          _pickingEmoji ||
+                                          _savingEdit ||
+                                          !(_chat?.canSendMessage(
+                                                widget.siteUrl,
+                                                widget.channelId,
+                                              ) ??
+                                              false)
+                                      ? null
+                                      : () => unawaited(
+                                          _pickEmoji(
+                                            pickerContext: buttonContext,
+                                          ),
+                                        ),
+                                  icon: const DIcon(
+                                    DIcons.discourseEmojis,
+                                    size: 16,
+                                  ),
+                                  tooltip: 'Add emoji',
+                                  variant: DButtonVariant.ghost,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink();
+                  },
+                ),
+                const Spacer(),
+                if (widget.editingMessage != null)
+                  Center(
+                    heightFactor: 1,
+                    child: DButton.iconOnly(
+                      key: const ValueKey('chat-composer-edit-cancel'),
+                      onPressed: _savingEdit ? null : _cancelEdit,
+                      icon: const DIcon(DIcons.xmark, size: 16),
+                      tooltip: 'Cancel edit',
                       variant: DButtonVariant.ghost,
                     ),
                   ),
-                );
-              },
-            ),
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                excludeFromSemantics: true,
-                onTap: composer.focus.requestFocus,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 56),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 13.5, 0, 13.5),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.sizeOf(context).height * 0.25,
-                      ),
-                      child: Focus(
-                        canRequestFocus: false,
-                        skipTraversal: true,
-                        onKeyEvent: (_, event) =>
-                            _handleEditLastMessage(event, composer),
-                        child: ComposerEditor(
-                          composer: composer,
-                          expands: false,
-                          enableDropTarget: widget.uploadDropController == null,
-                          pickImages: widget.pickImages,
-                          onSuggestionAction:
-                              ({
-                                required context,
-                                required composer,
-                                required suggestion,
-                                anchor,
-                              }) async {
-                                if (suggestion.action !=
-                                    ComposerSuggestionAction.openEmojiPicker) {
-                                  return;
-                                }
-                                await _pickEmoji(
-                                  pickerContext: context,
-                                  initialQuery:
-                                      composer.autocomplete.trigger?.query ??
-                                      suggestion.value,
-                                  anchor: anchor,
-                                );
-                              },
-                          hintText: hint,
-                          textStyle: theme.textTheme.bodyLarge,
-                          hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
+                Center(
+                  heightFactor: 1,
+                  child: DButton(
+                    key: const ValueKey('chat-composer-send'),
+                    label: Text(
+                      widget.editingMessage == null ? 'Send' : 'Save',
                     ),
+                    onPressed:
+                        _pickingGif ||
+                            _pickingImages ||
+                            _pickingEmoji ||
+                            _savingEdit ||
+                            !composer.canSubmit ||
+                            composer.hasActiveUploads ||
+                            !(_chat?.canSendMessageTo(
+                                  widget.siteUrl,
+                                  _target,
+                                ) ??
+                                false)
+                        ? null
+                        : () => _send(composer),
+                    icon: _savingEdit
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: DSpinner(),
+                          )
+                        : const DIcon(DIcons.paperPlane, size: 16),
+                    tooltip: widget.editingMessage == null
+                        ? 'Send message'
+                        : 'Save edit',
+                    variant: DButtonVariant.primary,
                   ),
                 ),
-              ),
+              ],
             ),
-            ValueListenableBuilder<SiteConfig>(
-              valueListenable: host.siteConfigListenableFor(
-                composer.target.siteUrl,
-              ),
-              builder: (context, config, _) {
-                final emojiEnabled = config.emojiEnabled;
-                _closeDisabledEmojiAutocomplete(emojiEnabled);
-                _updateMarkdownLinkify(config);
-                return emojiEnabled
-                    ? EmojiPickerAnchor(
-                        child: Center(
-                          heightFactor: 1,
-                          child: Builder(
-                            builder: (buttonContext) => DButton.iconOnly(
-                              key: const ValueKey('chat-composer-emoji'),
-                              onPressed:
-                                  _pickingGif ||
-                                      _pickingImages ||
-                                      _pickingEmoji ||
-                                      _savingEdit ||
-                                      !(_chat?.canSendMessage(
-                                            widget.siteUrl,
-                                            widget.channelId,
-                                          ) ??
-                                          false)
-                                  ? null
-                                  : () => unawaited(
-                                      _pickEmoji(pickerContext: buttonContext),
-                                    ),
-                              icon: const DIcon(
-                                DIcons.discourseEmojis,
-                                size: 18,
-                              ),
-                              tooltip: 'Add emoji',
-                              variant: DButtonVariant.ghost,
-                            ),
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink();
-              },
-            ),
-            if (widget.editingMessage != null)
-              Center(
-                heightFactor: 1,
-                child: DButton.iconOnly(
-                  key: const ValueKey('chat-composer-edit-cancel'),
-                  onPressed: _savingEdit ? null : _cancelEdit,
-                  icon: const DIcon(DIcons.xmark, size: 18),
-                  tooltip: 'Cancel edit',
-                  variant: DButtonVariant.ghost,
-                ),
-              ),
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: composer.text,
-              builder: (context, _, _) => Center(
-                heightFactor: 1,
-                child: DButton.iconOnly(
-                  key: const ValueKey('chat-composer-send'),
-                  onPressed:
-                      _pickingGif ||
-                          _pickingImages ||
-                          _pickingEmoji ||
-                          _savingEdit ||
-                          !composer.canSubmit ||
-                          composer.hasActiveUploads ||
-                          !(_chat?.canSendMessageTo(widget.siteUrl, _target) ??
-                              false)
-                      ? null
-                      : () => _send(composer),
-                  icon: _savingEdit
-                      ? const SizedBox.square(dimension: 18, child: DSpinner())
-                      : const DIcon(DIcons.paperPlane, size: 18),
-                  tooltip: widget.editingMessage == null
-                      ? 'Send message'
-                      : 'Save edit',
-                  variant: DButtonVariant.primary,
-                ),
-              ),
-            ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              onTap: composer.focus.requestFocus,
-              child: const SizedBox(width: 4, height: 56),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
