@@ -270,6 +270,7 @@ class _TopicListNavigationControls extends StatelessWidget {
               : AlignmentDirectional.centerStart,
           child: DSelect<TopPeriod>(
             key: const ValueKey('topic-list-top-period'),
+            size: DControlSize.extraSmall,
             value: mode.topPeriod,
             semanticLabel: 'Top period',
             entries: [
