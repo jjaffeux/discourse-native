@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'platform.dart';
 
 const double shellHeaderHeight = 52;
-const topicBottomBarPadding = EdgeInsets.symmetric(horizontal: 8, vertical: 6);
+const topicBottomBarPadding = EdgeInsets.all(8);
 
 double topicBottomBarControlHeight(BuildContext context) {
   final fontSize = DButton.fontSizeFor(DButtonSize.small);
