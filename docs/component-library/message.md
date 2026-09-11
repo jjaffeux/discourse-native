@@ -260,6 +260,12 @@ review was performed.
 
 ### DM hover dropdown (2026-09-11)
 
+Follow-up: the DM menu uses a continuous list of actions, with no separator
+rows before Delete or Select. The shared dropdown separator's palette-contrast
+fix is recorded in [Dropdown Menu](dropdown-menu.md#2026-09-11-separator-contrast-fix).
+Widget coverage checks adjacent action bounds, and the macOS production fixture
+confirmed the compact menu and working Select callback.
+
 Desktop DM tiles replace the floating hover toolbar with one trailing chevron
 inside the message bubble, using `DDropdownMenu`, `DDropdownMenuTrigger`,
 `DButton.iconOnly` and `DDropdownMenuItem` from the public kit. The trigger's

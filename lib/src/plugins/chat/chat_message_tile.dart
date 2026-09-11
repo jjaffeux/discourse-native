@@ -797,8 +797,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                   () => unawaited(_rebake()),
                   busy: _rebaking,
                 ),
-              if (canDelete) ...[
-                const DDropdownMenuSeparator(),
+              if (canDelete)
                 item(
                   'delete',
                   'Delete',
@@ -806,11 +805,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                   () => unawaited(_delete()),
                   destructive: true,
                 ),
-              ],
-              if (widget.onSelect case final select?) ...[
-                const DDropdownMenuSeparator(),
+              if (widget.onSelect case final select?)
                 item('select', 'Select', DIcons.list, select),
-              ],
             ],
           ),
           child: DDropdownMenuTrigger(

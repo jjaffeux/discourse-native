@@ -36,7 +36,7 @@ examples.
 | Mobile accessibility | the same 20px artwork uses an invisible/empty 48px row bound on iOS/Android |
 | Label `px-1.5 py-1 text-xs font-medium muted` | 6×4px, 12/16 medium host font and `mutedForeground` |
 | Inset `pl-7` | 28px logical start padding, mirrored in RTL |
-| Separator `-mx-1 my-1 h-px bg-border` | 1px `DTokens.border` rule extending through the popup padding with 4px vertical gap |
+| Separator `-mx-1 my-1 h-px bg-border` | 1px rule extending through the popup padding with 4px vertical gap; retains `DTokens.border` when visible against the floating surface, otherwise uses a 10% foreground tint |
 | Shortcut `ml-auto text-xs tracking-widest muted` | logical trailing 12/16 text with 1.2px tracking and muted token |
 | Icon slots `[svg]:size-4 gap-1.5` | caller-supplied 16px `IconTheme` slots and 6px gap |
 | Destructive focus `destructive/10`, dark `/20` | multiplied live destructive alpha at 10% light / 20% dark |
@@ -75,6 +75,31 @@ Flutter `Scrollable` or scrollbar and ignore wheel input. A popup-local
 viewport is introduced only after the rows exceed the collision- or
 caller-constrained height, preserving access to long menus without making the
 ordinary shadcn compositions scroll.
+
+## 2026-09-11 separator contrast fix
+
+The content-border token can match a site's floating surface. Even the built-in
+dark theme rendered the separator at only 1.045:1 contrast, leaving an apparent
+9px empty gap. Dropdown separators now retain the palette border when its
+contrast is stronger than the popup's 10% foreground tint, and use that tint
+otherwise. This local adaptation leaves general content borders unchanged and
+also reaches Context Menu and Menubar through their existing separator adapters.
+The 1px line, 4px vertical margins, full popup width and decorative semantics
+remain unchanged.
+
+Rendered-pixel regressions cover open-menu theme changes in light, dark, Forest,
+Plum and two site palettes whose content borders match their menu surfaces,
+with both reading directions and 200% text. They verify the full-width line,
+visible contrast, retained stronger palette colors, and keyboard skipping.
+The original dark rendering fails these tests. The focused Dropdown Menu,
+styleguide, Context Menu, Menubar and DM suites passed (102 tests).
+
+The actual macOS Message review fixture now includes the Dropdown Menu
+Composition example. Native inspection checked its visible separators in light
+and dark, plus Plum at 360px/200%/RTL. The production DM menu was inspected with
+no separator gaps between Edit, Delete and Select, and Select reported DM 204.
+The debug macOS build and static analysis passed; no other-device or spoken
+VoiceOver verification is claimed.
 
 ## Acceptance criteria
 

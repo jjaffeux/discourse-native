@@ -396,6 +396,18 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Pin'), findsOneWidget);
         expect(find.text('Select'), findsOneWidget);
+        expect(find.byType(DDropdownMenuSeparator), findsNothing);
+        final edit = tester.getRect(
+          find.widgetWithText(DDropdownMenuItem, 'Edit'),
+        );
+        final delete = tester.getRect(
+          find.widgetWithText(DDropdownMenuItem, 'Delete'),
+        );
+        final select = tester.getRect(
+          find.widgetWithText(DDropdownMenuItem, 'Select'),
+        );
+        expect(delete.top, edit.bottom);
+        expect(select.top, delete.bottom);
         expect(
           tester
               .widget<DDropdownMenuItem>(

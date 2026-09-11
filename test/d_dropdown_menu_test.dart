@@ -1,7 +1,13 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,6 +37,133 @@ void main() {
   Future<void> open(WidgetTester tester) async {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
+  }
+
+  for (final direction in TextDirection.values) {
+    testWidgets('separators paint visible full-width lines in $direction', (
+      tester,
+    ) async {
+      final theme = ValueNotifier(AppTheme.light);
+      addTearDown(theme.dispose);
+      final capture = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: capture,
+          child: ValueListenableBuilder(
+            valueListenable: theme,
+            builder: (context, value, _) => MaterialApp(
+              theme: value.copyWith(platform: TargetPlatform.macOS),
+              home: Scaffold(
+                body: Directionality(
+                  textDirection: direction,
+                  child: MediaQuery(
+                    data: const MediaQueryData(
+                      textScaler: TextScaler.linear(2),
+                    ),
+                    child: Center(
+                      child: DDropdownMenu(
+                        content: const DDropdownMenuContent(
+                          width: 220,
+                          children: [
+                            DDropdownMenuItem(
+                              onPressed: _noop,
+                              child: Text('First'),
+                            ),
+                            DDropdownMenuSeparator(),
+                            DDropdownMenuItem(
+                              onPressed: _noop,
+                              child: Text('Last'),
+                            ),
+                          ],
+                        ),
+                        child: DDropdownMenuTrigger.button(
+                          label: const Text('Open'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await open(tester);
+      final separator = find.byType(DDropdownMenuSeparator);
+      final element = tester.element(separator);
+      for (final value in [
+        AppTheme.light,
+        AppTheme.dark,
+        StyleguideTheme.forest.resolve(AppTheme.light),
+        StyleguideTheme.plum.resolve(AppTheme.dark),
+        for (final dark in [false, true])
+          AppTheme.fromPalette(
+            ResolvedSitePalette.fromJson({
+              'primary': dark ? 0xFFDDDDDD : 0xFF222222,
+              'secondary': dark ? 0xFF222222 : 0xFFFFFFFF,
+              'tertiary': 0xFF0088CC,
+              // Site content dividers can match the floating menu surface.
+              'contentBorderColor': dark ? 0xFF303030 : 0xFFFFFFFF,
+              'secondaryVeryHigh': dark ? 0xFF303030 : 0xFFFFFFFF,
+            }),
+          ),
+      ]) {
+        theme.value = value;
+        await tester.pumpAndSettle();
+        expect(tester.element(separator), same(element));
+        final line = find.descendant(
+          of: separator,
+          matching: find.byType(ColoredBox),
+        );
+        final lineRect = tester.getRect(line);
+        final menuRect = tester.getRect(find.byType(DDropdownMenuContent));
+        expect(lineRect.width, menuRect.width);
+        expect(lineRect.left, menuRect.left);
+        expect(lineRect.height, 1);
+        expect(tester.getSize(separator).height, 9);
+        final boundary =
+            capture.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        final pixels = (await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 2);
+          try {
+            final data = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!;
+            Color pixel(Offset point) {
+              final local = boundary.globalToLocal(point) * 2;
+              final index =
+                  (local.dy.floor() * image.width + local.dx.floor()) * 4;
+              return Color.fromARGB(
+                data.getUint8(index + 3),
+                data.getUint8(index),
+                data.getUint8(index + 1),
+                data.getUint8(index + 2),
+              );
+            }
+
+            return [
+              pixel(lineRect.center),
+              pixel(Offset(lineRect.left + 2, lineRect.center.dy)),
+              pixel(lineRect.center.translate(0, -2)),
+            ];
+          } finally {
+            image.dispose();
+          }
+        }))!;
+        expect(_contrast(pixels[0], pixels[2]), greaterThan(1.2));
+        expect(pixels[1], pixels[0]);
+        final tokens = DTokens.of(tester.element(separator));
+        if (_contrast(tokens.border, tokens.surface) > 1.4) {
+          expect(pixels[0], tokens.border);
+        }
+        expect(tester.takeException(), isNull);
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        contains('Last'),
+      );
+    });
   }
 
   testWidgets(
@@ -965,6 +1098,12 @@ void main() {
     );
     semantics.dispose();
   });
+}
+
+double _contrast(Color first, Color second) {
+  final a = first.computeLuminance() + 0.05;
+  final b = second.computeLuminance() + 0.05;
+  return a > b ? a / b : b / a;
 }
 
 class _MenuHarness extends StatefulWidget {
