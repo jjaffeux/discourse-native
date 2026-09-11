@@ -86,10 +86,10 @@ void main() {
                 of: button,
                 matching: find.byType(Material),
               );
-              expect(tester.getSize(surface), const Size.square(32));
+              expect(tester.getSize(surface), tester.getSize(button));
               final bounds = tester.getRect(button);
               final edge = Offset(bounds.left + 1, bounds.center.dy);
-              expect(tester.getRect(surface).contains(edge), isFalse);
+              expect(tester.getRect(surface).contains(edge), isTrue);
               if (button == create) {
                 await tester.tapAt(edge);
                 await tester.pumpAndSettle();
@@ -142,28 +142,54 @@ void main() {
   });
 
   for (final direction in TextDirection.values) {
-    testWidgets('joins the buttons with outside corners in $direction', (
-      tester,
-    ) async {
-      await _pump(tester, direction: direction);
-      final create = find.byKey(TopicCreateButton.buttonKey);
-      final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
-      final createRadius = buttonSurface(tester, of: create).borderRadius;
-      final draftsRadius = buttonSurface(tester, of: drafts).borderRadius;
-      if (direction == TextDirection.ltr) {
-        expect(createRadius.topLeft.x, greaterThan(0));
-        expect(createRadius.topRight, Radius.zero);
-        expect(draftsRadius.topLeft, Radius.zero);
-        expect(draftsRadius.topRight.x, greaterThan(0));
-        expect(tester.getRect(drafts).left - tester.getRect(create).right, 1);
-      } else {
-        expect(createRadius.topRight.x, greaterThan(0));
-        expect(createRadius.topLeft, Radius.zero);
-        expect(draftsRadius.topRight, Radius.zero);
-        expect(draftsRadius.topLeft.x, greaterThan(0));
-        expect(tester.getRect(create).left - tester.getRect(drafts).right, 1);
-      }
-    });
+    for (final compact in [false, true]) {
+      testWidgets(
+        'joins ${compact ? 'compact' : 'labeled'} button surfaces in $direction',
+        (tester) async {
+          await _pump(
+            tester,
+            direction: direction,
+            compact: compact,
+            showLabel: !compact,
+          );
+          final create = find.byKey(TopicCreateButton.buttonKey);
+          final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
+          final createSurface = tester.getRect(
+            find.descendant(of: create, matching: find.byType(Material)),
+          );
+          final draftsSurface = tester.getRect(
+            find.descendant(of: drafts, matching: find.byType(Material)),
+          );
+          expect(
+            direction == TextDirection.ltr
+                ? draftsSurface.left - createSurface.right
+                : createSurface.left - draftsSurface.right,
+            1,
+          );
+          final createRadius = buttonSurface(tester, of: create).borderRadius;
+          final draftsRadius = buttonSurface(tester, of: drafts).borderRadius;
+          if (direction == TextDirection.ltr) {
+            expect(createRadius.topLeft.x, greaterThan(0));
+            expect(createRadius.topRight, Radius.zero);
+            expect(draftsRadius.topLeft, Radius.zero);
+            expect(draftsRadius.topRight.x, greaterThan(0));
+            expect(
+              tester.getRect(drafts).left - tester.getRect(create).right,
+              1,
+            );
+          } else {
+            expect(createRadius.topRight.x, greaterThan(0));
+            expect(createRadius.topLeft, Radius.zero);
+            expect(draftsRadius.topRight, Radius.zero);
+            expect(draftsRadius.topLeft.x, greaterThan(0));
+            expect(
+              tester.getRect(create).left - tester.getRect(drafts).right,
+              1,
+            );
+          }
+        },
+      );
+    }
   }
 
   testWidgets('keeps a standalone create action when there are no drafts', (
