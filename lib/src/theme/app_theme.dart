@@ -548,8 +548,8 @@ abstract final class AppTheme {
           surfaceContainerHighest: palette.primaryLow,
           outline: palette.contentBorderColor,
           // The input role paints outline controls and their dark-mode fill.
-          // Use a subtle surface step rather than the muted foreground step.
-          outlineVariant: palette.primaryLow,
+          // Keep its outline distinct from floating and low-contrast surfaces.
+          outlineVariant: palette.primaryLowMid,
           surfaceTint: palette.tertiary,
         );
 
