@@ -372,7 +372,7 @@ void main() {
             .map((emoji) => emoji.name),
         ['sparkles', 'smiley'],
       );
-      expect(find.byTooltip('Edit draft'), findsOneWidget);
+      expect(find.byTooltip('Edit draft'), findsNothing);
       expect(find.byTooltip('Remove draft'), findsOneWidget);
       expect(
         find.descendant(
@@ -480,9 +480,9 @@ void main() {
           find.byKey(const ValueKey('draft-list-loading-skeleton')),
           findsNothing,
         );
-        expect(find.byTooltip('Edit draft'), findsOneWidget);
+        expect(find.byTooltip('Remove draft'), findsOneWidget);
         final draftRow = find.ancestor(
-          of: find.byTooltip('Edit draft'),
+          of: find.byTooltip('Remove draft'),
           matching: find.byWidgetPredicate(
             (widget) =>
                 widget is ConstrainedBox &&
@@ -506,7 +506,7 @@ void main() {
       }
     });
 
-    testWidgets('exposes 44-pixel compact actions to the keyboard', (
+    testWidgets('supports keyboard removal and opening the draft row', (
       tester,
     ) async {
       await _pump(tester, size: const Size(390, 844));
@@ -516,12 +516,14 @@ void main() {
       controller.openDrafts(_siteUrl);
       await tester.pumpAndSettle();
 
-      final edit = find.byTooltip('Edit draft');
+      expect(find.byTooltip('Edit draft'), findsNothing);
       final remove = find.byTooltip('Remove draft');
-      expect(tester.getSize(edit), const Size.square(44));
-      expect(tester.getSize(remove), const Size.square(44));
+      final button = tester.widget<DButton>(
+        find.ancestor(of: remove, matching: find.byType(DButton)),
+      );
+      expect(button.size, DButtonSize.small);
       final row = find.ancestor(
-        of: edit,
+        of: remove,
         matching: find.byWidgetPredicate(
           (widget) =>
               widget is ConstrainedBox &&
@@ -542,8 +544,7 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
-      await _focusDraftAction(tester, edit);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.tapAt(tester.getTopLeft(row.first) + const Offset(24, 24));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -627,7 +628,7 @@ void main() {
         await tester.pumpAndSettle();
 
         final draftRow = find.ancestor(
-          of: find.byTooltip('Edit draft'),
+          of: find.byTooltip('Remove draft'),
           matching: find.byWidgetPredicate(
             (widget) =>
                 widget is ConstrainedBox &&
@@ -796,8 +797,8 @@ void main() {
         categoryName: 'Support for administrators and community managers',
       );
       expect(tester.takeException(), isNull);
+      expect(find.byTooltip('Edit draft'), findsNothing);
       expect(find.byTooltip('Remove draft'), findsOneWidget);
-      expect(find.byTooltip('Edit draft'), findsOneWidget);
     });
 
     testWidgets('scrolls empty-state copy in a short window with large text', (
@@ -876,7 +877,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byTooltip('Edit draft'));
+        await tester.tapAt(
+          tester.getTopLeft(find.byTooltip('Remove draft')) -
+              const Offset(100, 0),
+        );
         await tester.pumpAndSettle();
 
         expect(find.byType(ComposerPanel), findsOneWidget);

@@ -295,14 +295,8 @@ class _DraftSkeletonRow extends StatelessWidget {
               ),
               SizedBox(width: compact ? 8 : 16),
               const DSkeleton(
-                width: 44,
-                height: 44,
-                borderRadius: BorderRadius.all(Radius.circular(6)),
-              ),
-              SizedBox(width: compact ? 6 : 10),
-              const DSkeleton(
-                width: 44,
-                height: 44,
+                width: 28,
+                height: 28,
                 borderRadius: BorderRadius.all(Radius.circular(6)),
               ),
             ],
@@ -520,7 +514,6 @@ class _DraftRowContent extends StatelessWidget {
     final title = draft.displayTitle == 'Untitled draft'
         ? null
         : draft.displayTitle;
-    const actionSize = 44.0;
 
     final row = InkWell(
       onTap: action,
@@ -589,22 +582,12 @@ class _DraftRowContent extends StatelessWidget {
               ),
             ),
             SizedBox(width: compact ? 8 : 16),
-            _DraftAction(
-              tooltip: onResume == null ? 'Open draft on forum' : 'Edit draft',
-              onPressed: action,
-              icon: DIcons.pencil,
-              size: actionSize,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              foregroundColor: theme.colorScheme.onSurfaceVariant,
-            ),
-            SizedBox(width: compact ? 6 : 10),
-            _DraftAction(
+            DButton.iconOnly(
               tooltip: 'Remove draft',
               onPressed: deleting ? null : onRemove,
-              icon: DIcons.trashCan,
-              size: actionSize,
-              backgroundColor: theme.colorScheme.errorContainer,
-              foregroundColor: theme.colorScheme.onErrorContainer,
+              icon: const DIcon(DIcons.trashCan),
+              size: DButtonSize.small,
+              variant: DButtonVariant.destructive,
               loading: deleting,
             ),
           ],
@@ -654,54 +637,6 @@ class _DraftCategory extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _DraftAction extends StatelessWidget {
-  const _DraftAction({
-    required this.tooltip,
-    required this.onPressed,
-    required this.icon,
-    required this.size,
-    required this.backgroundColor,
-    required this.foregroundColor,
-    this.loading = false,
-  });
-
-  final String tooltip;
-  final VoidCallback? onPressed;
-  final DIconData icon;
-  final double size;
-  final Color backgroundColor;
-  final Color foregroundColor;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    return DTooltip(
-      message: tooltip,
-      child: Material(
-        color: onPressed == null
-            ? backgroundColor.withValues(alpha: 0.5)
-            : backgroundColor,
-        borderRadius: BorderRadius.circular(6),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: SizedBox.square(
-            dimension: size,
-            child: Center(
-              child: loading
-                  ? SizedBox.square(
-                      dimension: 18,
-                      child: DSpinner(color: foregroundColor, size: 18),
-                    )
-                  : DIcon(icon, size: 18, color: foregroundColor),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
