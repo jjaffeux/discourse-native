@@ -21,6 +21,7 @@ import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1717,6 +1718,45 @@ void main() {
     expect(tester.widget<Text>(heading).overflow, TextOverflow.ellipsis);
     expect(tester.getRect(heading).right, lessThan(360));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('feed options highlight under the mouse in the desktop shell', (
+    tester,
+  ) async {
+    final setup = await _controller();
+    addTearDown(setup.controller.dispose);
+    tester.view.physicalSize = const Size(1800, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    setup.controller.openTopic(_latestTopic);
+    final theme = AppTheme.dark.copyWith(platform: TargetPlatform.macOS);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: setup.controller,
+        child: MaterialApp(theme: theme, home: const AdaptiveShell()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+    final trigger = find.byKey(const ValueKey('topic-list-feed-select'));
+    await mouse.moveTo(tester.getCenter(trigger));
+    await mouse.down(tester.getCenter(trigger));
+    await mouse.up();
+    await tester.pumpAndSettle();
+    final row = find.byKey(
+      const ValueKey<(String, TopicListMode?)>((
+        'd-select-item',
+        TopicListMode.popular,
+      )),
+    );
+    await mouse.moveTo(tester.getCenter(row));
+    await tester.pumpAndSettle();
+    expect(
+      (tester.widget<Container>(row).decoration as BoxDecoration).color,
+      theme.hoverColor,
+    );
   });
 
   testWidgets('wide shell divides the sidebar from main content', (

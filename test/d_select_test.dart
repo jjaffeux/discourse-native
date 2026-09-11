@@ -198,6 +198,15 @@ void main() {
         );
         expect(_rowBackground(tester, 'apple').a, 0);
         expect(_rowBackground(tester, 'banana'), theme.hoverColor);
+        FocusManager.instance.primaryFocus!.unfocus();
+        await tester.pumpAndSettle();
+        expect(_rowBackground(tester, 'banana'), theme.hoverColor);
+        await mouse.moveTo(const Offset(1, 1));
+        await tester.pumpAndSettle();
+        expect(_rowBackground(tester, 'banana'), Colors.transparent);
+        await mouse.moveTo(tester.getCenter(find.text('Banana')));
+        await tester.pumpAndSettle();
+
         expect(
           _rowBackground(tester, 'banana'),
           isNot(theme.extension<DTokens>()!.surface),
@@ -1072,7 +1081,7 @@ Future<void> _mount(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: theme ?? AppTheme.light,
+      theme: (theme ?? AppTheme.light).copyWith(platform: TargetPlatform.macOS),
       home: Scaffold(body: Center(child: child)),
     ),
   );

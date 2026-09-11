@@ -792,6 +792,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
   late final FocusNode _ownedFocus;
   final List<FocusNode> _optionFocus = [];
   bool _localOpen = false;
+  bool _pointerHighlight = false;
+  int? _hoveredIndex;
   bool _triggerFocused = false;
   bool _triggerHovered = false;
   bool _triggerPressed = false;
@@ -968,6 +970,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
 
   KeyEventResult _popupKey(KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (_pointerHighlight) setState(() => _pointerHighlight = false);
     final current = _optionFocus.indexWhere((node) => node.hasPrimaryFocus);
     if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
         event.logicalKey == LogicalKeyboardKey.arrowUp) {
@@ -1089,6 +1092,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       _focus.requestFocus();
     }
     if (!open) {
+      _pointerHighlight = false;
+      _hoveredIndex = null;
       _resetTypeahead();
     }
     widget.onOpenChange?.call(open, reason);
@@ -1178,7 +1183,23 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
   ) {
     if (entry case DSelectItem<T> item) {
       indices.moveNext();
+      final index = indices.current;
       return _DSelectOptionRow<T>(
+        pointerHighlighted: _pointerHighlight ? _hoveredIndex == index : null,
+        onHover: (hovered) {
+          if (!widget.highlightItemOnHover) return;
+          if (_pointerHighlight && _hoveredIndex == (hovered ? index : null)) {
+            return;
+          }
+          setState(() {
+            _pointerHighlight = true;
+            if (hovered) {
+              _hoveredIndex = index;
+            } else if (_hoveredIndex == index) {
+              _hoveredIndex = null;
+            }
+          });
+        },
         item: item,
         index: indices.current,
         focusNode: _optionFocus[indices.current],
@@ -1590,6 +1611,8 @@ class _DSelectOptionRow<T> extends StatefulWidget {
   const _DSelectOptionRow({
     required this.item,
     required this.index,
+    required this.pointerHighlighted,
+    required this.onHover,
     required this.focusNode,
     required this.selected,
     required this.enabled,
@@ -1603,6 +1626,8 @@ class _DSelectOptionRow<T> extends StatefulWidget {
 
   final DSelectItem<T> item;
   final int index;
+  final bool? pointerHighlighted;
+  final ValueChanged<bool> onHover;
   final FocusNode focusNode;
   final bool selected;
   final bool enabled;
@@ -1624,10 +1649,9 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final enabled = widget.enabled && widget.item.enabled;
-    // Focus is the single source of truth for the active row. Pointer entry
-    // moves focus only when hover highlighting is enabled, matching Base UI's
-    // distinction between pointer hover and the highlighted item.
-    final highlighted = enabled && _focused;
+    // Pointer feedback remains visible even if another control takes focus.
+    // Keyboard input restores focus-based highlighting for the whole menu.
+    final highlighted = enabled && (widget.pointerHighlighted ?? _focused);
     // Highlight changes are atomic. Animating two independent row backgrounds
     // makes the previous and next options appear highlighted at the same time.
     Widget row = Container(
@@ -1681,9 +1705,14 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
     return MouseRegion(
       onEnter: (_) {
         if (enabled && widget.highlightItemOnHover) {
+          widget.onHover(true);
           widget.focusNode.requestFocus();
         }
       },
+      onHover: (_) {
+        if (enabled && widget.highlightItemOnHover) widget.onHover(true);
+      },
+      onExit: (_) => widget.onHover(false),
       child: Focus(
         focusNode: widget.focusNode,
         canRequestFocus: enabled,
