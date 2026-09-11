@@ -326,7 +326,8 @@ extension DiscourseButtonThemeAccess on ThemeData {
 /// Icon-only controls require an accessible tooltip. Desktop surfaces follow
 /// base-nova sizes; touch platforms expand their invisible targets to 48px.
 /// The painted surface is a [DButtonDecoration]: hover, expanded, focus,
-/// invalid and pressed changes transition together over 150ms.
+/// invalid and pressed changes transition together over 150ms. Hover exit
+/// clears immediately to avoid overlapping highlights on neighboring buttons.
 class DButton extends StatelessWidget {
   const DButton({
     super.key,
@@ -710,9 +711,9 @@ class DButton extends StatelessWidget {
                       : border.style == BorderStyle.none || border.width == 0
                       ? Colors.transparent
                       : border.color);
-        return AnimatedContainer(
+        return _DButtonSurface(
           duration: animationDuration,
-          curve: Curves.ease,
+          hovered: states.contains(WidgetState.hovered),
           transform: Matrix4.translationValues(
             0,
             states.contains(WidgetState.pressed) && !hasPopup ? 1 : 0,
@@ -863,6 +864,46 @@ class DButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// Clear an exited hover immediately so adjacent controls never retain a trail
+// of highlights. Other state changes keep the shared control transition.
+class _DButtonSurface extends StatefulWidget {
+  const _DButtonSurface({
+    required this.duration,
+    required this.hovered,
+    required this.transform,
+    required this.decoration,
+    required this.child,
+  });
+
+  final Duration duration;
+  final bool hovered;
+  final Matrix4 transform;
+  final DButtonDecoration decoration;
+  final Widget? child;
+
+  @override
+  State<_DButtonSurface> createState() => _DButtonSurfaceState();
+}
+
+class _DButtonSurfaceState extends State<_DButtonSurface> {
+  bool _exitedHover = false;
+
+  @override
+  void didUpdateWidget(_DButtonSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _exitedHover = oldWidget.hovered && !widget.hovered;
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+    duration: _exitedHover ? Duration.zero : widget.duration,
+    curve: Curves.ease,
+    transform: widget.transform,
+    decoration: widget.decoration,
+    child: widget.child,
+  );
 }
 
 /// The painted button surface: a fill clipped to the padding box, a 1px
