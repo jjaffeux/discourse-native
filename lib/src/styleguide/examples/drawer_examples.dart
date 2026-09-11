@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
+import 'guarded_modal_example.dart';
 
 final drawerExamples = ComponentExamples(
   status: ComponentStatus.implemented,
@@ -16,6 +17,25 @@ final drawerExamples = ComponentExamples(
       'focus, safe-area and IME behavior. Official rendered and native macOS '
       'review passed; iOS, Linux and spoken VoiceOver were not exercised.',
   examples: [
+    StyleguideExample(
+      title: 'Guarded helper dismissal',
+      description:
+          'A denied swipe rebounds; Close, Escape, outside press and back share the same live guard.',
+      code: '''showDDrawer<void>(context: context,
+  canDismiss: () => !saving,
+  showSwipeHandle: true,
+  requestInitialFocus: false,
+  builder: (_, controller) => formWithClose(controller.close));''',
+      builder: (_) => const GuardedModalExample(drawer: true),
+      states: const [
+        'guarded',
+        'swipe',
+        'Escape',
+        'outside',
+        'back',
+        'controller close',
+      ],
+    ),
     StyleguideExample(
       title: 'Delivery time',
       description:

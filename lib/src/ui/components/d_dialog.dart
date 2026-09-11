@@ -948,12 +948,19 @@ class _DDialogCloseIconPainter extends CustomPainter {
 }
 
 /// Opens a route-owned Dialog and returns its typed result.
+///
+/// [canDismiss] is read for each close request, including the controller,
+/// close buttons, Escape, system back and the barrier. Returning false keeps
+/// the route open without changing its draft or focus. Omit it to allow closing.
+/// Explicit Navigator route removal remains a lifecycle operation, not a
+/// dismiss request.
 Future<T?> showDDialog<T>({
   required BuildContext context,
   required DDialogContentBuilder<T> builder,
   bool useRootNavigator = false,
   bool dismissOnBarrier = true,
   bool dismissOnEscape = true,
+  bool Function()? canDismiss,
   String barrierLabel = 'Dismiss dialog',
   RouteSettings? routeSettings,
   FocusNode? initialFocusNode,
@@ -991,12 +998,16 @@ Future<T?> showDDialog<T>({
 
   watchEnvironment();
   late _DDialogRoute<T> route;
+  void requestClose(T? result) {
+    if (canDismiss?.call() ?? true) route.authorizePop(result);
+  }
+
   route = _DDialogRoute<T>(
     settings: routeSettings,
     environment: environment,
     configuration: configuration,
-    onDismissRequested: (_) => route.authorizePop(null),
-    onCloseRequested: (result) => route.authorizePop(result),
+    onDismissRequested: (_) => requestClose(null),
+    onCloseRequested: requestClose,
     transitionDuration: DMotion.duration(
       context,
       transitionDuration ?? DMotion.open,
@@ -1006,7 +1017,7 @@ Future<T?> showDDialog<T>({
       reverseTransitionDuration ?? DMotion.close,
     ),
   );
-  controller._attach(route, () {}, (result, _) => route.authorizePop(result));
+  controller._attach(route, () {}, (result, _) => requestClose(result));
   try {
     return await Navigator.of(
       context,

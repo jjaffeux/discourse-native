@@ -274,7 +274,6 @@ final class AssignPlugin
             ? (anchorContext) => unawaited(
                 showAssignmentEditor(
                   context: anchorContext,
-                  anchorContext: anchorContext,
                   siteUrl: siteUrl,
                   target: postTarget,
                   existing: assignment,
@@ -305,7 +304,6 @@ final class AssignPlugin
           onTap: (anchorContext) => unawaited(
             showAssignmentEditor(
               context: anchorContext,
-              anchorContext: anchorContext,
               siteUrl: siteUrl,
               target: target,
             ),
@@ -320,7 +318,6 @@ final class AssignPlugin
               ? (anchorContext) => unawaited(
                   showAssignmentEditor(
                     context: anchorContext,
-                    anchorContext: anchorContext,
                     siteUrl: siteUrl,
                     target: target,
                     existing: direct,
@@ -374,7 +371,6 @@ final class AssignPlugin
               : () => unawaited(
                   showAssignmentEditor(
                     context: anchorContext,
-                    anchorContext: anchorContext,
                     siteUrl: siteUrl,
                     target: target,
                   ),
@@ -425,7 +421,6 @@ final class AssignPlugin
                       ? () => unawaited(
                           showAssignmentEditor(
                             context: anchorContext,
-                            anchorContext: anchorContext,
                             siteUrl: siteUrl,
                             target: target,
                             existing: direct,
@@ -490,7 +485,6 @@ final class AssignPlugin
                       ? (anchorContext) => unawaited(
                           showAssignmentEditor(
                             context: anchorContext,
-                            anchorContext: anchorContext,
                             siteUrl: siteUrl,
                             target: AssignmentTarget.topic(topic.id),
                             existing: direct,
@@ -531,7 +525,6 @@ final class AssignPlugin
                   ? (anchorContext) => unawaited(
                       showAssignmentEditor(
                         context: anchorContext,
-                        anchorContext: anchorContext,
                         siteUrl: siteUrl,
                         target: AssignmentTarget.post(
                           post.id,
@@ -583,10 +576,9 @@ final class AssignPlugin
       _ => false,
     };
 
-    void openEditor({Rect? anchor}) => unawaited(
+    void openEditor() => unawaited(
       showAssignmentEditor(
         context: context,
-        anchor: anchor,
         siteUrl: siteUrl,
         target: AssignmentTarget.post(post.id, topicId: topic.id),
         existing: existing,
@@ -606,7 +598,7 @@ final class AssignPlugin
               ? 'Assign this post'
               : 'Edit this post assignment',
           onInvoke: openEditor,
-          onInvokeAnchored: (anchor) => openEditor(anchor: anchor),
+          onInvokeAnchored: (_) => openEditor(),
         ),
       ],
     );

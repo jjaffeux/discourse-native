@@ -6,12 +6,12 @@ import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
-import 'package:discourse_native/src/shell/anchored_picker.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -33,7 +33,7 @@ FilledButton _materialButton(WidgetTester tester, Key key) =>
 
 void main() {
   group('editor presentation', () {
-    testWidgets('uses an anchored picker on desktop', (tester) async {
+    testWidgets('uses a focused Native dialog on desktop', (tester) async {
       final controller = await _openAssignmentEditor(
         tester,
         platform: TargetPlatform.macOS,
@@ -42,9 +42,17 @@ void main() {
 
       expect(find.byType(Dialog), findsNothing);
       expect(find.byType(BottomSheet), findsNothing);
-      final picker = find.byKey(const ValueKey('assignment-picker-popover'));
+      final picker = find.byKey(const Key('assignment-dialog'));
       expect(picker, findsOneWidget);
-      expect(tester.getSize(picker), const Size(360, 400));
+      expect(tester.getSize(picker).width, 480);
+      expect(find.byType(DDrawerContent), findsNothing);
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText).first)
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
       expect(
         find.descendant(
           of: picker,
@@ -55,29 +63,41 @@ void main() {
       expect(
         find.descendant(
           of: picker,
-          matching: find.byKey(const Key('assignment-note')),
+          matching: find.byKey(const Key('assignment-note-toggle')),
         ),
         findsOneWidget,
       );
 
-      Navigator.of(tester.element(picker)).pop();
+      await tester.tap(find.byKey(const Key('assignment-close')));
       await tester.pumpAndSettle();
       expect(picker, findsNothing);
     });
 
-    testWidgets('uses a non-draggable bottom sheet on touch platforms', (
+    testWidgets('uses a Native drawer without opening the keyboard on mobile', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       final controller = await _openAssignmentEditor(tester);
       addTearDown(controller.dispose);
 
       expect(find.byType(Dialog), findsNothing);
-      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(DDrawerContent), findsOneWidget);
       expect(find.text('Assign topic'), findsOneWidget);
+      expect(find.byType(DDrawerSwipeHandle), findsOneWidget);
       expect(
-        tester.widget<BottomSheet>(find.byType(BottomSheet)).enableDrag,
+        tester
+            .widget<EditableText>(find.byType(EditableText).first)
+            .focusNode
+            .hasFocus,
         isFalse,
       );
+      await tester.drag(find.byType(DDrawerSwipeHandle), const Offset(0, 650));
+      await tester.pumpAndSettle();
+      expect(find.byType(AssignmentEditor), findsNothing);
     });
 
     testWidgets('uses a boxed note textarea and an icon-free danger action', (
@@ -92,12 +112,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await _showNote(tester);
       final note = tester.widget<DTextarea>(
         find.byKey(const Key('assignment-note')),
       );
       expect(note.minLines, 3);
       expect(note.labelText, isNull);
-      expect(note.hintText, 'Note (optional)');
+      expect(note.hintText, 'Add context for the assignee…');
 
       final unassignFinder = find.byKey(const Key('assignment-unassign'));
       final destructive = DTokens.of(
@@ -110,6 +131,120 @@ void main() {
       expect(
         find.descendant(of: unassignFinder, matching: find.byType(DIcon)),
         findsNothing,
+      );
+    });
+
+    testWidgets(
+      'keeps search focus and text when the keyboard moves the header',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetViewInsets);
+        final controller = await _openAssignmentEditor(tester);
+        addTearDown(controller.dispose);
+        final search = find.byKey(const Key('assignment-search'));
+        await tester.enterText(search, 'sam');
+        await tester.pumpAndSettle();
+        final searchFocus = tester.widget<DInputGroupInput>(search).focusNode!;
+        expect(searchFocus.hasFocus, isTrue);
+
+        tester.view.viewInsets = const FakeViewPadding(bottom: 334);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(tester.widget<DInputGroupInput>(search).controller!.text, 'sam');
+        expect(searchFocus.hasFocus, isTrue);
+      },
+    );
+
+    testWidgets('keeps the narrow large-text form usable with the keyboard', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var keyboardInset = 0.0;
+      late StateSetter updateMedia;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          builder: (context, child) => StatefulBuilder(
+            builder: (context, setState) {
+              updateMedia = setState;
+              return MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: const TextScaler.linear(2),
+                  viewInsets: EdgeInsets.only(bottom: keyboardInset),
+                  disableAnimations: true,
+                ),
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: child!,
+                ),
+              );
+            },
+          ),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => DButton(
+                label: const Text('Open'),
+                onPressed: () => showDDrawer<void>(
+                  context: context,
+                  showSwipeHandle: true,
+                  requestInitialFocus: false,
+                  builder: (_, modal) => AssignmentEditor(
+                    drawer: true,
+                    title: 'Edit topic assignment',
+                    existing: const Assignment(assignee: _sam, note: 'Draft'),
+                    statusesEnabled: true,
+                    statuses: const ['Open', 'Waiting for another team'],
+                    loadSuggestions: () async => AssignmentSuggestions(
+                      users: const [_sam],
+                      assignAllowedForGroups: const ['support'],
+                    ),
+                    searchAssignees: (_, _) async => const [],
+                    save: (_, {note, status}) async => 'Please try again.',
+                    remove: () async => null,
+                    onCancel: modal.close,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      updateMedia(() => keyboardInset = 220);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.byKey(const Key('assignment-note')));
+      await tester.enterText(find.byKey(const Key('assignment-note')), 'Kept');
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      updateMedia(() => keyboardInset = 0);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Waiting for another team'));
+      await tester.tap(find.text('Waiting for another team'));
+      await tester.tap(find.byKey(const Key('assignment-save')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Please try again.').hitTestable(), findsOneWidget);
+      expect(
+        tester
+            .widget<DTextarea>(find.byKey(const Key('assignment-note')))
+            .controller!
+            .text,
+        'Kept',
+      );
+      expect(
+        find.byKey(const Key('assignment-cancel')).hitTestable(),
+        findsOneWidget,
       );
     });
   });
@@ -145,12 +280,12 @@ void main() {
         await tester.tap(
           find.byKey(const Key('assignment-assignee-group:support')),
         );
+        await _showNote(tester);
         await tester.enterText(
           find.byKey(const Key('assignment-note')),
           '  Needs triage  ',
         );
-        await tester.tap(find.byKey(const Key('assignment-status')));
-        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('In progress'));
         await tester.tap(find.text('In progress').last);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('assignment-save')));
@@ -212,6 +347,68 @@ void main() {
   });
 
   group('assignee discovery', () {
+    testWidgets('retains a selected assignee outside empty search results', (
+      tester,
+    ) async {
+      AssignmentAssignee? saved;
+      await tester.pumpWidget(
+        _editor(
+          suggestions: AssignmentSuggestions(users: const [_sam]),
+          searchDebounce: Duration.zero,
+          save: (assignee, {note, status}) async {
+            saved = assignee;
+            return null;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('assignment-assignee-user:sam')));
+      await tester.enterText(
+        find.byKey(const Key('assignment-search')),
+        'nobody',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('No matching users or groups.'), findsOneWidget);
+      expect(find.text('Selected: @sam'), findsOneWidget);
+      expect(find.text('Assign to @sam'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('assignment-save')));
+      await tester.pumpAndSettle();
+      expect(saved, _sam);
+    });
+
+    testWidgets(
+      'retries a failed search without clearing the selected assignee',
+      (tester) async {
+        var searches = 0;
+        await tester.pumpWidget(
+          _editor(
+            suggestions: AssignmentSuggestions(users: const [_sam]),
+            searchDebounce: Duration.zero,
+            search: (_, term) async {
+              searches++;
+              if (searches == 1) throw Exception('Search unavailable');
+              return const [_support];
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('assignment-assignee-user:sam')));
+        await tester.enterText(
+          find.byKey(const Key('assignment-search')),
+          'support',
+        );
+        await tester.pumpAndSettle();
+        final retry = find.byKey(const Key('assignment-retry-search'));
+        await tester.ensureVisible(retry);
+        await tester.tap(retry);
+        await tester.pumpAndSettle();
+        expect(searches, 2);
+        expect(find.text('Support team'), findsOneWidget);
+        expect(find.text('Selected: @sam'), findsOneWidget);
+        expect(find.byKey(const Key('assignment-error')), findsNothing);
+      },
+    );
+
     testWidgets(
       'queues a newer search behind the active response and publishes only its results',
       (tester) async {
@@ -242,10 +439,10 @@ void main() {
           'old',
         );
         await tester.pump();
-        final staleChoice = tester.widget<ListTile>(
-          find.descendant(
+        final staleChoice = tester.widget<DRadioGroup<String>>(
+          find.ancestor(
             of: find.byKey(const Key('assignment-assignee-user:sam')),
-            matching: find.byType(ListTile),
+            matching: find.byType(DRadioGroup<String>),
           ),
         );
         expect(staleChoice.enabled, isFalse);
@@ -306,7 +503,8 @@ void main() {
         expect(
           tester.getSemantics(empty),
           isSemantics(
-            label: 'No matching users or groups.',
+            label:
+                'No matching users or groups.\nTry a different name or username.',
             isLiveRegion: true,
           ),
         );
@@ -352,6 +550,50 @@ void main() {
   });
 
   group('assignment mutations', () {
+    testWidgets('keeps the optional note through collapse and a failed save', (
+      tester,
+    ) async {
+      var attempts = 0;
+      String? savedNote;
+      await tester.pumpWidget(
+        _editor(
+          suggestions: AssignmentSuggestions(users: const [_sam]),
+          save: (assignee, {note, status}) async {
+            attempts++;
+            savedNote = note;
+            return attempts == 1 ? 'Please retry' : null;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      final note = find.byKey(const Key('assignment-note'));
+      expect(note.hitTestable(), findsNothing);
+      await _showNote(tester);
+      await tester.enterText(note, 'A useful handoff');
+      final toggle = find.byKey(const Key('assignment-note-toggle'));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(note.hitTestable(), findsNothing);
+      await tester.ensureVisible(
+        find.byKey(const Key('assignment-assignee-user:sam')),
+      );
+      await tester.tap(find.byKey(const Key('assignment-assignee-user:sam')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('assignment-save')));
+      await tester.pumpAndSettle();
+      expect(find.text('Please retry'), findsOneWidget);
+      await _showNote(tester);
+      expect(
+        tester.widget<DTextarea>(note).controller!.text,
+        'A useful handoff',
+      );
+      await tester.tap(find.byKey(const Key('assignment-save')));
+      await tester.pumpAndSettle();
+      expect(attempts, 2);
+      expect(savedNote, 'A useful handoff');
+    });
+
     testWidgets(
       'keep write errors inline and prevent duplicate pending saves',
       (tester) async {
@@ -406,63 +648,6 @@ void main() {
       },
     );
 
-    testWidgets(
-      'block the sheet close action and system back during a pending save',
-      (tester) async {
-        final result = Completer<String?>();
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light.copyWith(platform: TargetPlatform.android),
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => FilledButton(
-                  onPressed: () => unawaited(
-                    showAnchoredPicker<void>(
-                      context: context,
-                      title: 'Assign topic',
-                      barrierLabel: 'Dismiss topic assignment picker',
-                      popoverKey: const ValueKey('test-assignment-popover'),
-                      sheetEnableDrag: false,
-                      builder: (sheetContext) => AssignmentEditor(
-                        loadSuggestions: () async =>
-                            AssignmentSuggestions(users: const [_sam]),
-                        searchAssignees: (_, _) async => const [],
-                        save: (assignee, {note, status}) => result.future,
-                        onComplete: () => Navigator.of(sheetContext).pop(),
-                      ),
-                    ),
-                  ),
-                  child: const Text('Open assignment'),
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.tap(find.text('Open assignment'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('assignment-assignee-user:sam')));
-        await tester.tap(find.byKey(const Key('assignment-save')));
-        await tester.pump();
-
-        final sheet = find.byType(BottomSheet);
-        expect(sheet, findsOneWidget);
-        expect(tester.widget<BottomSheet>(sheet).enableDrag, isFalse);
-
-        await tester.tap(find.byTooltip('Close'));
-        await tester.pump();
-        expect(sheet, findsOneWidget);
-
-        await tester.binding.handlePopRoute();
-        await tester.pump();
-        expect(sheet, findsOneWidget);
-
-        result.complete(null);
-        await tester.pumpAndSettle();
-        expect(sheet, findsNothing);
-      },
-    );
-
     testWidgets('keep unassign available and report an inline refusal', (
       tester,
     ) async {
@@ -491,20 +676,21 @@ void main() {
     testWidgets('keeps visually hidden controls semantically tappable', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       await tester.pumpWidget(
         _editor(suggestions: AssignmentSuggestions(users: const [_sam])),
       );
       await tester.pumpAndSettle();
 
-      final choiceSemantics = tester.widget<Semantics>(
-        find
-            .descendant(
-              of: find.byKey(const Key('assignment-assignee-user:sam')),
-              matching: find.byType(Semantics),
-            )
-            .first,
+      final choiceSemantics = tester
+          .getSemantics(find.byType(RawRadio<String>).first)
+          .getSemanticsData();
+      expect(choiceSemantics.hasAction(SemanticsAction.tap), isTrue);
+      expect(
+        choiceSemantics.flagsCollection.isInMutuallyExclusiveGroup,
+        isTrue,
       );
-      expect(choiceSemantics.properties.onTap, isNotNull);
+      semantics.dispose();
 
       var edited = false;
       await tester.pumpWidget(
@@ -536,7 +722,7 @@ void main() {
 
   group('assignment metadata', () {
     testWidgets(
-      'expands the status picker and ellipsizes long configured values',
+      'shows configured statuses as radio choices with wrapping labels',
       (tester) async {
         const longStatus =
             'Waiting for a response from the external infrastructure team';
@@ -549,21 +735,13 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final dropdown = tester.widget<DSelect<String>>(
+        final group = tester.widget<DRadioGroup<String>>(
           find.byKey(const Key('assignment-status')),
         );
-        expect(dropdown.isExpanded, isTrue);
-        expect(
-          dropdown.entries.whereType<DSelectItem<String>>().map(
-            (item) => item.value,
-          ),
-          isNot(contains(null)),
-        );
-        final labelStyle = DefaultTextStyle.of(
-          tester.element(find.text(longStatus).first),
-        );
-        expect(labelStyle.maxLines, 1);
-        expect(labelStyle.overflow, TextOverflow.ellipsis);
+        expect(group.groupValue, longStatus);
+        expect(find.byType(DSelect<String>), findsNothing);
+        expect(tester.widget<Text>(find.text(longStatus)).maxLines, isNull);
+        expect(tester.takeException(), isNull);
       },
     );
 
@@ -630,15 +808,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final dropdown = tester.widget<DSelect<String>>(
+      final group = tester.widget<DRadioGroup<String>>(
         find.byKey(const Key('assignment-status')),
       );
-      expect(dropdown.value, 'Waiting on legacy review');
+      expect(group.groupValue, 'Waiting on legacy review');
       expect(
-        dropdown.entries.whereType<DSelectOption<String>>().map(
-          (item) => item.value,
+        find.descendant(
+          of: find.byKey(const Key('assignment-status')),
+          matching: find.text('Waiting on legacy review'),
         ),
-        contains('Waiting on legacy review'),
+        findsOneWidget,
       );
 
       await tester.tap(find.byKey(const Key('assignment-save')));
@@ -647,6 +826,14 @@ void main() {
       expect(savedStatus, 'Waiting on legacy review');
     });
   });
+}
+
+Future<void> _showNote(WidgetTester tester) async {
+  final toggle = find.byKey(const Key('assignment-note-toggle'));
+  await tester.ensureVisible(toggle);
+  await tester.tap(toggle);
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.byKey(const Key('assignment-note')));
 }
 
 Future<ShellController> _openAssignmentEditor(
@@ -678,7 +865,6 @@ Future<ShellController> _openAssignmentEditor(
                   onPressed: () => unawaited(
                     showAssignmentEditor(
                       context: context,
-                      anchorContext: context,
                       siteUrl: _site,
                       target: const AssignmentTarget.topic(7),
                     ),

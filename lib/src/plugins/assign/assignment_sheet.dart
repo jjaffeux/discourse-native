@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../plugin_api/plugin_scope.dart';
-import '../../shell/anchored_picker.dart';
 import '../../shell/avatar_image.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
@@ -32,9 +31,6 @@ Future<void> showAssignmentEditor({
   required String siteUrl,
   required AssignmentTarget target,
   Assignment? existing,
-  BuildContext? anchorContext,
-  Rect? anchor,
-  bool nested = false,
 }) {
   final controller = PluginUiScope.require(
     context,
@@ -61,7 +57,15 @@ Future<void> showAssignmentEditor({
   final title = existing == null
       ? 'Assign $targetName'
       : 'Edit $targetName assignment';
-  Widget editor(BuildContext presentationContext) => AssignmentEditor(
+  // Keep the opening presentation for this route's lifetime so a resize does
+  // not remount the form or discard its draft and in-flight operations.
+  final drawer = MediaQuery.sizeOf(context).width < 768;
+  final editorKey = GlobalKey<_AssignmentEditorState>();
+  bool canDismiss() => !(editorKey.currentState?._saving ?? false);
+  Widget editor(VoidCallback close) => AssignmentEditor(
+    key: editorKey,
+    title: title,
+    drawer: drawer,
     existing: existing,
     statusesEnabled: statusOptions.enabled,
     statuses: statusOptions.values,
@@ -86,21 +90,24 @@ Future<void> showAssignmentEditor({
         : () => fromPicker(
             () => controller.unassign(session.siteUrl, session.target),
           ),
-    onComplete: () => Navigator.of(presentationContext).pop(),
+    onComplete: close,
+    onCancel: close,
   );
-  return showAnchoredPicker<void>(
+  if (drawer) {
+    return showDDrawer<void>(
+      context: context,
+      barrierLabel: 'Dismiss $targetName assignment',
+      showSwipeHandle: true,
+      requestInitialFocus: false,
+      canDismiss: canDismiss,
+      builder: (_, controller) => editor(controller.close),
+    );
+  }
+  return showDDialog<void>(
     context: context,
-    anchorContext: anchorContext,
-    anchor: anchor,
-    title: title,
-    barrierLabel: 'Dismiss $targetName assignment picker',
-    popoverKey: const ValueKey('assignment-picker-popover'),
-    popoverWidth: 360,
-    popoverHeight: 400,
-    nested: nested,
-    // Drag dismissal bypasses PopScope while a write owns the target.
-    sheetEnableDrag: false,
-    builder: editor,
+    barrierLabel: 'Dismiss $targetName assignment',
+    canDismiss: canDismiss,
+    builder: (_, controller) => editor(controller.close),
   );
 }
 
@@ -115,6 +122,9 @@ class AssignmentEditor extends StatefulWidget {
     this.statusesEnabled = false,
     this.statuses = const [],
     this.onComplete,
+    this.onCancel,
+    this.title = 'Assign topic',
+    this.drawer = false,
     this.searchDebounce = const Duration(milliseconds: 300),
   });
 
@@ -126,6 +136,9 @@ class AssignmentEditor extends StatefulWidget {
   final bool statusesEnabled;
   final List<String> statuses;
   final VoidCallback? onComplete;
+  final VoidCallback? onCancel;
+  final String title;
+  final bool drawer;
   final Duration searchDebounce;
 
   @override
@@ -135,6 +148,9 @@ class AssignmentEditor extends StatefulWidget {
 class _AssignmentEditorState extends State<AssignmentEditor> {
   late final TextEditingController _searchController;
   late final TextEditingController _noteController;
+  final _searchFocus = FocusNode();
+  final _noteFocus = FocusNode();
+  final _errorKey = GlobalKey();
   AssignmentSuggestions? _suggestions;
   List<AssignmentAssignee> _results = const [];
   AssignmentAssignee? _selected;
@@ -147,12 +163,15 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   bool _loadingSuggestions = true;
   bool _searching = false;
   bool _saving = false;
+  bool _searchFailed = false;
+  late bool _noteOpen;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
     _noteController = TextEditingController(text: widget.existing?.note ?? '');
+    _noteOpen = _nullableText(widget.existing?.note) != null;
     _selected = widget.existing?.assignee;
     final advertisedStatuses = widget.statuses
         .map((status) => status.trim())
@@ -162,6 +181,9 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     _status =
         existingStatus ??
         (advertisedStatuses.isEmpty ? null : advertisedStatuses.first);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !widget.drawer) _searchFocus.requestFocus();
+    });
     unawaited(_loadSuggestions());
   }
 
@@ -171,6 +193,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     _queuedSearch = null;
     _searchController.dispose();
     _noteController.dispose();
+    _searchFocus.dispose();
+    _noteFocus.dispose();
     super.dispose();
   }
 
@@ -209,6 +233,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   }
 
   void _onSearchChanged(String rawTerm) {
+    _searchFailed = false;
     final term = rawTerm.trim();
     if (term.isEmpty) {
       _searchTimer?.cancel();
@@ -261,7 +286,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       final results = await widget.searchAssignees(suggestions, term);
       if (!mounted || epoch != _searchEpoch) return;
       setState(() {
-        _results = _withSelected(results);
+        _results = _withSelected(results, includeSelected: false);
         _searching = false;
         _error = null;
       });
@@ -269,6 +294,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       if (!mounted || epoch != _searchEpoch) return;
       setState(() {
         _searching = false;
+        _searchFailed = true;
         _error = _errorText(error);
       });
     } finally {
@@ -282,10 +308,12 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   }
 
   List<AssignmentAssignee> _withSelected(
-    Iterable<AssignmentAssignee> assignees,
-  ) {
+    Iterable<AssignmentAssignee> assignees, {
+    bool includeSelected = true,
+  }) {
     final unique = <String, AssignmentAssignee>{};
-    if (_selected case final selected?) {
+    if (includeSelected && _selected != null) {
+      final selected = _selected!;
       unique[_assigneeKey(selected)] = selected;
     }
     for (final assignee in assignees) {
@@ -296,7 +324,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
 
   Future<void> _save() async {
     final selected = _selected;
-    if (_saving || selected == null) return;
+    if (_saving || _searching || selected == null) return;
     setState(() {
       _saving = true;
       _error = null;
@@ -324,6 +352,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) widget.onComplete?.call();
       });
+    } else {
+      _revealError();
     }
   }
 
@@ -349,193 +379,418 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) widget.onComplete?.call();
       });
+    } else {
+      _revealError();
     }
+  }
+
+  void _revealError() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final errorContext = _errorKey.currentContext;
+      if (mounted && errorContext != null) {
+        unawaited(Scrollable.ensureVisible(errorContext));
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final statuses = <String>{
       ...widget.statuses
           .map((status) => status.trim())
           .where((status) => status.isNotEmpty),
       ?_nullableText(widget.existing?.status),
     }.toList(growable: false);
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: DSpacing.md,
+      children: [
+        _assignees(),
+        _note(),
+        if (widget.statusesEnabled && statuses.isNotEmpty)
+          DRadioGroup<String>.controlled(
+            key: const Key('assignment-status'),
+            groupValue: _status,
+            initialValue: _status,
+            enabled: !_saving,
+            onChanged: (value) => setState(() => _status = value),
+            label: const Text('Status'),
+            child: Column(
+              spacing: DSpacing.sm,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final status in statuses)
+                  DRadioGroupItem(value: status, label: Text(status)),
+              ],
+            ),
+          ),
+        if (_error != null)
+          KeyedSubtree(key: _errorKey, child: _errorMessage()),
+      ],
+    );
+    final cancel = DButton(
+      key: const Key('assignment-cancel'),
+      label: const Text('Cancel'),
+      onPressed: _saving ? null : widget.onCancel,
+      variant: DButtonVariant.outline,
+      size: widget.drawer ? DControlSize.large : DControlSize.regular,
+    );
+    final save = DButton(
+      key: const Key('assignment-save'),
+      label: Text(
+        widget.existing != null
+            ? 'Save changes'
+            : _selected == null
+            ? 'Assign'
+            : 'Assign to @${_selected!.identifier}',
+        maxLines: null,
+      ),
+      onPressed: _saving || _searching || _selected == null ? null : _save,
+      icon: const DIcon(DIcons.check),
+      variant: DButtonVariant.primary,
+      size: widget.drawer ? DControlSize.large : DControlSize.regular,
+      loading: _saving,
+    );
+    final remove = widget.remove == null
+        ? null
+        : DButton(
+            key: const Key('assignment-unassign'),
+            label: const Text('Unassign'),
+            onPressed: _saving ? null : _remove,
+            variant: DButtonVariant.destructive,
+            size: widget.drawer ? DControlSize.large : DControlSize.regular,
+          );
+    final close = DButton.iconOnly(
+      key: const Key('assignment-close'),
+      onPressed: _saving ? null : widget.onCancel,
+      icon: const DIcon(DIcons.xmark),
+      variant: DButtonVariant.ghost,
+      size: DControlSize.small,
+      tooltip: 'Close',
+      semanticLabel: 'Close assignment',
+    );
+    final media = MediaQuery.of(context);
+    // Let the header and search scroll when large text or the keyboard would
+    // otherwise leave no room for the form. The draft and focus nodes stay owned
+    // by this editor as the available space changes.
+    final scrollHeader =
+        (media.size.height - media.viewInsets.bottom) /
+            media.textScaler.scale(1) <
+        600;
+    final drawerHeader = DDrawerHeader(
+      textAlign: TextAlign.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: DDrawerTitle(child: Text(widget.title))),
+            close,
+          ],
+        ),
+        const DDrawerDescription(child: Text('Choose one person or group.')),
+      ],
+    );
+    final drawerForm = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: DSpacing.md),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: DSpacing.md,
+        children: [if (scrollHeader) _search(), body],
+      ),
+    );
 
     return PopScope(
       canPop: !_saving,
-      child: AnchoredPickerContent(
-        queryKey: const Key('assignment-search'),
-        queryController: _searchController,
-        queryHint: 'Search users or groups…',
-        queryEnabled: !_saving,
-        onQueryChanged: _onSearchChanged,
-        onQuerySubmitted: _onSearchChanged,
-        footer: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DTextarea(
-              key: const Key('assignment-note'),
-              controller: _noteController,
-              enabled: !_saving,
-              minLines: 3,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-              hintText: 'Note (optional)',
-            ),
-            if (widget.statusesEnabled && statuses.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              DSelect<String>.controlled(
-                isExpanded: true,
-                key: const Key('assignment-status'),
-                value: _status,
-                label: const Text('Status'),
-                entries: [
-                  for (final status in statuses)
-                    DSelectOption(
-                      value: status,
-                      label: status,
-                      child: Text(status),
-                    ),
-                ],
-                onChanged: _saving
-                    ? null
-                    : (value) => setState(() => _status = _nullableText(value)),
-                initialValue: _status,
-                enabled: !_saving,
-              ),
-            ],
-            if (_error case final error?) ...[
-              const SizedBox(height: 12),
-              Semantics(
-                liveRegion: true,
-                container: true,
-                child: Text(
-                  error,
-                  key: const Key('assignment-error'),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ),
-              if (_suggestions == null && !_loadingSuggestions)
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: DButton(
-                    key: const Key('assignment-retry-suggestions'),
-                    label: const Text('Retry'),
-                    onPressed: _saving ? null : _retrySuggestions,
-                    variant: DButtonVariant.link,
-                  ),
-                ),
-            ],
-            const SizedBox(height: 20),
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              runSpacing: 8,
+      child: widget.drawer
+          ? DDrawerContent(
+              key: const Key('assignment-drawer'),
+              semanticLabel: widget.title,
               children: [
-                if (widget.remove != null)
-                  DButton(
-                    key: const Key('assignment-unassign'),
-                    label: const Text('Unassign'),
-                    onPressed: _remove,
-                    variant: DButtonVariant.destructive,
-                    loading: _saving,
+                if (!scrollHeader) ...[
+                  drawerHeader,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      DSpacing.md,
+                      0,
+                      DSpacing.md,
+                      DSpacing.md,
+                    ),
+                    child: _search(),
                   ),
-                DButton(
-                  key: const Key('assignment-save'),
-                  label: Text(widget.existing == null ? 'Assign' : 'Save'),
-                  onPressed: _searching || _selected == null ? null : _save,
-                  icon: const DIcon(DIcons.check),
-                  variant: DButtonVariant.primary,
-                  loading: _saving,
+                ],
+                DDrawerScrollArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [if (scrollHeader) drawerHeader, drawerForm],
+                  ),
+                ),
+                DDrawerFooter(children: [save, cancel, ?remove]),
+              ],
+            )
+          : DDialogContent(
+              key: const Key('assignment-dialog'),
+              maxWidth: 480,
+              semanticLabel: widget.title,
+              showCloseButton: widget.onCancel != null,
+              closeButton: close,
+              children: [
+                DDialogHeader(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        end: DSpacing.xl,
+                      ),
+                      child: DDialogTitle(child: Text(widget.title)),
+                    ),
+                    const DDialogDescription(
+                      child: Text('Choose one person or group.'),
+                    ),
+                  ],
+                ),
+                _search(),
+                DDialogScrollArea(maxHeightFactor: .5, child: body),
+                DDialogFooter(children: [?remove, cancel, save]),
+              ],
+            ),
+    );
+  }
+
+  Widget _search() => DField(
+    enabled: !_saving,
+    children: [
+      DFieldLabel(focusNode: _searchFocus, child: const Text('Assign to')),
+      DInputGroup(
+        children: [
+          DInputGroupInput(
+            key: const Key('assignment-search'),
+            controller: _searchController,
+            focusNode: _searchFocus,
+            semanticLabel: 'Search users or groups',
+            hintText: 'Search users or groups…',
+            enabled: !_saving,
+            onChanged: _onSearchChanged,
+            onSubmitted: _onSearchChanged,
+          ),
+          const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
+        ],
+      ),
+    ],
+  );
+
+  Widget _assignees() {
+    if (_loadingSuggestions) {
+      return const Padding(
+        padding: EdgeInsets.all(DSpacing.lg),
+        child: Center(child: DSpinner(semanticLabel: 'Loading assignees')),
+      );
+    }
+    if (_suggestions == null) return const SizedBox.shrink();
+    final selected = _selected;
+    final stackGroupBadge =
+        MediaQuery.sizeOf(context).width /
+            MediaQuery.textScalerOf(context).scale(1) <
+        360;
+    const groupBadge = DBadge(
+      variant: DBadgeVariant.outline,
+      child: Text('Group'),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: DSpacing.sm,
+      children: [
+        if (_searching)
+          const DProgress(semanticsLabel: 'Searching assignments'),
+        DFieldDescription(
+          child: Text(
+            _searchController.text.trim().isEmpty
+                ? 'Suggested'
+                : 'Search results',
+          ),
+        ),
+        if (_results.isEmpty && !_searching && !_searchFailed)
+          Semantics(
+            key: const Key('assignment-empty-results'),
+            container: true,
+            liveRegion: true,
+            child: const DEmpty(
+              children: [
+                DEmptyHeader(
+                  children: [
+                    DEmptyTitle('No matching users or groups.'),
+                    DEmptyDescription('Try a different name or username.'),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-        children: [
-          if (_loadingSuggestions)
-            const AnchoredPickerProgress()
-          else if (_suggestions != null) ...[
-            if (_searching)
-              const DProgress(semanticsLabel: 'Searching assignments'),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 180),
-              child: _results.isEmpty && !_searching
-                  ? Semantics(
-                      key: const Key('assignment-empty-results'),
-                      container: true,
-                      liveRegion: true,
-                      child: const AnchoredPickerMessage(
-                        'No matching users or groups.',
-                      ),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _results.length,
-                      itemBuilder: (context, index) {
-                        final assignee = _results[index];
-                        final selected = _sameAssignee(assignee, _selected);
-                        return _AssigneeChoice(
-                          key: Key(
-                            'assignment-assignee-${_assigneeKey(assignee)}',
+          )
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280),
+            child: DScrollArea(
+              child: DRadioGroup<String>.controlled(
+                groupValue: selected == null ? null : _assigneeKey(selected),
+                enabled: !_saving && !_searching,
+                onChanged: (value) {
+                  final assignee = _results
+                      .where((item) => _assigneeKey(item) == value)
+                      .firstOrNull;
+                  if (assignee != null) {
+                    setState(() {
+                      _selected = assignee;
+                      _error = null;
+                    });
+                  }
+                },
+                child: Column(
+                  spacing: DSpacing.sm,
+                  children: [
+                    for (final assignee in _results)
+                      DRadioGroupItem<String>(
+                        key: Key(
+                          'assignment-assignee-${_assigneeKey(assignee)}',
+                        ),
+                        value: _assigneeKey(assignee),
+                        card: true,
+                        semanticLabel:
+                            '${assignee.displayName}, ${assignee.isGroup ? 'group' : 'user'} @${assignee.identifier}',
+                        label: ExcludeSemantics(
+                          child: Row(
+                            children: [
+                              AssignmentAssigneeAvatar(
+                                assignee: assignee,
+                                size: 32,
+                              ),
+                              const SizedBox(width: DSpacing.md),
+                              Expanded(
+                                child: DItemContent(
+                                  children: [
+                                    DItemTitle(
+                                      maxLines: null,
+                                      child: Text(assignee.displayName),
+                                    ),
+                                    DItemDescription(
+                                      maxLines: null,
+                                      child: Text('@${assignee.identifier}'),
+                                    ),
+                                    if (assignee.isGroup && stackGroupBadge)
+                                      groupBadge,
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          assignee: assignee,
-                          selected: selected,
-                          enabled: !_saving && !_searching,
-                          onTap: () => setState(() => _selected = assignee),
-                        );
-                      },
-                    ),
+                        ),
+                        trailing: assignee.isGroup && !stackGroupBadge
+                            ? const ExcludeSemantics(child: groupBadge)
+                            : null,
+                      ),
+                  ],
+                ),
+              ),
             ),
-          ],
-        ],
-      ),
+          ),
+        if (selected != null &&
+            !_results.any((item) => _sameAssignee(item, selected)))
+          DFieldDescription(
+            key: const Key('assignment-selected-summary'),
+            child: Text('Selected: @${selected.identifier}'),
+          ),
+      ],
     );
   }
-}
 
-class _AssigneeChoice extends StatelessWidget {
-  const _AssigneeChoice({
-    super.key,
-    required this.assignee,
-    required this.selected,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final AssignmentAssignee assignee;
-  final bool selected;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final subtitle = assignee.isGroup
-        ? 'Group @${assignee.groupName}'
-        : '@${assignee.username}';
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      selected: selected,
-      label: '${assignee.displayName}, $subtitle',
-      onTap: enabled ? onTap : null,
-      child: ExcludeSemantics(
-        child: AnchoredPickerOption(
-          enabled: enabled,
-          selected: selected,
-          showSelectionIndicator: true,
-          leading: AssignmentAssigneeAvatar(assignee: assignee, size: 32),
-          title: Text(assignee.displayName),
-          subtitle: Text(subtitle),
-          onTap: enabled ? onTap : null,
+  Widget _note() => DCollapsible(
+    open: _noteOpen,
+    disabled: _saving,
+    onOpenChange: (open) => setState(() => _noteOpen = open),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DCollapsibleTrigger(
+            key: const Key('assignment-note-toggle'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: DSpacing.sm,
+                runSpacing: DSpacing.xs,
+                children: [
+                  DIcon(_noteOpen ? DIcons.chevronDown : DIcons.plus, size: 16),
+                  Text(
+                    _noteOpen
+                        ? 'Hide note'
+                        : _noteController.text.isEmpty
+                        ? 'Add a note'
+                        : 'Edit note',
+                  ),
+                  const DFieldDescription(child: Text('Optional')),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
-    );
-  }
+        DCollapsibleContent(
+          keepMounted: true,
+          child: DField(
+            enabled: !_saving,
+            children: [
+              DFieldLabel(
+                focusNode: _noteFocus,
+                child: const Text('Note (optional)'),
+              ),
+              DTextarea(
+                key: const Key('assignment-note'),
+                controller: _noteController,
+                focusNode: _noteFocus,
+                semanticLabel: 'Note (optional)',
+                enabled: !_saving,
+                minLines: 3,
+                maxLines: 4,
+                textCapitalization: TextCapitalization.sentences,
+                hintText: 'Add context for the assignee…',
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _errorMessage() => DAlert(
+    key: const Key('assignment-error'),
+    variant: DAlertVariant.destructive,
+    description: DAlertDescription(child: Text(_error!)),
+    action: _suggestions == null || _searchFailed
+        ? DAlertAction(
+            child: DButton(
+              key: Key(
+                _suggestions == null
+                    ? 'assignment-retry-suggestions'
+                    : 'assignment-retry-search',
+              ),
+              label: const Text('Retry'),
+              onPressed: _saving || _searching
+                  ? null
+                  : _suggestions == null
+                  ? _retrySuggestions
+                  : () {
+                      _searchFailed = false;
+                      _scheduleSearch(
+                        _searchController.text.trim(),
+                        immediate: true,
+                      );
+                    },
+              variant: DButtonVariant.outline,
+            ),
+          )
+        : null,
+  );
 }
 
 class AssignmentAssigneeAvatar extends StatelessWidget {
