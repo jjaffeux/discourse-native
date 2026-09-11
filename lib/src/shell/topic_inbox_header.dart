@@ -223,7 +223,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
       final leadingPadding = header.keepTopicListOpen
           ? topicInboxDividerInset
           : 16.0;
-      final actionDimension = DButton.iconOnlyDimensionFor(DButtonSize.small);
+      final actionDimension = DButton.iconOnlyDimensionFor(DButtonSize.regular);
       final toolbarStart = leadingPadding + actionDimension;
       return ConstrainedBox(
         constraints: const BoxConstraints(minHeight: shellHeaderHeight),
@@ -616,7 +616,7 @@ class _TopicCloseButton extends StatelessWidget {
     icon: const DIcon(DNativeIcons.closeTopicPane, size: 20),
     tooltip: 'Collapse topic',
     variant: DButtonVariant.ghost,
-    size: DButtonSize.small,
+    size: DButtonSize.regular,
     onPressed: () {
       final controller = ShellScope.read(context);
       if (controller.topicListContent != null) {
@@ -843,7 +843,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
               );
           // Reserve room for category artwork, the privacy lock, and saving.
           // Add the browse button and roomier padding only when each chip fits.
-          final compressed = categoryWidth < 100;
+          final compressed = categoryWidth < 120;
           return Row(
             key: const ValueKey('topic-header-taxonomy'),
             children: [
@@ -1025,7 +1025,7 @@ class _CategoryChip extends StatelessWidget {
               tooltip: edit == null ? label : editLabel,
               semanticLabel: edit == null ? label : '$editLabel: $label',
               variant: DButtonVariant.outline,
-              size: DButtonSize.extraSmall,
+              size: DButtonSize.regular,
               backgroundColor: fill,
               borderColor: border,
               interactiveBackgroundColor: hover,
@@ -1038,8 +1038,10 @@ class _CategoryChip extends StatelessWidget {
                     CategoryIcon(
                       category: category!,
                       siteUrl: siteUrl,
-                      size: 12,
-                      squareSize: 9,
+                      size: compact
+                          ? 12
+                          : DControlStyle.iconDimension(DControlSize.regular),
+                      squareSize: compact ? 9 : 12,
                     ),
                     SizedBox(width: compact ? 2 : 6),
                   ],
@@ -1052,7 +1054,7 @@ class _CategoryChip extends StatelessWidget {
                   ),
                   if (!compact && edit != null && category != null) ...[
                     const SizedBox(width: 5),
-                    const DIcon(DIcons.chevronDown, size: 9),
+                    const DIcon(DIcons.chevronDown),
                   ],
                 ],
               ),
@@ -1065,12 +1067,12 @@ class _CategoryChip extends StatelessWidget {
               siteUrl: siteUrl,
               child: DButton.iconOnly(
                 key: ValueKey('topic-header-browse-category-${category!.id}'),
-                icon: const DIcon(DIcons.upRightFromSquare, size: 11),
+                icon: const DIcon(DIcons.upRightFromSquare),
                 tooltip: 'Browse ${category!.name}',
                 isLink: true,
                 onPressed: navigate,
                 variant: DButtonVariant.outline,
-                size: DButtonSize.extraSmall,
+                size: DButtonSize.regular,
                 backgroundColor: fill,
                 borderColor: border,
                 interactiveBackgroundColor: hover,
