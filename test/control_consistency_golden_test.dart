@@ -62,8 +62,12 @@ void main() {
         find.byKey(const ValueKey('controls')),
         matchesGoldenFile('goldens/controls-${palette.name}-hover.png'),
       );
-      await mouse.moveTo(tester.getCenter(find.bySemanticsLabel('Category')));
-      await mouse.down(tester.getCenter(find.bySemanticsLabel('Category')));
+      await mouse.moveTo(
+        tester.getCenter(find.bySemanticsLabel('regular category')),
+      );
+      await mouse.down(
+        tester.getCenter(find.bySemanticsLabel('regular category')),
+      );
       await mouse.up();
       await mouse.removePointer();
       await tester.pumpAndSettle();

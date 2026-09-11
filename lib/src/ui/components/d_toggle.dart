@@ -122,8 +122,7 @@ class DToggle extends StatefulWidget {
   final bool autofocus;
   final ValueChanged<bool>? onFocusChanged;
 
-  /// Optional measured composition geometry; state artwork is still rendered
-  /// by this Toggle and continues to use live host tokens.
+  /// Optional joined border treatment; size remains owned by this Toggle.
   final DToggleVisualStyle? visualStyle;
   final bool _iconOnly;
 

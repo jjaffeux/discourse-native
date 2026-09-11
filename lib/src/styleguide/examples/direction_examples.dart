@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/theme/discourse_typography.dart';
 
 import 'package:flutter/material.dart';
 

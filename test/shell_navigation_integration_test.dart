@@ -1427,7 +1427,7 @@ void _registerShellNavigationTests() {
         44,
       );
       expect(tester.getCenter(add).dy - tester.getCenter(lastForum).dy, 44);
-      expect(tester.getSize(outline), const Size.square(32));
+      expect(tester.getSize(outline), const Size.square(28));
       expect(
         outline,
         paints

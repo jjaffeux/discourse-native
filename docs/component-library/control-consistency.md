@@ -118,7 +118,8 @@ layout/semantics paths without claiming device verification.
 ## Unified sizing follow-up
 
 Select, Toggle, Toggle Group, Input Group buttons, Combobox inputs and button
-triggers, date-picker triggers, pagination, tabs, menubar triggers, and sidebar
+triggers, date-picker triggers and form fields, pagination, carousel actions,
+navigation-menu triggers, tabs, menubar triggers, and sidebar
 menu buttons use the shared size API. Dropdown and notification menu triggers
 forward their size to Button. Layout widths and popup/content sizing remain
 independent of trigger height. Multi-line labels and accessibility text scaling
@@ -127,3 +128,15 @@ can grow controls; applications must not force a different height with wrappers.
 The cross-component `control_size_scale_test.dart` checks rendered heights and
 activation for every size. The Button Control consistency example presents
 Button, icon Button, Toggle, Select, and Dropdown together.
+
+
+Verification on 2026-09-11: macOS debug build; native wide/dark and 390px/light
+production toolbar, category popup, 200% RTL, and the Button Control consistency
+example with extra-small Select activation. Flutter goldens use the bundled
+ControlGolden font at 720×480 on the Flutter test renderer and cover light,
+dark, forest, and plum in rest, hover, and open-menu states. These are distinct
+from the native macOS inspection. No iOS or Android device run was performed.
+
+Final verification: static analysis reported no issues; 526 focused widget,
+interaction, shell integration, and golden checks passed after integrating
+the latest local main.

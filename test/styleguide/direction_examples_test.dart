@@ -68,6 +68,7 @@ void main() {
     tester,
   ) async {
     await _pump(tester, _example('Card RTL'));
+    await tester.ensureVisible(find.text('تسجيل الدخول'));
     await tester.tap(find.text('تسجيل الدخول'));
     await tester.pump();
     expect(find.text('Enter an email address'), findsOneWidget);
@@ -76,17 +77,21 @@ void main() {
 
     await tester.enterText(find.byType(TextField).first, 'm@example.com');
     await tester.enterText(find.byType(TextField).last, 'local-only');
+    await tester.ensureVisible(find.text('تسجيل الدخول'));
     await tester.tap(find.text('تسجيل الدخول'));
     await tester.pump();
     expect(find.text('Enter an email address'), findsNothing);
     expect(find.text('Signed in locally'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('إنشاء حساب'));
     await tester.tap(find.text('إنشاء حساب'));
     await tester.pump();
     expect(find.text('Sign up selected'), findsOneWidget);
+    await tester.ensureVisible(find.text('نسيت كلمة المرور؟'));
     await tester.tap(find.text('نسيت كلمة المرور؟'));
     await tester.pump();
     expect(find.text('Password recovery selected'), findsOneWidget);
+    await tester.ensureVisible(find.text('تسجيل الدخول باستخدام Google'));
     await tester.tap(find.text('تسجيل الدخول باستخدام Google'));
     await tester.pump();
     expect(find.text('Google login selected'), findsOneWidget);
