@@ -40,3 +40,12 @@ through 1120, text scaling, RTL, staged filter edits, stale callbacks, combined
 filters and retention of the open reader. The macOS fixture was also inspected
 at wide and narrow widths and exercised with category, subcategory and tag
 selection.
+
+The implementation passed 144 focused widget checks and analysis. Integration
+with main `bd608d8f` passed the macOS build and the inbox checks. The wider
+topic-reading run had six existing failures, reproduced in an unchanged
+checkout of that main revision: the two off-page composer category assertions,
+the sidebar New Topic assertion, the old scrollbar assertion, the sharing
+action assertion and the bookmark accent assertion. Its pagination test was
+updated to scroll in bounded steps instead of assuming a fixed header height;
+the appended page and its first row are still asserted, and that check passes.
