@@ -89,23 +89,26 @@ class ComposerImagePreview extends StatelessWidget {
           borderRadius: borderRadius,
           border: border,
         ),
-        child: source == null
-            ? _ImageFallback(label: image.alt)
-            : SiteImage(
-                url: source,
-                siteUrl: siteUrl,
-                fit: BoxFit.contain,
-                cacheWidth: boundedDecode
-                    ? imagePhysicalPixels(context, size.width)
-                    : null,
-                cacheHeight: boundedDecode
-                    ? imagePhysicalPixels(context, size.height)
-                    : null,
-                onNaturalSize: image.hasDimensions ? null : onNaturalSize,
-                excludeFromSemantics: true,
-                loadingBuilder: (_) => const Center(child: DSpinner()),
-                errorBuilder: (_, _, _) => _ImageFallback(label: image.alt),
-              ),
+        child: ClipRRect(
+          borderRadius: borderRadius.subtract(BorderRadius.circular(2)),
+          child: source == null
+              ? _ImageFallback(label: image.alt)
+              : SiteImage(
+                  url: source,
+                  siteUrl: siteUrl,
+                  fit: BoxFit.cover,
+                  cacheWidth: boundedDecode
+                      ? imagePhysicalPixels(context, size.width)
+                      : null,
+                  cacheHeight: boundedDecode
+                      ? imagePhysicalPixels(context, size.height)
+                      : null,
+                  onNaturalSize: image.hasDimensions ? null : onNaturalSize,
+                  excludeFromSemantics: true,
+                  loadingBuilder: (_) => const Center(child: DSpinner()),
+                  errorBuilder: (_, _, _) => _ImageFallback(label: image.alt),
+                ),
+        ),
       ),
     );
     if (onDragStarted == null) return preview;
