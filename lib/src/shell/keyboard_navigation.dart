@@ -31,33 +31,39 @@ bool navigationShortcutsAllowed(
     return false;
   }
 
-  bool ownsKeyboard(Widget widget) =>
-      widget is EditableText ||
-      widget is MenuItemButton ||
-      widget is SubmenuButton ||
-      widget is FormField<Object?> ||
-      widget is DropdownButton<Object?> ||
-      widget is DropdownMenu<Object?> ||
-      widget is DTabTrigger<Object?> ||
-      widget is DCheckbox ||
-      widget is Checkbox ||
-      widget is CheckboxListTile ||
-      widget is RawRadio<Object?> ||
-      widget is Radio<Object?> ||
-      widget is RadioListTile<Object?> ||
-      widget is DSwitch ||
-      widget is DSwitchTile ||
-      widget is Switch ||
-      widget is SwitchListTile ||
-      widget is DMultiSlider ||
-      widget is Slider ||
-      widget is RangeSlider ||
-      widget is SegmentedButton<Object?> ||
-      widget is ToggleButtons ||
-      (activation &&
-          (widget is ButtonStyleButton ||
-              widget is CupertinoButton ||
-              widget is InkResponse));
+  bool ownsKeyboard(Widget widget) {
+    // A closed combobox trigger is a button; its FormField wrapper should
+    // not block reading keys. Focused editors still keep their own keys.
+    if (widget is DCombobox<Object?>) {
+      return widget.open ?? widget.controller?.isOpen ?? true;
+    }
+    return widget is EditableText ||
+        widget is MenuItemButton ||
+        widget is SubmenuButton ||
+        widget is FormField<Object?> ||
+        widget is DropdownButton<Object?> ||
+        widget is DropdownMenu<Object?> ||
+        widget is DTabTrigger<Object?> ||
+        widget is DCheckbox ||
+        widget is Checkbox ||
+        widget is CheckboxListTile ||
+        widget is RawRadio<Object?> ||
+        widget is Radio<Object?> ||
+        widget is RadioListTile<Object?> ||
+        widget is DSwitch ||
+        widget is DSwitchTile ||
+        widget is Switch ||
+        widget is SwitchListTile ||
+        widget is DMultiSlider ||
+        widget is Slider ||
+        widget is RangeSlider ||
+        widget is SegmentedButton<Object?> ||
+        widget is ToggleButtons ||
+        (activation &&
+            (widget is ButtonStyleButton ||
+                widget is CupertinoButton ||
+                widget is InkResponse));
+  }
 
   if (ownsKeyboard(focusContext.widget)) return false;
   var blocked = false;
