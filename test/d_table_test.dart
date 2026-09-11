@@ -9,6 +9,61 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('lazy rows share one hover animation across all cells', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      SizedBox(
+        height: 160,
+        child: DTable(
+          columnWidths: const {
+            0: FixedColumnWidth(120),
+            1: FixedColumnWidth(120),
+            2: FixedColumnWidth(120),
+          },
+          body: const DTableBody(rows: []),
+          rowCount: 2,
+          rowBuilder: (context, row) => DTableRow(
+            cells: [
+              for (var column = 0; column < 3; column++)
+                DTableCell(child: Text('Cell $row:$column')),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.byType(AnimatedContainer), findsNWidgets(2));
+    final first = find.text('Cell 0:0');
+    final last = find.text('Cell 0:2');
+    final rowBackground = find.ancestor(
+      of: first,
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(rowBackground, findsOneWidget);
+    final original = tester.widget<AnimatedContainer>(rowBackground).decoration;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(1, 1));
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(first));
+    await tester.pumpAndSettle();
+    final hovered = tester.widget<AnimatedContainer>(rowBackground).decoration;
+    expect(hovered, isNot(original));
+    expect(
+      tester
+          .widget<AnimatedContainer>(
+            find.ancestor(of: last, matching: find.byType(AnimatedContainer)),
+          )
+          .decoration,
+      hovered,
+    );
+    await mouse.moveTo(tester.getCenter(last));
+    await tester.pump();
+    expect(tester.widget<AnimatedContainer>(rowBackground).decoration, hovered);
+    expect(tester.getTopLeft(first).dy, tester.getTopLeft(last).dy);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'equal-height cells lay out once and hover does not relayout them',
     (tester) async {

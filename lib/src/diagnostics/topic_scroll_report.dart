@@ -33,6 +33,8 @@ String encodeTopicScrollReport(
   };
   final contexts = <Map<String, Object?>>[];
   final listContexts = <Map<String, Object?>>[];
+  final usersContexts = <Map<String, Object?>>[];
+  final usersMaximaDurations = <int>[];
   final chatContexts = <Map<String, Object?>>[];
   final frames = <Map<String, Object?>>[];
 
@@ -49,6 +51,10 @@ String encodeTopicScrollReport(
     }
     if (name == 'topic.capture.context') contexts.add(data);
     if (name == 'topicList.capture.context') listContexts.add(data);
+    if (name == 'users.capture.context') usersContexts.add(data);
+    if (name == 'users.maxima.work') {
+      usersMaximaDurations.add(_int(data['durationUs']));
+    }
     if (name == 'chat.capture.context') chatContexts.add(data);
     if (name == 'chat.scroll.notification') {
       chatScrollDurations.add(_int(data['durationUs']));
@@ -97,6 +103,9 @@ String encodeTopicScrollReport(
     'topicContextCount': contexts.length,
     'topicListContextCount': listContexts.length,
     'topicLists': listContexts.take(8).toList(),
+    'usersContextCount': usersContexts.length,
+    'users': usersContexts.take(8).toList(),
+    'usersMaximaWorkUs': _distribution(usersMaximaDurations),
     'chatContextCount': chatContexts.length,
     'chats': chatContexts.take(8).toList(),
     'topics': [
@@ -234,9 +243,10 @@ String _formatReport(Map<String, Object?> report) {
   }
   if (_int(analysis['topicContextCount']) == 0 &&
       _int(analysis['topicListContextCount']) == 0 &&
-      _int(analysis['chatContextCount']) == 0) {
+      _int(analysis['chatContextCount']) == 0 &&
+      _int(analysis['usersContextCount']) == 0) {
     output.writeln(
-      'No topic context was recorded. Start in the affected topic, topic list or chat '
+      'No topic context was recorded. Start in the affected topic, topic list, users directory or chat '
       'and scroll before stopping.',
     );
   }
@@ -289,6 +299,18 @@ String _formatReport(Map<String, Object?> report) {
         'inbox ${list['inbox']} | viewport extent ${list['viewportExtent']}',
       );
     }
+  }
+
+  if (_int(analysis['usersContextCount']) > 0) {
+    for (final users in _maps(analysis['users'])) {
+      output.writeln(
+        'Users directory: ${users['rowCount']} loaded users | '
+        '${users['columnCount']} columns | viewport extent ${users['viewportExtent']}',
+      );
+    }
+    output.writeln(
+      'Users metric maxima: ${_timingLine(_map(analysis['usersMaximaWorkUs']))}',
+    );
   }
 
   if (_int(analysis['chatContextCount']) > 0) {

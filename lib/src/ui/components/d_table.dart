@@ -96,6 +96,8 @@ class _DTableState extends State<DTable> {
     ];
     final headerCount = widget.header?.rows.length ?? 0;
     final footerStart = headerCount + widget.body.rows.length;
+    final singleFragment =
+        widget._fragment && rows.length == 1 && widget.caption == null;
     final columns = rows.fold<int>(
       0,
       (count, row) =>
@@ -166,43 +168,47 @@ class _DTableState extends State<DTable> {
                               ? SemanticsRole.columnHeader
                               : SemanticsRole.cell,
                           header: rows[r].cells[c] is DTableHead,
-                          child: MouseRegion(
-                            onEnter: (_) => _hovered.value = r,
-                            onExit: (_) {
-                              if (_hovered.value == r) {
-                                _hovered.value = null;
-                              }
-                            },
-                            child: ValueListenableBuilder<int?>(
-                              valueListenable: _hovered,
-                              child: DefaultTextStyle.merge(
-                                style: TextStyle(
-                                  fontWeight: r >= footerStart
-                                      ? FontWeight.w500
-                                      : FontWeight.w400,
-                                ),
-                                child: rows[r].cells[c],
-                              ),
-                              builder: (context, hovered, child) =>
-                                  AnimatedContainer(
-                                    duration: DMotion.duration(
-                                      context,
-                                      const Duration(milliseconds: 150),
+                          child: singleFragment
+                              ? rows[r].cells[c]
+                              : MouseRegion(
+                                  onEnter: (_) => _hovered.value = r,
+                                  onExit: (_) {
+                                    if (_hovered.value == r) {
+                                      _hovered.value = null;
+                                    }
+                                  },
+                                  child: ValueListenableBuilder<int?>(
+                                    valueListenable: _hovered,
+                                    child: DefaultTextStyle.merge(
+                                      style: TextStyle(
+                                        fontWeight: r >= footerStart
+                                            ? FontWeight.w500
+                                            : FontWeight.w400,
+                                      ),
+                                      child: rows[r].cells[c],
                                     ),
-                                    curve: Curves.easeInOut,
-                                    color: rows[r].selected
-                                        ? tokens.muted
-                                        : (hovered == r ||
-                                              rows[r].expanded ||
-                                              r >= footerStart)
-                                        ? tokens.muted.withValues(
-                                            alpha: tokens.muted.a * .5,
-                                          )
-                                        : tokens.muted.withValues(alpha: 0),
-                                    child: child,
+                                    builder: (context, hovered, child) =>
+                                        AnimatedContainer(
+                                          duration: DMotion.duration(
+                                            context,
+                                            const Duration(milliseconds: 150),
+                                          ),
+                                          curve: Curves.easeInOut,
+                                          color: rows[r].selected
+                                              ? tokens.muted
+                                              : (hovered == r ||
+                                                    rows[r].expanded ||
+                                                    r >= footerStart)
+                                              ? tokens.muted.withValues(
+                                                  alpha: tokens.muted.a * .5,
+                                                )
+                                              : tokens.muted.withValues(
+                                                  alpha: 0,
+                                                ),
+                                          child: child,
+                                        ),
                                   ),
-                            ),
-                          ),
+                                ),
                         ),
                     ?widget.caption,
                   ],
@@ -210,6 +216,37 @@ class _DTableState extends State<DTable> {
               ),
             ],
           );
+          if (singleFragment) {
+            final row = rows.single;
+            return MouseRegion(
+              onEnter: (_) => _hovered.value = 0,
+              onExit: (_) => _hovered.value = null,
+              child: ValueListenableBuilder<int?>(
+                valueListenable: _hovered,
+                child: DefaultTextStyle.merge(
+                  style: TextStyle(
+                    fontWeight: footerStart == 0
+                        ? FontWeight.w500
+                        : FontWeight.w400,
+                  ),
+                  child: content,
+                ),
+                builder: (context, hovered, child) => AnimatedContainer(
+                  duration: DMotion.duration(
+                    context,
+                    const Duration(milliseconds: 150),
+                  ),
+                  curve: Curves.easeInOut,
+                  color: row.selected
+                      ? tokens.muted
+                      : hovered != null || row.expanded || footerStart == 0
+                      ? tokens.muted.withValues(alpha: tokens.muted.a * .5)
+                      : tokens.muted.withValues(alpha: 0),
+                  child: child,
+                ),
+              ),
+            );
+          }
           if (widget._fragment) return content;
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
