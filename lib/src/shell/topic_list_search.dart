@@ -88,6 +88,7 @@ class _TopicListSearchState extends State<TopicListSearch> {
       container: true,
       explicitChildNodes: true,
       child: DInputGroup(
+        size: DControlSize.small,
         children: [
           DInputGroupInput(
             key: const ValueKey('topic-list-search'),
