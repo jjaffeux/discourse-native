@@ -557,8 +557,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 2, topics: 1, replies: 1));
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
-    expect(_tabText(tester, 'topic-list-new-topics').data, 'Topics (1)');
-    expect(_tabText(tester, 'topic-list-new-replies').data, 'Replies (1)');
+    expect(_tabText(tester, 'topic-list-new-topics').data, 'Topics');
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-new-topics')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+    expect(_tabText(tester, 'topic-list-new-replies').data, 'Replies');
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-new-replies')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const ValueKey('topic-list-new-replies')));
     await tester.pumpAndSettle();
@@ -662,19 +676,13 @@ void main() {
     expect(find.text('5'), findsOneWidget);
     expect(find.text('All new activity'), findsOneWidget);
 
-    final allText = _tabText(tester, 'topic-list-new-all');
-    final topicsText = _tabText(tester, 'topic-list-new-topics');
-    final repliesText = _tabText(tester, 'topic-list-new-replies');
-    expect(allText.style?.fontWeight, FontWeight.w600);
-    expect(topicsText.style?.fontWeight, FontWeight.w400);
-    expect(repliesText.style?.fontWeight, FontWeight.w400);
     expect(
-      allText.style?.fontSize,
-      DefaultTextStyle.of(tester.element(find.text('New'))).style.fontSize!,
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-new-segments')),
+        matching: find.byType(DBadge),
+      ),
+      findsNWidgets(2),
     );
-    expect(allText.overflow, TextOverflow.visible);
-    expect(topicsText.overflow, TextOverflow.visible);
-    expect(repliesText.overflow, TextOverflow.visible);
 
     FakeSiteTracker.built.single.deliverTopicTracking(const {
       'topic_id': 4000,
@@ -804,21 +812,14 @@ void main() {
         final all = find.byKey(const ValueKey('topic-list-new-all'));
         final topics = find.byKey(const ValueKey('topic-list-new-topics'));
         final replies = find.byKey(const ValueKey('topic-list-new-replies'));
-        expect(
-          tester.getSize(all).width,
-          closeTo(tester.getSize(replies).width, .1),
-        );
         expect(tester.getRect(all).left, greaterThan(segmentRect.left));
         expect(
-          _tabText(tester, 'topic-list-new-all').style?.color,
-          theme.colorScheme.onSurface,
-        );
-        final count = tester.widget<Text>(
-          find.descendant(of: topics, matching: find.text('1054')),
+          tester.widget<DTabList<TopicListMode>>(segments).variant,
+          DTabListVariant.defaultStyle,
         );
         expect(
-          count.style!.fontSize,
-          lessThan(_tabText(tester, 'topic-list-new-topics').style!.fontSize!),
+          find.descendant(of: topics, matching: find.byType(DBadge)),
+          findsOneWidget,
         );
         expect(find.text('All (1059)'), findsNothing);
         expect(tester.takeException(), isNull);
@@ -830,7 +831,7 @@ void main() {
         expect(setup.controller.currentTopicListMode, TopicListMode.newTopics);
         final semantics = tester.ensureSemantics();
         try {
-          expect(find.bySemanticsLabel('Topics, 1054'), findsOneWidget);
+          expect(tester.getSemantics(topics).label, 'Topics\n1054');
         } finally {
           semantics.dispose();
         }
@@ -1081,6 +1082,85 @@ void main() {
           expect(setup.controller.currentTopicListMode, TopicListMode.popular);
           expect(selected(trending), isTrue);
           expect(focused(trending), isTrue);
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
+  }
+
+  for (final stacked in [false, true]) {
+    testWidgets(
+      'new activity tabs preserve keyboard selection and route state ($stacked)',
+      (tester) async {
+        final setup = await _controller();
+        addTearDown(setup.controller.dispose);
+        await setup.controller.selectTopicListMode(TopicListMode.newActivity);
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            ShellScope(
+              controller: setup.controller,
+              child: MaterialApp(
+                theme: AppTheme.dark,
+                home: Scaffold(
+                  body: TopicListNavigation(
+                    stacked: stacked,
+                    child: const SizedBox(),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final all = find.byKey(const ValueKey('topic-list-new-all'));
+          final topics = find.byKey(const ValueKey('topic-list-new-topics'));
+          final replies = find.byKey(const ValueKey('topic-list-new-replies'));
+          bool selected(Finder tab) =>
+              tester.getSemantics(tab).flagsCollection.isSelected ==
+              Tristate.isTrue;
+          bool focused(Finder tab) => tester
+              .widget<FocusableActionDetector>(
+                find.descendant(
+                  of: tab,
+                  matching: find.byType(FocusableActionDetector),
+                ),
+              )
+              .focusNode!
+              .hasPrimaryFocus;
+
+          await tester.tap(all);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
+          expect(focused(topics), isTrue);
+          expect(selected(all), isTrue);
+          expect(
+            setup.controller.currentTopicListMode,
+            TopicListMode.newActivity,
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(
+            setup.controller.currentTopicListMode,
+            TopicListMode.newTopics,
+          );
+          expect(selected(topics), isTrue);
+          expect(focused(topics), isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.end);
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          await tester.pumpAndSettle();
+          expect(
+            setup.controller.currentTopicListMode,
+            TopicListMode.newReplies,
+          );
+          expect(selected(replies), isTrue);
+          expect(focused(replies), isTrue);
+
+          await setup.controller.selectTopicListMode(TopicListMode.newActivity);
+          await tester.pumpAndSettle();
+          expect(selected(all), isTrue);
+          expect(selected(replies), isFalse);
           expect(tester.takeException(), isNull);
         } finally {
           semantics.dispose();
