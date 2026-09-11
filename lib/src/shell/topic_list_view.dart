@@ -123,7 +123,7 @@ class _TopicListViewState extends State<TopicListView> {
     WidgetsBinding.instance.scheduleFrame();
   }
 
-  void _revealKeyboardTopic(int topicId) {
+  void _revealTopic(int topicId) {
     final controller = _controller;
     final identity = _feedIdentity;
     if (!widget.inbox ||
@@ -402,7 +402,7 @@ class _TopicListViewState extends State<TopicListView> {
     final controller = _controller!;
     if (keyboard && controller.currentContent?.topicId == topic.id) return;
     if (widget.inbox) {
-      controller.openTopicFromList(topic, fromKeyboard: keyboard);
+      controller.openTopicFromList(topic, revealInList: keyboard);
     } else {
       controller.openTopic(topic);
     }
@@ -437,7 +437,7 @@ class _TopicListViewState extends State<TopicListView> {
       _controller?.flushAnchorPersist();
       unawaited(_topicListRevealSubscription?.cancel());
       _topicListRevealSubscription = controller.topicListRevealRequests.listen(
-        _revealKeyboardTopic,
+        _revealTopic,
       );
     }
     _controller = controller;

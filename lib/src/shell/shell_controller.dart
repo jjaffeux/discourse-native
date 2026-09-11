@@ -4831,10 +4831,10 @@ class ShellController extends FrameSafeNotifier
     postNumber: topic.lastUnreadPostNumber,
   );
 
-  /// Requests to reveal a topic after keyboard navigation; never replayed.
+  /// Requests to reveal a topic after list navigation; never replayed.
   Stream<int> get topicListRevealRequests => _topicListRevealRequests.stream;
 
-  void openTopicFromList(Topic topic, {bool fromKeyboard = false}) {
+  void openTopicFromList(Topic topic, {bool revealInList = false}) {
     _openTopic(
       topic.id,
       topic.slug,
@@ -4842,7 +4842,7 @@ class ShellController extends FrameSafeNotifier
       postNumber: topic.lastUnreadPostNumber,
       replace: currentContent?.isTopic == true && topicListContent != null,
     );
-    if (fromKeyboard) _topicListRevealRequests.add(topic.id);
+    if (revealInList) _topicListRevealRequests.add(topic.id);
   }
 
   void openSummaryTopic(UserSummaryTopic topic, {int? postNumber}) =>

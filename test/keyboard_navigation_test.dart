@@ -23,6 +23,51 @@ import 'support/shell_test_harness.dart';
 const _unlistedTopic = Topic(id: 32, title: 'Unlisted topic', slug: 'unlisted');
 
 void main() {
+  for (final menu in ['category', 'tag']) {
+    testWidgets('topic sequences resume after closing the $menu filter', (
+      tester,
+    ) async {
+      final setup = await _setup(tester);
+      setup.shell.openTopicFromList(setup.api.feeds['/latest.json']![19]);
+      await tester.pumpAndSettle();
+      final filter = find.byKey(ValueKey('topic-list-$menu-filter'));
+      final trigger = find.descendant(
+        of: filter,
+        matching: find.byType(DButton),
+      );
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      final input = find.descendant(
+        of: find.byType(DComboboxContent),
+        matching: find.byType(EditableText),
+      );
+      expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentContent?.topicId, 20);
+      expect(_selectedPosts(tester), isEmpty);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DComboboxContent), findsNothing);
+      expect(
+        tester.widget<DButton>(trigger).focusNode!.hasPrimaryFocus,
+        isTrue,
+      );
+
+      for (final next in [true, false]) {
+        await _openAdjacent(tester, next: next);
+        final target = next ? 21 : 20;
+        expect(setup.shell.currentContent?.topicId, target);
+        _expectTopicVisible(tester, target);
+        expect(_selectedTopics(tester), [target]);
+        expect(_selectedPosts(tester), isEmpty);
+      }
+      expect(tester.takeException(), isNull);
+    }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+  }
+
   for (final size in [desktop, phone]) {
     for (final next in [false, true]) {
       testWidgets(
@@ -110,10 +155,8 @@ void main() {
         expect(setup.shell.currentContent?.postNumber, 2);
         expect(setup.shell.topicListContent, source);
         expect(setup.shell.contentStack, hasLength(2));
-        expect(
-          _scrollable(tester, find.byType(TopicListView)).controller!.offset,
-          500,
-        );
+        _expectTopicVisible(tester, 1);
+        expect(_selectedTopics(tester), [1]);
         expect(tester.widget<DButton>(previousButton).onPressed, isNull);
         expect(tester.widget<DButton>(nextButton).onPressed, isNotNull);
         expect(tester.takeException(), isNull);
@@ -124,7 +167,7 @@ void main() {
   for (final keyboard in [false, true]) {
     for (final next in [false, true]) {
       testWidgets(
-        '${keyboard ? 'Shortcut scrolls to' : 'Button keeps the scroll position when opening'} the ${next ? 'next' : 'previous'} topic outside the viewport',
+        '${keyboard ? 'Shortcut' : 'Button'} scrolls to the ${next ? 'next' : 'previous'} topic outside the viewport',
         (tester) async {
           final setup = await _setup(tester);
           setup.shell.openTopicFromList(setup.api.feeds['/latest.json']![19]);
@@ -144,13 +187,9 @@ void main() {
 
           final target = next ? 21 : 19;
           expect(setup.shell.currentContent?.topicId, target);
-          if (keyboard) {
-            _expectTopicVisible(tester, target);
-            expect(_selectedTopics(tester), [target]);
-            expect(list.controller!.offset, greaterThan(0));
-          } else {
-            expect(list.controller!.offset, 0);
-          }
+          _expectTopicVisible(tester, target);
+          expect(_selectedTopics(tester), [target]);
+          expect(list.controller!.offset, greaterThan(0));
           await _moveTopic(tester, next: true);
           expect(_selectedTopics(tester), [target + 1]);
           expect(setup.shell.currentContent?.topicId, target);
@@ -762,6 +801,7 @@ Future<void> _openAdjacent(
   bool settle = true,
 }) async {
   expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyG), isTrue);
+  await tester.pump(const Duration(milliseconds: 100));
   expect(
     await tester.sendKeyEvent(
       next ? LogicalKeyboardKey.keyJ : LogicalKeyboardKey.keyK,
