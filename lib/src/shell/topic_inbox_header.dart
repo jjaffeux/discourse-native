@@ -61,6 +61,8 @@ class TopicInboxHeader extends StatefulWidget {
 class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   final _compact = FrameSafeValueNotifier(false);
   bool _editingTitle = false;
+  double? _previousOffset;
+  bool _scrollingUp = false;
 
   @override
   void initState() {
@@ -81,6 +83,8 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
         oldWidget.topic?.id != widget.topic?.id ||
         oldWidget.scrollController != widget.scrollController) {
       _editingTitle = false;
+      _previousOffset = null;
+      _scrollingUp = false;
       _compact.value = false;
     }
     _updateAfterLayout();
@@ -96,10 +100,16 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
     final offset = scroll != null && scroll.hasClients
         ? scroll.offset - scroll.position.minScrollExtent
         : 0.0;
+    final previousOffset = _previousOffset;
+    if (previousOffset != null && offset != previousOffset) {
+      _scrollingUp = offset < previousOffset;
+    }
+    _previousOffset = offset;
     _compact.value =
         widget.topic != null &&
         widget.siteUrl != null &&
         !_editingTitle &&
+        !_scrollingUp &&
         (widget.hasEarlierPosts || offset > (_compact.value ? 18 : 82));
   }
 

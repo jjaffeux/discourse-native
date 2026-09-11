@@ -102,7 +102,7 @@ void main() {
   }
 
   testWidgets(
-    'reader collapses smoothly and restores the full header at the top',
+    'reader expands on upward scroll and collapses on downward scroll',
     (tester) async {
       final setup = await _setup(tester);
       final shell = setup.controller;
@@ -164,7 +164,14 @@ void main() {
       );
       expect(tester.widget<TopicTitle>(title).maxLines, 1);
 
-      list.controller!.jumpTo(40);
+      list.controller!.jumpTo(160);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(header).height, expandedHeight);
+      expect(list.controller!.offset, greaterThan(82));
+      expect(tester.state(reader), same(readerState));
+      expect(tester.element(listFinder), same(listElement));
+
+      list.controller!.jumpTo(200);
       await tester.pumpAndSettle();
       expect(tester.getSize(header).height, compactHeight);
       list.controller!.jumpTo(0);
