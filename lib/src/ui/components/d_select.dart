@@ -10,6 +10,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
+import '../foundation/interactive_row.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
@@ -1657,7 +1658,7 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
         : tokens.foreground;
     // Highlight changes are atomic. Animating two independent row backgrounds
     // makes the previous and next options appear highlighted at the same time.
-    Widget row = Container(
+    Widget row = interactiveRowSurface(
       key: ValueKey(('d-select-item', widget.item.value)),
       height: widget.height,
       padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 8, 4),

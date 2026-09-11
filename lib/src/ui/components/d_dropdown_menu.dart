@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_popover.dart';
@@ -1244,7 +1245,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
     final trailingGap = widget.checked == null ? 6.0 : 8.0;
     // Active-row changes are atomic. Animating the previous row out while the
     // next row animates in briefly presents two highlighted menu choices.
-    final row = Container(
+    final row = interactiveRowSurface(
       constraints: BoxConstraints(minHeight: visualHeight),
       padding: EdgeInsetsDirectional.fromSTEB(startPadding, 4, endPadding, 4),
       decoration: BoxDecoration(

@@ -311,10 +311,13 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final box = tester.widget<AnimatedContainer>(
+        final box = tester.widget<Container>(
           find.descendant(
             of: find.byType(DItem),
-            matching: find.byType(AnimatedContainer),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container && widget.decoration is BoxDecoration,
+            ),
           ),
         );
         final decoration = box.decoration! as BoxDecoration;
