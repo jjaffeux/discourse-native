@@ -59,11 +59,17 @@ void main() {
       final semantics = tester.ensureSemantics();
 
       for (final brightness in Brightness.values) {
-        for (final selected in [false, true, false]) {
+        for (final (selected, showIndicator) in [
+          (false, true),
+          (true, true),
+          (true, false),
+          (false, false),
+        ]) {
           await tester.pumpWidget(
             host(
               DItem(
                 selected: selected,
+                showSelectionIndicator: showIndicator,
                 onPressed: () {},
                 children: const [
                   DItemContent(
@@ -78,7 +84,10 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.byType(DIcon), selected ? findsOneWidget : findsNothing);
+          expect(
+            find.byType(DIcon),
+            selected && showIndicator ? findsOneWidget : findsNothing,
+          );
           expect(
             tester
                     .getSemantics(find.byType(DItem))

@@ -32,6 +32,7 @@ class DItem extends StatefulWidget {
     this.link = false,
     this.enabled = true,
     this.selected = false,
+    this.showSelectionIndicator = true,
     this.focusNode,
     this.autofocus = false,
     this.semanticLabel,
@@ -52,6 +53,10 @@ class DItem extends StatefulWidget {
   /// Highlights the current item with an accent border, tint and checkmark.
   /// The caller owns selection changes; activation only calls [onPressed].
   final bool selected;
+
+  /// Shows a checkmark when selected. Border, tint and semantics are retained
+  /// when false.
+  final bool showSelectionIndicator;
 
   /// Borrowed when supplied; never disposed by Item.
   final FocusNode? focusNode;
@@ -171,7 +176,7 @@ class _DItemState extends State<DItem> {
                     described: described,
                     children: [
                       ...widget.children,
-                      if (widget.selected)
+                      if (widget.selected && widget.showSelectionIndicator)
                         DItemMedia(
                           child: ExcludeSemantics(
                             child: DIcon(

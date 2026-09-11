@@ -32,6 +32,20 @@ final itemExamples = ComponentExamples(
         ],
       ),
     ),
+    StyleguideExample(
+      title: 'Selected without checkmark',
+      description:
+          'Keeps the selected border, tint and semantics without an extra icon.',
+      code:
+          "DItem(selected: true, showSelectionIndicator: false, children: [DItemContent(children: [DItemTitle(child: Text('Current topic'))])])",
+      builder: (_) => const DItem(
+        selected: true,
+        showSelectionIndicator: false,
+        children: [
+          DItemContent(children: [DItemTitle(child: Text('Current topic'))]),
+        ],
+      ),
+    ),
     for (final kind in [
       'Basic',
       'Variant',
