@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart' show DDirection;
 import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
@@ -210,14 +210,7 @@ class _TopicListNavigationControls extends StatelessWidget {
     );
     final mode = state.mode ?? TopicListMode.latest;
     final theme = Theme.of(context);
-    final primaryTextStyle = theme.textTheme.labelLarge;
     final secondaryTextStyle = theme.textTheme.labelLarge;
-    final scaledLineHeight =
-        MediaQuery.textScalerOf(context).scale(primaryTextStyle!.fontSize!) *
-        primaryTextStyle.height!;
-    final primaryHeight = math
-        .max(stacked ? 36.0 : 52.0, scaledLineHeight + 16)
-        .ceilToDouble();
 
     return Semantics(
       key: const ValueKey('topic-list-navigation'),
@@ -237,9 +230,9 @@ class _TopicListNavigationControls extends StatelessWidget {
                   );
                   return Material(
                     color: theme.shell.content,
-                    child: SizedBox(
+                    child: ConstrainedBox(
                       key: const ValueKey('topic-list-primary-row'),
-                      height: primaryHeight,
+                      constraints: BoxConstraints(minHeight: stacked ? 38 : 52),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: topicListHorizontalPadding,
@@ -257,93 +250,90 @@ class _TopicListNavigationControls extends StatelessWidget {
                           ),
                           child: Row(
                             children: [
-                              Expanded(
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (showsFilters && !stacked) filters(),
-                                      if (showsTabs && showsFilters && !stacked)
-                                        const SizedBox(width: 8),
-                                      if (showsTabs)
-                                        _TopicListTabStrip(
-                                          height: primaryHeight,
-                                          background: theme.shell.content,
-                                          inline: true,
-                                          spacing: stacked ? 17 : 3,
-                                          items: [
-                                            ListNavigationTab(
-                                              underline: stacked,
-                                              controlKey: const ValueKey(
-                                                'topic-list-latest',
-                                              ),
-                                              label: 'Recent',
-                                              textStyle: primaryTextStyle,
-                                              selected:
-                                                  mode == TopicListMode.latest,
-                                              onTap: () => unawaited(
-                                                selectMode(
-                                                  TopicListMode.latest,
-                                                ),
-                                              ),
-                                            ),
-                                            if (state.signedIn)
-                                              ListNavigationTab(
-                                                underline: stacked,
-                                                controlKey: const ValueKey(
-                                                  'topic-list-new',
-                                                ),
-                                                label: 'New',
-                                                count: state.allCount,
-                                                showCount: !stacked,
-                                                showCountBadge: true,
-                                                textStyle: primaryTextStyle,
-                                                selected: mode.isNew,
-                                                onTap: () => unawaited(
-                                                  selectMode(
-                                                    TopicListMode.newActivity,
-                                                  ),
-                                                ),
-                                              ),
-                                            ListNavigationTab(
-                                              underline: stacked,
-                                              controlKey: const ValueKey(
-                                                'topic-list-top',
-                                              ),
-                                              label: 'Top',
-                                              textStyle: primaryTextStyle,
-                                              selected: mode.isTop,
-                                              onTap: () => unawaited(
-                                                selectMode(
-                                                  mode.isTop
-                                                      ? mode
-                                                      : controller
-                                                            .defaultTopTopicListMode,
-                                                ),
-                                              ),
-                                            ),
-                                            ListNavigationTab(
-                                              underline: stacked,
-                                              controlKey: const ValueKey(
-                                                'topic-list-popular',
-                                              ),
-                                              label: 'Trending',
-                                              textStyle: primaryTextStyle,
-                                              selected:
-                                                  mode == TopicListMode.popular,
-                                              onTap: () => unawaited(
-                                                selectMode(
-                                                  TopicListMode.popular,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                    ],
+                              if (showsFilters && !stacked)
+                                Flexible(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: filters(),
                                   ),
                                 ),
-                              ),
+                              if (showsTabs && showsFilters && !stacked)
+                                const SizedBox(width: 8),
+                              if (showsTabs)
+                                Expanded(
+                                  child: DTabs<TopicListMode>.controlled(
+                                    value: mode.isNew
+                                        ? TopicListMode.newActivity
+                                        : mode.isTop
+                                        ? TopicListMode.topYearly
+                                        : mode,
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      unawaited(
+                                        selectMode(
+                                          value.isTop
+                                              ? controller
+                                                    .defaultTopTopicListMode
+                                              : value,
+                                        ),
+                                      );
+                                    },
+                                    children: [
+                                      DTabList<TopicListMode>(
+                                        variant: DTabListVariant.line,
+                                        children: [
+                                          const DTabTrigger(
+                                            key: ValueKey('topic-list-latest'),
+                                            value: TopicListMode.latest,
+                                            child: Text('Recent'),
+                                          ),
+                                          if (state.signedIn)
+                                            DTabTrigger(
+                                              key: const ValueKey(
+                                                'topic-list-new',
+                                              ),
+                                              value: TopicListMode.newActivity,
+                                              semanticLabel: state.allCount > 0
+                                                  ? 'New, ${state.allCount}'
+                                                  : 'New',
+                                              child: ExcludeSemantics(
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    const Text('New'),
+                                                    if (!stacked &&
+                                                        state.allCount > 0) ...[
+                                                      const SizedBox(width: 6),
+                                                      DBadge(
+                                                        variant: DBadgeVariant
+                                                            .secondary,
+                                                        child: Text(
+                                                          '${state.allCount}',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          const DTabTrigger(
+                                            key: ValueKey('topic-list-top'),
+                                            value: TopicListMode.topYearly,
+                                            child: Text('Top'),
+                                          ),
+                                          const DTabTrigger(
+                                            key: ValueKey('topic-list-popular'),
+                                            value: TopicListMode.popular,
+                                            child: Text('Trending'),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else
+                                const Spacer(),
                               if (trailing != null)
                                 Padding(
                                   padding: const EdgeInsets.only(left: 8),
@@ -626,8 +616,6 @@ class _TopicListTabStrip extends StatelessWidget {
     required this.background,
     required this.items,
     this.compactWidth = 400,
-    this.inline = false,
-    this.spacing = 3,
     this.segmented = false,
   });
 
@@ -635,8 +623,6 @@ class _TopicListTabStrip extends StatelessWidget {
   final Color background;
   final List<ListNavigationTab> items;
   final double compactWidth;
-  final bool inline;
-  final double spacing;
   final bool segmented;
 
   @override
@@ -691,27 +677,6 @@ class _TopicListTabStrip extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      );
-    }
-    if (inline) {
-      return SizedBox(
-        height: height,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var index = 0; index < items.length; index++) ...[
-              if (index > 0) SizedBox(width: spacing),
-              IntrinsicWidth(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: items[index].underline ? 0 : 48,
-                  ),
-                  child: items[index],
-                ),
-              ),
-            ],
-          ],
         ),
       );
     }

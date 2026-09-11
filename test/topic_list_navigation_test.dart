@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:ui' show PointerDeviceKind;
+import 'dart:ui' show Tristate;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/category_sidebar.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -622,6 +623,20 @@ void main() {
     final semantics = tester.ensureSemantics();
     try {
       expect(find.bySemanticsLabel('New, 1059'), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.byKey(const ValueKey('topic-list-latest')))
+            .flagsCollection
+            .isSelected,
+        Tristate.isTrue,
+      );
+      expect(
+        tester
+            .getSemantics(find.byKey(const ValueKey('topic-list-new')))
+            .flagsCollection
+            .isSelected,
+        Tristate.isFalse,
+      );
     } finally {
       semantics.dispose();
     }
@@ -632,14 +647,6 @@ void main() {
     expect(find.text('Latest topic'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
     expect(controller.sidebarBadgeFor('latest').count, 1059);
-
-    final latestText = _tabText(tester, 'topic-list-latest');
-    final newText = _tabText(tester, 'topic-list-new');
-    expect(latestText.style?.fontSize, newText.style?.fontSize);
-    expect(latestText.style?.fontWeight, FontWeight.w600);
-    expect(newText.style?.fontWeight, FontWeight.w400);
-    expect(latestText.overflow, TextOverflow.visible);
-    expect(newText.overflow, TextOverflow.visible);
 
     await tester.ensureVisible(find.byKey(const ValueKey('topic-list-new')));
 
@@ -663,7 +670,7 @@ void main() {
     expect(repliesText.style?.fontWeight, FontWeight.w400);
     expect(
       allText.style?.fontSize,
-      _tabText(tester, 'topic-list-new').style!.fontSize!,
+      DefaultTextStyle.of(tester.element(find.text('New'))).style.fontSize!,
     );
     expect(allText.overflow, TextOverflow.visible);
     expect(topicsText.overflow, TextOverflow.visible);
@@ -965,12 +972,10 @@ void main() {
         .getRect(find.text('New'))
         .expandToInclude(
           tester.getRect(
-            find
-                .descendant(
-                  of: find.byKey(const ValueKey('topic-list-new')),
-                  matching: find.byType(Container),
-                )
-                .last,
+            find.descendant(
+              of: find.byKey(const ValueKey('topic-list-new')),
+              matching: find.byType(DBadge),
+            ),
           ),
         );
     final topLabel = tester.getRect(find.text('Top'));
@@ -980,10 +985,10 @@ void main() {
     expect(row.right, 800);
     expect(category.left, topicListHorizontalPadding);
     expect(tags.left, category.right + 8);
-    expect(recent.left, tags.right + 8);
-    expect(newTopics.left, recent.right + 3);
-    expect(top.left, newTopics.right + 3);
-    expect(popular.left, top.right + 3);
+    expect(recent.left, tags.right + 8 + 3);
+    expect(newTopics.left, recent.right + 4);
+    expect(top.left, newTopics.right + 4);
+    expect(popular.left, top.right + 4);
     expect(popular.right, lessThan(row.right - topicListHorizontalPadding));
     final tabs = [recent, newTopics, top, popular];
     final labels = [recentLabel, newLabel, topLabel, popularLabel];
@@ -994,91 +999,92 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final dark in [false, true]) {
+  for (final stacked in [false, true]) {
     testWidgets(
-      'Inbox tabs brighten on hover and outline keyboard focus ($dark)',
+      'feed tabs retain keyboard focus across routes (stacked: $stacked)',
       (tester) async {
         final setup = await _controller();
         addTearDown(setup.controller.dispose);
-        final theme = dark ? AppTheme.dark : AppTheme.light;
-        await tester.pumpWidget(
-          ShellScope(
-            controller: setup.controller,
-            child: MaterialApp(
-              theme: theme,
-              home: const Scaffold(
-                body: TopicListNavigation(stacked: true, child: SizedBox()),
+        final semantics = tester.ensureSemantics();
+        try {
+          tester.view.physicalSize = const Size(360, 800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(
+            ShellScope(
+              controller: setup.controller,
+              child: MaterialApp(
+                theme: stacked ? AppTheme.dark : AppTheme.light,
+                home: Scaffold(
+                  body: stacked
+                      ? const MainContent(layout: ShellLayout.compact)
+                      : const TopicListNavigation(child: SizedBox()),
+                ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
+          );
+          await tester.pumpAndSettle();
 
-        final recent = find.byKey(const ValueKey('topic-list-latest'));
-        final newTopics = find.byKey(const ValueKey('topic-list-new'));
-        final recentSurface = find.descendant(
-          of: recent,
-          matching: find.byType(AnimatedContainer),
-        );
-        final newSurface = find.descendant(
-          of: newTopics,
-          matching: find.byType(AnimatedContainer),
-        );
-        final initialRect = tester.getRect(newTopics);
-        expect(
-          _tabText(tester, 'topic-list-new').style?.color,
-          theme.colorScheme.onSurfaceVariant,
-        );
+          final recent = find.byKey(const ValueKey('topic-list-latest'));
+          final newTopics = find.byKey(const ValueKey('topic-list-new'));
+          final top = find.byKey(const ValueKey('topic-list-top'));
+          final trending = find.byKey(const ValueKey('topic-list-popular'));
+          bool focused(Finder tab) => tester
+              .widget<FocusableActionDetector>(
+                find.descendant(
+                  of: tab,
+                  matching: find.byType(FocusableActionDetector),
+                ),
+              )
+              .focusNode!
+              .hasPrimaryFocus;
+          bool selected(Finder tab) =>
+              tester.getSemantics(tab).flagsCollection.isSelected ==
+              Tristate.isTrue;
 
-        final pointer = await tester.createGesture(
-          kind: PointerDeviceKind.mouse,
-        );
-        addTearDown(pointer.removePointer);
-        await pointer.addPointer();
-        await pointer.moveTo(tester.getCenter(newTopics));
-        await tester.pumpAndSettle();
+          await tester.tap(recent);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
+          expect(focused(newTopics), isTrue);
+          expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(
+            setup.controller.currentTopicListMode,
+            TopicListMode.newActivity,
+          );
+          expect(focused(newTopics), isTrue);
+          expect(selected(newTopics), isTrue);
 
-        final hovered = tester.widget<AnimatedContainer>(newSurface);
-        final hoverDecoration = hovered.decoration as BoxDecoration;
-        final selectedDecoration =
-            tester.widget<AnimatedContainer>(recentSurface).decoration
-                as BoxDecoration;
-        expect(tester.getRect(newTopics), initialRect);
-        expect(hoverDecoration.color, Colors.transparent);
-        expect(
-          (hoverDecoration.border as Border).bottom.color,
-          Colors.transparent,
-        );
-        expect(hovered.foregroundDecoration, isNull);
-        expect(
-          (selectedDecoration.border as Border).bottom.color,
-          theme.colorScheme.primary,
-        );
-        expect(
-          _tabText(tester, 'topic-list-new').style?.color,
-          theme.colorScheme.onSurface,
-        );
-        expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+          await setup.controller.selectTopicListMode(TopicListMode.newReplies);
+          await tester.pumpAndSettle();
+          expect(selected(newTopics), isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          await tester.pumpAndSettle();
+          expect(
+            setup.controller.currentTopicListMode,
+            TopicListMode.topYearly,
+          );
+          expect(focused(top), isTrue);
+          expect(selected(top), isTrue);
 
-        await pointer.moveTo(const Offset(700, 400));
-        await tester.pumpAndSettle();
-        expect(
-          _tabText(tester, 'topic-list-new').style?.color,
-          theme.colorScheme.onSurfaceVariant,
-        );
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pumpAndSettle();
-        final focused = tester.widget<AnimatedContainer>(newSurface);
-        final focusDecoration = focused.foregroundDecoration as BoxDecoration;
-        expect(
-          focusDecoration.border,
-          Border.all(color: theme.colorScheme.primary, width: 1.5),
-        );
-        expect((focused.decoration as BoxDecoration).color, Colors.transparent);
-        expect(setup.controller.currentTopicListMode, TopicListMode.latest);
-        expect(tester.takeException(), isNull);
+          await setup.controller.selectTopicListMode(TopicListMode.topWeekly);
+          await tester.pumpAndSettle();
+          expect(selected(top), isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.end);
+          await tester.pumpAndSettle();
+          expect(focused(trending), isTrue);
+          expect(trending.hitTestable(), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(setup.controller.currentTopicListMode, TopicListMode.popular);
+          expect(selected(trending), isTrue);
+          expect(focused(trending), isTrue);
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+        }
       },
     );
   }
@@ -1156,12 +1162,20 @@ void main() {
           final categoryFilter = tester.getRect(
             find.byKey(const ValueKey('topic-list-category-filter')),
           );
-          expect(row.height, inInclusiveRange(28, 36));
+          expect(row.height, greaterThanOrEqualTo(38));
+          expect(
+            tester
+                .getSize(find.byKey(const ValueKey('topic-list-latest')))
+                .height,
+            scenario.platform == TargetPlatform.iOS
+                ? greaterThanOrEqualTo(48)
+                : greaterThanOrEqualTo(25),
+          );
           expect(categoryFilter.top, greaterThanOrEqualTo(row.bottom));
           final recent = tester.getRect(
             find.byKey(const ValueKey('topic-list-latest')),
           );
-          expect(categoryFilter.left, closeTo(recent.left, .01));
+          expect(categoryFilter.left + 3, closeTo(recent.left, .01));
           if (scenario.forumTabsEnabled) {
             expect(
               row.top,
@@ -1311,13 +1325,13 @@ void main() {
         heading.left,
         closeTo(ledger.left + topicListHorizontalPadding, .01),
       );
-      expect(title.left, closeTo(recent.left, .01));
+      expect(title.left + 3, closeTo(recent.left, .01));
       expect(
         create.right,
         closeTo(ledger.right - topicListHorizontalPadding, .01),
       );
       expect(category.top, greaterThanOrEqualTo(toolbar.bottom));
-      expect(category.left, closeTo(recent.left, 0.01));
+      expect(category.left + 3, closeTo(recent.left, 0.01));
       expect(tags.left, closeTo(category.right + 8, 0.01));
       expect(find.text('Categories'), findsOneWidget);
       expect(find.text('All categories'), findsNothing);
@@ -1379,7 +1393,7 @@ void main() {
       );
       expect(narrowCategory.top, closeTo(narrowToolbar.bottom + 12, .01));
       expect(
-        narrowCategory.left,
+        narrowCategory.left + 3,
         closeTo(
           tester.getTopLeft(find.byKey(const ValueKey('topic-list-latest'))).dx,
           .01,

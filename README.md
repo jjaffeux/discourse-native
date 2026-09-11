@@ -625,7 +625,9 @@ history for the new account session.
 
 Discovery lists keep **Recent**, **Top**, and **Trending** available to signed-out
 visitors, including the Top period chooser. Signed-in readers also get **New**;
-**New topic** follows the forum's posting permissions. Desktop lists keep these
+**New topic** follows the forum's posting permissions. The primary feed tabs use
+the Native UI kit's controlled line tabs, with arrow-key navigation, Enter/Space
+activation, and horizontal scrolling when space is limited. Desktop lists keep these
 tabs, the category and tag filters, and the topic action in one aligned toolbar.
 Filter controls hug their current labels up to an ellipsized maximum width. The
 topic action drops its label when the available content width is tight. On macOS

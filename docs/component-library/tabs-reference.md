@@ -58,6 +58,11 @@ Disabled, Icons, RTL, and API Reference.
 
 Migrated:
 
+- `lib/src/shell/topic_list_navigation.dart`: Recent/New/Top/Trending use
+  controlled line tabs. The adapter groups New subsets and Top periods under
+  their primary tab, keeps authentication visibility and feed routing, and
+  composes the inline unread count with `DBadge`. Filters, New subnavigation
+  and the Top period picker remain owned by the topic list.
 - `lib/src/shell/message_inbox_page.dart`: Personal and group message folders
   use controlled line tabs. The message page keeps its identity across folder
   routes, and reading shortcuts defer to focused triggers so selection retains
@@ -77,11 +82,9 @@ Retained alternatives:
 - `forum_tabs_bar.dart` and `aggregate_view.dart` are browser/workspace tabs,
   with close, reopen, reorder, persistence, drag feedback and context menus.
   They are not layered content tabs and remain application-owned.
-- `topic_list_navigation.dart` combines feed selection with unread badges,
-  filters, period selection and responsive toolbar layout. `user_menu.dart`
-  similarly owns notification types, unread state and a vertical app rail.
-  Those domain strips retain their renderer until a dedicated adapter can
-  preserve all of those contracts rather than forcing them into generic Tabs.
+- `topic_list_navigation.dart` retains the secondary New subset strip and
+  Top period picker. `user_menu.dart` owns notification types, unread state
+  and a vertical app rail; its renderer remains application-owned.
 - Group secondary navigation and Preferences use sidebar/picker navigation,
   not the frozen Tabs composition.
 
@@ -130,3 +133,35 @@ and copied kernel matched SHA-256
 `2407f7674fd7e8b6400b22f7377734fa9846b969cf5ff42e8093c8c2b3a6a22d`.
 Earlier broader checks found three unrelated failures in group deletion and
 topic reading; all three reproduced on unchanged baseline `a75a0e8e`.
+
+## Topic feed adoption — 2026-09-11
+
+Recent/New/Top/Trending now use `DTabs.controlled` and the line list through
+`discourse_ui.dart`. New's unread count remains available to accessibility in
+both layouts and uses `DBadge` when the inline toolbar displays it. The toolbar
+lets the kit determine its content height, including touch targets and enlarged
+text. Primary tabs keep their focus across feed and subset/period changes.
+
+Verification:
+
+- `flutter analyze --no-pub`: no issues.
+- `flutter test --no-pub test/topic_list_navigation_test.dart test/d_tabs_test.dart
+  test/keyboard_navigation_test.dart`: all 84 tests passed. Coverage includes
+  primary/subset/period routing, signed-out tabs, unread semantics, filter
+  preservation, narrow layouts, enlarged text, and keyboard focus/activation.
+- The additional `shell_rebuild_isolation_test.dart` check has three existing
+  failures: unrelated shell changes, pagination, and inactive-tab closure.
+  Each was reproduced with the unchanged navigation source from base main
+  `fbec1efa`; this adoption does not introduce them.
+- An isolated macOS debug app (`org.discourse.topicfeedtabsreview`) mounted
+  production `MainContent` with local fake feeds alongside the styleguide Line
+  example. Inspected dark/wide and light/360px layouts at 100% and 200% text;
+  exercised Top, New, Trending, arrow/Enter activation and End-key overflow
+  reveal. The selected underline and focus outline remain visible when the
+  focused tab scrolls into view. The app used local review entitlements without
+  push/team identity and was closed after inspection. iOS coverage is through
+  widget-test platform overrides, not an iOS device run.
+- After integrating main `0642cfed`, static analysis remained clean and the
+  same focused suites plus `test/topic_inbox_test.dart` passed all 157 tests.
+  The Native tab renderer and inspected adoption source were unchanged by
+  that integration.
