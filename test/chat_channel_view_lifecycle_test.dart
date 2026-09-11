@@ -59,7 +59,11 @@ void main() {
         addTearDown(controller.dispose);
         controller.chatRecords.put(
           firstSite,
-          _channel(lastRead: 3, kind: ChatChannelKind.directMessage),
+          _channel(
+            lastRead: 3,
+            kind: ChatChannelKind.directMessage,
+            isGroup: true,
+          ),
         );
         await tester.pumpWidget(_TestView(controller: controller));
         await tester.pumpAndSettle();
@@ -100,7 +104,11 @@ void main() {
           chatChannelsBySite: {
             firstSite: ChatChannels(
               direct: [
-                _channel(lastRead: 1, kind: ChatChannelKind.directMessage),
+                _channel(
+                  lastRead: 1,
+                  kind: ChatChannelKind.directMessage,
+                  isGroup: true,
+                ),
               ],
             ),
           },
@@ -2397,6 +2405,7 @@ final class _CountingStore extends Store {
 ChatChannel _channel({
   required int lastRead,
   ChatChannelKind kind = ChatChannelKind.category,
+  bool isGroup = false,
   bool canDeleteSelf = false,
   int pinnedMessagesCount = 0,
   bool hasUnseenPins = false,
@@ -2404,6 +2413,7 @@ ChatChannel _channel({
   id: 9,
   title: 'Chat',
   kind: kind,
+  isGroup: isGroup,
   canDeleteSelf: canDeleteSelf,
   pinnedMessagesCount: pinnedMessagesCount,
   membership: ChatMembership(

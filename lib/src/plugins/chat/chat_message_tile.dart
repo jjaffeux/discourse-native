@@ -64,7 +64,7 @@ class ChatMessageTile extends StatelessWidget {
   final bool chained;
 
   /// Whether this is the last visible message in a consecutive-sender run.
-  /// DMs share their avatar and timestamp here; channel rows ignore this value.
+  /// DMs share their timestamp and optional avatar here; channel rows ignore it.
   final bool endsGroup;
 
   final ValueChanged<ChatThreadPreview>? onOpenThread;
@@ -1055,6 +1055,7 @@ class _Tile extends StatelessWidget {
           builder: (context, userId, _) => _directMessage(
             context,
             outgoing: userId != null && userId == message.author.id,
+            showIdentity: channel!.isGroup,
           ),
         );
       },
@@ -1272,7 +1273,11 @@ class _Tile extends StatelessWidget {
     );
   }
 
-  Widget _directMessage(BuildContext context, {required bool outgoing}) {
+  Widget _directMessage(
+    BuildContext context, {
+    required bool outgoing,
+    required bool showIdentity,
+  }) {
     final theme = Theme.of(context);
     final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
     final hasBody = message.canonicalReceived
@@ -1300,31 +1305,32 @@ class _Tile extends StatelessWidget {
       child: DMessage(
         align: outgoing ? DMessageAlign.end : DMessageAlign.start,
         children: [
-          DMessageAvatar(
-            child: !endsGroup
-                ? null
-                : UserCardTarget.avatar(
-                    username: message.author.username,
-                    siteUrl: siteUrl,
-                    semanticLabel: message.author.flair == null
-                        ? null
-                        : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
-                    child: ChatUserAvatar(
+          if (showIdentity)
+            DMessageAvatar(
+              child: !endsGroup
+                  ? null
+                  : UserCardTarget.avatar(
+                      username: message.author.username,
                       siteUrl: siteUrl,
-                      userId: message.author.id,
-                      url: message.author.avatarUrl,
-                      flair: message.author.flair,
-                      size: 32,
-                      fallback: _AvatarFallback(
-                        name: message.author.displayName,
-                        background: theme.shell.floating,
+                      semanticLabel: message.author.flair == null
+                          ? null
+                          : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
+                      child: ChatUserAvatar(
+                        siteUrl: siteUrl,
+                        userId: message.author.id,
+                        url: message.author.avatarUrl,
+                        flair: message.author.flair,
+                        size: 32,
+                        fallback: _AvatarFallback(
+                          name: message.author.displayName,
+                          background: theme.shell.floating,
+                        ),
                       ),
                     ),
-                  ),
-          ),
+            ),
           DMessageContent(
             children: [
-              if (!outgoing && !chained)
+              if (showIdentity && !outgoing && !chained)
                 DMessageHeader(
                   spacing: DSpacing.xs,
                   children: [

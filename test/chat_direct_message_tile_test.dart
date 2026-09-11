@@ -182,23 +182,36 @@ void main() {
           );
           await tester.pumpWidget(_tile(controller, direction: direction));
           await tester.pumpAndSettle();
-          final avatar = tester.getRect(find.byType(ChatUserAvatar));
           final bubble = tester.getRect(find.byType(DBubbleContent));
+          final content = tester.getRect(find.byType(DMessageContent));
           final right = outgoing == (direction == TextDirection.ltr);
           expect(
-            right ? avatar.left > bubble.right : avatar.right < bubble.left,
-            isTrue,
+            right ? bubble.right : bubble.left,
+            closeTo(right ? content.right : content.left, .01),
           );
-          expect(avatar.size, const Size.square(32));
+          if (group) {
+            final avatar = tester.getRect(find.byType(ChatUserAvatar));
+            expect(
+              right ? avatar.left > bubble.right : avatar.right < bubble.left,
+              isTrue,
+            );
+            expect(avatar.size, const Size.square(32));
+          } else {
+            expect(find.byType(ChatUserAvatar), findsNothing);
+            expect(find.byType(DMessageAvatar), findsNothing);
+            expect(find.text('user1'), findsNothing);
+            expect(find.text('user2'), findsNothing);
+            expect(content.width, tester.getSize(find.byType(DMessage)).width);
+          }
           expect(
             find.byType(DMessageHeader),
-            outgoing ? findsNothing : findsOneWidget,
+            group && !outgoing ? findsOneWidget : findsNothing,
           );
           expect(
             tester.widget<DBubble>(find.byType(DBubble)).variant,
             outgoing ? DBubbleVariant.primary : DBubbleVariant.muted,
           );
-          expect(bubble.width, lessThanOrEqualTo((720 - 32 - 40) * .8));
+          expect(bubble.width, lessThanOrEqualTo(content.width * .8));
         });
       }
     }
@@ -224,13 +237,22 @@ void main() {
   testWidgets('unknown channel updates to DM styling when its record arrives', (
     tester,
   ) async {
-    final controller = await _controller(_message(), putChannel: false);
+    final controller = await _controller(
+      _message(author: 2),
+      putChannel: false,
+    );
     await tester.pumpWidget(_tile(controller));
     await tester.pumpAndSettle();
     expect(find.byType(DBubble), findsNothing);
     controller.chatRecords.put(_site, _channel());
     await tester.pumpAndSettle();
     expect(find.byType(DBubble), findsOneWidget);
+    expect(find.byType(DMessageAvatar), findsNothing);
+    expect(find.byType(DMessageHeader), findsNothing);
+    controller.chatRecords.put(_site, _channel(group: true));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatUserAvatar), findsOneWidget);
+    expect(find.text('user2'), findsOneWidget);
     controller.chatRecords.put(_site, _channel(kind: ChatChannelKind.category));
     await tester.pumpAndSettle();
     expect(find.byType(DBubble), findsNothing);
@@ -260,6 +282,7 @@ void main() {
           edited: true,
           reactions: const [ChatReaction(emoji: 'heart', count: 2)],
         ).withSendState(delivery: ChatMessageDelivery.failed, error: 'Offline'),
+        channel: _channel(group: true),
       );
       await tester.pumpWidget(_tile(controller, endsGroup: false));
       await tester.pumpAndSettle();
@@ -281,7 +304,10 @@ void main() {
   testWidgets('chaining keeps the bubble edge and body selection identity', (
     tester,
   ) async {
-    final controller = await _controller(_message(author: 2, edited: true));
+    final controller = await _controller(
+      _message(author: 2, edited: true),
+      channel: _channel(group: true),
+    );
     await tester.pumpWidget(_tile(controller));
     await tester.pumpAndSettle();
     final left = tester.getTopLeft(find.byType(DBubbleContent)).dx;

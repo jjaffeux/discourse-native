@@ -58,21 +58,20 @@ Future<ShellController> _reviewController() async {
       membership: ChatMembership(following: true),
     ),
   );
-  controller.chatRecords.put(
-    _siteUrl,
-    const ChatChannel(
-      id: 10,
-      title: 'Direct messages',
-      kind: ChatChannelKind.directMessage,
-      isGroup: true,
-      membership: ChatMembership(following: true),
-    ),
-  );
+  controller.chatRecords.put(_siteUrl, _directChannel(group: true));
   for (final message in [..._messages, ..._directMessages]) {
     controller.chatRecords.put(_siteUrl, message);
   }
   return controller;
 }
+
+ChatChannel _directChannel({required bool group}) => ChatChannel(
+  id: 10,
+  title: 'Direct messages',
+  kind: ChatChannelKind.directMessage,
+  isGroup: group,
+  membership: const ChatMembership(following: true),
+);
 
 final _messages = [
   const ChatMessage(
@@ -178,7 +177,7 @@ final _directMessages = [
     id: 207,
     channelId: 10,
     cooked: '',
-    author: const ChatMessageAuthor(id: 3, username: 'sam', name: 'Sam'),
+    author: const ChatMessageAuthor(id: 2, username: 'olivia', name: 'Olivia'),
     uploads: const [
       ChatUpload(
         id: 7,
@@ -235,6 +234,7 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
   var reducedMotion = false;
   var showProduction = false;
   var showDirectMessages = false;
+  var groupDirectMessages = true;
 
   @override
   void dispose() {
@@ -295,6 +295,17 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
                       showDirectMessages ? 'Hide DMs' : 'Show DMs',
                       () => showDirectMessages = !showDirectMessages,
                     ),
+                    if (showDirectMessages)
+                      _toggle(
+                        groupDirectMessages ? 'Use 1:1 DM' : 'Use group DM',
+                        () {
+                          groupDirectMessages = !groupDirectMessages;
+                          widget.controller.chatRecords.put(
+                            _siteUrl,
+                            _directChannel(group: groupDirectMessages),
+                          );
+                        },
+                      ),
                     _toggle('Light / dark', () => dark = !dark),
                     _toggle('Plum palette', () => plum = !plum),
                     _toggle('360px', () => narrow = !narrow),
