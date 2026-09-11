@@ -225,12 +225,14 @@ Future<void> _pumpProfile(WidgetTester tester, ShellController shell) async {
       home: Scaffold(
         body: ShellScope(
           controller: shell,
-          child: const UserMenuPanel(onDismiss: _ignore),
+          child: const UserMenuPanel(
+            onDismiss: _ignore,
+            view: UserMenuView.profile,
+          ),
         ),
       ),
     ),
   );
-  await tester.tap(find.byTooltip('Profile'));
   await tester.pump();
 }
 

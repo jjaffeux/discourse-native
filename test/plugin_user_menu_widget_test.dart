@@ -61,14 +61,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(upCue, findsNothing);
     expect(downCue, findsOneWidget);
-    final profileRect = tester.getRect(profile);
-    expect(tester.getRect(downCue).bottom, lessThan(profileRect.top));
+    expect(profile, findsNothing);
+    expect(tester.getRect(downCue).bottom, lessThanOrEqualTo(300));
 
-    await tester.dragFrom(tester.getCenter(downCue), const Offset(0, -70));
+    await tester.dragFrom(tester.getCenter(downCue), const Offset(0, -40));
     await tester.pumpAndSettle();
     expect(upCue, findsOneWidget);
     expect(downCue, findsOneWidget);
-    expect(tester.getRect(profile), profileRect);
+    expect(profile, findsNothing);
 
     await tester.drag(railScroll, const Offset(0, -600));
     await tester.pumpAndSettle();
@@ -78,7 +78,7 @@ void main() {
       find.byKey(const ValueKey('user-menu-tab-other')).hitTestable(),
       findsOneWidget,
     );
-    expect(tester.getRect(profile), profileRect);
+    expect(profile, findsNothing);
 
     await tester.dragFrom(tester.getCenter(upCue), const Offset(0, 600));
     await tester.pumpAndSettle();
@@ -92,86 +92,83 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('profile stays pinned while the rail and notifications scroll', (
-    tester,
-  ) async {
-    await _pumpUserMenu(
-      tester,
-      PluginManifest([
-        for (var index = 0; index < 8; index++)
-          _MenuModule(
-            'extra-$index',
-            'Extra activity $index',
-            ValueKey('extra-user-menu-body-$index'),
-          ),
-      ]),
-      notificationList: [
-        for (var id = 1; id <= 20; id++)
-          DiscourseNotification.test(
-            id: id,
-            typeId: NotificationTypeId(CoreNotificationTypes.replied.wireId),
-            topicId: id,
-            title: 'Notification topic $id',
-            data: const {'display_username': 'reader'},
-          ),
-      ],
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(_railUpCueKey), findsNothing);
-    expect(find.byKey(_railDownCueKey), findsOneWidget);
-    final profile = find.byKey(const ValueKey('user-menu-tab-profile'));
-    expect(profile.hitTestable(), findsOneWidget);
-    final profileRect = tester.getRect(profile);
-    final notificationScroll = find
-        .ancestor(
-          of: find.byKey(const ValueKey('notification-row-1')),
-          matching: find.byType(Scrollable),
-        )
-        .first;
-    final railScroll = find
-        .ancestor(
-          of: find.byKey(const ValueKey('user-menu-tab-all')),
-          matching: find.byType(Scrollable),
-        )
-        .first;
-
-    for (final scrollable in [notificationScroll, railScroll]) {
-      await tester.drag(scrollable, const Offset(0, -900));
+  testWidgets(
+    'notification rail and feed scroll independently without a profile tab',
+    (tester) async {
+      await _pumpUserMenu(
+        tester,
+        PluginManifest([
+          for (var index = 0; index < 8; index++)
+            _MenuModule(
+              'extra-$index',
+              'Extra activity $index',
+              ValueKey('extra-user-menu-body-$index'),
+            ),
+        ]),
+        notificationList: [
+          for (var id = 1; id <= 20; id++)
+            DiscourseNotification.test(
+              id: id,
+              typeId: NotificationTypeId(CoreNotificationTypes.replied.wireId),
+              topicId: id,
+              title: 'Notification topic $id',
+              data: const {'display_username': 'reader'},
+            ),
+        ],
+      );
       await tester.pumpAndSettle();
-      expect(
-        tester.state<ScrollableState>(scrollable).position.pixels,
-        greaterThan(0),
-      );
-      expect(profile.hitTestable(), findsOneWidget);
-      expect(tester.getRect(profile), profileRect);
-      expect(
-        find.byKey(_railUpCueKey),
-        scrollable == railScroll ? findsOneWidget : findsNothing,
-      );
-      expect(
-        find.byKey(_railDownCueKey),
-        scrollable == railScroll ? findsNothing : findsOneWidget,
-      );
-    }
 
-    final lastPlugin = find.byKey(
-      const ValueKey('user-menu-tab-extra-7/activity'),
-    );
-    expect(lastPlugin.hitTestable(), findsOneWidget);
-    await tester.tap(lastPlugin);
-    await tester.pump();
-    expect(
-      find.byKey(const ValueKey('extra-user-menu-body-7')),
-      findsOneWidget,
-    );
+      expect(find.byKey(_railUpCueKey), findsNothing);
+      expect(find.byKey(_railDownCueKey), findsOneWidget);
+      final profile = find.byKey(const ValueKey('user-menu-tab-profile'));
+      expect(profile, findsNothing);
+      expect(profile, findsNothing);
+      final notificationScroll = find
+          .ancestor(
+            of: find.byKey(const ValueKey('notification-row-1')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final railScroll = find
+          .ancestor(
+            of: find.byKey(const ValueKey('user-menu-tab-all')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
 
-    await tester.tap(profile);
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('user-menu-row-summary')), findsOneWidget);
-    expect(tester.getRect(profile), profileRect);
-    expect(tester.takeException(), isNull);
-  });
+      for (final scrollable in [notificationScroll, railScroll]) {
+        await tester.drag(scrollable, const Offset(0, -900));
+        await tester.pumpAndSettle();
+        expect(
+          tester.state<ScrollableState>(scrollable).position.pixels,
+          greaterThan(0),
+        );
+        expect(profile, findsNothing);
+        expect(profile, findsNothing);
+        expect(
+          find.byKey(_railUpCueKey),
+          scrollable == railScroll ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byKey(_railDownCueKey),
+          scrollable == railScroll ? findsNothing : findsOneWidget,
+        );
+      }
+
+      final lastPlugin = find.byKey(
+        const ValueKey('user-menu-tab-extra-7/activity'),
+      );
+      expect(lastPlugin.hitTestable(), findsOneWidget);
+      await tester.tap(lastPlugin);
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('extra-user-menu-body-7')),
+        findsOneWidget,
+      );
+
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'multiple plugin user-menu sections render in registry order and select independently',

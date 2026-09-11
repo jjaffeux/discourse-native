@@ -234,14 +234,23 @@ Color _userMenuBorderColor(ThemeData theme) => Color.alphaBlend(
   theme.shell.floating,
 );
 
+enum UserMenuView { notifications, profile }
+
 class UserMenuPanel extends StatefulWidget {
-  const UserMenuPanel({super.key, required this.onDismiss});
+  const UserMenuPanel({
+    super.key,
+    required this.onDismiss,
+    this.view = UserMenuView.notifications,
+  });
+
+  final UserMenuView view;
 
   final VoidCallback onDismiss;
 
-  static const double width = 380;
+  static const double width = 500;
+  static const double profileWidth = 280;
   static const double height = 460;
-  static const double railWidth = 52;
+  static const double railWidth = 168;
 
   static const double margin = 8;
 
@@ -300,96 +309,90 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             pluginSections: pluginSections,
           );
           final section = sections.firstWhere(
-            (candidate) => candidate.id == _sectionId,
+            (candidate) => widget.view == UserMenuView.profile
+                ? candidate.isProfile
+                : candidate.id == _sectionId,
             orElse: () => sections.first,
           );
 
-          return Padding(
-            padding: const EdgeInsets.only(
-              right: UserMenuPanel.margin,
-              bottom: UserMenuPanel.margin,
-            ),
-            child: Material(
-              color: theme.shell.floating,
-              elevation: 8,
-              shadowColor: Colors.black.withValues(alpha: 0.4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(color: _userMenuBorderColor(theme)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: SizedBox(
-                width: UserMenuPanel.width,
-                height: UserMenuPanel.height,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _SectionBody(
-                        section: section,
-                        siteUrl: menu.siteUrl,
-                        host: menu.host,
-                        onDismiss: widget.onDismiss,
-                        onPauseNotifications: () {
-                          final siteUrl = menu.siteUrl;
-                          if (siteUrl == null) return;
-                          final dialog = showDoNotDisturbDialog(
-                            context,
-                            siteUrl: siteUrl,
-                            controller: controller,
-                          );
-                          widget.onDismiss();
-                          unawaited(dialog);
-                        },
-                        onDisconnect: () {
-                          widget.onDismiss();
-                          final siteUrl = menu.siteUrl;
-                          if (siteUrl != null) {
-                            controller.disconnectInstance(siteUrl).ignore();
-                          }
-                        },
-                      ),
+          final body = _SectionBody(
+            section: section,
+            siteUrl: menu.siteUrl,
+            host: menu.host,
+            onDismiss: widget.onDismiss,
+            onPauseNotifications: () {
+              if (siteUrl == null) return;
+              final dialog = showDoNotDisturbDialog(
+                context,
+                siteUrl: siteUrl,
+                controller: controller,
+              );
+              widget.onDismiss();
+              unawaited(dialog);
+            },
+            onDisconnect: () {
+              widget.onDismiss();
+              if (siteUrl != null) {
+                controller.disconnectInstance(siteUrl).ignore();
+              }
+            },
+          );
+          return SizedBox(
+            width: widget.view == UserMenuView.profile
+                ? UserMenuPanel.profileWidth
+                : UserMenuPanel.width,
+            height: UserMenuPanel.height,
+            child: widget.view == UserMenuView.profile
+                ? body
+                : LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: constraints.maxWidth < 440
+                              ? 52
+                              : UserMenuPanel.railWidth,
+                          child: _TabRail(
+                            sections: sections
+                                .where((section) => !section.isProfile)
+                                .toList(),
+                            selectedId: section.id,
+                            onSelect: (id) {
+                              final selected = sections.firstWhere(
+                                (candidate) => candidate.id == id,
+                              );
+                              if (selected.isMessages) {
+                                widget.onDismiss();
+                                _openMessages(controller);
+                                return;
+                              }
+                              final activePath =
+                                  selected.plugin?.linkWhenActive;
+                              if (id == _sectionId && activePath != null) {
+                                widget.onDismiss();
+                                unawaited(
+                                  _openPluginUserMenuLink(
+                                    controller,
+                                    siteUrl!,
+                                    activePath,
+                                  ),
+                                );
+                                return;
+                              }
+                              setState(() => _sectionId = id);
+                            },
+                          ),
+                        ),
+                        DSeparator(
+                          orientation: Axis.vertical,
+                          space: 1,
+                          thickness: 1,
+                          color: _userMenuBorderColor(theme),
+                        ),
+                        Expanded(child: body),
+                      ],
                     ),
-                    DSeparator(
-                      orientation: Axis.vertical,
-                      space: 1,
-                      thickness: 1,
-                      color: _userMenuBorderColor(theme),
-                    ),
-                    SizedBox(
-                      width: UserMenuPanel.railWidth,
-                      child: _TabRail(
-                        sections: sections,
-                        selectedId: section.id,
-                        onSelect: (id) {
-                          final selected = sections.firstWhere(
-                            (candidate) => candidate.id == id,
-                          );
-                          if (selected.isMessages) {
-                            widget.onDismiss();
-                            _openMessages(controller);
-                            return;
-                          }
-                          final activePath = selected.plugin?.linkWhenActive;
-                          if (id == _sectionId && activePath != null) {
-                            widget.onDismiss();
-                            unawaited(
-                              _openPluginUserMenuLink(
-                                controller,
-                                siteUrl!,
-                                activePath,
-                              ),
-                            );
-                            return;
-                          }
-                          setState(() => _sectionId = id);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
           );
         },
       );
@@ -441,7 +444,6 @@ class _TabRailState extends State<_TabRail> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final profile = widget.sections.firstWhere((section) => section.isProfile);
     final railColor = Color.alphaBlend(
       theme.colorScheme.onSurface.withValues(alpha: 0.04),
       theme.shell.floating,
@@ -510,19 +512,6 @@ class _TabRailState extends State<_TabRail> {
               ),
             ),
           ),
-          DSeparator(
-            color: _userMenuBorderColor(theme),
-            space: 1,
-            thickness: 1,
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: _TabButton(
-              section: profile,
-              selected: profile.id == widget.selectedId,
-              onTap: () => widget.onSelect(profile.id),
-            ),
-          ),
         ],
       ),
     );
@@ -580,51 +569,67 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: Semantics(
-        key: ValueKey('user-menu-tab-${section.id}'),
-        button: true,
-        selected: selected,
-        label: section.label,
-        child: DTooltip(
-          message: section.label,
-          excludeFromSemantics: true,
-          hoverDelay: const Duration(milliseconds: 400),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? theme.shell.selected : null,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  DIcon(
-                    section.icon,
-                    size: 20,
-                    color: selected || section.isProfile
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  if (section.badge > 0)
-                    Positioned(
-                      right: -8,
-                      top: -6,
-                      child: _Badge(count: section.badge),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 100;
+        final icon = DIcon(section.icon, size: 16);
+        final variant = selected
+            ? DButtonVariant.secondary
+            : DButtonVariant.ghost;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: MergeSemantics(
+            key: ValueKey('user-menu-tab-${section.id}'),
+            child: Semantics(
+              selected: selected,
+              child: compact
+                  ? DButton.iconOnly(
+                      icon: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          icon,
+                          if (section.badge > 0)
+                            PositionedDirectional(
+                              top: -10,
+                              end: -10,
+                              child: ExcludeSemantics(
+                                child: _Badge(count: section.badge),
+                              ),
+                            ),
+                        ],
+                      ),
+                      tooltip: section.label,
+                      semanticLabel: section.badge > 0
+                          ? '${section.label}, ${section.badge} unread'
+                          : section.label,
+                      variant: variant,
+                      size: DButtonSize.large,
+                      onPressed: onTap,
+                    )
+                  : DButton(
+                      tooltip: section.label,
+                      variant: variant,
+                      size: DButtonSize.large,
+                      alignment: AlignmentDirectional.centerStart,
+                      icon: icon,
+                      label: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              section.label,
+                              maxLines: 2,
+                              softWrap: true,
+                            ),
+                          ),
+                          if (section.badge > 0) _Badge(count: section.badge),
+                        ],
+                      ),
+                      onPressed: onTap,
                     ),
-                ],
-              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -1147,15 +1152,48 @@ class _Badge extends StatelessWidget {
   );
 }
 
-Future<void> showUserMenuSheet(BuildContext context) {
+Future<void> showUserMenuSheet(
+  BuildContext context, {
+  UserMenuView view = UserMenuView.notifications,
+}) async {
   final controller = ShellScope.read(context);
   final instance = controller.currentInstance;
   final user = instance?.user;
-  if (instance == null || user == null) return Future.value();
+  if (instance == null || user == null) return;
 
-  return showShellSheet<void>(
+  if (view == UserMenuView.profile) {
+    final navigator = Navigator.of(context);
+    final action = await showShellSheet<UserMenuAction>(
+      context: context,
+      title: 'Profile',
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      builder: (sheetContext) => _LiveNestedSectionBody(
+        sectionId: UserMenuSection.profileId,
+        siteUrl: instance.url,
+        onDismiss: () => Navigator.of(sheetContext).pop(UserMenuAction.dismiss),
+        onPauseNotifications: () =>
+            Navigator.of(sheetContext).pop(UserMenuAction.pauseNotifications),
+        onDisconnect: () =>
+            Navigator.of(sheetContext).pop(UserMenuAction.disconnect),
+      ),
+    );
+    if (controller.accountSessionDisposed || !navigator.mounted) return;
+    if (action == UserMenuAction.disconnect) {
+      controller.disconnectInstance(instance.url).ignore();
+    } else if (action == UserMenuAction.pauseNotifications) {
+      unawaited(
+        showDoNotDisturbDialog(
+          navigator.context,
+          siteUrl: instance.url,
+          controller: controller,
+        ),
+      );
+    }
+    return;
+  }
+  await showShellSheet<void>(
     context: context,
-    title: user.displayName,
+    title: 'Notifications',
     padding: const EdgeInsets.symmetric(vertical: 8),
     builder: (sheetContext) => _SectionList(siteUrl: instance.url),
   );
@@ -1272,7 +1310,9 @@ class _SectionList extends StatelessWidget {
                   ),
                 ),
               ),
-              for (final section in sections)
+              for (final section in sections.where(
+                (section) => !section.isProfile,
+              ))
                 _SectionTile(
                   section: section,
                   onTap: () => _open(context, section, currentSiteUrl),

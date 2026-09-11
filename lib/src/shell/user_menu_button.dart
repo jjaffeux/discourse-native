@@ -4,7 +4,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -32,6 +31,8 @@ class UserMenuButton extends StatefulWidget {
 
   final Color? ringColor;
 
+  static const Key bellKey = ValueKey('user-menu-bell');
+
   static const Key avatarKey = ValueKey('user-menu-avatar');
 
   static const Key signUpKey = ValueKey('user-menu-sign-up');
@@ -44,8 +45,6 @@ class UserMenuButton extends StatefulWidget {
 }
 
 class _UserMenuButtonState extends State<UserMenuButton> {
-  final MenuController _menu = MenuController();
-
   Future<void> _connect() async {
     final controller = ShellScope.read(context);
     await controller.connectCurrentInstance();
@@ -64,14 +63,6 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       'Could not open the sign-up page.',
       type: DToastType.error,
     );
-  }
-
-  void _openMenu() {
-    if (context.isTouch) {
-      unawaited(showUserMenuSheet(context));
-      return;
-    }
-    _menu.isOpen ? _menu.close() : _menu.open();
   }
 
   @override
@@ -109,116 +100,148 @@ class _UserMenuButtonState extends State<UserMenuButton> {
         listenable: controller.accountActivity.totalsListenable,
         builder: (context, _) {
           final connecting = account.connecting;
-
-          // Plugin counters have their own header affordances. Keeping them out
-          // of the account badge prevents one Chat notification from marking
-          // both the Chat shortcut and the avatar.
           final unreadCount =
               controller.accountActivity.totalsFor(siteUrl)?.coreBadge ?? 0;
-          final badgeBackground = theme.colorScheme.primary;
-
-          final tooltip = connecting
-              ? 'Connecting…'
-              : account.displayName ?? 'Not signed in';
-          final semanticLabel = unreadCount > 0 && !connecting
-              ? '$tooltip, $unreadCount unread '
-                    '${unreadCount == 1 ? 'item' : 'items'}'
-              : tooltip;
-
-          final avatar = Padding(
-            padding: const EdgeInsets.all(5),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                UserMenuAvatar(
-                  avatarUrl: account.avatarUrl,
-                  initial: account.username?.characters.first.toUpperCase(),
-                  connecting: connecting,
-                  size: widget.size,
-                ),
-                if (account.userStatus != null && !connecting)
-                  Positioned(
-                    right: -5,
-                    bottom: -4,
-                    child: UserStatusMessage(
-                      siteUrl: siteUrl,
-                      userId: account.userId,
-                      status: account.userStatus,
-                      size: 13,
-                      badgeBackgroundColor:
-                          widget.ringColor ?? theme.scaffoldBackgroundColor,
-                      badgePadding: 2,
-                    ),
-                  ),
-                if (unreadCount > 0 && !connecting)
-                  Positioned(
-                    top: -5,
-                    right: -7,
-                    child: _UnreadBadge(
-                      count: unreadCount,
-                      background: badgeBackground,
-                      foreground: Colors.white,
-                      ringColor:
-                          widget.ringColor ?? theme.scaffoldBackgroundColor,
-                    ),
-                  ),
-              ],
-            ),
-          );
-
-          return MenuAnchor(
-            controller: _menu,
-            alignmentOffset: const Offset(0, 6),
-            // The panel draws its own surface, so that it can hold a margin
-            // between itself and the window edges the overlay would pin it to.
-            style: const MenuStyle(
-              backgroundColor: WidgetStatePropertyAll(Colors.transparent),
-              surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
-              shadowColor: WidgetStatePropertyAll(Colors.transparent),
-              elevation: WidgetStatePropertyAll(0),
-              padding: WidgetStatePropertyAll(EdgeInsets.zero),
-              side: WidgetStatePropertyAll(BorderSide.none),
-              shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
-            ),
-            menuChildren: [UserMenuPanel(onDismiss: _menu.close)],
-            child: Semantics(
-              container: true,
-              button: !connecting,
-              enabled: !connecting,
-              label: semanticLabel,
-              child: DTooltip(
-                message: tooltip,
-                excludeFromSemantics: true,
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: InkWell(
-                    key: UserMenuButton.avatarKey,
-                    onTap: connecting ? null : _openMenu,
-                    mouseCursor: WidgetStateMouseCursor.clickable,
-                    borderRadius: BorderRadius.circular(
-                      theme.discourseButtons.borderRadius,
-                    ),
-                    hoverColor: Colors.transparent,
-                    focusColor: theme.shell.hover,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        minWidth: 44,
-                        minHeight: 44,
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _AccountMenuPopover(
+                view: UserMenuView.notifications,
+                connecting: connecting,
+                tooltip: 'Notifications',
+                semanticLabel: unreadCount > 0
+                    ? 'Notifications, $unreadCount unread ${unreadCount == 1 ? 'item' : 'items'}'
+                    : 'Notifications',
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const DIcon(DIcons.bell, size: 20),
+                    if (unreadCount > 0 && !connecting)
+                      PositionedDirectional(
+                        top: -10,
+                        end: -12,
+                        child: IgnorePointer(
+                          child: ExcludeSemantics(
+                            child: DBadge(
+                              key: UserMenuButton.unreadDotKey,
+                              child: Text(
+                                unreadCount > 99 ? '99+' : '$unreadCount',
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: Center(
-                        widthFactor: 1,
-                        heightFactor: 1,
-                        child: ExcludeSemantics(child: avatar),
-                      ),
-                    ),
-                  ),
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              _AccountMenuPopover(
+                view: UserMenuView.profile,
+                connecting: connecting,
+                tooltip: 'Profile',
+                semanticLabel:
+                    '${account.displayName ?? account.username}, Profile',
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    UserMenuAvatar(
+                      avatarUrl: account.avatarUrl,
+                      initial: account.username?.characters.first.toUpperCase(),
+                      connecting: connecting,
+                      size: widget.size,
+                    ),
+                    if (account.userStatus != null && !connecting)
+                      PositionedDirectional(
+                        end: -5,
+                        bottom: -4,
+                        child: UserStatusMessage(
+                          siteUrl: siteUrl,
+                          userId: account.userId,
+                          status: account.userStatus,
+                          size: 13,
+                          badgeBackgroundColor:
+                              widget.ringColor ?? theme.scaffoldBackgroundColor,
+                          badgePadding: 2,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           );
         },
       );
     },
+  );
+}
+
+class _AccountMenuPopover extends StatefulWidget {
+  const _AccountMenuPopover({
+    required this.view,
+    required this.connecting,
+    required this.tooltip,
+    required this.semanticLabel,
+    required this.icon,
+  });
+
+  final UserMenuView view;
+  final bool connecting;
+  final String tooltip;
+  final String semanticLabel;
+  final Widget icon;
+
+  @override
+  State<_AccountMenuPopover> createState() => _AccountMenuPopoverState();
+}
+
+class _AccountMenuPopoverState extends State<_AccountMenuPopover> {
+  final _popover = DPopoverController();
+
+  @override
+  void dispose() {
+    _popover.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => DPopover(
+    controller: _popover,
+    content: DPopoverContent(
+      semanticLabel: widget.tooltip,
+      align: DPopoverAlign.end,
+      sideOffset: 6,
+      collisionPadding: UserMenuPanel.margin,
+      width: widget.view == UserMenuView.profile
+          ? UserMenuPanel.profileWidth
+          : UserMenuPanel.width,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      child: UserMenuPanel(view: widget.view, onDismiss: _popover.close),
+    ),
+    child: DPopoverTrigger(
+      builder: (context, trigger) => DButton.iconOnly(
+        key: widget.view == UserMenuView.profile
+            ? UserMenuButton.avatarKey
+            : UserMenuButton.bellKey,
+        icon: ExcludeSemantics(child: widget.icon),
+        tooltip: widget.connecting ? 'Connecting…' : widget.tooltip,
+        semanticLabel: widget.semanticLabel,
+        variant: DButtonVariant.ghost,
+        size: DButtonSize.large,
+        hasPopup: true,
+        expanded: trigger.open,
+        focusNode: trigger.focusNode,
+        onPressed: widget.connecting
+            ? null
+            : () {
+                if (context.isTouch) {
+                  unawaited(showUserMenuSheet(context, view: widget.view));
+                } else {
+                  trigger.toggle();
+                }
+              },
+      ),
+    ),
   );
 }
 
@@ -296,44 +319,6 @@ class _SignedOutAccountActions extends StatelessWidget {
           label: Text(connecting ? 'Signing in…' : 'Sign in'),
         ),
       ],
-    );
-  }
-}
-
-class _UnreadBadge extends StatelessWidget {
-  const _UnreadBadge({
-    required this.count,
-    required this.background,
-    required this.foreground,
-    required this.ringColor,
-  });
-
-  final int count;
-  final Color background;
-  final Color foreground;
-  final Color ringColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      key: UserMenuButton.unreadDotKey,
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: ringColor, width: 2),
-      ),
-      child: Text(
-        count > 99 ? '99+' : '$count',
-        textAlign: TextAlign.center,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction;
+
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -14,7 +16,7 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
-  testWidgets('unread account is a named 44 pixel keyboard button', (
+  testWidgets('bell owns unread activity and avatar opens profile directly', (
     tester,
   ) async {
     const user = DiscourseUser(id: 7, username: 'reader', name: 'Reader');
@@ -49,23 +51,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final button = find.byKey(UserMenuButton.avatarKey);
-      expect(tester.getSize(button), const Size.square(44));
+      final button = find.byKey(UserMenuButton.bellKey);
+      expect(tester.getSize(button), const Size.square(36));
       expect(find.byKey(UserMenuButton.unreadDotKey), findsOneWidget);
-      expect(find.byTooltip('Reader'), findsOneWidget);
+      expect(find.byTooltip('Notifications'), findsOneWidget);
+      expect(find.byTooltip('Profile'), findsOneWidget);
       final node = tester.getSemantics(button);
-      expect(node.tooltip, isEmpty);
+
+      expect(node.label, 'Notifications, 2 unread items');
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
       expect(
-        node,
-        isSemantics(
-          label: 'Reader, 2 unread items',
-          isButton: true,
-          hasEnabledState: true,
-          isEnabled: true,
-          isFocusable: true,
-          hasTapAction: true,
-          hasFocusAction: true,
-        ),
+        tester.getSemantics(find.byKey(UserMenuButton.avatarKey)).label,
+        'Reader, Profile',
       );
 
       final focus = _focusButton(tester, button);
@@ -76,6 +73,32 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(UserMenuPanel), findsOneWidget);
+      expect(find.byKey(const ValueKey('user-menu-tab-profile')), findsNothing);
+      expect(find.byTooltip('Likes'), findsOneWidget);
+      expect(find.byTooltip('Replies'), findsOneWidget);
+      await tester.tap(find.byKey(UserMenuButton.avatarKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsOneWidget);
+      expect(
+        tester.widget<UserMenuPanel>(find.byType(UserMenuPanel)).view,
+        UserMenuView.profile,
+      );
+      expect(find.text('Summary'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Preferences'),
+        100,
+        scrollable: find
+            .descendant(
+              of: find.byType(UserMenuPanel),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.text('Preferences'), findsOneWidget);
+      expect(find.byKey(const ValueKey('user-menu-tab-all')), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsNothing);
     } finally {
       semantics.dispose();
     }
