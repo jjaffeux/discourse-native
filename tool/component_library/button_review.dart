@@ -137,20 +137,11 @@ class _ButtonReviewState extends State<ButtonReview> {
                                   siteUrl: 'https://example.com',
                                   data: const UsersPageData(
                                     columns: _columns,
-                                    availableColumns: _columns,
-                                    canManageColumns: true,
                                     loaded: true,
                                   ),
                                   onPeriodChanged: (value) => setState(
                                     () => message = 'Period ${value.name}',
                                   ),
-                                  onManageColumns: (columns) async {
-                                    setState(
-                                      () => message =
-                                          'Column order ${columns.map((c) => c.id).join(', ')}',
-                                    );
-                                    return true;
-                                  },
                                 ),
                               ),
                             ),

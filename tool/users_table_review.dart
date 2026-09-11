@@ -30,7 +30,7 @@ class _ReviewState extends State<_Review> {
   String _status = 'Ready';
   UserDirectoryQuery _query = const UserDirectoryQuery();
   final _store = UserDirectoryColumnWidthStore(persistence: _Widths());
-  List<UserDirectoryColumn> _columns = const [
+  final List<UserDirectoryColumn> _columns = const [
     UserDirectoryColumn(
       id: 1,
       name: 'likes_received',
@@ -190,9 +190,7 @@ class _ReviewState extends State<_Review> {
                                     columns: _columns
                                         .where((column) => column.enabled)
                                         .toList(),
-                                    availableColumns: _columns,
                                     groupNames: const ['staff'],
-                                    canManageColumns: true,
                                     currentUsername: 'member1',
                                     query: _query,
                                     totalRows: items.length,
@@ -221,10 +219,6 @@ class _ReviewState extends State<_Review> {
                                       ascending: ascending,
                                     ),
                                   ),
-                                  onManageColumns: (columns) async {
-                                    setState(() => _columns = columns);
-                                    return true;
-                                  },
                                   onRefresh: () async {},
                                 ),
                         ),

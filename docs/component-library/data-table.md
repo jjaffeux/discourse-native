@@ -107,8 +107,8 @@ The initial migration retained too much of the old directory presentation. The
 corrected route follows the Data Table styleguide composition directly:
 
 - `DDataTableFilterField` and `DDataTableColumnToggle` own filtering and local
-  column visibility. The native dropdown applies visibility immediately; staff
-  configuration remains a separate “Manage columns” action.
+  column visibility. The dropdown is titled “Columns” and applies visibility
+  immediately. The separate “Manage columns” button and dialog were removed.
 - Username/profile links, a separate Name column and formatted metric values
   inherit table typography. The User cell pairs a small `DAvatar` with the
   username inside the same profile target. The old avatar stacks, badges and

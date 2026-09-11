@@ -25,10 +25,7 @@ final class UsersPageData {
   const UsersPageData({
     this.items = const [],
     this.columns = const [],
-    this.availableColumns = const [],
     this.groupNames = const [],
-    this.canManageColumns = false,
-    this.updatingColumns = false,
     this.currentUsername,
     this.totalRows = 0,
     this.lastUpdatedAt,
@@ -43,10 +40,7 @@ final class UsersPageData {
 
   final List<UserDirectoryItem> items;
   final List<UserDirectoryColumn> columns;
-  final List<UserDirectoryColumn> availableColumns;
   final List<String> groupNames;
-  final bool canManageColumns;
-  final bool updatingColumns;
   final String? currentUsername;
   final int totalRows;
   final DateTime? lastUpdatedAt;
@@ -127,12 +121,7 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
           data: UsersPageData(
             items: state.items,
             columns: state.columns,
-            availableColumns: state.availableColumns,
             groupNames: state.groupNames,
-            canManageColumns: state.canManageColumns,
-            updatingColumns: shell.userDirectory.updatingColumnsFor(
-              widget.siteUrl,
-            ),
             currentUsername: instance?.user?.username,
             totalRows: state.totalRows,
             lastUpdatedAt: state.lastUpdatedAt,
@@ -153,10 +142,6 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
           ),
           onSortChanged: (order, ascending) =>
               replaceQuery(query.copyWith(order: order, ascending: ascending)),
-          onManageColumns: state.canManageColumns && instance != null
-              ? (columns) =>
-                    shell.userDirectory.updateColumns(instance, columns)
-              : null,
           onRefresh: reload,
           onLoadMore: () => unawaited(reload(refresh: false, more: true)),
         );
@@ -174,7 +159,6 @@ class UsersPage extends StatefulWidget {
     this.onSearchChanged,
     this.onGroupChanged,
     this.onSortChanged,
-    this.onManageColumns,
     this.onRefresh,
     this.onLoadMore,
     this.columnWidthStore = const UserDirectoryColumnWidthStore(),
@@ -186,7 +170,6 @@ class UsersPage extends StatefulWidget {
   final ValueChanged<String>? onSearchChanged;
   final ValueChanged<String?>? onGroupChanged;
   final void Function(String order, bool ascending)? onSortChanged;
-  final Future<bool> Function(List<UserDirectoryColumn>)? onManageColumns;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onLoadMore;
   final UserDirectoryColumnWidthStore columnWidthStore;
@@ -201,7 +184,6 @@ class _UsersPageState extends State<UsersPage> {
   final ScrollController _horizontal = ScrollController();
   final ScrollController _vertical = ScrollController();
   Timer? _searchDebounce;
-  int _ownerGeneration = 0;
   Set<String> _hiddenColumnIds = {};
   bool _loadMoreCheckScheduled = false;
   bool _loadMoreRequested = false;
@@ -226,7 +208,6 @@ class _UsersPageState extends State<UsersPage> {
         oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.data.currentUsername != widget.data.currentUsername;
     if (ownerChanged) {
-      _ownerGeneration++;
       _searchDebounce?.cancel();
       _hiddenColumnIds = {};
     }
@@ -414,133 +395,6 @@ class _UsersPageState extends State<UsersPage> {
     _searchDebounce = Timer(
       const Duration(milliseconds: 350),
       () => widget.onSearchChanged?.call(value.trim()),
-    );
-  }
-
-  Future<void> _manageColumns() async {
-    final generation = _ownerGeneration;
-    final save = widget.onManageColumns;
-    if (save == null) return;
-    var draft = [...widget.data.availableColumns]
-      ..sort((a, b) => a.position.compareTo(b.position));
-    final result = await showDDialog<List<UserDirectoryColumn>>(
-      context: context,
-      builder: (dialogContext, dialog) => StatefulBuilder(
-        builder: (context, updateDialog) {
-          void move(int from, int to) => updateDialog(() {
-            final moved = draft.removeAt(from);
-            draft.insert(to, moved);
-            draft = [
-              for (final (index, column) in draft.indexed)
-                column.copyWith(position: index + 1),
-            ];
-          });
-          return DDialogContent(
-            key: const ValueKey('users-manage-columns-dialog'),
-            maxWidth: 608,
-            children: [
-              const DDialogHeader(
-                children: [DDialogTitle(child: Text('Directory columns'))],
-              ),
-              DDialogScrollArea(
-                key: const ValueKey('users-manage-columns-content'),
-                maxHeightFactor: .6,
-                child: Column(
-                  key: const ValueKey('users-manage-columns-list'),
-                  children: [
-                    for (var index = 0; index < draft.length; index++) ...[
-                      if (index > 0) const DSeparator(space: 1),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DCheckbox(
-                              key: ValueKey(
-                                'users-manage-column-${draft[index].id}',
-                              ),
-                              value: draft[index].enabled,
-                              title: Text(
-                                draft[index].label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(switch (draft[index].type) {
-                                UserDirectoryColumnType.automatic => 'Activity',
-                                UserDirectoryColumnType.userField =>
-                                  'User field',
-                                UserDirectoryColumnType.plugin => 'Plugin',
-                              }),
-                              onChanged: (enabled) => updateDialog(() {
-                                draft[index] = draft[index].copyWith(
-                                  enabled: enabled ?? false,
-                                );
-                              }),
-                            ),
-                          ),
-                          DButton.iconOnly(
-                            key: ValueKey('users-column-up-${draft[index].id}'),
-                            tooltip: 'Move ${draft[index].label} up',
-                            onPressed: index == 0
-                                ? null
-                                : () => move(index, index - 1),
-                            size: DButtonSize.small,
-                            variant: DButtonVariant.ghost,
-                            icon: const DIcon(DIcons.arrowUp),
-                          ),
-                          DButton.iconOnly(
-                            key: ValueKey(
-                              'users-column-down-${draft[index].id}',
-                            ),
-                            tooltip: 'Move ${draft[index].label} down',
-                            onPressed: index == draft.length - 1
-                                ? null
-                                : () => move(index, index + 1),
-                            size: DButtonSize.small,
-                            variant: DButtonVariant.ghost,
-                            icon: Transform.rotate(
-                              angle: math.pi,
-                              child: const DIcon(DIcons.arrowUp),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              DDialogFooter(
-                children: [
-                  DButton(
-                    onPressed: () => dialog.close(),
-                    label: const Text('Cancel'),
-                    variant: DButtonVariant.ghost,
-                  ),
-                  DButton(
-                    key: const ValueKey('users-save-columns'),
-                    onPressed: draft.any((column) => column.enabled)
-                        ? () => dialog.close(draft)
-                        : null,
-                    label: const Text('Save changes'),
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
-    if (!mounted ||
-        generation != _ownerGeneration ||
-        result == null ||
-        !widget.data.canManageColumns ||
-        widget.onManageColumns == null) {
-      return;
-    }
-    final saved = await save(List.unmodifiable(result));
-    if (!mounted || generation != _ownerGeneration || saved) return;
-    DToast.show(
-      context,
-      "Couldn't update directory columns.",
-      type: DToastType.error,
     );
   }
 
@@ -754,20 +608,12 @@ class _UsersPageState extends State<UsersPage> {
                     ),
                     DDataTableColumnToggle<UserDirectoryItem>(
                       key: const ValueKey('users-columns'),
+                      menuLabel: 'Columns',
                       columns: columns,
                       hiddenColumnIds: _hiddenColumnIds,
                       onChanged: (hidden) =>
                           setState(() => _hiddenColumnIds = Set.of(hidden)),
                     ),
-                    if (data.canManageColumns &&
-                        data.availableColumns.isNotEmpty &&
-                        widget.onManageColumns != null)
-                      DButton(
-                        key: const ValueKey('users-manage-columns'),
-                        variant: DButtonVariant.outline,
-                        label: const Text('Manage columns'),
-                        onPressed: data.updatingColumns ? null : _manageColumns,
-                      ),
                     DButton.iconOnly(
                       key: const ValueKey('users-refresh'),
                       tooltip: 'Refresh directory',
