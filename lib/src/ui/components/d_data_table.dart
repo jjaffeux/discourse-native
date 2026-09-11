@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -934,7 +935,7 @@ class DDataTableSelectionSummary extends StatelessWidget {
         '$selectedCount of $totalCount row(s) selected.',
     style: Theme.of(context).textTheme.bodySmall?.copyWith(
       color: DTokens.of(context).mutedForeground,
-      fontSize: 14,
+      fontSize: DiscourseTypography.sm,
       height: 20 / 14,
     ),
   );
@@ -989,7 +990,7 @@ class DDataTablePagination extends StatelessWidget {
         : ([...pageSizeOptions, state.pageSize]..sort());
     final textScaler = MediaQuery.textScalerOf(context);
     final valueStyle = DefaultTextStyle.of(context).style.copyWith(
-      fontSize: 14,
+      fontSize: DiscourseTypography.sm,
       height: 20 / 14,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
@@ -1027,7 +1028,7 @@ class DDataTablePagination extends StatelessWidget {
         Text(
           rowsPerPageLabel,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontSize: 14,
+            fontSize: DiscourseTypography.sm,
             height: 20 / 14,
             fontWeight: FontWeight.w500,
           ),
@@ -1066,7 +1067,7 @@ class DDataTablePagination extends StatelessWidget {
             'Page ${state.page} of ${metrics.pageCount}',
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          fontSize: 14,
+          fontSize: DiscourseTypography.sm,
           height: 20 / 14,
           fontWeight: FontWeight.w500,
         ),

@@ -1,3 +1,5 @@
+import 'package:discourse_native/src/theme/discourse_typography.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../discourse_ui.dart';
@@ -754,7 +756,10 @@ class _FormContentState extends State<_FormContent> {
         ExcludeSemantics(
           child: Text(
             label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              fontSize: DiscourseTypography.sm,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -764,7 +769,10 @@ class _FormContentState extends State<_FormContent> {
             initialValue: initialValue,
             validator: validator,
             onSaved: onSaved,
-            style: const TextStyle(fontSize: 14, height: 20 / 14),
+            style: const TextStyle(
+              fontSize: DiscourseTypography.sm,
+              height: 20 / 14,
+            ),
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(

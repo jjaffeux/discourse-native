@@ -87,9 +87,9 @@ void main() {
     final controller = _controller();
     addTearDown(controller.dispose);
     await _pumpPage(tester, controller, scale: 2, size: const Size(800, 800));
-    final title = Theme.of(tester.element(find.text('Settings')))
-        .textTheme
-        .titleLarge!;
+    final title = Theme.of(
+      tester.element(find.text('Settings')),
+    ).textTheme.titleLarge!;
     final header = tester.getRect(
       find.byKey(const ValueKey('app-settings-header')),
     );
@@ -260,8 +260,9 @@ Future<void> _pumpPage(
       child: MaterialApp(
         theme: AppTheme.light,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(scale)),
           child: child!,
         ),
         home: Builder(

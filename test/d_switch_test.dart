@@ -834,8 +834,9 @@ void main() {
           await mouse.moveTo(Offset.zero);
           await tester.pumpAndSettle();
         }
-        final tokens = DTokens.fromTheme(base)
-            .copyWith(border: const Color(0x66551122));
+        final tokens = DTokens.fromTheme(
+          base,
+        ).copyWith(border: const Color(0x66551122));
         await mount(
           tester,
           DSwitchTile(

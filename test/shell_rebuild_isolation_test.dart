@@ -241,6 +241,10 @@ void main() {
         ),
       );
 
+      // Finish initial layout and its reader-bounds notification before
+      // measuring the notifications caused by pagination.
+      await tester.pumpAndSettle();
+      shellNotifications = 0;
       expect(find.byType(TopicCreateButton), findsOneWidget);
 
       final rail = tester.element(find.byType(InstanceRail));
@@ -290,7 +294,7 @@ void main() {
         tabBar,
         createAction,
       ]) {
-        expect(rebuilds[chrome] ?? 0, 0);
+        expect(rebuilds[chrome] ?? 0, 0, reason: chrome.toString());
       }
       expect(rebuilds[list] ?? 0, greaterThan(0));
 
@@ -321,7 +325,7 @@ void main() {
         tabBar,
         createAction,
       ]) {
-        expect(rebuilds[chrome] ?? 0, 0);
+        expect(rebuilds[chrome] ?? 0, 0, reason: chrome.toString());
       }
       expect(rebuilds[list] ?? 0, greaterThan(0));
     },

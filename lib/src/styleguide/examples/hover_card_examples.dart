@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -246,7 +247,7 @@ class _NextJsPreview extends StatelessWidget {
           'Joined December 2021',
           style: TextStyle(
             color: DTokens.of(context).mutedForeground,
-            fontSize: 12,
+            fontSize: DiscourseTypography.xs,
             height: 16 / 12,
           ),
         ),

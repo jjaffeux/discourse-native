@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -90,6 +91,7 @@ Future<void> _pumpComposer(WidgetTester tester, ShellController shell) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+      builder: (context, child) => DToaster(child: child!),
       home: ShellScope(
         controller: shell,
         child: Scaffold(body: ComposerPanel(composer: shell.visibleComposer!)),

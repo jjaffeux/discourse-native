@@ -95,10 +95,8 @@ DNotificationLevelMenu<int>(
   interactiveBackgroundColor: Color.lerp(tokens.surface, tokens.foreground, .06),
   onChanged: (value) => setState(() => level = value),
 )''',
-      builder: (_) => const _NotificationExample(
-        showLabel: true,
-        customColors: true,
-      ),
+      builder: (_) =>
+          const _NotificationExample(showLabel: true, customColors: true),
     ),
     StyleguideExample(
       title: 'Disabled',

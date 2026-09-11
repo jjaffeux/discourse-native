@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:discourse_native/discourse_ui.dart';
+
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -428,7 +430,7 @@ class _TestEditor extends StatelessWidget {
       theme: theme ?? AppTheme.light,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(textScaler: textScaler),
-        child: child!,
+        child: DToaster(child: child!),
       ),
       home: Scaffold(
         body: Column(

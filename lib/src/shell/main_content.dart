@@ -336,6 +336,16 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             ? _listWidth.effectiveWidth(maximum: maximumListWidth)
             : constraints.maxWidth;
         final showsUserMenu = !topicOpen && ShellTitleBar.columnsCarryUserMenu;
+        final createAction = _TopicCreateAction(
+          controller: controller,
+          compact: true,
+          fromList: true,
+          showLabel:
+              ContentReadingLane.breakpointWidthOf(context, listWidth) /
+                  MediaQuery.textScalerOf(context).scale(1) >=
+              760,
+          leadingPadding: false,
+        );
         Widget heading(Widget? navigation) => Row(
           key: const ValueKey('topic-list-heading'),
           children: [
@@ -378,16 +388,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 siteUrl: state.siteUrl!,
                 categoryId: sourceRoute.categoryId!,
               ),
-            _TopicCreateAction(
-              controller: controller,
-              compact: true,
-              fromList: true,
-              showLabel:
-                  ContentReadingLane.breakpointWidthOf(context, listWidth) /
-                      MediaQuery.textScalerOf(context).scale(1) >=
-                  760,
-              leadingPadding: false,
-            ),
+            createAction,
           ],
         );
         // Account controls stay at the pane edge; title, tabs and actions

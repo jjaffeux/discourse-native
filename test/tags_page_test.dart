@@ -203,7 +203,7 @@ void main() {
       );
       await _pumpShell(tester, controller);
 
-      expect(_sidebarText('TAGS'), findsOneWidget);
+      expect(_sidebarText('Tags'), findsOneWidget);
       expect(_sidebarText('priority-high'), findsOneWidget);
       expect(_sidebarText('All tags'), findsOneWidget);
 

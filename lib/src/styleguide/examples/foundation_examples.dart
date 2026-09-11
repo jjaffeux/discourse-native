@@ -1,3 +1,5 @@
+import 'package:discourse_native/src/theme/discourse_typography.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../discourse_ui.dart';
@@ -70,7 +72,7 @@ class _TokenPreview extends StatelessWidget {
                     Text(
                       label,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 12,
+                        fontSize: DiscourseTypography.xs,
                         height: 16 / 12,
                         color: tokens.mutedForeground,
                       ),

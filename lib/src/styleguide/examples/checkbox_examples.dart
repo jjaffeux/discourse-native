@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -129,7 +130,7 @@ DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
           Text(
             'Select the items you want to show on the desktop.',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: DiscourseTypography.sm,
               height: 1.5,
               color: DTokens.of(context).mutedForeground,
             ),
@@ -254,7 +255,10 @@ class _SelectionTableState extends State<_SelectionTable> {
         child: SizedBox(
           width: 560,
           child: DefaultTextStyle.merge(
-            style: const TextStyle(fontSize: 14, height: 20 / 14),
+            style: const TextStyle(
+              fontSize: DiscourseTypography.sm,
+              height: 20 / 14,
+            ),
             child: Table(
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               columnWidths: const {

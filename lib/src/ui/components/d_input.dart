@@ -367,7 +367,7 @@ class _DInputState extends FormFieldState<String> {
             child: Text(
               error ?? input.helperText!,
               style: style.copyWith(
-                fontSize: 14,
+                fontSize: DiscourseTypography.sm,
                 height: 21 / 14,
                 color: error == null ? t.mutedForeground : t.destructive,
               ),

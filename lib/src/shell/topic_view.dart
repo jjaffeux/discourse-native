@@ -831,10 +831,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  double _sidebarOverlayWidth(BuildContext context) =>
-      MediaQuery.sizeOf(context).width
-          .clamp(0.0, _TopicSidebarPanel.dockedWidth)
-          .toDouble();
+  double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
+    context,
+  ).width.clamp(0.0, _TopicSidebarPanel.dockedWidth).toDouble();
 
   void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
@@ -2104,7 +2103,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         scrollController: _scroll!,
         onStart: () => _jumpToBoundary(end: false),
         onEnd: () => _jumpToBoundary(end: true),
-        child: postStreamContent,
+        child: DScrollBar(
+          controller: _scroll,
+          thumbVisibility: false,
+          child: postStreamContent,
+        ),
       ),
     );
 
@@ -3350,8 +3353,9 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
   );
 }
 

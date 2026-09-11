@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -295,7 +296,7 @@ class _DSidebarState extends State<DSidebar> {
             child: DefaultTextStyle(
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 color: t.foreground,
-                fontSize: 14,
+                fontSize: DiscourseTypography.sm,
                 height: 20 / 14,
               ),
               child: Stack(
@@ -553,7 +554,7 @@ class DSidebarGroupLabel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: DefaultTextStyle.merge(
               style: TextStyle(
-                fontSize: 12,
+                fontSize: DiscourseTypography.xs,
                 height: 16 / 12,
                 fontWeight: FontWeight.w500,
                 color: DTokens.of(context).foreground.withValues(alpha: .7),
@@ -1351,7 +1352,7 @@ class DSidebarMenuBadge extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: DefaultTextStyle.merge(
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: DiscourseTypography.xs,
                 height: 16 / 12,
                 fontWeight: FontWeight.w500,
                 fontFeatures: [FontFeature.tabularFigures()],

@@ -1,5 +1,6 @@
 import 'dart:ui' show SemanticsValidationResult;
 
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -228,7 +229,7 @@ class _DCheckboxState extends State<DCheckbox> {
                         const SizedBox(height: 2),
                         DefaultTextStyle.merge(
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: DiscourseTypography.sm,
                             height: 1.5,
                             color: tokens.mutedForeground,
                           ),
@@ -455,7 +456,7 @@ class DCheckboxFormField extends FormField<bool> {
                    child: Text(
                      field.errorText!,
                      style: TextStyle(
-                       fontSize: 14,
+                       fontSize: DiscourseTypography.sm,
                        height: 1.5,
                        color: DTokens.of(field.context).destructive,
                      ),

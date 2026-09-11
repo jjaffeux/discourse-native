@@ -337,7 +337,7 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
             Text(
               'Bar Chart - Interactive',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: DiscourseTypography.base - 1,
                 height: 1,
                 fontWeight: FontWeight.w600,
               ),
@@ -803,7 +803,7 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
             Text(
               'Bar Chart - Interactive',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: DiscourseTypography.base - 1,
                 height: 1,
                 fontWeight: FontWeight.w600,
               ),

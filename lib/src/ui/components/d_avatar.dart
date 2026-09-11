@@ -452,7 +452,7 @@ class DAvatarBadge extends StatelessWidget {
                   fontFamily: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.fontFamily,
-                  fontSize: 8,
+                  fontSize: DiscourseTypography.base / 2,
                   height: 1,
                   color: foregroundColor ?? tokens.primaryForeground,
                 ),

@@ -95,6 +95,9 @@ void main() {
     );
     addTearDown(controller.dispose);
     await controller.load();
+    tester.view.physicalSize =
+        const Size(390, 844) * tester.view.devicePixelRatio;
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     tester.view.viewInsets = FakeViewPadding(
@@ -110,7 +113,7 @@ void main() {
         controller: controller,
         child: MaterialApp(
           theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-          home: const Scaffold(body: AdaptiveShell()),
+          home: const AdaptiveShell(),
         ),
       ),
     );
