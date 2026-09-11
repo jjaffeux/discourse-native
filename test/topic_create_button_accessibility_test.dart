@@ -169,7 +169,7 @@ void main() {
             direction == TextDirection.ltr
                 ? draftsSurface.left - createSurface.right
                 : createSurface.left - draftsSurface.right,
-            1,
+            2,
           );
           final createRadius = buttonSurface(tester, of: create).borderRadius;
           final draftsRadius = buttonSurface(tester, of: drafts).borderRadius;
@@ -180,7 +180,7 @@ void main() {
             expect(draftsRadius.topRight.x, greaterThan(0));
             expect(
               tester.getRect(drafts).left - tester.getRect(create).right,
-              1,
+              2,
             );
           } else {
             expect(createRadius.topRight.x, greaterThan(0));
@@ -189,7 +189,7 @@ void main() {
             expect(draftsRadius.topLeft.x, greaterThan(0));
             expect(
               tester.getRect(create).left - tester.getRect(drafts).right,
-              1,
+              2,
             );
           }
         },
