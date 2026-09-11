@@ -10,6 +10,43 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
+    'equal-height cells lay out once and hover does not relayout them',
+    (tester) async {
+      var layouts = 0;
+      await _pump(
+        tester,
+        DTable(
+          columnWidths: const {
+            0: FixedColumnWidth(200),
+            1: FixedColumnWidth(200),
+          },
+          body: DTableBody(
+            rows: [
+              DTableRow(
+                cells: [
+                  _MeasuredCell(onLayout: () => layouts++),
+                  _MeasuredCell(onLayout: () => layouts++),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(layouts, 2);
+      layouts = 0;
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(1, 1));
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byType(_LayoutProbe).first));
+      await tester.pumpAndSettle();
+      expect(layouts, 0);
+      await mouse.moveTo(tester.getCenter(find.byType(_LayoutProbe).last));
+      await tester.pumpAndSettle();
+      expect(layouts, 0);
+    },
+  );
+
+  testWidgets(
     'lazy footer and caption retain natural height and footer style',
     (tester) async {
       final scroll = ScrollController();
@@ -392,3 +429,30 @@ Future<void> _pump(
     ),
   ),
 );
+
+class _MeasuredCell extends DTableCell {
+  const _MeasuredCell({required this.onLayout})
+    : super(child: const SizedBox());
+  final VoidCallback onLayout;
+  @override
+  Widget build(BuildContext context) =>
+      _LayoutProbe(onLayout: onLayout, child: const SizedBox(height: 32));
+}
+
+class _LayoutProbe extends SingleChildRenderObjectWidget {
+  const _LayoutProbe({required this.onLayout, required super.child});
+  final VoidCallback onLayout;
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _LayoutCounter(onLayout);
+}
+
+class _LayoutCounter extends RenderProxyBox {
+  _LayoutCounter(this.onLayout);
+  final VoidCallback onLayout;
+  @override
+  void performLayout() {
+    onLayout();
+    super.performLayout();
+  }
+}
