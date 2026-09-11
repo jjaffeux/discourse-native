@@ -129,7 +129,7 @@ void _registerConnectionSessionTests() {
       await tester.pumpAndSettle();
 
       expect(auth.connected, ['https://meta.discourse.org']);
-      expect(find.byTooltip('Joffrey'), findsOneWidget);
+      expect(find.byTooltip('Profile'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(UserMenuButton),
@@ -275,7 +275,7 @@ void _registerConnectionSessionTests() {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Joffrey'), findsOneWidget);
+      expect(find.byTooltip('Profile'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -361,7 +361,7 @@ void _registerConnectionSessionTests() {
 
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
-      expect(find.byTooltip('Joffrey'), findsOneWidget);
+      expect(find.byTooltip('Profile'), findsOneWidget);
 
       await _openProfileSection(tester);
       await tester.tap(find.text('Disconnect'));
@@ -443,13 +443,13 @@ void _registerConnectionSessionTests() {
     });
 
     Future<void> openMenu(WidgetTester tester) async {
-      await tester.tap(userMenu);
+      await tester.tap(find.byKey(UserMenuButton.bellKey));
       await tester.pumpAndSettle();
     }
 
     Future<void> openNotifications(WidgetTester tester) async {
       await openMenu(tester);
-      await tester.tap(find.text('Notifications'));
+      await tester.tap(find.text('Notifications').last);
       await tester.pumpAndSettle();
     }
 
@@ -536,10 +536,10 @@ void _registerConnectionSessionTests() {
       await openMenu(tester);
 
       expect(find.byType(UserMenuPanel), findsNothing);
-      expect(find.text('Joffrey'), findsOneWidget);
+      expect(find.text('Notifications'), findsWidgets);
       expect(find.text('@joffreyj · meta.discourse.org'), findsOneWidget);
-      expect(find.text('Notifications'), findsOneWidget);
-      expect(find.text('Profile'), findsOneWidget);
+      expect(find.text('Notifications'), findsWidgets);
+      expect(find.text('Profile'), findsNothing);
       expect(
         tester.widget<Text>(find.text('Replies')).style?.color,
         isNot(Theme.of(tester.element(find.text('Replies'))).shell.placeholder),
@@ -554,13 +554,13 @@ void _registerConnectionSessionTests() {
         find.textContaining('sam replied to Better image handling'),
         findsOneWidget,
       );
-      expect(find.text('Notifications'), findsOneWidget);
+      expect(find.text('Notifications'), findsWidgets);
       expect(find.dIcon(DIcons.arrowLeft), findsOneWidget);
 
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
 
-      expect(find.text('Profile'), findsOneWidget);
+      expect(find.text('Profile'), findsNothing);
       expect(find.textContaining('sam replied to'), findsNothing);
     });
 
@@ -1145,7 +1145,7 @@ void _registerConnectionSessionTests() {
           chatNotificationFeed.filterByTypes,
         ]);
 
-        final title = find.text('Chat');
+        final title = find.text('Chat').last;
         final placeholder = Theme.of(tester.element(title)).shell.placeholder;
         expect(tester.widget<Text>(title).style?.color, isNot(placeholder));
       } finally {
@@ -1324,7 +1324,7 @@ void _registerConnectionSessionTests() {
         await tester.tap(find.byTooltip('Likes'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Likes'), findsOneWidget);
+        expect(find.text('Likes'), findsWidgets);
         expect(find.textContaining('sam replied to'), findsNothing);
         expect(find.textContaining('liked your post'), findsOneWidget);
       } finally {
@@ -1396,16 +1396,11 @@ void _registerConnectionSessionTests() {
       expect(find.text('A private message'), findsOneWidget);
     });
 
-    testWidgets('the account section is last and holds the disconnect', (
+    testWidgets('the avatar opens the account actions directly', (
       tester,
     ) async {
       await pumpShell(tester, phone, instances: connected);
-      await openMenu(tester);
-
-      expect(find.text('Disconnect'), findsNothing);
-
-      await tester.tap(find.text('Profile'));
-      await tester.pumpAndSettle();
+      await _openProfileSection(tester);
 
       expect(find.text('Preferences'), findsOneWidget);
       expect(find.text('Disconnect'), findsOneWidget);
@@ -1466,9 +1461,7 @@ void _registerConnectionSessionTests() {
           ).copyWith(user: me.withHidePresence(false)),
         ],
       );
-      await openMenu(tester);
-      await tester.tap(find.text('Profile'));
-      await tester.pumpAndSettle();
+      await _openProfileSection(tester);
 
       final placeholder = Theme.of(
         tester.element(find.text('Preferences')),
@@ -1782,7 +1775,11 @@ void _registerConnectionSessionTests() {
       final tab = tester.widget<Text>(find.text('Notifications').first);
       expect(
         tab.style?.color,
-        isNot(Theme.of(tester.element(find.text('Profile'))).shell.placeholder),
+        isNot(
+          Theme.of(
+            tester.element(find.text('Notifications').first),
+          ).shell.placeholder,
+        ),
       );
     });
 
@@ -1935,7 +1932,7 @@ void _registerConnectionSessionTests() {
       await openNotifications(tester);
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Notifications'));
+      await tester.tap(find.text('Notifications').last);
       await tester.pumpAndSettle();
 
       expect(api.notificationCalls, 2);
@@ -2004,7 +2001,11 @@ void _registerConnectionSessionTests() {
       final tab = tester.widget<Text>(find.text('Bookmarks').first);
       expect(
         tab.style?.color,
-        isNot(Theme.of(tester.element(find.text('Profile'))).shell.placeholder),
+        isNot(
+          Theme.of(
+            tester.element(find.text('Notifications').first),
+          ).shell.placeholder,
+        ),
       );
     });
 
@@ -2658,10 +2659,6 @@ final class _FailingUserActivityApi extends FakeDiscourseApi {
 
 Future<void> _openProfileSection(WidgetTester tester) async {
   await tester.tap(userMenu);
-  await tester.pumpAndSettle();
-
-  final tab = find.byTooltip('Profile');
-  await tester.tap(tab.evaluate().isEmpty ? find.text('Profile') : tab);
   await tester.pumpAndSettle();
 }
 

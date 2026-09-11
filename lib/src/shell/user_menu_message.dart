@@ -19,8 +19,8 @@ class UserMenuMessage extends StatelessWidget {
     final theme = Theme.of(context);
     final message = text;
 
-    return SizedBox(
-      height: height,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: height),
       child: Center(
         child: message == null
             ? const SizedBox(width: 22, height: 22, child: DSpinner())
