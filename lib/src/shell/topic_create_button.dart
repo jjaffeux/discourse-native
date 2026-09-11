@@ -78,7 +78,7 @@ class _TopicCreateControl extends StatelessWidget {
                   ? const TextStyle(fontWeight: FontWeight.w500)
                   : null,
             ),
-            icon: DIcon(DIcons.farPenToSquare, size: compact ? 14 : 18),
+            icon: DIcon(DIcons.plus, size: compact ? 14 : 18),
             tooltip: 'New topic',
             shortcut: const DShortcut(newTopicShortcut),
             semanticLabel: 'New topic',
@@ -88,7 +88,7 @@ class _TopicCreateControl extends StatelessWidget {
           )
         : DButton.iconOnly(
             key: TopicCreateButton.buttonKey,
-            icon: const DIcon(DIcons.farPenToSquare, size: 18),
+            icon: const DIcon(DIcons.plus, size: 18),
             tooltip: 'New topic',
             shortcut: const DShortcut(newTopicShortcut),
             semanticLabel: 'New topic',
