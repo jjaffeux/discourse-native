@@ -167,9 +167,7 @@ void main() {
         await _choose(tester, 'tag');
         expect(
           shell.topicListContent?.tagNames,
-          inline
-              ? [_tag.slug]
-              : containsAll([_tag.name, ...replacement!.tagNames]),
+          containsAll([_tag.name, ...replacement!.tagNames]),
         );
       });
     }
