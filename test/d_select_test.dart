@@ -153,46 +153,58 @@ void main() {
     },
   );
 
-  testWidgets('pointer highlight switches rows without an overlap frame', (
-    tester,
-  ) async {
-    await _mount(
-      tester,
-      DSelect<String>.controlled(
-        value: 'apple',
-        semanticLabel: 'Fruit',
-        entries: const [
-          DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
-          DSelectOption(
-            value: 'banana',
-            label: 'Banana',
-            child: Text('Banana'),
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets(
+      'pointer highlight is visible without overlap in ${theme.brightness}',
+      (tester) async {
+        await _mount(
+          tester,
+          DSelect<String>.controlled(
+            value: 'apple',
+            semanticLabel: 'Fruit',
+            entries: const [
+              DSelectOption(
+                value: 'apple',
+                label: 'Apple',
+                child: Text('Apple'),
+              ),
+              DSelectOption(
+                value: 'banana',
+                label: 'Banana',
+                child: Text('Banana'),
+              ),
+            ],
+            onChanged: _noopString,
           ),
-        ],
-        onChanged: _noopString,
-      ),
-    );
+          theme: theme,
+        );
 
-    await tester.tap(find.text('Apple'));
-    await tester.pumpAndSettle();
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(mouse.removePointer);
-    await mouse.addPointer();
-    await mouse.moveTo(tester.getCenter(find.text('Banana')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+        await tester.tap(find.text('Apple'));
+        await tester.pumpAndSettle();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer();
+        await mouse.moveTo(tester.getCenter(find.text('Banana')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
 
-    expect(
-      tester.widget(
-        find.byKey(
-          const ValueKey<(String, String?)>(('d-select-item', 'banana')),
-        ),
-      ),
-      isA<Container>(),
+        expect(
+          tester.widget(
+            find.byKey(
+              const ValueKey<(String, String?)>(('d-select-item', 'banana')),
+            ),
+          ),
+          isA<Container>(),
+        );
+        expect(_rowBackground(tester, 'apple').a, 0);
+        expect(_rowBackground(tester, 'banana'), theme.hoverColor);
+        expect(
+          _rowBackground(tester, 'banana'),
+          isNot(theme.extension<DTokens>()!.surface),
+        );
+      },
     );
-    expect(_rowBackground(tester, 'apple').a, 0);
-    expect(_rowBackground(tester, 'banana').a, greaterThan(0));
-  });
+  }
 
   testWidgets('disabled pointer highlighting preserves one keyboard row', (
     tester,
@@ -1053,10 +1065,14 @@ Color _rowBackground(WidgetTester tester, String value) {
   return (decoration as BoxDecoration).color!;
 }
 
-Future<void> _mount(WidgetTester tester, Widget child) async {
+Future<void> _mount(
+  WidgetTester tester,
+  Widget child, {
+  ThemeData? theme,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
       home: Scaffold(body: Center(child: child)),
     ),
   );
