@@ -28,6 +28,7 @@ class CookedHtml extends StatelessWidget {
     super.key,
     required this.html,
     this.textStyle,
+    this.linkStyle,
     this.siteUrl,
     this.post,
     this.containingTopic,
@@ -39,6 +40,10 @@ class CookedHtml extends StatelessWidget {
 
   final String html;
   final TextStyle? textStyle;
+
+  /// Optional link color and decoration for composition on a contrasting surface.
+  /// Other text metrics continue to follow the surrounding rich content.
+  final TextStyle? linkStyle;
 
   final String? siteUrl;
 
@@ -134,11 +139,18 @@ class CookedHtml extends StatelessWidget {
     String? deletedBackground,
     String linkCountBackground,
     String linkCountForeground,
+    TextStyle? linkStyle,
   ) {
     final styles = <String, String>{};
 
     if (element.localName == 'a') {
-      styles['text-decoration'] = 'none';
+      styles['text-decoration'] =
+          linkStyle?.decoration?.contains(TextDecoration.underline) == true
+          ? 'underline'
+          : 'none';
+      if (linkStyle?.color case final color?) {
+        styles['color'] = _cssColor(color);
+      }
     }
 
     final headingLevel = switch (element.localName) {
@@ -280,12 +292,14 @@ class CookedHtml extends StatelessWidget {
           deletedBackground,
           linkCountBackground,
           linkCountForeground,
+          linkStyle,
         ),
         // The builders close over the style and resolved site, and [HtmlWidget]
         // caches what they built — so a change to either has to say so to reach
         // the inline code and the emoji.
         rebuildTriggers: [
           style,
+          linkStyle,
           resolvedSiteUrl,
           post?.plugins,
           containingTopic,

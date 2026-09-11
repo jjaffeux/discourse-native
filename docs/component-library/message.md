@@ -48,7 +48,10 @@ Bubble owns its own maximum width and internal alignment in Flutter. Callers use
 - selection, uploads, edited/pinned/bookmark/delivery state, reactions, thread preview and reply jump;
 - hover/long-press actions, permissions, async mutations and virtualization keys.
 
-This migration intentionally does not force shadcn bubbles onto the established Discourse chat presentation. The generic Message owner supplies row/avatar/content composition; the app adapter preserves product-specific visual and behavioral contracts. `ChatUploads` composes the accepted Attachment owner for file cards.
+Category channels retain the established compact Discourse presentation. Direct
+messages now use the complete Message/Bubble composition described below. The app
+adapter preserves product-specific behavior in both layouts. `ChatUploads`
+composes the accepted Attachment owner for file cards.
 
 `tool/message_native_review_main.dart` mounts these exact production widgets
 against local in-memory Chat records for native acceptance. It covers ordinary
@@ -144,3 +147,55 @@ Message/Menubar examples and styleguide-page checks passed with seed 39062,
 along with root/full analysis. Only adjacent registrations/exports required
 reconciliation, retaining both owners. No Message runtime behavior changed.
 No push was performed.
+
+
+## Direct-message presentation (2026-09-11)
+
+Both one-to-one and group DM tiles use the complete kit composition. The tile
+observes its source channel; unknown channels retain the compact layout until
+classified. Ownership uses the current account on the message's site. The same
+rule applies to conversation, search, deleted-message expansions and thread
+consumers, without new routing or network responsibilities.
+
+Outgoing messages use end-aligned primary bubbles and incoming messages use
+start-aligned muted bubbles. Incoming sender metadata uses Message Header;
+timestamps, edited/pin/bookmark indicators and pending/failed status use Message
+Footer. Chained rows keep independent selection/virtualization identity and an
+empty avatar slot. No successful-delivery or read receipt is inferred.
+
+Canonical HTML and provisional text inherit Bubble typography and foreground.
+`CookedHtml.linkStyle` optionally overrides link color and underline decoration;
+DM outgoing links use the bubble foreground with underlining. Its default keeps
+other consumers unchanged. `ChatUploads.alignment` defaults to logical start and
+allows outgoing attachment collections to align at logical end. Attachment-only
+messages, including empty projected sending previews, do not render empty bubbles.
+Reaction controls retain their existing permissions, async toggles and reactor
+views within wrapping Message footers. Reply and thread previews compose
+interactive outline bubbles with existing navigation callbacks.
+
+Verification uses the dedicated DM widget tests plus the existing Message,
+Chat tile, rich-text, preview, uploads, search, channel lifecycle, thread workspace
+and local review-fixture suites. The isolated macOS fixture was inspected beside
+the Message styleguide in light/dark and Plum, including 360px width, 200% text
+and RTL. Reaction toggling changed 3 to 4; reply navigation reported DM 201;
+secondary-click actions opened and Reply reported DM 206. Native accessibility
+retained independent profile, link, reaction, attachment and status nodes. The
+unchanged compact channel fixture was also inspected. The isolated app was
+quit and its process absence checked before releasing the desktop lease.
+
+Touch long-press and keyboard menu behavior were exercised by widget tests;
+no physical touch device or spoken VoiceOver acceptance is claimed. Fixtures
+use in-memory accounts and local fake responses, with fallback emoji artwork.
+
+
+Checks completed for this adoption:
+
+- 298 focused regression tests passed across the DM, Message, Chat, rich-text,
+  preview, uploads, search, lifecycle, workspace, styleguide and fixture suites.
+- After adding the empty pending-attachment edge case, all 24 DM/fixture tests
+  passed again (22 DM tests and two fixture tests).
+- `flutter analyze --no-pub`, touched-file formatting, and `git diff --check` passed.
+- `flutter build macos --debug --no-pub -t tool/message_native_review_main.dart`
+  passed on the final source. The native inspection above preceded only the
+  pending-attachment empty-body guard; the inspected fixture compositions are
+  unchanged by that guard.

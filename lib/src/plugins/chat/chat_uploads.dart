@@ -19,10 +19,18 @@ import 'chat_message.dart';
 
 /// Chat attachments exist only in the `uploads` array, not cooked HTML.
 class ChatUploads extends StatelessWidget {
-  const ChatUploads({super.key, required this.siteUrl, required this.uploads});
+  const ChatUploads({
+    super.key,
+    required this.siteUrl,
+    required this.uploads,
+    this.alignment = CrossAxisAlignment.start,
+  });
 
   final String siteUrl;
   final List<ChatUpload> uploads;
+
+  /// Horizontal placement within the available message width.
+  final CrossAxisAlignment alignment;
 
   /// Core's chat-specific width ceiling; images are capped at 150px high.
   static const double maxWidth = 420;
@@ -37,7 +45,7 @@ class ChatUploads extends StatelessWidget {
         .toList();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: alignment,
       children: [
         for (final upload in uploads)
           Padding(

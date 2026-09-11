@@ -37,7 +37,9 @@ Future<ShellController> _reviewController() async {
         user: DiscourseUser(id: 1, username: 'reviewer'),
       ),
     ]),
-    api: FakeDiscourseApi(),
+    api: FakeDiscourseApi(
+      user: const DiscourseUser(id: 1, username: 'reviewer'),
+    ),
     authenticator: FakeAuthenticator()..keys[_siteUrl] = 'local-review-key',
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
@@ -55,7 +57,17 @@ Future<ShellController> _reviewController() async {
       membership: ChatMembership(following: true),
     ),
   );
-  for (final message in _messages) {
+  controller.chatRecords.put(
+    _siteUrl,
+    const ChatChannel(
+      id: 10,
+      title: 'Direct messages',
+      kind: ChatChannelKind.directMessage,
+      isGroup: true,
+      membership: ChatMembership(following: true),
+    ),
+  );
+  for (final message in [..._messages, ..._directMessages]) {
     controller.chatRecords.put(_siteUrl, message);
   }
   return controller;
@@ -131,6 +143,77 @@ final _messages = [
   ),
 ];
 
+final _directMessages = [
+  ChatMessage(
+    id: 201,
+    channelId: 10,
+    cooked: '<p>Could you review the <strong>DM layout</strong> today?</p>',
+    raw: 'Could you review the DM layout today?',
+    author: const ChatMessageAuthor(id: 2, username: 'olivia', name: 'Olivia'),
+    createdAt: DateTime.utc(2026, 9, 11, 12),
+  ),
+  ChatMessage(
+    id: 202,
+    channelId: 10,
+    cooked: '<p>Yes! The <a href="/t/7">review notes</a> are ready.</p>',
+    raw: 'Yes! The review notes are ready.',
+    author: const ChatMessageAuthor(id: 1, username: 'reviewer', name: 'You'),
+    createdAt: DateTime.utc(2026, 9, 11, 12, 1),
+    edited: true,
+  ),
+  const ChatMessage(
+    id: 203,
+    channelId: 10,
+    cooked:
+        '<p>One more detail: consecutive messages keep their alignment.</p>',
+    raw: 'One more detail: consecutive messages keep their alignment.',
+    author: ChatMessageAuthor(id: 1, username: 'reviewer', name: 'You'),
+    reactions: [
+      ChatReaction(emoji: 'thumbsup', count: 3),
+      ChatReaction(emoji: 'heart', count: 2),
+    ],
+  ),
+  ChatMessage(
+    id: 204,
+    channelId: 10,
+    cooked: '',
+    author: const ChatMessageAuthor(id: 3, username: 'sam', name: 'Sam'),
+    uploads: const [
+      ChatUpload(
+        id: 7,
+        url: '/uploads/dm-notes.pdf',
+        originalFilename: 'dm-notes.pdf',
+        kind: ChatUploadKind.attachment,
+        humanFilesize: '24 KB',
+      ),
+    ],
+    createdAt: DateTime.utc(2026, 9, 11, 12, 2),
+  ),
+  const ChatMessage(
+    id: 205,
+    channelId: 10,
+    cooked: '',
+    optimisticRaw: 'Sending this now…',
+    canonicalReceived: false,
+    delivery: ChatMessageDelivery.sending,
+    author: ChatMessageAuthor(id: 1, username: 'reviewer', name: 'You'),
+  ),
+  const ChatMessage(
+    id: 206,
+    channelId: 10,
+    cooked: '<p>This message could not be sent.</p>',
+    author: ChatMessageAuthor(id: 1, username: 'reviewer', name: 'You'),
+    delivery: ChatMessageDelivery.failed,
+    sendError: 'Offline during review',
+    replyTo: ChatReplyTo(
+      id: 201,
+      userId: 2,
+      username: 'olivia',
+      excerpt: 'Could you review the DM layout today?',
+    ),
+  ),
+];
+
 class _MessageNativeReviewApp extends StatefulWidget {
   const _MessageNativeReviewApp({required this.controller});
 
@@ -150,6 +233,7 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
   var rtl = false;
   var reducedMotion = false;
   var showProduction = false;
+  var showDirectMessages = false;
 
   @override
   void dispose() {
@@ -206,6 +290,10 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
+                    _toggle(
+                      showDirectMessages ? 'Hide DMs' : 'Show DMs',
+                      () => showDirectMessages = !showDirectMessages,
+                    ),
                     _toggle('Light / dark', () => dark = !dark),
                     _toggle('Plum palette', () => plum = !plum),
                     _toggle('360px', () => narrow = !narrow),
@@ -234,7 +322,9 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
                         textDirection: rtl
                             ? TextDirection.rtl
                             : TextDirection.ltr,
-                        child: showProduction
+                        child: showDirectMessages
+                            ? const _DirectMessageTiles()
+                            : showProduction
                             ? const _ProductionTiles()
                             : Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -320,6 +410,34 @@ class _ProductionTilesState extends State<_ProductionTiles> {
       const ChatMessageTile(siteUrl: _siteUrl, messageId: 104, chained: false),
       const SizedBox(height: 16),
       Text(result),
+    ],
+  );
+}
+
+class _DirectMessageTiles extends StatefulWidget {
+  const _DirectMessageTiles();
+
+  @override
+  State<_DirectMessageTiles> createState() => _DirectMessageTilesState();
+}
+
+class _DirectMessageTilesState extends State<_DirectMessageTiles> {
+  String result = 'Local one-to-one and group DM presentation';
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(result),
+      for (final message in _directMessages)
+        ChatMessageTile(
+          siteUrl: _siteUrl,
+          messageId: message.id,
+          chained: message.id == 203,
+          onReply: (message) =>
+              setState(() => result = 'Reply to DM ${message.id}'),
+          onJumpToMessage: (id) => setState(() => result = 'Jumped to DM $id'),
+        ),
     ],
   );
 }
