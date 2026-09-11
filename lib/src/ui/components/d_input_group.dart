@@ -107,6 +107,8 @@ class _DInputGroupState extends State<DInputGroup> {
           )
         : focused
         ? tokens.focusRing
+        : dark
+        ? tokens.colors.outlineVariant
         : tokens.border;
     final ring = invalid
         ? tokens.destructive.withValues(

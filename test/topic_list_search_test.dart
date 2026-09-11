@@ -8,6 +8,49 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets('search matches outline controls in ${theme.brightness}', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            body: Column(
+              children: [
+                DButton(
+                  size: DControlSize.small,
+                  variant: DButtonVariant.outline,
+                  onPressed: () {},
+                  label: const Text('Categories'),
+                ),
+                TopicListSearch(query: '', onChanged: (_) {}),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      dynamic surface(Type control) => tester
+          .widgetList<AnimatedContainer>(
+            find.descendant(
+              of: find.byType(control),
+              matching: find.byType(AnimatedContainer),
+            ),
+          )
+          .firstWhere((container) => container.decoration != null)
+          .decoration;
+      final dynamic button = surface(DButton);
+      final dynamic search = surface(DInputGroup);
+      // Input Group's private decoration exposes its paint values here.
+      // ignore: avoid_dynamic_calls
+      expect(search.borderColor, button.borderColor);
+      // ignore: avoid_dynamic_calls
+      expect(search.borderRadius, button.borderRadius);
+    });
+  }
+
   test('search preserves scope and filters, resets pagination and clears', () {
     final source = ContentRoute.list(
       ListLink.parse('/c/design/42?status=open&assigned=nobody&page=3')!,
